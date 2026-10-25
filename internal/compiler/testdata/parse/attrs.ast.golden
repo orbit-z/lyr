@@ -1,0 +1,95 @@
+Template @0-835
+  Element @0-66 void
+    <input> name=@1-6 start=@0-66 end=@66-66
+      attr empty @7-15 name=@7-15 "disabled"
+      attr quoted @16-27 name=@16-20 "type" value=@22-26 "text"
+      attr quoted @28-36 name=@28-32 "name" value=@34-35 "q"
+      attr unquoted @37-47 name=@37-42 "value" value=@43-47 "bare"
+      attr quoted @48-65 name=@48-54 "data-x" value=@58-64 "spaced"
+  Text @66-67 "\n"
+  Element @67-165
+    <a> name=@68-69 start=@67-157 end=@161-165
+      attr expr @70-86 name=@70-74 "href" value=@75-86 code=@76-85 "props.URL"
+      attr expr @87-110 name=@87-92 "class" value=@93-110 code=@94-109 "\"card \" + extra"
+      attr shorthand @111-118 name=@112-117 "title" value=@111-118 code=@112-117 "title"
+      attr spread @119-135 value=@119-135 code=@123-134 "props.Attrs"
+      attr quoted @136-156 name=@136-141 "title" value=@143-155 "card {extra}"
+    Text @157-161 "link"
+  Text @165-166 "\n"
+  Element @166-269
+    <div> name=@167-170 start=@166-262 end=@263-269
+      attr expr @171-187 name=@171-179 "featured" value=@180-187 code=@181-186 "i > 0"
+      attr expr @188-222 name=@188-197 "data-json" value=@198-222 code=@199-221 "map[string]int{\"a\": 1}"
+      attr quoted @223-231 name=@223-228 "empty" value=@230-230 ""
+      attr quoted @232-247 name=@232-242 "xlink:href" value=@244-246 "#x"
+      attr quoted @248-261 name=@248-256 "xml:lang" value=@258-260 "en"
+    Text @262-263 "x"
+  Text @269-270 "\n"
+  Element @270-293
+    <p> name=@271-272 start=@270-289 end=@289-293
+      attr expr @273-288 name=@273-281 "set:html" directive=set:html value=@282-288 code=@283-287 "body"
+  Text @293-294 "\n"
+  Element @294-331
+    <p> name=@295-296 start=@294-327 end=@327-331
+      attr expr @297-312 name=@297-305 "set:text" directive=set:text value=@306-312 code=@307-311 "name"
+      attr quoted @313-326 name=@313-317 "slot" directive=slot value=@319-325 "footer"
+  Text @331-332 "\n"
+  Script @332-405 processed=false inline=false json=true content=@396-396 ""
+    <script> name=@333-339 start=@332-396 end=@396-405
+      attr quoted @340-363 name=@340-344 "type" value=@346-362 "application/json"
+      attr quoted @364-373 name=@364-366 "id" value=@368-372 "tags"
+      attr expr @374-395 name=@374-382 "set:json" directive=set:json value=@383-395 code=@384-394 "props.Tags"
+  Text @405-406 "\n"
+  Component @406-454 client=client:visible
+    <Card> name=@407-411 start=@406-454 end=@454-454 selfclosing
+      attr quoted @412-434 name=@412-426 "client:visible" directive=client:visible value=@428-433 "200px"
+      attr expr @435-443 name=@435-439 "post" value=@440-443 code=@441-442 "p"
+      attr empty @444-451 name=@444-451 "is-open"
+  Text @454-455 "\n"
+  Component @455-497 client=client:media
+    <Card> name=@456-460 start=@455-497 end=@497-497 selfclosing
+      attr quoted @461-494 name=@461-473 "client:media" directive=client:media value=@475-493 "(max-width: 600px)"
+  Text @497-498 "\n"
+  Component @498-518 client=client:idle
+    <Card> name=@499-503 start=@498-518 end=@518-518 selfclosing
+      attr empty @504-515 name=@504-515 "client:idle" directive=client:idle
+  Text @518-519 "\n"
+  Component @519-539 client=client:load
+    <Card> name=@520-524 start=@519-539 end=@539-539 selfclosing
+      attr empty @525-536 name=@525-536 "client:load" directive=client:load
+  Text @539-540 "\n"
+  Component @540-624 defer=@550-562
+    <Comments> name=@541-549 start=@540-580 end=@613-624
+      attr empty @550-562 name=@550-562 "server:defer" directive=server:defer
+      attr expr @563-579 name=@563-569 "postID" value=@570-579 code=@571-578 "post.ID"
+    Element @580-613
+      <p> name=@581-582 start=@580-599 end=@609-613
+        attr quoted @583-598 name=@583-587 "slot" directive=slot value=@589-597 "fallback"
+      Text @599-609 "Loading…"
+  Text @624-625 "\n"
+  Script @625-666 processed=false inline=true json=false content=@643-657 "/* verbatim */"
+    <script> name=@626-632 start=@625-643 end=@657-666
+      attr empty @633-642 name=@633-642 "is:inline" directive=is:inline
+  Text @666-667 "\n"
+  Style @667-696 processed=true inline=false global=true content=@684-688 ".a{}"
+    <style> name=@668-673 start=@667-684 end=@688-696
+      attr empty @674-683 name=@674-683 "is:global" directive=is:global
+  Text @696-697 "\n"
+  Element @697-753
+    <svg> name=@698-701 start=@697-722 end=@747-753
+      attr quoted @702-721 name=@702-709 "viewBox" value=@711-720 "0 0 10 10"
+    Element @722-747
+      <use> name=@723-726 start=@722-747 end=@747-747 selfclosing
+        attr quoted @727-745 name=@727-737 "xlink:href" value=@739-744 "#icon"
+  Text @753-754 "\n"
+  Element @754-780
+    <a> name=@755-756 start=@754-771 end=@776-780
+      attr unquoted @757-770 name=@757-761 "href" value=@762-770 "/blog/x/"
+    Text @771-776 "slash"
+  Text @780-781 "\n"
+  Component @781-834
+    <Card> name=@782-786 start=@781-834 end=@834-834 selfclosing
+      attr quoted @787-805 name=@787-792 "title" value=@794-804 "multi\nline"
+      attr shorthand @806-816 name=@808-814 "spaced" value=@806-816 code=@808-814 "spaced"
+      attr spread @817-831 value=@817-831 code=@823-829 "spread"
+  Text @834-835 "\n"

@@ -1,0 +1,11 @@
+lexical.orbit:1:4: attribute href has = but no value
+lexical.orbit:3:4: unexpected / in <a> start tag
+lexical.orbit:4:4: unexpected " in <a> start tag
+lexical.orbit:4:6: unexpected " in <a> start tag
+lexical.orbit:4:8: unexpected = in <a> start tag
+lexical.orbit:4:10: unexpected } in <a> start tag
+lexical.orbit:5:1: expected a tag name after </
+lexical.orbit:6:4: blocks can't appear inside a start tag; set the attribute's value instead (false and nil omit it)
+lexical.orbit:7:4: {…} in a start tag must be a name, as in {title}, or a spread, as in {...attrs}
+lexical.orbit:8:4: {…} in a start tag must be a name, as in {title}, or a spread, as in {...attrs}
+lexical.orbit:9:4: a spread needs a value, e.g. {...attrs}

@@ -1,0 +1,20 @@
+Frontmatter @0-42 closed=true open=@0-3 close=@39-42 code=@4-39 "type Props struct { Title string }\n"
+Template @43-117
+  Component @43-117
+    <Card> name=@44-48 start=@43-52 end=@117-117
+      attr empty @49-51 name=@49-51 "po"
+    Element @52-67
+      <p> name=@53-54 start=@52-55 end=@63-67
+      Expr @55-63 code=@56-62 "props."
+    Text @67-68 "\n"
+    If @68-117 end=@117-117
+      Branch if @68-117 header=@68-79 cond=@72-78 "props."
+        Text @79-80 "\n"
+        Element @80-117
+          <div> name=@81-84 start=@80-87 end=@117-117
+          Component @87-117
+            <Card> name=@88-92 start=@87-104 end=@117-117
+              attr spread @93-103 value=@93-103 code=@97-103 "props."
+            Slot @104-117 name=@110-116
+              <slot> name=@105-109 start=@104-117 end=@117-117
+                attr quoted @110-116 name=@110-114 "name" value=@116-116 ""

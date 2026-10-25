@@ -1,0 +1,13 @@
+---
+import (
+    "strings"
+    Card "../components/Card.orbit"
+)
+
+type Props struct { Title string }
+
+title := strings.ToUpper(props.Title)
+---
+<Card title={title}>
+  <h1>{title}</h1>
+</Card>

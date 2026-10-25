@@ -1,0 +1,10 @@
+<a href=>x</a>
+<p>after</p>
+<a / b>z</a>
+<a "q" = }>w</a>
+</ >
+<b {if x}>v</b>
+<b {a.b}>u</b>
+<b {}>t</b>
+<b {...}>s</b>
+<b c=d/>e</b>

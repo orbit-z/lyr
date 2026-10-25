@@ -1,0 +1,133 @@
+Template @0-892
+  Element @0-25
+    <div> name=@1-4 start=@0-18 end=@19-25
+      attr empty @5-17 name=@5-17 "server:defer" directive=server:defer
+    Text @18-19 "x"
+  Text @25-26 "\n"
+  Slot @26-47 default
+    <slot> name=@27-31 start=@26-47 end=@47-47 selfclosing
+      attr empty @32-44 name=@32-44 "server:defer" directive=server:defer
+  Text @47-48 "\n"
+  Fragment @48-73
+    <Fragment> name=@49-57 start=@48-73 end=@73-73 selfclosing
+      attr empty @58-70 name=@58-70 "server:defer" directive=server:defer
+  Text @73-74 "\n"
+  Component @74-99 defer=@80-96
+    <Card> name=@75-79 start=@74-99 end=@99-99 selfclosing
+      attr quoted @80-96 name=@80-92 "server:defer" directive=server:defer value=@94-95 "x"
+  Text @99-100 "\n"
+  Component @100-319 defer=@110-122
+    <Comments> name=@101-109 start=@100-123 end=@308-319
+      attr empty @110-122 name=@110-122 "server:defer" directive=server:defer
+    Text @123-126 "\n  "
+    Element @126-159
+      <p> name=@127-128 start=@126-145 end=@155-159
+        attr quoted @129-144 name=@129-133 "slot" directive=slot value=@135-143 "fallback"
+      Text @145-155 "Loading…"
+    Text @159-162 "\n  "
+    Element @162-183
+      <p> name=@163-164 start=@162-165 end=@179-183
+      Text @165-179 "not a fallback"
+    Text @183-193 "\n  text\n  "
+    Comment @193-218 body=@196-215 " a comment is fine "
+    Text @218-221 "\n  "
+    Fragment @221-260
+      <Fragment> name=@222-230 start=@221-247 end=@249-260
+        attr quoted @231-246 name=@231-235 "slot" directive=slot value=@237-245 "fallback"
+      Text @247-249 "ok"
+    Text @260-263 "\n  "
+    If @263-307 end=@302-307
+      Branch if @263-302 header=@263-269 cond=@267-268 "x"
+        Element @269-302
+          <p> name=@270-271 start=@269-288 end=@298-302
+            attr quoted @272-287 name=@272-276 "slot" directive=slot value=@278-286 "fallback"
+          Text @288-298 "in a block"
+    Text @307-308 "\n"
+  Text @319-320 "\n"
+  Element @320-347
+    <div> name=@321-324 start=@320-340 end=@341-347
+      attr empty @325-339 name=@325-339 "client:visible" directive=client:visible
+    Text @340-341 "x"
+  Text @347-348 "\n"
+  Slot @348-368 default
+    <slot> name=@349-353 start=@348-368 end=@368-368 selfclosing
+      attr empty @354-365 name=@354-365 "client:idle" directive=client:idle
+  Text @368-369 "\n"
+  Fragment @369-393
+    <Fragment> name=@370-378 start=@369-393 end=@393-393 selfclosing
+      attr empty @379-390 name=@379-390 "client:load" directive=client:load
+  Text @393-394 "\n"
+  Component @394-426 client=client:visible
+    <Card> name=@395-399 start=@394-426 end=@426-426 selfclosing
+      attr expr @400-423 name=@400-414 "client:visible" directive=client:visible value=@415-423 code=@416-422 "margin"
+  Text @426-427 "\n"
+  Component @427-452 client=client:media
+    <Card> name=@428-432 start=@427-452 end=@452-452 selfclosing
+      attr expr @433-449 name=@433-445 "client:media" directive=client:media value=@446-449 code=@447-448 "q"
+  Text @452-453 "\n"
+  Component @453-477 client=client:idle
+    <Card> name=@454-458 start=@453-477 end=@477-477 selfclosing
+      attr quoted @459-474 name=@459-470 "client:idle" directive=client:idle value=@472-473 "x"
+  Text @477-478 "\n"
+  Component @478-501 client=client:load
+    <Card> name=@479-483 start=@478-501 end=@501-501 selfclosing
+      attr quoted @484-498 name=@484-495 "client:load" directive=client:load value=@497-497 ""
+  Text @501-502 "\n"
+  Component @502-523 client=client:media
+    <Card> name=@503-507 start=@502-523 end=@523-523 selfclosing
+      attr empty @508-520 name=@508-520 "client:media" directive=client:media
+  Text @523-524 "\n"
+  Component @524-548 client=client:media
+    <Card> name=@525-529 start=@524-548 end=@548-548 selfclosing
+      attr quoted @530-545 name=@530-542 "client:media" directive=client:media value=@544-544 ""
+  Text @548-549 "\n"
+  Component @549-584 client=client:idle
+    <Card> name=@550-554 start=@549-584 end=@584-584 selfclosing
+      attr empty @555-566 name=@555-566 "client:idle" directive=client:idle
+      attr empty @567-581 name=@567-581 "client:visible" directive=client:visible
+  Text @584-585 "\n"
+  Component @585-605
+    <Card> name=@586-590 start=@585-605 end=@605-605 selfclosing
+      attr empty @591-602 name=@591-602 "client:only" directive=unknown
+  Text @605-606 "\n"
+  Component @606-627
+    <Card> name=@607-611 start=@606-627 end=@627-627 selfclosing
+      attr empty @612-624 name=@612-624 "client:hover" directive=unknown
+  Text @627-628 "\n"
+  Component @628-648
+    <Card> name=@629-633 start=@628-648 end=@648-648 selfclosing
+      attr empty @634-645 name=@634-645 "server:lazy" directive=unknown
+  Text @648-649 "\n"
+  Component @649-682 defer=@655-667 client=client:idle
+    <Card> name=@650-654 start=@649-682 end=@682-682 selfclosing
+      attr empty @655-667 name=@655-667 "server:defer" directive=server:defer
+      attr empty @668-679 name=@668-679 "client:idle" directive=client:idle
+  Text @682-683 "\n"
+  Component @683-719 defer=@704-716 client=client:visible
+    <Card> name=@684-688 start=@683-719 end=@719-719 selfclosing
+      attr empty @689-703 name=@689-703 "client:visible" directive=client:visible
+      attr empty @704-716 name=@704-716 "server:defer" directive=server:defer
+  Text @719-720 "\n"
+  Element @720-772
+    <div> name=@721-724 start=@720-765 end=@766-772
+      attr expr @725-745 name=@725-735 "class:list" directive=class:list value=@736-745 code=@737-744 "classes"
+      attr expr @746-764 name=@746-757 "define:vars" directive=define:vars value=@758-764 code=@759-763 "vars"
+    Text @765-766 "x"
+  Text @772-773 "\n"
+  Element @773-804
+    <div> name=@774-777 start=@773-797 end=@798-804
+      attr expr @778-789 name=@778-785 "set:foo" directive=unknown value=@786-789 code=@787-788 "x"
+      attr empty @790-796 name=@790-796 "is:raw" directive=unknown
+    Text @797-798 "x"
+  Text @804-805 "\n"
+  Element @805-847
+    <p> name=@806-807 start=@805-838 end=@843-847
+      attr quoted @808-823 name=@808-818 "xlink:href" value=@820-822 "#a"
+      attr quoted @824-837 name=@824-832 "xml:lang" value=@834-836 "en"
+    Text @838-843 "plain"
+  Text @847-848 "\n"
+  Component @848-891 self defer=@854-866 client=client:visible
+    <Self> name=@849-853 start=@848-891 end=@891-891 selfclosing
+      attr empty @854-866 name=@854-866 "server:defer" directive=server:defer
+      attr quoted @867-888 name=@867-881 "client:visible" directive=client:visible value=@883-887 "10px"
+  Text @891-892 "\n"

@@ -1,0 +1,46 @@
+Template @0-374
+  Element @0-36
+    <p> name=@1-2 start=@0-3 end=@32-36
+    Expr @3-32 code=@4-31 "map[string]int{\"a\": 1}[\"a\"]"
+  Text @36-37 "\n"
+  Element @37-53
+    <p> name=@38-39 start=@37-40 end=@49-53
+    Expr @40-49 code=@41-48 "`{raw}`"
+  Text @53-54 "\n"
+  Element @54-85
+    <p> name=@55-56 start=@54-57 end=@81-85
+    Expr @57-81 code=@58-80 "fmt.Sprintf(\"{%d}\", n)"
+  Text @85-86 "\n"
+  Element @86-145
+    <p> name=@87-88 start=@86-89 end=@141-145
+    Expr @89-141 code=@90-140 "posts.Filter(func(p Post) bool { return p.Draft })"
+  Text @145-146 "\n"
+  Element @146-178
+    <p> name=@147-148 start=@146-149 end=@174-178
+    Expr @149-174 code=@150-173 "[]Point{{1, 2}, {3, 4}}"
+  Text @178-179 "\n"
+  Element @179-206
+    <p> name=@180-181 start=@179-182 end=@202-206
+    Expr @182-202 code=@183-201 "struct{ X int }{1}"
+  Text @206-207 "\n"
+  Component @207-285
+    <Card> name=@208-212 start=@207-285 end=@285-285 selfclosing
+      attr expr @213-253 name=@213-218 "items" value=@219-253 code=@220-252 "[]Item{{Name: \"a\"}, {Name: \"b\"}}"
+      attr expr @254-282 name=@254-256 "fn" value=@257-282 code=@258-281 "func() int { return 1 }"
+  Text @285-286 "\n"
+  Element @286-303
+    <p> name=@287-288 start=@286-289 end=@299-303
+    Expr @289-299 code=@291-297 "spaced"
+  Text @303-304 "\n"
+  Element @304-313
+    <p> name=@305-306 start=@304-307 end=@309-313
+    Expr @307-309 code=@308-308 ""
+  Text @313-314 "\n"
+  Element @314-339
+    <p> name=@315-316 start=@314-317 end=@335-339
+    Expr @317-335 code=@318-334 "a /* note */ + b"
+  Text @339-340 "\n"
+  Element @340-373
+    <p> name=@341-342 start=@340-343 end=@369-373
+    Expr @343-369 code=@347-367 "multi(\n    line,\n  )"
+  Text @373-374 "\n"

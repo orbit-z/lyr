@@ -1,0 +1,3 @@
+<p>a</p>
+<script>
+  if (a < b) { x() }

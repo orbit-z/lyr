@@ -1,0 +1,10 @@
+tolerant_unclosed.orbit:1:1: <div> isn't closed; add </div>
+tolerant_unclosed.orbit:2:3: <p> isn't closed; add </p>
+tolerant_unclosed.orbit:2:6: { has no matching }
+tolerant_unclosed.orbit:3:3: start tag <span isn't closed; expected >
+tolerant_unclosed.orbit:3:3: <span> isn't closed; add </span>
+tolerant_unclosed.orbit:3:15: { has no matching }
+tolerant_unclosed.orbit:4:3: start tag <Card isn't closed; expected >
+tolerant_unclosed.orbit:4:3: <Card> isn't closed; add </Card>
+tolerant_unclosed.orbit:5:3: <ul> isn't closed; add </ul>
+tolerant_unclosed.orbit:6:5: <li> isn't closed; add </li>

@@ -1,0 +1,9 @@
+errors_tags.orbit:3:1: unexpected </ul>: <li> opened at 2:3 isn't closed
+errors_tags.orbit:4:12: unexpected </div>: <span> opened at 4:6 isn't closed
+errors_tags.orbit:5:1: unexpected </p>: no <p> is open
+errors_tags.orbit:6:5: unexpected </br>: <br> is a void element and takes no end tag
+errors_tags.orbit:8:7: end tag </i> can't have attributes
+errors_tags.orbit:9:20: unexpected </a>: <b> opened at 9:13 isn't closed
+errors_tags.orbit:10:2: invalid component name <Card.Item>: a component tag is an import alias such as <Card>
+errors_tags.orbit:11:1: <section> isn't closed; add </section>
+errors_tags.orbit:12:3: <div> isn't closed; add </div>

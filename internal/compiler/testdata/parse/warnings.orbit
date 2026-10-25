@@ -1,0 +1,6 @@
+<button onclick={handler}>a</button>
+<div style={css} onMouseOver={h}>b</div>
+<button onclick="toggle()" style="color: red">static is fine</button>
+<Card onclick={h} style={s} />
+<div {onclick} {style}>shorthand</div>
+<div on={x}>not an event</div>

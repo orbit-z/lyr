@@ -1,0 +1,19 @@
+{if len(list) == 0}
+  <p>No posts</p>
+{else if len(list) == 1}
+  <p>One post</p>
+{else}
+  <ul>
+    {for i, p := range list}<li data-index={i}>{p.Title}</li>{/for}
+  </ul>
+{/if}
+{for range 3}<span>★</span>{/for}
+{for i := 0; i < len(list); i += 2}<hr>{/for}
+{for tag := range maps.Keys(counts)}<a href={"/tags/" + tag}>{tag}</a>{/for}
+{for ok}x{/for}
+{if n, ok := counts[tag]; ok}{n}{/if}
+{ if spaced }a{ else if other }b{ else }c{ /if }
+{if a}{if b}nested{/if}{/if}
+{if(x)}paren{/if}
+{iffy} {format} {elsewhere} {forms}
+<title>{if a}A{else}B{/if}</title>

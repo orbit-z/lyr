@@ -1,0 +1,17 @@
+<input disabled type="text" name='q' value=bare data-x = "spaced">
+<a href={props.URL} class={"card " + extra} {title} {...props.Attrs} title="card {extra}">link</a>
+<div featured={i > 0} data-json={map[string]int{"a": 1}} empty="" xlink:href="#x" xml:lang="en">x</div>
+<p set:html={body}></p>
+<p set:text={name} slot="footer"></p>
+<script type="application/json" id="tags" set:json={props.Tags}></script>
+<Card client:visible="200px" post={p} is-open />
+<Card client:media="(max-width: 600px)" />
+<Card client:idle />
+<Card client:load />
+<Comments server:defer postID={post.ID}><p slot="fallback">Loading…</p></Comments>
+<script is:inline>/* verbatim */</script>
+<style is:global>.a{}</style>
+<svg viewBox="0 0 10 10"><use xlink:href="#icon"/></svg>
+<a href=/blog/x/>slash</a>
+<Card title="multi
+line" { spaced } {...  spread } />

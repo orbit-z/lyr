@@ -1,0 +1,119 @@
+Template @0-770
+  Element @0-24
+    <div> name=@1-4 start=@0-18 end=@18-24
+      attr expr @5-17 name=@5-13 "set:json" directive=set:json value=@14-17 code=@15-16 "x"
+  Text @24-25 "\n"
+  Script @25-55 processed=false inline=false json=true content=@46-46 ""
+    <script> name=@26-32 start=@25-46 end=@46-55
+      attr expr @33-45 name=@33-41 "set:json" directive=set:json value=@42-45 code=@43-44 "x"
+  Text @55-56 "\n"
+  Script @56-104 processed=false inline=false json=true content=@95-95 ""
+    <script> name=@57-63 start=@56-95 end=@95-104
+      attr quoted @64-81 name=@64-68 "type" value=@70-80 "text/plain"
+      attr expr @82-94 name=@82-90 "set:json" directive=set:json value=@91-94 code=@92-93 "x"
+  Text @104-105 "\n"
+  Script @105-162 processed=false inline=false json=true content=@150-153 "[1]"
+    <script> name=@106-112 start=@105-150 end=@153-162
+      attr quoted @113-136 name=@113-117 "type" value=@119-135 "application/json"
+      attr expr @137-149 name=@137-145 "set:json" directive=set:json value=@146-149 code=@147-148 "x"
+  Text @162-163 "\n"
+  Script @163-213 processed=false inline=false json=true content=@204-204 ""
+    <script> name=@164-170 start=@163-204 end=@204-213
+      attr quoted @171-194 name=@171-175 "type" value=@177-193 "application/json"
+      attr empty @195-203 name=@195-203 "set:json" directive=set:json
+  Text @213-214 "\n"
+  Component @214-235
+    <Card> name=@215-219 start=@214-235 end=@235-235 selfclosing
+      attr expr @220-232 name=@220-228 "set:html" directive=set:html value=@229-232 code=@230-231 "x"
+  Text @235-236 "\n"
+  Component @236-257
+    <Card> name=@237-241 start=@236-257 end=@257-257 selfclosing
+      attr expr @242-254 name=@242-250 "set:json" directive=set:json value=@251-254 code=@252-253 "x"
+  Text @257-258 "\n"
+  Slot @258-279 default
+    <slot> name=@259-263 start=@258-279 end=@279-279 selfclosing
+      attr expr @264-276 name=@264-272 "set:text" directive=set:text value=@273-276 code=@274-275 "x"
+  Text @279-280 "\n"
+  Element @280-316
+    <div> name=@281-284 start=@280-298 end=@310-316
+      attr expr @285-297 name=@285-293 "set:html" directive=set:html value=@294-297 code=@295-296 "x"
+    Element @298-310
+      <p> name=@299-300 start=@298-301 end=@306-310
+      Text @301-306 "child"
+  Text @316-317 "\n"
+  Element @317-349
+    <div> name=@318-321 start=@317-335 end=@343-349
+      attr expr @322-334 name=@322-330 "set:text" directive=set:text value=@331-334 code=@332-333 "x"
+    Text @335-343 "\n  text\n"
+  Text @349-350 "\n"
+  Element @350-388
+    <div> name=@351-354 start=@350-368 end=@382-388
+      attr expr @355-367 name=@355-363 "set:html" directive=set:html value=@364-367 code=@365-366 "x"
+    Text @368-370 "  "
+    Comment @370-380 body=@373-377 " ok "
+    Text @380-382 "  "
+  Text @388-389 "\n"
+  Element @389-426
+    <div> name=@390-393 start=@389-420 end=@420-426
+      attr expr @394-406 name=@394-402 "set:html" directive=set:html value=@403-406 code=@404-405 "a"
+      attr expr @407-419 name=@407-415 "set:text" directive=set:text value=@416-419 code=@417-418 "b"
+  Text @426-427 "\n"
+  Element @427-447
+    <div> name=@428-431 start=@427-441 end=@441-447
+      attr empty @432-440 name=@432-440 "set:html" directive=set:html
+  Text @447-448 "\n"
+  Fragment @448-485
+    <Fragment> name=@449-457 start=@448-485 end=@485-485 selfclosing
+      attr quoted @458-466 name=@458-462 "slot" directive=slot value=@464-465 "x"
+      attr expr @467-482 name=@467-475 "set:html" directive=set:html value=@476-482 code=@477-481 "body"
+  Text @485-486 "\n"
+  Fragment @486-520
+    <Fragment> name=@487-495 start=@486-509 end=@509-520
+      attr expr @496-508 name=@496-504 "set:text" directive=set:text value=@505-508 code=@506-507 "t"
+  Text @520-521 "\n"
+  Fragment @521-562
+    <Fragment> name=@522-530 start=@521-562 end=@562-562 selfclosing
+      attr quoted @531-540 name=@531-536 "class" value=@538-539 "x"
+      attr spread @541-551 value=@541-551 code=@545-550 "attrs"
+      attr expr @552-559 name=@552-555 "key" value=@556-559 code=@557-558 "k"
+  Text @562-563 "\n"
+  Component @563-582
+    <Card> name=@564-568 start=@563-582 end=@582-582 selfclosing
+      attr spread @569-579 value=@569-579 code=@573-578 "attrs"
+  Text @582-583 "\n"
+  Slot @583-602 default
+    <slot> name=@584-588 start=@583-602 end=@602-602 selfclosing
+      attr spread @589-599 value=@589-599 code=@593-598 "attrs"
+  Text @602-603 "\n"
+  Element @603-616
+    <p> name=@604-605 start=@603-611 end=@612-616
+      attr empty @606-610 name=@606-610 "slot" directive=slot
+    Text @611-612 "x"
+  Text @616-617 "\n"
+  Element @617-637
+    <p> name=@618-619 start=@617-632 end=@633-637
+      attr expr @620-631 name=@620-624 "slot" directive=slot value=@625-631 code=@626-630 "name"
+    Text @632-633 "x"
+  Text @637-638 "\n"
+  Element @638-654
+    <p> name=@639-640 start=@638-649 end=@650-654
+      attr quoted @641-648 name=@641-645 "slot" directive=slot value=@647-647 ""
+    Text @649-650 "x"
+  Text @654-655 "\n"
+  Element @655-677
+    <div> name=@656-659 start=@655-670 end=@671-677
+      attr empty @660-669 name=@660-669 "is:inline" directive=is:inline
+    Text @670-671 "x"
+  Text @677-678 "\n"
+  Script @678-711 processed=false inline=true json=false content=@702-702 ""
+    <script> name=@679-685 start=@678-702 end=@702-711
+      attr quoted @686-701 name=@686-695 "is:inline" directive=is:inline value=@697-700 "yes"
+  Text @711-712 "\n"
+  Script @712-739 processed=false inline=false json=false content=@730-730 ""
+    <script> name=@713-719 start=@712-730 end=@730-739
+      attr empty @720-729 name=@720-729 "is:global" directive=is:global
+  Text @739-740 "\n"
+  Style @740-769 processed=true inline=false global=true content=@761-761 ""
+    <style> name=@741-746 start=@740-761 end=@761-769
+      attr quoted @747-760 name=@747-756 "is:global" directive=is:global value=@758-759 "1"
+  Text @769-770 "\n"

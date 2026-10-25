@@ -1,0 +1,83 @@
+Template @0-557
+  If @0-176 end=@171-176
+    Branch if @0-38 header=@0-19 cond=@4-18 "len(list) == 0"
+      Text @19-22 "\n  "
+      Element @22-37
+        <p> name=@23-24 start=@22-25 end=@33-37
+        Text @25-33 "No posts"
+      Text @37-38 "\n"
+    Branch else-if @38-81 header=@38-62 cond=@47-61 "len(list) == 1"
+      Text @62-65 "\n  "
+      Element @65-80
+        <p> name=@66-67 start=@65-68 end=@76-80
+        Text @68-76 "One post"
+      Text @80-81 "\n"
+    Branch else @81-171 header=@81-87 cond=@86-86 ""
+      Text @87-90 "\n  "
+      Element @90-170
+        <ul> name=@91-93 start=@90-94 end=@165-170
+        Text @94-99 "\n    "
+        For @99-162 header=@99-123 clause=@104-122 "i, p := range list" end=@156-162
+          Element @123-156
+            <li> name=@124-126 start=@123-142 end=@151-156
+              attr expr @127-141 name=@127-137 "data-index" value=@138-141 code=@139-140 "i"
+            Expr @142-151 code=@143-150 "p.Title"
+        Text @162-165 "\n  "
+      Text @170-171 "\n"
+  Text @176-177 "\n"
+  For @177-212 header=@177-190 clause=@182-189 "range 3" end=@206-212
+    Element @190-206
+      <span> name=@191-195 start=@190-196 end=@199-206
+      Text @196-199 "★"
+  Text @212-213 "\n"
+  For @213-258 header=@213-248 clause=@218-247 "i := 0; i < len(list); i += 2" end=@252-258
+    Element @248-252 void
+      <hr> name=@249-251 start=@248-252 end=@252-252
+  Text @258-259 "\n"
+  For @259-335 header=@259-295 clause=@264-294 "tag := range maps.Keys(counts)" end=@329-335
+    Element @295-329
+      <a> name=@296-297 start=@295-320 end=@325-329
+        attr expr @298-319 name=@298-302 "href" value=@303-319 code=@304-318 "\"/tags/\" + tag"
+      Expr @320-325 code=@321-324 "tag"
+  Text @335-336 "\n"
+  For @336-351 header=@336-344 clause=@341-343 "ok" end=@345-351
+    Text @344-345 "x"
+  Text @351-352 "\n"
+  If @352-389 end=@384-389
+    Branch if @352-384 header=@352-381 cond=@356-380 "n, ok := counts[tag]; ok"
+      Expr @381-384 code=@382-383 "n"
+  Text @389-390 "\n"
+  If @390-438 end=@431-438
+    Branch if @390-404 header=@390-403 cond=@395-401 "spaced"
+      Text @403-404 "a"
+    Branch else-if @404-422 header=@404-421 cond=@414-419 "other"
+      Text @421-422 "b"
+    Branch else @422-431 header=@422-430 cond=@429-429 ""
+      Text @430-431 "c"
+  Text @438-439 "\n"
+  If @439-467 end=@462-467
+    Branch if @439-462 header=@439-445 cond=@443-444 "a"
+      If @445-462 end=@457-462
+        Branch if @445-457 header=@445-451 cond=@449-450 "b"
+          Text @451-457 "nested"
+  Text @467-468 "\n"
+  If @468-485 end=@480-485
+    Branch if @468-480 header=@468-475 cond=@471-474 "(x)"
+      Text @475-480 "paren"
+  Text @485-486 "\n"
+  Expr @486-492 code=@487-491 "iffy"
+  Text @492-493 " "
+  Expr @493-501 code=@494-500 "format"
+  Text @501-502 " "
+  Expr @502-513 code=@503-512 "elsewhere"
+  Text @513-514 " "
+  Expr @514-521 code=@515-520 "forms"
+  Text @521-522 "\n"
+  Element @522-556 rcdata
+    <title> name=@523-528 start=@522-529 end=@548-556
+    If @529-548 end=@543-548
+      Branch if @529-536 header=@529-535 cond=@533-534 "a"
+        Text @535-536 "A"
+      Branch else @536-543 header=@536-542 cond=@541-541 ""
+        Text @542-543 "B"
+  Text @556-557 "\n"

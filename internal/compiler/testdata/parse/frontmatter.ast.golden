@@ -1,0 +1,11 @@
+Frontmatter @0-143 closed=true open=@0-3 close=@140-143 code=@4-140 "import (\n    \"strings\"\n    Card \"../components/Card.orbit\"\n)…"
+Template @144-192
+  Component @144-191
+    <Card> name=@145-149 start=@144-164 end=@184-191
+      attr expr @150-163 name=@150-155 "title" value=@156-163 code=@157-162 "title"
+    Text @164-167 "\n  "
+    Element @167-183
+      <h1> name=@168-170 start=@167-171 end=@178-183
+      Expr @171-178 code=@172-177 "title"
+    Text @183-184 "\n"
+  Text @191-192 "\n"

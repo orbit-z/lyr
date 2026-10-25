@@ -1,0 +1,15 @@
+{if a}<div>{/if}</div>
+<p>{else}</p>
+{else if x}
+{/for}
+{if a}x{else}y{else}z{/if}
+{if a}x{else}y{else if b}z{/if}
+<ul>{for x := range xs}<li>{x}</li></ul>{/for}
+{if}empty{/if}
+{for}forever{/for}
+{if a}{else if}b{/if}
+{switch x}{/switch}
+{else foo}
+{...rest}
+{if a}
+  <p>unclosed if
