@@ -181,8 +181,19 @@ Hoisted declarations live at package level, so they **can't see** `props`, `ctx`
 
 You can't redeclare `props`, `ctx`, `slots`, `locals` or `orbit`, or `params` in a page, at the top level of the body (with `:=` or `var`); in a component, `params` is an ordinary name:
 
+```orbit file=src/components/Card.orbit expect-error
+---
+type Props struct {
+    Title string
+}
+
+props := Props{Title: "Untitled"}
+---
+<h2>{props.Title}</h2>
+```
+
 ```text
-src/components/Card.orbit:11:1: props is provided by Orbit and can't be redeclared here
+src/components/Card.orbit:6:1: props is provided by Orbit and can't be redeclared here
 ```
 
 Shadowing them in a nested block is allowed, as in Go. Orbit's own generated code never uses these names, so a shadow can't break it:
@@ -212,8 +223,17 @@ Unlike plain Go, a variable declared at the top level of the body and never used
 
 A hoisted `func init()` is rejected:
 
+```orbit file=src/components/Card.orbit expect-error
+---
+func init() {
+    println("Card loaded")
+}
+---
+<article class="card"></article>
+```
+
 ```text
-src/components/Card.orbit:12:1: func init isn't allowed in a component; use a package under internal/ for initialization
+src/components/Card.orbit:2:6: func init isn't allowed in a component; use a package under internal/ for initialization
 ```
 
 Put initialization in a package under `internal/`. Rendering a component during package initialization isn't supported.
@@ -249,7 +269,7 @@ return ctx.Redirect("/blog/"+list[0].Slug, 302)
 
 A statement "always returns" in the Go spec's sense: a `return`, or an `if`/`else` that returns on every branch. If such a statement is last and the template below it has anything other than whitespace, Orbit reports it at the statement (won't compile):
 
-```orbit
+```orbit file=src/pages/old.orbit expect-error
 ---
 return ctx.Redirect("/", 302)
 ---
@@ -277,20 +297,41 @@ import (
 
 The alias is required: it's the tag name you use in the template (`<Card>`) and the Go package name for the component's exported names (`Card.Props`). It must start with an uppercase letter, because a lowercase tag such as `<card>` is always an HTML element:
 
+```orbit file=src/pages/index.orbit expect-error
+---
+import card "../components/Card.orbit"
+---
+<card />
+```
+
 ```text
-src/pages/index.orbit:5:5: component alias card must start with an uppercase letter (rename it to Card)
+src/pages/index.orbit:2:8: component alias card must start with an uppercase letter (rename it to Card)
 ```
 
 An import without an alias (`"./Card.orbit"`), or with `_`, is an error suggesting one, named after the file; a dot import (`. "./Card.orbit"`) is rejected too:
 
+```orbit file=src/pages/index.orbit expect-error
+---
+import "../components/Card.orbit"
+---
+<Card />
+```
+
 ```text
-src/pages/index.orbit:5:5: a component import needs an alias: Card "./Card.orbit"
+src/pages/index.orbit:2:8: a component import needs an alias: Card "../components/Card.orbit"
 ```
 
 A component you import but never use, neither as a tag nor in Go code (`Card.Props`), is an error at the alias, like an unused Go import:
 
+```orbit file=src/pages/index.orbit expect-error
+---
+import Card "../components/Card.orbit"
+---
+<h1>Latest posts</h1>
+```
+
 ```text
-src/pages/index.orbit:3:5: component Card is imported but not used; remove the import
+src/pages/index.orbit:2:8: component Card is imported but not used; remove the import
 ```
 
 The path must stay inside `src/` (`component path ../../X.orbit is outside src/`).
@@ -301,7 +342,7 @@ Components can import each other in cycles; see [Mutual recursion](#mutual-recur
 
 Orbit has no React, Preact, Svelte, Vue or Solid components, by design. Client-side code is a vanilla `<script>` in an `.orbit` component (see [Styles and scripts](styles-and-scripts.md)). Importing a framework component is an error at the import path (won't compile):
 
-```orbit
+```orbit file=src/pages/index.orbit expect-error
 ---
 import Chart "./Chart.tsx"
 ---
@@ -312,6 +353,12 @@ src/pages/index.orbit:2:14: framework components aren't supported; use a .orbit 
 ```
 
 The same goes for `.jsx`, `.svelte` and `.vue` files. Any other relative path that doesn't end in `.orbit`, such as `"./util.ts"`, is an error too:
+
+```orbit file=src/pages/index.orbit expect-error
+---
+import Util "./util.ts"
+---
+```
 
 ```text
 src/pages/index.orbit:2:13: only .orbit components can be imported by relative path; import client modules from a <script>
@@ -325,7 +372,7 @@ A page is a component under `src/pages/`. It gets one extra name, `params`: its 
 
 Pages never receive props, so declaring `type Props` in a page is an error at the declaration (won't compile):
 
-```orbit
+```orbit file=src/pages/blog/[slug].orbit expect-error
 ---
 type Props struct {
     Slug string
@@ -334,7 +381,7 @@ type Props struct {
 ```
 
 ```text
-src/pages/blog/[slug].orbit:2:1: pages don't receive props; move this to a component or read params
+src/pages/blog/[slug].orbit:2:6: pages don't receive props; move this to a component or read params
 ```
 
 For the same reason, a page can't declare `type Params`: Orbit generates it from the route (`Params is generated from the page's route; rename this type`).
@@ -376,21 +423,56 @@ A component without `type Props` gets an empty `Props struct{}` and accepts no a
 
 An attribute that matches no field is an error at the attribute, in your spelling, listing the attributes that would work:
 
+```orbit file=src/pages/index.orbit expect-error
+---
+import (
+    "example.com/blog/internal/posts"
+    Card "../components/Card.orbit"
+)
+
+post, _ := posts.Find("hello")
+---
+<Card psot={post} />
+```
+
 ```text
-src/pages/index.orbit:9:6: unknown prop "psot" on <Card> (props: post, featured)
+src/pages/index.orbit:9:7: unknown prop "psot" on <Card> (props: post, featured)
 ```
 
 The list spells each field in lower camel case, as Astro props are usually written: a field `IsOpen` is listed as `isOpen`, `ID` as `id`.
 
 A value of the wrong type is a regular Go error, also at the `.orbit` position:
 
+```orbit file=src/pages/index.orbit expect-error
+---
+import (
+    "example.com/blog/internal/posts"
+    Card "../components/Card.orbit"
+)
+
+post, _ := posts.Find("hello")
+---
+<Card post={post} featured={"yes"} />
+```
+
 ```text
-src/pages/index.orbit:9:11: cannot use "yes" (untyped string constant) as bool value in struct literal
+src/pages/index.orbit:9:29: cannot use "yes" (untyped string constant) as bool value in struct literal
 ```
 
 ### Fields must be exported
 
 Every `Props` field must be exported (start with an uppercase letter), because the parent's code sets it from another package. An unexported field is an error naming it:
+
+```orbit file=src/components/Card.orbit expect-error
+---
+import "example.com/blog/internal/posts"
+
+type Props struct {
+    post posts.Post
+}
+---
+<h2>{props.post.Title}</h2>
+```
 
 ```text
 src/components/Card.orbit:5:5: Props field post must be exported, since a parent sets it (rename it to Post)
@@ -400,7 +482,7 @@ src/components/Card.orbit:5:5: Props field post must be exported, since a parent
 
 `Props` and everything it depends on (types, constants and functions declared in the same frontmatter, and methods on them) live in the component's **declaration package**, which other components import (see [How it compiles](#how-it-compiles)). The rest of the component can only see the *exported* names there. So if `Props` uses a type that the body or template also uses, it must be exported:
 
-```orbit
+```orbit file=src/components/List.orbit
 ---
 type Item struct {
     Name string
@@ -417,7 +499,26 @@ type Props struct {
 </ul>
 ```
 
-A parent builds the value with the alias: `<List items={[]List.Item{{Name: "Go"}}} />`. With a lowercase `item` that the template also uses, Orbit reports:
+A parent builds the value with the alias: `<List items={[]List.Item{{Name: "Go"}}} />`. With a lowercase `item` that the body also uses, Orbit reports:
+
+```orbit file=src/components/List.orbit expect-error
+---
+type item struct {
+    Name string
+}
+
+type Props struct {
+    Items []item
+}
+
+items := append([]item{{Name: "Go"}}, props.Items...)
+---
+<ul>
+  {for _, it := range items}
+    <li>{it.Name}</li>
+  {/for}
+</ul>
+```
 
 ```text
 src/components/List.orbit:2:6: item is used by Props, so it lives in the component's declaration package and must be exported (rename it to Item)
@@ -427,11 +528,47 @@ A lowercase name that only `Props` (and other declarations in the declaration pa
 
 For the same reason, a component import alias, a named Go import or another hoisted name can't reuse a name that `Props` pulled into the declaration package (`Item "./Item.orbit"` next to a `type Item` that `Props` uses). Orbit reports it at that name:
 
+```orbit file=src/components/List.orbit expect-error
+---
+import (
+    Item "./Item.orbit"
+)
+
+type Item struct {
+    Name string
+}
+
+type Props struct {
+    Items []Item
+}
+---
+<ul>
+  {for _, it := range props.Items}
+    <Item name={it.Name} />
+  {/for}
+</ul>
+```
+
 ```text
 src/components/List.orbit:3:5: Item clashes with Item in the component's declaration package (Props uses it); rename one
 ```
 
 The names Orbit generates there, `Props` and `Render` (and a page's `Params`), are taken the same way:
+
+```orbit file=src/components/List.orbit expect-error
+---
+import (
+    "strings"
+    Props "./Item.orbit"
+)
+
+type Item struct {
+    Name string
+}
+---
+<p>{strings.ToUpper("items")}</p>
+<Props />
+```
 
 ```text
 src/components/List.orbit:4:5: Props clashes with the generated Props of the component's declaration package; rename it
@@ -703,7 +840,29 @@ if err != nil {
 
 If loading the comments is slow, render them with `server:defer` so they don't hold up the page; see [Lazy loading](#lazy-loading).
 
-One cycle can't be compiled: two `Props` types that refer to each other's components (`A.Props` has a field of type `B.Props` and `B.Props` has one of type `A.Props`). Orbit reports it once per cycle, with the shortest import chain, at the import alias in the first file of the chain (by path):
+One cycle can't be compiled: two `Props` types that refer to each other's components (`A.Props` has a field of type `B.Props` and `B.Props` has one of type `A.Props`). Orbit reports it once per cycle, with the shortest import chain, at the import alias in the first file of the chain (by path). With this `B.orbit`:
+
+```orbit file=src/components/B.orbit
+---
+import A "./A.orbit"
+
+type Props struct {
+    Parent *A.Props
+}
+---
+```
+
+an `A.orbit` that uses `B.Props` in its own `Props` is reported:
+
+```orbit file=src/components/A.orbit expect-error
+---
+import B "./B.orbit"
+
+type Props struct {
+    Child *B.Props
+}
+---
+```
 
 ```text
 src/components/A.orbit:2:8: import cycle not allowed between component Props: src/components/A.orbit → src/components/B.orbit → src/components/A.orbit; declare the shared types in a package under internal/
@@ -879,15 +1038,19 @@ To insert trusted markup without escaping, convert it to `orbit.HTML`. Either wr
 
 `set:html` only accepts an `orbit.HTML` value (or a string constant written in the template). A plain `string` variable is a compile error at the `.orbit` position, so raw output is always an explicit choice (won't compile):
 
-```orbit
+```orbit file=src/components/PostBody.orbit expect-error
 ---
-body := props.Post.Body
+type Props struct {
+    Body string
+}
+
+body := props.Body
 ---
 <div set:html={body}></div>
 ```
 
 ```text
-src/pages/blog/[slug].orbit:4:16: cannot use body (variable of type string) as orbit.HTML value in argument to orbit__w.HTML
+src/components/PostBody.orbit:8:16: cannot use body (variable of type string) as orbit.HTML value in argument to orbit__w.HTML
 ```
 
 The message is the Go compiler's: `orbit__w.HTML` is the generated write for `set:html`.
@@ -898,9 +1061,22 @@ Only convert content you control (your own Markdown renderer's output, say), nev
 
 Escaping makes a value safe inside an HTML attribute, but not inside JavaScript or CSS. So the compiler **warns** (the build still succeeds) on `on*={expr}` attributes such as `onclick={…}` and on `style={expr}`:
 
+```orbit file=src/components/Promo.orbit expect-warning
+---
+type Props struct {
+    Handler string
+    Color   string
+}
+---
+<article class="card">
+  <button onclick={props.Handler}>Open</button>
+  <p style={"color: " + props.Color}>Hello</p>
+</article>
+```
+
 ```text
-src/components/Card.orbit:14:9: warning: onclick={…} is escaped for HTML, not for JavaScript; don't put untrusted values here
-src/components/Card.orbit:15:9: warning: style={…} is escaped for HTML, not for CSS; don't put untrusted values here
+src/components/Promo.orbit:8:11: warning: onclick={…} is escaped for HTML, not for JavaScript; don't put untrusted values here
+src/components/Promo.orbit:9:6: warning: style={…} is escaped for HTML, not for CSS; don't put untrusted values here
 ```
 
 There's no switch to silence these warnings. Static values you write yourself (`onclick="toggle()"`, `style="color: red"`) don't warn. To pass data to a script, use a `data-*` attribute or `set:json`; see [Passing data to client scripts](#passing-data-to-client-scripts).

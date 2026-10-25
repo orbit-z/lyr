@@ -17,9 +17,17 @@
 //     page's setup commands (pageSetup).
 //   - A block whose info string also has expect-error shows failing code:
 //     it's built in a project of its own (the page's other blocks plus this
-//     one, replacing a block for the same PATH), which must fail, and the
-//     first line of the next fenced block (the documented error, with its
-//     file:line:col) must appear in the output.
+//     one, replacing a block for the same PATH), which must fail with the
+//     documented error. The documented error is the next untagged fenced
+//     block: its lines that start with "PATH:" must all appear in the
+//     output, or, when none does, its first line. So several expect-error
+//     blocks can share one error block.
+//   - expect-warning is the same, except that the project must build: the
+//     documented lines are warnings.
+//   - An expect-error or expect-warning block with at=N is a fragment: its
+//     lines replace as many lines of the page's block for the same PATH,
+//     from line N, so a page can show just the line that changes. With
+//     at=N-M, they replace lines N to M (to add or remove lines).
 package docstest
 
 import (
@@ -31,6 +39,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -50,7 +59,36 @@ var bunSkipped atomic.Bool
 
 // pageStubs are supporting files a page's examples use but don't show, by
 // page (relative to docs/). An empty value removes a starter file.
-var pageStubs = map[string]map[string]string{}
+var pageStubs = map[string]map[string]string{
+	// The import cycle example: B.orbit imports A.orbit, whose
+	// expect-error version imports B.orbit back.
+	// The name clash examples import Item.orbit.
+	"components.md": {
+		"src/components/A.orbit":    "---\ntype Props struct {\n    Name string\n}\n---\n",
+		"src/components/Item.orbit": "---\ntype Props struct {\n    Name string\n}\n---\n<li>{props.Name}</li>\n",
+	},
+	// The indirect import example: src/locals imports internal/auth, which
+	// imports orbit_gen/app.
+	"middleware.md": {"internal/auth/auth.go": "package auth\n\nimport _ \"example.com/blog/orbit_gen/app\"\n\ntype User struct{ Name string }\n"},
+	// The Go type errors example: a page passes a string to Card's bool
+	// prop, and a Card has a typo in a posts.Post field.
+	"troubleshooting.md": {
+		"internal/posts/posts.go":   stubPosts,
+		"src/components/Card.orbit": stubCard,
+	},
+	// The error output examples pass wrong props to a Card.
+	"reference/cli.md": {
+		"internal/posts/posts.go":   stubPosts,
+		"src/components/Card.orbit": stubCard,
+	},
+}
+
+// stubPosts and stubCard are the posts package and Card component of the
+// components page, cut down.
+const (
+	stubPosts = "package posts\n\ntype Post struct {\n\tSlug  string\n\tTitle string\n}\n\nfunc Find(slug string) (Post, error) { return Post{Slug: slug}, nil }\n"
+	stubCard  = "---\nimport \"example.com/blog/internal/posts\"\n\ntype Props struct {\n    Post     posts.Post\n    Featured bool\n}\n---\n<h2>{props.Post.Title}</h2>\n"
+)
 
 // pageSetup are go commands a page's docs tell you to run before go test,
 // by page.
@@ -62,12 +100,21 @@ var pageSetup = map[string][][]string{
 // skipPages are pages not built, with the Orbit bug that stops them.
 var skipPages = map[string]string{}
 
+// skipExamples are expect-error and expect-warning blocks not built, by
+// page and PATH ("page PATH"), with the Orbit bug that makes their output
+// differ from the documented one.
+var skipExamples = map[string]string{
+	"troubleshooting.md src/pages/blog/[slug].orbit": "Go errors at a .orbit path with brackets keep their ./ and generated names (slug_param.Params): compiler.clPos excludes [ and ] from paths",
+}
+
 // block is a tagged code block.
 type block struct {
-	lang, file  string
-	line        int // 1-based line of the opening fence
-	expectError string
-	content     string
+	lang, file string
+	line       int      // 1-based line of the opening fence
+	expectKind string   // "error", "warning", or "" for a block that builds clean
+	expect     []string // with expectKind: lines that must appear in the output
+	at, atEnd  int      // with expectKind: the lines it replaces (see parseAt), or 0
+	content    string
 }
 
 // fence is a fenced code block of a page.
@@ -146,16 +193,94 @@ func pageBlocks(t *testing.T, src string) []block {
 			continue
 		}
 		b := block{lang: lang, file: file, line: f.line, content: f.content}
-		if _, ok := attrs["expect-error"]; ok {
-			if i+1 >= len(fences) {
-				t.Errorf("line %d: expect-error block isn't followed by the error", f.line)
+		for _, kind := range []string{"error", "warning"} {
+			if _, ok := attrs["expect-"+kind]; ok {
+				b.expectKind = kind
+			}
+		}
+		if b.expectKind != "" {
+			b.expect = expected(fences[i+1:], file)
+			if b.expect == nil {
+				t.Errorf("line %d: expect-%s block isn't followed by the %[2]s", f.line, b.expectKind)
 				continue
 			}
-			b.expectError, _, _ = strings.Cut(strings.TrimSpace(fences[i+1].content), "\n")
+			if at, ok := attrs["at"]; ok {
+				if b.at, b.atEnd, ok = parseAt(at); !ok {
+					t.Errorf("line %d: invalid at=%s", f.line, at)
+					continue
+				}
+			}
 		}
 		out = append(out, b)
 	}
 	return out
+}
+
+// expected returns the documented output of an expect-error or
+// expect-warning block for file: the lines of the next untagged fence that
+// start with "file:", or its first line when none does. It returns nil
+// without such a fence.
+func expected(fences []fence, file string) []string {
+	for _, f := range fences {
+		if _, attrs := parseInfo(f.info); attrs["file"] != "" {
+			continue
+		}
+		var out []string
+		for line := range strings.Lines(f.content) {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, file+":") {
+				out = append(out, line)
+			}
+		}
+		if len(out) == 0 {
+			first, _, _ := strings.Cut(strings.TrimSpace(f.content), "\n")
+			out = []string{first}
+		}
+		return out
+	}
+	return nil
+}
+
+// parseAt parses an at= value: "N" (from line N, as many lines as the
+// fragment has; end is 0) or "N-M" (lines N to M).
+func parseAt(s string) (from, end int, ok bool) {
+	a, b, isRange := strings.Cut(s, "-")
+	from, err := strconv.Atoi(a)
+	if err != nil || from < 1 {
+		return 0, 0, false
+	}
+	if isRange {
+		end, err = strconv.Atoi(b)
+		if err != nil || end < from {
+			return 0, 0, false
+		}
+	}
+	return from, end, true
+}
+
+// splice returns base with its lines from to end (1-based, inclusive; 0
+// for as many lines as frag has) replaced by the lines of frag, or false
+// when they run past the end of base.
+func splice(base, frag string, from, end int) (string, bool) {
+	lines := strings.SplitAfter(strings.TrimSuffix(base, "\n"), "\n")
+	repl := strings.SplitAfter(strings.TrimSuffix(frag, "\n"), "\n")
+	if end == 0 {
+		end = from + len(repl) - 1
+	}
+	if end > len(lines) {
+		return "", false
+	}
+	for i := range lines {
+		if !strings.HasSuffix(lines[i], "\n") {
+			lines[i] += "\n"
+		}
+	}
+	for i := range repl {
+		if !strings.HasSuffix(repl[i], "\n") {
+			repl[i] += "\n"
+		}
+	}
+	return strings.Join(slices.Replace(lines, from-1, end, repl...), ""), true
 }
 
 func TestDocs(t *testing.T) {
@@ -214,7 +339,7 @@ func TestDocs(t *testing.T) {
 				if strings.HasPrefix(b.file, "~") || strings.HasPrefix(b.file, "/") {
 					continue
 				}
-				if b.expectError != "" {
+				if b.expectKind != "" {
 					bad = append(bad, b)
 					continue
 				}
@@ -237,16 +362,45 @@ func TestDocs(t *testing.T) {
 				t.Logf("warnings:\n%s", out)
 			}
 			for _, b := range bad {
-				files := slices.DeleteFunc(slices.Clone(good), func(g block) bool { return g.file == b.file })
-				ok, out := buildProject(t, starter, pageStubs[rel], nil, append(files, b), &bunNotice)
-				switch {
-				case ok && bunSkipped.Load():
-					t.Logf("docs/%s:%d: %s builds; its error may be a TypeScript one, which needs Bun", rel, b.line, b.file)
-				case ok:
-					t.Errorf("docs/%s:%d: %s builds, but the docs show it failing with %q", rel, b.line, b.file, b.expectError)
-				case !strings.Contains(out, b.expectError):
-					t.Errorf("docs/%s:%d: %s fails, but not with the documented %q:\n%s", rel, b.line, b.file, b.expectError, out)
+				if b.at > 0 {
+					i := slices.IndexFunc(good, func(g block) bool { return g.file == b.file })
+					if i < 0 {
+						t.Errorf("docs/%s:%d: at= is set, but no other block is tagged file=%s", rel, b.line, b.file)
+						continue
+					}
+					var ok bool
+					if b.content, ok = splice(good[i].content, b.content, b.at, b.atEnd); !ok {
+						t.Errorf("docs/%s:%d: at= runs past the end of %s (docs/%s:%d)", rel, b.line, b.file, rel, good[i].line)
+						continue
+					}
 				}
+				files := slices.DeleteFunc(slices.Clone(good), func(g block) bool { return g.file == b.file })
+				// Each error example is a project of its own; build them
+				// in parallel.
+				t.Run(fmt.Sprintf("line%d", b.line), func(t *testing.T) {
+					if bug, ok := skipExamples[rel+" "+b.file]; ok {
+						t.Skip("TODO(orbit bug): " + bug)
+					}
+					t.Parallel()
+					ok, out := buildProject(t, starter, pageStubs[rel], nil, append(files, b), &bunNotice)
+					switch {
+					case b.expectKind == "warning" && !ok:
+						t.Errorf("docs/%s:%d: %s doesn't build, but the docs show it building with warnings:\n%s", rel, b.line, b.file, out)
+						return
+					case b.expectKind == "warning":
+					case ok && bunSkipped.Load():
+						t.Logf("docs/%s:%d: %s builds; its error may be a TypeScript one, which needs Bun", rel, b.line, b.file)
+						return
+					case ok:
+						t.Errorf("docs/%s:%d: %s builds, but the docs show it failing with %q", rel, b.line, b.file, b.expect)
+						return
+					}
+					for _, want := range b.expect {
+						if !strings.Contains(out, want) {
+							t.Errorf("docs/%s:%d: %s output doesn't have the documented %q:\n%s", rel, b.line, b.file, want, out)
+						}
+					}
+				})
 			}
 		})
 	}
@@ -288,7 +442,7 @@ func buildProject(t *testing.T, starter map[string][]byte, stubs map[string]stri
 	var out bytes.Buffer
 	res, err := check.Run(ctx, check.Options{Root: dir, Env: goEnv})
 	if err != nil {
-		return false, "orbit check: " + err.Error()
+		return false, "orbit: " + err.Error() // as orbit check prints it
 	}
 	for _, d := range res.Generate.Diagnostics {
 		fmt.Fprintln(&out, d)
@@ -317,4 +471,53 @@ func buildProject(t *testing.T, starter map[string][]byte, stubs map[string]stri
 		}
 	}
 	return true, out.String()
+}
+
+func TestSplice(t *testing.T) {
+	base := "a\nb\nc\nd\n"
+	tests := []struct {
+		at, frag string
+		want     string
+		ok       bool
+	}{
+		{"2", "B\n", "a\nB\nc\nd\n", true},
+		{"2", "B\nC", "a\nB\nC\nd\n", true},
+		{"2-3", "X\n", "a\nX\nd\n", true},
+		{"1-1", "X\nY\n", "X\nY\nb\nc\nd\n", true},
+		{"4", "D\nE\n", "", false},
+		{"3-5", "X\n", "", false},
+	}
+	for _, tt := range tests {
+		from, end, ok := parseAt(tt.at)
+		if !ok {
+			t.Fatalf("parseAt(%q) failed", tt.at)
+		}
+		got, ok := splice(base, tt.frag, from, end)
+		if got != tt.want || ok != tt.ok {
+			t.Errorf("splice at=%s %q = %q, %v; want %q, %v", tt.at, tt.frag, got, ok, tt.want, tt.ok)
+		}
+	}
+	for _, bad := range []string{"", "0", "x", "3-2", "2-"} {
+		if _, _, ok := parseAt(bad); ok {
+			t.Errorf("parseAt(%q) succeeded", bad)
+		}
+	}
+}
+
+func TestExpected(t *testing.T) {
+	src := "```orbit file=a.orbit expect-error\nx\n```\n\n```orbit file=b.orbit expect-error\ny\n```\n\n" +
+		"```text\na.orbit:1:1: one\nb.orbit:2:1: two\n```\n"
+	fences := parseFences(src)
+	if got := expected(fences[1:], "a.orbit"); !slices.Equal(got, []string{"a.orbit:1:1: one"}) {
+		t.Errorf("a.orbit: got %q", got)
+	}
+	if got := expected(fences[2:], "b.orbit"); !slices.Equal(got, []string{"b.orbit:2:1: two"}) {
+		t.Errorf("b.orbit: got %q", got)
+	}
+	if got := expected(fences[2:], "c.orbit"); !slices.Equal(got, []string{"a.orbit:1:1: one"}) {
+		t.Errorf("c.orbit: got %q, want the first line", got)
+	}
+	if got := expected(nil, "a.orbit"); got != nil {
+		t.Errorf("no fence: got %q", got)
+	}
 }

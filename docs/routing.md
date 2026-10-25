@@ -99,13 +99,25 @@ The value is percent-decoded, as `ServeMux`'s `PathValue` is: `/blog/caf%C3%A9` 
 
 Any value reaches the page, so the page decides what exists: look it up, and `return orbit.ErrNotFound` when it's missing, as in the first example.
 
-A parameter is always a whole segment: `[slug].orbit` and `[slug]/index.orbit` work. Mixing text and a parameter in one segment (`post-[id].orbit`, `[lang]-[version].orbit`), which Astro allows, isn't supported yet: it's a build error at the file, suggesting a whole-segment parameter:
+A parameter is always a whole segment: `[slug].orbit` and `[slug]/index.orbit` work. Mixing text and a parameter in one segment (`post-[id].orbit`, `[lang]-[version].orbit`), which Astro allows, isn't supported yet: it's a build error at the file, suggesting a whole-segment parameter. For `src/pages/blog/post-[id].orbit`:
+
+```orbit file=src/pages/blog/post-[id].orbit expect-error
+<h1>Post</h1>
+```
 
 ```text
 src/pages/blog/post-[id].orbit: route segment "post-[id]" mixes text and a parameter; use a whole-segment parameter such as [id].orbit and parse it in the page
 ```
 
-Unbalanced brackets and an empty parameter name are build errors too:
+Unbalanced brackets and an empty parameter name are build errors too, such as `src/pages/[slug.orbit` and `src/pages/blog/[].orbit`:
+
+```orbit file=src/pages/[slug.orbit expect-error
+<h1>Post</h1>
+```
+
+```orbit file=src/pages/blog/[].orbit expect-error
+<h1>Post</h1>
+```
 
 ```text
 src/pages/[slug.orbit: invalid route pattern "/[slug": segment "[slug" has unbalanced brackets
@@ -141,6 +153,10 @@ The value is the matched segments joined with `/`, with no leading or trailing s
 | `/docs/guides/routing` | `"guides/routing"` |
 
 A rest parameter must be the last segment of the route. A rest parameter followed by more segments (`[...path]/edit.orbit`), which Astro allows, isn't supported yet either; it's a build error:
+
+```orbit file=src/pages/docs/[...path]/edit.orbit expect-error
+<h1>Edit</h1>
+```
 
 ```text
 src/pages/docs/[...path]/edit.orbit: rest parameter [...path] must be the last segment of the route; use a whole-segment parameter such as [path] instead
@@ -189,7 +205,15 @@ if err != nil {
 <h1>Post #{id}</h1>
 ```
 
-A parameter name must start with a letter and use only letters, digits, `-` and `_`, so that it makes a Go field name. Two parameters of one route that give the same field name, such as `[post-id]` and `[postId]`, or `[id]` twice, are a build error at the file:
+A parameter name must start with a letter and use only letters, digits, `-` and `_`, so that it makes a Go field name. Two parameters of one route that give the same field name, such as `[post-id]` and `[postId]`, or `[id]` twice, are a build error at the file, and so is a name that isn't one. For `src/pages/[post-id]/[postId].orbit` and `src/pages/[1st].orbit`:
+
+```orbit file=src/pages/[post-id]/[postId].orbit expect-error
+<h1>Post</h1>
+```
+
+```orbit file=src/pages/[1st].orbit expect-error
+<h1>Post</h1>
+```
 
 ```text
 src/pages/[post-id]/[postId].orbit: route params [post-id] and [postId] both become params.PostID; rename one

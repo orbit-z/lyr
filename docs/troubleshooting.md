@@ -168,9 +168,30 @@ The same applies after you edit an `.orbit` file: `go test` runs against the old
 
 ### Go type errors at `.orbit` lines
 
+A page that passes a string to a `bool` prop, and a `Card` with a typo in a field name:
+
+```orbit file=src/pages/index.orbit expect-error
+---
+import Card "../components/Card.orbit"
+---
+<Card featured={"yes"} />
+```
+
+```orbit file=src/components/Card.orbit expect-error
+---
+import "example.com/blog/internal/posts"
+
+type Props struct {
+    Post     posts.Post
+    Featured bool
+}
+---
+<h2>{props.Post.Titel}</h2>
+```
+
 ```text
-src/pages/index.orbit:9:11: cannot use "yes" (untyped string constant) as bool value in struct literal
-src/components/Card.orbit:11:29: props.Post.Titel undefined (type posts.Post has no field or method Titel, but does have field Title)
+src/pages/index.orbit:4:17: cannot use "yes" (untyped string constant) as bool value in struct literal
+src/components/Card.orbit:9:17: props.Post.Titel undefined (type posts.Post has no field or method Titel)
 ```
 
 **Cause:** these are the Go compiler's own errors. Orbit's generated code carries line directives, so they land on your `.orbit` line and column, and generated type names are rewritten to your aliases (`Card.Props`).
@@ -203,9 +224,16 @@ See [Error output](reference/cli.md#error-output).
 
 ### `params.slug undefined (type Params has no field or method slug, but does have field Slug)`
 
+```orbit file=src/pages/blog/[slug].orbit expect-error
+---
+---
+<h1>{params.slug}</h1>
+<p>{params.Slg}</p>
+```
+
 ```text
-src/pages/blog/[slug].orbit:9:26: params.slug undefined (type Params has no field or method slug, but does have field Slug)
-src/pages/blog/[slug].orbit:9:26: params.Slg undefined (type Params has no field or method Slg)
+src/pages/blog/[slug].orbit:3:13: params.slug undefined (type Params has no field or method slug, but does have field Slug)
+src/pages/blog/[slug].orbit:4:12: params.Slg undefined (type Params has no field or method Slg)
 ```
 
 **Cause:** the field doesn't exist in the page's generated `Params`. Its fields are the route params, in PascalCase (`[slug]` is `Slug`, `[post-id]` is `PostID`, `[id]` is `ID`), and only the params of *this* page's path are there. The same error, with `params` itself `undefined`, appears in a component: only pages get `params`.

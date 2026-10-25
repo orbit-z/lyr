@@ -163,7 +163,7 @@ Orbit tells you about errors in the browser, without losing your page.
 **Compile errors** (a Go type error in a component, an unknown prop, a template syntax error) keep the **old server running**. The proxy answers page requests with an error overlay instead: the cleaned-up message, its `file:line:col` in your `.orbit` file, and a code frame. For example, after a typo (`{props.Post.Titel}`) in `src/components/Card.orbit`:
 
 ```
-src/components/Card.orbit:11:29: props.Post.Titel undefined (type posts.Post has no field or method Titel, but does have field Title)
+src/components/Card.orbit:11:29: props.Post.Titel undefined (type posts.Post has no field or method Titel)
 ```
 
 Requests that aren't for HTML pages (API calls, assets) still reach the old server.
