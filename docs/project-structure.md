@@ -136,7 +136,7 @@ The rules:
 
 - Each path segment is lowercased, and `-`, `.` and any other character that isn't valid in a Go identifier becomes `_`.
 - `[name]` becomes `name_param`, and `[...name]` becomes `name_rest`.
-- A segment that is a Go keyword (`default`, `type`, `func`, …), `main` or `init`, or that starts with a digit, gets a `p_` prefix: `404` becomes `p_404`, and `default.orbit` becomes `p_default`.
+- A segment that is a Go keyword (`default`, `type`, `func`, …), `main`, `init`, `internal`, `testdata` or `vendor`, or that starts with a digit or `_`, gets a `p_` prefix: `404` becomes `p_404`, and `default.orbit` becomes `p_default`.
 - Two files that map to the same package (such as `my-card.orbit` and `my_card.orbit`) are an error naming both files. Rename one.
 
 The implementation package has the same path under `orbit_gen/impl/`, with an `_impl` suffix on its name (`card_impl`). Go error messages never show these names: Orbit rewrites them to the alias you used in your `.orbit` file (`Card.Props`).
