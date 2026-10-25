@@ -272,7 +272,7 @@ func TestClassify(t *testing.T) {
 		{"card", mapCard, "label :=", regionGo},
 		{"card", mapCard, "props.}", regionGo},
 		{"card", mapCard, "label}", regionGo},
-		{"card", mapCard, "class=", regionNone},
+		{"card", mapCard, "class=", regionAttr},
 		{"page", mapPage, "Card \"", regionImport},
 		{"page", mapPage, "\"../components", regionImport},
 		{"page", mapPage, "Card title", regionTag},

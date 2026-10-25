@@ -147,10 +147,10 @@ It's worth clicking. Without `orbit_gen/` on disk, gopls loads each component on
 
 **Templates**, natively:
 
-- **Tag names** after `<`: the components you've imported first, then other components in the project (accepting one adds its `.orbit` import), then HTML elements.
-- **Props** on a component tag: its `Props` fields as attribute names (`post`, `featured`), with their doc comments. Props you've already set aren't offered again.
-- **HTML attributes** on HTML elements.
-- **Directives**: `set:html`, `set:text`, `set:json`, `slot`, `is:inline`, `is:global`. On component tags only, also `server:defer`, `client:load`, `client:idle`, `client:visible` and `client:media` (they're errors on HTML elements, so they're never offered there). See [Lazy loading](lazy-loading.md).
+- **Tag names** after `<`: the components you've imported first, then other components in the project (accepting one adds its `.orbit` import, such as `import Card "../components/Card.orbit"`), then `<Fragment>` and HTML elements.
+- **Props** on a component tag: its `Props` fields as attribute names (`post`, `featured`), with their types and doc comments. Accepting one inserts `post={…}`. Props you've already set aren't offered again.
+- **HTML attributes** on HTML elements: the element's own and the global ones.
+- **Directives** where they're valid: `slot` on any tag; `set:html` and `set:text` on HTML elements and `<Fragment>`; `is:inline` on `<script>` and `<style>`; `is:global` on `<style>`; `set:json` on `<script type="application/json">`. On component tags, `server:defer`, `client:load`, `client:idle`, `client:visible` and `client:media` (they're errors on HTML elements, so they're never offered there). See [Lazy loading](lazy-loading.md).
 - **Slot names** inside `slot="…"`: the slots of the component you're passing content to. Inside a `server:defer` component, only `fallback`.
 - **Go to definition** on `<Card` opens `Card.orbit`; on a component attribute, it jumps to the `Props` field.
 

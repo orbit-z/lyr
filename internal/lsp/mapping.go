@@ -266,35 +266,49 @@ func (m mapper) mapLink(o obj, fallback func(g *genFile, r Range) (string, Range
 // dropping edits whose range doesn't map (echo lines, glue). It returns the
 // mapped edits and how many were dropped.
 func (m mapper) mapTextEdits(g *genFile, edits []jsonRaw) (out []jsonRaw, dropped int) {
-	lines := m.ws.lines[g.orbit]
 	for _, e := range edits {
 		o := decodeObj(e)
-		if o == nil {
-			dropped++
-			continue
-		}
-		ok := true
-		for _, key := range []string{"range", "insert", "replace"} {
-			r, has := o.rng(key)
-			if !has {
-				continue
-			}
-			start, end := m.genRange(g, r)
-			ostart, ok1 := g.fromGo(start)
-			oend, ok2 := g.fromGo(end)
-			if !ok1 || !ok2 || oend < ostart || lines == nil {
-				ok = false
-				break
-			}
-			o.set(key, lines.rangeOf(ostart, oend, encUTF16))
-		}
-		if !ok {
+		if o == nil || !m.mapEditRanges(g, o) {
 			dropped++
 			continue
 		}
 		out = append(out, o.marshal())
 	}
 	return out, dropped
+}
+
+// orbitRange maps a gopls range in g to its .orbit file (UTF-16); ok is
+// false when either end doesn't map.
+func (m mapper) orbitRange(g *genFile, r Range) (Range, bool) {
+	lines := m.ws.lines[g.orbit]
+	if lines == nil {
+		return Range{}, false
+	}
+	start, end := m.genRange(g, r)
+	ostart, ok1 := g.fromGo(start)
+	oend, ok2 := g.fromGo(end)
+	if !ok1 || !ok2 || oend < ostart {
+		return Range{}, false
+	}
+	return lines.rangeOf(ostart, oend, encUTF16), true
+}
+
+// mapEditRanges maps, in place, every range of a TextEdit or
+// InsertReplaceEdit ("range", "insert", "replace") in g; false when one
+// doesn't map (o is then partly rewritten).
+func (m mapper) mapEditRanges(g *genFile, o obj) bool {
+	for _, key := range []string{"range", "insert", "replace"} {
+		r, has := o.rng(key)
+		if !has {
+			continue
+		}
+		nr, ok := m.orbitRange(g, r)
+		if !ok {
+			return false
+		}
+		o.set(key, nr)
+	}
+	return true
 }
 
 // mapWorkspaceEdit maps a WorkspaceEdit from gopls: edits in generated
@@ -319,7 +333,9 @@ func (m mapper) mapWorkspaceEdit(raw jsonRaw, toChanges bool) (jsonRaw, int) {
 	mapFile := func(uri string, edits []jsonRaw) (string, []jsonRaw) {
 		g := m.ws.genAt(uriToPath(uri))
 		if g == nil {
-			if rel := m.ws.rel(uriToPath(uri)); isGenPath(rel) {
+			if rel := m.ws.rel(uriToPath(uri)); isScratchPath(rel) {
+				return "", nil // the LSP's own scratch files: not the user's code
+			} else if isGenPath(rel) {
 				dropped += len(edits)
 				return "", nil
 			}
