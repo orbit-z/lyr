@@ -352,6 +352,17 @@ To override a decision, say which row and the alternative you want; the docs and
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
 | The head-to-head load generator is a small stdlib Go tool in `bench/load` (closed loop, keep-alive, latency percentiles, RSS sampling), with server and load generator pinned to separate CPUs | coordinator (simplest; no tool to install) | Install `oha` or `wrk` | [Performance](performance.md) |
+| CPU pinning splits physical cores (server 0–3,8–11; load generator 4–7,12–15), since CPUs n and n+8 are one core's two threads | simplest correct | 0–7 / 8–15, which shares cores | `bench/README.md` |
+| Astro gets the same 8 server CPUs as Orbit at all cores (room for its GC and libuv threads); Orbit at `GOMAXPROCS=1` gets 1 CPU | simplest, conservative for Orbit | Pin Node to 1 CPU too | [Performance](performance.md#results) |
+| The deferred scenario's iteration is the page, then its island, on the same connections, as the browser's loader does | simplest | Separate page-only and island-only runs | [Performance](performance.md#results) |
+| Latency percentiles are exact (all samples sorted), not an HDR histogram | simplest | HDR histogram | `bench/README.md` |
+| Both sites must serve the same visible text before a run (scope attributes and whitespace legitimately differ) | simplest | Byte comparison | `bench/README.md` |
+| Astro's stylesheets are linked, not inlined (`build.inlineStylesheets: 'never'`), as Orbit links its CSS | simplest (same work on both sides) | Astro's default inlining | `bench/astro-site/astro.config.mjs` |
+| `bench/go` doesn't commit its generated `orbit_gen/`; `go generate ./...` creates it | user decision (`orbit_gen/` is gitignored) | Commit it | `bench/go/README.md` |
+| `bench/go` compares the three engines after whitespace normalization and ignoring the doctype's case | simplest | An HTML-parser comparison | `bench/go/README.md` |
+| String and number attribute values are written as pieces (`Raw` + `String`/`Int` + `Raw`); `uintptr` stays on `Attr` | coordinator (byte-identical, measured −17% on the cards page) | Keep `Attr`/`AttrString` | [Performance](performance.md#expressions-are-written-by-type-without-reflection) |
+| The loader config leaves out `"lazy"` on pages without lazy entries | simplest | Always write `"lazy":{}` | — |
+| The dev-loop benchmark leaves the compiled dev manifest empty (dev reads `manifest.json`), so a CSS edit needs no Go rebuild | Plan §5 | Compile the dev bundle's hashes | `bench/devloop/README.md` |
 
 ## Dev server
 

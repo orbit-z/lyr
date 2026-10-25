@@ -2,7 +2,7 @@
 
 Orbit's server rendering is designed to do as little work per request as possible; this page explains that design and how Orbit is benchmarked against Astro.
 
-Orbit has no target number. Instead, it measures and publishes. The results will appear on this page once the benchmarks run (see [Results](#results)).
+Orbit has no target number. Instead, it measures and publishes: see [Results](#results).
 
 ## Why Orbit's SSR is fast
 
@@ -23,7 +23,7 @@ everything except `url` and `props.Post.Title` is written by a couple of constan
 
 ### Expressions are written by type, without reflection
 
-When Orbit compiles a template, it type-checks each `{…}` expression with `go/types` and emits a write for its exact type: a `string` goes through an escaping string write, an `int` is formatted with `strconv` straight into the buffer, an `orbit.HTML` value is copied raw, and so on. There's no conversion to `any`, no runtime type switch and no reflection. This happens in `orbit dev` too, so dev renders the same way as production.
+When Orbit compiles a template, it type-checks each `{…}` expression with `go/types` and emits a write for its exact type: a `string` goes through an escaping string write, an `int` is formatted with `strconv` straight into the buffer, an `orbit.HTML` value is copied raw, and so on. Attribute values are handled the same way: `data-id={n}` is written as the static ` data-id="` (merged into the surrounding constant), the number, and the closing quote. There's no conversion to `any`, no runtime type switch and no reflection. This happens in `orbit dev` too, so dev renders the same way as production.
 
 Only values whose static type is an interface (such as `any` or `fmt.Stringer`), and a few unusual types, go through the generic path. That path is still a type switch over the common types; reflection is only its last resort (`fmt.Sprint`). Both paths produce identical bytes. The full table is in the [Runtime API](reference/runtime-api.md#typed-writes).
 
@@ -33,7 +33,7 @@ The escaper first scans a string for characters that need escaping. Most strings
 
 ### One pooled buffer per request, no streaming
 
-Every response renders into a `bytes.Buffer` taken from a `sync.Pool`, through a writer that writes straight into it, with no `bufio` layer in between. When the page is done, Orbit inserts its `<link>` and `<script>` tags at the position it recorded for `</head>` (no scan of the output) and sends the page in one write with a `Content-Length`. SSR responses are always buffered; Orbit never streams.
+Every response renders into a `bytes.Buffer` taken from a `sync.Pool`, through a writer that writes straight into it, with no `bufio` layer in between. A page's `<link>` and `<script>` tags are built once per route at startup and written when the render reaches `</head>`, so the output is never scanned or moved. When the page is done, Orbit sends it in one write with a `Content-Length`. SSR responses are always buffered; Orbit never streams.
 
 Buffering also means a middleware that wraps the `http.ResponseWriter` sees the complete page, with its assets already inserted, so it can rewrite the status, headers or body. See [Middleware and locals](middleware.md).
 
@@ -123,7 +123,7 @@ Lazy component scripts (`client:idle`, `client:visible`, `client:media`) cost no
 
 ## Build and dev-loop speed
 
-Orbit is written in Go partly so that builds stay fast: each component is its own Go package, so a rebuild only recompiles what changed. Typical rebuild times in `orbit dev` are on the [Dev server](dev-server.md#how-long-a-rebuild-takes) page.
+Orbit is written in Go partly so that builds stay fast: each component is its own Go package, so a rebuild only recompiles what changed. Measured rebuild times are under [Dev loop](#dev-loop-benchdevloop) below.
 
 ## Benchmark methodology
 
@@ -136,7 +136,7 @@ Two dedicated sites in the Orbit repository mirror each other page for page:
 
 They're kept separate from the example blog so the comparison is easy to audit. Every benchmark page renders on each request in both sites: `src/pages/cards.orbit`, `src/pages/fetch.orbit` and `src/pages/fetch-deferred.orbit`, with `.astro` mirrors.
 
-**Scenarios**, driven by an HTTP load tester such as `oha`:
+**Scenarios**, driven by `bench/load`, a small load generator written in Go (closed loop over keep-alive connections, exact percentiles, RSS and CPU sampled from `/proc`). `bench/run.sh` builds both sites, checks they serve the same visible text, and runs every scenario with a fresh server process. The server and the load generator are pinned to separate physical cores:
 
 1. **Render-heavy** (`cards`): a list of 500 cards built from nested components. This measures the template engine itself.
 2. **Realistic** (`fetch`): a page whose frontmatter waits on a simulated 10 ms data fetch. This measures how well each server handles many requests waiting on I/O at once.
@@ -162,9 +162,67 @@ The runtime's writer and escaper have their own Go micro-benchmarks, which repor
 
 ## Results
 
-> **Placeholder: results are published after milestone 11.**
->
-> This section will hold the measured requests per second, p50/p99 latency, TTFB and RSS for the four scenarios (Orbit at `GOMAXPROCS=1` and at all cores, against Astro), plus the Go benchmarks against templ and `html/template`. Until then, Orbit makes no claims about how much faster it is.
+Measured on 2026-10-25 on an AMD Ryzen 7 9700X (8 cores, 16 threads), 46 GB RAM, Linux 7.2.11, with Go 1.27.3, Node 25.6.1, Astro 7.3.8 and `@astrojs/node` 11.1.7 (standalone, one process). Every run uses 64 keep-alive connections, a 5 s warm-up and 20 s of measurement. The server runs on cores 0–3 (both threads of each) and the load generator on cores 4–7; Orbit at `GOMAXPROCS=1` is pinned to one CPU. Astro gets the same 8 CPUs as Orbit at all cores, so its garbage collector and I/O threads have room. No run had an error. Reproduce with `bench/run.sh` (about 4 minutes).
+
+### Render-heavy page (`/cards`, 500 cards from nested components)
+
+| Server | req/s | p50 | p99 | Memory (RSS) | CPU per page |
+|---|---:|---:|---:|---:|---:|
+| Orbit, `GOMAXPROCS=1` | 7,915 | 7.3 ms | 31.7 ms | 15 MB | 0.12 ms |
+| Orbit, all cores | 31,084 | 0.87 ms | 13.2 ms | 37 MB | 0.23 ms |
+| Astro | 680 | 92.9 ms | 127 ms | 361 MB | 1.56 ms |
+
+On one core, Orbit serves about 12× as many pages as Astro's single Node process; with all cores, about 46×. Part of that second number is Go using every core while Node runs JavaScript on one thread.
+
+### Page with a 10 ms data fetch (`/fetch`)
+
+| Server | req/s | p50 | p99 | Memory (RSS) | CPU per page |
+|---|---:|---:|---:|---:|---:|
+| Orbit, `GOMAXPROCS=1` | 5,834 | 11.0 ms | 11.8 ms | 15 MB | 0.010 ms |
+| Orbit, all cores | 5,949 | 10.8 ms | 11.2 ms | 18 MB | 0.023 ms |
+| Astro | 5,305 | 11.9 ms | 16.0 ms | 526 MB | 0.114 ms |
+
+Every server spends most of each request waiting, and 64 connections waiting 10 ms each cap the rate near 6,400 req/s, so throughput is close. The differences are in the tail latency, the CPU and the memory.
+
+### The fetch moved into `server:defer` (`/fetch-deferred`)
+
+Each iteration requests the page, then its island, as the browser's loader does. The time to first byte (TTFB) is the page's; the island column is the island request's own latency.
+
+| Server | iterations/s | page TTFB p50 | page TTFB p99 | island p50 | island p99 | Memory (RSS) |
+|---|---:|---:|---:|---:|---:|---:|
+| Orbit, `GOMAXPROCS=1` | 5,582 | 0.46 ms | 1.28 ms | 11.0 ms | 12.0 ms | 15 MB |
+| Orbit, all cores | 5,915 | 0.06 ms | 0.48 ms | 10.8 ms | 11.3 ms | 17 MB |
+| Astro | 2,818 | 6.06 ms | 11.9 ms | 15.8 ms | 22.4 ms | 306 MB |
+
+Deferring the slow component takes Orbit's first byte from about 11 ms to well under 1 ms. Astro's deferred page is slower to start mostly because its single thread is also busy rendering the island requests.
+
+### Orbit vs. other Go templates (`bench/go`)
+
+The same 500-card page (a layout, a header with a nav loop, and cards with attributes, escaped text and a slot), rendered into a buffer. `go test -bench . -benchmem -count 8`; spread ±1% or less.
+
+| Engine | Time per page | Memory per page | Allocations per page |
+|---|---:|---:|---:|
+| Orbit | 61.6 µs | 39 KB | 501 |
+| templ v0.3.1070 | 248 µs | 276 KB | 8,985 |
+| `html/template` | 1.74 ms | 622 KB | 26,810 |
+
+Orbit's 501 allocations are the 500 slot closures plus the layout's (each slot that uses a loop variable costs one, see [Allocations per request](#allocations-per-request)). Serving the page through `site.Handler()` adds one allocation (`Content-Length`) and almost no time (61.6 µs). A small page with a route param is served in 0.40 µs with 3 allocations: `Content-Length`, a slot closure, and the page's own string concatenation.
+
+### Dev loop (`bench/devloop`)
+
+The time from a saved edit to a new server running, on a generated project with 200 `.orbit` files (40 pages, 158 components, scoped styles and scripts on a quarter of them, two user Go packages, typed locals). It covers generating, the type check, esbuild, `go build -ldflags=-w` and restarting the server, but not the watcher's 50 ms debounce or the browser's reload. Median of the runs.
+
+| Edit | 16 threads | 4 cores |
+|---|---:|---:|
+| Template text | 253 ms | 255 ms |
+| Frontmatter statement | 255 ms | 258 ms |
+| Add a `Props` field (component imported by 10 others) | 273 ms | 304 ms |
+| Add a page | 273 ms | 277 ms |
+| Only a `<style>` or `<script>` (no Go rebuild) | 33 ms | 42 ms |
+| A Go package every `Props` imports, function body only | 875 ms | 1.54 s |
+| The same package, new exported name | 923 ms | 1.57 s |
+
+Most of a template edit is `go build`, and most of that is the link, about 135 ms, a fixed cost for any Go binary of this size. The slow rows are a Go package that every component imports: `go build` then recompiles all 363 generated packages, even when only a function body changed, because Go recompiles a package's importers whenever it changes. Keep frequently edited Go code out of packages that every `Props` imports.
 
 ## See also
 

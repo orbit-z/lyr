@@ -236,7 +236,7 @@ func (w *Writer) Spread(a Attrs)                // {...attrs}
 ```go
 func (w *Writer) HeadEnd()
 ```
-Marks where the page's `</head>` is, so the page's `<link>` and `<script>` tags (and the inline loader, on pages that need it) can be inserted there without scanning the output. Generated where a template contains `</head>`.
+Marks where the page's `</head>` is and writes the page's `<link>` and `<script>` tags (and the inline loader, on pages that need it) there, so the output is never scanned or moved. Only the first call counts. Generated where a template contains `</head>`.
 
 ```go
 func (w *Writer) Enter(component string) error

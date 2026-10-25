@@ -129,13 +129,13 @@ Dev builds are linked without DWARF debug information (`-ldflags=-w`), which mak
 
 ### How long a rebuild takes
 
-These numbers come from the milestone 0 prototype of Orbit's build, on a synthetic project with 200 components (an AMD Ryzen 7 9700X, 16 threads). They aren't benchmarks of the finished dev server, and your times depend on your machine, your project and how long your server takes to start.
+These numbers come from Orbit's dev-loop benchmark (`bench/devloop`) on a generated project with 200 `.orbit` files, on an AMD Ryzen 7 9700X. They're the time from a saved edit to the new server running, without the watcher's 50 ms debounce or the browser's reload. Your times depend on your machine, your project and how long your server takes to start. The full table is in [Performance](performance.md#dev-loop-benchdevloop).
 
-| Change | Measured |
-|---|---|
-| a component's frontmatter or template | about 0.24 s, including the Go rebuild (the type check of the edited component takes about 0.3 ms) |
-| a `.go` file that every component's `Props` depends on, such as `internal/posts` | about 0.75 s for `go build` on 16 threads, about 1.3 s on 4 cores, because every generated package recompiles |
-| only `<style>` or `<script>` contents | no Go rebuild at all |
+| Change | 16 threads | 4 cores |
+|---|---:|---:|
+| a component's frontmatter or template | about 0.25 s | about 0.26 s |
+| a `.go` file that every component's `Props` depends on, such as `internal/posts` (even a function body) | about 0.9 s | about 1.5 s |
+| only `<style>` or `<script>` contents (no Go rebuild) | about 35 ms | about 40 ms |
 
 The goal is for a save to show up in the browser in about a second.
 
