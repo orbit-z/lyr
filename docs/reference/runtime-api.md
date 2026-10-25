@@ -482,12 +482,12 @@ Renders a component or page (pass its generated `Render`) and returns the HTML, 
 ```go
 func Get(t testing.TB, h http.Handler, path string, opts ...Option) *httptest.ResponseRecorder
 ```
-Sends a GET for `path` to `h` (for example `app.New().Handler()`) and returns the recorded response, as production would answer it: routing, middleware in `h`, head injection. Redirects aren't followed. Island placeholders use the key and build ID of the site behind `h`, not orbittest's fixed ones. Only `WithLocals` and `WithRequest` apply to `Get`.
+Sends a GET for `path` to `h` (for example `app.New().Handler()`) and returns the recorded response, as production would answer it: routing, middleware in `h`, head injection. Redirects aren't followed. Island placeholders use the key and build ID of the site behind `h`; under `go test`, `app.New()` uses the same fixed test key and build ID as `Render` unless `ORBIT_KEY` or `WithKey` is set. Only `WithLocals` and `WithRequest` apply to `Get`.
 
 ```go
 func WithSlot(name, html string) Option
 ```
-Fills the slot `name` (`"default"` or a named slot) with raw HTML. `Render` only.
+Fills the slot `name` (`"default"` or a named slot) with raw HTML; a later `WithSlot` for the same name replaces the content. `Render` only.
 
 ```go
 func WithLocals[L any](l *L) Option
@@ -509,7 +509,7 @@ An option passed to the function it doesn't apply to fails the test.
 ```go
 func Snapshot(t testing.TB, name, html string)
 ```
-Compares `html` with `testdata/<name>.golden` and fails the test, showing the difference, if they differ or the file is missing (with a hint to run with `-update`). Running the test with `-update` writes the file instead. `orbittest` defines the `-update` flag itself, so don't define another one in a package that imports it.
+Compares `html` with `testdata/<name>.golden` and fails the test, showing the difference, if they differ or the file is missing (with a hint to run with `-update`). Running the test with `-update` writes the file instead. Hashed asset names (`/_orbit/<name>-<HASH>.<ext>` → `/_orbit/<name>-*.<ext>`) and island build IDs (`/_orbit/island/<build ID>/` → `/_orbit/island/*/`) are normalized before comparing and writing. `name` may contain `/` (`"pages/post"`), but no `..`. `orbittest` defines the `-update` flag itself, so don't define another one in a package that imports it.
 
 ## See also
 

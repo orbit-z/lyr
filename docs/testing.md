@@ -126,13 +126,13 @@ A test needs two imports:
   import _ "example.com/blog/orbit_gen/app"
   ```
 
-Without the `orbit_gen/app` import, the component's `Render` isn't linked to its code, and the test fails with:
+Without the `orbit_gen/app` import, the component's `Render` isn't linked to its code. It panics with `orbit: src/components/Card.orbit not linked; import example.com/blog/orbit_gen/app`, and `orbittest` turns that into a test failure with the same hint:
 
 ```
-orbit: src/components/Card.orbit not linked; import example.com/blog/orbit_gen/app
-```
+orbittest: src/components/Card.orbit not linked; import example.com/blog/orbit_gen/app in this test package:
 
-`orbittest` reports this as a test failure with the same hint.
+	import _ "example.com/blog/orbit_gen/app"
+```
 
 `orbit_gen/` is generated, so run `go tool orbit generate` before `go test` (in CI too). A running `orbit dev` keeps it up to date while you work. If you edit an `.orbit` file and run `go test` without regenerating, the test runs against the old version.
 
@@ -470,7 +470,7 @@ func TestCommentsIsland(t *testing.T) {
 }
 ```
 
-The page and the island request must reach the same `Site` (or two sites sharing one key), since the token is encrypted with the site's island key. `Get` goes through your handler, so it uses that site's own key and build ID, not orbittest's fixed ones. In a test, `app.New()` has no key or build ID from `orbit build`, so unless `ORBIT_KEY` is set or you pass `orbit.WithKey`, it uses a random key for the test process and prints a one-line warning, and its build ID is random per process too. Island URLs in a `Get` response therefore change from run to run: snapshot pages with islands through `Render`, and check `Get` responses with assertions like the ones above.
+The page and the island request must reach the same `Site` (or two sites sharing one key), since the token is encrypted with the site's island key. `Get` goes through your handler, so it uses that site's own key and build ID. Under `go test`, `app.New()` uses the same fixed test key and build ID `0000000000000000` as `Render`, unless `ORBIT_KEY` is set or you pass `orbit.WithKey`, so island URLs in a `Get` response are the same on every run too.
 
 ## Snapshot tests
 
@@ -502,11 +502,24 @@ Create or refresh the golden files with `-update`:
 go test ./internal/views_test -update
 ```
 
-This writes `internal/views_test/testdata/card.golden`. Review it and commit it. Later runs without `-update` fail when the output differs from it, showing the difference. A missing golden file also fails the test, with a hint to run with `-update`.
+This writes `internal/views_test/testdata/card.golden`. Review it and commit it. Later runs without `-update` fail when the output differs from it, showing where it first differs (line, column, and both versions around it). A missing golden file also fails the test, with a hint to run with `-update`.
+
+`name` can contain `/` to group golden files in directories: `Snapshot(t, "pages/post", html)` uses `testdata/pages/post.golden`, and `-update` creates the directories. A name that's empty, absolute, or has `..`, `.` or empty elements fails the test.
+
+### Hashed asset URLs
+
+Before it compares, and before it writes a golden file, `Snapshot` replaces the parts of the HTML that change from build to build:
+
+| In the HTML | In the golden file |
+|---|---|
+| `/_orbit/blog-slug-5RXDJ3BM.css` (an asset's content hash) | `/_orbit/blog-slug-*.css` |
+| `/_orbit/island/3f9c2a7b1e40d865/…` (an island URL's build ID) | `/_orbit/island/*/…` |
+
+So editing a stylesheet or a script, which changes its hashed file name, doesn't break the snapshots of the pages that link to it. The hash is the 8-character uppercase one in `/_orbit/` file names; other URLs are compared as they are. The `html` you pass to your own assertions isn't changed.
 
 `orbittest` defines the `-update` flag itself. Don't define another `-update` flag in a test package that imports `orbittest` (Go would panic with `flag redefined: update`); if your own golden tests need it, read orbittest's with `flag.Lookup("update")`.
 
-Snapshots are stable across machines: the scope attributes (`data-o-…`) depend only on each component's path in the project, and under `go test` `server:defer` placeholders are sealed with a fixed test key and build ID, through `Render` and `Get` alike.
+Snapshots are stable across machines: the scope attributes (`data-o-…`) depend only on each component's path in the project, asset hashes and build IDs are normalized as above, and under `go test` `server:defer` placeholders are sealed with a fixed test key and build ID, through `Render` and `Get` alike.
 
 ## See also
 
