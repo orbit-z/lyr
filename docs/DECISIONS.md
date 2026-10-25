@@ -120,6 +120,11 @@ To override a decision, say which row and the alternative you want; the docs and
 | `uintptr` keeps `Expr` | simplest (as PLAN keeps complex types) | `Uint` | [Runtime API](reference/runtime-api.md#typed-writes) |
 | Generated glue uses predeclared names (`true`, `error`, `int64`); shadowing them in the frontmatter isn't guarded | simplest (as PLAN §3.2's example) | Qualify or alias every predeclared name | — |
 | Declaration packages on an import cycle fall back to `Expr` writes (milestone 5 reports the cycle) | simplest | Fail the type check | — |
+| A `//` comment at the end of template Go code (`{x // note}`) is an error: `a // comment can't end Go code in the template; use /* */` | simplest (Go would swallow the generated code after it) | Rewrite it to `/* */` silently | [Troubleshooting](troubleshooting.md) |
+| An attribute that can't be a Go field name, on a component whose `Props` fields can't be listed, is an error: `unknown prop "1x" on <Card>: not a Go field name` | simplest | Pass it to Go and let it fail at a generated position | [Troubleshooting](troubleshooting.md) |
+| An `.orbit` import used only in Go code (for example `Card.Props{…}` in the frontmatter, no `<Card>` tag) counts as used | simplest (it's a real Go use) | Require a tag use | [Components](components.md) |
+| In error-output cleanup, a bare `card.X` is rewritten to the alias only when the component's declaration package declares `X` and the file imports no Go package named `card` | simplest (never rewrites a real Go package's names) | Rewrite every `card.X` | — |
+| `compressHTML: "html"` can leave a doubled newline at slot edges; not trimmed at codegen time, because trimming slot edges can join words | simplest (lossless first) | Trim slot edges | — |
 
 ## Routing
 

@@ -438,6 +438,18 @@ See [Combining and reserved namespaces](reference/template-syntax.md#combining-a
 
 **Fix:** remove the template, or make the return conditional. See [Returning errors, redirects and 404s](components.md#returning-errors-redirects-and-404s).
 
+### `a // comment can't end Go code in the template; use /* */`
+
+**Cause:** an expression or control header in the template ends with a line comment, such as `{count // items}`. A `//` comment runs to the end of the line, so it would swallow the code Orbit generates after the expression.
+
+**Fix:** use a block comment (`{count /* items */}`), or put the note in a template comment, `{/* … */}`.
+
+### `unknown prop "1x" on <Card>: not a Go field name`
+
+**Cause:** an attribute on a component can't become a Go field name (it starts with a digit, or holds characters other than letters, digits, `-` and `_`). Orbit reports this when it can't list the component's `Props` fields, for example when `Props` embeds another struct.
+
+**Fix:** rename the attribute to match a `Props` field (`<Card first={…}>` for a field `First`). See [Props](components.md#props).
+
 ### `unexpected </ul>: <li> opened at 12:5 isn't closed`
 
 **Cause:** Orbit doesn't auto-close elements the way browsers do, so `<p>`, `<li>`, `<td>` and `<option>` need their closing tags.
