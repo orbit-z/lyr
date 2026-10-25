@@ -26,6 +26,8 @@ type cgGen struct {
 	// skipAttr holds the slot="x" attributes of a component's direct
 	// children, which aren't written.
 	skipAttr map[*Attr]bool
+	// scope is the file's ScopeAttr when it has a scoped style, else "".
+	scope string
 }
 
 func cgGenerate(in *Input) (out *Output) {
@@ -56,6 +58,9 @@ func cgGenerate(in *Input) (out *Output) {
 		pkg = GenPackage{Rel: "invalid", Name: "invalid"}
 	}
 	g.pkg = pkg
+	if HasScopedStyle(g.f) {
+		g.scope = ScopeAttr(g.a.Info.Path)
+	}
 	for i := range g.a.OrbitImports {
 		imp := &g.a.OrbitImports[i]
 		if _, dup := g.imports[imp.Alias]; !dup {

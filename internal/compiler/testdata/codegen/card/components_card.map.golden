@@ -11,9 +11,9 @@ orbit_gen/impl/components/card/render.go (src/components/Card.orbit)
   echo  - -> 1196-1199 "err"
   exact 18:38 "props.Featured" -> 1325-1339 "props.Featured"
   exact 18:63 "props.PostID" -> 1446-1458 "props.PostID"
-  exact 19:16 "props.Href" -> 1587-1597 "props.Href"
-  exact 19:29 "label" -> 1713-1718 "label"
-  exact 22:10 "n" -> 2237-2238 "n"
+  exact 19:16 "props.Href" -> 1619-1629 "props.Href"
+  exact 19:29 "label" -> 1761-1766 "label"
+  exact 22:10 "n" -> 2317-2318 "n"
 call sites
   attr data-featured key=315 "props.Featured" call="orbit__w.Attr(\"data-featured\",\n/*line ../../../../src/components/Card.orbit:18:38*/props.Featured/*line render.go:35:91*/,\n\t)"
   attr data-id key=340 "props.PostID" call="orbit__w.Attr(\"data-id\",\n/*line ../../../../src/components/Card.orbit:18:63*/props.PostID/*line render.go:38:89*/,\n\t)"

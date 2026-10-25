@@ -37,11 +37,11 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	orbit__w.Attr("data-id",
 /*line ../../../../src/components/Card.orbit:18:63*/props.PostID/*line render.go:38:89*/,
 	)
-	orbit__w.Raw("><h2><a")
+	orbit__w.Raw(" data-o-c039c8bb><h2 data-o-c039c8bb><a")
 	orbit__w.Attr("href",
 /*line ../../../../src/components/Card.orbit:19:16*/props.Href/*line render.go:42:87*/,
 	)
-	orbit__w.Raw(">")
+	orbit__w.Raw(" data-o-c039c8bb>")
 	orbit__w.Expr(
 /*line ../../../../src/components/Card.orbit:19:29*/label/*line render.go:46:82*/,
 	)
@@ -51,7 +51,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 			return orbit__err
 		}
 	}
-	orbit__w.Raw("\n<footer>")
+	orbit__w.Raw("\n<footer data-o-c039c8bb>")
 	if orbit__s := orbit__slots.Get("footer"); orbit__s != nil {
 		if orbit__err := orbit__s(orbit__w); orbit__err != nil {
 			return orbit__err
@@ -59,7 +59,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	} else {
 		orbit__w.Raw("no footer")
 	}
-	orbit__w.Raw("</footer>\n<span>")
+	orbit__w.Raw("</footer>\n<span data-o-c039c8bb>")
 	orbit__w.Expr(
 /*line ../../../../src/components/Card.orbit:22:10*/n/*line render.go:64:78*/,
 	)
