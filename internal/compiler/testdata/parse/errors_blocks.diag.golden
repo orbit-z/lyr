@@ -1,0 +1,19 @@
+errors_blocks.orbit:1:12: unexpected {/if}: <div> opened at 1:7 isn't closed
+errors_blocks.orbit:1:17: unexpected </div>: no <div> is open
+errors_blocks.orbit:2:4: unexpected {else}: no {if} is open
+errors_blocks.orbit:3:1: unexpected {else if}: no {if} is open
+errors_blocks.orbit:4:1: unexpected {/for}: no {for} is open
+errors_blocks.orbit:5:15: unexpected {else}: the {else} at 5:8 must be the last branch
+errors_blocks.orbit:6:15: unexpected {else if}: the {else} at 6:8 must be the last branch
+errors_blocks.orbit:7:36: unexpected </ul>: {for} opened at 7:5 isn't closed
+errors_blocks.orbit:7:41: unexpected {/for}: no {for} is open
+errors_blocks.orbit:8:1: {if} needs a condition
+errors_blocks.orbit:9:1: {for} needs a clause, e.g. {for _, x := range list}
+errors_blocks.orbit:10:7: {else if} needs a condition
+errors_blocks.orbit:11:1: {switch} blocks aren't supported yet; use {if} and {else if}
+errors_blocks.orbit:11:11: unknown block end {/switch}; blocks end with {/if} or {/for}
+errors_blocks.orbit:12:1: unexpected text after {else}; write {else} or {else if condition}
+errors_blocks.orbit:12:1: unexpected {else}: no {if} is open
+errors_blocks.orbit:13:1: a spread {...} only works inside a start tag
+errors_blocks.orbit:14:1: {if} isn't closed; add {/if}
+errors_blocks.orbit:15:3: <p> isn't closed; add </p>

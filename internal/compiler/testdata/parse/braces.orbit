@@ -1,0 +1,15 @@
+<p>{map[string]int{"a": 1}["a"]}</p>
+<p>{`{raw}`}</p>
+<p>{fmt.Sprintf("{%d}", n)}</p>
+<p>{posts.Filter(func(p Post) bool { return p.Draft })}</p>
+<p>{[]Point{{1, 2}, {3, 4}}}</p>
+<p>{struct{ X int }{1}}</p>
+<Card items={[]Item{{Name: "a"}, {Name: "b"}}} fn={func() int { return 1 }} />
+<p>{ spaced }</p>
+<p>{}</p>
+<p>{a /* note */ + b}</p>
+<p>{
+  multi(
+    line,
+  )
+}</p>

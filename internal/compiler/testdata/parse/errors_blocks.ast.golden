@@ -1,0 +1,55 @@
+Template @0-283
+  If @0-16 end=@11-16
+    Branch if @0-11 header=@0-6 cond=@4-5 "a"
+      Element @6-11
+        <div> name=@7-10 start=@6-11 end=@11-11
+  Text @22-23 "\n"
+  Element @23-36
+    <p> name=@24-25 start=@23-26 end=@32-36
+  Text @36-37 "\n"
+  Text @48-49 "\n"
+  Text @55-56 "\n"
+  If @56-82 end=@77-82
+    Branch if @56-63 header=@56-62 cond=@60-61 "a"
+      Text @62-63 "x"
+    Branch else @63-70 header=@63-69 cond=@68-68 ""
+      Text @69-70 "y"
+    Branch else @70-77 header=@70-76 cond=@75-75 ""
+      Text @76-77 "z"
+  Text @82-83 "\n"
+  If @83-114 end=@109-114
+    Branch if @83-90 header=@83-89 cond=@87-88 "a"
+      Text @89-90 "x"
+    Branch else @90-97 header=@90-96 cond=@95-95 ""
+      Text @96-97 "y"
+    Branch else-if @97-109 header=@97-108 cond=@106-107 "b"
+      Text @108-109 "z"
+  Text @114-115 "\n"
+  Element @115-155
+    <ul> name=@116-118 start=@115-119 end=@150-155
+    For @119-150 header=@119-138 clause=@124-137 "x := range xs" end=@150-150
+      Element @138-150
+        <li> name=@139-141 start=@138-142 end=@145-150
+        Expr @142-145 code=@143-144 "x"
+  Text @161-162 "\n"
+  If @162-176 end=@171-176
+    Branch if @162-171 header=@162-166 cond=@165-165 ""
+      Text @166-171 "empty"
+  Text @176-177 "\n"
+  For @177-195 header=@177-182 clause=@181-181 "" end=@189-195
+    Text @182-189 "forever"
+  Text @195-196 "\n"
+  If @196-217 end=@212-217
+    Branch if @196-202 header=@196-202 cond=@200-201 "a"
+    Branch else-if @202-212 header=@202-211 cond=@210-210 ""
+      Text @211-212 "b"
+  Text @217-218 "\n"
+  Text @237-238 "\n"
+  Text @248-249 "\n"
+  Text @258-259 "\n"
+  If @259-283 end=@283-283
+    Branch if @259-283 header=@259-265 cond=@263-264 "a"
+      Text @265-268 "\n  "
+      Element @268-283
+        <p> name=@269-270 start=@268-271 end=@283-283
+        Text @271-283 "unclosed if\n"

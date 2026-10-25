@@ -1,0 +1,21 @@
+Template @0-94
+  Element @0-94
+    <div> name=@1-4 start=@0-15 end=@94-94
+      attr quoted @5-14 name=@5-10 "class" value=@12-13 "a"
+    Text @15-18 "\n  "
+    Element @18-94
+      <p> name=@19-20 start=@18-21 end=@94-94
+      Expr @21-33 code=@22-33 "props.Title"
+      Text @33-36 "\n  "
+      Element @36-94
+        <span> name=@37-41 start=@36-62 end=@94-94
+          attr expr @42-59 name=@42-47 "title" value=@48-59 code=@49-59 "x>y</span>"
+        Component @62-94
+          <Card> name=@63-67 start=@62-79 end=@94-94
+            attr expr @68-76 name=@68-72 "post" value=@73-76 code=@74-75 "p"
+          Element @79-94
+            <ul> name=@80-82 start=@79-83 end=@94-94
+            Text @83-88 "\n    "
+            Element @88-94
+              <li> name=@89-91 start=@88-92 end=@94-94
+              Text @92-94 "x\n"

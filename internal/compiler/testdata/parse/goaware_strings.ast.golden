@@ -1,0 +1,47 @@
+Template @0-269
+  Element @0-36
+    <code> name=@1-5 start=@0-6 end=@29-36
+    Text @6-18 "func main() "
+    Expr @18-23 code=@19-22 "\"{\""
+    Text @23-24 " "
+    Expr @24-29 code=@25-28 "\"}\""
+  Text @36-37 "\n"
+  Element @37-63
+    <p> name=@38-39 start=@37-40 end=@59-63
+    Expr @40-45 code=@41-44 "'}'"
+    Text @45-46 " "
+    Expr @46-51 code=@47-50 "'{'"
+    Text @51-52 " "
+    Expr @52-59 code=@53-58 "\"\\\"}\""
+  Text @63-64 "\n"
+  Element @64-94
+    <p> name=@65-66 start=@64-67 end=@90-94
+    Expr @67-90 code=@68-89 "fmt.Sprintf(\"{%d\", n)"
+  Text @94-95 "\n"
+  Element @95-125
+    <p> name=@96-97 start=@95-98 end=@121-125
+    Expr @98-109 code=@99-108 "x /* } */"
+    Text @109-110 " "
+    Expr @110-121 code=@111-120 "y /* { */"
+  Text @125-126 "\n"
+  Element @126-138
+    <p> name=@127-128 start=@126-129 end=@134-138
+    Expr @129-134 code=@130-133 "`}`"
+  Text @138-139 "\n"
+  Element @139-191
+    <a> name=@140-141 start=@139-186 end=@187-191
+      attr expr @142-153 name=@142-147 "title" value=@148-153 code=@149-152 "\"}\""
+      attr expr @154-185 name=@154-160 "data-x" value=@161-185 code=@162-184 "strings.Repeat(\"{\", 3)"
+    Text @186-187 "x"
+  Text @191-192 "\n"
+  If @192-216 end=@211-216
+    Branch if @192-211 header=@192-205 cond=@196-204 "s == \"}\""
+      Text @205-211 "closed"
+  Text @216-217 "\n"
+  For @217-251 header=@217-242 clause=@222-241 "_, r := range \"{}}\"" end=@245-251
+    Expr @242-245 code=@243-244 "r"
+  Text @251-252 "\n"
+  Element @252-268
+    <p> name=@253-254 start=@252-255 end=@264-268
+    Expr @255-264 code=@256-262 "x // }"
+  Text @268-269 "\n"

@@ -1,0 +1,10 @@
+<code>func main() {"{"} {"}"}</code>
+<p>{'}'} {'{'} {"\"}"}</p>
+<p>{fmt.Sprintf("{%d", n)}</p>
+<p>{x /* } */} {y /* { */}</p>
+<p>{`}`}</p>
+<a title={"}"} data-x={strings.Repeat("{", 3)}>x</a>
+{if s == "}"}closed{/if}
+{for _, r := range "{}}"}{r}{/for}
+<p>{x // }
+}</p>

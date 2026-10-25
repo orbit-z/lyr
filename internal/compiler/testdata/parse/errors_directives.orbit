@@ -1,0 +1,31 @@
+<div server:defer>x</div>
+<slot server:defer />
+<Fragment server:defer />
+<Card server:defer="x" />
+<Comments server:defer>
+  <p slot="fallback">Loading…</p>
+  <p>not a fallback</p>
+  text
+  {/* a comment is fine */}
+  <Fragment slot="fallback">ok</Fragment>
+  {if x}<p slot="fallback">in a block</p>{/if}
+</Comments>
+<div client:visible>x</div>
+<slot client:idle />
+<Fragment client:load />
+<Card client:visible={margin} />
+<Card client:media={q} />
+<Card client:idle="x" />
+<Card client:load="" />
+<Card client:media />
+<Card client:media="" />
+<Card client:idle client:visible />
+<Card client:only />
+<Card client:hover />
+<Card server:lazy />
+<Card server:defer client:idle />
+<Card client:visible server:defer />
+<div class:list={classes} define:vars={vars}>x</div>
+<div set:foo={x} is:raw>x</div>
+<p xlink:href="#a" xml:lang="en">plain</p>
+<Self server:defer client:visible="10px" />

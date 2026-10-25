@@ -1,0 +1,27 @@
+<div set:json={x}></div>
+<script set:json={x}></script>
+<script type="text/plain" set:json={x}></script>
+<script type="application/json" set:json={x}>[1]</script>
+<script type="application/json" set:json></script>
+<Card set:html={x} />
+<Card set:json={x} />
+<slot set:text={x} />
+<div set:html={x}><p>child</p></div>
+<div set:text={x}>
+  text
+</div>
+<div set:html={x}>  {/* ok */}  </div>
+<div set:html={a} set:text={b}></div>
+<div set:html></div>
+<Fragment slot="x" set:html={body} />
+<Fragment set:text={t}></Fragment>
+<Fragment class="x" {...attrs} key={k} />
+<Card {...attrs} />
+<slot {...attrs} />
+<p slot>x</p>
+<p slot={name}>x</p>
+<p slot="">x</p>
+<div is:inline>x</div>
+<script is:inline="yes"></script>
+<script is:global></script>
+<style is:global="1"></style>

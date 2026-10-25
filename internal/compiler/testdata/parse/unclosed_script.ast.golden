@@ -1,0 +1,7 @@
+Template @0-39
+  Element @0-8
+    <p> name=@1-2 start=@0-3 end=@4-8
+    Text @3-4 "a"
+  Text @8-9 "\n"
+  Script @9-39 processed=true inline=false json=false content=@17-39 "\n  if (a < b) { x() }\n"
+    <script> name=@10-16 start=@9-17 end=@39-39

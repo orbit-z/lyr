@@ -1,0 +1,140 @@
+Template @0-1213
+  Doctype @0-15 body=@2-14 "DOCTYPE html"
+  Text @15-16 "\n"
+  Element @16-1212
+    <html> name=@17-21 start=@16-32 end=@1205-1212
+      attr quoted @22-31 name=@22-26 "lang" value=@28-30 "en"
+    Text @32-33 "\n"
+    Element @33-168
+      <head> name=@34-38 start=@33-39 end=@161-168
+      Text @39-42 "\n  "
+      Element @42-64 void
+        <meta> name=@43-47 start=@42-64 end=@64-64
+          attr quoted @48-63 name=@48-55 "charset" value=@57-62 "utf-8"
+      Text @64-67 "\n  "
+      Element @67-118 rcdata
+        <title> name=@68-73 start=@67-74 end=@110-118
+        Expr @74-87 code=@75-86 "props.Title"
+        Text @87-110 " · a <b>bold</b> title"
+      Text @118-121 "\n  "
+      Element @121-160 void
+        <link> name=@122-126 start=@121-160 end=@160-160 selfclosing
+          attr quoted @127-143 name=@127-130 "rel" value=@132-142 "stylesheet"
+          attr quoted @144-157 name=@144-148 "href" value=@150-156 "/x.css"
+      Text @160-161 "\n"
+    Text @168-169 "\n"
+    Element @169-1204
+      <body> name=@170-174 start=@169-175 end=@1197-1204
+      Text @175-178 "\n  "
+      HTMLComment @178-234 body=@182-231 " an HTML comment with {not.evaluated} and <tags> "
+      Text @234-237 "\n  "
+      Comment @237-279 body=@240-276 " a template comment with <p> inside "
+      Text @279-282 "\n  "
+      Element @282-286 void
+        <br> name=@283-285 start=@282-286 end=@286-286
+      Element @286-291 void
+        <br> name=@287-289 start=@286-291 end=@291-291 selfclosing
+      Element @291-315 void
+        <img> name=@292-295 start=@291-315 end=@315-315
+          attr quoted @296-307 name=@296-299 "src" value=@301-306 "x.png"
+          attr quoted @308-314 name=@308-311 "alt" value=@313-313 ""
+      Text @315-318 "\n  "
+      Element @318-325
+        <div> name=@319-322 start=@318-325 end=@325-325 selfclosing
+      Text @325-328 "\n  "
+      Element @328-362
+        <my-widget> name=@329-338 start=@328-350 end=@350-362
+          attr quoted @339-349 name=@339-345 "data-x" value=@347-348 "1"
+      Text @362-365 "\n  "
+      Element @365-388
+        <My-widget> name=@366-375 start=@365-376 end=@376-388
+      Text @388-391 "\n  "
+      Component @391-434
+        <Card> name=@392-396 start=@391-406 end=@427-434
+          attr expr @397-405 name=@397-401 "post" value=@402-405 code=@403-404 "p"
+        Element @406-427
+          <em> name=@407-409 start=@406-410 end=@422-427
+          Text @410-422 "default slot"
+      Text @434-437 "\n  "
+      Component @437-458 self
+        <Self> name=@438-442 start=@437-458 end=@458-458 selfclosing
+          attr expr @443-455 name=@443-447 "node" value=@448-455 code=@449-454 "child"
+      Text @458-461 "\n  "
+      Slot @461-469 default
+        <slot> name=@462-466 start=@461-469 end=@469-469 selfclosing
+      Text @469-472 "\n  "
+      Slot @472-522 name=@478-491
+        <slot> name=@473-477 start=@472-492 end=@515-522
+          attr quoted @478-491 name=@478-482 "name" value=@484-490 "footer"
+        Text @492-502 "Made with "
+        Element @502-514
+          <b> name=@503-504 start=@502-505 end=@510-514
+          Text @505-510 "Orbit"
+        Text @514-515 "."
+      Text @522-525 "\n  "
+      Fragment @525-587
+        <Fragment> name=@526-534 start=@525-550 end=@576-587
+          attr quoted @535-549 name=@535-539 "slot" directive=slot value=@541-548 "actions"
+        Element @550-576
+          <a> name=@551-552 start=@550-569 end=@572-576
+            attr quoted @553-568 name=@553-557 "href" value=@559-567 "/rss.xml"
+          Text @569-572 "RSS"
+      Text @587-590 "\n  "
+      Fragment @590-618
+        <Fragment> name=@591-599 start=@590-618 end=@618-618 selfclosing
+          attr expr @600-615 name=@600-608 "set:html" directive=set:html value=@609-615 code=@610-614 "body"
+      Text @618-621 "\n  "
+      Element @621-680 rcdata
+        <textarea> name=@622-630 start=@621-640 end=@669-680
+          attr quoted @631-639 name=@631-635 "name" value=@637-638 "t"
+        Expr @640-647 code=@641-646 "value"
+        Text @647-669 " and <i>not markup</i>"
+      Text @680-683 "\n  "
+      Script @683-773 processed=true inline=false json=false content=@691-764 "\n    const o = { a: 1 }; if (a < b && c > d) { console.log(\"…"
+        <script> name=@684-690 start=@683-691 end=@764-773
+      Text @773-776 "\n  "
+      Script @776-812 processed=true inline=false json=false content=@803-803 ""
+        <script> name=@777-783 start=@776-803 end=@803-812
+          attr quoted @784-802 name=@784-787 "src" value=@789-801 "./counter.ts"
+      Text @812-815 "\n  "
+      Script @815-858 processed=true inline=false json=false content=@849-849 ""
+        <script> name=@816-822 start=@815-849 end=@849-858
+          attr quoted @823-848 name=@823-826 "src" value=@828-847 "../scripts/clock.ts"
+      Text @858-861 "\n  "
+      Script @861-902 processed=false inline=false json=false content=@883-893 "import \"x\""
+        <script> name=@862-868 start=@861-883 end=@893-902
+          attr quoted @869-882 name=@869-873 "type" value=@875-881 "module"
+      Text @902-905 "\n  "
+      Script @905-947 processed=false inline=false json=false content=@938-938 ""
+        <script> name=@906-912 start=@905-938 end=@938-947
+          attr empty @913-918 name=@913-918 "async"
+          attr quoted @919-937 name=@919-922 "src" value=@924-936 "./counter.ts"
+      Text @947-950 "\n  "
+      Script @950-1004 processed=false inline=false json=false content=@995-995 ""
+        <script> name=@951-957 start=@950-995 end=@995-1004
+          attr quoted @958-994 name=@958-961 "src" value=@963-993 "https://cdn.example.com/lib.js"
+      Text @1004-1007 "\n  "
+      Script @1007-1041 processed=false inline=false json=false content=@1032-1032 ""
+        <script> name=@1008-1014 start=@1007-1032 end=@1032-1041
+          attr quoted @1015-1031 name=@1015-1018 "src" value=@1020-1030 "/public.js"
+      Text @1041-1044 "\n  "
+      Script @1044-1054 processed=true inline=false json=false content=@1054-1054 ""
+        <script> name=@1045-1051 start=@1044-1054 end=@1054-1054 selfclosing
+      Text @1054-1057 "\n  "
+      Style @1057-1102 processed=true inline=false global=false content=@1064-1094 ".hero { color: red } p > a { }"
+        <style> name=@1058-1063 start=@1057-1064 end=@1094-1102
+      Text @1102-1105 "\n  "
+      Style @1105-1134 processed=false inline=true global=false content=@1122-1126 ".x{}"
+        <style> name=@1106-1111 start=@1105-1122 end=@1126-1134
+          attr empty @1112-1121 name=@1112-1121 "is:inline" directive=is:inline
+      Text @1134-1137 "\n  "
+      Element @1137-1196
+        <svg> name=@1138-1141 start=@1137-1142 end=@1190-1196
+        Element @1142-1159
+          <path> name=@1143-1147 start=@1142-1159 end=@1159-1159 selfclosing
+            attr quoted @1148-1156 name=@1148-1149 "d" value=@1151-1155 "M0 0"
+        Element @1159-1190
+          <foreignObject> name=@1160-1173 start=@1159-1174 end=@1174-1190
+      Text @1196-1197 "\n"
+    Text @1204-1205 "\n"
+  Text @1212-1213 "\n"

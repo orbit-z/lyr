@@ -1,0 +1,6 @@
+Template @0-24
+  Element @0-8
+    <p> name=@1-2 start=@0-3 end=@4-8
+    Text @3-4 "a"
+  Text @8-9 "\n"
+  Doctype @9-24 body=@11-24 "DOCTYPE html\n"

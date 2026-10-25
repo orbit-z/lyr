@@ -1,0 +1,44 @@
+Template @0-135
+  Element @0-14
+    <a> name=@1-2 start=@0-9 end=@10-14
+      attr empty @3-8 name=@3-7 "href"
+    Text @9-10 "x"
+  Text @14-15 "\n"
+  Element @15-27
+    <p> name=@16-17 start=@15-18 end=@23-27
+    Text @18-23 "after"
+  Text @27-28 "\n"
+  Element @28-40
+    <a> name=@29-30 start=@28-35 end=@36-40
+      attr empty @33-34 name=@33-34 "b"
+    Text @35-36 "z"
+  Text @40-41 "\n"
+  Element @41-57
+    <a> name=@42-43 start=@41-52 end=@53-57
+      attr empty @45-46 name=@45-46 "q"
+    Text @52-53 "w"
+  Text @57-58 "\n"
+  Text @58-60 "</"
+  Text @60-63 " >\n"
+  Element @63-78
+    <b> name=@64-65 start=@63-73 end=@74-78
+    Text @73-74 "v"
+  Text @78-79 "\n"
+  Element @79-93
+    <b> name=@80-81 start=@79-88 end=@89-93
+    Text @88-89 "u"
+  Text @93-94 "\n"
+  Element @94-105
+    <b> name=@95-96 start=@94-100 end=@101-105
+    Text @100-101 "t"
+  Text @105-106 "\n"
+  Element @106-120
+    <b> name=@107-108 start=@106-115 end=@116-120
+      attr spread @109-114 value=@109-114 code=@113-113 ""
+    Text @115-116 "s"
+  Text @120-121 "\n"
+  Element @121-134
+    <b> name=@122-123 start=@121-129 end=@130-134
+      attr unquoted @124-128 name=@124-125 "c" value=@126-128 "d/"
+    Text @129-130 "e"
+  Text @134-135 "\n"
