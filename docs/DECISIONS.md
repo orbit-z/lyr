@@ -242,6 +242,14 @@ To override a decision, say which row and the alternative you want; the docs and
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
+| The scope attribute (`data-o-xxxxxxxx`) is written last on each element, after spreads | Astro | First | [Styles and scripts](styles-and-scripts.md) |
+| Elements that never get the scope attribute: `head`, `title`, `meta`, `link`, `base`, `noscript`, `font`, `frame`, `frameset`, `noframes`, and `is:inline` scripts and styles (`html` and `body` do get it) | Astro (its compiler's `NeverScopedElements`, checked in its source) | Scope every element | [Styles and scripts](styles-and-scripts.md) |
+| The selectors `html`, `body` and `:root` are never scoped | Astro (checked in its source) | Scope them | [Styles and scripts](styles-and-scripts.md) |
+| Only the last compound of a selector is scoped (`.a .b` → `.a .b:where(…)`); Astro scopes every compound | PLAN (earlier design) | Scope every compound, like Astro | [Styles and scripts](styles-and-scripts.md) |
+| Rules inside `@media`, `@supports`, `@layer`, `@container`, `@scope`, `@starting-style` and `@document` are scoped; every other at-rule body (`@keyframes`, `@font-face`, `@page`, `@property`, unknown ones) is copied unchanged | simplest (CSS specs: only rule-list bodies hold selectors) | Scope inside unknown at-rules | [Styles and scripts](styles-and-scripts.md) |
+| Nested CSS rules are scoped like top-level ones, except that a compound holding `&` isn't scoped again | simplest (consistent with the last-compound rule) | Astro's rule: nested selectors without `&` aren't scoped | [Styles and scripts](styles-and-scripts.md) |
+| A compound holding a `:global(…)` counts as global; inside `:is()` it's just unwrapped; a bare `:global` or empty `:global()` is an error | simplest | — | [Styles and scripts](styles-and-scripts.md) |
+| CSS syntax errors in a `<style>` (unbalanced brackets, unclosed comments or strings, a selector without `{`, stray combinators) fail the build at the `.orbit` position | simplest | Pass the CSS through to esbuild | [Styles and scripts](styles-and-scripts.md) |
 | `orbit check` vets only `orbit_gen/...`, not your own Go packages (run `go vet ./...` for those) | Astro (`astro check` checks only its own files) | Also vet the server entry | [CLI](reference/cli.md#orbit-check) |
 | `orbit check` writes `orbit_gen/`, like `orbit generate` | simplest (PLAN: "generate, then go vet") | Check from memory only | [CLI](reference/cli.md#orbit-check) |
 | Extracted scripts go to `.orbit/check/<path>.orbit.<n>.ts` with `rootDirs`, so relative imports resolve from the `.orbit` file's directory; each ends with `export {}` so scripts are modules, as esbuild bundles them | simplest | `moduleDetection: "force"` (also changes your own `.ts` files) | [Styles and scripts](styles-and-scripts.md) |
