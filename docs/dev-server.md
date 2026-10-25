@@ -142,7 +142,7 @@ For a Go rebuild, Orbit:
 
 The old server is stopped *before* the new one starts, so a server that binds a fixed port of its own or holds a file lock keeps working. Anything your server keeps in memory is lost on each restart. `orbit.ListenAndServe` handles `SIGINT` with a graceful shutdown; if you run your own `http.Server`, handle `SIGINT` too, or your server is killed after 5 seconds.
 
-Dev builds are linked without DWARF debug information (`-ldflags=-w`), which makes linking faster. To step through your server with a debugger such as Delve, run it yourself next to `orbit dev`, with the same environment variables, for example `ORBIT_DEV=1 ORBIT_STATIC=.orbit/dev ORBIT_PUBLIC=public dlv debug ./cmd/server`. It then listens on `:4321` (or `ORBIT_ADDR`), so start `orbit dev` on another port; pages still get their dev assets, but no live reload.
+Dev builds are linked without DWARF debug information (`-ldflags=-w`), which makes linking faster, and Orbit's generated packages are compiled without inlining (`-gcflags=./orbit_gen/...=-l`), which makes the slowest rebuilds 10–14% faster. Pages render a little slower in dev because of it; `orbit build` uses neither flag. A `-gcflags` in your `GOFLAGS` replaces Orbit's. To step through your server with a debugger such as Delve, run it yourself next to `orbit dev`, with the same environment variables, for example `ORBIT_DEV=1 ORBIT_STATIC=.orbit/dev ORBIT_PUBLIC=public dlv debug ./cmd/server`. It then listens on `:4321` (or `ORBIT_ADDR`), so start `orbit dev` on another port; pages still get their dev assets, but no live reload.
 
 ### How long a rebuild takes
 

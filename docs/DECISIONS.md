@@ -392,6 +392,7 @@ To override a decision, say which row and the alternative you want; the docs and
 | The terminal gets one line per change (`orbit dev: <file>: server restarted in 250ms`, `…: CSS and JS rebuilt in 3ms`, `…: reloaded`), plus errors and warnings | simplest | Astro's per-file update lines with timestamps | [Dev server](dev-server.md#errors) |
 | `--port` must be 1–65535; anything else is a usage error (exit 2) | Go stdlib (`flag` values) | Accept 0 as "random port" | [CLI](reference/cli.md#orbit-dev) |
 | Each restarted dev app gets a new random build ID; island tokens still open, since the per-session `ORBIT_KEY` is shared and the build ID comes from the URL | simplest | A fixed per-session build ID passed with `-X`, so island URLs also stay identical across restarts | [Dev server](dev-server.md) |
+| `orbit dev` compiles the generated packages without inlining (`-gcflags=./orbit_gen/...=-l`) unless `GOFLAGS` has its own `-gcflags` | user (measured −10–14% on the slowest rebuild) | Same compile flags as `orbit build` | [Dev server](dev-server.md) |
 
 ## Editor support
 

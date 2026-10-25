@@ -152,3 +152,19 @@ func TestPipelineStages(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestDevBuildFlags(t *testing.T) {
+	for _, tc := range []struct {
+		goflags string
+		want    []string
+	}{
+		{"", []string{devGCFlags}},
+		{"-mod=mod -tags=prod", []string{devGCFlags}},
+		{"-gcflags=all=-N", nil},
+		{"-mod=mod --gcflags=-m", nil},
+	} {
+		if got := devBuildFlags(tc.goflags); !slices.Equal(got, tc.want) {
+			t.Errorf("devBuildFlags(%q) = %q, want %q", tc.goflags, got, tc.want)
+		}
+	}
+}

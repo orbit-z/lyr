@@ -39,8 +39,11 @@ type pipeline struct {
 	root    string
 	env     []string // appended to the go commands' environment
 	ldflags string   // go build's -ldflags flag
-	bundler assets.Bundler
-	inc     *project.Incremental
+	// buildFlags are go build's other flags: devGCFlags, unless GOFLAGS
+	// sets its own -gcflags.
+	buildFlags []string
+	bundler    assets.Bundler
+	inc        *project.Incremental
 
 	// The last good bundle input and its key; nil before the first bundle.
 	lastInput *assets.Input
@@ -68,11 +71,12 @@ type pipeline struct {
 
 func newPipeline(root string, env []string, goflags string) *pipeline {
 	pl := &pipeline{
-		root:    root,
-		env:     env,
-		ldflags: build.MergeLDFlags(goflags, "-w"),
-		bundler: assets.New(assets.Options{Root: root, Dev: true}),
-		inc:     project.NewIncremental(compiler.NewChecker(&compiler.GoListLoader{Dir: root, Env: env})),
+		root:       root,
+		env:        env,
+		ldflags:    build.MergeLDFlags(goflags, "-w"),
+		buildFlags: devBuildFlags(goflags),
+		bundler:    assets.New(assets.Options{Root: root, Dev: true}),
+		inc:        project.NewIncremental(compiler.NewChecker(&compiler.GoListLoader{Dir: root, Env: env})),
 	}
 	pl.goBuild = pl.runGoBuild
 	return pl
@@ -403,12 +407,32 @@ func (pl *pipeline) startEarly(ctx context.Context) *earlyBuild {
 	return e
 }
 
-// runGoBuild is go build -o out -ldflags=… entry, run in the module root.
+// devGCFlags compiles the generated packages without inlining, in dev only:
+// measured 10–14% faster on the slowest edit (a Go package every Props
+// imports, which recompiles every generated package) and no change on
+// template edits (milestone 10, user decision). The relative pattern
+// matches only packages under the module's orbit_gen/.
+const devGCFlags = "-gcflags=./orbit_gen/...=-l"
+
+// devBuildFlags returns devGCFlags unless goflags (GOFLAGS) has its own
+// -gcflags: a -gcflags on the command line would replace it.
+func devBuildFlags(goflags string) []string {
+	for _, f := range strings.Fields(goflags) {
+		if strings.HasPrefix(strings.TrimLeft(f, "-"), "gcflags") {
+			return nil
+		}
+	}
+	return []string{devGCFlags}
+}
+
+// runGoBuild is go build -o out -ldflags=… [-gcflags=…] entry, run in the
+// module root.
 func (pl *pipeline) runGoBuild(ctx context.Context, out, entry string) ([]byte, error) {
 	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 		return nil, err
 	}
-	cmd := exec.CommandContext(ctx, "go", "build", "-o", out, pl.ldflags, entry)
+	args := append([]string{"build", "-o", out, pl.ldflags}, pl.buildFlags...)
+	cmd := exec.CommandContext(ctx, "go", append(args, entry)...)
 	cmd.Dir = pl.root
 	cmd.Env = append(os.Environ(), pl.env...)
 	var b bytes.Buffer
