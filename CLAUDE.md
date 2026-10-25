@@ -83,7 +83,7 @@ When independent tasks can run in parallel, launch them in **one message**. If p
 - **Order**: milestone 0 is a throwaway spike that proves the risky mechanisms (DONE). Docs come next (milestone 1), and the user reviews them before implementation starts.
 - **Compile speed**: fast compiles and a ~1 s dev loop are a core goal (the reason for Go over Rust).
 - **Performance**:
-  - SSR responses are **always buffered**, using pooled buffers; no streaming.
+  - SSR responses are **always buffered**, using pooled buffers; no streaming (reconfirmed after M12: the user deploys behind a CDN and doesn't want streaming).
   - Codegen uses **go/types** to emit typed writes (`w.String`/`w.Int`/…) and falls back to `w.Expr(any)`.
   - **Benchmarks**:
     - Head-to-head vs Astro (`@astrojs/node` standalone, single process) on the same site.
