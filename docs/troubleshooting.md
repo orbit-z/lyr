@@ -636,14 +636,14 @@ If the connection drops while your server restarts, the reload script reconnects
 **Cause:** the overlay replaces the page for three kinds of errors:
 
 - **Compile errors** (a Go type error, an unknown prop, a template syntax error): the old server keeps running, and the overlay shows the message, its `file:line:col` and a code frame. Requests that aren't for HTML pages still reach the old server.
-- **Startup errors**: the new server built but exited, for example because a database is unreachable. The overlay shows its stderr.
+- **Startup errors**: the new server built but exited, for example because a database is unreachable, or it didn't accept connections within 10 seconds (`your server didn't accept connections on ORBIT_ADDR=127.0.0.1:… within 10s; does it listen on orbit.Addr()?`). The overlay shows its stderr. A server that exits later on its own (`your server exited: exit status 1; save a file to restart it`) is shown the same way.
 - **Render errors**: a page returned an error or panicked; your server's own dev overlay shows it with its `file:line`.
 
-**Fix:** fix the error and save. The overlay listens for live-reload events, so the page reloads by itself. The same messages appear in the terminal running `orbit dev`. See [Dev server: Errors](dev-server.md#errors).
+**Fix:** fix the error and save. The overlay listens for live-reload events, so the page reloads by itself. For a server that didn't accept connections, make it listen on `orbit.Addr()`, which reads the `ORBIT_ADDR` that `orbit dev` sets (see [Running under `orbit dev`](server.md#running-under-orbit-dev)). The same messages appear in the terminal running `orbit dev`. See [Dev server: Errors](dev-server.md#errors).
 
 ### Port 4321 is already in use
 
-**Cause:** another process is listening there. `orbit dev`, `orbit preview` and a built `dist/server` all default to port 4321.
+**Cause:** another process is listening there. `orbit dev`, `orbit preview` and a built `dist/server` all default to port 4321. `orbit dev` then moves to the next free port (`orbit dev: port 4321 is in use, using 4322 instead`), but `orbit preview` and `dist/server` stop with `address already in use`.
 
 **Fix:** pick another port for one of them:
 
@@ -668,9 +668,9 @@ Your own server keeps running on `127.0.0.1` behind the proxy either way. See [S
 
 ### Rebuilds are slow after editing a widely imported package
 
-**Cause:** when you edit a `.go` package that every component's `Props` depends on (such as `internal/posts`), `go build` recompiles every generated package. On a 200-component project this took about 0.75 s on 16 threads and about 1.3 s on 4 cores, against about 0.24 s for a component edit. Edits to only a `<style>` or `<script>` need no Go rebuild at all.
+**Cause:** when you edit a `.go` package that every component's `Props` depends on (such as `internal/posts`), `go build` recompiles every generated package. Go recompiles a package's importers whenever it changes, even when only a function body did. On a 200-component project this took about 0.9 s on 16 threads and about 1.5 s on 4 cores, against about 0.25 s for a component edit. Edits to only a `<style>` or `<script>` need no Go rebuild at all.
 
-**Fix:** this is `go build` time, and dev builds already skip DWARF (`-ldflags=-w`) to link faster. Edits to packages fewer components import rebuild less. Also check your server: each Go rebuild restarts it, so a slow startup adds to every save, and a server that runs its own `http.Server` without handling `SIGINT` is only killed after 5 seconds. `orbit.ListenAndServe` handles `SIGINT` for you. See [How long a rebuild takes](dev-server.md#how-long-a-rebuild-takes).
+**Fix:** this is `go build` time. Dev builds already skip DWARF (`-ldflags=-w`) to link faster, and on a `.go`-only edit `orbit dev` starts `go build` right away, while it regenerates. Keep frequently edited Go code out of packages that every `Props` imports. Edits to packages fewer components import rebuild less. Also check your server: each Go rebuild restarts it, so a slow startup adds to every save, and a server that runs its own `http.Server` without handling `SIGINT` is only killed after 5 seconds. `orbit.ListenAndServe` handles `SIGINT` for you. See [How long a rebuild takes](dev-server.md#how-long-a-rebuild-takes).
 
 ## Editor
 

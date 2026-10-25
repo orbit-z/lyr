@@ -10,11 +10,22 @@ From your project root:
 orbit dev
 ```
 
+It prints where it's listening:
+
+```
+  Local    http://localhost:4321/
+  Network  use --host to expose
+
+orbit dev: server ready in 1.2s
+```
+
 Then open <http://localhost:4321>. Use `--port` to pick another port:
 
 ```sh
 orbit dev --port 3000
 ```
+
+If the port is taken, `orbit dev` tries the next ones (4322, 4323, …, up to nine more), as Astro does, and says which one it picked.
 
 The dev server listens on localhost only, as Astro's does, so other machines on your network can't reach it. To open the site from another device, such as a phone on the same Wi-Fi, add `--host`, which listens on all interfaces:
 
@@ -60,6 +71,10 @@ orbit dev proxy  (localhost:4321)
 
 The proxy only owns `/__orbit/*` (two underscores). Everything else, including `/_orbit/*` assets, `/_orbit/island/…` requests and `public/` files, goes to your server, so a custom handler for `/robots.txt` works the same in dev as in production.
 
+The proxy forwards requests with the `Host` header the browser sent, and adds no `X-Forwarded-*` headers, so your server sees what it would see without a proxy in front, except that requests come from `127.0.0.1`.
+
+The dev binaries are built into `.orbit/devserver/`.
+
 Orbit starts your server with these environment variables:
 
 | Variable | Value | Effect |
@@ -95,23 +110,25 @@ If you set `ORBIT_KEY` yourself before running `orbit dev`, your key is used ins
 
 ## Live reload
 
-Every change ends with a **full page reload**. There's no hot module replacement: the browser reloads the page, so state in the page (form input, scroll position, script variables) resets.
+Every change ends with a **full page reload**. There's no hot module replacement: the browser reloads the page, so state in the page (form input, scroll position, script variables) resets. A change that fails to build reloads open pages too, into the [error overlay](#errors).
 
 The proxy adds a small script to every HTML page it forwards, just before `</body>`. It listens on `/__orbit/events` (server-sent events) and calls `location.reload()` when a rebuild finishes. If the connection drops, for example while your server restarts, it reconnects with backoff and reloads once the server is back.
 
 Responses without a `</body>`, such as the HTML fragments of `server:defer` islands, are left alone.
 
-To add the script, the proxy asks your server for uncompressed responses (it removes `Accept-Encoding` from forwarded requests), so a gzip middleware in your chain doesn't get in the way. If a response comes back compressed anyway, it's passed through untouched, without the reload script, and Orbit prints a one-time warning.
+To add the script, the proxy asks your server for uncompressed responses (it removes `Accept-Encoding` from forwarded requests), so a gzip middleware in your chain doesn't get in the way. If a response comes back compressed anyway, it's passed through untouched, without the reload script, and Orbit prints a one-time warning. The proxy reads a whole `text/html` response before passing it on, so an HTML page that your own handler streams arrives all at once in dev. Other responses, server-sent events included, are passed through as they come.
 
 ## What a change rebuilds
 
-Orbit watches `src/`, `public/` and every `.go` file in your module (except `orbit_gen/`, `dist/` and `.orbit/`). Changes are grouped with a 50 ms debounce. Requests that arrive during a rebuild wait for it to finish, so you never get a half-built page.
+Orbit watches `src/`, `public/`, `orbit.json`, `go.mod`, `tsconfig.json` and every `.go` file in your module. It skips `orbit_gen/`, `dist/`, `node_modules/`, directories starting with `.` (such as `.orbit/` and `.git/`), and, as the `go` command does, `testdata/` and `_test.go` files; editors' swap and backup files are ignored too. Changes are grouped with a 50 ms debounce. Requests that arrive from the first change until the rebuild is done wait for it, so you never get a half-built page.
 
 | You change | Orbit does |
 |---|---|
-| only the contents of a `<style>` or `<script>`, or a `.ts` file they import | rebuilds the CSS/JS bundles (incremental esbuild). No Go rebuild; your server keeps running and picks up the new asset URLs. |
+| only the contents of a `<style>` or `<script>`, or a `.ts`, `.css` or other file under `src/` that they import | rebuilds the CSS/JS bundles (incremental esbuild). No Go rebuild; your server keeps running and picks up the new asset URLs. |
 | a file in `public/` | nothing to rebuild; it just reloads. |
-| anything else: templates, frontmatter, `Props`, your `.go` files, `src/locals`, `orbit.json`, `go.mod` | regenerates the affected Go packages, rebuilds your server and restarts it. |
+| a template, frontmatter or `Props` | regenerates the affected Go packages, rebuilds your server and restarts it. The CSS/JS bundles aren't rebuilt unless a `<style>` or `<script>` changed too. |
+| only `.go` files (including `src/locals`) or `go.mod` | starts `go build` at once, while it regenerates; when regenerating changes nothing in `orbit_gen/` (the usual case), that build is the one it runs, otherwise it builds again. Then it restarts your server. |
+| `orbit.json`, or several kinds of files at once | regenerates, rebuilds your server and restarts it. |
 
 Adding or removing a component's scoped `<style>` or a processed `<script>`, or toggling `is:global`, counts as "anything else": it changes the HTML (scope attributes, bundle entries), not just the CSS or JS.
 
@@ -151,7 +168,9 @@ src/components/Card.orbit:11:29: props.Post.Titel undefined (type posts.Post has
 
 Requests that aren't for HTML pages (API calls, assets) still reach the old server.
 
-**Startup errors**: if the new server builds but fails to start (for example it exits because a database is unreachable), the overlay shows its stderr.
+**Startup errors**: if the new server builds but fails to start (for example it exits because a database is unreachable), the overlay shows its stderr. The old server was already stopped, so until you fix it, requests that aren't for HTML pages get a `503`. A server that doesn't accept connections within 10 seconds counts as failed: check that it listens on `orbit.Addr()`.
+
+**A server that exits on its own** while you work (a crash, `log.Fatal`) is reported the same way, with its stderr. Save any watched file to build and start it again.
 
 **Render errors**: if a page returns an error or panics while rendering, your server's own dev error overlay shows the error with its `file:line`. In production, the same error gives a 500 page.
 
@@ -159,7 +178,7 @@ Requests that aren't for HTML pages (API calls, assets) still reach the old serv
 
 The overlay stays connected to the live-reload events. Fix the error, save, and the page reloads by itself.
 
-The same messages appear in the terminal running `orbit dev`, in the format described in the [CLI reference](reference/cli.md#error-output).
+The same messages appear in the terminal running `orbit dev`, in the format described in the [CLI reference](reference/cli.md#error-output). After each successful change it prints one line, such as `orbit dev: src/components/Card.orbit: server restarted in 250ms` or `orbit dev: src/layouts/Base.orbit: CSS and JS rebuilt in 3ms`. Your server's own output goes to the same terminal.
 
 ## See also
 
