@@ -102,7 +102,7 @@ When independent tasks can run in parallel, launch them in **one message**. If p
 - **Docs-pass decisions**:
   - `orbit new <dir> [--module path]`.
   - Mixed route segments (`post-[id]`) and non-trailing rest params are an error in the MVP.
-  - Production 500: a built-in page plus a stderr log; `500.orbit` comes after the MVP.
+  - Production 500: a built-in page plus a stderr log with the `.orbit` position (frontmatter `return x` is wrapped at codegen with `orbit.ErrorAt`); `500.orbit` comes after the MVP.
   - The minor ones are logged in `docs/DECISIONS.md`.
 - **Typed route params**:
   - Codegen generates `type Params struct{…}` per page from its route, and pages get `params` (e.g. `params.Slug`).
