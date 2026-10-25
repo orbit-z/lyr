@@ -4,9 +4,10 @@
 // The page's loader config, written by the runtime's head injection
 // before the module scripts:
 //
-//	<script type="application/json" id="orbit-loader">{"dev":false,"lazy":{"<ID>":"<url>"}}</script>
+//	<script type="application/json" id="orbit-loader">{"dev":false,"lazy":{"<ID>":["<url>",…]}}</script>
 //
-// A lazy value can also be a list of entry URLs.
+// "lazy" is left out on pages without lazy entries. A single string value
+// is accepted too.
 export interface Config {
   dev?: boolean;
   lazy?: Record<string, string | string[]>;

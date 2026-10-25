@@ -443,7 +443,7 @@ func TestLoaderInjection(t *testing.T) {
 
 			post := do(h, "GET", "/post").Body.String()
 			wantPost := `<title>Post</title>` + loaderStyle +
-				`<script type="application/json" id="orbit-loader">{"dev":` + devJSON + `,"lazy":{}}</script>` +
+				`<script type="application/json" id="orbit-loader">{"dev":` + devJSON + `}</script>` +
 				`<script type="module">` + loaderIslandsJS + `</script>` +
 				`<link rel="stylesheet" href="/_orbit/post-1234.css"></head>`
 			if !strings.Contains(post, wantPost) {

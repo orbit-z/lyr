@@ -24,7 +24,7 @@ const loaderStyle = `<style>orbit-island,orbit-lazy{display:contents}</style>`
 // <script id="orbit-loader">.
 type loaderConfig struct {
 	Dev  bool    `json:"dev"`
-	Lazy lazyMap `json:"lazy"`
+	Lazy lazyMap `json:"lazy,omitempty"`
 }
 
 // lazyMap maps a component ID to the entry URLs its <orbit-lazy> markers
