@@ -1,0 +1,8 @@
+---
+import "example.com/devsite/internal/msg"
+
+type Props struct {
+	Post string
+}
+---
+<p class="card">card {props.Post} {msg.Greeting()}</p>

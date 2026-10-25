@@ -202,10 +202,7 @@ const runtimePkg = "github.com/bertrandkhe/orbit"
 // one in GOFLAGS, so both are passed), plus a fresh random island key and
 // build ID set with -X, so nothing random is written to orbit_gen/.
 func islandLDFlags(ctx context.Context, root string, env []string) (string, error) {
-	cmd := exec.CommandContext(ctx, "go", "env", "GOFLAGS")
-	cmd.Dir = root
-	cmd.Env = append(os.Environ(), env...)
-	out, err := cmd.Output()
+	out, err := GoFlags(ctx, root, env)
 	if err != nil {
 		return "", err
 	}
@@ -213,12 +210,20 @@ func islandLDFlags(ctx context.Context, root string, env []string) (string, erro
 	rand.Read(key)
 	id := make([]byte, 8)
 	rand.Read(id)
-	return ldflagsWithIslandKey(string(out), base64.StdEncoding.EncodeToString(key), hex.EncodeToString(id)), nil
+	return ldflagsWithIslandKey(out, base64.StdEncoding.EncodeToString(key), hex.EncodeToString(id)), nil
 }
 
 // ldflagsWithIslandKey merges the -ldflags of goflags (the value of
 // GOFLAGS) with the -X flags for key and id.
 func ldflagsWithIslandKey(goflags, key, id string) string {
+	return MergeLDFlags(goflags, "-X "+runtimePkg+".buildKey="+key+" -X "+runtimePkg+".buildID="+id)
+}
+
+// MergeLDFlags returns a -ldflags flag holding the -ldflags of goflags (the
+// value of GOFLAGS), then add. A -ldflags on the go command line replaces
+// the one in GOFLAGS, so a command that passes its own must pass both
+// (orbit build adds the island key, orbit dev -w).
+func MergeLDFlags(goflags, add string) string {
 	ld := ""
 	for _, f := range splitQuoted(goflags) {
 		f = strings.TrimPrefix(f, "-")
@@ -228,11 +233,23 @@ func ldflagsWithIslandKey(goflags, key, id string) string {
 			ld = v
 		}
 	}
-	x := "-X " + runtimePkg + ".buildKey=" + key + " -X " + runtimePkg + ".buildID=" + id
 	if ld = strings.TrimSpace(ld); ld != "" {
-		return "-ldflags=" + ld + " " + x
+		return "-ldflags=" + ld + " " + add
 	}
-	return "-ldflags=" + x
+	return "-ldflags=" + add
+}
+
+// GoFlags returns the effective GOFLAGS (go env GOFLAGS) of the go command
+// run in root with env appended to the process environment.
+func GoFlags(ctx context.Context, root string, env []string) (string, error) {
+	cmd := exec.CommandContext(ctx, "go", "env", "GOFLAGS")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), env...)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 // splitQuoted splits s at spaces, keeping single- or double-quoted runs
