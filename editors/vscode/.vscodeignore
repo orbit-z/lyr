@@ -1,0 +1,10 @@
+# Everything is excluded except what's listed with ! below: the bundled
+# client, the grammar, the language configuration and the Marketplace files.
+**
+!dist/extension.js
+!syntaxes/orbit.tmLanguage.json
+!language-configuration.json
+!package.json
+!README.md
+!CHANGELOG.md
+!LICENSE

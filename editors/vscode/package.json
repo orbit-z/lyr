@@ -1,0 +1,114 @@
+{
+  "name": "orbit",
+  "displayName": "Orbit",
+  "description": "Orbit (.orbit) language support: syntax highlighting, and Go completion, diagnostics and rename through orbit lsp.",
+  "version": "0.1.0",
+  "publisher": "bertrandkhe",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bertrandkhe/orbit",
+    "directory": "editors/vscode"
+  },
+  "engines": {
+    "vscode": "^1.104.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "orbit",
+    "go",
+    "golang",
+    "ssr",
+    "template"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "languages": [
+      {
+        "id": "orbit",
+        "aliases": [
+          "Orbit",
+          "orbit"
+        ],
+        "extensions": [
+          ".orbit"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "orbit",
+        "scopeName": "source.orbit",
+        "path": "./syntaxes/orbit.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.go": "go",
+          "meta.embedded.expression.go": "go",
+          "meta.embedded.block.css": "css",
+          "meta.embedded.block.ts": "typescript",
+          "meta.embedded.block.json": "json",
+          "source.go": "go",
+          "source.css": "css",
+          "source.ts": "typescript",
+          "source.json": "json"
+        }
+      }
+    ],
+    "configuration": {
+      "title": "Orbit",
+      "properties": {
+        "orbit.path": {
+          "type": "string",
+          "default": "orbit",
+          "scope": "machine-overridable",
+          "markdownDescription": "The `orbit` binary the extension runs (`orbit lsp`, `orbit generate`, `orbit doctor`). A bare name is looked up on `PATH`; a relative path is resolved against the first workspace folder; `~/` is your home directory."
+        },
+        "orbit.goplsPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "The gopls that `orbit lsp` starts, passed as its `goplsPath` initialization option. Empty: `gopls` on `PATH`, then `go tool gopls` if your `go.mod` pins it."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "orbit.restartServer",
+        "title": "Restart Language Server",
+        "category": "Orbit"
+      },
+      {
+        "command": "orbit.generate",
+        "title": "Run orbit generate",
+        "category": "Orbit"
+      },
+      {
+        "command": "orbit.doctor",
+        "title": "Run orbit doctor",
+        "category": "Orbit"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --platform=node --format=cjs --target=node22 --external:vscode --minify",
+    "check": "bun check --no-script",
+    "test": "bun check --no-script && vscode-tmgrammar-snap --config package.json 'test/*.orbit'",
+    "test:update": "vscode-tmgrammar-snap --config package.json --updateSnapshot 'test/*.orbit'",
+    "package": "bun run build && vsce package --no-dependencies --out orbit-$npm_package_version.vsix",
+    "publish": "vsce publish --no-dependencies --packagePath orbit-$npm_package_version.vsix && ovsx publish orbit-$npm_package_version.vsix"
+  },
+  "dependencies": {
+    "vscode-languageclient": "10.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/vscode": "1.104.0",
+    "@vscode/vsce": "4.0.0",
+    "esbuild": "0.28.2",
+    "ovsx": "1.2.0",
+    "vscode-tmgrammar-test": "0.1.3"
+  }
+}

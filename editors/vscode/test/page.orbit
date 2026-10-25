@@ -1,0 +1,32 @@
+---
+import (
+    "strings"
+    "example.com/blog/internal/posts"
+    Layout "../layouts/Base.orbit"
+    Card   "../components/Card.orbit"
+)
+
+type Props struct { Title string }
+
+list, err := posts.All()
+if err != nil { return err }
+title := strings.ToUpper(props.Title)
+---
+<Layout title={title}>
+  <h1 class="hero">{title}</h1>
+  {/* a template comment: {title} isn't evaluated */}
+  {if len(list) == 0}
+    <p>No posts</p>
+  {else if len(list) == 1}
+    <p>One post</p>
+  {else}
+    {for _, p := range list}
+      <Card post={p} featured><em>default slot</em></Card>
+    {/for}
+  {/if}
+  <p>{"}"} and {'}'} and {`}`} and {map[string]int{"a": 1}["a"]}</p>
+  <p>{x /* } */ + 1}</p>
+  <p>a < b, <3 and a <= b; &amp; &#169;</p>
+  <!-- {title} in an HTML comment isn't an expression -->
+  <p slot="footer">footer content</p>
+</Layout>

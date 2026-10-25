@@ -1,0 +1,426 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Orbit",
+  "scopeName": "source.orbit",
+  "fileTypes": ["orbit"],
+  "patterns": [
+    { "include": "#frontmatter" },
+    { "include": "#template" }
+  ],
+  "repository": {
+    "frontmatter": {
+      "comment": "Go frontmatter between the leading --- lines (PLAN.md §2.2).",
+      "name": "meta.frontmatter.orbit",
+      "begin": "\\A(---)\\s*$",
+      "end": "^(---)\\s*$",
+      "beginCaptures": { "1": { "name": "punctuation.definition.frontmatter.begin.orbit" } },
+      "endCaptures": { "1": { "name": "punctuation.definition.frontmatter.end.orbit" } },
+      "contentName": "meta.embedded.block.go",
+      "patterns": [{ "include": "source.go" }, { "include": "#keep" }]
+    },
+
+    "template": {
+      "patterns": [
+        { "include": "#html-comment" },
+        { "include": "#template-comment" },
+        { "include": "#control" },
+        { "include": "#expression" },
+        { "include": "#script-json" },
+        { "include": "#script" },
+        { "include": "#style" },
+        { "include": "#doctype" },
+        { "include": "#component-tag" },
+        { "include": "#html-tag" },
+        { "include": "#entity" },
+        { "include": "#text-lt" },
+        { "include": "text.html.basic" }
+      ]
+    },
+
+    "html-comment": {
+      "comment": "{…} inside an HTML comment isn't an expression.",
+      "name": "comment.block.html",
+      "begin": "<!--",
+      "end": "-->",
+      "beginCaptures": { "0": { "name": "punctuation.definition.comment.html" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.comment.html" } }
+    },
+
+    "template-comment": {
+      "comment": "{/* … */}: a template comment, emits nothing.",
+      "name": "comment.block.orbit",
+      "begin": "(\\{)\\s*(/\\*)",
+      "end": "(\\*/)\\s*(\\})",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.comment.begin.orbit" },
+        "2": { "name": "punctuation.definition.comment.begin.orbit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.comment.end.orbit" },
+        "2": { "name": "punctuation.definition.comment.end.orbit" }
+      }
+    },
+
+    "control": {
+      "patterns": [
+        {
+          "comment": "{else if cond}",
+          "name": "meta.control.else-if.orbit",
+          "begin": "(\\{)\\s*(else)\\s+(if)\\b",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": { "name": "punctuation.section.embedded.begin.orbit" },
+            "2": { "name": "keyword.control.conditional.orbit" },
+            "3": { "name": "keyword.control.conditional.orbit" }
+          },
+          "endCaptures": { "0": { "name": "punctuation.section.embedded.end.orbit" } },
+          "contentName": "meta.embedded.expression.go",
+          "patterns": [{ "include": "#go" }]
+        },
+        {
+          "comment": "{else}",
+          "name": "meta.control.else.orbit",
+          "match": "(\\{)\\s*(else)\\s*(\\})",
+          "captures": {
+            "1": { "name": "punctuation.section.embedded.begin.orbit" },
+            "2": { "name": "keyword.control.conditional.orbit" },
+            "3": { "name": "punctuation.section.embedded.end.orbit" }
+          }
+        },
+        {
+          "comment": "{if cond}",
+          "name": "meta.control.if.orbit",
+          "begin": "(\\{)\\s*(if)\\b",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": { "name": "punctuation.section.embedded.begin.orbit" },
+            "2": { "name": "keyword.control.conditional.orbit" }
+          },
+          "endCaptures": { "0": { "name": "punctuation.section.embedded.end.orbit" } },
+          "contentName": "meta.embedded.expression.go",
+          "patterns": [{ "include": "#go" }]
+        },
+        {
+          "comment": "{for clause}",
+          "name": "meta.control.for.orbit",
+          "begin": "(\\{)\\s*(for)\\b",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": { "name": "punctuation.section.embedded.begin.orbit" },
+            "2": { "name": "keyword.control.loop.orbit" }
+          },
+          "endCaptures": { "0": { "name": "punctuation.section.embedded.end.orbit" } },
+          "contentName": "meta.embedded.expression.go",
+          "patterns": [{ "include": "#go" }]
+        },
+        {
+          "comment": "{/if} and {/for}",
+          "name": "meta.control.end.orbit",
+          "match": "(\\{)\\s*(/)\\s*(?:(if)|(for))\\s*(\\})",
+          "captures": {
+            "1": { "name": "punctuation.section.embedded.begin.orbit" },
+            "2": { "name": "keyword.control.orbit" },
+            "3": { "name": "keyword.control.conditional.orbit" },
+            "4": { "name": "keyword.control.loop.orbit" },
+            "5": { "name": "punctuation.section.embedded.end.orbit" }
+          }
+        }
+      ]
+    },
+
+    "expression": {
+      "comment": "{expr}, also an attribute value a={expr} and the shorthand {a}.",
+      "name": "meta.expression.orbit",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": { "0": { "name": "punctuation.section.embedded.begin.orbit" } },
+      "endCaptures": { "0": { "name": "punctuation.section.embedded.end.orbit" } },
+      "contentName": "meta.embedded.expression.go",
+      "patterns": [{ "include": "#go" }]
+    },
+
+    "spread": {
+      "comment": "{...attrs} in a tag.",
+      "name": "meta.attribute.spread.orbit",
+      "begin": "(\\{)\\s*(\\.\\.\\.)",
+      "end": "\\}",
+      "beginCaptures": {
+        "1": { "name": "punctuation.section.embedded.begin.orbit" },
+        "2": { "name": "keyword.operator.spread.orbit" }
+      },
+      "endCaptures": { "0": { "name": "punctuation.section.embedded.end.orbit" } },
+      "contentName": "meta.embedded.expression.go",
+      "patterns": [{ "include": "#go" }]
+    },
+
+    "go": {
+      "comment": "Go inside {…}. Strings, runes, comments and nested braces are matched here, so a } inside them never ends the expression (the compiler's Go-aware scanner, PLAN.md §2.3); the rest is source.go.",
+      "patterns": [
+        { "include": "#go-string" },
+        { "include": "#go-raw-string" },
+        { "include": "#go-rune" },
+        { "include": "#go-block-comment" },
+        { "include": "#go-line-comment" },
+        { "include": "#go-braces" },
+        { "include": "source.go" }
+      ]
+    },
+    "go-string": {
+      "name": "string.quoted.double.go",
+      "begin": "\"",
+      "end": "\"|$",
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.go" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.string.end.go" } },
+      "patterns": [{ "name": "constant.character.escape.go", "match": "\\\\(?:[abfnrtv\\\\'\"]|[0-7]{3}|x\\h{2}|u\\h{4}|U\\h{8})" }]
+    },
+    "go-raw-string": {
+      "name": "string.quoted.raw.go",
+      "begin": "`",
+      "end": "`",
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.go" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.string.end.go" } }
+    },
+    "go-rune": {
+      "name": "string.quoted.rune.go",
+      "match": "'(?:\\\\(?:[^']|')[^']*|[^'\\\\])'"
+    },
+    "go-block-comment": {
+      "name": "comment.block.go",
+      "begin": "/\\*",
+      "end": "\\*/",
+      "beginCaptures": { "0": { "name": "punctuation.definition.comment.go" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.comment.go" } }
+    },
+    "go-line-comment": {
+      "name": "comment.line.double-slash.go",
+      "match": "(//).*$",
+      "captures": { "1": { "name": "punctuation.definition.comment.go" } }
+    },
+    "go-braces": {
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": { "0": { "name": "punctuation.definition.begin.bracket.curly.go" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.end.bracket.curly.go" } },
+      "patterns": [{ "include": "#go" }]
+    },
+
+    "script-json": {
+      "comment": "<script type=\"application/json\"> and ld+json (set:json): JSON, never bundled.",
+      "name": "meta.tag.script.json.orbit",
+      "begin": "(<)(script)(?=[^>]*\\btype\\s*=\\s*[\"']?application/(?:ld\\+)?json\\b)",
+      "end": "(</)(script)\\s*(>)|(/>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" },
+        "3": { "name": "punctuation.definition.tag.end.html" },
+        "4": { "name": "punctuation.definition.tag.end.html" }
+      },
+      "patterns": [
+        {
+          "begin": ">",
+          "end": "(?=</script\\s*>)",
+          "beginCaptures": { "0": { "name": "punctuation.definition.tag.end.html" } },
+          "contentName": "meta.embedded.block.json",
+          "patterns": [{ "include": "source.json" }, { "include": "#keep" }]
+        },
+        { "include": "#attributes" }
+      ]
+    },
+    "script": {
+      "comment": "<script>: TypeScript, opaque (no {…} expressions).",
+      "name": "meta.tag.script.orbit",
+      "begin": "(<)(script)(?=[\\s/>]|$)",
+      "end": "(</)(script)\\s*(>)|(/>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" },
+        "3": { "name": "punctuation.definition.tag.end.html" },
+        "4": { "name": "punctuation.definition.tag.end.html" }
+      },
+      "patterns": [
+        {
+          "begin": ">",
+          "end": "(?=</script\\s*>)",
+          "beginCaptures": { "0": { "name": "punctuation.definition.tag.end.html" } },
+          "contentName": "meta.embedded.block.ts",
+          "patterns": [{ "include": "source.ts" }, { "include": "#keep" }]
+        },
+        { "include": "#attributes" }
+      ]
+    },
+    "style": {
+      "comment": "<style>: CSS, opaque (no {…} expressions).",
+      "name": "meta.tag.style.orbit",
+      "begin": "(<)(style)(?=[\\s/>]|$)",
+      "end": "(</)(style)\\s*(>)|(/>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" },
+        "3": { "name": "punctuation.definition.tag.end.html" },
+        "4": { "name": "punctuation.definition.tag.end.html" }
+      },
+      "patterns": [
+        {
+          "begin": ">",
+          "end": "(?=</style\\s*>)",
+          "beginCaptures": { "0": { "name": "punctuation.definition.tag.end.html" } },
+          "contentName": "meta.embedded.block.css",
+          "patterns": [{ "include": "source.css" }, { "include": "#keep" }]
+        },
+        { "include": "#attributes" }
+      ]
+    },
+
+    "doctype": {
+      "name": "meta.tag.metadata.doctype.html",
+      "begin": "(<!)([Dd][Oo][Cc][Tt][Yy][Pp][Ee])",
+      "end": ">",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" }
+      },
+      "endCaptures": { "0": { "name": "punctuation.definition.tag.end.html" } }
+    },
+
+    "component-tag": {
+      "comment": "Capitalized tags are components (PLAN.md §2.3); <Self> and <Fragment> are built in.",
+      "patterns": [
+        {
+          "name": "meta.tag.component.orbit",
+          "begin": "(<)(?:(Self)|(Fragment)|([A-Z][A-Za-z0-9_]*))(?=[\\s/>]|$)",
+          "end": "/?>",
+          "beginCaptures": {
+            "1": { "name": "punctuation.definition.tag.begin.html" },
+            "2": { "name": "support.class.component.self.orbit" },
+            "3": { "name": "support.class.component.fragment.orbit" },
+            "4": { "name": "support.class.component.orbit" }
+          },
+          "endCaptures": { "0": { "name": "punctuation.definition.tag.end.html" } },
+          "patterns": [{ "include": "#attributes" }]
+        },
+        {
+          "name": "meta.tag.component.orbit",
+          "match": "(</)(?:(Self)|(Fragment)|([A-Z][A-Za-z0-9_]*))\\s*(>)",
+          "captures": {
+            "1": { "name": "punctuation.definition.tag.begin.html" },
+            "2": { "name": "support.class.component.self.orbit" },
+            "3": { "name": "support.class.component.fragment.orbit" },
+            "4": { "name": "support.class.component.orbit" },
+            "5": { "name": "punctuation.definition.tag.end.html" }
+          }
+        }
+      ]
+    },
+
+    "html-tag": {
+      "patterns": [
+        {
+          "name": "meta.tag.html",
+          "begin": "(<)([A-Za-z][\\w:.-]*)(?=[\\s/>]|$)",
+          "end": "/?>",
+          "beginCaptures": {
+            "1": { "name": "punctuation.definition.tag.begin.html" },
+            "2": { "name": "entity.name.tag.html" }
+          },
+          "endCaptures": { "0": { "name": "punctuation.definition.tag.end.html" } },
+          "patterns": [{ "include": "#attributes" }]
+        },
+        {
+          "name": "meta.tag.html",
+          "match": "(</)([A-Za-z][\\w:.-]*)\\s*(>)",
+          "captures": {
+            "1": { "name": "punctuation.definition.tag.begin.html" },
+            "2": { "name": "entity.name.tag.html" },
+            "3": { "name": "punctuation.definition.tag.end.html" }
+          }
+        }
+      ]
+    },
+
+    "attributes": {
+      "patterns": [
+        { "include": "#spread" },
+        { "include": "#expression" },
+        { "include": "#directive" },
+        {
+          "name": "entity.other.attribute-name.html",
+          "match": "[^\\s\"'<>/=\\{\\}`]+"
+        },
+        {
+          "match": "(=)\\s*([^\\s\"'=<>`\\{\\}]+)",
+          "captures": {
+            "1": { "name": "punctuation.separator.key-value.html" },
+            "2": { "name": "string.unquoted.html" }
+          }
+        },
+        { "name": "punctuation.separator.key-value.html", "match": "=" },
+        {
+          "name": "string.quoted.double.html",
+          "begin": "\"",
+          "end": "\"",
+          "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.html" } },
+          "endCaptures": { "0": { "name": "punctuation.definition.string.end.html" } },
+          "patterns": [{ "include": "#entity" }]
+        },
+        {
+          "name": "string.quoted.single.html",
+          "begin": "'",
+          "end": "'",
+          "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.html" } },
+          "endCaptures": { "0": { "name": "punctuation.definition.string.end.html" } },
+          "patterns": [{ "include": "#entity" }]
+        }
+      ]
+    },
+
+    "directive": {
+      "comment": "Orbit directives: set:html, set:text, set:json, client:*, server:*, is:inline, is:global, slot.",
+      "patterns": [
+        {
+          "name": "entity.other.attribute-name.directive.orbit",
+          "match": "(?<![^\\s])(set|client|server|is)(:)([A-Za-z][\\w-]*)(?=[\\s=/>]|$)",
+          "captures": {
+            "1": { "name": "entity.other.attribute-name.namespace.orbit" },
+            "2": { "name": "punctuation.separator.namespace.orbit" },
+            "3": { "name": "entity.other.attribute-name.localname.orbit" }
+          }
+        },
+        {
+          "name": "entity.other.attribute-name.directive.orbit",
+          "match": "(?<![^\\s])slot(?=[\\s=/>]|$)"
+        }
+      ]
+    },
+
+    "entity": {
+      "name": "constant.character.entity.html",
+      "match": "(&)(?:[A-Za-z][A-Za-z0-9]*|#[0-9]+|#[xX][0-9A-Fa-f]+)(;)",
+      "captures": {
+        "1": { "name": "punctuation.definition.entity.html" },
+        "2": { "name": "punctuation.definition.entity.html" }
+      }
+    },
+
+    "keep": {
+      "comment": "Never matches. vscode-textmate drops a rule whose only pattern is a missing grammar (a disabled built-in Go extension, or the snapshot tests, which load no other grammar); this keeps the embedded block, so {…} stays opaque in it.",
+      "match": "(?!)"
+    },
+
+    "text-lt": {
+      "comment": "A < that doesn't start a tag (a < b, <3, <=) is text (PLAN.md §2.3).",
+      "match": "<(?![A-Za-z/!])"
+    }
+  }
+}
