@@ -115,11 +115,11 @@ import Recommendations "../../components/Recommendations.orbit"
 
 What it costs:
 
-- **On the page**, per deferred instance: one `json.Marshal` of its props and one encryption (HMAC-SHA256 plus AES-GCM, about 1 µs for 1 KB of props), plus a small inline loader script of a few hundred bytes, once per page.
+- **On the page**, per deferred instance: one `json.Marshal` of its props and one encryption (HMAC-SHA256 plus AES-GCM, about 1 µs for 1 KB of props), plus a small inline loader script, once per page (about 1.1 KB, 0.7 KB gzipped).
 - **Pages without islands pay nothing**: no loader, no extra work.
 - **The island request** goes through your middleware and renders like any other request, so it costs about what rendering that component inside the page did.
 
-Lazy component scripts (`client:idle`, `client:visible`, `client:media`) cost nothing at render time: their wrapper elements are part of the precomputed static HTML.
+Lazy component scripts (`client:idle`, `client:visible`, `client:media`) cost nothing at render time: their wrapper elements are part of the precomputed static HTML. Pages that have them get the lazy loader script inline (about 1.3 KB, 0.8 KB gzipped).
 
 ## Build and dev-loop speed
 
