@@ -513,6 +513,7 @@ func (s *anState) parseBody() {
 		}
 		s.usage(file)
 	}
+	s.a.UsesLocals = s.implIdent["locals"] || file == nil || len(errs) > 0
 	if bodyErr || file == nil {
 		for _, r := range scannerBody {
 			s.a.Body = append(s.a.Body, Stmt{Span: r.span})

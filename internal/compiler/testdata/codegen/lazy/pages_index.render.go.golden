@@ -24,12 +24,11 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots, params := orbit__ctx, orbit__props, orbit__slots, orbit__params
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _, _ = ctx, props, slots, params, locals
+	_, _, _, _ = ctx, props, slots, params
 	orbit__w.Raw("<main data-o-81707d2a>\n")
-	if orbit__err := orbit__rt.Defer(orbit__ctx, orbit__w, "Comments-99b30ef4", /*line ../../../../src/pages/index.orbit:8:4*/Comments.Props/*line render.go:30:163*/{
-		/*line ../../../../src/pages/index.orbit:8:26*/PostID/*line render.go:31:80*/: /*line ../../../../src/pages/index.orbit:8:34*/7/*line render.go:31:155*/,
-		/*line ../../../../src/pages/index.orbit:8:37*/Title/*line render.go:32:79*/: "t",
+	if orbit__err := orbit__rt.Defer(orbit__ctx, orbit__w, "Comments-99b30ef4", /*line ../../../../src/pages/index.orbit:8:4*/Comments.Props/*line render.go:29:163*/{
+		/*line ../../../../src/pages/index.orbit:8:26*/PostID/*line render.go:30:80*/: /*line ../../../../src/pages/index.orbit:8:34*/7/*line render.go:30:155*/,
+		/*line ../../../../src/pages/index.orbit:8:37*/Title/*line render.go:31:79*/: "t",
 	}, func(orbit__w *orbit__rt.Writer) error {
 		orbit__w.Raw("<p data-o-81707d2a>Loading comments…</p>")
 		return orbit__w.Err()
@@ -37,39 +36,39 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 		return orbit__err
 	}
 	orbit__w.Raw("\n")
-	if orbit__err := orbit__rt.Defer(orbit__ctx, orbit__w, "Comments-99b30ef4", /*line ../../../../src/pages/index.orbit:9:4*/Comments.Props/*line render.go:40:163*/{}, nil); orbit__err != nil {
+	if orbit__err := orbit__rt.Defer(orbit__ctx, orbit__w, "Comments-99b30ef4", /*line ../../../../src/pages/index.orbit:9:4*/Comments.Props/*line render.go:39:163*/{}, nil); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("\n")
-	if orbit__err := /*line ../../../../src/pages/index.orbit:10:4*/Counter.Render/*line render.go:44:105*/(orbit__ctx, orbit__w, Counter.Props{
-		/*line ../../../../src/pages/index.orbit:10:24*/Start/*line render.go:45:80*/: /*line ../../../../src/pages/index.orbit:10:31*/1/*line render.go:45:156*/,
+	if orbit__err := /*line ../../../../src/pages/index.orbit:10:4*/Counter.Render/*line render.go:43:105*/(orbit__ctx, orbit__w, Counter.Props{
+		/*line ../../../../src/pages/index.orbit:10:24*/Start/*line render.go:44:80*/: /*line ../../../../src/pages/index.orbit:10:31*/1/*line render.go:44:156*/,
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("\n<orbit-lazy component=\"Counter-8a161775\" client=\"idle\">")
-	if orbit__err := /*line ../../../../src/pages/index.orbit:11:4*/Counter.Render/*line render.go:50:105*/(orbit__ctx, orbit__w, Counter.Props{
-		/*line ../../../../src/pages/index.orbit:11:24*/Start/*line render.go:51:80*/: /*line ../../../../src/pages/index.orbit:11:31*/2/*line render.go:51:156*/,
+	if orbit__err := /*line ../../../../src/pages/index.orbit:11:4*/Counter.Render/*line render.go:49:105*/(orbit__ctx, orbit__w, Counter.Props{
+		/*line ../../../../src/pages/index.orbit:11:24*/Start/*line render.go:50:80*/: /*line ../../../../src/pages/index.orbit:11:31*/2/*line render.go:50:156*/,
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("</orbit-lazy>\n<orbit-lazy component=\"Counter-8a161775\" client=\"visible\">")
-	if orbit__err := /*line ../../../../src/pages/index.orbit:12:4*/Counter.Render/*line render.go:56:105*/(orbit__ctx, orbit__w, Counter.Props{}, orbit__rt.Slots{}); orbit__err != nil {
+	if orbit__err := /*line ../../../../src/pages/index.orbit:12:4*/Counter.Render/*line render.go:55:105*/(orbit__ctx, orbit__w, Counter.Props{}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("</orbit-lazy>\n<orbit-lazy component=\"Counter-8a161775\" client=\"visible\" opts=\"200px\">")
-	if orbit__err := /*line ../../../../src/pages/index.orbit:13:4*/Counter.Render/*line render.go:60:105*/(orbit__ctx, orbit__w, Counter.Props{}, orbit__rt.Slots{}); orbit__err != nil {
+	if orbit__err := /*line ../../../../src/pages/index.orbit:13:4*/Counter.Render/*line render.go:59:105*/(orbit__ctx, orbit__w, Counter.Props{}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("</orbit-lazy>\n<orbit-lazy component=\"Counter-8a161775\" client=\"media\" opts=\"(max-width: 600px)\">")
-	if orbit__err := /*line ../../../../src/pages/index.orbit:14:4*/Counter.Render/*line render.go:64:105*/(orbit__ctx, orbit__w, Counter.Props{}, orbit__rt.Slots{}); orbit__err != nil {
+	if orbit__err := /*line ../../../../src/pages/index.orbit:14:4*/Counter.Render/*line render.go:63:105*/(orbit__ctx, orbit__w, Counter.Props{}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("</orbit-lazy>\n<orbit-lazy component=\"Wrap-25165a87\" client=\"visible\">")
-	if orbit__err := /*line ../../../../src/pages/index.orbit:15:4*/Wrap.Render/*line render.go:68:102*/(orbit__ctx, orbit__w, Wrap.Props{}, orbit__rt.Slots{
+	if orbit__err := /*line ../../../../src/pages/index.orbit:15:4*/Wrap.Render/*line render.go:67:102*/(orbit__ctx, orbit__w, Wrap.Props{}, orbit__rt.Slots{
 		Default: func(orbit__w *orbit__rt.Writer) error {
 			orbit__w.Raw("<orbit-lazy component=\"Counter-8a161775\" client=\"idle\">")
-			if orbit__err := /*line ../../../../src/pages/index.orbit:15:25*/Counter.Render/*line render.go:71:108*/(orbit__ctx, orbit__w, Counter.Props{
-				/*line ../../../../src/pages/index.orbit:15:45*/Start/*line render.go:72:82*/: /*line ../../../../src/pages/index.orbit:15:52*/3/*line render.go:72:158*/,
+			if orbit__err := /*line ../../../../src/pages/index.orbit:15:25*/Counter.Render/*line render.go:70:108*/(orbit__ctx, orbit__w, Counter.Props{
+				/*line ../../../../src/pages/index.orbit:15:45*/Start/*line render.go:71:82*/: /*line ../../../../src/pages/index.orbit:15:52*/3/*line render.go:71:158*/,
 			}, orbit__rt.Slots{}); orbit__err != nil {
 				return orbit__err
 			}
@@ -80,8 +79,8 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 		return orbit__err
 	}
 	orbit__w.Raw("</orbit-lazy>\n")
-	if orbit__err := /*line ../../../../src/pages/index.orbit:16:4*/Tree.Render/*line render.go:83:102*/(orbit__ctx, orbit__w, Tree.Props{
-		/*line ../../../../src/pages/index.orbit:16:9*/Depth/*line render.go:84:79*/: /*line ../../../../src/pages/index.orbit:16:16*/1/*line render.go:84:155*/,
+	if orbit__err := /*line ../../../../src/pages/index.orbit:16:4*/Tree.Render/*line render.go:82:102*/(orbit__ctx, orbit__w, Tree.Props{
+		/*line ../../../../src/pages/index.orbit:16:9*/Depth/*line render.go:83:79*/: /*line ../../../../src/pages/index.orbit:16:16*/1/*line render.go:83:155*/,
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}

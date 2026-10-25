@@ -20,13 +20,12 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots := orbit__ctx, orbit__props, orbit__slots
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _ = ctx, props, slots, locals
-/*line ../../../../src/components/B.orbit:10:1*/label := "b" + strconv.Itoa(props.N)/*line render.go:25:110*/
+	_, _, _ = ctx, props, slots
+/*line ../../../../src/components/B.orbit:10:1*/label := "b" + strconv.Itoa(props.N)/*line render.go:24:110*/
 	_ = label
 	orbit__w.Raw("<span")
 	orbit__w.Attr("class",
-/*line ../../../../src/components/B.orbit:12:14*/label/*line render.go:29:79*/,
+/*line ../../../../src/components/B.orbit:12:14*/label/*line render.go:28:79*/,
 	)
 	orbit__w.Raw(">")
 	if orbit__s := orbit__slots.Default; orbit__s != nil {
@@ -35,13 +34,13 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 		}
 	}
 	orbit__w.Raw("\n")
-	if /*line ../../../../src/components/B.orbit:13:7*/props.Depth < 3/*line render.go:38:92*/ {
-		for /*line ../../../../src/components/B.orbit:14:10*/_, slots := range []string{"x"}/*line render.go:39:112*/ {
+	if /*line ../../../../src/components/B.orbit:13:7*/props.Depth < 3/*line render.go:37:92*/ {
+		for /*line ../../../../src/components/B.orbit:14:10*/_, slots := range []string{"x"}/*line render.go:38:112*/ {
 			orbit__w.Expr(
-/*line ../../../../src/components/B.orbit:15:8*/slots/*line render.go:41:78*/,
+/*line ../../../../src/components/B.orbit:15:8*/slots/*line render.go:40:78*/,
 			)
-			if orbit__err := /*line ../../../../src/components/B.orbit:15:15*/A.Render/*line render.go:43:103*/(orbit__ctx, orbit__w, A.Props{
-				/*line ../../../../src/components/B.orbit:15:17*/Depth/*line render.go:44:83*/: /*line ../../../../src/components/B.orbit:15:24*/props.Depth + 1/*line render.go:44:174*/,
+			if orbit__err := /*line ../../../../src/components/B.orbit:15:15*/A.Render/*line render.go:42:103*/(orbit__ctx, orbit__w, A.Props{
+				/*line ../../../../src/components/B.orbit:15:17*/Depth/*line render.go:43:83*/: /*line ../../../../src/components/B.orbit:15:24*/props.Depth + 1/*line render.go:43:174*/,
 			}, orbit__rt.Slots{}); orbit__err != nil {
 				return orbit__err
 			}

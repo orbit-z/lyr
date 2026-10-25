@@ -249,6 +249,7 @@ func TestStickyError(t *testing.T) {
 		w.Attr("a", "x")
 		w.AttrString("a", "x")
 		w.AttrURL("a", "x")
+		w.URL("x")
 		w.AttrBool("a", true)
 		w.Spread(Attrs{"a": "x"})
 		if e := w.Enter("C"); e != first {
@@ -411,6 +412,11 @@ func TestTypedAttrs(t *testing.T) {
 		{"AttrURL safe", func(w *Writer) { w.AttrURL("href", "/a&b") }, ` href="/a&amp;b"`},
 		{"AttrURL filtered", func(w *Writer) { w.AttrURL("href", " JaVaScRiPt:alert(1)") }, ` href="about:invalid#orbit"`},
 		{"AttrURL control", func(w *Writer) { w.AttrURL("src", "\x01javascript:") }, ` src="about:invalid#orbit"`},
+		{"URL safe", func(w *Writer) { w.URL("/a&b") }, `/a&amp;b`},
+		{"URL filtered", func(w *Writer) { w.URL(" JaVaScRiPt:alert(1)") }, `about:invalid#orbit`},
+		{"URL vbscript", func(w *Writer) { w.URL("vbscript:x") }, `about:invalid#orbit`},
+		{"URL control", func(w *Writer) { w.URL("\x01javascript:") }, `about:invalid#orbit`},
+		{"URL escaped", func(w *Writer) { w.URL(`/q?a="<'>"`) }, `/q?a=&#34;&lt;&#39;&gt;&#34;`},
 		{"AttrBool true", func(w *Writer) { w.AttrBool("hidden", true) }, " hidden"},
 		{"AttrBool false", func(w *Writer) { w.AttrBool("hidden", false) }, ""},
 	}
@@ -655,6 +661,7 @@ func TestZeroAllocs(t *testing.T) {
 		{"String escaped", func() { w.String("a < b & c") }},
 		{"AttrString", func() { w.AttrString("title", clean) }},
 		{"AttrURL", func() { w.AttrURL("href", "/blog/hello") }},
+		{"URL", func() { w.URL("/blog/hello") }},
 		{"AttrBool", func() { w.AttrBool("disabled", true) }},
 		{"Bytes", func() { w.Bytes(cleanBytes) }},
 		{"Int", func() { w.Int(123456) }},
@@ -684,7 +691,7 @@ func TestZeroAllocs(t *testing.T) {
 // FuzzEscape checks that escaped text and attribute values never contain a
 // raw <, >, ", ' or a bare &, and that unescaping gives back the input.
 func FuzzEscape(f *testing.F) {
-	for _, s := range []string{"", "plain", `<script>alert("x")</script>`, "a&amp;b", "\x00", "'+'", "é★\xff", `"><img src=x>`} {
+	for _, s := range []string{"", "plain", `<script>alert("x")</script>`, "a&amp;b", "\x00", "'+'", " javascript:x", "VBScript:y", "é★\xff", `"><img src=x>`} {
 		f.Add(s)
 	}
 	f.Fuzz(func(t *testing.T, s string) {
@@ -703,6 +710,11 @@ func FuzzEscape(f *testing.F) {
 		attr, _ := render(func(w *Writer) { w.AttrString("x", s) })
 		if want := ` x="` + out + `"`; attr != want {
 			t.Fatalf("AttrString = %q, want %q", attr, want)
+		}
+		// URL pieces are byte-identical to AttrURL, filter included.
+		pieces, _ := render(func(w *Writer) { w.Raw(` href="`); w.URL(s); w.Raw(`"`) })
+		if want, _ := render(func(w *Writer) { w.AttrURL("href", s) }); pieces != want {
+			t.Fatalf("URL pieces = %q, AttrURL = %q", pieces, want)
 		}
 		expr, _ := render(func(w *Writer) { w.Attr("x", []any{s, []byte(s)}) })
 		checkEscaped(t, strings.TrimSuffix(strings.TrimPrefix(expr, ` x="`), `"`))

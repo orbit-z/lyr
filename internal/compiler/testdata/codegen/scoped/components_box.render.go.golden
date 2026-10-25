@@ -15,11 +15,10 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots := orbit__ctx, orbit__props, orbit__slots
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _ = ctx, props, slots, locals
+	_, _, _ = ctx, props, slots
 	orbit__w.Raw("<section class=\"box\"><h3>")
 	orbit__w.Expr(
-/*line ../../../../src/components/Box.orbit:7:8*/props.Title/*line render.go:22:85*/,
+/*line ../../../../src/components/Box.orbit:7:8*/props.Title/*line render.go:21:85*/,
 	)
 	orbit__w.Raw("</h3>\n")
 	if orbit__s := orbit__slots.Default; orbit__s != nil {

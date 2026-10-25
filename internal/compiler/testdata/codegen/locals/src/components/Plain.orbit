@@ -1,0 +1,6 @@
+---
+names := []string{"a", "b"}
+---
+<ul>
+{for _, locals := range names}<li>{locals}</li>{/for}
+</ul>

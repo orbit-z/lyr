@@ -18,15 +18,14 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots, params := orbit__ctx, orbit__props, orbit__slots, orbit__params
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _, _ = ctx, props, slots, params, locals
-	if orbit__err := /*line ../../../../../src/pages/blog/[slug].orbit:4:2*/Layout.Render/*line render.go:23:112*/(orbit__ctx, orbit__w, Layout.Props{
-		/*line ../../../../../src/pages/blog/[slug].orbit:4:9*/Title/*line render.go:24:87*/: /*line ../../../../../src/pages/blog/[slug].orbit:4:16*/"Post " + params.Slug/*line render.go:24:191*/,
+	_, _, _, _ = ctx, props, slots, params
+	if orbit__err := /*line ../../../../../src/pages/blog/[slug].orbit:4:2*/Layout.Render/*line render.go:22:112*/(orbit__ctx, orbit__w, Layout.Props{
+		/*line ../../../../../src/pages/blog/[slug].orbit:4:9*/Title/*line render.go:23:87*/: /*line ../../../../../src/pages/blog/[slug].orbit:4:16*/"Post " + params.Slug/*line render.go:23:191*/,
 	}, orbit__rt.Slots{
 		Default: func(orbit__w *orbit__rt.Writer) error {
 			orbit__w.Raw("\n<h1>")
 			orbit__w.Expr(
-/*line ../../../../../src/pages/blog/[slug].orbit:6:8*/params.Slug/*line render.go:29:91*/,
+/*line ../../../../../src/pages/blog/[slug].orbit:6:8*/params.Slug/*line render.go:28:91*/,
 			)
 			orbit__w.Raw("</h1>\n")
 			return orbit__w.Err()
@@ -35,11 +34,11 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 			{Name: "head", Render: func(orbit__w *orbit__rt.Writer) error {
 				orbit__w.Raw("<meta name=\"slug\"")
 				orbit__w.Attr("content",
-/*line ../../../../../src/pages/blog/[slug].orbit:5:42*/params.Slug/*line render.go:38:92*/,
+/*line ../../../../../src/pages/blog/[slug].orbit:5:42*/params.Slug/*line render.go:37:92*/,
 				)
 				orbit__w.Raw("><link rel=\"canonical\"")
 				orbit__w.Attr("href",
-/*line ../../../../../src/pages/blog/[slug].orbit:8:43*/"/blog/" + params.Slug/*line render.go:42:104*/,
+/*line ../../../../../src/pages/blog/[slug].orbit:8:43*/"/blog/" + params.Slug/*line render.go:41:104*/,
 				)
 				orbit__w.Raw(">")
 				return orbit__w.Err()

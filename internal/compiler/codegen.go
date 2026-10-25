@@ -111,7 +111,7 @@ type CallSite struct {
 	// Code is the expression as written.
 	Code GoCode
 	// AttrName is the attribute name for SiteAttr, and URLAttr is
-	// IsURLAttr(AttrName), selecting AttrURL over AttrString.
+	// IsURLAttr(AttrName), selecting URL pieces over String pieces.
 	AttrName string
 	URLAttr  bool
 	// Call is the whole write call in Impl.Content (from "orbit__w." to its
@@ -159,19 +159,20 @@ const (
 	WriteAttrFloat32
 )
 
-// writeMethods is the Writer method each kind calls. WriteAttrString and the
-// number attributes are attribute pieces (see attrPieces), so they call the
-// content method.
+// writeMethods is the Writer method each kind calls. WriteAttrString,
+// WriteAttrURL and the number attributes are attribute pieces (see
+// attrPieces), so they call a value-only method (URL for WriteAttrURL).
 var writeMethods = [...]string{"Expr", "", "String", "Int", "Uint", "Float", "Float32", "Bool",
-	"HTML", "Bytes", "Error", "Stringer", "Render", "String", "AttrURL", "AttrBool",
+	"HTML", "Bytes", "Error", "Stringer", "Render", "String", "URL", "AttrBool",
 	"Int", "Uint", "Float", "Float32"}
 
 // attrPieces reports whether k writes its attribute as pieces: the static
 // ` name="` and `"` join the neighbouring Raw constants, and the call writes
 // only the value, with no attribute name. That's byte-identical to
-// AttrString (and to Attr for a number) and saves the name and quote writes.
+// AttrString or AttrURL (and to Attr for a number) and saves the name and
+// quote writes.
 func (k WriteKind) attrPieces() bool {
-	return k == WriteAttrString || k >= WriteAttrInt && k <= WriteAttrFloat32
+	return k == WriteAttrString || k == WriteAttrURL || k >= WriteAttrInt && k <= WriteAttrFloat32
 }
 
 // Method is the Writer method the write calls ("Expr" for a content

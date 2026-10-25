@@ -481,6 +481,20 @@ func (w *Writer) AttrURL(name, s string) {
 	w.attrValue(name, s, true)
 }
 
+// URL writes s as a URL attribute's value, the bytes AttrURL writes between
+// the quotes: s attribute-escaped, with a javascript: or vbscript: URL
+// replaced with about:invalid#orbit. Codegen writes ` href="`, URL(s) and `"`
+// for a typed string in a URL attribute.
+func (w *Writer) URL(s string) {
+	if w.err != nil {
+		return
+	}
+	if isUnsafeURL(s) {
+		s = invalidURL
+	}
+	escapeString(w.buf, s)
+}
+
 // AttrBool writes the bare attribute name if b is true, and nothing
 // otherwise.
 func (w *Writer) AttrBool(name string, b bool) {

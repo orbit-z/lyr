@@ -15,11 +15,10 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots := orbit__ctx, orbit__props, orbit__slots
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _ = ctx, props, slots, locals
+	_, _, _ = ctx, props, slots
 	orbit__w.Raw("<html><head><title>")
 	orbit__w.Expr(
-/*line ../../../../src/components/Layout.orbit:8:13*/props.Title/*line render.go:22:89*/,
+/*line ../../../../src/components/Layout.orbit:8:13*/props.Title/*line render.go:21:89*/,
 	)
 	orbit__w.Raw("</title>\n")
 	if orbit__s := orbit__slots.Get("head"); orbit__s != nil {

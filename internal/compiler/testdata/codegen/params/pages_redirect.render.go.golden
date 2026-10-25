@@ -15,9 +15,8 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots, params := orbit__ctx, orbit__props, orbit__slots, orbit__params
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _, _ = ctx, props, slots, params, locals
-/*line ../../../../src/pages/redirect.orbit:2:1*/n := 1/*line render.go:20:80*/
+	_, _, _, _ = ctx, props, slots, params
+/*line ../../../../src/pages/redirect.orbit:2:1*/n := 1/*line render.go:19:80*/
 	_ = n
-/*line ../../../../src/pages/redirect.orbit:3:1*/return /*line render.go:22:81*/orbit__rt.ErrorAt("src/pages/redirect.orbit:3:1", /*line ../../../../src/pages/redirect.orbit:3:8*/ctx.Redirect("/login", 302+n-1)/*line render.go:22:236*/)
+/*line ../../../../src/pages/redirect.orbit:3:1*/return /*line render.go:21:81*/orbit__rt.ErrorAt("src/pages/redirect.orbit:3:1", /*line ../../../../src/pages/redirect.orbit:3:8*/ctx.Redirect("/login", 302+n-1)/*line render.go:21:236*/)
 }

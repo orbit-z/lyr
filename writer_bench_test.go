@@ -42,6 +42,9 @@ func BenchmarkAttrString(b *testing.B) {
 func BenchmarkAttrURL(b *testing.B) {
 	bench(b, func(w *Writer) { w.AttrURL("href", "/blog/hello-world") })
 }
+func BenchmarkURL(b *testing.B) {
+	bench(b, func(w *Writer) { w.Raw(` href="`); w.URL("/blog/hello-world"); w.Raw(`"`) })
+}
 func BenchmarkExprString(b *testing.B)   { bench(b, func(w *Writer) { w.Expr(benchClean) }) }
 func BenchmarkExprInt(b *testing.B)      { bench(b, func(w *Writer) { w.Expr(42) }) }
 func BenchmarkExprStringer(b *testing.B) { bench(b, func(w *Writer) { w.Expr(time.Second) }) }
