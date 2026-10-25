@@ -1,0 +1,16 @@
+---
+func named() string { return "n" }
+
+v := func() string { return "iife" }()
+
+func() {
+	_ = v
+}()
+
+func (p Props) Method() string { return "m" }
+
+type Props struct{ T string }
+
+f := func(s string) string { return s }
+---
+<p>{named()}{v}{f("x")}{props.Method()}</p>

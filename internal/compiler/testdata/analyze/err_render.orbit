@@ -1,0 +1,9 @@
+---
+func Render() {}
+const (
+	A = 1
+	Render2 = 2
+)
+type Props struct{}
+---
+<p>x</p>

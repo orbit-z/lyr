@@ -1,0 +1,8 @@
+info src/components/props_alias.orbit component route=""
+goimport name="" path="example.com/blog/internal/card" @11-43 "\"example.com/blog/internal/card\"" path=@11-43 place=decl
+implicit orbit: none
+decl type @45-68 place=decl Props@50-55
+  "type Props = card.Props"
+echo []
+terminating false
+props declared=true listable=false span=@50-68

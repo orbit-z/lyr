@@ -1,0 +1,15 @@
+info src/components/example.orbit component route=""
+goimport name="" path="strings" @17-26 "\"strings\"" path=@17-26 place=impl
+goimport name="" path="example.com/blog/internal/posts" @31-64 "\"example.com/blog/internal/posts\"" path=@31-64 place=impl
+orbitimport @69-75 "Layout" path="../layouts/Base.orbit" resolved=src/layouts/Base.orbit @69-99 pathspan=@76-99 place=impl
+orbitimport @156-160 "Card" path="../components/Card.orbit" resolved=src/components/Card.orbit @156-189 pathspan=@163-189 place=impl
+implicit orbit: impl
+decl type @193-227 place=decl Props@198-203
+  "type Props struct { Title string }"
+stmt @262-286 "list, err := posts.All()"
+stmt @341-369 "if err != nil { return err }"
+stmt @370-407 "title := strings.ToUpper(props.Title)"
+echo [list err title]
+terminating false
+props declared=true listable=true span=@198-227
+  field @213-218 "Title" type="string" doc=""

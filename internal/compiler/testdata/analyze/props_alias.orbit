@@ -1,0 +1,6 @@
+---
+import "example.com/blog/internal/card"
+
+type Props = card.Props
+---
+<p>{props.Title}</p>

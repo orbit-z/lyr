@@ -1,0 +1,7 @@
+info src/components/props_named.orbit component route=""
+implicit orbit: none
+decl type @4-32 place=decl Props@9-14
+  "type Props map[string]string"
+echo []
+terminating false
+props declared=true listable=false span=@9-32

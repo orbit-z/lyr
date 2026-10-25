@@ -1,0 +1,1 @@
+src/pages/[post-id]/[postId].orbit:1:1: route params [post-id] and [postId] both become params.PostID; rename one

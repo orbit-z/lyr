@@ -1,0 +1,7 @@
+info src/pages/redeclare.orbit page route="/redeclare"
+implicit orbit: none
+stmt @4-15 "params := 1"
+stmt @16-25 "ctx = nil"
+echo [params]
+terminating false
+props declared=false listable=true span=@0-0

@@ -1,0 +1,23 @@
+---
+type item struct {
+	Name string
+}
+
+type hidden int
+
+const limit = 3
+
+type Props struct {
+	Items []item
+	H     hidden
+	N     [limit]int
+}
+
+func helper(i item) string { return i.Name }
+---
+<ul>
+  {for _, it := range props.Items}
+    <li>{it.Name}{helper(it)}</li>
+  {/for}
+  {len([]item{})}
+</ul>

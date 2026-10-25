@@ -1,0 +1,10 @@
+---
+var cache map[string]string
+
+func init() {
+	cache = map[string]string{}
+}
+
+func (p Props) init() {}
+---
+<p>{len(cache)}</p>

@@ -1,0 +1,5 @@
+info src/components/no_frontmatter.orbit component route=""
+implicit orbit: impl
+echo []
+terminating false
+props declared=false listable=true span=@0-0

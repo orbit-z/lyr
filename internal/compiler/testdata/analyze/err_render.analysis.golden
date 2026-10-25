@@ -1,0 +1,11 @@
+info src/components/err_render.orbit component route=""
+implicit orbit: none
+decl func @4-20 place=impl Render@9-15
+  "func Render() {}"
+decl const @21-50 place=impl A@30-31 Render2@37-44
+  "const (\n\tA = 1\n\tRender2 = 2\n)"
+decl type @51-70 place=decl Props@56-61
+  "type Props struct{}"
+echo []
+terminating false
+props declared=true listable=true span=@56-70

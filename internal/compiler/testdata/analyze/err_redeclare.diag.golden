@@ -1,0 +1,5 @@
+src/components/err_redeclare.orbit:2:1: props is provided by Orbit and can't be redeclared here
+src/components/err_redeclare.orbit:3:5: ctx is provided by Orbit and can't be redeclared here
+src/components/err_redeclare.orbit:4:4: slots is provided by Orbit and can't be redeclared here
+src/components/err_redeclare.orbit:6:2: locals is provided by Orbit and can't be redeclared here
+src/components/err_redeclare.orbit:8:1: orbit is provided by Orbit and can't be redeclared here

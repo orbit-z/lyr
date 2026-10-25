@@ -1,0 +1,6 @@
+info src/pages/[post-id]/[postId].orbit page route="/[post-id]/[postId]"
+implicit orbit: none
+echo []
+terminating false
+props declared=false listable=true span=@0-0
+param PostID [post-id] rest=false

@@ -1,0 +1,5 @@
+info src/pages/[1st]/[é].orbit page route="/[1st]/[é]"
+implicit orbit: none
+echo []
+terminating false
+props declared=false listable=true span=@0-0

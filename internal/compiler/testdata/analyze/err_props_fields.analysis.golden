@@ -1,0 +1,16 @@
+info src/components/err_props_fields.orbit component route=""
+goimport name="" path="time" @11-17 "\"time\"" path=@11-17 place=decl
+implicit orbit: none
+decl type @19-48 place=decl Base@24-28
+  "type Base struct{ ID string }"
+decl type @50-221 place=decl Props@55-60
+  "type Props struct {\n\tBase\n\t// Title is the heading.\n\tTitle s…"
+echo []
+terminating false
+props declared=true listable=false span=@55-221
+  field @103-108 "Title" type="string" doc="Title is the heading.\nshown in <h1>\n"
+  field @150-156 "IsOpen" type="bool" doc="Only a doc.\n"
+  field @164-171 "Is_Open" type="bool" doc=""
+  field @178-183 "count" type="int" doc=""
+  field @191-195 "When" type="time.Time" doc=""
+  field @197-202 "Until" type="time.Time" doc=""

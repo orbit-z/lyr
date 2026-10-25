@@ -1,0 +1,15 @@
+info src/components/iife.orbit component route=""
+implicit orbit: none
+decl func @4-38 place=impl named@9-14
+  "func named() string { return \"n\" }"
+decl func @101-146 place=decl recv=Props
+  "func (p Props) Method() string { return \"m\" }"
+decl type @148-177 place=decl Props@153-158
+  "type Props struct{ T string }"
+stmt @40-78 "v := func() string { return \"iife\" }()"
+stmt @80-99 "func() {\n\t_ = v\n}()"
+stmt @179-218 "f := func(s string) string { return s }"
+echo [v f]
+terminating false
+props declared=true listable=true span=@153-177
+  field @167-168 "T" type="string" doc=""

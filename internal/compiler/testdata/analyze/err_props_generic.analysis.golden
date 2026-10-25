@@ -1,0 +1,8 @@
+info src/components/err_props_generic.orbit component route=""
+implicit orbit: none
+decl type @4-43 place=decl Props@9-14
+  "type Props[T any] struct {\n\tItems []T\n}"
+echo []
+terminating false
+props declared=true listable=false span=@9-43
+  field @32-37 "Items" type="[]T" doc=""

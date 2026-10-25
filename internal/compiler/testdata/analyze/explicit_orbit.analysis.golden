@@ -1,0 +1,9 @@
+info src/components/explicit_orbit.orbit component route=""
+goimport name="orbit" path="github.com/bertrandkhe/orbit" @11-47 "orbit \"github.com/bertrandkhe/orbit\"" path=@17-47 place=decl
+implicit orbit: none
+decl type @49-85 place=decl Props@54-59
+  "type Props struct{ Body orbit.HTML }"
+echo []
+terminating false
+props declared=true listable=true span=@54-85
+  field @68-72 "Body" type="orbit.HTML" doc=""

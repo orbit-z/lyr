@@ -1,0 +1,6 @@
+---
+type Props[T any] struct {
+	Items []T
+}
+---
+<p>x</p>

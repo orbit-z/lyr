@@ -1,0 +1,7 @@
+info src/components/err_terminating.orbit component route=""
+implicit orbit: impl
+stmt @4-42 "user := ctx.Request.Header.Get(\"User\")"
+stmt @43-131 "if user == \"\" {\n\treturn ctx.Redirect(\"/login\", 302)\n} else {…"
+echo [user]
+terminating true
+props declared=false listable=true span=@0-0
