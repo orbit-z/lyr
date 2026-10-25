@@ -86,12 +86,78 @@ func writeIfChanged(name string, content []byte) (bool, error) {
 	return true, nil
 }
 
+// DiffGenerated reports what WriteGenerated(root, files) would change,
+// without writing anything: the files whose content differs or that are
+// missing (Written), and the stale generated files it would remove
+// (Removed). orbit doctor uses it to tell whether orbit_gen/ is fresh.
+func DiffGenerated(root string, files []GenFile) (*WriteResult, error) {
+	res := &WriteResult{}
+	keep := map[string]bool{}
+	for _, f := range files {
+		keep[f.Path] = true
+		old, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(f.Path)))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
+		if err != nil || !bytes.Equal(old, f.Content) {
+			res.Written = append(res.Written, f.Path)
+		}
+	}
+	stale, err := staleFiles(root, keep)
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range stale {
+		rel, _ := filepath.Rel(root, s)
+		res.Removed = append(res.Removed, filepath.ToSlash(rel))
+	}
+	slices.Sort(res.Written)
+	slices.Sort(res.Removed)
+	return res, nil
+}
+
 // removeStale deletes the marked files under root/orbit_gen that aren't in
 // keep, then the directories that became empty.
 func removeStale(root string, keep map[string]bool) ([]string, error) {
 	gen := filepath.Join(root, compiler.GenDir)
+	stale, err := staleFiles(root, keep)
+	if err != nil {
+		return nil, err
+	}
 	var removed []string
 	dirs := map[string]bool{}
+	for _, p := range stale {
+		if err := os.Remove(p); err != nil {
+			return nil, err
+		}
+		rel, _ := filepath.Rel(root, p)
+		removed = append(removed, filepath.ToSlash(rel))
+		dirs[filepath.Dir(p)] = true
+	}
+	// Remove emptied directories, deepest first, up to (not including)
+	// orbit_gen itself.
+	list := make([]string, 0, len(dirs))
+	for d := range dirs {
+		list = append(list, d)
+	}
+	slices.SortFunc(list, func(a, b string) int { return len(b) - len(a) })
+	for _, d := range list {
+		for d != gen && strings.HasPrefix(d, gen) {
+			if os.Remove(d) != nil { // not empty (or already gone)
+				break
+			}
+			d = filepath.Dir(d)
+		}
+	}
+	slices.Sort(removed)
+	return removed, nil
+}
+
+// staleFiles returns the absolute paths of the marked files under
+// root/orbit_gen (outside orbit_gen/static) that aren't in keep.
+func staleFiles(root string, keep map[string]bool) ([]string, error) {
+	gen := filepath.Join(root, compiler.GenDir)
+	var stale []string
 	err := filepath.WalkDir(gen, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) && p == gen {
@@ -117,33 +183,10 @@ func removeStale(root string, keep map[string]bool) ([]string, error) {
 		if err != nil || !marked {
 			return err
 		}
-		if err := os.Remove(p); err != nil {
-			return err
-		}
-		removed = append(removed, rel)
-		dirs[filepath.Dir(p)] = true
+		stale = append(stale, p)
 		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
-	// Remove emptied directories, deepest first, up to (not including)
-	// orbit_gen itself.
-	list := make([]string, 0, len(dirs))
-	for d := range dirs {
-		list = append(list, d)
-	}
-	slices.SortFunc(list, func(a, b string) int { return len(b) - len(a) })
-	for _, d := range list {
-		for d != gen && strings.HasPrefix(d, gen) {
-			if os.Remove(d) != nil { // not empty (or already gone)
-				break
-			}
-			d = filepath.Dir(d)
-		}
-	}
-	slices.Sort(removed)
-	return removed, nil
+	return stale, err
 }
 
 // hasMarker reports whether the file starts with the generated-code marker

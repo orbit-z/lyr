@@ -72,6 +72,13 @@ func detectLocals(root, module string) (string, []Diagnostic) {
 	return module + "/" + LocalsDir, nil
 }
 
+// CheckLocals returns the problems with src/locals that Load finds (and
+// Front reports): orbit doctor's config check runs it on its own.
+func CheckLocals(root, module string) []Diagnostic {
+	_, ds := detectLocals(root, module)
+	return ds
+}
+
 type parsedGo struct {
 	name string // file name
 	f    *ast.File

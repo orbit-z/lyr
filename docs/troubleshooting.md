@@ -14,10 +14,13 @@ It prints one line per check: ✓ passed, ⚠ warning, ✗ a problem that blocks
 
 ```
 ✓ go: go1.27.3 (go.mod: go 1.27, toolchain go1.27.3)
+✓ cli: orbit v0.1.0 hands commands to the pinned go tool orbit (v0.1.0)
 ✓ gopls: v0.24.0, built with go1.27.3
 ⚠ bun: not found (1.4.4 or later needed); orbit check will skip TypeScript type checking
     fix: curl -fsSL https://bun.sh/install | bash
 ✓ orbit_gen: up to date
+✓ gitignore: covers orbit_gen/, .orbit/ and dist/
+✓ config: no orbit.json (defaults); server ./cmd/server
 ```
 
 | Check | What it verifies |
@@ -70,6 +73,10 @@ go get toolchain@go1.27.3
 See [Why `go.mod` has a `toolchain` line](getting-started.md#why-gomod-has-a-toolchain-line).
 
 ### The global `orbit` stops with a version-mismatch error
+
+```
+orbit: version mismatch: this orbit is v0.2.0, but go.mod requires github.com/bertrandkhe/orbit v0.1.0; pin the CLI with go get -tool github.com/bertrandkhe/orbit/cmd/orbit@v0.1.0, then run go tool orbit (see orbit doctor)
+```
 
 **Cause:** your project has no `tool github.com/bertrandkhe/orbit/cmd/orbit` directive in `go.mod`, and your globally installed `orbit` has a different version than the `github.com/bertrandkhe/orbit` requirement. The generated code must match the runtime it runs against, so the CLI stops and points you to `orbit doctor`.
 

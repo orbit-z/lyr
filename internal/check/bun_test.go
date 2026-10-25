@@ -59,7 +59,7 @@ func TestFindBun(t *testing.T) {
 	}
 	t.Setenv("PATH", t.TempDir())
 	_, notice = findBun(ctx, "")
-	if !strings.Contains(notice, "bun not found") || !strings.Contains(notice, installBun) {
+	if !strings.Contains(notice, "bun not found") || !strings.Contains(notice, InstallBun) {
 		t.Errorf("missing bun notice %q", notice)
 	}
 }

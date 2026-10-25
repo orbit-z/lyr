@@ -14,8 +14,8 @@ var MinBun = Version{1, 4, 4}
 
 // Commands named in the skip notice (docs/troubleshooting.md).
 const (
-	installBun = "curl -fsSL https://bun.sh/install | bash"
-	upgradeBun = "bun upgrade"
+	InstallBun = "curl -fsSL https://bun.sh/install | bash"
+	UpgradeBun = "bun upgrade"
 )
 
 // Version is a major.minor.patch version.
@@ -68,17 +68,17 @@ func findBun(ctx context.Context, bun string) (path, notice string) {
 	if bun == "" {
 		p, err := exec.LookPath("bun")
 		if err != nil {
-			return "", fmt.Sprintf("orbit check: skipping TypeScript type checking: bun not found (%s or later needed); install it with: %s", MinBun, installBun)
+			return "", fmt.Sprintf("orbit check: skipping TypeScript type checking: bun not found (%s or later needed); install it with: %s", MinBun, InstallBun)
 		}
 		bun = p
 	}
 	out, err := exec.CommandContext(ctx, bun, "--version").Output()
 	v, ok := ParseBunVersion(string(bytes.TrimSpace(out)))
 	if err != nil || !ok {
-		return "", fmt.Sprintf("orbit check: skipping TypeScript type checking: can't read the version of %s (%s or later needed); reinstall it with: %s", bun, MinBun, installBun)
+		return "", fmt.Sprintf("orbit check: skipping TypeScript type checking: can't read the version of %s (%s or later needed); reinstall it with: %s", bun, MinBun, InstallBun)
 	}
 	if v.Less(MinBun) {
-		return "", fmt.Sprintf("orbit check: skipping TypeScript type checking: bun %s is older than %s; upgrade it with: %s", v, MinBun, upgradeBun)
+		return "", fmt.Sprintf("orbit check: skipping TypeScript type checking: bun %s is older than %s; upgrade it with: %s", v, MinBun, UpgradeBun)
 	}
 	return bun, ""
 }

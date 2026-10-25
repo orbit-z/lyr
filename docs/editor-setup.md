@@ -14,10 +14,13 @@ Among other things, it checks the gopls that `orbit lsp` will use. Its output lo
 
 ```
 ✓ go: go1.27.3 (go.mod: go 1.27, toolchain go1.27.3)
+✓ cli: orbit v0.1.0 hands commands to the pinned go tool orbit (v0.1.0)
 ✓ gopls: v0.24.0, built with go1.27.3
 ⚠ bun: not found (1.4.4 or later needed); orbit check will skip TypeScript type checking
     fix: curl -fsSL https://bun.sh/install | bash
 ✓ orbit_gen: up to date
+✓ gitignore: covers orbit_gen/, .orbit/ and dist/
+✓ config: no orbit.json (defaults); server ./cmd/server
 ```
 
 For gopls you'll see:
