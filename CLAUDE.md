@@ -140,6 +140,7 @@ When independent tasks can run in parallel, launch them in **one message**. If p
   - After the MVP: a **typed bridge** (`orbit.JSON`, `orbit:client` `data<T>(el)`, TS types generated from Go).
 - **Go**: latest stable, currently **1.27.3** (`go 1.27`, `toolchain go1.27.3`).
 - **Name**: Orbit (module `github.com/bertrandkhe/orbit`).
+- **License**: MIT (`LICENSE` at the repo root; milestone 12 checkpoint).
 
 ## Conventions
 - **Go**: 1.27. Code must be `gofmt`-clean and pass `go vet`. Use only the standard library plus the dependencies listed in `PLAN.md` §10; ask before adding a new one. Pin versions at least two weeks old.
