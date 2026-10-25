@@ -26,6 +26,9 @@ type Site struct {
 	dev    bool     // ORBIT_DEV=1
 	assets fileSet  // /_orbit/* files
 	public fileSet  // public/ files
+	// devAssets, in dev with ORBIT_STATIC set, gives the page assets from
+	// $ORBIT_STATIC/manifest.json; nil in production.
+	devAssets *devManifest
 }
 
 // Option configures a Site. Pass options to app.New().
@@ -46,7 +49,8 @@ type Island struct {
 // NewSite is called by the generated orbit_gen/app.New(). It compiles the
 // routes and panics if they're invalid; orbit build reports the same errors
 // at build time. It reads the environment once: ORBIT_DEV, ORBIT_STATIC and,
-// in dev, ORBIT_PUBLIC.
+// in dev, ORBIT_PUBLIC. In dev, page assets come from
+// $ORBIT_STATIC/manifest.json when it exists (orbit dev writes it).
 func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 	rt, err := newRouter(routes)
 	if err != nil {
@@ -66,6 +70,9 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 	if s.dev {
 		if dir := os.Getenv("ORBIT_PUBLIC"); dir != "" {
 			s.public = newDirFiles(dir, true)
+		}
+		if dir := os.Getenv("ORBIT_STATIC"); dir != "" {
+			s.devAssets = newDevManifest(dir)
 		}
 	}
 	return s
@@ -189,8 +196,12 @@ func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *
 		releaseCtx(c)
 		return
 	}
-	if len(route.Assets) > 0 {
-		injectHead(buf, wr.headOffset(), route.Assets)
+	assets := route.Assets
+	if s.devAssets != nil {
+		assets = s.devAssets.assets(route)
+	}
+	if len(assets) > 0 {
+		injectHead(buf, wr.headOffset(), assets)
 	}
 	wr.reset(nil)
 	writerPool.Put(wr)

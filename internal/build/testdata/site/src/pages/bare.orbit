@@ -1,0 +1,6 @@
+<!DOCTYPE html>
+<p class="bare">bare page</p>
+
+<style>
+  .bare { color: red; }
+</style>

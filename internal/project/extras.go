@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -101,8 +102,9 @@ func (p *Project) appGo() []byte {
 	return gofmt(b.Bytes())
 }
 
-// manifestGo generates orbit_gen/manifest/manifest.go. Milestone 6 fills it
-// with each page's bundled assets; until then it is empty.
+// manifestGo generates orbit_gen/manifest/manifest.go: each page's bundled
+// assets (p.Assets), in <head> order. Pages without assets aren't listed;
+// app.go's manifest.Pages[file] then gives nil.
 func (p *Project) manifestGo() []byte {
 	var b bytes.Buffer
 	b.WriteString(compiler.GenHeader + "\n\n")
@@ -110,7 +112,30 @@ func (p *Project) manifestGo() []byte {
 	b.WriteString("package manifest\n\n")
 	fmt.Fprintf(&b, "import orbit %q\n\n", compiler.RuntimePath)
 	b.WriteString("// Pages maps a page's .orbit path to its CSS and JS assets.\n")
-	b.WriteString("var Pages = map[string][]orbit.Asset{}\n")
+	var pages []string
+	if p.Assets != nil {
+		for page := range p.Assets.Pages {
+			pages = append(pages, page)
+		}
+	}
+	if len(pages) == 0 {
+		b.WriteString("var Pages = map[string][]orbit.Asset{}\n")
+		return gofmt(b.Bytes())
+	}
+	slices.Sort(pages)
+	b.WriteString("var Pages = map[string][]orbit.Asset{\n")
+	for _, page := range pages {
+		fmt.Fprintf(&b, "\t%s: {\n", strconv.Quote(page))
+		for _, a := range p.Assets.Pages[page] {
+			if a.ID != "" {
+				fmt.Fprintf(&b, "\t\t{Kind: %s, URL: %s, ID: %s},\n", strconv.Quote(a.Kind), strconv.Quote(a.URL), strconv.Quote(a.ID))
+			} else {
+				fmt.Fprintf(&b, "\t\t{Kind: %s, URL: %s},\n", strconv.Quote(a.Kind), strconv.Quote(a.URL))
+			}
+		}
+		b.WriteString("\t},\n")
+	}
+	b.WriteString("}\n")
 	return gofmt(b.Bytes())
 }
 

@@ -2,5 +2,17 @@
 type Props struct{ Title string }
 ---
 <!DOCTYPE html>
-<html><head><title>{props.Title}</title></head>
+<html><head><title>{props.Title}</title>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite"}</script>
+<script is:inline>window.inlineRan = 1;</script>
+</head>
 <body><slot /></body></html>
+
+<style>
+  body > p { padding: 1rem; }
+  .site { color: navy; }
+</style>
+
+<style is:global>
+  .card { border: 1px solid gray; }
+</style>

@@ -34,7 +34,7 @@ To deploy, copy the binary and the directory together:
 rsync -a dist/server dist/client deploy@example.com:/srv/blog/
 ```
 
-Files under `/_orbit/` have content hashes in their names and are served with `Cache-Control: public, max-age=31536000, immutable`, so a CDN in front of the server can cache them indefinitely. You can also upload `dist/client/` to a CDN directly. Pages and [`server:defer`](lazy-loading.md) island responses are rendered per request; islands default to `Cache-Control: private, no-store`, so shared caches don't store them.
+Files under `/_orbit/` have content hashes in their names and are served with `Cache-Control: public, max-age=31536000, immutable`, so a CDN in front of the server can cache them indefinitely. You can also upload `dist/client/` to a CDN directly. With [`"sourcemap": true`](configuration.md#sourcemap), `dist/client/_orbit/` also holds a `.map` file per bundle; nothing links to them, but they're served like the bundles if someone asks for their URL, so delete them before deploying if your sources are private. Pages and [`server:defer`](lazy-loading.md) island responses are rendered per request; islands default to `Cache-Control: private, no-store`, so shared caches don't store them.
 
 ### How static files are served
 

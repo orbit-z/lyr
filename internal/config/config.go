@@ -36,6 +36,9 @@ type Config struct {
 	Embed bool
 	// CompressHTML is "compressHTML" ("html" by default; true means "html").
 	CompressHTML compiler.Compression
+	// Sourcemap is "sourcemap": true: orbit build writes external source
+	// maps next to the bundles, not linked from them (PLAN.md §5).
+	Sourcemap bool
 }
 
 // Load reads dir/orbit.json. A missing file gives the defaults.
@@ -59,6 +62,7 @@ func Parse(data []byte) (*Config, error) {
 		Server       json.RawMessage `json:"server"`
 		Embed        json.RawMessage `json:"embed"`
 		CompressHTML json.RawMessage `json:"compressHTML"`
+		Sourcemap    json.RawMessage `json:"sourcemap"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		var syn *json.SyntaxError
@@ -95,6 +99,11 @@ func Parse(data []byte) (*Config, error) {
 	if isSet(raw.Embed) {
 		if json.Unmarshal(raw.Embed, &c.Embed) != nil {
 			return nil, fmt.Errorf("%s: embed must be true or false", FileName)
+		}
+	}
+	if isSet(raw.Sourcemap) {
+		if json.Unmarshal(raw.Sourcemap, &c.Sourcemap) != nil {
+			return nil, fmt.Errorf("%s: sourcemap must be true or false", FileName)
 		}
 	}
 	if isSet(raw.CompressHTML) {

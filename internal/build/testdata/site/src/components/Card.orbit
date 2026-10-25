@@ -5,3 +5,12 @@ type Props struct {
 }
 ---
 <article class="card"><h2>{props.Title}</h2><p>count={props.Count}</p><slot /></article>
+
+<script>
+  import { label } from "../scripts/util";
+
+  const cards: NodeListOf<HTMLElement> = document.querySelectorAll("article.card");
+  for (const el of cards) {
+    el.title = label("card", el.childElementCount as number);
+  }
+</script>

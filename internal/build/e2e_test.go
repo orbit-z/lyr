@@ -138,6 +138,7 @@ func checkSite(t *testing.T, s *server, userServer bool) {
 			t.Errorf("GET %s: Content-Length %q, body is %d bytes", tt.path, cl, len(body))
 		}
 	}
+	checkAssets(t, s)
 	if resp, _ := s.get("/blog/teapot"); resp.Header.Get("X-Fixture") != "teapot" {
 		t.Errorf("GET /blog/teapot: X-Fixture %q", resp.Header.Get("X-Fixture"))
 	}
@@ -149,6 +150,125 @@ func checkSite(t *testing.T, s *server, userServer bool) {
 	}
 	if n := strings.Count(s.stderr.String(), "/blog/boom"); n != 1 {
 		t.Errorf("server stderr mentions /blog/boom %d times, want 1:\n%s", n, s.stderr)
+	}
+}
+
+var (
+	cssLink  = regexp.MustCompile(`<link rel="stylesheet" href="(/_orbit/[A-Za-z0-9_-]+-[A-Z0-9]{8}\.css)">`)
+	jsScript = regexp.MustCompile(`<script type="module" src="(/_orbit/[A-Za-z0-9_-]+-[A-Z0-9]{8}\.js)"></script>`)
+)
+
+// checkAssets checks the bundles end to end (PLAN.md §5): head injection,
+// immutable caching, TypeScript stripped, scoped CSS, untouched unprocessed
+// scripts, no module script on pages without scripts.
+func checkAssets(t *testing.T, s *server) {
+	t.Helper()
+	_, home := s.get("/")
+	css, js := cssLink.FindStringSubmatch(home), jsScript.FindStringSubmatch(home)
+	if css == nil || js == nil {
+		t.Fatalf("GET /: no hashed stylesheet and module:\n%s", home)
+	}
+	head := home[:strings.Index(home, "</head>")]
+	if !strings.HasPrefix(home, "<!DOCTYPE html>") || !strings.Contains(head, css[0]+js[0]) {
+		t.Errorf("GET /: the assets aren't in <head>, stylesheet first:\n%s", home)
+	}
+	for _, want := range []string{
+		`<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite"}</script>`,
+		`<script>window.inlineRan = 1;</script>`,
+	} {
+		if !strings.Contains(home, want) {
+			t.Errorf("GET /: lacks the unprocessed script %s:\n%s", want, home)
+		}
+	}
+	bodies := map[string]string{}
+	for _, url := range []string{css[1], js[1]} {
+		resp, body := s.get(url)
+		if resp.StatusCode != 200 || resp.Header.Get("Cache-Control") != "public, max-age=31536000, immutable" {
+			t.Errorf("GET %s: %d, Cache-Control %q", url, resp.StatusCode, resp.Header.Get("Cache-Control"))
+		}
+		bodies[url] = body
+	}
+	if b := bodies[js[1]]; !strings.Contains(b, "querySelectorAll") || strings.Contains(b, "NodeListOf") || strings.Contains(b, ": string") || strings.Contains(b, " as number") {
+		t.Errorf("JS bundle isn't stripped TypeScript:\n%s", b)
+	}
+	scope := regexp.MustCompile(`\.site:where\(\[data-o-[0-9a-f]{8}\]\)\{color:navy\}`)
+	if b := bodies[css[1]]; !scope.MatchString(b) || !strings.Contains(b, ".card{border:1px solid gray}") {
+		t.Errorf("CSS bundle lacks the scoped and the global style:\n%s", b)
+	}
+
+	// Styles only: a stylesheet, no module script.
+	_, post := s.get("/blog/hello")
+	if !cssLink.MatchString(post) || strings.Contains(post, `<script type="module"`) {
+		t.Errorf("GET /blog/hello: want a stylesheet and no module:\n%s", post)
+	}
+	// No </head>: the stylesheet goes right after the doctype.
+	_, bare := s.get("/bare")
+	if m := cssLink.FindString(bare); m == "" || !strings.HasPrefix(bare, "<!DOCTYPE html>"+m) {
+		t.Errorf("GET /bare: the stylesheet isn't right after the doctype:\n%s", bare)
+	}
+	_, search := s.get("/search?q=x")
+	if strings.Contains(search, "<link") || strings.Contains(search, "<script") {
+		t.Errorf("GET /search: a page without assets got tags:\n%s", search)
+	}
+}
+
+// TestBuildSourcemap checks "sourcemap": true: external .map files next to
+// the bundles, not linked from them, with .orbit sources.
+func TestBuildSourcemap(t *testing.T) {
+	needE2E(t)
+	t.Parallel()
+	dir := fixture(t, false)
+	writeFile(t, dir, "orbit.json", `{"site": "https://fixture.example.com", "sourcemap": true}`)
+	if code, out := runOrbit(t, dir, "build"); code != 0 || out != "" {
+		t.Fatalf("orbit build: exit %d\n%s", code, out)
+	}
+	entries, err := os.ReadDir(filepath.Join(dir, "dist/client/_orbit"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	maps := 0
+	for _, e := range entries {
+		name := e.Name()
+		data, err := os.ReadFile(filepath.Join(dir, "dist/client/_orbit", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		switch {
+		case strings.HasSuffix(name, ".map"):
+			maps++
+			if !strings.Contains(string(data), `"/src/`) || !strings.Contains(string(data), ".orbit") {
+				t.Errorf("%s has no .orbit source:\n%s", name, data)
+			}
+		case strings.Contains(string(data), "sourceMappingURL"):
+			t.Errorf("%s links its source map", name)
+		}
+		if !strings.HasSuffix(name, ".map") && !exists(filepath.Join(dir, "dist/client/_orbit", name+".map")) {
+			t.Errorf("%s has no .map", name)
+		}
+	}
+	if maps == 0 {
+		t.Errorf("no .map files in %v", entries)
+	}
+}
+
+// TestBuildAssetError checks that an esbuild error fails orbit build at
+// its .orbit position.
+func TestBuildAssetError(t *testing.T) {
+	needE2E(t)
+	t.Parallel()
+	dir := fixture(t, false)
+	card := filepath.Join(dir, "src/components/Card.orbit")
+	src, err := os.ReadFile(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, dir, "src/components/Card.orbit", strings.Replace(string(src), `from "../scripts/util"`, `from "../scripts/nope"`, 1))
+	code, out := runOrbit(t, dir, "build")
+	if want := `src/components/Card.orbit:10:25: Could not resolve "../scripts/nope"` + "\n"; code != 1 || out != want {
+		t.Errorf("orbit build: exit %d\n%s\nwant exit 1\n%s", code, out, want)
+	}
+	if exists(filepath.Join(dir, "dist/server")) || exists(filepath.Join(dir, "orbit_gen")) {
+		t.Errorf("a failed build wrote dist/server or orbit_gen")
 	}
 }
 

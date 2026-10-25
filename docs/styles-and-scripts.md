@@ -203,6 +203,8 @@ The bundle is built by esbuild, which runs inside the `orbit` CLI (no Node.js ne
 
 A page whose bundle has no scripts gets no JS file and no `<script>` tag. A page that uses `server:defer` or `client:*` also gets a small inline loader script in its `<head>`; see [Lazy loading](lazy-loading.md).
 
+Files that your CSS or scripts reference by URL, such as fonts and images in `url(…)` (`.woff`, `.woff2`, `.ttf`, `.otf`, `.eot`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.avif`, `.ico`, `.bmp`), are copied to `/_orbit/` with a hashed name, and the reference is rewritten to that URL. A relative `url(…)` in a `<style>` resolves from the `.orbit` file's directory.
+
 Files under `/_orbit/` are served with `Cache-Control: public, max-age=31536000, immutable`, since a change produces a new name.
 
 Each page's bundle is self-contained: code shared by several pages is repeated in each bundle. Splitting shared code into common chunks is not yet supported.
@@ -449,7 +451,7 @@ Scripts with `is:inline`, and any other unprocessed script, aren't compiled: wri
 
 ### `tsconfig.json`
 
-esbuild reads the `tsconfig.json` nearest to each `.orbit` file (and to each imported `.ts` file) and honors its `paths`, `target` and `jsx` settings. `orbit new` scaffolds:
+esbuild reads the `tsconfig.json` nearest to each `.orbit` file (and to each imported `.ts` file) and honors its `paths`, `baseUrl` and `jsx` settings. Its `target` only decides how class fields are compiled (as esbuild does): the bundles are written for modern browsers (`esnext`). `orbit new` scaffolds:
 
 - `tsconfig.json`, modeled on Astro's `strict` preset;
 - `src/env.d.ts`, an empty place for your own global type declarations.
@@ -511,6 +513,12 @@ src/components/Total.orbit:4:9: error TS2322: Type 'string | null' is not assign
 ```
 
 **Bun 1.4.4 or later is required** for the TypeScript half. Without Bun, or with an older one, `orbit check` skips the TypeScript half, prints a notice with the command to install or upgrade Bun (`bun upgrade`), and still runs the Go checks. Its exit code then reflects the Go checks only. `orbit doctor` reports a missing or old Bun as a warning, never as an error, since nothing else in Orbit needs it.
+
+## Source maps
+
+In `orbit dev`, every CSS and JS bundle has a linked source map, so the browser's dev tools show your `.orbit` files, at the line and column where you wrote the code, and your `.ts` files. A breakpoint set in `src/components/Counter.orbit` stops in the bundled code for it.
+
+Production builds have no source maps unless you set [`"sourcemap": true`](configuration.md#sourcemap) in `orbit.json`; the maps are then written next to the bundles but not linked from them. In a scoped style, the inserted `:where(…)` shifts the columns after it on the same line, so a CSS position can be a few columns off; lines are always right.
 
 ## Styles and scripts in `orbit dev`
 

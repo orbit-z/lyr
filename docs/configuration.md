@@ -31,6 +31,7 @@ orbit: orbit.json:3:1: invalid character '}' looking for beginning of object key
 | [`server`](#server) | string | `"./cmd/server"` if it exists, else a generated entry | The Go package of your server's `main`. |
 | [`embed`](#embed) | bool | `false` | Embed the static files in the server binary, like `orbit build --embed`. |
 | [`compressHTML`](#compresshtml) | `"html"` (or `true`), `"jsx"` or `false` | `"html"` | How template whitespace is compressed. |
+| [`sourcemap`](#sourcemap) | bool | `false` | Write source maps for the production CSS and JS bundles. |
 
 ## `site`
 
@@ -82,6 +83,18 @@ Builds a single, self-contained server binary with the `/_orbit/` assets and `pu
 ```
 
 It's the same as passing `--embed` to `orbit build`; the flag turns embedding on even when `embed` is `false`. `dist/client/` is still written, so you can also upload it to a CDN. See [Deploy](deploy.md#single-binary---embed).
+
+## `sourcemap`
+
+Makes `orbit build` write a source map next to each CSS and JS bundle in `dist/client/_orbit/` (`index-5RXDJ3BM.js.map` next to `index-5RXDJ3BM.js`):
+
+```json
+{ "sourcemap": true }
+```
+
+The maps aren't linked from the bundles (there's no `sourceMappingURL` comment), so browsers don't download them. Upload them to your error tracker, or serve them yourself if you want them in the browser's dev tools. Their sources are paths from your project root, such as `/src/components/Card.orbit` and `/src/scripts/util.ts`, and positions point at the line and column of the `.orbit` file itself, not at the extracted `<script>` or `<style>`. Each map includes the source text, so a public map exposes your component sources.
+
+In `orbit dev`, source maps are always on and linked, whatever this key says. Any value other than `true`, `false` or `null` is an error: `orbit.json: sourcemap must be true or false`.
 
 ## `compressHTML`
 
