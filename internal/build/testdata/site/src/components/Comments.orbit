@@ -1,0 +1,9 @@
+---
+import "time"
+
+type Props struct {
+	PostID int
+	Since  time.Time
+}
+---
+<section class="comments">Comments for {props.PostID} since {props.Since.Year()}</section>

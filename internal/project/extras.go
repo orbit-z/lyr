@@ -61,6 +61,11 @@ func pageAlias(pkg compiler.GenPackage) string {
 	return strings.ReplaceAll(strings.ReplaceAll(pkg.Rel, "_", "__"), "/", "_")
 }
 
+// islandAlias is the import name of an island's decl package in app.go:
+// "island_" plus its pageAlias, so it never clashes with a page alias,
+// orbit or manifest.
+func islandAlias(pkg compiler.GenPackage) string { return "island_" + pageAlias(pkg) }
+
 // appGo generates orbit_gen/app/app.go: the route table, the imports that
 // link every implementation package, and New (PLAN.md §3.1, §3.2).
 func (p *Project) appGo() []byte {
@@ -83,6 +88,13 @@ func (p *Project) appGo() []byte {
 			fmt.Fprintf(&b, "\t%s %q\n", pageAlias(f.Pkg), f.Pkg.DeclImportPath(p.Module))
 		}
 	}
+	islands := p.Islands()
+	if len(islands) > 0 {
+		b.WriteString("\n")
+		for _, f := range islands {
+			fmt.Fprintf(&b, "\t%s %q\n", islandAlias(f.Pkg), f.Pkg.DeclImportPath(p.Module))
+		}
+	}
 	if len(p.Files) > 0 {
 		b.WriteString("\n")
 		for _, f := range p.Files {
@@ -102,7 +114,7 @@ func (p *Project) appGo() []byte {
 		b.WriteString("\tvar defaults []orbit.Option\n")
 	}
 	b.WriteString("\tdefaults = append(defaults, embedded...)\n")
-	b.WriteString("\treturn orbit.NewSite(routes(), nil, append(defaults, opts...)...)\n}\n\n")
+	b.WriteString("\treturn orbit.NewSite(routes(), islands(), append(defaults, opts...)...)\n}\n\n")
 	b.WriteString("// routes returns a fresh route table, sorted by file.\n")
 	b.WriteString("func routes() []orbit.Route {\n\treturn []orbit.Route{\n")
 	for _, f := range pages {
@@ -112,9 +124,25 @@ func (p *Project) appGo() []byte {
 		fmt.Fprintf(&b, "\t\t\tFile: %s,\n", strconv.Quote(f.Path))
 		fmt.Fprintf(&b, "\t\t\tRender: func(c *orbit.Ctx, w *orbit.Writer) error {\n\t\t\t\treturn %s.Render(c, w, %s.Props{}, orbit.Slots{})\n\t\t\t},\n", a, a)
 		fmt.Fprintf(&b, "\t\t\tAssets: manifest.Pages[%s],\n", strconv.Quote(f.Path))
+		if p.HasIslands(f) {
+			b.WriteString("\t\t\tIslands: true,\n")
+		}
 		b.WriteString("\t\t},\n")
 	}
-	b.WriteString("\t}\n}\n")
+	b.WriteString("\t}\n}\n\n")
+	b.WriteString("// islands returns the island table: every component used with server:defer,\n")
+	b.WriteString("// sorted by file (PLAN.md §3.4). Only these can be rendered by URL.\n")
+	b.WriteString("func islands() []orbit.Island {\n")
+	if len(islands) == 0 {
+		b.WriteString("\treturn nil\n}\n")
+	} else {
+		b.WriteString("\treturn []orbit.Island{\n")
+		for _, f := range islands {
+			fmt.Fprintf(&b, "\t\torbit.NewIsland(%s, %s, %s.Render),\n",
+				strconv.Quote(compiler.ComponentID(f.Path)), strconv.Quote(f.Path), islandAlias(f.Pkg))
+		}
+		b.WriteString("\t}\n}\n")
+	}
 	return gofmt(b.Bytes())
 }
 

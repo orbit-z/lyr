@@ -52,6 +52,7 @@ func TestE2E(t *testing.T) {
 
 			s := start(t, dir, filepath.Join(dir, "dist/server"))
 			checkSite(t, s, userServer)
+			checkLazy(t, s, dir)
 			if code := s.stop(); code != 0 {
 				t.Errorf("dist/server: exit %d after SIGINT\n%s", code, s.stderr)
 			}
@@ -147,7 +148,7 @@ func checkSite(t *testing.T, s *server, userServer bool) {
 	}
 
 	// One log line for the panic, at the panicking .orbit line.
-	panicLine := regexp.MustCompile(`(?m)^.*orbit: GET /blog/boom: src/pages/blog/\[slug\]\.orbit:14: panic: kaboom$`)
+	panicLine := regexp.MustCompile(`(?m)^.*orbit: GET /blog/boom: src/pages/blog/\[slug\]\.orbit:17: panic: kaboom$`)
 	if n := len(panicLine.FindAllString(s.stderr.String(), -1)); n != 1 {
 		t.Errorf("server stderr has %d panic lines, want 1:\n%s", n, s.stderr)
 	}
@@ -240,9 +241,9 @@ func checkAssets(t *testing.T, s *server) {
 		t.Errorf("CSS bundle lacks the scoped and the global style:\n%s", b)
 	}
 
-	// Styles only: a stylesheet, no module script.
+	// Styles only (Share's script is lazy): a stylesheet, no page module.
 	_, post := s.get("/blog/hello")
-	if !cssLink.MatchString(post) || strings.Contains(post, `<script type="module"`) {
+	if !cssLink.MatchString(post) || jsScript.MatchString(post) {
 		t.Errorf("GET /blog/hello: want a stylesheet and no module:\n%s", post)
 	}
 	// No </head>: the stylesheet goes right after the doctype.
@@ -253,6 +254,43 @@ func checkAssets(t *testing.T, s *server) {
 	_, search := s.get("/search?q=x")
 	if strings.Contains(search, "<link") || strings.Contains(search, "<script") {
 		t.Errorf("GET /search: a page without assets got tags:\n%s", search)
+	}
+}
+
+var (
+	islandRe = regexp.MustCompile(`<orbit-island src="/_orbit/island/[0-9a-f]{16}/Comments-[0-9a-f]{8}" props="[A-Za-z0-9_-]+"><p[^>]*>Loading comments…</p></orbit-island>`)
+	lazyRe   = regexp.MustCompile(`<orbit-lazy component="(Share-[0-9a-f]{8})" client="visible" opts="200px"><share-buttons[^>]*><button[^>]*>Share</button></share-buttons>\s*</orbit-lazy>`)
+	lazyLine = regexp.MustCompile(`\{Kind: "lazy", URL: "(/_orbit/Share-[A-Z0-9]{8}\.js)", ID: "(Share-[0-9a-f]{8})"\}`)
+)
+
+// checkLazy checks server:defer and client:* end to end (PLAN.md §13 "Lazy
+// loading"): the island placeholder with its fallback, the <orbit-lazy>
+// wrapper, and Share's lazy entry in the compiled manifest, served from
+// /_orbit/ and not in the page bundle. The token's value is the runtime's.
+func checkLazy(t *testing.T, s *server, dir string) {
+	t.Helper()
+	_, post := s.get("/blog/hello")
+	if !islandRe.MatchString(post) {
+		t.Errorf("GET /blog/hello: no island placeholder with its fallback:\n%s", post)
+	}
+	m := lazyRe.FindStringSubmatch(post)
+	if m == nil {
+		t.Fatalf("GET /blog/hello: no <orbit-lazy> wrapper:\n%s", post)
+	}
+	manifest, err := os.ReadFile(filepath.Join(dir, "orbit_gen/manifest/manifest.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := lazyLine.FindSubmatch(manifest)
+	if l == nil || string(l[2]) != m[1] {
+		t.Fatalf("manifest has no lazy asset for %s:\n%s", m[1], manifest)
+	}
+	resp, js := s.get(string(l[1]))
+	if resp.StatusCode != 200 || !strings.Contains(js, "share-buttons") {
+		t.Errorf("GET %s: %d\n%s", l[1], resp.StatusCode, js)
+	}
+	if _, home := s.get("/"); strings.Contains(home, "Share-") {
+		t.Errorf("GET /: a page without Share lists its entry:\n%s", home)
 	}
 }
 

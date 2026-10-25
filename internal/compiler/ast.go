@@ -345,6 +345,10 @@ func (d Directive) String() string { return directiveNames[d] }
 // IsClient reports whether d is one of the client:* loading directives.
 func (d Directive) IsClient() bool { return d >= ClientLoad && d <= ClientMedia }
 
+// IsLazy reports whether d is a lazy loading directive: client:idle,
+// client:visible or client:media (client:load is eager).
+func (d Directive) IsLazy() bool { return d >= ClientIdle && d <= ClientMedia }
+
 // IsSet reports whether d is set:html, set:text or set:json.
 func (d Directive) IsSet() bool { return d >= SetHTML && d <= SetJSON }
 

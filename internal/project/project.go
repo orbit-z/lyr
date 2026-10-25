@@ -70,6 +70,10 @@ type File struct {
 	Typed  bool
 	// Writes are the typed writes chosen for the file (set by Typecheck).
 	Writes compiler.TypedWrites
+	// callList caches compiler.ComponentCalls of AST (calls); Front
+	// resets it.
+	callList  []compiler.ComponentCall
+	callsDone bool
 }
 
 // Load reads the project at root: orbit.json, the module path from go.mod,
@@ -128,6 +132,7 @@ func (p *Project) Front() bool {
 	parallel(p.Files, func(f *File) {
 		f.AST = compiler.Parse(f.Src, p.Options.Mode)
 		f.Analysis = compiler.Analyze(f.AST, f.Info)
+		f.callList, f.callsDone = nil, false
 	})
 	p.Index = compiler.ComponentIndex{}
 	for _, f := range p.Files {

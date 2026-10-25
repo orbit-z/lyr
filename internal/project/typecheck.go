@@ -21,16 +21,26 @@ func (p *Project) Units() []compiler.Unit {
 
 // Typecheck runs the typed-write pass (PLAN.md §3.3 Engine) with checker
 // over every file's pass-1 output and sets each File's Output to its pass-2
-// output (pass 1 when the file kept its fallbacks). It returns the
-// checker's warnings. The error is only for ctx cancellation.
+// output (pass 1 when the file kept its fallbacks). The typed pass's own
+// errors (server:defer Props that aren't JSON-serializable, PLAN.md §3.4)
+// are added to p.Diagnostics. It returns the checker's warnings. The error
+// is only for ctx cancellation.
 func (p *Project) Typecheck(ctx context.Context, checker *compiler.Checker) ([]string, error) {
 	res, err := checker.Check(ctx, p.Units())
 	if err != nil {
 		return nil, err
 	}
+	var ds []Diagnostic
 	for i, u := range res.Units {
 		f := p.Files[i]
 		f.Output, f.Typed, f.Writes = u.Output, u.Checked, u.Writes
+		for _, d := range u.Diagnostics {
+			ds = append(ds, fromCompiler(f, d))
+		}
+	}
+	if len(ds) > 0 {
+		p.Diagnostics = append(p.Diagnostics, ds...)
+		sortDiagnostics(p.Diagnostics)
 	}
 	return res.Warnings, nil
 }

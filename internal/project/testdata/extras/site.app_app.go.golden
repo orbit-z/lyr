@@ -15,7 +15,11 @@ import (
 	pages_index "example.com/blog/orbit_gen/decl/pages/index"
 	pages_p__404 "example.com/blog/orbit_gen/decl/pages/p_404"
 
+	island_components_comments "example.com/blog/orbit_gen/decl/components/comments"
+
 	_ "example.com/blog/orbit_gen/impl/components/card"
+	_ "example.com/blog/orbit_gen/impl/components/comments"
+	_ "example.com/blog/orbit_gen/impl/components/post"
 	_ "example.com/blog/orbit_gen/impl/layouts/base"
 	_ "example.com/blog/orbit_gen/impl/pages/about"
 	_ "example.com/blog/orbit_gen/impl/pages/blog/slug_param"
@@ -33,7 +37,7 @@ var embedded []orbit.Option
 func New(opts ...orbit.Option) *orbit.Site {
 	defaults := []orbit.Option{orbit.WithSite("https://blog.example.com")}
 	defaults = append(defaults, embedded...)
-	return orbit.NewSite(routes(), nil, append(defaults, opts...)...)
+	return orbit.NewSite(routes(), islands(), append(defaults, opts...)...)
 }
 
 // routes returns a fresh route table, sorted by file.
@@ -61,7 +65,8 @@ func routes() []orbit.Route {
 			Render: func(c *orbit.Ctx, w *orbit.Writer) error {
 				return pages_blog_slug__param.Render(c, w, pages_blog_slug__param.Props{}, orbit.Slots{})
 			},
-			Assets: manifest.Pages["src/pages/blog/[slug].orbit"],
+			Assets:  manifest.Pages["src/pages/blog/[slug].orbit"],
+			Islands: true,
 		},
 		{
 			Pattern: "/docs/[...rest]",
@@ -79,5 +84,13 @@ func routes() []orbit.Route {
 			},
 			Assets: manifest.Pages["src/pages/index.orbit"],
 		},
+	}
+}
+
+// islands returns the island table: every component used with server:defer,
+// sorted by file (PLAN.md §3.4). Only these can be rendered by URL.
+func islands() []orbit.Island {
+	return []orbit.Island{
+		orbit.NewIsland("Comments-99b30ef4", "src/components/Comments.orbit", island_components_comments.Render),
 	}
 }

@@ -1,0 +1,7 @@
+---
+type Props struct {
+	Start int
+}
+---
+<button>{props.Start}</button>
+<script>console.log("counter")</script>

@@ -1,0 +1,13 @@
+---
+type Props struct {
+	Depth int
+}
+---
+<div>
+  {props.Depth}
+  {if props.Depth > 0}
+    <Self server:defer depth={props.Depth - 1}>
+      <em slot="fallback">more…</em>
+    </Self>
+  {/if}
+</div>

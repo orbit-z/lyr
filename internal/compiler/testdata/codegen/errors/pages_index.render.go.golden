@@ -34,24 +34,24 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 		return orbit__err
 	}
 	orbit__w.Raw("\n")
-	if orbit__err := /*line ../../../../src/pages/index.orbit:10:2*/Card.Render/*line render.go:37:102*/(orbit__ctx, orbit__w, Card.Props{
+	if orbit__err := orbit__rt.Defer(orbit__ctx, orbit__w, "Card-c039c8bb", /*line ../../../../src/pages/index.orbit:10:2*/Card.Props/*line render.go:37:156*/{
 		/*line ../../../../src/pages/index.orbit:10:20*/Title/*line render.go:38:80*/: "d",
-	}, orbit__rt.Slots{}); orbit__err != nil {
+	}, nil); orbit__err != nil {
 		return orbit__err
 	}
-	orbit__w.Raw("\n")
+	orbit__w.Raw("\n<orbit-lazy component=\"Card-c039c8bb\" client=\"idle\">")
 	if orbit__err := /*line ../../../../src/pages/index.orbit:11:2*/Card.Render/*line render.go:43:102*/(orbit__ctx, orbit__w, Card.Props{
 		/*line ../../../../src/pages/index.orbit:11:19*/Title/*line render.go:44:80*/: "i",
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
-	orbit__w.Raw("\n")
+	orbit__w.Raw("</orbit-lazy>\n<orbit-lazy component=\"Card-c039c8bb\" client=\"visible\">")
 	if orbit__err := /*line ../../../../src/pages/index.orbit:12:2*/Card.Render/*line render.go:49:102*/(orbit__ctx, orbit__w, Card.Props{
 		/*line ../../../../src/pages/index.orbit:12:22*/Title/*line render.go:50:80*/: "v",
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
-	orbit__w.Raw("\n")
+	orbit__w.Raw("</orbit-lazy>\n")
 	if orbit__err := /*line ../../../../src/pages/index.orbit:13:2*/Card.Render/*line render.go:55:102*/(orbit__ctx, orbit__w, Card.Props{
 		/*line ../../../../src/pages/index.orbit:13:19*/Title/*line render.go:56:80*/: "l",
 	}, orbit__rt.Slots{}); orbit__err != nil {

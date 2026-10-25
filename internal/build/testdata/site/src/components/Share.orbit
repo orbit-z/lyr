@@ -1,0 +1,9 @@
+<share-buttons><button>Share</button></share-buttons>
+
+<script>
+  customElements.define("share-buttons", class extends HTMLElement {
+    connectedCallback() {
+      this.dataset.shareReady = "yes";
+    }
+  });
+</script>

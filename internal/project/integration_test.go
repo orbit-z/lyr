@@ -58,8 +58,26 @@ list := posts.All()
   <p slot="footer">footer</p>
 </Base>
 `,
-	"src/pages/about.orbit":          "<p>About</p>\n",
-	"src/pages/blog/[slug].orbit":    "<p>{params.Slug}</p>\n",
+	"src/pages/about.orbit": "<p>About</p>\n",
+	"src/components/Comments.orbit": `---
+import "time"
+
+type Props struct {
+	PostID int
+	Since  time.Time
+}
+---
+<section>{props.PostID}</section>
+`,
+	"src/components/Post.orbit": `---
+import Comments "./Comments.orbit"
+
+type Props struct{ Slug string }
+---
+<h1>{props.Slug}</h1>
+<Comments server:defer postID={1}><p slot="fallback">Loading…</p></Comments>
+`,
+	"src/pages/blog/[slug].orbit":    "---\nimport Post \"../../components/Post.orbit\"\n---\n<Post slug={params.Slug} />\n",
 	"src/pages/docs/[...rest].orbit": "<p>{params.Rest}</p>\n",
 	"src/pages/404.orbit":            "<p>Not found</p>\n",
 }
