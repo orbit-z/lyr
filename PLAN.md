@@ -268,7 +268,6 @@ package card_impl
 import (
 	orbit__rt "github.com/bertrandkhe/orbit"
 	. "example.com/blog/orbit_gen/decl/components/card"
-	orbit__locals "example.com/blog/src/locals"
 //line ../../../../src/components/Card.orbit:2:8
 "example.com/blog/internal/posts"
 //line render.go:12:1
@@ -286,19 +285,18 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots := orbit__ctx, orbit__props, orbit__slots
-	locals := orbit__rt.LocalsOf[orbit__locals.Locals](orbit__ctx)
-	_, _, _, _ = ctx, props, slots, locals
+	_, _, _ = ctx, props, slots
 /*line ../../../../src/components/Card.orbit:8:1*/url := href(props.Post)/*line render.go:28:98*/
 	_ = url
 	orbit__w.Raw("<article class=\"card\" data-o-3fa2c1d0")
 	orbit__w.AttrBool("data-featured",
 /*line ../../../../src/components/Card.orbit:10:38*/props.Featured/*line render.go:32:91*/,
 	)
-	orbit__w.Raw(">\n  <a data-o-3fa2c1d0")
-	orbit__w.AttrURL("href",
+	orbit__w.Raw(">\n  <a data-o-3fa2c1d0 href=\"")
+	orbit__w.URL(
 /*line ../../../../src/components/Card.orbit:11:12*/url/*line render.go:36:80*/,
 	)
-	orbit__w.Raw(">")
+	orbit__w.Raw("\">")
 	orbit__w.String(
 /*line ../../../../src/components/Card.orbit:11:18*/props.Post.Title/*line render.go:40:93*/,
 	)
@@ -312,7 +310,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	return orbit__w.Err()
 }
 ```
-The typed writes (`AttrBool`, `AttrURL`, `String`) come from go/types (§3.3). In tolerant/LSP mode the same spans are emitted as `orbit__w.Attr(…)` and `orbit__w.Expr(…)`.
+The typed writes (`AttrBool`, the `URL` pieces, `String`) come from go/types (§3.3). Card never uses `locals`, so its `render` doesn't declare it and doesn't import `src/locals`; a component that uses it gets `locals := orbit__rt.LocalsOf[orbit__locals.Locals](orbit__ctx)` after the bindings (§3.3, Locals). In tolerant/LSP mode the same spans are emitted as `orbit__w.Attr(…)` and `orbit__w.Expr(…)`.
 
 A parent call to `<Card post={p} featured><em>hi</em></Card>` at `src/pages/index.orbit:20:3` generates the code below (`…` stands for the generated file's own line:col). Unknown attributes were already rejected by Orbit's pre-check (§2.3). The field keys still carry their own directives, so the Go errors that remain (e.g. `unknown field` when the pre-check had to be skipped) land on the attribute name. Glue passes `orbit__ctx`, never the shadowable `ctx`:
 ```go
@@ -349,8 +347,7 @@ func Render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit__props 
 The implementation's `orbit__render` takes a fifth parameter, `orbit__params Params`, and binds it with the other user names:
 ```go
 	ctx, props, slots, params := orbit__ctx, orbit__props, orbit__slots, orbit__params
-	locals := orbit__rt.LocalsOf[orbit__locals.Locals](orbit__ctx)
-	_, _, _, _, _ = ctx, props, slots, params, locals
+	_, _, _, _ = ctx, props, slots, params
 ```
 The route table's entry is unchanged: `Render: func(c *orbit.Ctx, w *orbit.Writer) error { return slug_param.Render(c, w, slug_param.Props{}, orbit.Slots{}) }`. A `[...path]` page gets `Path: orbit__ctx.Param("path")`; a page without params gets `type Params struct{}` and passes `Params{}`. Building `Params` allocates nothing: each `Param` call returns a string the router already stored on the pooled `Ctx` (§4).
 
@@ -814,7 +811,7 @@ type Locals struct {
 
 - **Where it lives**: `src/locals/`, package `locals`, holding `type Locals struct`. *Decided by rule* (simplest clear convention, now that `src/middleware` has no other purpose; log it in `docs/DECISIONS.md`).
 - **Detection**: the generator looks for `type Locals struct` in `src/locals` with `go/parser`. If there isn't one, it uses `orbit.NoLocals` (`struct{}`).
-- **In every page and component**, the generated `render` starts with `locals := orbit__rt.LocalsOf[orbit__locals.Locals](orbit__ctx)` (the runtime and `src/locals` are imported under internal aliases, §3.2), so `locals` has type `*locals.Locals`. The frontmatter and template then use `locals.User.Name` with full type checking, and gopls completes `locals.` in the editor. `LocalsOf` allocates a zero `Locals` lazily, once per request; components share the page's instance. Inside the body the variable `locals` shadows the package name; hoisted helpers that need the type import the package as usual.
+- **In every page and component that uses `locals`** (and always in the editor's tolerant mode), the generated `render` starts with `locals := orbit__rt.LocalsOf[orbit__locals.Locals](orbit__ctx)` (the runtime and `src/locals` are imported under internal aliases, §3.2), so `locals` has type `*locals.Locals`. The frontmatter and template then use `locals.User.Name` with full type checking, and gopls completes `locals.` in the editor. `LocalsOf` allocates a zero `Locals` lazily, once per request; components share the page's instance. Inside the body the variable `locals` shadows the package name; hoisted helpers that need the type import the package as usual.
 - **Setting locals from net/http middleware** in `main.go`:
 
   ```go
