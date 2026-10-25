@@ -242,6 +242,16 @@ To override a decision, say which row and the alternative you want; the docs and
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
+| `orbit check` vets only `orbit_gen/...`, not your own Go packages (run `go vet ./...` for those) | Astro (`astro check` checks only its own files) | Also vet the server entry | [CLI](reference/cli.md#orbit-check) |
+| `orbit check` writes `orbit_gen/`, like `orbit generate` | simplest (PLAN: "generate, then go vet") | Check from memory only | [CLI](reference/cli.md#orbit-check) |
+| Extracted scripts go to `.orbit/check/<path>.orbit.<n>.ts` with `rootDirs`, so relative imports resolve from the `.orbit` file's directory; each ends with `export {}` so scripts are modules, as esbuild bundles them | simplest | `moduleDetection: "force"` (also changes your own `.ts` files) | [Styles and scripts](styles-and-scripts.md) |
+| `bun check` always gets `--no-script`, so a `package.json` `check` script can't replace the type checker | simplest | Let a script named `check` run | — |
+| Bun's summary lines are dropped, so a clean `orbit check` prints nothing | Go stdlib (`go vet`) | Pass them through | [CLI](reference/cli.md#orbit-check) |
+| TypeScript columns are printed as byte columns (`path:L:C: error TSxxxx: …`), like Go's, also for your own `.ts` files | Go stdlib | UTF-16 columns, as tsc prints them | [CLI](reference/cli.md#orbit-check) |
+| Without a root `tsconfig.json`, the generated config uses the scaffold's defaults | simplest | Fail, asking for a tsconfig | [CLI](reference/cli.md#orbit-check) |
+| Nothing to type-check (no inline script, no `.ts` under `src/`) skips the TypeScript half silently, with no Bun notice | simplest | Always run it | — |
+| The Bun notices read `orbit check: skipping TypeScript type checking: bun not found (1.4.4 or later needed); install it with: curl -fsSL https://bun.sh/install \| bash` and `… bun X is older than 1.4.4; upgrade it with: bun upgrade` | simplest | — | [Troubleshooting](troubleshooting.md) |
+| The extracted tree is synced incrementally (changed files only, stale ones removed) | simplest | Rewrite everything each run | — |
 | A `::pseudo-element` keeps the scope before it; with `:global(…)`, the scope goes on the nearest compound outside it | Astro | Scope the last compound regardless | [Styles and scripts](styles-and-scripts.md#how-scoping-works), [`:global`](styles-and-scripts.md#escaping-the-scope-global) |
 | Page stylesheet order: a component's imports first, in import order, then its own styles | simplest (module evaluation order) | Source order of `<style>` tags | [Styles and scripts](styles-and-scripts.md#global-styles-isglobal) |
 | `is:inline` is stripped from the emitted tag | Astro | Keep it | [Styles and scripts](styles-and-scripts.md#which-scripts-orbit-processes) |
