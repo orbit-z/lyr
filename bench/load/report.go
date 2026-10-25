@@ -56,9 +56,10 @@ func ReadMeta(path string) (map[string]string, error) {
 }
 
 var scenarioTitles = map[string]string{
-	"cards":          "Scenario 1: render-heavy page (`/cards`, 500 nested-component cards)",
-	"fetch":          "Scenario 2: 10 ms simulated fetch in the frontmatter (`/fetch`)",
-	"fetch-deferred": "Scenario 4: the 10 ms part in a `server:defer` island (`/fetch-deferred`, then its island request)",
+	"cards":               "Scenario 1: render-heavy page (`/cards`, 500 nested-component cards)",
+	"fetch":               "Scenario 2: 10 ms simulated fetch in the frontmatter (`/fetch`)",
+	"fetch-deferred":      "Scenario 4: the 10 ms part in a `server:defer` island (`/fetch-deferred`, then its island request)",
+	"fetch-deferred-page": "Scenario 4b: the deferred page on its own (`/fetch-deferred`, island not fetched)",
 }
 
 // Markdown renders the report as Markdown tables, one per scenario.

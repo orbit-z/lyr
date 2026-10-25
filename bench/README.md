@@ -25,10 +25,10 @@ Settings are environment variables:
 |---|---|---|
 | `CONCURRENCY` | `64` | concurrent keep-alive connections (closed loop) |
 | `WARMUP`, `DURATION` | `5s`, `20s` | warm-up (not recorded) and measured window, per run |
-| `SERVERS` | `orbit-1 orbit-all astro` | which servers to run |
-| `SCENARIOS` | `cards fetch fetch-deferred` | which pages to run |
+| `SERVERS` | `orbit-1 orbit-all astro-1 astro` | which servers to run |
+| `SCENARIOS` | `cards fetch fetch-deferred fetch-deferred-page` | which pages to run |
 | `SERVER_CPUS` | `0-3,8-11` | CPUs for `orbit-all` and Astro |
-| `ONE_CPU` | `0` | the single CPU for `orbit-1` |
+| `ONE_CPU` | `0` | the single CPU for `orbit-1` and `astro-1` |
 | `LOAD_CPUS` | `4-7,12-15` | CPUs for the load generator |
 | `SKIP_BUILD` | unset | `1` reuses the existing builds |
 
@@ -42,8 +42,9 @@ Run on a quiet machine: close browsers and builds, and use a fixed CPU governor 
 |---|---|---|
 | 1. Render-heavy | `/cards` | A layout and 500 `Card`s. Each card has string, int, bool, URL and slice props, text with `<&>` and quotes that must be escaped, a default slot, two nested `Badge` components, a conditional, and scoped CSS. The page is about 260 KB (Orbit) and 300 KB (Astro). This is the template engine itself. |
 | 2. Fetch | `/fetch` | The frontmatter waits 10 ms (`time.Sleep` / `setTimeout`) to simulate a data fetch, then renders a 20-item list. This measures concurrency over I/O waits. |
-| 3. Cores | all pages | Orbit runs twice: `orbit-1` (`GOMAXPROCS=1`, pinned to one CPU) and `orbit-all` (every server CPU). |
+| 3. Cores | all pages | Each framework runs twice: `orbit-1` (`GOMAXPROCS=1`) and `astro-1` (the same Node process, all its threads) pinned to one CPU, and `orbit-all` and `astro` on every server CPU. |
 | 4. Deferred | `/fetch-deferred` | The same 10 ms list moved into a `server:defer` component with a fallback (an Astro server island on the Astro side). Each iteration GETs the page, then the island URL taken from it, as the browser's loader does. It reports page latency and TTFB, plus the island request's latency on its own. |
+| 4b. Deferred page alone | `/fetch-deferred` | Only the page, with its island never fetched (`fetch-deferred-page`): the page's TTFB without the island renders competing for the server. |
 
 The data (`orbit-site/internal/data/data.go`, `astro-site/src/data.ts`) is generated identically on both sides, once at startup.
 
@@ -66,7 +67,7 @@ The data (`orbit-site/internal/data/data.go`, `astro-site/src/data.ts`) is gener
 - **CPU pinning**: the servers and the load generator are pinned with `taskset` to separate physical cores.
   - `orbit-1` gets one CPU with `GOMAXPROCS=1`.
   - Astro and `orbit-all` get the same 8 CPUs (4 cores). Node runs JavaScript on one thread, but its GC and libuv helper threads can use the other CPUs; the "CPU cores" column shows how much they do (about 1.1).
-  - So the per-core comparison (`orbit-1` vs. Astro) gives Node slightly *more* CPU than Orbit, never less.
+  - So the `orbit-1` vs. `astro` comparison gives Node slightly *more* CPU than Orbit, never less. `astro-1` pins all of Node's threads to `orbit-1`'s single CPU, for a strict one-CPU comparison.
 - **Keep-alive** connections on both servers. Neither compresses: Orbit never does, and `@astrojs/node` doesn't by default.
 - **Warm-up** before each measured window, so the V8 JIT and Go's caches and pools are warm.
 - **Island key**: Orbit's build embeds a fresh `ORBIT_KEY`, and Astro's build generates its own server-island key. Neither needs configuration for a single-process benchmark.

@@ -6,7 +6,8 @@
 #
 # Settings (environment):
 #   CONCURRENCY=64  WARMUP=5s  DURATION=20s
-#   SERVERS="orbit-1 orbit-all astro"   SCENARIOS="cards fetch fetch-deferred"
+#   SERVERS="orbit-1 orbit-all astro-1 astro"
+#   SCENARIOS="cards fetch fetch-deferred fetch-deferred-page"
 #   SERVER_CPUS=0-3,8-11  ONE_CPU=0  LOAD_CPUS=4-7,12-15   (taskset lists)
 #   SKIP_BUILD=1  (reuse the existing builds)
 set -euo pipefail
@@ -25,8 +26,10 @@ else
 	DURATION="${DURATION:-20s}"
 fi
 CONCURRENCY="${CONCURRENCY:-64}"
-SERVERS="${SERVERS:-orbit-1 orbit-all astro}"
-SCENARIOS="${SCENARIOS:-cards fetch fetch-deferred}"
+SERVERS="${SERVERS:-orbit-1 orbit-all astro-1 astro}"
+# fetch-deferred-page requests only /fetch-deferred (its island is never
+# fetched), for the page's TTFB on its own.
+SCENARIOS="${SCENARIOS:-cards fetch fetch-deferred fetch-deferred-page}"
 # Physical-core split. On this kind of CPU (Linux numbering), CPU n and CPU n+8
 # are the two SMT threads of one core, so the server gets cores 0-3 (both
 # threads) and the load generator cores 4-7: they never share a core.
@@ -87,7 +90,7 @@ wait_ready() { # URL
 	return 1
 }
 
-port_of() { if [[ "$1" == astro ]]; then echo "$ASTRO_PORT"; else echo "$ORBIT_PORT"; fi; }
+port_of() { if [[ "$1" == astro* ]]; then echo "$ASTRO_PORT"; else echo "$ORBIT_PORT"; fi; }
 
 pinner() { # CPUS: prints the exec prefix (taskset execs the server, so $! is its PID)
 	if [[ "$PIN" == 1 ]]; then echo "taskset -c $1"; else echo env; fi
@@ -106,6 +109,11 @@ start_server() { # NAME; sets SERVER_PID
 		;;
 	astro)
 		(cd "$ASTRO_SITE" && NODE_ENV=production HOST=127.0.0.1 PORT="$ASTRO_PORT" exec "${all[@]}" node ./dist/server/entry.mjs) >/dev/null &
+		;;
+	astro-1)
+		# The same single process, with all its threads (GC, libuv) on one CPU,
+		# like orbit-1.
+		(cd "$ASTRO_SITE" && NODE_ENV=production HOST=127.0.0.1 PORT="$ASTRO_PORT" exec "${one[@]}" node ./dist/server/entry.mjs) >/dev/null &
 		;;
 	*)
 		log "unknown server $1"
@@ -149,7 +157,7 @@ for server in $SERVERS; do
 		start_server "$server"
 		island=()
 		if [[ "$scenario" == fetch-deferred ]]; then island=(-island); fi
-		pin "$LOAD_CPUS" "$LOAD" run -url "http://127.0.0.1:$(port_of "$server")/$scenario" "${island[@]}" \
+		pin "$LOAD_CPUS" "$LOAD" run -url "http://127.0.0.1:$(port_of "$server")/${scenario%-page}" "${island[@]}" \
 			-c "$CONCURRENCY" -warmup "$WARMUP" -d "$DURATION" -pid "$SERVER_PID" \
 			-server "$server" -scenario "$scenario" >>"$RUNS"
 		stop_server
@@ -164,7 +172,7 @@ astro_v="$(node -p "require('$ASTRO_SITE/node_modules/astro/package.json').versi
 node_adapter_v="$(node -p "require('$ASTRO_SITE/node_modules/@astrojs/node/package.json').version")"
 mem_gb="$(awk '/MemTotal/ {printf "%.0f GB", $2/1048576}' /proc/meminfo)"
 check_summary="$(sed 's/http:\/\/127.0.0.1:[0-9]*//g; s/?[^ ]*//g' "$CHECK" | tr '\n' ';')"
-pinning="server $SERVER_CPUS (orbit-1: CPU $ONE_CPU, GOMAXPROCS=1), load generator $LOAD_CPUS"
+pinning="server $SERVER_CPUS (orbit-1: CPU $ONE_CPU, GOMAXPROCS=1; astro-1: CPU $ONE_CPU), load generator $LOAD_CPUS"
 if [[ "$PIN" == 0 ]]; then pinning="none"; fi
 
 "$LOAD" report -in "$RUNS" -md "$RESULTS/$STAMP.md" -json "$RESULTS/$STAMP.json" \
