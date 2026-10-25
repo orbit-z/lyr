@@ -1,0 +1,18 @@
+orbit_gen/decl/components/doc/decl.go (src/components/Doc.orbit)
+  exact 3:2 "\"fmt\"" -> 192-197 "\"fmt\""
+  exact 4:2 "str \"strings\"" -> 246-259 "str \"strings\""
+  exact 7:1 "type Props struct {\n\tBody orbit.HTML\n\tKind kind\n}" -> 331-380 "type Props struct {\n\tBody orbit.HTML\n\tKind kind\n}"
+  exact 12:1 "type kind = string" -> 451-469 "type kind = string"
+  exact 19:1 "func (p Props) Title() string { return str.ToUpper(fmt.Sprint(p.Kind)) }" -> 540-612 "func (p Props) Title() string { return str.ToUpper(fmt.Sprint(p.Kind)) }"
+orbit_gen/impl/components/doc/render.go (src/components/Doc.orbit)
+  exact 14:1 "const (\n\tbig   = 2\n\tsmall = 1\n)" -> 260-291 "const (\n\tbig   = 2\n\tsmall = 1\n)"
+  exact 21:1 "user := locals.User" -> 857-876 "user := locals.User"
+  echo  - -> 906-910 "user"
+  exact 23:7 "props.Title()" -> 1000-1013 "props.Title()"
+  exact 23:23 "user" -> 1128-1132 "user"
+  exact 23:30 "big" -> 1247-1250 "big"
+  exact 24:21 "props.Body" -> 1372-1382 "props.Body"
+call sites
+  content key=246 "props.Title()" call="orbit__w.Expr(\n/*line ../../../../src/components/Doc.orbit:23:7*/props.Title()/*line render.go:32:88*/,\n\t)"
+  content key=262 "user" call="orbit__w.Expr(\n/*line ../../../../src/components/Doc.orbit:23:23*/user/*line render.go:36:80*/,\n\t)"
+  content key=269 "big" call="orbit__w.Expr(\n/*line ../../../../src/components/Doc.orbit:23:30*/big/*line render.go:40:79*/,\n\t)"

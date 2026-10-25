@@ -1,0 +1,22 @@
+orbit_gen/decl/components/card/decl.go (src/components/Card.orbit)
+  exact 4:1 "// Props are the card's inputs.\ntype Props struct {\n\tTitle    string\n\tFeatured bool\n\tHref     string\n\tPostID   int\n}" -> 159-275 "// Props are the card's inputs.\ntype Props struct {\n\tTitle    string\n\tFeatured bool\n\tHref     string\n\tPostID   int\n}"
+orbit_gen/impl/components/card/render.go (src/components/Card.orbit)
+  exact 2:8 "\"strings\"" -> 214-223 "\"strings\""
+  exact 12:1 "func shout(s string) string { return strings.ToUpper(s) + \"!\" }" -> 299-362 "func shout(s string) string { return strings.ToUpper(s) + \"!\" }"
+  exact 14:1 "label := shout(props.Title)" -> 928-955 "label := shout(props.Title)"
+  exact 15:1 "n, err := len(label), error(nil)" -> 1032-1064 "n, err := len(label), error(nil)"
+  exact 16:1 "_ = err" -> 1141-1148 "_ = err"
+  echo  - -> 1178-1183 "label"
+  echo  - -> 1189-1190 "n"
+  echo  - -> 1196-1199 "err"
+  exact 18:38 "props.Featured" -> 1325-1339 "props.Featured"
+  exact 18:63 "props.PostID" -> 1446-1458 "props.PostID"
+  exact 19:16 "props.Href" -> 1587-1597 "props.Href"
+  exact 19:29 "label" -> 1713-1718 "label"
+  exact 22:10 "n" -> 2237-2238 "n"
+call sites
+  attr data-featured key=315 "props.Featured" call="orbit__w.Attr(\"data-featured\",\n/*line ../../../../src/components/Card.orbit:18:38*/props.Featured/*line render.go:35:91*/,\n\t)"
+  attr data-id key=340 "props.PostID" call="orbit__w.Attr(\"data-id\",\n/*line ../../../../src/components/Card.orbit:18:63*/props.PostID/*line render.go:38:89*/,\n\t)"
+  attr href (url) key=370 "props.Href" call="orbit__w.Attr(\"href\",\n/*line ../../../../src/components/Card.orbit:19:16*/props.Href/*line render.go:42:87*/,\n\t)"
+  content key=383 "label" call="orbit__w.Expr(\n/*line ../../../../src/components/Card.orbit:19:29*/label/*line render.go:46:82*/,\n\t)"
+  content key=475 "n" call="orbit__w.Expr(\n/*line ../../../../src/components/Card.orbit:22:10*/n/*line render.go:64:78*/,\n\t)"

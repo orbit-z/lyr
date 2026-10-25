@@ -1,0 +1,16 @@
+orbit_gen/decl/components/a/decl.go (src/components/A.orbit)
+  exact 4:1 "type Props struct {\n\tDepth int\n}" -> 153-185 "type Props struct {\n\tDepth int\n}"
+orbit_gen/impl/components/a/render.go (src/components/A.orbit)
+  exact 2:8 "B" -> 205-206 "B"
+  span  2:10 "\"./B.orbit\"" -> 207-253 "\"example.com/blog/orbit_gen/decl/components/b\""
+  exact 8:28 "props.Depth" -> 878-889 "props.Depth"
+  exact 9:8 "_, ctx := range []int{1, 2}" -> 991-1018 "_, ctx := range []int{1, 2}"
+  span  10:6 "B" -> 1113-1121 "B.Render"
+  span  10:8 "depth" -> 1229-1234 "Depth"
+  exact 10:15 "props.Depth + 1" -> 1309-1324 "props.Depth + 1"
+  span  10:32 "n" -> 1403-1404 "N"
+  exact 10:35 "ctx" -> 1479-1482 "ctx"
+  exact 11:18 "ctx" -> 1685-1688 "ctx"
+call sites
+  attr data-depth key=90 "props.Depth" call="orbit__w.Attr(\"data-depth\",\n/*line ../../../../src/components/A.orbit:8:28*/props.Depth/*line render.go:25:84*/,\n\t)"
+  content key=197 "ctx" call="orbit__w.Expr(\n/*line ../../../../src/components/A.orbit:11:18*/ctx/*line render.go:36:77*/,\n\t\t\t\t)"

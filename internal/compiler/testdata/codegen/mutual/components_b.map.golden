@@ -1,0 +1,18 @@
+orbit_gen/decl/components/b/decl.go (src/components/B.orbit)
+  exact 5:1 "type Props struct {\n\tDepth int\n\tN     int\n}" -> 153-196 "type Props struct {\n\tDepth int\n\tN     int\n}"
+orbit_gen/impl/components/b/render.go (src/components/B.orbit)
+  exact 2:8 "\"strconv\"" -> 205-214 "\"strconv\""
+  exact 3:8 "A" -> 261-262 "A"
+  span  3:10 "\"./A.orbit\"" -> 263-309 "\"example.com/blog/orbit_gen/decl/components/a\""
+  exact 10:1 "label := \"b\" + strconv.Itoa(props.N)" -> 871-907 "label := \"b\" + strconv.Itoa(props.N)"
+  echo  - -> 938-943 "label"
+  exact 12:14 "label" -> 1040-1045 "label"
+  exact 13:7 "props.Depth < 3" -> 1308-1323 "props.Depth < 3"
+  exact 14:10 "_, slots := range []string{\"x\"}" -> 1405-1436 "_, slots := range []string{\"x\"}"
+  exact 15:8 "slots" -> 1530-1535 "slots"
+  span  15:15 "A" -> 1635-1643 "A.Render"
+  span  15:17 "depth" -> 1753-1758 "Depth"
+  exact 15:24 "props.Depth + 1" -> 1833-1848 "props.Depth + 1"
+call sites
+  attr class key=142 "label" call="orbit__w.Attr(\"class\",\n/*line ../../../../src/components/B.orbit:12:14*/label/*line render.go:29:79*/,\n\t)"
+  content key=230 "slots" call="orbit__w.Expr(\n/*line ../../../../src/components/B.orbit:15:8*/slots/*line render.go:41:78*/,\n\t\t\t)"

@@ -1,0 +1,7 @@
+---
+type Props struct {
+	Title  string
+	IsOpen bool
+}
+---
+<p>{props.Title}</p>

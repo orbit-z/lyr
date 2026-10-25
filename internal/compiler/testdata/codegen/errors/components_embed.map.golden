@@ -1,0 +1,7 @@
+orbit_gen/decl/components/embed/decl.go (src/components/Embed.orbit)
+  exact 2:8 "\"strings\"" -> 158-167 "\"strings\""
+  exact 4:1 "type Props struct {\n\tstrings.Builder\n\tName string\n}" -> 241-292 "type Props struct {\n\tstrings.Builder\n\tName string\n}"
+orbit_gen/impl/components/embed/render.go (src/components/Embed.orbit)
+  exact 9:5 "props.Name" -> 750-760 "props.Name"
+call sites
+  content key=82 "props.Name" call="orbit__w.Expr(\n/*line ../../../../src/components/Embed.orbit:9:5*/props.Name/*line render.go:22:86*/,\n\t)"

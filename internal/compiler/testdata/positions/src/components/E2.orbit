@@ -1,0 +1,6 @@
+---
+import "strconv"
+
+func helper(n int) string { return strconv.Itoa(n) + strconv.Itoa("n") }
+---
+<p>{helper(1)}</p>

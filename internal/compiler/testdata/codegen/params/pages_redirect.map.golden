@@ -1,0 +1,6 @@
+orbit_gen/decl/pages/redirect/decl.go (src/pages/redirect.orbit)
+orbit_gen/impl/pages/redirect/render.go (src/pages/redirect.orbit)
+  exact 2:1 "n := 1" -> 766-772 "n := 1"
+  echo  - -> 802-803 "n"
+  exact 3:1 "return ctx.Redirect(\"/login\", 302+n-1)" -> 853-891 "return ctx.Redirect(\"/login\", 302+n-1)"
+call sites

@@ -1,0 +1,9 @@
+---
+type item struct {
+	Name  string
+	Count intt
+}
+
+it := item{Name: "x"}
+---
+<p>{it.Name}</p>

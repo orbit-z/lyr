@@ -1,0 +1,15 @@
+orbit_gen/decl/components/ws/decl.go (src/components/Ws.orbit)
+orbit_gen/impl/components/ws/render.go (src/components/Ws.orbit)
+  exact 2:1 "items := []string{\"a\", \"b\"}" -> 701-728 "items := []string{\"a\", \"b\"}"
+  exact 3:1 "name := \"<you>\"" -> 802-817 "name := \"<you>\""
+  echo  - -> 847-852 "items"
+  echo  - -> 858-862 "name"
+  exact 7:8 "name" -> 966-970 "name"
+  exact 13:10 "_, it := range items" -> 1139-1159 "_, it := range items"
+  exact 14:12 "it" -> 1277-1279 "it"
+  exact 17:33 "\" \"" -> 1454-1457 "\" \""
+  exact 18:7 "len(items) > 1" -> 1571-1585 "len(items) > 1"
+call sites
+  content key=84 "name" call="orbit__w.Expr(\n/*line ../../../../src/components/Ws.orbit:7:8*/name/*line render.go:26:77*/,\n\t)"
+  content key=230 "it" call="orbit__w.Expr(\n/*line ../../../../src/components/Ws.orbit:14:12*/it/*line render.go:32:77*/,\n\t\t)"
+  content key=290 "\" \"" call="orbit__w.Expr(\n/*line ../../../../src/components/Ws.orbit:17:33*/\" \"/*line render.go:38:78*/,\n\t)"
