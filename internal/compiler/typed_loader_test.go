@@ -31,36 +31,53 @@ func tyStd() types.Importer {
 	return tyStdImp
 }
 
-// tyRuntimeImporter type-checks the runtime (the repository root) from
-// source and imports std from export data. Not safe for concurrent use.
+// tyRuntimeImporter type-checks the runtime (the repository root) and the
+// module packages it imports (such as internal/testhook) from source, and
+// imports std from export data. Not safe for concurrent use.
 type tyRuntimeImporter struct {
-	std types.Importer
-	rt  *types.Package
+	std  types.Importer
+	pkgs map[string]*tyRuntimePkg
+}
+
+type tyRuntimePkg struct {
+	pkg *types.Package
 	err error
 }
 
 func (im *tyRuntimeImporter) Import(path string) (*types.Package, error) {
-	if path != RuntimePath {
+	dir := ""
+	switch {
+	case path == RuntimePath:
+		dir = "../.."
+	case strings.HasPrefix(path, RuntimePath+"/"):
+		dir = "../../" + strings.TrimPrefix(path, RuntimePath+"/")
+	default:
 		return im.std.Import(path)
 	}
-	if im.rt == nil && im.err == nil {
-		var files []*ast.File
-		names, _ := filepath.Glob("../../*.go")
-		for _, name := range names {
-			if strings.HasSuffix(name, "_test.go") {
-				continue
-			}
-			f, err := goparser.ParseFile(tyStdFset, name, nil, goparser.SkipObjectResolution)
-			if err != nil {
-				im.err = err
-				return nil, err
-			}
-			files = append(files, f)
-		}
-		conf := types.Config{Importer: im}
-		im.rt, im.err = conf.Check(RuntimePath, tyStdFset, files, nil)
+	if p := im.pkgs[path]; p != nil {
+		return p.pkg, p.err
 	}
-	return im.rt, im.err
+	p := &tyRuntimePkg{}
+	if im.pkgs == nil {
+		im.pkgs = map[string]*tyRuntimePkg{}
+	}
+	im.pkgs[path] = p
+	var files []*ast.File
+	names, _ := filepath.Glob(filepath.Join(filepath.FromSlash(dir), "*.go"))
+	for _, name := range names {
+		if strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		f, err := goparser.ParseFile(tyStdFset, name, nil, goparser.SkipObjectResolution)
+		if err != nil {
+			p.err = err
+			return nil, err
+		}
+		files = append(files, f)
+	}
+	conf := types.Config{Importer: im}
+	p.pkg, p.err = conf.Check(path, tyStdFset, files, nil)
+	return p.pkg, p.err
 }
 
 // tyTestLoader is an ExportLoader for tests: user packages are type-checked

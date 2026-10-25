@@ -1,0 +1,11 @@
+---
+type Props struct {
+	Title    string
+	Featured bool
+}
+---
+<article class="card" data-featured={props.Featured}>
+  <h2>{props.Title}</h2>
+  <slot />
+</article>
+<style>.card { border: 1px solid #ccc }</style>
