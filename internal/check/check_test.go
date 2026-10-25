@@ -181,6 +181,45 @@ func TestCheckNoTsconfig(t *testing.T) {
 	}
 }
 
+// TestCheckUserInclude: a .ts file in a directory the user's include adds
+// outside src/ is checked, and the user's exclude still applies.
+func TestCheckUserInclude(t *testing.T) {
+	needBun(t)
+	t.Parallel()
+	dir := newProject(t, map[string]string{
+		"src/components/Card.orbit": card("<h2>{props.Title}</h2>", "console.log(1);"),
+		"lib/bad.ts":                "export const x: number = \"y\";\n",
+		"src/skip.test.ts":          "export const y: number = \"z\";\n",
+	})
+	tsconfig, err := os.ReadFile(filepath.Join(dir, "tsconfig.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tsconfig = []byte(strings.Replace(string(tsconfig), `"include": ["src/**/*.ts"]`,
+		`"include": ["src/**/*.ts", "lib/**/*.ts"], // comment
+  "exclude": ["src/**/*.test.ts"],`, 1))
+	os.WriteFile(filepath.Join(dir, "tsconfig.json"), tsconfig, 0o644)
+	res, out := output(t, dir)
+	if want := "lib/bad.ts:1:14: error TS2322: Type 'string' is not assignable to type 'number'.\n"; !res.Failed() || out != want {
+		t.Fatalf("output:\n%s\nwant:\n%s", out, want)
+	}
+}
+
+// TestCheckTSExtension: without a user tsconfig, the defaults allow
+// importing with a .ts extension, as esbuild does.
+func TestCheckTSExtension(t *testing.T) {
+	needBun(t)
+	t.Parallel()
+	dir := newProject(t, map[string]string{
+		"src/components/Card.orbit": card("<h2>{props.Title}</h2>",
+			"import { twice } from \"../scripts/util.ts\";\nconst n: number = twice(2);\nconsole.log(n);"),
+	})
+	os.Remove(filepath.Join(dir, "tsconfig.json"))
+	if res, out := output(t, dir); res.Failed() || out != "" {
+		t.Fatalf("output:\n%s", out)
+	}
+}
+
 // TestCheckNoBun runs with a PATH that has the go command but no bun.
 func TestCheckNoBun(t *testing.T) {
 	needGo(t)

@@ -160,9 +160,11 @@ func (r *Result) typescript(ctx context.Context, p *project.Project, o Options) 
 		r.Notice = notice
 		return nil
 	}
-	_, err := os.Stat(filepath.Join(p.Root, "tsconfig.json"))
-	userTsconfig := err == nil
-	if err := Sync(p.Root, r.Scripts, userTsconfig); err != nil {
+	user, err := ReadUserTsconfig(p.Root)
+	if err != nil {
+		return err
+	}
+	if err := Sync(p.Root, r.Scripts, Tsconfig(user)); err != nil {
 		return err
 	}
 	// --no-script: a package.json "check" script must not replace the

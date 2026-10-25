@@ -147,27 +147,77 @@ error TS5083: Cannot read file '/x/tsconfig.json'.
 }
 
 func TestTsconfig(t *testing.T) {
-	ext := Tsconfig(true)
-	for _, s := range []string{`"extends": "../../tsconfig.json"`, `"rootDirs": ["../..", "."]`, `"include": ["../../src/**/*.ts", "src/**/*.ts"]`} {
-		if !strings.Contains(ext, s) {
-			t.Errorf("Tsconfig(true) lacks %s:\n%s", s, ext)
+	tests := []struct {
+		name string
+		u    *UserTsconfig
+		want []string // substrings
+		not  []string
+	}{
+		{"user, default include", &UserTsconfig{}, []string{
+			`"extends": "../../tsconfig.json"`, `"rootDirs": ["../..", "."]`,
+			`"include": ["../../src/**/*.ts", "src/**/*.ts"]`,
+		}, []string{"exclude", "allowImportingTsExtensions"}},
+		{"user include and exclude", &UserTsconfig{
+			Include: []string{"./src/**/*.ts", "types/*.d.ts", "/abs/x.ts"},
+			Exclude: []string{"src/**/*.test.ts"},
+		}, []string{
+			`"include": ["../../src/**/*.ts", "../../types/*.d.ts", "/abs/x.ts", "src/**/*.ts"]`,
+			`"exclude": ["../../src/**/*.test.ts"]`,
+		}, nil},
+		{"no user tsconfig", nil, []string{
+			`"strict": true`, `"moduleResolution": "Bundler"`, `"isolatedModules": true`, `"noEmit": true`,
+			`"allowImportingTsExtensions": true`, `"rootDirs"`, `"include": ["../../src/**/*.ts", "src/**/*.ts"]`,
+		}, []string{"extends", "exclude"}},
+	}
+	for _, tt := range tests {
+		got := Tsconfig(tt.u)
+		for _, s := range tt.want {
+			if !strings.Contains(got, s) {
+				t.Errorf("%s: lacks %s:\n%s", tt.name, s, got)
+			}
+		}
+		for _, s := range tt.not {
+			if strings.Contains(got, s) {
+				t.Errorf("%s: has %s:\n%s", tt.name, s, got)
+			}
 		}
 	}
-	def := Tsconfig(false)
-	if strings.Contains(def, "extends") {
-		t.Errorf("Tsconfig(false) extends:\n%s", def)
+}
+
+func TestReadUserTsconfig(t *testing.T) {
+	root := t.TempDir()
+	if u, err := ReadUserTsconfig(root); u != nil || err != nil {
+		t.Fatalf("no tsconfig: %v, %v", u, err)
 	}
-	for _, s := range []string{`"strict": true`, `"moduleResolution": "Bundler"`, `"isolatedModules": true`, `"noEmit": true`, `"rootDirs"`, `"include"`} {
-		if !strings.Contains(def, s) {
-			t.Errorf("Tsconfig(false) lacks %s:\n%s", s, def)
-		}
+	src := `// comment
+{
+  /* block, with "quotes" */
+  "compilerOptions": { "strict": true, },
+  "include": ["src/**/*.ts", "lib/**/*.ts", // trailing
+  ],
+  "exclude": ["a//b"],
+}
+`
+	os.WriteFile(filepath.Join(root, "tsconfig.json"), []byte(src), 0o644)
+	u, err := ReadUserTsconfig(root)
+	if err != nil || u == nil {
+		t.Fatal(u, err)
+	}
+	if strings.Join(u.Include, ",") != "src/**/*.ts,lib/**/*.ts" || strings.Join(u.Exclude, ",") != "a//b" {
+		t.Errorf("got %+v", u)
+	}
+
+	// Unparseable: still extended, default include.
+	os.WriteFile(filepath.Join(root, "tsconfig.json"), []byte("{ nope"), 0o644)
+	if u, err := ReadUserTsconfig(root); err != nil || u == nil || u.Include != nil {
+		t.Errorf("invalid: %+v, %v", u, err)
 	}
 }
 
 func TestSync(t *testing.T) {
 	root := t.TempDir()
 	scripts := parseScripts(t, "src/components/Card.orbit", cardSrc)
-	if err := Sync(root, scripts, true); err != nil {
+	if err := Sync(root, scripts, Tsconfig(&UserTsconfig{})); err != nil {
 		t.Fatal(err)
 	}
 	read := func(rel string) string {
@@ -180,7 +230,7 @@ func TestSync(t *testing.T) {
 	if got := read(".orbit/check/src/components/Card.orbit.1.ts"); got != scripts[1].Text() {
 		t.Errorf("extracted %q", got)
 	}
-	if got := read(".orbit/check/tsconfig.json"); got != Tsconfig(true) {
+	if got := read(".orbit/check/tsconfig.json"); got != Tsconfig(&UserTsconfig{}) {
 		t.Errorf("tsconfig %q", got)
 	}
 
@@ -193,7 +243,7 @@ func TestSync(t *testing.T) {
 	stale := filepath.Join(root, ".orbit/check/src/pages/Old.orbit.0.ts")
 	os.MkdirAll(filepath.Dir(stale), 0o755)
 	os.WriteFile(stale, []byte("x"), 0o644)
-	if err := Sync(root, scripts[:1], false); err != nil {
+	if err := Sync(root, scripts[:1], Tsconfig(nil)); err != nil {
 		t.Fatal(err)
 	}
 	if fi, err := os.Stat(name); err != nil || !fi.ModTime().Equal(old) {
@@ -204,7 +254,7 @@ func TestSync(t *testing.T) {
 			t.Errorf("stale %s still there", rel)
 		}
 	}
-	if got := read(".orbit/check/tsconfig.json"); got != Tsconfig(false) {
+	if got := read(".orbit/check/tsconfig.json"); got != Tsconfig(nil) {
 		t.Errorf("tsconfig not updated: %q", got)
 	}
 }
