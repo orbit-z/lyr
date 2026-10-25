@@ -102,7 +102,7 @@ Created blog (module example.com/blog).
 Next steps:
 
 	cd blog
-	go tool orbit dev
+	orbit dev
 ```
 
 If generating the code or `go mod tidy` fails, `orbit new` says which step failed and leaves the directory as it is, so you can look at it; delete it before running `orbit new` again.
@@ -140,6 +140,8 @@ The `replace` names a directory on your machine, so the scaffolded `Dockerfile` 
 ```sh
 orbit dev
 ```
+
+Your global `orbit` hands the command to the version pinned in the project's `go.mod` (see [The pinned CLI](reference/cli.md#the-pinned-cli-orbit-and-go-tool-orbit)), so it always matches your project. Prefer it to `go tool orbit dev`: both run the same code, but the `go` command makes Ctrl-C exit with status 1.
 
 Open <http://localhost:4321>. Use `orbit dev --port 3000` to pick another port. The dev server listens on localhost only; `orbit dev --host` makes it reachable from other devices on your network, such as a phone.
 

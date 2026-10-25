@@ -131,6 +131,7 @@ When independent tasks can run in parallel, launch them in **one message**. If p
     - Rename drops `echo` edits.
     - An **old gopls is refused** for Go features.
   - `orbit new` always writes the `toolchain` line.
+- **Milestone 11 checkpoint**: `orbit doctor` reports a missing gopls as ✗ (kept); `orbit new`'s next steps and `getting-started.md` use the global `orbit dev` (it execs the pinned CLI, so Ctrl-C exits 0; `go tool orbit dev` exits 1); docs error examples become `expect-error` blocks; M12 runs in 3 stages (transport/proxy, completion, rename) plus an LSP latency benchmark.
 - **URLs** have no trailing slash (`/blog/hello`; `/blog/hello/` gets a 308 to `/blog/hello`).
 - **Middleware**: no `OnRequest`. There's one middleware model: plain net/http middleware plus typed locals (`WithLocals`/`LocalsFromRequest`). Orbit ships no auth.
 - **Server→client data**:

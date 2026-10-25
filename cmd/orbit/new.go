@@ -89,7 +89,7 @@ func runNew(e *env, args []string) int {
 		return fail(fmt.Errorf("go mod tidy: %v; the project is in %s", err, dir))
 	}
 
-	fmt.Fprintf(e.stdout, "Created %s (module %s).\n\nNext steps:\n\n\tcd %s\n\tgo tool orbit dev\n", dir, *module, dir)
+	fmt.Fprintf(e.stdout, "Created %s (module %s).\n\nNext steps:\n\n\tcd %s\n\torbit dev\n", dir, *module, dir)
 	if src.Replace != "" {
 		fmt.Fprintf(e.stdout, "\ngo.mod replaces %s with your local checkout, %s.\n", scaffold.OrbitModule, src.Replace)
 	}
