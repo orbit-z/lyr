@@ -263,13 +263,13 @@ year := time.Now().Year()
 
 Attribute names match `Props` fields ignoring case, so `title` sets `Title`. Now pass a tag, but misspell the attribute on purpose:
 
-```orbit
+```orbit file=src/pages/index.orbit expect-error at=17
   <Card tga="New" title="Read the docs" href="https://github.com/bertrandkhe/orbit">
 ```
 
 Save. The browser shows an error overlay instead of the page, pointing at the attribute and listing the props `Card` accepts:
 
-```
+```text
 src/pages/index.orbit:17:9: unknown prop "tga" on <Card> (props: title, href, tag)
 ```
 

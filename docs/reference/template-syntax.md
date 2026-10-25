@@ -208,8 +208,14 @@ A tag that is lowercase or contains `-` is an HTML element or a custom element, 
 
 - **Every element must be closed** explicitly. Orbit doesn't auto-close elements the way browsers do, so `<p>`, `<li>`, `<td>` and `<option>` all need their closing tag. A mismatched or missing closing tag is a parse error at its line and column:
 
+  ```orbit file=src/pages/index.orbit expect-error
+  <ul>
+    <li>Unclosed
+  </ul>
+  ```
+
   ```text
-  src/pages/index.orbit:14:3: unexpected </ul>: <li> opened at 12:5 isn't closed
+  src/pages/index.orbit:3:1: unexpected </ul>: <li> opened at 2:3 isn't closed
   ```
 
 - **Self-closing**: any element may be written self-closed, as in Astro. `<div />` renders `<div></div>`.
@@ -234,8 +240,16 @@ import Card "../components/Card.orbit"
 
 A tag that matches no import alias is an error:
 
+```orbit file=src/pages/index.orbit expect-error
+---
+import Card "../components/Card.orbit"
+---
+<Card post="hello" />
+<Crad post="world" />
+```
+
 ```text
-src/pages/index.orbit:9:2: unknown component <Crad>: no .orbit import with this alias
+src/pages/index.orbit:5:2: unknown component <Crad>: no .orbit import with this alias
 ```
 
 Only `.orbit` files can be imported as components. A `.tsx`, `.jsx`, `.svelte` or `.vue` import is an error (`framework components aren't supported; use a .orbit component with a <script>`), and so is any other relative path that doesn't end in `.orbit`. See [Components](../components.md#no-framework-components).
@@ -400,22 +414,51 @@ The messages name the directive you wrote. If a component's scripts also load ea
 
 `server:defer` and a `client:*` directive on the same tag is a compile error:
 
+```orbit file=src/pages/blog/[slug].orbit expect-error
+---
+import Card "../components/Card.orbit"
+---
+<Card server:defer client:idle />
+```
+
 ```text
-src/pages/blog/[slug].orbit:14:11: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
+src/pages/blog/[slug].orbit:4:7: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
 ```
 
 The `server:` and `client:` namespaces are reserved. An unknown directive in either is a compile error at the attribute, listing the valid ones:
 
+```orbit file=src/pages/index.orbit expect-error
+---
+import Card "../components/Card.orbit"
+---
+<Card client:hover />
+<Card server:lazy />
+```
+
 ```text
-src/pages/index.orbit:7:12: unknown directive "client:hover" (client directives: client:load, client:idle, client:visible, client:media)
-src/pages/index.orbit:8:12: unknown directive "server:lazy" (server directives: server:defer)
+src/pages/index.orbit:4:7: unknown directive "client:hover" (client directives: client:load, client:idle, client:visible, client:media)
+src/pages/index.orbit:5:7: unknown directive "server:lazy" (server directives: server:defer)
 ```
 
 Astro's `class:list` and `define:vars` aren't supported, and using them is a compile error with a hint, rather than being written out as plain attributes:
 
+```orbit file=src/components/Card.orbit expect-error
+---
+type Props struct {
+    Featured bool
+}
+---
+<article class:list={[]string{"card"}}>
+  <h2>Hello</h2>
+</article>
+<script define:vars={props}>
+  console.log("card");
+</script>
+```
+
 ```text
-src/components/Card.orbit:12:10: class:list isn't supported; build the class string in the frontmatter (e.g. strings.Join)
-src/components/Card.orbit:20:9: define:vars isn't supported; pass data with data-* attributes or set:json
+src/components/Card.orbit:6:10: class:list isn't supported; build the class string in the frontmatter (e.g. strings.Join)
+src/components/Card.orbit:9:9: define:vars isn't supported; pass data with data-* attributes or set:json
 ```
 
 Other attributes with a colon, such as `xlink:href` or `xml:lang`, are ordinary HTML attributes.
@@ -451,16 +494,46 @@ A page's route params get their `params` field names from this PascalCase conver
 
 ### Unknown props
 
-An attribute that matches no field is reported by Orbit at the attribute name, in your spelling, with the names that would work (in lower camel case, such as `isOpen`):
+An attribute that matches no field is reported by Orbit at the attribute name, in your spelling, with the names that would work (in lower camel case, such as `isOpen`). With the `PostMeta` component of the [example](#example):
 
-```text
-src/pages/index.orbit:9:6: unknown prop "psot" on <Card> (props: post, featured)
+```orbit file=src/pages/index.orbit expect-error
+---
+import PostMeta "../components/PostMeta.orbit"
+---
+<PostMeta titel="Hello, Orbit" />
 ```
 
-When Orbit can't list the fields (the embed and alias case above), it skips this check. Go then reports the unknown field, still at the attribute name, with the type name rewritten to your alias:
+```text
+src/pages/index.orbit:4:11: unknown prop "titel" on <PostMeta> (props: title, url, date, tags, draft, attrs)
+```
+
+When Orbit can't list the fields (the embed and alias case above), it skips this check. Go then reports the unknown field, still at the attribute name, with the type name rewritten to your alias. With this `Card`, whose `Props` embeds a struct:
+
+```orbit file=src/components/Card.orbit
+---
+type Link struct {
+    Post string
+}
+
+type Props struct {
+    Link
+    Featured bool
+}
+---
+<article>{props.Post}</article>
+```
+
+a misspelled attribute is reported by Go:
+
+```orbit file=src/pages/index.orbit expect-error
+---
+import Card "../components/Card.orbit"
+---
+<Card psot="hello" />
+```
 
 ```text
-src/pages/index.orbit:9:6: unknown field Psot in struct literal of type Card.Props
+src/pages/index.orbit:4:7: unknown field Psot in struct literal of type Card.Props
 ```
 
 ## How values render

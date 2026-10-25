@@ -275,13 +275,35 @@ Every generated page and component imports `src/locals` (that's how `locals` get
 
 Orbit checks this before Go does and reports the import, for example:
 
-```
-src/locals/locals.go:4:8: src/locals can't import example.com/blog/orbit_gen/app: pages that use locals import src/locals, so this would be an import cycle
+```go file=src/locals/locals.go expect-error
+package locals
+
+import _ "example.com/blog/orbit_gen/app"
+
+type Locals struct {
+	RequestID string
+}
 ```
 
-An indirect import is reported at the import in `src/locals` that leads to it, with the chain of packages:
-
+```text
+src/locals/locals.go:3:10: src/locals can't import example.com/blog/orbit_gen/app: pages that use locals import src/locals, so this would be an import cycle
 ```
+
+An indirect import is reported at the import in `src/locals` that leads to it, with the chain of packages. Here `internal/auth` imports `orbit_gen/app`:
+
+```go file=src/locals/locals.go expect-error
+package locals
+
+import (
+	"example.com/blog/internal/auth"
+)
+
+type Locals struct {
+	User *auth.User
+}
+```
+
+```text
 src/locals/locals.go:4:2: src/locals can't import example.com/blog/orbit_gen/app: pages that use locals import src/locals, so this would be an import cycle (src/locals → example.com/blog/internal/auth → example.com/blog/orbit_gen/app)
 ```
 

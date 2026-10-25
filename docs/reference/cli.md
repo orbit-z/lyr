@@ -285,10 +285,24 @@ It accepts the `goplsPath` initialization option to choose the gopls binary. See
 
 ## Error output
 
-Errors are printed one per line as `file:line:col: message`, with the position in your `.orbit` file:
+Errors are printed one per line as `file:line:col: message`, with the position in your `.orbit` file. For this page, with a misspelled prop:
 
+```orbit file=src/pages/index.orbit expect-error
+---
+import (
+    "example.com/blog/internal/posts"
+    Card "../components/Card.orbit"
+)
+
+p, _ := posts.Find("hello")
+---
+<Card psot={p} />
 ```
-src/pages/index.orbit:9:6: unknown prop "psot" on <Card> (props: post, featured)
+
+`orbit check` prints:
+
+```text
+src/pages/index.orbit:9:7: unknown prop "psot" on <Card> (props: post, featured)
 ```
 
 Errors about a whole file, such as an invalid route, a route param that can't become a field name, or two files that generate the same package, have no line and column: `src/pages/[1st].orbit: route param [1st] can't become a Go field name; …`.
@@ -300,10 +314,22 @@ This holds for Orbit's own checks, esbuild and TypeScript errors, and Go compile
 - **Type names use your aliases.** A type from a component's generated package, like `card.Props` or `"example.com/blog/orbit_gen/decl/components/card".Props`, is shown as `Card.Props`, using the alias the reporting file gives that component (plain `Props` in the component's own file).
 - **Paths are relative to the project root**, with `/` separators: Go's `./src/…` becomes `src/…`, the same form as Orbit's own errors.
 
-For example, a type error in a frontmatter expression:
+For example, a type error in an attribute value:
 
+```orbit file=src/pages/index.orbit expect-error
+---
+import (
+    "example.com/blog/internal/posts"
+    Card "../components/Card.orbit"
+)
+
+p, _ := posts.Find("hello")
+---
+<Card post={p.Title} />
 ```
-src/pages/index.orbit:14:24: cannot use p (variable of struct type posts.Post) as string value in struct literal
+
+```text
+src/pages/index.orbit:9:13: cannot use p.Title (variable of type string) as posts.Post value in struct literal
 ```
 
 ## Stack traces and `-trimpath`

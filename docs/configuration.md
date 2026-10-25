@@ -19,6 +19,12 @@ Unknown keys are ignored, as `encoding/json` ignores unknown fields, so check th
 
 An invalid file stops `orbit generate`, `orbit build` and `orbit dev` with an error that starts with `orbit.json`. A JSON syntax error, such as a trailing comma after the last key, carries its line and column:
 
+```json file=orbit.json expect-error
+{
+  "site": "https://blog.example.com",
+}
+```
+
 ```text
 orbit: orbit.json:3:1: invalid character '}' looking for beginning of object key string
 ```

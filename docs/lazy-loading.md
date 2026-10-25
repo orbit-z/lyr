@@ -165,10 +165,16 @@ The cost on the page is small: one `encoding/json` encode and one encryption per
 
 The children of a deferred component are its fallback: elements or `<Fragment>`s with `slot="fallback"`, plus whitespace. The fallback is rendered by the page, so it can use the page's variables and gets the page's scoped styles. Without a fallback, the placeholder is empty until the HTML arrives.
 
-No other slot can be passed to a deferred component. Any other child is a compile error at the child; if the `<p>` above had no `slot="fallback"`, Orbit would report:
+No other slot can be passed to a deferred component. Any other child is a compile error at the child; if the `<p>` above had no `slot="fallback"`:
+
+```orbit file=src/pages/blog/[slug].orbit expect-error at=26
+    <p>Loading comments…</p>
+```
+
+Orbit would report:
 
 ```text
-src/pages/blog/[slug].orbit:21:5: only slot="fallback" content is allowed inside a server:defer component
+src/pages/blog/[slug].orbit:26:5: only slot="fallback" content is allowed inside a server:defer component
 ```
 
 `server:defer` takes no value, and works only on a component tag (`<Self>` included). On an HTML element, `<slot>` or `<Fragment>`, it's a compile error: `server:defer only works on .orbit components`.
@@ -181,10 +187,19 @@ A deferred component's props travel through the browser, encoded with `encoding/
 - interface types, including `any` and `error`, because Orbit can't check that a decoded value has the type that was sent;
 - maps whose keys aren't strings, integers or `encoding.TextMarshaler`s.
 
-The error is reported at the `server:defer` attribute and names the field path:
+The error is reported at the `server:defer` attribute and names the field path. With an `OnLoad` callback added to the `Props` of `Comments` above:
+
+```orbit file=src/components/Comments.orbit expect-error at=4-6
+type Props struct {
+    PostID string
+    OnLoad func()
+}
+```
+
+the post page fails with:
 
 ```text
-src/pages/blog/[slug].orbit:20:13: <Comments server:defer>: Props.OnLoad has type func(), which can't be sent to a deferred component; props must be JSON-serializable
+src/pages/blog/[slug].orbit:25:13: <Comments server:defer>: Props.OnLoad has type func(), which can't be sent to a deferred component; props must be JSON-serializable
 ```
 
 Each offending top-level field gets one error, with the first problem found under it. A nested field is named with dots (`Props.Author.OnClick`), and an element of a slice, array or map with `[]` (`Props.Handlers[] has type func()`); for a bad map key, the error names the map type.
@@ -432,10 +447,16 @@ Lazy components are rendered on the server like any other, so their HTML is ther
 
 ## Combining the two
 
-`server:defer` and `client:*` on the same tag is a compile error. With `<Comments server:defer client:idle postID={post.Slug}>`, Orbit reports:
+`server:defer` and `client:*` on the same tag is a compile error. With this tag in the post page:
+
+```orbit file=src/pages/blog/[slug].orbit expect-error at=25
+  <Comments server:defer client:idle postID={post.Slug}>
+```
+
+Orbit reports:
 
 ```text
-src/pages/blog/[slug].orbit:20:26: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
+src/pages/blog/[slug].orbit:25:13: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
 ```
 
 To lazy-load scripts inside deferred HTML, put the `client:*` directive on a component that the deferred component renders.
