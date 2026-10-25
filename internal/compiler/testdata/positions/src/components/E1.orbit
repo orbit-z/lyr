@@ -1,0 +1,11 @@
+---
+import "strconv"
+
+type Props struct {
+	N int
+}
+
+s := strconv.Itoa(props.N)
+t := strconv.Itoa("x")
+---
+<p>{s} {t}</p>

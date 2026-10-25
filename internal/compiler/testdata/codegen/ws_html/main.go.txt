@@ -1,0 +1,18 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+
+	ws "example.com/blog/orbit_gen/decl/components/ws"
+	_ "example.com/blog/orbit_gen/impl/components/ws"
+	"github.com/bertrandkhe/orbit"
+)
+
+func main() {
+	var buf bytes.Buffer
+	if err := ws.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), ws.Props{}, orbit.Slots{}); err != nil {
+		panic(err)
+	}
+	fmt.Printf("%q\n", buf.String())
+}

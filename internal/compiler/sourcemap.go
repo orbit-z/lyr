@@ -45,11 +45,11 @@ type SourceMap struct {
 // the Go range, echo segments never match. ok is false outside every
 // segment.
 func (m *SourceMap) GoOffset(off int) (goOff int, ok bool) {
-	panic("not implemented: milestone 4 (B)")
+	return m.goOffset(off)
 }
 
 // OrbitOffset maps a generated-file offset back to the .orbit file, with the
 // same rules; an offset in an echo segment or in glue returns ok false.
 func (m *SourceMap) OrbitOffset(goOff int) (off int, ok bool) {
-	panic("not implemented: milestone 4 (B)")
+	return m.orbitOffset(goOff)
 }

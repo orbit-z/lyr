@@ -1,0 +1,9 @@
+---
+import "strings"
+
+type Props struct {
+	strings.Builder
+	Name string
+}
+---
+<p>{props.Name}</p>

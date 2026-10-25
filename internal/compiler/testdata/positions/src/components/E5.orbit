@@ -1,0 +1,10 @@
+---
+type Props struct {
+	Depth int
+}
+---
+<ul>
+  {for i := 0; i < props.Depth; i++}
+    {if props.Dpth > i}<li>{i}</li>{/if}
+  {/for}
+</ul>

@@ -1,0 +1,28 @@
+---
+items := []string{"a", "b"}
+name := "<you>"
+---
+<section>
+  <h1>  Hello,
+      {name}   and   friends  </h1>
+
+  <p>one <b>two</b>   <i>three</i>
+     four</p>
+  {/* comment */}
+  <ul>
+    {for _, it := range items}
+      <li>{it}</li>
+    {/for}
+  </ul>
+  <span>x</span> <span>y</span>{" "}<span>z</span>
+  {if len(items) > 1}
+    <em>many</em>
+  {/if}
+  <pre>
+  keep   this
+    as is</pre>
+  <textarea>  also
+   this </textarea>
+  <!--   comment   kept   -->
+  <script is:inline>  if (a  <  b) {}  </script>
+</section>

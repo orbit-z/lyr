@@ -1,0 +1,6 @@
+---
+import Emb "../components/Emb.orbit"
+---
+<main>
+  <Emb nmae="x" />
+</main>

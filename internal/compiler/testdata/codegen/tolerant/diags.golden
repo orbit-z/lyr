@@ -1,0 +1,6 @@
+parse: src/pages/index.orbit:8:26: {...} spread only works on HTML elements
+parse: src/pages/index.orbit:10:11: attribute class isn't allowed on <Fragment>; it takes only slot, set:html and set:text
+parse: src/pages/index.orbit:11:1: {if} needs a condition
+parse: src/pages/index.orbit:14:28: an element with set:html can't have children; the directive sets its content
+src/pages/index.orbit:8:2: unknown component <Crad>: no .orbit import with this alias
+src/pages/index.orbit:9:7: unknown prop "psot" on <Card> (props: title, isOpen)

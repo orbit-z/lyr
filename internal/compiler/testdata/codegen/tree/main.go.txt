@@ -1,0 +1,32 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+
+	tree "example.com/blog/orbit_gen/decl/components/tree"
+	_ "example.com/blog/orbit_gen/impl/components/tree"
+	"github.com/bertrandkhe/orbit"
+)
+
+func main() {
+	root := tree.Node{Name: "root", Children: []tree.Node{
+		{Name: "a", Children: []tree.Node{{Name: "a1"}, {Name: "a2"}}},
+		{Name: "b"},
+	}}
+	var buf bytes.Buffer
+	if err := tree.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), tree.Props{Node: root}, orbit.Slots{}); err != nil {
+		panic(err)
+	}
+	fmt.Println(buf.String())
+	// The depth guard stops runaway recursion with an error.
+	err := tree.Render(&orbit.Ctx{}, orbit.NewWriter(&bytes.Buffer{}), tree.Props{Node: deep(1100)}, orbit.Slots{})
+	fmt.Println(err != nil)
+}
+
+func deep(n int) tree.Node {
+	if n == 0 {
+		return tree.Node{Name: "leaf"}
+	}
+	return tree.Node{Name: "n", Children: []tree.Node{deep(n - 1)}}
+}

@@ -1,0 +1,24 @@
+---
+import "strings"
+
+// Props are the card's inputs.
+type Props struct {
+	Title    string
+	Featured bool
+	Href     string
+	PostID   int
+}
+
+func shout(s string) string { return strings.ToUpper(s) + "!" }
+
+label := shout(props.Title)
+n, err := len(label), error(nil)
+_ = err
+---
+<article class="card" data-featured={props.Featured} data-id={props.PostID}>
+  <h2><a href={props.Href}>{label}</a></h2>
+  <slot />
+  <footer><slot name="footer">no footer</slot></footer>
+  <span>{n} chars</span>
+</article>
+<style>.card { border: 1px solid #ccc }</style>

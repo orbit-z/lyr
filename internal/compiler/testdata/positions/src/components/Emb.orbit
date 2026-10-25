@@ -1,0 +1,11 @@
+---
+// Base is embedded, so Props' fields can't be listed.
+type Base struct {
+	Name string
+}
+
+type Props struct {
+	Base
+}
+---
+<p>{props.Name}</p>

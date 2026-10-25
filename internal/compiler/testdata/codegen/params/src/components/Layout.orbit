@@ -1,0 +1,15 @@
+---
+type Props struct {
+	Title string
+}
+---
+<html>
+  <head>
+    <title>{props.Title}</title>
+    <slot name="head" />
+  </head>
+  <body>
+    <slot>empty body</slot>
+    <footer><slot name="footer"><p>default footer</p></slot></footer>
+  </body>
+</html>

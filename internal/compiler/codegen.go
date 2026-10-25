@@ -19,7 +19,26 @@ type Options struct {
 	// Locals is the import path of the user's src/locals package, or "" to
 	// use orbit__rt.NoLocals (detection is milestone 7).
 	Locals string
+	// CompressHTML is orbit.json's "compressHTML": how template whitespace
+	// is compressed at codegen time (DESIGN.md, settled gap 2). The zero
+	// value is the default, "html".
+	CompressHTML Compression
 }
+
+// Compression is a compressHTML mode.
+type Compression uint8
+
+const (
+	// CompressHTML ("html", the default) collapses whitespace runs to one
+	// space, or one newline if the run has one, and drops whitespace-only
+	// text between block-level tags; inline content keeps a space.
+	CompressHTML Compression = iota
+	// CompressJSX ("jsx") applies JSX's whitespace rules: whitespace with a
+	// newline next to a tag boundary is removed, within a line it's kept.
+	CompressJSX
+	// CompressNone (false) copies template text verbatim.
+	CompressNone
+)
 
 // Input is one file to generate.
 type Input struct {
@@ -143,5 +162,5 @@ type TypedWrites map[int]TypedWrite
 // file, with their source maps and call sites. It never panics. See
 // DESIGN.md for the exact shape (PLAN.md §3.2) and directive rules (§3.3).
 func Generate(in *Input) *Output {
-	panic("not implemented: milestone 4 (B)")
+	return cgGenerate(in)
 }

@@ -1,0 +1,21 @@
+---
+// Node is one tree node.
+type Node struct {
+	Name     string
+	Children []Node
+}
+
+type Props struct {
+	Node  Node
+	Depth int
+}
+---
+<li>{props.Node.Name} ({props.Depth})
+  {if len(props.Node.Children) > 0}
+    <ul>
+      {for _, c := range props.Node.Children}
+        <Self node={c} depth={props.Depth + 1} />
+      {/for}
+    </ul>
+  {/if}
+</li>

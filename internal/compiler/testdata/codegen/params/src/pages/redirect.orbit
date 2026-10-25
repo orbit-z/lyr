@@ -1,0 +1,4 @@
+---
+n := 1
+return ctx.Redirect("/login", 302+n-1)
+---
