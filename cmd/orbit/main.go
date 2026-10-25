@@ -45,7 +45,7 @@ func init() {
 	commands = []*command{
 		{name: "generate", short: "generate the Go code in orbit_gen/", run: runGenerate},
 		{name: "build", args: "[--embed] [--verbose]", short: "build the server and its assets into dist/", run: runBuild},
-		{name: "dev", args: "[--port 4321] [--host]", short: "run the dev server", run: notYet("dev")},
+		{name: "dev", args: "[--port 4321] [--host]", short: "run the dev server", run: runDev},
 		{name: "preview", short: "run the built server", run: runPreview},
 		{name: "new", args: "<dir> [--module path]", short: "create a project", run: runNew},
 		{name: "check", short: "type-check Go and TypeScript", run: runCheck},

@@ -102,10 +102,8 @@ Created blog (module example.com/blog).
 Next steps:
 
 	cd blog
-	go tool orbit build && go tool orbit preview
+	go tool orbit dev
 ```
-
-(Until `orbit dev` is available, the next steps build the site and run it; then they'll say `go tool orbit dev`.)
 
 If generating the code or `go mod tidy` fails, `orbit new` says which step failed and leaves the directory as it is, so you can look at it; delete it before running `orbit new` again.
 

@@ -1,0 +1,6 @@
+---
+type Props struct {
+	N int
+}
+---
+<section class="slow">island {props.N}</section>

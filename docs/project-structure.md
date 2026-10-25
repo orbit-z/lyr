@@ -155,7 +155,7 @@ The implementation package has the same path under `orbit_gen/impl/`, with an `_
 
 ## `.orbit/`: cache
 
-Files that Orbit reuses between runs: the server binary that `orbit dev` builds and runs, the assets it bundles (`.orbit/dev/`), and the scripts `orbit check` extracts for TypeScript (`.orbit/check/`). It's gitignored and safe to delete at any time.
+Files that Orbit reuses between runs: the server binaries that `orbit dev` builds and runs (`.orbit/devserver/`), the assets it bundles (`.orbit/dev/`), and the scripts `orbit check` extracts for TypeScript (`.orbit/check/`). It's gitignored and safe to delete at any time.
 
 ## `dist/`: build output
 

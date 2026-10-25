@@ -141,7 +141,9 @@ Runs the development server: it builds and runs your server entry, watches your 
 | `--port` | `4321` | The port the dev server listens on. |
 | `--host` | off | Listen on all network interfaces instead of localhost only, so other devices on your network can reach the dev server. |
 
-Without `--host`, the dev server listens on localhost only, as Astro's does. Your own server always runs on `127.0.0.1` at a random port behind it, either way.
+Without `--host`, the dev server listens on localhost only (`127.0.0.1`, and `[::1]` when available), as Astro's does. Your own server always runs on `127.0.0.1` at a random port behind it, either way. When the port is taken, the next nine are tried in turn, as Astro does.
+
+Ctrl-C stops your server (with `SIGINT`, as on every restart) and exits with code 0. `orbit dev` exits with code 1 only when it can't start at all (no `go.mod`, no free port, the file watcher fails), and 2 for a usage error.
 
 Compile errors don't stop `orbit dev`: it prints them, shows them in the browser overlay, and keeps the last working version of your server running until you fix them.
 
@@ -188,7 +190,7 @@ Creates a project in the directory `<dir>` from the starter template built into 
 - a `Dockerfile` and `.dockerignore`: a multi-stage build that runs `go tool orbit build --embed` and copies only `dist/server` into a distroless image, with `ENV PORT=8080` (see [Deploy](../deploy.md));
 - a `.gitignore` covering `orbit_gen/`, `.orbit/`, `dist/` and `node_modules/`.
 
-It then runs `orbit generate`, then `go mod tidy`, in that order: the scaffolded `cmd/server` imports `orbit_gen/app`, so `go mod tidy` would fail before the code is generated. `orbit build` works on the starter with no edits. Finally it prints the next steps (`cd <dir>`, then `go tool orbit build && go tool orbit preview`; `go tool orbit dev` once the dev server is available) to stdout; `go mod tidy`'s progress goes to stderr.
+It then runs `orbit generate`, then `go mod tidy`, in that order: the scaffolded `cmd/server` imports `orbit_gen/app`, so `go mod tidy` would fail before the code is generated. `orbit build` works on the starter with no edits. Finally it prints the next steps (`cd <dir>`, then `go tool orbit dev`) to stdout; `go mod tidy`'s progress goes to stderr.
 
 Flags may come before or after `<dir>`. A missing `<dir>`, a second argument or an unknown flag is a usage error (exit code 2). A module path with characters Go doesn't allow (`orbit new "my site"`) or a non-empty `<dir>` fails with exit code 1 before anything is written. If generating the code or `go mod tidy` fails, `orbit new` exits with code 1, names the failed step, and leaves `<dir>` as it is for you to inspect.
 
