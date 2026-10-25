@@ -1,0 +1,24 @@
+---
+type Props struct {
+    Title string
+}
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{props.Title}</title>
+  </head>
+  <body>
+    <header class="site-header"><a href="/">Bench</a></header>
+    <main>
+      <slot />
+    </main>
+    <footer class="site-footer">Benchmark site</footer>
+  </body>
+</html>
+<style>
+  main { max-width: 60rem; margin: 2rem auto; padding: 0 1rem; font-family: system-ui, sans-serif; }
+  .site-header, .site-footer { padding: 1rem; background: #eee; }
+</style>

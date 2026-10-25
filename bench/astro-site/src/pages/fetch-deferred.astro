@@ -1,0 +1,13 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SlowList from '../components/SlowList.astro';
+---
+<Layout title="Fetched list (deferred)">
+  <h1>Latest items</h1>
+  <SlowList server:defer>
+    <p slot="fallback" class="loading">Loading items…</p>
+  </SlowList>
+</Layout>
+<style>
+  .loading { color: #888; }
+</style>

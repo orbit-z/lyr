@@ -11,6 +11,9 @@ spike/*/bin/
 spike/typecheck/sites/
 spike/lsp/results/*.log
 
+# Benchmark results (bench/run.sh writes them; publish in docs/performance.md)
+bench/results/
+
 # Editors / OS
 .DS_Store
 .idea/

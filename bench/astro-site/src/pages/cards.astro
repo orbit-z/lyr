@@ -1,0 +1,20 @@
+---
+import { cards } from '../data';
+import Layout from '../layouts/Layout.astro';
+import Card from '../components/Card.astro';
+
+const items = cards;
+---
+<Layout title="500 cards">
+  <h1>{items.length} cards</h1>
+  <section class="grid">
+    {items.map((it) => (
+      <Card title={it.title} href={it.href} likes={it.likes} featured={it.featured} tags={it.tags}>
+        <p>{it.summary}</p>
+      </Card>
+    ))}
+  </section>
+</Layout>
+<style>
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 1rem; }
+</style>

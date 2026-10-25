@@ -1,0 +1,17 @@
+---
+import type { Item } from '../data';
+
+interface Props {
+  items: Item[];
+}
+const { items } = Astro.props;
+---
+<ul class="items">
+  {items.map((it) => (
+    <li><a href={it.href}>{it.title}</a> <span class="likes">{it.likes} likes</span></li>
+  ))}
+</ul>
+<style>
+  .items { list-style: none; padding: 0; }
+  .items li { padding: .25rem 0; border-bottom: 1px solid #eee; }
+</style>
