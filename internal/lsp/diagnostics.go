@@ -180,9 +180,8 @@ func (s *Server) publishAll(ws *workspace) {
 }
 
 // onGoplsDiagnostics handles gopls's publishDiagnostics: diagnostics of a
-// generated file are stored and republished on its .orbit file; others
-// (the user's .go files, go.mod) are forwarded, minus the go.mod warning
-// gopls gives for modules only overlays import.
+// generated file are stored and republished on its .orbit file; others are
+// dropped.
 func (s *Server) onGoplsDiagnostics(params jsonRaw) {
 	o := decodeObj(params)
 	if o == nil {
@@ -210,44 +209,6 @@ func (s *Server) onGoplsDiagnostics(params jsonRaw) {
 		s.publish(ws, g.orbit)
 		return
 	}
-	if strings.HasSuffix(rel, "go.mod") {
-		var items []obj
-		json.Unmarshal(o["diagnostics"], &items)
-		kept := items[:0]
-		for _, d := range items {
-			if !ws.overlayOnlyModule(d.str("message")) {
-				kept = append(kept, d)
-			}
-		}
-		if kept == nil {
-			kept = []obj{}
-		}
-		o.set("diagnostics", kept)
-		params = o.marshal()
-	}
-	s.client.Notify("textDocument/publishDiagnostics", params)
-}
-
-// overlayOnlyModule reports whether msg is gopls's "<module> is not used in
-// this module" for a module that generated code imports (gopls's go.mod
-// check doesn't see overlay-only packages).
-func (ws *workspace) overlayOnlyModule(msg string) bool {
-	mod, ok := strings.CutSuffix(msg, " is not used in this module")
-	if !ok {
-		return false
-	}
-	for _, f := range ws.proj.Files {
-		if f.Analysis == nil {
-			continue
-		}
-		if mod == compiler.RuntimePath {
-			return true // every generated file imports the runtime
-		}
-		for _, im := range f.Analysis.GoImports {
-			if im.Path == mod || strings.HasPrefix(im.Path, mod+"/") {
-				return true
-			}
-		}
-	}
-	return false
+	// Others (the user's .go files, go.mod) are left to the editor's Go
+	// support, as Astro's language server reports only .astro files.
 }

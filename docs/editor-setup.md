@@ -50,7 +50,7 @@ The extension:
 - adds bracket matching, comment toggling and auto-closing;
 - starts `orbit lsp` for completion, diagnostics and the rest.
 
-It runs the `orbit` on your `PATH`. Inside a project that pins the CLI in `go.mod`, that `orbit` hands over to `go tool orbit lsp`, so the language server always matches your project's Orbit version. To use a different binary, set `orbit.path`; to choose the gopls that Orbit starts, set `orbit.goplsPath` (see [How gopls is found](#how-gopls-is-found)):
+It runs the `orbit` on your `PATH`. Inside a project that pins the CLI in `go.mod`, that `orbit` hands over to the pinned version (the binary `go tool orbit lsp` would run), so the language server always matches your project's Orbit version. To use a different binary, set `orbit.path`; to choose the gopls that Orbit starts, set `orbit.goplsPath` (see [How gopls is found](#how-gopls-is-found)):
 
 ```json file=.vscode/settings.json
 {
