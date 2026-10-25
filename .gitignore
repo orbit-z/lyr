@@ -16,3 +16,6 @@ spike/lsp/results/*.log
 .idea/
 .vscode/
 node_modules/
+
+# Claude Code worktrees
+.claude/worktrees/
