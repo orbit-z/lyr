@@ -1,9 +1,9 @@
 package compiler
 
 import (
-	"go/parser"
+	goparser "go/parser"
 	"go/scanner"
-	"go/token"
+	gotoken "go/token"
 	"strings"
 	"testing"
 )
@@ -118,11 +118,11 @@ func TestScanBracedTolerant(t *testing.T) {
 // legitimately disagree (scanBraced doesn't validate tokens).
 func goScannerEnd(src string, start int) (end int, ok bool) {
 	body := src[start:]
-	fset := token.NewFileSet()
+	fset := gotoken.NewFileSet()
 	file := fset.AddFile("", -1, len(body))
 	var s scanner.Scanner
 	errs := 0
-	s.Init(file, []byte(body), func(token.Position, string) { errs++ }, scanner.ScanComments)
+	s.Init(file, []byte(body), func(gotoken.Position, string) { errs++ }, scanner.ScanComments)
 	depth := 0
 	for {
 		pos, tok, _ := s.Scan()
@@ -130,11 +130,11 @@ func goScannerEnd(src string, start int) (end int, ok bool) {
 			return 0, false
 		}
 		switch tok {
-		case token.EOF:
+		case gotoken.EOF:
 			return -1, true
-		case token.LBRACE:
+		case gotoken.LBRACE:
 			depth++
-		case token.RBRACE:
+		case gotoken.RBRACE:
 			depth--
 			if depth == 0 {
 				return start + file.Offset(pos), true
@@ -174,7 +174,7 @@ func FuzzScanBraced(f *testing.F) {
 
 		// A valid Go expression, wrapped as {expr\n}, ends at the final '}'
 		// (the newline ends a trailing line comment).
-		if _, err := parser.ParseExpr(expr); err == nil {
+		if _, err := goparser.ParseExpr(expr); err == nil {
 			wrapped := prefix + "{" + expr + "\n}"
 			if got := scanBraced(wrapped, start); got != len(wrapped)-1 {
 				t.Fatalf("valid expression %q: scanBraced = %d, want %d", expr, got, len(wrapped)-1)

@@ -47,6 +47,17 @@ To override a decision, say which row and the alternative you want; the docs and
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
+| The `set:` and `is:` namespaces are reserved like `server:`/`client:`: an unknown directive in them is an error listing the valid ones | simplest | Pass them through as attributes | [Template syntax](reference/template-syntax.md) |
+| `is:inline` works only on `<script>`/`<style>`, `is:global` only on `<style>` | Astro | Ignore elsewhere | [Styles and scripts](styles-and-scripts.md) |
+| `slot="…"` must be a static, non-empty name | simplest | Allow `{expr}` names | [Components](components.md) |
+| `{for}` with an empty clause is an error (no infinite loops by accident); `{}` is allowed and renders nothing | simplest / Astro | Allow `{for}`; reject `{}` | [Template syntax](reference/template-syntax.md) |
+| An unquoted attribute value ends at whitespace or `>` (HTML rules), so `a=b/>` doesn't self-close | Go stdlib / HTML | Treat `/>` specially | [Template syntax](reference/template-syntax.md) |
+| Tag names are case-sensitive (`<Card>` is a component, `<card>` an HTML element) | Astro | Case-insensitive | [Components](components.md) |
+| A `<script src>` counts as local (processed) when it starts with `./` or `../`; `<style>` is processed unless `is:inline` | Astro | — | [Styles and scripts](styles-and-scripts.md) |
+| Children of a `server:defer` component inside `{if}`/`{for}` are rejected like other non-fallback children | simplest | Allow conditional fallbacks | [Lazy loading](lazy-loading.md) |
+| When `server:defer` and `client:*` are combined, the error is reported at the first of the two | simplest | At both | [Lazy loading](lazy-loading.md) |
+| The brace scanner tracks only `{}` (not `()[]`) to find the end; valid Go gives the same result, and `{f(x}` stops at the first `}`, keeping errors local | simplest | Track all brackets | — |
+| A newline inside a `"…"` or `'…'` literal, or a `//` comment reaching the end of input, makes the construct unterminated, as in Go | Go spec | — | — |
 | `+` isn't HTML-escaped (html/template escapes it against UTF-7 sniffing, impossible with Orbit's `charset=utf-8`); escaped set: `& < > " '`, and NUL → U+FFFD | simplest (typed and `Expr` output stay byte-identical, e.g. `1e+06`) | Escape `+` like html/template | [Template syntax](reference/template-syntax.md) |
 | Only unnamed slices render element by element; a named slice (`type Tags []string`) uses `fmt.Sprint`, following the exact-type rule | Go stdlib | Expand named slices too | [Template syntax](reference/template-syntax.md) |
 | A named bool in `Attr`/`Spread` behaves like `bool` (bare or omitted), matching the `AttrBool` codegen emits | simplest | `fmt.Sprint` it | [Template syntax](reference/template-syntax.md) |
