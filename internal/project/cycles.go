@@ -47,7 +47,8 @@ func checkPropsCycles(files []*File) []Diagnostic {
 			Severity: compiler.SeverityError,
 			Message: "import cycle not allowed between component Props: " + strings.Join(chain, " → ") +
 				"; declare the shared types in a package under internal/",
-			off: first.imp.AliasSpan.Start,
+			Span: first.imp.AliasSpan,
+			off:  first.imp.AliasSpan.Start,
 		})
 	}
 	return ds
