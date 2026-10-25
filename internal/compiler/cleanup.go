@@ -18,7 +18,7 @@ type ErrorNames struct {
 // NewErrorNames builds the table from every file's Analysis (using
 // PackageFor on Info.Path and OrbitImport.Resolved).
 func NewErrorNames(module string, files []*Analysis) *ErrorNames {
-	panic("not implemented: milestone 4 (C)")
+	return newErrorNames(module, files)
 }
 
 // CleanGoOutput rewrites go build / go vet output whose lines already point
@@ -30,5 +30,5 @@ func NewErrorNames(module string, files []*Analysis) *ErrorNames {
 // reporting file (or an ambiguous package name) is left as is. Lines not
 // about .orbit files pass through unchanged.
 func CleanGoOutput(out []byte, names *ErrorNames) []byte {
-	panic("not implemented: milestone 4 (C)")
+	return cleanGoOutput(out, names)
 }
