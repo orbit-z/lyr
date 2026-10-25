@@ -129,7 +129,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 
 | Astro | Orbit | Notes |
 |---|---|---|
-| `src/pages/about.astro` → `/about` | `src/pages/about.orbit` → `/about` | `index.orbit` is its directory's root. Only `.orbit` files are pages. See [Routing](routing.md). |
+| `src/pages/about.astro` → `/about` | `src/pages/about.orbit` → `/about` | `index.orbit` is its directory's root. Only `.orbit` files are pages, and as in Astro, a `_` prefix on a file or directory (`_parts/Byline.orbit`) keeps it out of the routes. See [Routing](routing.md#file-based-routes). |
 | `[slug].astro` | `[slug].orbit` | A parameter must be a whole segment: `post-[id].orbit` is a build error for now. See [Dynamic routes](routing.md#dynamic-routes-with-param). |
 | `[...path].astro` | `[...path].orbit` | Must be the last segment. With zero segments the value is `""`, not `undefined`. See [Catch-all routes](routing.md#catch-all-routes-with-rest). |
 | `Astro.params.slug` | `params.Slug` | Typed: Orbit generates a `Params` struct per page from its file path, so `params.Slg` is a compile error at its line and your editor completes `params.`. Values are percent-decoded strings. Components read `ctx.Param("slug")`. See [Route params](routing.md#route-params-params). |
@@ -181,7 +181,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 | `astro add`, integrations, adapters | None | The output is a Go binary, not a Node app, so there's nothing to adapt. `orbit build --embed` makes it one self-contained file, and `orbit new` scaffolds a Dockerfile. See [Deploy](deploy.md). |
 | Content collections, Markdown pages, `astro:assets` images | Not supported yet | They're out of scope for the first release. Load content from your own Go package under `internal/`, and render trusted HTML with `orbit.HTML`. |
 | `astro.config.mjs` | `orbit.json` (optional) | Plain JSON with four keys: `site`, `server`, `embed` and `compressHTML`. No `base` or `trailingSlash` yet. See [Configuration](configuration.md). |
-| `compressHTML: true`, `'jsx'`, `false` | `"compressHTML": "html"`, `"jsx"`, `false` | The same three behaviors, but Orbit's default is `"html"` (Astro's `true`), not Astro v7's `'jsx'`. See [Whitespace](reference/template-syntax.md#whitespace). |
+| `compressHTML: true`, `'jsx'`, `false` | `"compressHTML": "html"` (or `true`), `"jsx"`, `false` | The same three behaviors, and `true` is accepted as `"html"`. Orbit's default is `"html"` (Astro's `true`), not Astro v7's `'jsx'`. See [Whitespace](reference/template-syntax.md#whitespace). |
 | The Astro VS Code extension | The Orbit extension, `bertrandkhe.orbit` | On the Marketplace and Open VSX. It starts `orbit lsp`, which works with gopls for Go completion, diagnostics and rename in `.orbit` files. TypeScript in `<script>` gets highlighting only; run `orbit check`. See [Editor setup](editor-setup.md). |
 
 ## Things that work differently

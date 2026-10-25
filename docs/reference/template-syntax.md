@@ -105,7 +105,7 @@ Orbit compresses template whitespace when it generates the Go code, following th
 - attribute values;
 - the output of `{expr}`: it's runtime data, so `{" "}` always writes one space.
 
-**`"html"`** (the default, Astro's `compressHTML: true`) is lossless for rendering:
+**`"html"`** (the default, Astro's `compressHTML: true`; `true` is accepted as a synonym) is lossless for rendering:
 
 - Each run of whitespace becomes one space, or one newline if the run contains a newline.
 - A text that is only whitespace is dropped when what can render on each side of it is a block-level boundary: the tag of a block-level element, a doctype, a `<script>` or `<style>`, or the start or end of the template. It's also dropped when the whitespace on one side is kept anyway.

@@ -15,7 +15,13 @@ A blog with a canonical site URL and a single-binary build:
 
 The file is plain JSON, with no comments. `orbit doctor` checks that it's valid and that the `server` entry exists, and during `orbit dev` a change to it triggers a full rebuild and a reload.
 
-Unknown keys are ignored, as `encoding/json` ignores unknown fields, so check the spelling of a key that seems to have no effect.
+Unknown keys are ignored, as `encoding/json` ignores unknown fields, so check the spelling of a key that seems to have no effect. A key set to `null` counts as unset.
+
+An invalid file stops `orbit generate`, `orbit build` and `orbit dev` with an error that starts with `orbit.json`. A JSON syntax error, such as a trailing comma after the last key, carries its line and column:
+
+```text
+orbit: orbit.json:3:1: invalid character '}' looking for beginning of object key string
+```
 
 ## All keys
 
@@ -24,7 +30,7 @@ Unknown keys are ignored, as `encoding/json` ignores unknown fields, so check th
 | [`site`](#site) | string | none | Your site's absolute URL, available as `ctx.Site`. |
 | [`server`](#server) | string | `"./cmd/server"` if it exists, else a generated entry | The Go package of your server's `main`. |
 | [`embed`](#embed) | bool | `false` | Embed the static files in the server binary, like `orbit build --embed`. |
-| [`compressHTML`](#compresshtml) | `"html"`, `"jsx"` or `false` | `"html"` | How template whitespace is compressed. |
+| [`compressHTML`](#compresshtml) | `"html"` (or `true`), `"jsx"` or `false` | `"html"` | How template whitespace is compressed. |
 
 ## `site`
 
@@ -63,7 +69,7 @@ The server entry is used in two places:
 - `orbit dev` runs it, so your routes and middleware behave as in production.
 - `orbit build` compiles it to `dist/server`.
 
-`orbit doctor` reports a `server` path that doesn't exist. See [Server](server.md).
+The path must be relative to the project root and not empty; remove the key to get the default. `orbit generate` doesn't check that the directory exists; `orbit doctor` reports a `server` path that doesn't. See [Server](server.md).
 
 ## `embed`
 
@@ -86,8 +92,15 @@ How Orbit compresses the whitespace in your templates. It's applied when the Go 
 | Value | Effect |
 |---|---|
 | `"html"` (default) | HTML-aware and lossless, like Astro's `compressHTML: true`. Each run of whitespace becomes one space, or one newline if it contains one. Whitespace-only text between block-level tags is dropped, but whitespace next to text, inline elements or `{expr}` always keeps one character, so words never join. |
+| `true` | The same as `"html"`, so an Astro config value works as is. |
 | `"jsx"` | JSX's whitespace rules, Astro v7's default: whitespace that contains a newline is removed when it's next to a tag or an expression, and whitespace within a line is kept. Write `{" "}` where you need a space across lines. |
 | `false` | Template text is written exactly as it is. |
+
+Any other value is an error:
+
+```text
+orbit: orbit.json: compressHTML must be "html" (or true), "jsx" or false, not "none"
+```
 
 In every mode, the content of `<pre>`, `<textarea>`, `<script>` and `<style>`, HTML comments, attribute values and the output of `{expr}` are never altered. The exact rules are in [Template syntax: Whitespace](reference/template-syntax.md#whitespace).
 

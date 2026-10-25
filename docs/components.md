@@ -703,7 +703,13 @@ if err != nil {
 
 If loading the comments is slow, render them with `server:defer` so they don't hold up the page; see [Lazy loading](#lazy-loading).
 
-One cycle can't be compiled: two `Props` types that refer to each other's components (`A.Props` has a field of type `B.Props` and `B.Props` has one of type `A.Props`). Orbit reports it with the full import chain. Passing shared data types from an `internal/` package, as above, avoids it.
+One cycle can't be compiled: two `Props` types that refer to each other's components (`A.Props` has a field of type `B.Props` and `B.Props` has one of type `A.Props`). Orbit reports it once per cycle, with the shortest import chain, at the import alias in the first file of the chain (by path):
+
+```text
+src/components/A.orbit:2:8: import cycle not allowed between component Props: src/components/A.orbit → src/components/B.orbit → src/components/A.orbit; declare the shared types in a package under internal/
+```
+
+Passing shared data types from an `internal/` package, as above, avoids it.
 
 ### The depth limit
 

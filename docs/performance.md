@@ -53,7 +53,7 @@ The request context (`*orbit.Ctx`) is pooled along with its writer and buffer, s
 
 ### Allocations per request
 
-For a typical page, Orbit's own code allocates nothing: routing, the request context, the buffer, escaping, typed writes and head injection are all allocation-free. Orbit's tests check this, so a change that adds an allocation fails `go test`.
+For a typical page, rendering allocates nothing in Orbit's code: routing, the request context, the buffer, escaping, typed writes and head injection are all allocation-free. Serving the page adds exactly one allocation (48 bytes): the `Content-Length` header value. It can't be reused, because `net/http` may read the headers after the handler returns. Orbit's tests check both numbers, so a change that adds an allocation fails `go test`.
 
 A "typical page" here means:
 - its expressions are plain types, so they get typed writes

@@ -26,7 +26,7 @@ Deploy both, side by side, and run the binary:
 ./dist/server
 ```
 
-The server looks for its static files in the `client/` directory next to the binary (in the binary's own directory, not the working directory), so you can start it from anywhere. It listens on `:4321` unless you set `ORBIT_ADDR` or `PORT`, and it shuts down gracefully on SIGINT and SIGTERM (when your `main` uses `orbit.ListenAndServe`, as the scaffolded one does).
+The server looks for its static files in the `client/` directory next to the binary (in the binary's own directory, not the working directory, after resolving symlinks to the binary), so you can start it from anywhere. It listens on `:4321` unless you set `ORBIT_ADDR` or `PORT`, and it shuts down gracefully on SIGINT and SIGTERM (when your `main` uses `orbit.ListenAndServe`, as the scaffolded one does).
 
 To deploy, copy the binary and the directory together:
 
@@ -35,6 +35,19 @@ rsync -a dist/server dist/client deploy@example.com:/srv/blog/
 ```
 
 Files under `/_orbit/` have content hashes in their names and are served with `Cache-Control: public, max-age=31536000, immutable`, so a CDN in front of the server can cache them indefinitely. You can also upload `dist/client/` to a CDN directly. Pages and [`server:defer`](lazy-loading.md) island responses are rendered per request; islands default to `Cache-Control: private, no-store`, so shared caches don't store them.
+
+### How static files are served
+
+- **Caching**: `/_orbit/*` files get `Cache-Control: public, max-age=31536000, immutable`, and `public/` files `Cache-Control: public, max-age=0`, so browsers revalidate them. In `orbit dev`, both get `no-cache`.
+- **Validators**: files from a directory get `Last-Modified`. Embedded files (`--embed`) have no modification time, so they get a strong `ETag` from their content instead. Conditional and `Range` requests work for both.
+- **Exact paths only**: a file is served only at its exact path. A directory is never served, not even its `index.html`, so `public/docs/index.html` is at `/docs/index.html`, not `/docs`. Paths that aren't clean (with `..`, `.`, `//` or a trailing slash) never match a file.
+- **Inside the directory**: a lookup can't leave the static directory, through `..` or a symlink. Dotfiles (`public/.well-known/…`) are served like any other file.
+- **Indexed at startup**: the server lists the static files once, when it starts, so every request checks them without a system call. A file added to `dist/client/` while the server runs isn't served until you restart it. `orbit dev` looks files up on every request instead.
+- **A missing directory**: if `ORBIT_STATIC` or `orbit.WithStaticDir` names a directory that doesn't exist, the server logs one line at startup and serves no static files from it:
+
+  ```text
+  orbit: ORBIT_STATIC directory /srv/blog/client doesn't exist; no static files are served from it
+  ```
 
 Orbit doesn't compress responses. Add a gzip middleware in `cmd/server/main.go`, or let your reverse proxy or CDN compress.
 

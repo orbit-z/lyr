@@ -287,7 +287,7 @@ Rendering a full page, with its assets, from a custom handler is not yet support
 
 - `ReadHeaderTimeout` of 10 seconds and `IdleTimeout` of 120 seconds;
 - no `ReadTimeout` or `WriteTimeout`, so slow uploads and your own streaming handlers keep working;
-- on shutdown, up to 5 seconds for in-flight requests to finish.
+- on shutdown, up to 5 seconds for in-flight requests to finish. If requests are still running after that, it closes their connections and returns `orbit: shutdown: context deadline exceeded` instead of `nil`. A second Ctrl-C during the shutdown stops the process at once.
 
 `orbit.Addr()` picks the address from the environment:
 

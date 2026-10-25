@@ -173,6 +173,8 @@ if params.Slug == "hello-orbit" {
 
 `Redirect` doesn't write anything itself: it returns an `*orbit.RedirectError` (with `Location` and `Code`), and returning that error ends the frontmatter and sends the redirect. The template doesn't render. Remember the `return`.
 
+Headers the page set before returning, such as a `Set-Cookie` from a login form, are sent with the redirect. The response is written by `http.Redirect`, so a relative `Location` (`"../hello"`) is resolved against the request path, as in any Go handler.
+
 ## Status codes and errors
 
 The status is 200 unless you change it:
@@ -188,6 +190,14 @@ In production, the visitor gets a minimal built-in page, `500 Internal Server Er
 orbit: GET /blog/hello: src/pages/blog/[slug].orbit:14:5: posts: connection refused
 ```
 
+A panic is logged at the innermost `.orbit` line on the stack, with the file relative to the server's working directory, and without a stack trace:
+
+```text
+orbit: GET /blog/hello: src/pages/blog/[slug].orbit:14: panic: runtime error: index out of range [3] with length 3
+```
+
+The headers a page set with `ctx.Header()` are dropped from a 500, and from the 404 that `orbit.ErrNotFound` sends; only a redirect keeps them.
+
 In `orbit dev`, you get an error overlay with the `.orbit` file and line instead (see [Dev server](dev-server.md)). A custom `src/pages/500.orbit` error page is planned after the first release.
 
 Because responses are buffered, a failed render never sends half a page: the visitor gets a clean error response.
@@ -202,7 +212,7 @@ Set headers with `ctx.Header()`, an `http.Header`:
 ctx.Header().Set("Cache-Control", "private, max-age=60")
 ```
 
-Pages get `Content-Type: text/html; charset=utf-8` unless the page sets another one. Middleware around Orbit can add headers too (see [Middleware and locals](middleware.md)).
+Pages get `Content-Type: text/html; charset=utf-8` unless the page sets another one, or middleware around Orbit set one on the response before calling it. Middleware around Orbit can add headers too (see [Middleware and locals](middleware.md)).
 
 Orbit doesn't compress responses or cache rendered pages. Add a gzip middleware and `Cache-Control` headers yourself; caching of SSR responses is not yet supported.
 

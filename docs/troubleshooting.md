@@ -124,6 +124,20 @@ go tool orbit build
 
 The same applies after you edit an `.orbit` file: `go test` runs against the old generated code until you regenerate (a running `orbit dev` keeps it up to date). `orbit doctor` warns when `orbit_gen/` is missing or stale. To make plain `go build ./...` work right after a clone, you can commit `orbit_gen/` instead. See [Fresh clones and CI](project-structure.md#fresh-clones-and-ci).
 
+### `orbit.json: compressHTML must be "html" (or true), "jsx" or false, not "none"`
+
+**Cause:** `orbit.json` has a value Orbit doesn't accept. Other messages of this kind: `orbit.json: server must not be empty; remove it to use ./cmd/server`, `orbit.json: server "/srv/cmd/server" must be a path relative to the project root, such as "./cmd/server"`, `orbit.json: site "blog.example.com" isn't an absolute URL; include the scheme and host, such as "https://example.com"`, and JSON syntax errors with a position, such as `orbit.json:3:1: invalid character '}' looking for beginning of object key string` (a trailing comma).
+
+**Fix:** correct the value the message names, or remove the key to get its default (`null` counts as unset too). See [Configuration](configuration.md#all-keys).
+
+### `has no src/ directory; run orbit in an Orbit project`
+
+**Symptom:** `orbit: /home/me/blog has no src/ directory; run orbit in an Orbit project`.
+
+**Cause:** the nearest `go.mod` above the current directory belongs to a module without a `src/` directory, for example because you ran `orbit` from a parent module or a fresh directory. Orbit stops instead of writing an `orbit_gen/` there.
+
+**Fix:** `cd` into your Orbit project (the directory with its `go.mod` and `src/`), or create one with `orbit new`. See [Project structure](project-structure.md#srccomponents-and-srclayouts).
+
 ## Compile errors in `.orbit` files
 
 `orbit build`, `orbit check` and the `orbit dev` overlay print every error as `src/…:line:col: message`, at its position in your `.orbit` file. Plain `go build` and `go vet` print the same positions as `./src/…`. If an error points into `orbit_gen/` instead, see [The Go extension reports errors in `orbit_gen/`](#the-go-extension-reports-errors-in-orbit_gen).
@@ -318,9 +332,9 @@ src/pages/blog/[slug].orbit:9:26: params.Slg undefined (type Params has no field
 
 **Fix:** keep `src/locals` a plain types package. It may import your own packages, such as `internal/auth` for a `User` type, as long as none of them leads to `orbit_gen/app`; move code that needs `app.New()` into `cmd/server`. `orbit doctor` checks this too. See [The import rule](middleware.md#the-import-rule).
 
-### An import cycle between two components' `Props`
+### `import cycle not allowed between component Props: src/components/A.orbit → src/components/B.orbit → src/components/A.orbit; declare the shared types in a package under internal/`
 
-**Symptom:** a build error showing the full import chain between two components.
+**Symptom:** a build error at the import alias in the first file of the chain, such as `src/components/A.orbit:2:8`, showing the shortest import chain between the components.
 
 **Cause:** two `Props` types refer to each other's components: `A.Props` has a field of type `B.Props`, and `B.Props` one of type `A.Props`. Components may otherwise import each other freely.
 
@@ -338,13 +352,25 @@ src/pages/blog/[slug].orbit:9:26: params.Slg undefined (type Params has no field
 
 **Fix:** use a whole-segment `[path]` there, or restructure the routes so the rest parameter comes last. See [Catch-all routes](routing.md#catch-all-routes-with-rest).
 
+### `invalid route pattern "/[slug": segment "[slug" has unbalanced brackets`
+
+**Cause:** a page's file or directory name has a `[` without its `]`, or the other way round. The same error ends `has an empty parameter name` for `[].orbit`.
+
+**Fix:** close the bracket and name the parameter (`[slug].orbit`), or remove the brackets. See [Dynamic routes](routing.md#dynamic-routes-with-param).
+
 ### Two files produce the same route
 
 **Symptom:** a build error that names both files.
 
 **Cause:** for example `src/pages/blog.orbit` next to `src/pages/blog/index.orbit` (both are `/blog`), or `[slug].orbit` next to `[id].orbit` in one directory.
 
-**Fix:** delete or rename one of them. A similar error names two files whose generated Go packages would collide, such as `my-card.orbit` and `my_card.orbit`; rename one. See [File-based routes](routing.md#file-based-routes) and [Package paths](project-structure.md#package-paths).
+**Fix:** delete or rename one of them. See [File-based routes](routing.md#file-based-routes).
+
+### `generates the same Go package as src/components/my-card.orbit (orbit_gen/decl/components/my_card); rename one of them`
+
+**Cause:** two `.orbit` files map to the same generated Go package, because package paths turn `-`, `.` and other characters into `_` and lowercase every segment: `my-card.orbit` and `my_card.orbit`, or `Card.orbit` and `card.orbit`. The error is on the later path, in sorted order: `src/components/my_card.orbit: generates the same Go package as …`.
+
+**Fix:** rename one of them. See [Package paths](project-structure.md#package-paths).
 
 ### `<Comments server:defer>: Props.OnLoad has type func(), which can't be sent to a deferred component; props must be JSON-serializable`
 
@@ -481,6 +507,7 @@ import _ "example.com/blog/orbit_gen/app"
 Check which case you're in:
 
 - **No page matches.** A `[param]` matches exactly one segment, so `src/pages/blog/[slug].orbit` doesn't match `/blog/hello/like`. A `public/` file or `/_orbit/*` asset is looked up before pages.
+- **The file isn't a page.** A file or directory under `src/pages/` whose name starts with `_` (`_parts/Byline.orbit`) is a component, so it has no URL.
 - **The page returned `orbit.ErrNotFound`**, as `blog/[slug].orbit` does for an unknown slug.
 - **The body is empty**: the project has no `src/pages/404.orbit`. `orbit new` scaffolds one.
 - **You get your mux's plain-text 404** instead of `404.orbit`: with pages first (`site.Middleware(mux)`), give the mux `site.NotFound()` as its catch-all:
@@ -496,6 +523,12 @@ See [The 404 page](routing.md#the-404-page) and [Choosing precedence](server.md#
 **Cause:** pages have no trailing slash, so `/blog/hello/` gets a 308 to `/blog/hello`, keeping the query string (`/search/?q=go` → `/search?q=go`). The redirect is sent only when the slash-less path is a page; other paths reach your next handler untouched, and files are never redirected.
 
 **Fix:** nothing is broken. Link to canonical URLs (`href="/blog/hello"`) to skip the extra round trip. Middleware that wraps Orbit runs before the redirect, so it sees both forms; compare paths with that in mind. This behavior isn't configurable. See [Trailing slashes](routing.md#trailing-slashes).
+
+### A file added to `dist/client/` isn't served
+
+**Cause:** in production, the server lists its static files once, at startup, so it can check every request against them without touching the disk. A file copied into `dist/client/` (or the `ORBIT_STATIC` directory) while it runs isn't in that list. A directory is never served either, not even its `index.html`: a file is served only at its exact path.
+
+**Fix:** restart the server after changing its static files, or rebuild with `orbit build`. Link to the file's full path (`/docs/index.html`, not `/docs/`). `orbit dev` looks files up on every request, so this doesn't happen there. See [How static files are served](deploy.md#how-static-files-are-served).
 
 ### A non-GET request to a file gets a 404 or 405
 

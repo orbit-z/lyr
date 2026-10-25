@@ -1,6 +1,6 @@
 # Routing
 
-Every `.orbit` file in `src/pages/` is a page, its path in that directory is its URL, and it renders on every request.
+Every `.orbit` file in `src/pages/` is a page (unless its name starts with `_`), its path in that directory is its URL, and it renders on every request.
 
 ```orbit file=src/pages/blog/[slug].orbit
 ---
@@ -77,17 +77,13 @@ The file path under `src/pages/` becomes the URL. `index.orbit` is the root of i
 | `src/pages/docs/[...path].orbit` | `/docs`, `/docs/install`, `/docs/guides/routing`, … |
 | `src/pages/404.orbit` | none: it answers any URL nothing else matches |
 
-Every `.orbit` file under `src/pages/` is a route. Keep reusable pieces in `src/components/` or `src/layouts/` and import them.
+Every `.orbit` file under `src/pages/` is a route, except one whose name, or the name of a directory on its path, starts with `_`. Such a file is a component, as in Astro, so you can keep a page's private parts next to it: `src/pages/blog/_parts/Byline.orbit` isn't a route, and `blog/[slug].orbit` imports it with `Byline "./_parts/Byline.orbit"`. Keep pieces used across the site in `src/components/` or `src/layouts/`.
 
 Pages render on every request; Orbit never writes HTML files at build time (see [Rendering](rendering.md)). Pages also don't take props: they read their route params from `params` and the rest of the URL from `ctx`, and declaring `type Props` in a page is a build error.
 
 Route errors are about a file, not a position in it, so they name the file without a line and column. Two files that produce the same route are a build error that names both files. That covers `src/pages/blog.orbit` next to `src/pages/blog/index.orbit`, and `[slug].orbit` next to `[id].orbit` in one directory.
 
-The `/_orbit/` prefix is reserved for Orbit's assets and islands, so a page under `src/pages/_orbit/` is a build error:
-
-```text
-src/pages/_orbit/stats.orbit: route /_orbit/stats is under /_orbit/, which Orbit reserves for its assets and islands; rename the page or its directory
-```
+The `/_orbit/` prefix is reserved for Orbit's assets and islands. No page can have a route there: `src/pages/_orbit/` starts with `_`, so the files in it are components.
 
 ## Dynamic routes with `[param]`
 
@@ -107,6 +103,13 @@ A parameter is always a whole segment: `[slug].orbit` and `[slug]/index.orbit` w
 
 ```text
 src/pages/blog/post-[id].orbit: route segment "post-[id]" mixes text and a parameter; use a whole-segment parameter such as [id].orbit and parse it in the page
+```
+
+Unbalanced brackets and an empty parameter name are build errors too:
+
+```text
+src/pages/[slug.orbit: invalid route pattern "/[slug": segment "[slug" has unbalanced brackets
+src/pages/blog/[].orbit: invalid route pattern "/blog/[]": segment "[]" has an empty parameter name
 ```
 
 ## Catch-all routes with `[...rest]`
@@ -263,7 +266,9 @@ Because it renders per request, it has the real request in `ctx` and the `locals
 <p>Nothing lives at <code>{ctx.URL.Path}</code>. Try the <a href="/">home page</a>.</p>
 ```
 
-The 404 page has no URL of its own. Without a `404.orbit`, the response is a 404 with an empty body, as in Astro. `orbit new` scaffolds one.
+The 404 page has no URL of its own. Without a `404.orbit`, the response is a 404 with an empty body (`Content-Length: 0`), as in Astro. `orbit new` scaffolds one.
+
+The status is 404 unless the page calls `ctx.SetStatus` itself. If `404.orbit` returns `orbit.ErrNotFound`, the response is an empty 404 too.
 
 Inside a deferred component (`server:defer`), `orbit.ErrNotFound` gives an empty 404 instead, because the browser is fetching a fragment, not a page (see [Lazy loading](lazy-loading.md)).
 
@@ -278,6 +283,8 @@ $ curl -i http://localhost:4321/blog/hello/
 HTTP/1.1 308 Permanent Redirect
 Location: /blog/hello
 ```
+
+The redirect has no body, only the `Location` header.
 
 - **Query kept**: `/search/?q=go` goes to `/search?q=go`, as `net/http`'s `ServeMux` does for its own redirects. A 308 also keeps the method and body, so a form that posts to `/subscribe/` still works, at the cost of an extra round trip.
 - **Pages only**: the redirect is sent only when the path without its slash matches a page. Otherwise the request goes to your next handler untouched, so your own `/api/items/` route keeps working when Orbit comes first.

@@ -81,7 +81,7 @@ srv := &http.Server{Addr: orbit.Addr(), Handler: h}
 With `ORBIT_DEV=1`, `app.New()`:
 
 - reads asset URLs from `$ORBIT_STATIC/manifest.json`, re-reading it when it changes, so a CSS or JS edit needs no Go rebuild;
-- serves `/_orbit/*` with `Cache-Control: no-cache` instead of the long-lived immutable header, and `public/` files from `ORBIT_PUBLIC`;
+- serves `/_orbit/*` from `ORBIT_STATIC` and every other file path from `ORBIT_PUBLIC` (so `ORBIT_STATIC` serves only `/_orbit/*`), all with `Cache-Control: no-cache`, looking files up on every request so new files appear without a restart;
 - shows render errors in an error overlay instead of a plain 500 page;
 - answers a failing `server:defer` island with the error text and its `.orbit` position, which the loader logs to the browser console.
 
