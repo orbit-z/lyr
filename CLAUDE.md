@@ -94,6 +94,7 @@ When independent tasks can run in parallel, launch them in **one message**. If p
   - **Zero allocations in Orbit's own render path** for a typical page, asserted by `AllocsPerRun` tests (serving adds exactly 1: the `Content-Length` value). `net/http`'s own ~14–19 allocs/request is the floor.
     - No fixed target number: we measure and publish the results.
   - SSR caching is not in the MVP.
+  - **Milestone 9 checkpoint**: URL attribute values are written as pieces through a public `Writer.URL(s)`; `locals` is declared only in components that reference it (truly lazy); the dev-loop worst case (a Go package every `Props` imports, ~1.5 s on 4 cores) is accepted and documented, with M10 mitigations.
 - **MVP additions**:
   - `orbit doctor` (environment and project checks).
   - The `orbittest` component test helpers.
