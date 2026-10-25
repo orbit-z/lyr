@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"io"
 	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"path"
@@ -45,9 +46,11 @@ type fileMeta struct {
 // running binary. A missing directory gives an empty set.
 func resolveStatic(o siteOptions, dev bool) fileSet {
 	if dir := os.Getenv("ORBIT_STATIC"); dir != "" {
+		warnMissingDir("ORBIT_STATIC", dir, dev)
 		return newDirFiles(dir, dev)
 	}
 	if o.staticDir != "" {
+		warnMissingDir("WithStaticDir", o.staticDir, dev)
 		return newDirFiles(o.staticDir, dev)
 	}
 	if o.staticFS != nil {
@@ -61,6 +64,17 @@ func resolveStatic(o siteOptions, dev bool) fileSet {
 		exe = real
 	}
 	return newDirFiles(filepath.Join(filepath.Dir(exe), "client"), dev)
+}
+
+// warnMissingDir logs one line when an explicitly set static directory
+// doesn't exist. Not in dev, where orbit dev may create it after startup.
+func warnMissingDir(source, dir string, dev bool) {
+	if dev {
+		return
+	}
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		log.Printf("orbit: %s directory %s doesn't exist; no static files are served from it", source, dir)
+	}
 }
 
 // newDirFiles returns the files of dir. os.Root keeps every lookup inside

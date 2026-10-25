@@ -1,9 +1,12 @@
 package orbit
 
 import (
+	"bytes"
+	"log"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -224,9 +227,16 @@ func TestStaticPrecedence(t *testing.T) {
 	if rec := do(NewSite(nil, nil).Handler(), "GET", "/which.txt"); rec.Code != 404 {
 		t.Errorf("default: got %d %q", rec.Code, rec.Body)
 	}
-	// A missing directory is fine too.
+	// A missing directory that was set explicitly serves nothing and logs
+	// one warning line.
+	var logged bytes.Buffer
+	log.SetOutput(&logged)
+	defer log.SetOutput(os.Stderr)
 	if rec := do(NewSite(nil, nil, WithStaticDir(filepath.Join(optDir, "nope"))).Handler(), "GET", "/which.txt"); rec.Code != 404 {
 		t.Errorf("missing dir: got %d", rec.Code)
+	}
+	if !strings.Contains(logged.String(), "orbit: WithStaticDir directory ") || strings.Count(logged.String(), "\n") != 1 {
+		t.Errorf("missing dir: log = %q, want one WithStaticDir warning", logged.String())
 	}
 }
 
