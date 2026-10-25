@@ -37,6 +37,10 @@ func TestDispatch(t *testing.T) {
 		{[]string{"generate", "--bogus"}, 2, "", "flag provided but not defined: -bogus"},
 		{[]string{"generate", "extra"}, 2, "", `orbit generate: unexpected argument "extra"`},
 		{[]string{"generate", "-h"}, 0, "", "usage: orbit generate"},
+		{[]string{"check"}, 1, "", "no go.mod"},
+		{[]string{"check", "extra"}, 2, "", `orbit check: unexpected argument "extra"`},
+		{[]string{"check", "--bogus"}, 2, "", "flag provided but not defined: -bogus"},
+		{[]string{"check", "-h"}, 0, "", "usage: orbit check"},
 	}
 	for _, tt := range tests {
 		code, stdout, stderr := runCLI(t, t.TempDir(), tt.args...)

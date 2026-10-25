@@ -98,7 +98,12 @@ If the error stays, check which gopls is used: the `orbit.goplsPath` setting (or
 
 ### `orbit check` skips TypeScript type checking
 
-**Cause:** Bun is missing or older than 1.4.4. `orbit check` then prints a notice with the command to install or upgrade Bun, still runs the Go checks, and its exit code reflects the Go checks only.
+**Cause:** Bun is missing or older than 1.4.4. `orbit check` then prints a notice with the command to install or upgrade Bun, still runs the Go checks, and its exit code reflects the Go checks only:
+
+```
+orbit check: skipping TypeScript type checking: bun not found (1.4.4 or later needed); install it with: curl -fsSL https://bun.sh/install | bash
+orbit check: skipping TypeScript type checking: bun 1.3.2 is older than 1.4.4; upgrade it with: bun upgrade
+```
 
 **Fix:** install or upgrade Bun. No `package.json` or `typescript` package is needed.
 
