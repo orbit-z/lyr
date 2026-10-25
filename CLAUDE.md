@@ -23,6 +23,8 @@ Delegate anything non-trivial:
 - broad codebase searches
 - debugging that needs investigation
 
+**Effort**: run delegated agents at **medium** effort (`effort: "medium"`), per the user, unless they say otherwise for a specific task.
+
 Pick the agent type:
 - `general-purpose`: implementation, docs writing, debugging.
 - `Explore`: read-only searches across many files.
