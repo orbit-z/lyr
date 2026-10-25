@@ -48,6 +48,9 @@ type workspace struct {
 	// scratch are the scratch files open in gopls, by module-relative
 	// path (complete.go).
 	scratch map[string]*scratchFile
+	// rev counts changes to the generated files: a rename maps gopls's
+	// edits only if no file changed since it asked (rename.go).
+	rev int
 }
 
 // document is an .orbit file open in the editor.
@@ -243,6 +246,7 @@ func (ws *workspace) syncAll() {
 				ws.gopls.Notify("textDocument/didClose", map[string]any{"textDocument": map[string]any{"uri": g.uri}})
 			}
 			delete(ws.gen, rel)
+			ws.rev++
 			delete(ws.goplsDiags, rel)
 		}
 	}
@@ -275,6 +279,7 @@ func (ws *workspace) syncGen(f *project.File, out *compiler.GenFile, decl bool) 
 		return
 	}
 	g.content, g.lines, g.smap = out.Content, newLineIndex(string(out.Content)), out.Map
+	ws.rev++
 	if ws.gopls == nil {
 		return
 	}

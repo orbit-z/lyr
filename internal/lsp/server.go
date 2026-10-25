@@ -91,6 +91,7 @@ type clientCaps struct {
 	watchDynamic    bool // workspace.didChangeWatchedFiles.dynamicRegistration
 	documentChanges bool // workspace.workspaceEdit.documentChanges
 	snippets        bool // textDocument.completion.completionItem.snippetSupport
+	prepareRename   bool // textDocument.rename.prepareSupport
 }
 
 func (s *Server) logf(format string, args ...any) {
@@ -166,6 +167,10 @@ func (s *Server) request(ctx context.Context, method string, params jsonRaw) (an
 		return s.completion(ctx, params)
 	case "textDocument/signatureHelp":
 		return s.signatureHelp(ctx, params)
+	case "textDocument/prepareRename":
+		return s.prepareRename(ctx, params)
+	case "textDocument/rename":
+		return s.rename(ctx, params)
 	}
 	return nil, &rpcError{Code: codeMethodNotFound, Message: "method not supported: " + method}
 }
@@ -241,6 +246,7 @@ func (s *Server) initialize(params jsonRaw) (any, *rpcError) {
 		watchDynamic:    capBool(p.Capabilities, "workspace", "didChangeWatchedFiles", "dynamicRegistration"),
 		documentChanges: capBool(p.Capabilities, "workspace", "workspaceEdit", "documentChanges"),
 		snippets:        capBool(p.Capabilities, "textDocument", "completion", "completionItem", "snippetSupport"),
+		prepareRename:   capBool(p.Capabilities, "textDocument", "rename", "prepareSupport"),
 	}
 	var dirs []string
 	if d := uriToPath(p.RootURI); d != "" {
@@ -260,8 +266,13 @@ func (s *Server) initialize(params jsonRaw) (any, *rpcError) {
 			break
 		}
 	}
+	var renameProvider any = true
+	if s.caps.prepareRename {
+		renameProvider = map[string]any{"prepareProvider": true}
+	}
 	return map[string]any{
 		"capabilities": map[string]any{
+			"renameProvider":   renameProvider,
 			"positionEncoding": "utf-16",
 			"textDocumentSync": map[string]any{
 				"openClose": true,
@@ -589,6 +600,17 @@ func (s *Server) toGopls(c cursor, o obj) (*genFile, jsonRaw, bool) {
 // Go features are off, and never passes gopls's errors to the editor (it
 // logs them and answers null) except cancellation.
 func (s *Server) callGopls(ctx context.Context, method string, params jsonRaw, barrier bool) (jsonRaw, *rpcError) {
+	raw, err := s.callGoplsErr(ctx, method, params, barrier)
+	if err != nil && err.Code != codeRequestCancelled {
+		s.logf("gopls %s: %s", method, err.Message)
+		return nil, nil
+	}
+	return raw, err
+}
+
+// callGoplsErr is callGopls passing gopls's own errors through, as
+// RequestFailed (rename shows them to the user).
+func (s *Server) callGoplsErr(ctx context.Context, method string, params jsonRaw, barrier bool) (jsonRaw, *rpcError) {
 	select {
 	case <-s.ready:
 	case <-ctx.Done():
@@ -610,8 +632,10 @@ func (s *Server) callGopls(ctx context.Context, method string, params jsonRaw, b
 		if ctx.Err() != nil {
 			return nil, &rpcError{Code: codeRequestCancelled, Message: "request cancelled"}
 		}
-		s.logf("gopls %s: %v", method, err)
-		return nil, nil
+		if re, ok := err.(*rpcError); ok {
+			return nil, &rpcError{Code: codeRequestFailed, Message: re.Message}
+		}
+		return nil, &rpcError{Code: codeRequestFailed, Message: err.Error()}
 	}
 	return raw, nil
 }

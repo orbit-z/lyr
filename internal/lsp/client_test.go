@@ -121,7 +121,13 @@ type testClient struct {
 	requests []string                    // showMessageRequest texts
 	texts    map[string]string           // open documents
 	versions map[string]int
+
+	initResult jsonRaw
 }
+
+// noDocumentChanges is the startClient initOpts key for an editor without
+// documentChanges and prepareRename support.
+const noDocumentChanges = "test:noDocumentChanges"
 
 // startClient spawns orbit lsp in dir and initializes it.
 func startClient(t *testing.T, dir string, initOpts map[string]any, env ...string) *testClient {
@@ -159,18 +165,27 @@ func startClient(t *testing.T, dir string, initOpts map[string]any, env ...strin
 			t.Logf("orbit lsp log:\n%s", b)
 		}
 	})
+	// noDocumentChanges (an initOpts key, not sent) makes an editor
+	// without workspace.workspaceEdit.documentChanges support (and
+	// without prepareRename support).
+	docChanges := true
+	if _, ok := initOpts[noDocumentChanges]; ok {
+		docChanges = false
+		initOpts = nil
+	}
 	params := map[string]any{
 		"processId": os.Getpid(),
 		"rootUri":   pathToURI(dir),
 		"capabilities": map[string]any{
 			"workspace": map[string]any{
 				"configuration":         true,
-				"workspaceEdit":         map[string]any{"documentChanges": true},
+				"workspaceEdit":         map[string]any{"documentChanges": docChanges},
 				"didChangeWatchedFiles": map[string]any{"dynamicRegistration": true},
 			},
 			"textDocument": map[string]any{
 				"hover":              map[string]any{"contentFormat": []string{"markdown", "plaintext"}},
 				"publishDiagnostics": map[string]any{"relatedInformation": true},
+				"rename":             map[string]any{"prepareSupport": docChanges},
 			},
 			"window": map[string]any{"workDoneProgress": true},
 		},
@@ -179,6 +194,7 @@ func startClient(t *testing.T, dir string, initOpts map[string]any, env ...strin
 		params["initializationOptions"] = initOpts
 	}
 	res := c.call("initialize", params)
+	c.initResult = res
 	if !strings.Contains(string(res), `"utf-16"`) {
 		t.Fatalf("initialize: no utf-16 position encoding: %s", res)
 	}
