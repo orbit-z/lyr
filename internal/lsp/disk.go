@@ -91,13 +91,20 @@ func (c *diskCheck) run(ctx context.Context) error {
 // adopt applies a finished check (with s.mu held): every generated file
 // of a file that wasn't regenerated since the snapshot, whose typed output
 // is on disk, is read by gopls from disk (its overlay, if any, is closed)
-// and mapped through the typed source map. It returns how many files
-// changed over.
-func (ws *workspace) adopt(c *diskCheck) int {
+// and mapped through the typed source map. With skipOpen, files open in
+// the editor are left alone: after startup marks the workspace mapped,
+// requests on them may be mid-flight. The re-checks after orbit_gen/
+// changes don't skip them (a request in flight then can map through the
+// old content, rarely and only once). It returns how many files changed
+// over.
+func (ws *workspace) adopt(c *diskCheck, skipOpen bool) int {
 	n := 0
 	for _, f := range ws.proj.Files {
 		if f.Pass1 == nil || c.pass1[f.Path] != f.Pass1 {
 			continue // new, or regenerated since the snapshot
+		}
+		if skipOpen && ws.docs[f.Path] != nil {
+			continue
 		}
 		for _, out := range []*compiler.GenFile{f.Pass1.Decl, f.Pass1.Impl} {
 			t, g := c.typed[out.Path], ws.gen[out.Path]
@@ -151,7 +158,7 @@ func (s *Server) startupCheck(ws *workspace) {
 	s.mu.Lock()
 	n := 0
 	if err == nil && s.ws == ws {
-		n = ws.adopt(c)
+		n = ws.adopt(c, late)
 		if late && n > 0 {
 			s.publishAll(ws)
 		}
@@ -232,7 +239,7 @@ func (s *Server) runDiskCheck() {
 	s.diskRunning = false
 	n := 0
 	if err == nil && s.ws == ws && ws.gopls != nil {
-		n = ws.adopt(c)
+		n = ws.adopt(c, false)
 		if n > 0 {
 			s.publishAll(ws)
 		}
