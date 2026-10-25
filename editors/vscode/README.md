@@ -78,7 +78,7 @@ bun run test       # type check (bun check) + grammar snapshot tests
 bun run package    # dist/extension.js and orbit-<version>.vsix
 ```
 
-After changing the grammar, review the scope changes and refresh the snapshots with `bun run test:update`. To try it, run `bun run build`, then `code --extensionDevelopmentPath="$PWD"` (or press F5 in VS Code with this folder open and pick the extension development debugger).
+After changing the grammar, review the scope changes and refresh the snapshots with `bun run test:update`. To try it, run `bun run build`, then `code --extensionDevelopmentPath="$PWD"` (or open this folder in VS Code and press F5: `.vscode/launch.json` builds the extension and opens `examples/blog` with it).
 
 ## Releasing
 

@@ -18,6 +18,7 @@ bench/results/
 .DS_Store
 .idea/
 .vscode/
+!editors/vscode/.vscode/
 node_modules/
 
 # Claude Code worktrees
