@@ -166,6 +166,7 @@ To override a decision, say which row and the alternative you want; the docs and
 | Slot content that uses parent variables allocates one closure per slot | user | Direct calls for non-cyclic imports (keeps it on the stack; slower dev loop) | [Performance](performance.md#components-are-cheap-to-call) |
 | Constant response headers (`Content-Type`) use a shared read-only value instead of `Header().Set` | simplest (saves 1 alloc/request, measured) | `Header().Set` | [Performance](performance.md#allocations-per-request) |
 | Locals aren't pooled | coordinator (simplest; a pooled value kept after the request would be silently reused) | A `sync.Pool` per `Locals` type | [Performance](performance.md#allocations-per-request) |
+| `orbit.json`'s `site` reaches `ctx.Site` through a new option, `orbit.WithSite(url)`, which the generated `app.New()` passes first, so your own option can override it (for example per environment); a non-absolute value panics | coordinator (simplest; the generated code needs some way to pass it) | An unexported field set only by generated code | [Runtime API](reference/runtime-api.md#options) |
 
 ## Locals
 

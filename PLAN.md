@@ -554,6 +554,7 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site  // called 
 func WithStaticDir(dir string) Option               // precedence (decided by rule: simplest, so orbit dev keeps working): $ORBIT_STATIC > WithStaticDir > embedded FS (--embed) > dist/client next to the binary
 func WithStaticFS(fsys fs.FS) Option                // used automatically by --embed builds (§6 step 6)
 func WithKey(key []byte) Option                     // 32-byte island key; overrides $ORBIT_KEY and the build key
+func WithSite(rawURL string) Option                 // absolute site URL for ctx.Site; app.New() passes orbit.json's "site" first, so a caller's option wins; panics if not absolute
 
 func (s *Site) Middleware(next http.Handler) http.Handler  // THE integration point (§5b)
 func (s *Site) Handler() http.Handler                      // = Middleware(NotFound())
