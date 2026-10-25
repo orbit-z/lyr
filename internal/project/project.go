@@ -18,6 +18,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/bertrandkhe/orbit/internal/assets"
 	"github.com/bertrandkhe/orbit/internal/compiler"
 	"github.com/bertrandkhe/orbit/internal/config"
 )
@@ -42,6 +43,9 @@ type Project struct {
 	// Diagnostics are every parse, analysis, project and pass-1 codegen
 	// diagnostic, sorted (set by Front).
 	Diagnostics []Diagnostic
+	// Assets is the bundle of every page's scripts and styles (set by
+	// Bundle); nil until then, and the generated manifest is then empty.
+	Assets *assets.Result
 }
 
 // File is one .orbit file of the project, through the pipeline.

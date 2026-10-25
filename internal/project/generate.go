@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bertrandkhe/orbit/internal/assets"
 	"github.com/bertrandkhe/orbit/internal/compiler"
 )
 
@@ -28,6 +29,7 @@ type Generator struct {
 type Timings struct {
 	Load   time.Duration // orbit.json, go.mod, discovery, reading sources
 	Front  time.Duration // parse, analyze, index, project checks, pass 1
+	Assets time.Duration // esbuild: the page bundles, for the manifest
 	GoList time.Duration // go list -export (the typed pass's Load)
 	Check  time.Duration // go/types checks and pass 2, without GoList
 	Extras time.Duration // app.go, manifest.go, the default server
@@ -75,6 +77,26 @@ func (g *Generator) Run(ctx context.Context) (*Result, error) {
 	t.Front = time.Since(mark)
 	if hasErrors {
 		return res, nil
+	}
+
+	// PLAN.md §6 orbit build step 3: bundle before generating, since the
+	// manifest lists the bundles. orbit generate bundles in memory too, so
+	// that it writes the same orbit_gen/ as orbit build.
+	mark = time.Now()
+	b := assets.New(assets.Options{Root: p.Root, Sourcemap: p.Config.Sourcemap})
+	ds, err := p.Bundle(b)
+	b.Close()
+	if err != nil {
+		return nil, err
+	}
+	t.Assets = time.Since(mark)
+	if len(ds) > 0 {
+		res.Diagnostics = append(res.Diagnostics, ds...)
+		sortDiagnostics(res.Diagnostics)
+		p.Diagnostics = res.Diagnostics
+		if HasErrors(ds) {
+			return res, nil
+		}
 	}
 
 	mark = time.Now()

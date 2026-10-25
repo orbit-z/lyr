@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bertrandkhe/orbit/internal/assets"
 	"github.com/bertrandkhe/orbit/internal/compiler"
 )
 
@@ -148,6 +149,7 @@ func reportTimings(b *testing.B, ts []Timings, written int) {
 	for _, t := range ts {
 		sum.Load += t.Load
 		sum.Front += t.Front
+		sum.Assets += t.Assets
 		sum.GoList += t.GoList
 		sum.Check += t.Check
 		sum.Extras += t.Extras
@@ -158,6 +160,7 @@ func reportTimings(b *testing.B, ts []Timings, written int) {
 	ms := func(d time.Duration) float64 { return float64(d) / float64(time.Millisecond) / n }
 	b.ReportMetric(ms(sum.Load), "load-ms")
 	b.ReportMetric(ms(sum.Front), "front-ms")
+	b.ReportMetric(ms(sum.Assets), "assets-ms")
 	b.ReportMetric(ms(sum.GoList), "golist-ms")
 	b.ReportMetric(ms(sum.Check), "check-ms")
 	b.ReportMetric(ms(sum.Extras), "extras-ms")
@@ -283,5 +286,50 @@ func BenchmarkPass2(b *testing.B) {
 		for _, in := range ins {
 			compiler.Generate(in)
 		}
+	}
+}
+
+// BenchmarkAssets measures esbuild on the synthetic project with a scoped
+// <style> and a TypeScript <script> in every sixth component (27 of each),
+// from loaded and parsed files (Front) to the bundles in memory:
+//
+//	go test ./internal/project -run '^$' -bench Assets
+func BenchmarkAssets(b *testing.B) {
+	files := benchFiles("assets")
+	files["src/scripts/util.ts"] = "export const twice = (n: number): number => n * 2;\n"
+	for i := 0; i < benchComponents; i += 6 {
+		name := fmt.Sprintf("src/components/C%d.orbit", i)
+		files[name] += fmt.Sprintf("\n<style>\n  .c%d h2 { color: red; }\n  .c%d li:hover { color: blue; }\n</style>\n"+
+			"<script>\n  import { twice } from \"../scripts/util\";\n  const n: number = twice(%d);\n  document.querySelectorAll(\".c%d\").forEach((el) => el.setAttribute(\"data-n\", String(n)));\n</script>\n", i, i, i, i)
+	}
+	p := newTestProject(b, files)
+	proj, err := Load(p.Dir)
+	if err != nil {
+		b.Fatal(err)
+	}
+	if proj.Front() {
+		b.Fatal(joinLines(diagStrings(proj.Diagnostics)))
+	}
+	for _, tt := range []struct {
+		name string
+		opts assets.Options
+	}{
+		{"prod", assets.Options{Root: proj.Root}},
+		{"dev-rebuild", assets.Options{Root: proj.Root, Dev: true}},
+	} {
+		b.Run(tt.name, func(b *testing.B) {
+			bl := assets.New(tt.opts)
+			defer bl.Close()
+			for b.Loop() {
+				if tt.name == "prod" {
+					bl.Close() // a fresh context each time, as orbit build
+				}
+				ds, err := proj.Bundle(bl)
+				if err != nil || HasErrors(ds) {
+					b.Fatal(err, diagStrings(ds))
+				}
+			}
+			b.ReportMetric(float64(len(proj.Assets.Files)), "files")
+		})
 	}
 }

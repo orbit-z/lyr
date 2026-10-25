@@ -1,6 +1,7 @@
 // Package build is the orbit build pipeline (PLAN.md §6): load the config,
-// generate orbit_gen/, stage dist/client from public/, build the server
-// entry with go build, and clean the go command's error output (§3.3).
+// bundle the assets and generate orbit_gen/, stage dist/client from the
+// bundles and public/, build the server entry with go build, and clean the
+// go command's error output (§3.3).
 //
 // The new dist/client and dist/server are staged in a temporary directory
 // under dist/ and moved into place only when every step succeeded, so a
@@ -18,6 +19,7 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/bertrandkhe/orbit/internal/assets"
 	"github.com/bertrandkhe/orbit/internal/config"
 	"github.com/bertrandkhe/orbit/internal/project"
 )
@@ -104,6 +106,12 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 	defer os.RemoveAll(stage)
 
 	client := filepath.Join(stage, "client")
+	// Step 3's output: the bundles (generate ran esbuild for the manifest).
+	if p.Assets != nil {
+		if err := assets.WriteFiles(filepath.Join(client, AssetsDir), p.Assets.Files); err != nil {
+			return nil, err
+		}
+	}
 	res.Public, err = CopyPublic(filepath.Join(root, "public"), client)
 	if err != nil {
 		return nil, err

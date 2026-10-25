@@ -29,6 +29,8 @@ func TestParse(t *testing.T) {
 		{`{"server": ""}`, Config{}, `orbit.json: server must not be empty; remove it to use ./cmd/server`},
 		{`{"server": "/abs/cmd"}`, Config{}, `orbit.json: server "/abs/cmd" must be a path relative to the project root, such as "./cmd/server"`},
 		{`{"embed": "yes"}`, Config{}, `orbit.json: embed must be true or false`},
+		{`{"sourcemap": true}`, Config{Sourcemap: true}, ""},
+		{`{"sourcemap": "inline"}`, Config{}, `orbit.json: sourcemap must be true or false`},
 		{"{\n  \"site\": \"https://x.dev\",\n}", Config{}, `orbit.json:3:1: invalid character '}' looking for beginning of object key string`},
 		{`[]`, Config{}, `orbit.json: must be a JSON object`},
 	}

@@ -1,16 +1,21 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
 
 	"github.com/bertrandkhe/orbit/internal/build"
+	"github.com/bertrandkhe/orbit/internal/compiler"
 	"github.com/bertrandkhe/orbit/internal/config"
+	"github.com/bertrandkhe/orbit/internal/project"
 )
 
 // parseNoArgs parses a command's flags and rejects positional arguments. It
@@ -32,6 +37,7 @@ func runBuild(e *env, args []string) int {
 	c := lookup("build")
 	fs := c.flagSet(e)
 	embed := fs.Bool("embed", false, "embed dist/client into dist/server, for a single-binary deploy")
+	verbose := fs.Bool("verbose", false, "list each page's CSS and JS bundles with their sizes")
 	if code := parseNoArgs(e, c, fs, args); code >= 0 {
 		return code
 	}
@@ -53,8 +59,82 @@ func runBuild(e *env, args []string) int {
 	if res.Failed() {
 		return exitFail
 	}
+	if *verbose {
+		printBundles(e.stdout, res.Generate.Project)
+	}
 	return exitOK
 }
+
+// printBundles is orbit build --verbose: each page's bundles with their raw
+// and gzipped sizes, then the totals over distinct files (pages share no
+// bundle today, but a later code splitting would).
+func printBundles(w io.Writer, p *project.Project) {
+	if p == nil || p.Assets == nil {
+		return
+	}
+	var pages []string
+	for _, f := range p.Files {
+		if f.Info.Role == compiler.RolePage {
+			pages = append(pages, f.Path)
+		}
+	}
+	type size struct{ raw, gz int }
+	sizes := map[string]size{}
+	sizeOf := func(url string) size {
+		if s, ok := sizes[url]; ok {
+			return s
+		}
+		var s size
+		if f := p.Assets.File(url); f != nil {
+			s = size{len(f.Contents), gzipLen(f.Contents)}
+		}
+		sizes[url] = s
+		return s
+	}
+	width := len("total CSS")
+	for _, page := range pages {
+		for _, a := range p.Assets.Pages[page] {
+			width = max(width, len(a.URL)+2)
+		}
+	}
+	row := func(label string, s size) {
+		fmt.Fprintf(w, "%-*s  %10s  gzip %10s\n", width, label, kB(s.raw), kB(s.gz))
+	}
+	totals := map[string]*size{"css": {}, "js": {}}
+	counted := map[string]bool{}
+	for _, page := range pages {
+		as := p.Assets.Pages[page]
+		if len(as) == 0 {
+			fmt.Fprintf(w, "%s: no CSS or JS\n", page)
+			continue
+		}
+		fmt.Fprintln(w, page)
+		for _, a := range as {
+			s := sizeOf(a.URL)
+			row("  "+a.URL, s)
+			if t := totals[a.Kind]; t != nil && !counted[a.URL] {
+				counted[a.URL] = true
+				t.raw += s.raw
+				t.gz += s.gz
+			}
+		}
+	}
+	row("total CSS", *totals["css"])
+	row("total JS", *totals["js"])
+}
+
+// gzipLen returns the gzipped size of data at the default level.
+func gzipLen(data []byte) int {
+	var b bytes.Buffer
+	zw := gzip.NewWriter(&b)
+	zw.Write(data)
+	zw.Close()
+	return b.Len()
+}
+
+// kB formats a size as Vite (and so Astro) does: kilobytes of 1000 bytes,
+// two decimals.
+func kB(n int) string { return fmt.Sprintf("%.2f kB", float64(n)/1000) }
 
 // runPreview is orbit preview: run dist/server from the project root, with
 // the CLI's environment, and exit with its exit code. SIGINT and SIGTERM
