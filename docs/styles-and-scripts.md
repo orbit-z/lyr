@@ -472,6 +472,7 @@ The scaffolded `tsconfig.json`:
     "isolatedModules": true,
     "resolveJsonModule": true,
     "allowJs": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true
   },
   "include": ["src/**/*.ts"]

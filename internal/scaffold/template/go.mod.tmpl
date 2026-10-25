@@ -1,0 +1,13 @@
+module {{.Module}}
+
+go 1.27
+
+toolchain {{.Toolchain}}
+
+tool github.com/bertrandkhe/orbit/cmd/orbit
+
+require github.com/bertrandkhe/orbit {{.Version}}
+{{- if .Replace}}
+
+replace github.com/bertrandkhe/orbit => {{.Replace}}
+{{- end}}

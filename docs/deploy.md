@@ -123,6 +123,8 @@ orbit_gen
 
 `node_modules/` stays in the context, because esbuild resolves npm imports in your scripts from it and the image has no Node or Bun to install them.
 
+A project created before Orbit's first release has a `replace` directive in `go.mod` pointing at a local clone of Orbit (see [Getting started](getting-started.md#trying-orbit-before-its-first-release)). The build stage can't see that directory, so `go mod download` fails. To build the image anyway (in a copy of the project, since local builds need the original `replace`), point the `replace` at a path inside the image, such as `replace github.com/bertrandkhe/orbit => /orbit`, add `COPY --from=orbit . /orbit` after `WORKDIR /src`, and pass the clone as a named build context: `docker build --build-context orbit=/path/to/orbit -t blog .`.
+
 ## Island key: `ORBIT_KEY`
 
 Components rendered with [`server:defer`](lazy-loading.md) load in a separate request after the page, at a URL such as `/_orbit/island/ee678fa277a9c2c3/Comments-9b1e44a2?p=…`. The `p` token holds the component's props, encrypted and authenticated with the **island key**, and the path holds the **build ID**. You don't need to do anything for a single server, or for several instances of the same build: they share the key that `orbit build` embedded.

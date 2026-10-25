@@ -94,6 +94,47 @@ cd blog
 
 `--module` sets the Go module path written to `go.mod`. Without it, the module path is the directory name (`orbit new blog` gives `module blog`), which is fine for a site you never import from elsewhere. These docs use the blog created above, with the module path `example.com/blog`, on every page.
 
+When it's done, `orbit new` prints the next steps:
+
+```
+Created blog (module example.com/blog).
+
+Next steps:
+
+	cd blog
+	go tool orbit dev
+```
+
+If generating the code or `go mod tidy` fails, `orbit new` says which step failed and leaves the directory as it is, so you can look at it; delete it before running `orbit new` again.
+
+### Trying Orbit before its first release
+
+Orbit has no published release yet, so `go install …@latest` and the `require github.com/bertrandkhe/orbit` line that `orbit new` writes can't be downloaded. Build the CLI from a clone of the repository instead, and `orbit new` points the new project at that clone:
+
+```sh
+git clone https://github.com/bertrandkhe/orbit
+cd orbit
+go install ./cmd/orbit
+cd ..
+orbit new blog --module example.com/blog
+```
+
+A CLI built from a checkout (with `go install ./cmd/orbit`, `go build` or `go run`: any version that isn't a tagged release) looks for the checkout it was built from. When the directory is still there, `orbit new` adds a `replace` directive to `go.mod`:
+
+```
+require github.com/bertrandkhe/orbit v0.0.0
+
+replace github.com/bertrandkhe/orbit => /home/you/orbit
+```
+
+`go tool orbit` then builds the CLI from your clone too, so a `git pull` there updates both the CLI and the runtime of every project that uses it. To use another checkout, or when the CLI can't find its sources (a binary built with `-trimpath`), set `ORBIT_REPLACE`:
+
+```sh
+ORBIT_REPLACE=/path/to/orbit orbit new blog
+```
+
+The `replace` names a directory on your machine, so the scaffolded `Dockerfile` can't build such a project as it is; see [Deploy](deploy.md#docker). Remove the `replace` line, and set the `require` line to a release, once Orbit is published.
+
 ## Start the dev server
 
 ```sh

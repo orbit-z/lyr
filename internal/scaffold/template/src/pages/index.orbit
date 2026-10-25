@@ -1,0 +1,14 @@
+---
+import (
+    "time"
+
+    Base "../layouts/Base.orbit"
+)
+
+year := time.Now().Year()
+---
+<Base title="My Orbit site">
+  <h1>Welcome to Orbit</h1>
+  <p>Edit <code>src/pages/index.orbit</code> and save: the page reloads.</p>
+  <footer>Rendered by Orbit in {year}</footer>
+</Base>

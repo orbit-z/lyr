@@ -47,7 +47,7 @@ func init() {
 		{name: "build", args: "[--embed] [--verbose]", short: "build the server and its assets into dist/", run: runBuild},
 		{name: "dev", args: "[--port 4321] [--host]", short: "run the dev server", run: notYet("dev")},
 		{name: "preview", short: "run the built server", run: runPreview},
-		{name: "new", args: "<dir> [--module path]", short: "create a project", run: notYet("new")},
+		{name: "new", args: "<dir> [--module path]", short: "create a project", run: runNew},
 		{name: "check", short: "type-check Go and TypeScript", run: runCheck},
 		{name: "doctor", args: "[--json]", short: "check the environment and project", run: notYet("doctor")},
 		{name: "create-key", short: "print a new island key for ORBIT_KEY", run: notYet("create-key")},
