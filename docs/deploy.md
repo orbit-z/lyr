@@ -73,7 +73,7 @@ go tool orbit build --embed
 
 If `ORBIT_STATIC` is set when the binary starts, it serves files from that directory instead of the embedded ones. `orbit.WithStaticDir` in your `main.go` wins over them too.
 
-Under the hood, `--embed` copies `dist/client` to `orbit_gen/static/client/` and builds the server with the `orbit_embed` build tag (added to any `-tags` in your `GOFLAGS`), which makes `app.New()` serve the embedded copy. `orbit_gen/static/` stays out of git along with the rest of `orbit_gen/`. A plain `go build` of your server, without the tag, doesn't need it and serves `client/` next to the binary as usual. The embedded files are indexed and hashed for their `ETag` once, at startup.
+Under the hood, `--embed` copies `dist/client` to `orbit_gen/static/client/` and builds the server with the `orbit_embed` build tag (added to any `-tags` in your `GOFLAGS`), which makes `app.New()` serve the embedded copy. Its `static.go` and `client/` stay out of git along with the rest of `orbit_gen/` (`orbit generate` always writes `orbit_gen/static/doc.go`, so the package exists for `go mod tidy` even without the tag). A plain `go build` of your server, without the tag, doesn't need it and serves `client/` next to the binary as usual. The embedded files are indexed and hashed for their `ETag` once, at startup.
 
 ## Docker
 

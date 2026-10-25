@@ -24,6 +24,10 @@ const (
 	AppEmbedFile = compiler.GenDir + "/app/embed.go"
 	ManifestFile = compiler.GenDir + "/manifest/manifest.go"
 	ServerFile   = compiler.GenDir + "/cmd/server/main.go"
+	// StaticDocFile makes orbit_gen/static a package even before an
+	// --embed build writes its static.go, so go mod tidy and go vet, which
+	// load every build tag, find the package that embed.go imports.
+	StaticDocFile = StaticDir + "/doc.go"
 )
 
 // GenFiles returns every generated file: each .orbit file's decl.go and
@@ -40,7 +44,8 @@ func (p *Project) GenFiles() []GenFile {
 	files = append(files,
 		GenFile{Path: AppFile, Content: p.appGo()},
 		GenFile{Path: AppEmbedFile, Content: p.appEmbedGo()},
-		GenFile{Path: ManifestFile, Content: p.manifestGo()})
+		GenFile{Path: ManifestFile, Content: p.manifestGo()},
+		GenFile{Path: StaticDocFile, Content: staticDocGo})
 	if p.GeneratedServer {
 		files = append(files, GenFile{Path: ServerFile, Content: p.serverGo()})
 	}
@@ -188,3 +193,12 @@ func gofmt(src []byte) []byte {
 	}
 	return src
 }
+
+// staticDocGo is orbit_gen/static/doc.go. orbit build --embed adds static.go
+// (build tag orbit_embed), which declares FS and embeds client/.
+var staticDocGo = []byte(compiler.GenHeader + `
+
+// Package static holds the files orbit build --embed puts in the server
+// binary. Without the orbit_embed build tag it's empty.
+package static
+`)

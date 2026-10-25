@@ -18,11 +18,12 @@ import (
 const EmbedTag = "orbit_embed"
 
 // writeStatic is PLAN.md §6 orbit build step 6 for --embed: it replaces
-// orbit_gen/static with a copy of the staged dist/client (go:embed can't
-// reach outside the package directory) and its static.go.
+// orbit_gen/static/client with a copy of the staged dist/client (go:embed
+// can't reach outside the package directory) and writes static.go. The
+// generated doc.go stays, so the package exists without the build tag.
 func writeStatic(root, client string) error {
 	dir := filepath.Join(root, filepath.FromSlash(project.StaticDir))
-	if err := os.RemoveAll(dir); err != nil {
+	if err := os.RemoveAll(filepath.Join(dir, "client")); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {

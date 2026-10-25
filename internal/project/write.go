@@ -15,7 +15,8 @@ import (
 )
 
 // StaticDir is orbit_gen/static, written by orbit build --embed. Generate
-// leaves it alone: its embedded copies of dist/client have no marker.
+// only writes its doc.go and never removes anything there: its embedded
+// copies of dist/client have no marker.
 const StaticDir = compiler.GenDir + "/static"
 
 // WriteResult says what WriteGenerated changed, as module-relative paths,

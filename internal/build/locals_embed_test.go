@@ -2,6 +2,7 @@ package build
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -56,7 +57,14 @@ func TestBuildEmbed(t *testing.T) {
 		t.Fatalf("orbit build --embed: exit %d\n%s", code, out)
 	}
 	t.Logf("orbit build --embed: %v", time.Since(begin))
-	for _, rel := range []string{"dist/client/robots.txt", "orbit_gen/static/static.go", "orbit_gen/static/client/robots.txt"} {
+	// go mod tidy loads every build tag, so it needs orbit_gen/static (the
+	// package embed.go imports) to be a package with and without the tag.
+	tidy := exec.Command("go", "mod", "tidy")
+	tidy.Dir, tidy.Env = dir, append(os.Environ(), goEnv...)
+	if out, err := tidy.CombinedOutput(); err != nil {
+		t.Fatalf("go mod tidy after --embed: %v\n%s", err, out)
+	}
+	for _, rel := range []string{"dist/client/robots.txt", "orbit_gen/static/static.go", "orbit_gen/static/client/robots.txt", "orbit_gen/static/doc.go"} {
 		if !exists(filepath.Join(dir, rel)) {
 			t.Errorf("no %s", rel)
 		}
