@@ -30,7 +30,8 @@ var verbose = os.Getenv("DEVLOOP_VERBOSE") == "1"
 // buildFlags are extra go build flags (-buildflags).
 var buildFlags []string
 
-var goEnv = []string{"GOFLAGS=-mod=mod", "GOWORK=off"}
+// goEnv keeps the caller's GOFLAGS (e.g. GOFLAGS=-gcflags=-l).
+var goEnv = []string{strings.TrimSpace("GOFLAGS=" + os.Getenv("GOFLAGS") + " -mod=mod"), "GOWORK=off"}
 
 // devKey is a fixed ORBIT_KEY for the server (any 32 bytes), so it doesn't
 // log the random-key warning on every start.
