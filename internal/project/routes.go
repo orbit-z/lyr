@@ -19,12 +19,19 @@ const (
 // project-relative path p (PLAN.md §4): a file under src/pages is a page
 // whose route is its path there without .orbit, with index as its
 // directory's root ("/" for src/pages/index.orbit); src/pages/404.orbit gets
-// the reserved pattern "404". Anything else is a component with no route.
+// the reserved pattern "404". As in Astro, a file under src/pages whose name,
+// or the name of a directory on its path, starts with "_" isn't routed: it's
+// a component. Anything else is a component with no route.
 // The pattern isn't validated; see checkRoute.
 func RouteFor(p string) (compiler.Role, string) {
 	rest, ok := strings.CutPrefix(p, PagesDir+"/")
 	if !ok {
 		return compiler.RoleComponent, ""
+	}
+	for seg := range strings.SplitSeq(rest, "/") {
+		if strings.HasPrefix(seg, "_") {
+			return compiler.RoleComponent, ""
+		}
 	}
 	if p == NotFoundFile {
 		return compiler.RolePage, NotFoundPattern

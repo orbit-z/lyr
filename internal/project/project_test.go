@@ -25,7 +25,12 @@ func TestRouteFor(t *testing.T) {
 		{"src/pages/404.orbit", compiler.RolePage, "404"},
 		{"src/pages/blog/404.orbit", compiler.RolePage, "/blog/404"},
 		{"src/pages/index/index.orbit", compiler.RolePage, "/index"},
-		{"src/pages/_orbit/stats.orbit", compiler.RolePage, "/_orbit/stats"},
+		// As in Astro, a leading "_" on the file or a directory keeps it out
+		// of routing: it's a component.
+		{"src/pages/_orbit/stats.orbit", compiler.RoleComponent, ""},
+		{"src/pages/_Draft.orbit", compiler.RoleComponent, ""},
+		{"src/pages/blog/_parts/Byline.orbit", compiler.RoleComponent, ""},
+		{"src/pages/blog/x_y.orbit", compiler.RolePage, "/blog/x_y"},
 		{"src/components/Card.orbit", compiler.RoleComponent, ""},
 		{"src/pagesx/a.orbit", compiler.RoleComponent, ""},
 	}
@@ -95,9 +100,7 @@ func TestProjectErrors(t *testing.T) {
 			`src/pages/[post-id]/[postId].orbit: route params [post-id] and [postId] both become params.PostID; rename one`,
 			`src/pages/x/[id]/[id].orbit: route params [id] and [id] both become params.ID; rename one`,
 		}},
-		{"orbit prefix", map[string]string{"src/pages/_orbit/stats.orbit": "x"}, []string{
-			`src/pages/_orbit/stats.orbit: route /_orbit/stats is under /_orbit/, which Orbit reserves for its assets and islands; rename the page or its directory`,
-		}},
+		{"underscore files aren't routes", map[string]string{"src/pages/_orbit/stats.orbit": "x", "src/pages/_a.orbit": "y", "src/pages/_b.orbit": "z"}, nil},
 		{"duplicate routes", map[string]string{
 			"src/pages/blog.orbit": "a", "src/pages/blog/index.orbit": "b",
 			"src/pages/[slug].orbit": "c", "src/pages/[id].orbit": "d",
