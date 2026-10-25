@@ -142,6 +142,24 @@ What this benchmark found, and what changed (milestone 12):
   each, serially (9.7 s at 400). With 16 or more of them, Orbit now
   re-adds gopls's workspace folder after sending the overlays, so a single
   workspace load sees them all.
+- **That reload still held the first hover for 1.4–3.8 s**, because gopls
+  handles notifications in order and the folder change came after 400
+  `didOpen`s that were each slower than the last: with the project's
+  folder open, gopls's zero-config view selection walks the directories
+  of every open file on each `didOpen` (`selectViewDefs` →
+  `findRootPattern`, ~70% of the time, all `stat` calls), and each
+  `didOpen` also clones the snapshot and starts a lazy load of the file's
+  package (writing every overlay to a temporary file for `go list`). A
+  CPU profile (`gopls -profile.cpu=…`) showed 1.56 s in `DidOpen`. Being
+  syscall-bound, the total varied with the machine and the project's path
+  (1.4 s in `/tmp`, 1.85 s in a deeper directory, 3.8 s in one quiet run
+  that couldn't be reproduced). gopls now starts on an empty placeholder
+  folder, so the `didOpen`s cost almost nothing (~40 ms for 400), and gets
+  the project's folder once they're all sent; Orbit also sets
+  `zeroConfig: false`, which helps when many overlays are opened with the
+  project's folder there (200 stale files: 0.70 → 0.62 s, 400 → 240 MB).
+  First hover overlay-only: 1.4–3.8 s → ~0.33 s (one cold start of five
+  took 2.0 s), gopls 340 → 180 MB after the barrier.
 
 To see gopls's memory yourself, put a `gopls` script first on `PATH` that
 runs `gopls -debug=localhost:6061 "$@"`, then fetch

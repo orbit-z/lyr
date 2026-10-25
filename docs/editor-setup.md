@@ -112,7 +112,7 @@ go get -tool golang.org/x/tools/gopls@v0.24.0
 
 It's not the default, and it's only used when there's no `gopls` on your `PATH`. A pin pulls all of `golang.org/x/tools` into your module graph, which can raise the versions of dependencies you share with it. Its first build also takes 30–60 seconds, long enough for some editors to give up on the language server at startup. A gopls installed with `go install` avoids both.
 
-Orbit passes your editor's `gopls` settings to its gopls, so options you set there (for example `buildFlags`) apply inside `.orbit` files too. It also sets `diagnosticsDelay` to `50ms` unless you set it yourself, so diagnostics follow your edits quickly.
+Orbit passes your editor's `gopls` settings to its gopls, so options you set there (for example `buildFlags`) apply inside `.orbit` files too. It also sets `diagnosticsDelay` to `50ms` unless you set it yourself, so diagnostics follow your edits quickly, and turns gopls's internal `zeroConfig` option off (Orbit's gopls only ever sees your project's module), which makes opening hundreds of generated files at startup much cheaper.
 
 ## Old gopls versions
 
@@ -139,7 +139,7 @@ The language server never writes to `orbit_gen/`. It generates the Go code for y
 
 If `orbit_gen/` doesn't exist when the language server starts, your editor shows a one-time message, **"Run orbit generate for faster startup"**, with a button that runs `orbit generate` for you as a separate process.
 
-It's worth clicking. With an up-to-date `orbit_gen/`, gopls reads the generated code of every file you haven't edited from disk, as it would for any Go project; only the files you're editing, and those changed since `orbit generate` last ran, are handed over from memory. On a 200-component project, Go features answer about 0.2 s after the editor starts. Without `orbit_gen/`, gopls first loads every component from memory, which takes about 1.4 s on the same project. Until that load finishes, **references and rename wait**, so they don't miss any uses; completion, hover and diagnostics work right away. Your editor shows a progress indicator meanwhile. Keeping `orbit dev` running keeps `orbit_gen/` up to date.
+It's worth clicking. With an up-to-date `orbit_gen/`, gopls reads the generated code of every file you haven't edited from disk, as it would for any Go project; only the files you're editing, and those changed since `orbit generate` last ran, are handed over from memory. On a 200-component project, Go features answer about 0.2 s after the editor starts. Without `orbit_gen/`, gopls first loads every component from memory, in one go: Go features answer about 0.4 s after the editor starts on the same project, and **references and rename wait** for that load, so they don't miss any uses. Your editor shows a progress indicator meanwhile. With only a few components missing from `orbit_gen/`, gopls loads those one by one instead; completion, hover and diagnostics don't wait for them. Keeping `orbit dev` running keeps `orbit_gen/` up to date.
 
 ## What completion covers
 

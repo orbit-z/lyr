@@ -326,6 +326,18 @@ func (g *genFile) diskMatches() bool {
 	return err == nil && bytes.Equal(b, g.content)
 }
 
+// overlayOnlyCount returns the number of generated files with no file on
+// disk: overlays whatever the typed check finds.
+func (ws *workspace) overlayOnlyCount() int {
+	n := 0
+	for _, g := range ws.gen {
+		if _, err := os.Stat(g.abs); err != nil {
+			n++
+		}
+	}
+	return n
+}
+
 // openOverlays is called once gopls runs: it sends every generated file
 // that differs from disk as an overlay.
 func (ws *workspace) openOverlays(c *Conn) {

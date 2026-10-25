@@ -396,3 +396,131 @@ func procRSS(pid int) int {
 	}
 	return 0
 }
+
+// TestStartupFolder checks the order of gopls's startup (PLAN.md §9 step 6)
+// against a recording gopls stub: with many overlay-only files, gopls
+// starts on an empty placeholder folder, gets every overlay, and only then
+// the project's folder, in place of the placeholder, which is removed
+// afterwards; with few, it starts on the project's folder and keeps it. The
+// gopls section of the configuration turns zeroConfig off.
+func TestStartupFolder(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping in -short mode")
+	}
+	stub, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	many := map[string]string{"src/pages/index.orbit": "<h1>hi</h1>\n"}
+	for i := range 10 {
+		many[fmt.Sprintf("src/components/C%d.orbit", i)] = "<p>c</p>\n"
+	}
+	for _, tc := range []struct {
+		name        string
+		files       map[string]string
+		placeholder bool
+	}{
+		{"many overlay-only files", many, true},
+		{"few overlay-only files", map[string]string{"src/components/Card.orbit": cardOrbit, "src/pages/index.orbit": indexOrbit}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := writeProject(t, tc.files)
+			recFile := filepath.Join(t.TempDir(), "gopls.jsonl")
+			c := startClient(t, dir, map[string]any{"goplsPath": stub}, stubEnv+"=record:"+recFile)
+			c.open("src/pages/index.orbit")
+			root := pathToURI(dir)
+
+			// Wait for the configuration answer and, with a placeholder,
+			// for the barrier's gopls.packages, sent after the folder
+			// change.
+			var recs []stubRecord
+			deadline := time.Now().Add(30 * time.Second)
+			for {
+				recs = readRecords(t, recFile)
+				var answered, packages bool
+				for _, r := range recs {
+					answered = answered || r.Method == "answer:workspace/configuration"
+					packages = packages || (r.Method == "workspace/executeCommand" && strings.Contains(string(r.Params), "gopls.packages"))
+				}
+				if answered && (packages || !tc.placeholder) {
+					break
+				}
+				if time.Now().After(deadline) {
+					t.Fatalf("gopls stub records: %v", recs)
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+
+			var init struct {
+				WorkspaceFolders []struct{ URI string } `json:"workspaceFolders"`
+			}
+			json.Unmarshal(recs[0].Params, &init)
+			if recs[0].Method != "initialize" || len(init.WorkspaceFolders) != 1 {
+				t.Fatalf("first message to gopls: %s %s", recs[0].Method, recs[0].Params)
+			}
+			folder := init.WorkspaceFolders[0].URI
+			if tc.placeholder == (folder == root) {
+				t.Errorf("gopls started on %s (project %s), want the placeholder: %v", folder, root, tc.placeholder)
+			}
+			opens, change := 0, -1
+			for i, r := range recs {
+				switch r.Method {
+				case "textDocument/didOpen":
+					opens++
+					if change >= 0 {
+						t.Errorf("didOpen (record %d) after the folder change", i)
+					}
+				case "workspace/didChangeWorkspaceFolders":
+					if change >= 0 {
+						t.Errorf("second folder change: %s", r.Params)
+					}
+					change = i
+					want := fmt.Sprintf(`{"event":{"added":[{"name":%q,"uri":%q}],"removed":[{"name":%q,"uri":%q}]}}`,
+						filepath.Base(dir), root, filepath.Base(uriToPath(folder)), folder)
+					if string(r.Params) != want {
+						t.Errorf("folder change:\n got %s\nwant %s", r.Params, want)
+					}
+				case "answer:workspace/configuration":
+					if !strings.Contains(string(r.Params), `"zeroConfig":false`) || !strings.Contains(string(r.Params), `"diagnosticsDelay":"50ms"`) {
+						t.Errorf("gopls configuration: %s", r.Params)
+					}
+				}
+			}
+			if tc.placeholder != (change >= 0) {
+				t.Errorf("folder change at record %d, want one: %v", change, tc.placeholder)
+			}
+			if tc.placeholder && opens < reloadMin {
+				t.Errorf("%d overlays opened, want at least %d", opens, reloadMin)
+			}
+			if tc.placeholder {
+				p := uriToPath(folder)
+				for time.Now().Before(deadline) {
+					if _, err := os.Stat(p); os.IsNotExist(err) {
+						break
+					}
+					time.Sleep(20 * time.Millisecond)
+				}
+				if _, err := os.Stat(p); !os.IsNotExist(err) {
+					t.Errorf("placeholder folder %s left behind: %v", p, err)
+				}
+			}
+		})
+	}
+}
+
+// readRecords reads a recording gopls stub's file.
+func readRecords(t *testing.T, file string) []stubRecord {
+	t.Helper()
+	b, err := os.ReadFile(file)
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	var recs []stubRecord
+	for _, line := range strings.Split(string(b), "\n") {
+		var r stubRecord
+		if json.Unmarshal([]byte(line), &r) == nil && r.Method != "" {
+			recs = append(recs, r)
+		}
+	}
+	return recs
+}

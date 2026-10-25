@@ -76,6 +76,9 @@ type Server struct {
 	gopls     *goplsProc
 	goEnabled bool
 	goplsEnc  encoding
+	// placeholder is the URI of the empty folder gopls starts on when
+	// there are many overlay-only files (PLAN.md §9 step 6), or "".
+	placeholder string
 	// ready is closed when gopls is running with every overlay sent, or
 	// when it won't run; loaded when the readiness barrier finished.
 	ready, loaded         chan struct{}
