@@ -278,9 +278,11 @@ if err := orbit.RenderComponent(w, r, likebutton.Render, props); err != nil {
 ```
 
 - **Import components** from their generated declaration package: `src/components/LikeButton.orbit` is `example.com/blog/orbit_gen/decl/components/likebutton`, with `Render` and `Props`.
-- **Buffered, like a page**: the fragment is written with status 200, `Content-Type: text/html; charset=utf-8` and `Content-Length`. If rendering fails, nothing is written and the error is returned, so you can still send your own error response.
+- **Buffered, like a page**: the fragment is written with status 200, `Content-Type: text/html; charset=utf-8` and `Content-Length`. As in a page, the component can change the status with `ctx.SetStatus` and add headers with `ctx.Header()` (an htmx `HX-Trigger`, say, or its own `Content-Type`).
+- **Errors are returned**: if rendering fails, nothing is written and the error is returned, so you can still send your own error response. That includes a panic in the component (returned as an error naming the `.orbit` line) and the `ctx.Redirect` and `orbit.ErrNotFound` errors, which only a page turns into a redirect or the 404 page.
 - **No head injection**: a fragment has no `<head>`, so Orbit adds no `<link>` or `<script>` tags. The component's CSS and scripts load only on pages that already include the component, such as the post page rendering `<LikeButton slug={post.Slug} likes={0} />`. Its scoped styles then apply to the fragment too.
 - **Locals**: the component's `locals` are the ones attached to `r` by your middleware with `orbit.EnsureLocals`.
+- **No site URL**: `ctx.Site` is nil in a fragment, since `RenderComponent` doesn't know your `Site`.
 - **No islands from fragments**: a `server:defer` placeholder inside a fragment loads only if the page it lands in already has deferred components of its own.
 
 Rendering a full page, with its assets, from a custom handler is not yet supported.

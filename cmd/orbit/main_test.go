@@ -63,18 +63,7 @@ func TestBuildPreviewErrors(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/site\n\ngo 1.27\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	code, _, stderr := runCLI(t, dir, "build", "--embed")
-	if code != 1 || !strings.Contains(stderr, "not implemented yet") {
-		t.Errorf("build --embed: exit %d, stderr %s", code, stderr)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "orbit.json"), []byte(`{"embed": true}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	code, _, stderr = runCLI(t, dir, "build")
-	if code != 1 || !strings.Contains(stderr, "not implemented yet") {
-		t.Errorf(`build with "embed": true: exit %d, stderr %s`, code, stderr)
-	}
-	code, _, stderr = runCLI(t, dir, "preview")
+	code, _, stderr := runCLI(t, dir, "preview")
 	if code != 1 || !strings.Contains(stderr, "orbit preview: no dist/server in "+dir+"; run orbit build first") {
 		t.Errorf("preview: exit %d, stderr %s", code, stderr)
 	}

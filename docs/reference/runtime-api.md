@@ -442,7 +442,7 @@ func like(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-The fragment is buffered like a page: on success it's written once, with `Content-Type: text/html; charset=utf-8` (unless the component set one) and a `Content-Length`. If rendering fails, nothing has been written yet, and you can send your own error response.
+The fragment is buffered like a page: on success it's written once, with the status from `ctx.SetStatus` (200 by default), the headers set through `ctx.Header()`, `Content-Type: text/html; charset=utf-8` (unless the component set one) and a `Content-Length`. If rendering fails, nothing has been written yet and the error is returned, so you can send your own error response. A panic in the component is returned as an error naming the `.orbit` line, and `ctx.Redirect` and `ErrNotFound` are returned as they are (only pages act on them). `ctx.Site` is nil in a fragment.
 
 A fragment may contain `server:defer` placeholders; they're sealed with the same key as the site's (without `WithKey`). They load only if the page the fragment lands in already has the islands loader.
 

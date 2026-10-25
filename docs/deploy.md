@@ -71,7 +71,9 @@ go tool orbit build --embed
 
 `--embed` (or `"embed": true` in [`orbit.json`](configuration.md#embed)) builds a `dist/server` that contains the `/_orbit/` assets and `public/` files, so it's the only file you need to deploy. Copy it anywhere and run it. `dist/client/` is still written, in case you also want to upload it to a CDN.
 
-If `ORBIT_STATIC` is set when the binary starts, it serves files from that directory instead of the embedded ones.
+If `ORBIT_STATIC` is set when the binary starts, it serves files from that directory instead of the embedded ones. `orbit.WithStaticDir` in your `main.go` wins over them too.
+
+Under the hood, `--embed` copies `dist/client` to `orbit_gen/static/client/` and builds the server with the `orbit_embed` build tag (added to any `-tags` in your `GOFLAGS`), which makes `app.New()` serve the embedded copy. `orbit_gen/static/` stays out of git along with the rest of `orbit_gen/`. A plain `go build` of your server, without the tag, doesn't need it and serves `client/` next to the binary as usual. The embedded files are indexed and hashed for their `ETag` once, at startup.
 
 ## Docker
 

@@ -337,6 +337,12 @@ src/pages/blog/[slug].orbit:9:26: params.Slg undefined (type Params has no field
 
 **Fix:** keep `src/locals` a plain types package. It may import your own packages, such as `internal/auth` for a `User` type, as long as none of them leads to `orbit_gen/app`; move code that needs `app.New()` into `cmd/server`. `orbit doctor` checks this too. See [The import rule](middleware.md#the-import-rule).
 
+### `src/locals must be package locals, not package middleware` or `Locals must be a struct type: type Locals struct { … }`
+
+**Cause:** the Go files in `src/locals` declare another package name, or `Locals` is a defined type that isn't a struct, such as `type Locals map[string]any`.
+
+**Fix:** use `package locals` and `type Locals struct { … }`. An alias to a struct declared elsewhere (`type Locals = auth.Session`) works too. See [Declare the struct](middleware.md#declare-the-struct).
+
 ### `import cycle not allowed between component Props: src/components/A.orbit → src/components/B.orbit → src/components/A.orbit; declare the shared types in a package under internal/`
 
 **Symptom:** a build error at the import alias in the first file of the chain, such as `src/components/A.orbit:2:8`, showing the shortest import chain between the components.
