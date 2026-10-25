@@ -379,7 +379,7 @@ func TestBuildError(t *testing.T) {
 		t.Fatalf("orbit build: exit %d, want 1\n%s", code, out)
 	}
 	want := "src/components/Card.orbit:7:34: props.Titel undefined (type Props has no field or method Titel)"
-	if !strings.Contains(out, "\n"+want+"\n") {
+	if !strings.Contains("\n"+out, "\n"+want+"\n") {
 		t.Errorf("output lacks %q:\n%s", want, out)
 	}
 	for _, bad := range []string{"orbit__", "./src/", "orbit_gen/decl", "orbit_gen/impl/components/card/", "card.Props"} {

@@ -170,6 +170,12 @@ func cleanGoOutput(out []byte, names *ErrorNames) []byte {
 	files := map[string]*clFile{}
 	for _, raw := range lines {
 		line := string(raw)
+		// go build's "# <pkg>" header names a generated package, which the
+		// user never wrote; its errors already point at .orbit files.
+		if isGenHeader(line, names.Module) {
+			cur = nil
+			continue
+		}
 		loc := clPos.FindStringSubmatchIndex(line)
 		if loc == nil {
 			// A continuation line (tab-indented) belongs to the last error.
@@ -249,4 +255,19 @@ func rewriteNames(line string, f *clFile) string {
 	}
 	b.WriteString(line[last:])
 	return b.String()
+}
+
+// isGenHeader reports whether line is the "# <import path>" header go build
+// and go vet print before a package's errors, for a package under the
+// module's orbit_gen/ (with module "", any path with an orbit_gen element).
+func isGenHeader(line, module string) bool {
+	path, ok := strings.CutPrefix(strings.TrimRight(line, "\r\n"), "# ")
+	if !ok {
+		return false
+	}
+	path, _, _ = strings.Cut(path, " ") // "# pkg [pkg.test]"
+	if module != "" {
+		return path == module+"/orbit_gen" || strings.HasPrefix(path, module+"/orbit_gen/")
+	}
+	return strings.Contains("/"+path+"/", "/orbit_gen/")
 }

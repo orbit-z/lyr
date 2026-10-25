@@ -139,9 +139,7 @@ func TestCleanOutput(t *testing.T) {
 		"",
 	}, "\n")
 	want := strings.Join([]string{
-		"# example.com/site/orbit_gen/impl/components/card",
 		"src/components/Card.orbit:7:34: props.Titel undefined (type Props has no field or method Titel)",
-		"# example.com/site/orbit_gen/impl/pages/index",
 		"src/pages/index.orbit:13:11: cannot use 1 (untyped int constant) as string value in struct literal of type Card.Props",
 		"src/layouts/Base.orbit:2:6: Props redeclared in this block",
 		"\tsrc/layouts/Base.orbit:2:6: other declaration of Props",

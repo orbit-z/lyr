@@ -28,8 +28,9 @@ const LocalsDir = "src/locals"
 //   - a Locals that's a defined type but not a struct (an alias is
 //     accepted: its target can't be checked without types);
 //   - an import of orbit_gen/app or an implementation package, directly or
-//     through the module's own packages: every implementation package
-//     imports src/locals, so that's an import cycle.
+//     through the module's own packages: the implementation package of
+//     every component that uses locals imports src/locals, so that would be
+//     an import cycle (rejected even before any component uses locals).
 //
 // A src/locals without Go files, or whose files don't declare Locals, is
 // ignored, as Astro ignores an undeclared App.Locals.
@@ -155,7 +156,7 @@ func checkLocalsImports(fset *token.FileSet, root, module string, files []parsed
 				continue
 			}
 			seen[p] = true
-			msg := "src/locals can't import " + chain[len(chain)-1] + ": every page imports src/locals, so this is an import cycle"
+			msg := "src/locals can't import " + chain[len(chain)-1] + ": pages that use locals import src/locals, so this would be an import cycle"
 			if len(chain) > 1 {
 				msg += " (" + strings.Join(append([]string{"src/locals"}, chain...), " → ") + ")"
 			}

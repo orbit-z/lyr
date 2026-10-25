@@ -44,10 +44,10 @@ func TestDetectLocals(t *testing.T) {
 		}, diags: []string{"src/locals/locals.go:1:9: src/locals must be package locals, not package middleware"}},
 		{name: "imports app", files: map[string]string{
 			"src/locals/locals.go": "package locals\n\nimport (\n\t\"fmt\"\n\t_ \"example.com/blog/orbit_gen/app\"\n)\n\nvar _ = fmt.Sprint\n\ntype Locals struct{}\n",
-		}, diags: []string{"src/locals/locals.go:5:4: src/locals can't import example.com/blog/orbit_gen/app: every page imports src/locals, so this is an import cycle"}},
+		}, diags: []string{"src/locals/locals.go:5:4: src/locals can't import example.com/blog/orbit_gen/app: pages that use locals import src/locals, so this would be an import cycle"}},
 		{name: "imports an impl package", files: map[string]string{
 			"src/locals/locals.go": "package locals\n\nimport _ \"example.com/blog/orbit_gen/impl/components/card\"\n\ntype Locals struct{}\n",
-		}, diags: []string{"src/locals/locals.go:3:10: src/locals can't import example.com/blog/orbit_gen/impl/components/card: every page imports src/locals, so this is an import cycle"}},
+		}, diags: []string{"src/locals/locals.go:3:10: src/locals can't import example.com/blog/orbit_gen/impl/components/card: pages that use locals import src/locals, so this would be an import cycle"}},
 		{name: "a decl package is fine", files: map[string]string{
 			"src/locals/locals.go": "package locals\n\nimport _ \"example.com/blog/orbit_gen/decl/components/card\"\n\ntype Locals struct{}\n",
 		}, want: self},
@@ -57,7 +57,7 @@ func TestDetectLocals(t *testing.T) {
 			"internal/site/site.go":   "package site\n\nimport _ \"example.com/blog/orbit_gen/app\"\n",
 			"internal/site/a_test.go": "package site\n",
 			"internal/ok/ok.go":       "package ok\n\nimport _ \"example.com/blog/internal/auth/sub\"\n\ntype O struct{}\n",
-		}, diags: []string{"src/locals/locals.go:4:2: src/locals can't import example.com/blog/orbit_gen/app: every page imports src/locals, so this is an import cycle " +
+		}, diags: []string{"src/locals/locals.go:4:2: src/locals can't import example.com/blog/orbit_gen/app: pages that use locals import src/locals, so this would be an import cycle " +
 			"(src/locals → example.com/blog/internal/auth → example.com/blog/internal/site → example.com/blog/orbit_gen/app)"}},
 		{name: "ordinary cycle left to go build", files: map[string]string{
 			"src/locals/locals.go": "package locals\n\nimport _ \"example.com/blog/internal/a\"\n\ntype Locals struct{}\n",
@@ -108,7 +108,7 @@ func TestLoadLocals(t *testing.T) {
 	if !proj.Front() || proj.Options.Locals != "" {
 		t.Fatalf("no error; Options.Locals %q, diagnostics %v", proj.Options.Locals, diagStrings(proj.Diagnostics))
 	}
-	want := "src/locals/locals.go:3:10: src/locals can't import example.com/blog/orbit_gen/app: every page imports src/locals, so this is an import cycle"
+	want := "src/locals/locals.go:3:10: src/locals can't import example.com/blog/orbit_gen/app: pages that use locals import src/locals, so this would be an import cycle"
 	if got := diagStrings(proj.Diagnostics); len(got) != 1 || got[0] != want {
 		t.Errorf("diagnostics %q, want %q", got, want)
 	}

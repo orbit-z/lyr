@@ -331,7 +331,7 @@ src/pages/blog/[slug].orbit:9:26: params.Slg undefined (type Params has no field
 
 **Fix:** pick another name (`post := props.Post`). Shadowing these names inside a nested block, such as `{for _, props := range variants}`, is allowed. Names starting with `orbit__` or `Orbit__`, and a hoisted declaration named `Render`, are reserved too. See [Redeclaring and shadowing](components.md#redeclaring-and-shadowing).
 
-### `src/locals can't import example.com/blog/orbit_gen/app: every page imports src/locals, so this is an import cycle`
+### `src/locals can't import example.com/blog/orbit_gen/app: pages that use locals import src/locals, so this would be an import cycle`
 
 **Cause:** every generated page and component imports `src/locals`, so `src/locals`, and anything it imports, can't import `orbit_gen/app`. An indirect import is reported at the import in `src/locals` that leads to it, with the chain of packages.
 

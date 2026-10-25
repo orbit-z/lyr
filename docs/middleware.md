@@ -276,13 +276,13 @@ Every generated page and component imports `src/locals` (that's how `locals` get
 Orbit checks this before Go does and reports the import, for example:
 
 ```
-src/locals/locals.go:4:8: src/locals can't import example.com/blog/orbit_gen/app: every page imports src/locals, so this is an import cycle
+src/locals/locals.go:4:8: src/locals can't import example.com/blog/orbit_gen/app: pages that use locals import src/locals, so this would be an import cycle
 ```
 
 An indirect import is reported at the import in `src/locals` that leads to it, with the chain of packages:
 
 ```
-src/locals/locals.go:4:2: src/locals can't import example.com/blog/orbit_gen/app: every page imports src/locals, so this is an import cycle (src/locals → example.com/blog/internal/auth → example.com/blog/orbit_gen/app)
+src/locals/locals.go:4:2: src/locals can't import example.com/blog/orbit_gen/app: pages that use locals import src/locals, so this would be an import cycle (src/locals → example.com/blog/internal/auth → example.com/blog/orbit_gen/app)
 ```
 
 The same goes for the generated component packages under `orbit_gen/impl/`. `orbit doctor` checks it too.

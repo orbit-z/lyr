@@ -91,6 +91,8 @@ func TestCleanGoOutput(t *testing.T) {
 		testModule + "/orbit_gen/decl/components/ui/card": "UICard",
 	}
 	tests := []struct{ name, in, want string }{
+		{"generated package header dropped", "# example.com/blog/orbit_gen/impl/pages/index\nvet: ./src/pages/index.orbit:3:1: x\n# example.com/blog/orbit_gen/decl/components/card [example.com/blog/orbit_gen/decl/components/card.test]\n",
+			"src/pages/index.orbit:3:1: x\n"},
 		{"not about orbit", "# example.com/blog/internal/posts\ninternal/posts/p.go:3:1: card.Props\n",
 			"# example.com/blog/internal/posts\ninternal/posts/p.go:3:1: card.Props\n"},
 		{"own name", "./src/components/Card.orbit:6:16: cannot use p (variable of type card.Props) as card.Render value\n",

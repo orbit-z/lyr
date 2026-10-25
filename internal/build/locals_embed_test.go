@@ -23,7 +23,7 @@ func TestBuildLocalsTypo(t *testing.T) {
 	writeFile(t, dir, "src/pages/account.orbit", strings.Replace(string(src), "{locals.Theme}", "{locals.Them}", 1))
 	code, out := runOrbit(t, dir, "build")
 	want := "src/pages/account.orbit:7:21: locals.Them undefined (type *locals.Locals has no field or method Them)"
-	if code != 1 || !strings.Contains(out, "\n"+want+"\n") {
+	if code != 1 || !strings.Contains("\n"+out, "\n"+want+"\n") {
 		t.Errorf("orbit build: exit %d\n%s\nwant exit 1 with\n%s", code, out, want)
 	}
 	if strings.Contains(out, "orbit__") {
@@ -38,7 +38,7 @@ func TestBuildLocalsCycle(t *testing.T) {
 	dir := fixture(t, true)
 	writeFile(t, dir, "src/locals/locals.go", "package locals\n\nimport _ \"example.com/site/orbit_gen/app\"\n\ntype Locals struct{ RequestID, Theme string }\n")
 	code, out := runOrbit(t, dir, "build")
-	want := "src/locals/locals.go:3:10: src/locals can't import example.com/site/orbit_gen/app: every page imports src/locals, so this is an import cycle\n"
+	want := "src/locals/locals.go:3:10: src/locals can't import example.com/site/orbit_gen/app: pages that use locals import src/locals, so this would be an import cycle\n"
 	if code != 1 || out != want {
 		t.Errorf("orbit build: exit %d\n%s\nwant exit 1 with\n%s", code, out, want)
 	}
