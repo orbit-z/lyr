@@ -93,6 +93,8 @@ Builds your server and its assets into `dist/`:
 5. Copies `public/` into `dist/client/`. A `public/` file whose path is under `_orbit/` is an error.
 6. Builds your server entry (`cmd/server`, or the generated default) into `dist/server`.
 
+`orbit build` prints nothing when it succeeds. If it fails, `dist/` is left as it was: the new client files and server are built in a staging directory and only replace the old ones once everything has succeeded, so a new `dist/client` is never paired with an old `dist/server`.
+
 No page is rendered at build time: `dist/server` renders every page on request. At startup, it finds `dist/client` next to its binary, unless `ORBIT_STATIC` or `orbit.WithStaticDir` says otherwise.
 
 | Flag | Default | Meaning |
@@ -137,7 +139,9 @@ Runs `dist/server`, the output of the last `orbit build`, to check it locally be
 PORT=3000 go tool orbit preview
 ```
 
-It has no flags. If there's no `dist/server`, it stops with an error telling you to run `orbit build` first.
+It has no flags, and works from any directory of the project (it runs the server from the project root). If there's no `dist/server`, it stops with `orbit preview: no dist/server in <root>; run orbit build first` and exit code 1.
+
+Ctrl-C (or `SIGTERM`) is passed on to the server, which shuts down gracefully; `orbit preview` then exits with the server's exit code. If the server is killed by a signal, `orbit preview` prints the reason and exits 1.
 
 ## `orbit new`
 

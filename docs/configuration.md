@@ -61,7 +61,9 @@ The Go package that holds your server's `main`, as a path relative to the projec
 The default is `"./cmd/server"` when that directory exists. Without it, Orbit generates an entry in `orbit_gen/cmd/server` that serves your pages and nothing else, as if your `main` were:
 
 ```go
-log.Fatal(orbit.ListenAndServe(app.New().Handler()))
+if err := orbit.ListenAndServe(app.New().Handler()); err != nil {
+	log.Fatal(err)
+}
 ```
 
 The server entry is used in two places:

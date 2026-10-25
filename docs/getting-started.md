@@ -388,7 +388,9 @@ func main() {
 	mux.Handle("/", site.Handler())
 
 	// Wrap mux in your own net/http middleware (logging, auth, locals) here.
-	log.Fatal(orbit.ListenAndServe(mux))
+	if err := orbit.ListenAndServe(mux); err != nil {
+		log.Fatal(err)
+	}
 }
 ```
 

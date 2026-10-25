@@ -566,7 +566,8 @@ func RenderComponent[P any](w http.ResponseWriter, r *http.Request,
 
 func Addr() string                         // $ORBIT_ADDR, else ":"+$PORT, else ":4321"
 func ListenAndServe(h http.Handler) error  // listens on Addr(); graceful shutdown on SIGINT/SIGTERM, then returns nil
-                                           // (so log.Fatal(orbit.ListenAndServe(h)) doesn't exit 1 on Ctrl-C).
+                                           // (call it as `if err := orbit.ListenAndServe(h); err != nil { log.Fatal(err) }`:
+                                           // log.Fatal exits 1 even for nil).
                                            // ReadHeaderTimeout 10s, IdleTimeout 120s, no Read/WriteTimeout,
                                            // 5s shutdown grace period. No command-line flags, so it never
                                            // clashes with the user's own.
@@ -745,7 +746,9 @@ func main() {
     // api.Handle("/", site.NotFound())
     // h := logging(theme(site.Middleware(api)))
 
-    log.Fatal(orbit.ListenAndServe(h))      // nil after a graceful shutdown, so Ctrl-C exits 0
+    if err := orbit.ListenAndServe(h); err != nil {
+        log.Fatal(err)
+    }
 }
 ```
 
@@ -1149,6 +1152,6 @@ Dependencies:
   - a gopls built with an older Go than the project's `go` directive (a stub `serverInfo`) disables Go features and shows the install command, while native completion still works
 - Manual check: open `examples/blog` in VS Code with the extension in development mode (F5) and confirm highlighting, completion and diagnostics.
 - `orbittest`: a test in `examples/blog/internal/views_test` renders `Card` with props and a default slot, and asserts on the HTML. A `Snapshot` round-trips with `-update`. `orbittest.Get(t, site.Handler(), "/blog/hello")` returns 200 with the page. `orbittest.Render` of the `blog/[slug]` page with `WithParam("slug", "hello")` renders that post; `WithParam` passed to `Get` fails the test. A test that omits the `orbit_gen/app` import fails with the "not linked" hint.
-- Decisions logged in `docs/DECISIONS.md`: `orbit.ListenAndServe` returns nil after SIGINT (a `log.Fatal` scaffold exits 0) and honors the 5 s grace period; `post-[id].orbit` and `[...path]/edit.orbit` fail the build with the whole-segment `[param]` hint; a duplicate route names both files; a page error in prod gives the built-in 500 page and logs the error with its `.orbit` position; `orbittest.Render` of a page with an island returns the same placeholder on two runs; `orbit new x --module example.com/x` writes that module path (and the directory name without the flag); `orbit dev` isn't reachable on a non-loopback address without `--host`; CSS imported from a script is in the page stylesheet; exit code 2 on an unknown flag.
+- Decisions logged in `docs/DECISIONS.md`: `orbit.ListenAndServe` returns nil after SIGINT (the scaffold's `if err := …; err != nil { log.Fatal(err) }` exits 0) and honors the 5 s grace period; `post-[id].orbit` and `[...path]/edit.orbit` fail the build with the whole-segment `[param]` hint; a duplicate route names both files; a page error in prod gives the built-in 500 page and logs the error with its `.orbit` position; `orbittest.Render` of a page with an island returns the same placeholder on two runs; `orbit new x --module example.com/x` writes that module path (and the directory name without the flag); `orbit dev` isn't reachable on a non-loopback address without `--host`; CSS imported from a script is in the page stylesheet; exit code 2 on an unknown flag.
 - `orbit doctor`: on a healthy `orbit new` project, every check passes. With an old gopls first on PATH, it reports ✗ with the install command. With `orbit_gen/` deleted, it reports ⚠ suggesting `orbit generate`. `--json` output parses.
 - Dockerfile: `docker build` of a fresh, unmodified `orbit new` project succeeds. `docker run -p 8080:8080` serves the index page and its `/_orbit/*` CSS, and `/nope` returns the 404 page. `docker run -e PORT=9090 -p 9090:9090` listens on 9090 (the platform's `PORT` wins). The image is under 30 MB.

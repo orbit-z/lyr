@@ -27,7 +27,9 @@ func main() {
 	mux.HandleFunc("POST /blog/{slug}/like", like)
 	mux.Handle("/", site.Handler()) // everything else: pages, assets, islands, 404
 
-	log.Fatal(orbit.ListenAndServe(logging(mux)))
+	if err := orbit.ListenAndServe(logging(mux)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func listPosts(w http.ResponseWriter, r *http.Request) {
@@ -163,7 +165,9 @@ The same `main` runs in `orbit dev` and in production, so your routes and middle
 If the project has no server entry, Orbit generates a default one in `orbit_gen/cmd/server`. It's equivalent to:
 
 ```go
-log.Fatal(orbit.ListenAndServe(app.New().Handler()))
+if err := orbit.ListenAndServe(app.New().Handler()); err != nil {
+	log.Fatal(err)
+}
 ```
 
 `orbit new` always scaffolds `cmd/server/main.go`, so the composition is visible from day one.
@@ -283,7 +287,7 @@ Rendering a full page, with its assets, from a custom handler is not yet support
 
 ## Listening: `ListenAndServe` and `Addr`
 
-`orbit.ListenAndServe(h)` starts an HTTP server for `h` on `orbit.Addr()` and shuts down gracefully on `SIGINT` or `SIGTERM`. It reads no command-line flags, so it never clashes with your own. After a graceful shutdown it returns `nil`, so `log.Fatal(orbit.ListenAndServe(h))` exits cleanly on Ctrl-C and only logs real failures, such as a port that's already taken. Its settings:
+`orbit.ListenAndServe(h)` starts an HTTP server for `h` on `orbit.Addr()` and shuts down gracefully on `SIGINT` or `SIGTERM`. It reads no command-line flags, so it never clashes with your own. After a graceful shutdown it returns `nil`, so `if err := orbit.ListenAndServe(h); err != nil { log.Fatal(err) }` exits cleanly on Ctrl-C and only logs real failures, such as a port that's already taken. (Don't write `log.Fatal(orbit.ListenAndServe(h))`: `log.Fatal` exits with status 1 even when the error is nil.) Its settings:
 
 - `ReadHeaderTimeout` of 10 seconds and `IdleTimeout` of 120 seconds;
 - no `ReadTimeout` or `WriteTimeout`, so slow uploads and your own streaming handlers keep working;

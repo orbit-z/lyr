@@ -59,6 +59,8 @@ Orbit doesn't compress responses. Add a gzip middleware in `cmd/server/main.go`,
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go tool orbit build
 ```
 
+The binary is always named `dist/server`, even for `GOOS=windows` (no `.exe` is added).
+
 Or build inside Docker, as the scaffolded `Dockerfile` does.
 
 ## Single binary: `--embed`

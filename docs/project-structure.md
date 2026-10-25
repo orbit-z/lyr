@@ -96,7 +96,7 @@ import "example.com/blog/internal/posts"
 
 ## `public/`
 
-Files in `public/` are served unchanged at the root of the site: `public/robots.txt` is served at `/robots.txt`. They're not processed or hashed. `orbit build` copies them into `dist/client/`, and `orbit dev` serves them straight from `public/`. A `public/_orbit/` directory is a build error, because `/_orbit/` is where Orbit serves its bundles.
+Files in `public/` are served unchanged at the root of the site: `public/robots.txt` is served at `/robots.txt`. They're not processed or hashed. `orbit build` copies them into `dist/client/`, and `orbit dev` serves them straight from `public/`. A file under `public/_orbit/` is a build error (each one is listed), because `/_orbit/` is where Orbit serves its bundles. Dotfiles are copied; a symbolic link to a file is copied as that file, and a symbolic link to a directory is a build error.
 
 ## `orbit_gen/`: generated Go code
 

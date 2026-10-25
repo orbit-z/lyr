@@ -455,7 +455,7 @@ func ListenAndServe(h http.Handler) error
 ```
 Serves `h` on `Addr()` and shuts down gracefully on `SIGINT` or `SIGTERM`, giving in-flight requests up to 5 seconds to finish. It reads no command-line flags, so it never clashes with your own.
 
-It returns `nil` after a graceful shutdown, and otherwise the error that stopped the server (for example, the address is already in use), or `orbit: shutdown: context deadline exceeded` when requests were still running after the grace period. A second signal during the shutdown stops the process at once. So `log.Fatal(orbit.ListenAndServe(h))`, as in the scaffolded `main.go`, exits cleanly on Ctrl-C and logs only real failures.
+It returns `nil` after a graceful shutdown, and otherwise the error that stopped the server (for example, the address is already in use), or `orbit: shutdown: context deadline exceeded` when requests were still running after the grace period. A second signal during the shutdown stops the process at once. So `if err := orbit.ListenAndServe(h); err != nil { log.Fatal(err) }`, as in the scaffolded `main.go`, exits cleanly on Ctrl-C and logs only real failures. Don't pass the result straight to `log.Fatal`, which exits 1 even for a nil error.
 
 | Setting | Value |
 |---|---|

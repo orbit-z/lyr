@@ -259,7 +259,9 @@ import (
 func main() {
 	site := app.New()
 	csrf := http.NewCrossOriginProtection()
-	log.Fatal(orbit.ListenAndServe(csrf.Handler(site.Handler())))
+	if err := orbit.ListenAndServe(csrf.Handler(site.Handler())); err != nil {
+		log.Fatal(err)
+	}
 }
 ```
 

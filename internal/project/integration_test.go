@@ -111,7 +111,9 @@ import (
 func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/", app.New().Handler())
-	log.Fatal(orbit.ListenAndServe(mux))
+	if err := orbit.ListenAndServe(mux); err != nil {
+		log.Fatal(err)
+	}
 }
 `)
 	res = p.generate()

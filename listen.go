@@ -33,8 +33,14 @@ func Addr() string {
 
 // ListenAndServe serves h on Addr() until SIGINT or SIGTERM, then shuts down
 // gracefully, giving in-flight requests up to 5 seconds to finish. It returns
-// nil after a graceful shutdown, so log.Fatal(orbit.ListenAndServe(h)) exits
-// cleanly on Ctrl-C, and otherwise the error that stopped the server. A
+// nil after a graceful shutdown, and otherwise the error that stopped the
+// server, so call it as
+//
+//	if err := orbit.ListenAndServe(h); err != nil {
+//		log.Fatal(err)
+//	}
+//
+// (log.Fatal always exits 1, even for a nil error). A
 // second signal during the shutdown stops the process at once. It reads no
 // command-line flags.
 func ListenAndServe(h http.Handler) error {

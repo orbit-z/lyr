@@ -36,7 +36,9 @@ func main() {
 	mux.Handle("/", site.Handler())
 
 	// logging runs first, then requestInfo, then the mux and Orbit.
-	log.Fatal(orbit.ListenAndServe(logging(requestInfo(mux))))
+	if err := orbit.ListenAndServe(logging(requestInfo(mux))); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // requestInfo gives each request an ID and reads the theme cookie.
