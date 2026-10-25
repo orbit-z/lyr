@@ -1,0 +1,4 @@
+---
+q := ctx.URL.Query().Get("q")
+---
+<p>You searched for {q}</p>

@@ -13,5 +13,7 @@ import (
 )
 
 func main() {
-	log.Fatal(orbit.ListenAndServe(app.New().Handler()))
+	if err := orbit.ListenAndServe(app.New().Handler()); err != nil {
+		log.Fatal(err)
+	}
 }
