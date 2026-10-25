@@ -347,6 +347,12 @@ To override a decision, say which row and the alternative you want; the docs and
 | Dockerfile: `WORKDIR /src`, a `go mod download` layer, the binary at `/server`, `USER nonroot:nonroot` | simplest | A single `COPY . .` stage | [Deploy](deploy.md#docker) |
 | `.dockerignore` keeps `node_modules`, since the image has no Node or Bun to install it | simplest | Ignore it and install packages in the image | [Deploy](deploy.md#docker) |
 
+## Benchmarks
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| The head-to-head load generator is a small stdlib Go tool in `bench/load` (closed loop, keep-alive, latency percentiles, RSS sampling), with server and load generator pinned to separate CPUs | coordinator (simplest; no tool to install) | Install `oha` or `wrk` | [Performance](performance.md) |
+
 ## Dev server
 
 | Decision | Rule | Alternative | Where documented |
