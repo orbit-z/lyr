@@ -326,7 +326,7 @@ func (s *Site) Middleware(next http.Handler) http.Handler
 The integration point with your server. For a request that Orbit owns, Orbit answers it, in this order:
 
 1. **Island requests**, `/_orbit/island/<buildID>/<id>`, for `GET`, `HEAD` and `POST`; any other method gets a 405 with `Allow: GET, HEAD, POST`. See [Lazy loading](../lazy-loading.md).
-2. **Static files**, `/_orbit/*` assets and `public/` files, for `GET` and `HEAD` only; other methods fall through to `next`.
+2. **Static files**, `/_orbit/*` assets and `public/` files, for `GET` and `HEAD` only; other methods fall through to `next`. Files are served with `http.ServeContent` (`Range`, conditional requests). `/_orbit/*` files get `Cache-Control: public, max-age=31536000, immutable`, `public/` files `Cache-Control: public, max-age=0`, and both get `no-cache` in `orbit dev`. A directory is never served (not even its `index.html`), a file path is never redirected, and `/_orbit/island/` is never a file. In production, the static directory is indexed once at startup, so files added later are served after a restart; `orbit dev` looks them up per request.
 3. **Pages**, for every method. A path with a trailing slash whose slash-less form is a page gets a 308 redirect to it, keeping the query string (`/blog/hello/` → `/blog/hello`).
 
 Anything else goes to `next`, untouched: Orbit writes nothing and sets no header.
@@ -341,7 +341,7 @@ Same as `s.Middleware(s.NotFound())`: Orbit's pages, with `404.orbit` for everyt
 ```go
 func (s *Site) NotFound() http.Handler
 ```
-Renders `404.orbit` with a 404 status. Use it as the catch-all of your own mux when Orbit comes first.
+Renders `404.orbit` with a 404 status (a status the page sets with `ctx.SetStatus` wins), or answers an empty 404 if there is no `404.orbit`. Use it as the catch-all of your own mux when Orbit comes first.
 
 ### Options
 
@@ -351,6 +351,11 @@ type Option func(*siteOptions)
 Options for `app.New()`.
 
 ```go
+func WithSite(rawURL string) Option
+```
+Sets the absolute site URL exposed as `ctx.Site`. The generated `app.New()` passes `orbit.json`'s `site` first, so your own `WithSite` wins. A value that isn't an absolute URL, with a scheme and a host, panics.
+
+```go
 func WithStaticDir(dir string) Option
 ```
 Sets the directory of built static files, replacing the default (`client/` next to the server binary). `$ORBIT_STATIC` still wins when it's set, so `orbit dev`, which sets it, keeps serving its own assets. The full order is `$ORBIT_STATIC`, then `WithStaticDir`, then the embedded files of an `--embed` build, then `client/` next to the binary.
@@ -358,7 +363,7 @@ Sets the directory of built static files, replacing the default (`client/` next 
 ```go
 func WithStaticFS(fsys fs.FS) Option
 ```
-Serves the static files from a file system instead. `orbit build --embed` uses it automatically with the embedded files.
+Serves the static files from a file system laid out like `dist/client` instead. `orbit build --embed` uses it automatically with the embedded files. `$ORBIT_STATIC` and `WithStaticDir` win over it. Files without a modification time, such as embedded ones, get an `ETag` from their content.
 
 ```go
 func WithKey(key []byte) Option
@@ -375,7 +380,7 @@ All instances of one build share its embedded key. For rolling deploys, or sever
 ### Generated wiring
 
 ```go
-func NewSite(routes []Route, islands []Island, opts ...Option) *Site
+func NewSite(routes []Route, islands []Island, opts ...Option) *Site // panics on invalid routes
 
 type Route struct {
     Pattern string                    // "/blog/[slug]"
@@ -450,7 +455,7 @@ func ListenAndServe(h http.Handler) error
 ```
 Serves `h` on `Addr()` and shuts down gracefully on `SIGINT` or `SIGTERM`, giving in-flight requests up to 5 seconds to finish. It reads no command-line flags, so it never clashes with your own.
 
-It returns `nil` after a graceful shutdown, and otherwise the error that stopped the server (for example, the address is already in use). So `log.Fatal(orbit.ListenAndServe(h))`, as in the scaffolded `main.go`, exits cleanly on Ctrl-C and logs only real failures.
+It returns `nil` after a graceful shutdown, and otherwise the error that stopped the server (for example, the address is already in use), or `orbit: shutdown: context deadline exceeded` when requests were still running after the grace period. A second signal during the shutdown stops the process at once. So `log.Fatal(orbit.ListenAndServe(h))`, as in the scaffolded `main.go`, exits cleanly on Ctrl-C and logs only real failures.
 
 | Setting | Value |
 |---|---|
