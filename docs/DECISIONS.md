@@ -240,6 +240,8 @@ To override a decision, say which row and the alternative you want; the docs and
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
+| Under `go test`, the runtime detects tests with `testing.Testing()` and uses the fixed island key and build ID `0000000000000000` (unless `ORBIT_KEY` or `WithKey` is set) | user (measured: +68 KB per production binary, no test flags registered) | A flag set by `orbittest` (no size cost; only tests importing it get the fixed key) | [Testing](testing.md) |
+| In dev, the loader warns once per island in the console when its props are too big for a GET and it falls back to POST (POST isn't cacheable) | user (brought forward from post-MVP) | Silent | [Lazy loading](lazy-loading.md) |
 | `server:defer` and `client:*` on one tag is an error | Astro (no such combination), then simplest | Apply `client:*` to the fragment's scripts | [Lazy loading](lazy-loading.md#combining-the-two) |
 | Component IDs are `<Name>-<hash8>` | Astro (names endpoints after the component) | A hash only; the full path | [Lazy loading](lazy-loading.md#defer-a-slow-component) |
 | Deferred props: `json:"-"` fields and unexported fields of nested structs are skipped | Go stdlib (`encoding/json`) | Report them as errors | [Lazy loading](lazy-loading.md#props-must-be-json-serializable) |
