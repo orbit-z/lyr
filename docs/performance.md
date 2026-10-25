@@ -174,6 +174,30 @@ Measured on 2026-10-25 on an AMD Ryzen 7 9700X (8 cores, 16 threads), 46 GB RAM,
 
 On one core, Orbit serves about 12× as many pages as Astro's single Node process; with all cores, about 46×. Part of that second number is Go using every core while Node runs JavaScript on one thread.
 
+### Where the time goes (Orbit vs. Astro)
+
+To see where that gap comes from, both servers were CPU-profiled while serving `/cards` under the same load: Astro with V8's sampling profiler, Orbit (at `GOMAXPROCS=1`) with Go's `pprof`. Profiling slows both servers and the machine wasn't idle, so only the shares below are meaningful, not absolute times.
+
+| Share of CPU on `/cards` | Astro | Orbit |
+|---|---:|---:|
+| Setting up each component (Astro's `Astro` global, component instance, slot closures) | 23% | — |
+| Walking the template and building the output | 36% | 43% |
+| Escaping text and building attributes | 16% | 24% |
+| Allocation and garbage collection | 4% | 11% |
+| Converting the HTML to bytes and sending it (UTF-8 encoding, streams, socket writes) | 17% | 18% |
+| Request handling (HTTP parsing, routing, middleware) | 3% | 3% |
+| **CPU per page** (from the table above) | **1.56 ms** | **0.12 ms** |
+
+In Orbit a component is a plain function call, so its cost is in the other rows. Astro's GC row counts only the main thread's pauses; V8's helper threads used about 5% more CPU, mostly for concurrent GC.
+
+What the profiles show:
+- **Both spend most of their time rendering**, roughly 70–75% of the CPU. Astro's rendering costs roughly 14× Orbit's per page. Fixed per-request costs are small for both: the `/fetch` page below costs each about 7–8% of `/cards`' CPU.
+- **Astro does at request time what Orbit does at compile time.** Each component render creates objects (an `Astro` global, a component instance, a template result holding the static parts and the expression values), and a generic loop walks them, checking each value's type and concatenating JavaScript strings. Every interpolated string goes through a regular-expression escaper, and every dynamic attribute is classified by name and built at runtime. Orbit's generated code writes merged static HTML and typed values straight into one buffer.
+- **It isn't promises.** Astro 7 renders synchronously while components are synchronous: a `/cards` request creates about 120 promises for 1,501 component renders, and promise handling doesn't show up in the profile.
+- **Sending costs about the same share for both**, but Astro first encodes the whole page from a JavaScript string to UTF-8 and pulls it through a web stream into Node's HTTP server.
+
+The shares and counts are measured. The per-row grouping of functions is ours, and V8 inlines small functions into their callers, so Astro's rows are approximate to a few points. The details (top functions, GC counts) are in `bench/profile/README.md`; reproduce with `bench/profile/run.sh` (about a minute). That page also shows where templ's 9k allocations per page in the [Go templates benchmark](#orbit-vs-other-go-templates-benchgo) come from: mostly from passing every expression, strings included, through `fmt.Sprint`, and from a new `context.Context` per component with children.
+
 ### Page with a 10 ms data fetch (`/fetch`)
 
 | Server | req/s | p50 | p99 | Memory (RSS) | CPU per page |
