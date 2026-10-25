@@ -603,8 +603,9 @@ func TestInjectHead(t *testing.T) {
 			buf := getBuffer()
 			defer putBuffer(buf)
 			w := NewWriter(buf)
+			w.tags = headTags("", tt.assets)
 			tt.write(w)
-			injectHead(buf, w.headOffset(), "", tt.assets)
+			w.finishHead()
 			if got := buf.String(); got != tt.want {
 				t.Errorf("got\n%s\nwant\n%s", got, tt.want)
 			}

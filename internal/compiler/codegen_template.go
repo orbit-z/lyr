@@ -114,7 +114,7 @@ func (g *cgGen) site(kind SiteKind, node Node, a *Attr, code GoCode) {
 		cs.AttrName = a.Name
 		cs.URLAttr = IsURLAttr(a.Name)
 	}
-	method, conv := "Expr", ""
+	method, conv, pieces := "Expr", "", false
 	if kind == SiteAttr {
 		method = "Attr"
 	}
@@ -126,12 +126,16 @@ func (g *cgGen) site(kind SiteKind, node Node, a *Attr, code GoCode) {
 			return
 		}
 		method, conv = tw.Kind.Method(), tw.Conv
+		pieces = tw.Kind.attrPieces()
+	}
+	if pieces {
+		o.html(" " + a.Name + `="`)
 	}
 	o.flush()
 	o.ind()
 	start := len(o.b)
 	o.str(NameW + "." + method + "(")
-	if kind == SiteAttr {
+	if kind == SiteAttr && !pieces {
 		o.str(strconv.Quote(a.Name) + ",")
 		if conv != "" {
 			o.str(" ")
@@ -151,6 +155,9 @@ func (g *cgGen) site(kind SiteKind, node Node, a *Attr, code GoCode) {
 	cs.Call = Span{start, len(o.b)}
 	o.str("\n")
 	g.sites = append(g.sites, cs)
+	if pieces {
+		o.html(`"`)
+	}
 }
 
 // emptySite emits the empty orbit__w.Expr( ) of a {} in Tolerant mode, so

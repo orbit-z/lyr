@@ -31,9 +31,10 @@ type Site struct {
 	devAssets *devManifest
 	keys      *keyring           // island key and build ID
 	islands   map[string]*Island // the island table, by component ID
-	// loaders holds the precomputed loader tags (loaderHead) of the routes
-	// that need the loader; unused in dev with a dev manifest.
-	loaders map[*Route]string
+	// heads holds the precomputed head tags (headTags: the loader and the
+	// asset tags) of the routes that have any; unused in dev with a dev
+	// manifest.
+	heads map[*Route]string
 }
 
 // Option configures a Site. Pass options to app.New().
@@ -83,11 +84,11 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 	}
 	for i := range routes {
 		r := &routes[i]
-		if head := loaderHead(s.dev, r.Islands, r.Assets); head != "" {
-			if s.loaders == nil {
-				s.loaders = make(map[*Route]string)
+		if head := headTags(loaderHead(s.dev, r.Islands, r.Assets), r.Assets); head != "" {
+			if s.heads == nil {
+				s.heads = make(map[*Route]string)
 			}
-			s.loaders[r] = head
+			s.heads[r] = head
 		}
 	}
 	s.assets = resolveStatic(o, s.dev)
@@ -220,6 +221,12 @@ func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *
 	buf := getBuffer()
 	wr := writerPool.Get().(*Writer)
 	wr.reset(buf)
+	if s.devAssets != nil {
+		assets := s.devAssets.assets(route)
+		wr.tags = headTags(loaderHead(s.dev, route.Islands, assets), assets)
+	} else if s.heads != nil {
+		wr.tags = s.heads[route]
+	}
 	err := callRender(route.Render, c, wr)
 	if err == nil {
 		err = wr.err
@@ -233,17 +240,7 @@ func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *
 		releaseCtx(c)
 		return
 	}
-	assets := route.Assets
-	var loader string
-	if s.devAssets != nil {
-		assets = s.devAssets.assets(route)
-		loader = loaderHead(s.dev, route.Islands, assets)
-	} else if s.loaders != nil {
-		loader = s.loaders[route]
-	}
-	if len(assets) > 0 || loader != "" {
-		injectHead(buf, wr.headOffset(), loader, assets)
-	}
+	wr.finishHead()
 	wr.reset(nil)
 	writerPool.Put(wr)
 

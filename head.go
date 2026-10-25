@@ -2,6 +2,7 @@ package orbit
 
 import (
 	"bytes"
+	"strings"
 	"sync"
 )
 
@@ -35,48 +36,57 @@ func putBuffer(buf *bytes.Buffer) {
 	bufferPool.Put(buf)
 }
 
-// injectHead inserts loader (the loader tags, or "") and then the <link>
-// and <script> tags for assets into the rendered page in buf, in asset
-// order.
-//
-// marker is the offset recorded by Writer.HeadEnd (the first </head>), or -1
-// if the page has none. Without a marker, the tags go right after a leading
-// <!DOCTYPE …> (optionally preceded by whitespace), so the doctype stays first
-// and the page doesn't drop into quirks mode; otherwise at the start.
-//
-// Only "css" and "js" assets produce tags. "lazy" assets are loaded by the
-// client loader (whose map is in loader), and other kinds are ignored.
-func injectHead(buf *bytes.Buffer, marker int, loader string, assets []Asset) {
-	tags := getBuffer()
-	defer putBuffer(tags)
+// headTags returns the tags a page gets before its </head>: loader (the
+// loader tags, or "") and then the <link> and <script> tags for assets, in
+// asset order. Only "css" and "js" assets produce tags. "lazy" assets are
+// loaded by the client loader (whose map is in loader), and other kinds are
+// ignored. In production it runs once per route, in NewSite.
+func headTags(loader string, assets []Asset) string {
+	var tags strings.Builder
 	tags.WriteString(loader)
 	for _, a := range assets {
 		switch a.Kind {
 		case "css":
 			tags.WriteString(`<link rel="stylesheet" href="`)
-			escapeString(tags, a.URL)
+			tags.WriteString(attrEscape(a.URL))
 			tags.WriteString(`">`)
 		case "js":
 			tags.WriteString(`<script type="module" src="`)
-			escapeString(tags, a.URL)
+			tags.WriteString(attrEscape(a.URL))
 			tags.WriteString(`"></script>`)
 		}
 	}
-	if tags.Len() == 0 {
+	return tags.String()
+}
+
+// attrEscape returns s HTML-escaped.
+func attrEscape(s string) string {
+	if firstEsc(s) < 0 {
+		return s
+	}
+	var b bytes.Buffer
+	escapeString(&b, s)
+	return b.String()
+}
+
+// injectHead inserts tags (from headTags) into the rendered page in buf, for
+// a page whose render never called Writer.HeadEnd: a page with a </head>
+// gets its tags written there during the render, with no copy of the page.
+// The tags go right after a leading <!DOCTYPE …> (optionally preceded by
+// whitespace), so the doctype stays first and the page doesn't drop into
+// quirks mode; otherwise at the start.
+func injectHead(buf *bytes.Buffer, tags string) {
+	if tags == "" {
 		return
 	}
-
 	page := buf.Bytes()
-	off := marker
-	if off < 0 || off > len(page) {
-		off = doctypeEnd(page)
-	}
-	n := tags.Len()
+	off := doctypeEnd(page)
+	n := len(tags)
 	oldLen := len(page)
-	buf.Write(tags.Bytes()) // grow by n; the bytes are moved into place below
+	buf.WriteString(tags) // grow by n; the bytes are moved into place below
 	b := buf.Bytes()
 	copy(b[off+n:], b[off:oldLen])
-	copy(b[off:], tags.Bytes())
+	copy(b[off:], tags)
 }
 
 // doctypeEnd returns the offset just after a leading <!DOCTYPE …> in page

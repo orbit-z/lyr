@@ -17,6 +17,7 @@ func TestTypedReemit(t *testing.T) {
 		"label":                             {Kind: WriteString},
 		"n":                                 {Kind: WriteInt, Conv: "int64"},
 		"props.Featured":                    {Kind: WriteAttrBool},
+		"props.PostID":                      {Kind: WriteAttrInt, Conv: "int64"},
 		"props.Href":                        {Kind: WriteAttrURL},
 		"l.text":                            {Kind: WriteString},
 		"l.href":                            {Kind: WriteAttrURL},

@@ -75,28 +75,42 @@ var tyCases = []struct{ attr, expr, want string }{
 	{"", `myHTML`, "String/string"}, // type MyHTML orbit.HTML: not HTML to Expr, escaped
 	{"", `nilRend`, "Render"},       // nil Renderer writes nothing either way
 
-	{"title", `s`, "AttrString"},
+	{"title", `s`, "attr:String"},
 	{"href", `s`, "AttrURL"},
 	{"href", `"javascript:alert(1)"`, "AttrURL"},
-	{"title", `"a<b\"c&d"`, "AttrString"},
-	{"title", `slug`, "AttrString/string"},
+	{"title", `"a<b\"c&d"`, "attr:String"},
+	{"title", `slug`, "attr:String/string"},
 	{"href", `jsSlug`, "AttrURL/string"}, // a named string is filtered too
 	{"title", `tag`, "Attr"},             // named string with String()
 	{"title", `code`, "Attr"},            // named string with Error()
 	{"title", `fmts`, "Attr"},            // named string with Format()
-	{"title", `h`, "AttrString/string"},
+	{"title", `h`, "attr:String/string"},
 	{"href", `orbit.HTML("javascript:x()")`, "AttrURL/string"},
-	{"href", `orbit.URL("javascript:ok()")`, "AttrString/string"}, // trusted: unfiltered
+	{"href", `orbit.URL("javascript:ok()")`, "attr:String/string"}, // trusted: unfiltered
 	{"hidden", `ok`, "AttrBool"},
 	{"hidden", `!ok`, "AttrBool"},
 	{"hidden", `true`, "AttrBool"},
 	{"hidden", `flag`, "AttrBool/bool"},
 	{"hidden", `onOff`, "AttrBool/bool"}, // named bool with String(): Attr checks the kind
 	{"data-x", `nil`, "skip"},
-	{"data-n", `n`, "Attr"},
-	{"data-f", `f32`, "Attr"},
+	{"data-n", `n`, "attr:Int/int64"},
+	{"data-n", `i64`, "attr:Int"},
+	{"data-n", `u8`, "attr:Uint/uint64"},
+	{"data-n", `count`, "attr:Int/int64"}, // type Count int, no methods
+	{"data-n", `status`, "Attr"},          // type Status int with String()
+	{"data-n", `fmtd`, "Attr"},            // type Fmtd int with Format
+	{"data-n", `up`, "Attr"},              // uintptr stays on Attr, as in content
+	{"data-n", `42`, "attr:Int/int64"},
+	{"data-n", `'x'`, "attr:Int/int64"},
+	{"data", `n`, "attr:Int/int64"}, // a URL attribute: digits are never filtered
+	{"data-f", `f32`, "attr:Float32"},
+	{"data-f", `f64`, "attr:Float"},
+	{"data-f", `3.5`, "attr:Float"},
+	{"data-f", `price`, "attr:Float/float64"},
+	{"data-f", `ratio`, "attr:Float32/float32"},
+	{"data-f", `c128`, "Attr"},
 	{"title", `anyV`, "Attr"},
-	{"title", `alias`, "AttrString"},
+	{"title", `alias`, "attr:String"},
 	{"title", `tags`, "Attr"},
 }
 

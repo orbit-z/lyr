@@ -82,12 +82,14 @@ func escapeSlow[T ~string | ~[]byte](buf *bytes.Buffer, s T, i int) {
 	b := buf.AvailableBuffer()
 	last := 0
 	for ; i < len(s); i++ {
-		r := escTable[s[i]]
-		if r == "" {
+		// Test the 1-byte needsEsc first: loading the 16-byte escTable
+		// entry for every byte is measurably slower.
+		c := s[i]
+		if !needsEsc[c] {
 			continue
 		}
 		b = append(b, s[last:i]...)
-		b = append(b, r...)
+		b = append(b, escTable[c]...)
 		last = i + 1
 	}
 	b = append(b, s[last:]...)

@@ -196,6 +196,9 @@ func tyReemit(pass1 *Output, typed TypedWrites) *Output {
 		}
 		switch {
 		case w.Kind == WriteSkip:
+		case w.Kind.attrPieces():
+			b = append(b, NameW+".Raw("+strconv.Quote(" "+s.AttrName+`="`)+"); "+
+				NameW+"."+w.Kind.Method()+"("+arg+"); "+NameW+`.Raw("\"")`...)
 		case s.Kind == SiteAttr:
 			b = append(b, NameW+"."+w.Kind.Method()+"("+strconv.Quote(s.AttrName)+", "+arg+")"...)
 		default:

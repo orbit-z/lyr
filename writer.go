@@ -30,6 +30,9 @@ type Writer struct {
 	err   error
 	head  int      // offset of the first </head>, or -1
 	stack []string // component stack, outermost first
+	// tags are the page's head tags (headTags), written by the first
+	// HeadEnd; "" once written, and for fragments.
+	tags string
 }
 
 // NewWriter returns a Writer that writes into buf.
@@ -43,6 +46,16 @@ func (w *Writer) reset(buf *bytes.Buffer) {
 	w.err = nil
 	w.head = -1
 	w.stack = w.stack[:0]
+	w.tags = ""
+}
+
+// finishHead inserts the head tags after a leading doctype (or at the
+// start) if HeadEnd never wrote them, as for a page without </head>.
+func (w *Writer) finishHead() {
+	if w.tags != "" {
+		injectHead(w.buf, w.tags)
+		w.tags = ""
+	}
 }
 
 // headOffset returns the offset recorded by HeadEnd, or -1.
@@ -175,11 +188,18 @@ func (w *Writer) JSON(v any) {
 	json.HTMLEscape(w.buf, data)
 }
 
-// HeadEnd records the current offset as the place where the page's </head>
-// starts, so asset tags can be inserted there. Only the first call counts.
+// HeadEnd marks the place where the page's </head> starts: the page's
+// asset tags are written there. Only the first call counts.
 func (w *Writer) HeadEnd() {
-	if w.head < 0 {
-		w.head = w.buf.Len()
+	if w.head >= 0 {
+		return
+	}
+	w.head = w.buf.Len()
+	if w.tags != "" {
+		if w.err == nil {
+			w.buf.WriteString(w.tags)
+		}
+		w.tags = ""
 	}
 }
 
