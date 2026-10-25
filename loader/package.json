@@ -1,0 +1,8 @@
+{
+  "name": "orbit-loader",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "happy-dom": "20.14.6"
+  }
+}
