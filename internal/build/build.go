@@ -181,7 +181,7 @@ func goBuild(ctx context.Context, root, out, entry string, flags, env []string) 
 
 // dotSlash is Go's "./" in front of a position at the start of a line or
 // after a space: ./internal/x/x.go:3:9.
-var dotSlash = regexp.MustCompile(`(?m)(^|\s)\./([^\s:\[\]]+:\d+)`)
+var dotSlash = regexp.MustCompile(`(?m)(^|\s)\./([^\s:]+:\d+)`)
 
 // CleanOutput cleans go build output run from the project root (PLAN.md
 // §3.3 "Error output"): .orbit positions lose Go's "./" and their bracketed

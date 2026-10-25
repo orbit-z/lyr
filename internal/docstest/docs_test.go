@@ -104,7 +104,6 @@ var skipPages = map[string]string{}
 // page and PATH ("page PATH"), with the Orbit bug that makes their output
 // differ from the documented one.
 var skipExamples = map[string]string{
-	"troubleshooting.md src/pages/blog/[slug].orbit": "Go errors at a .orbit path with brackets keep their ./ and generated names (slug_param.Params): compiler.clPos excludes [ and ] from paths",
 }
 
 // block is a tagged code block.

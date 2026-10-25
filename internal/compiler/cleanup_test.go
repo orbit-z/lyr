@@ -93,6 +93,8 @@ func TestCleanGoOutput(t *testing.T) {
 	tests := []struct{ name, in, want string }{
 		{"generated package header dropped", "# example.com/blog/orbit_gen/impl/pages/index\nvet: ./src/pages/index.orbit:3:1: x\n# example.com/blog/orbit_gen/decl/components/card [example.com/blog/orbit_gen/decl/components/card.test]\n",
 			"src/pages/index.orbit:3:1: x\n"},
+		{"brackets in the path", "./src/pages/blog/[slug].orbit:3:13: x\n./src/pages/[...path].orbit:2:1: y ./src/pages/[id].orbit:7:6[/abs/orbit_gen/decl/pages/id_param/decl.go:10:53]\n",
+			"src/pages/blog/[slug].orbit:3:13: x\nsrc/pages/[...path].orbit:2:1: y src/pages/[id].orbit:7:6\n"},
 		{"not about orbit", "# example.com/blog/internal/posts\ninternal/posts/p.go:3:1: card.Props\n",
 			"# example.com/blog/internal/posts\ninternal/posts/p.go:3:1: card.Props\n"},
 		{"own name", "./src/components/Card.orbit:6:16: cannot use p (variable of type card.Props) as card.Render value\n",
