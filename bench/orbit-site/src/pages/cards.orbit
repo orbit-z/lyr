@@ -1,0 +1,22 @@
+---
+import (
+    "example.com/orbitbench/internal/data"
+    Layout "../layouts/Layout.orbit"
+    Card "../components/Card.orbit"
+)
+
+items := data.Cards
+---
+<Layout title="500 cards">
+  <h1>{len(items)} cards</h1>
+  <section class="grid">
+    {for _, it := range items}
+      <Card title={it.Title} href={it.Href} likes={it.Likes} featured={it.Featured} tags={it.Tags}>
+        <p>{it.Summary}</p>
+      </Card>
+    {/for}
+  </section>
+</Layout>
+<style>
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 1rem; }
+</style>

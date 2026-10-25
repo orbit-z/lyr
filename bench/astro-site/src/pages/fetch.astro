@@ -1,0 +1,11 @@
+---
+import { fetchItems } from '../data';
+import Layout from '../layouts/Layout.astro';
+import ItemList from '../components/ItemList.astro';
+
+const items = await fetchItems();
+---
+<Layout title="Fetched list">
+  <h1>Latest items</h1>
+  <ItemList items={items} />
+</Layout>

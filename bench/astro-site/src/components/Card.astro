@@ -1,0 +1,27 @@
+---
+import Badge from './Badge.astro';
+
+interface Props {
+  title: string;
+  href: string;
+  likes: number;
+  featured: boolean;
+  tags: string[];
+}
+const { title, href, likes, featured, tags } = Astro.props;
+---
+<article class="card" data-featured={featured || undefined}>
+  <h2 class="title"><a href={href}>{title}</a></h2>
+  <div class="body"><slot /></div>
+  <p class="meta">
+    <span class="likes">{likes} likes</span>
+    {tags.map((t) => <Badge label={t} />)}
+    {featured && <strong class="featured">Featured</strong>}
+  </p>
+</article>
+<style>
+  .card { border: 1px solid #ccc; border-radius: .5rem; padding: 1rem; margin: .5rem 0; }
+  .card[data-featured] { border-color: gold; }
+  .title { margin: 0 0 .5rem; font-size: 1.1rem; }
+  .meta { color: #555; font-size: .9rem; }
+</style>

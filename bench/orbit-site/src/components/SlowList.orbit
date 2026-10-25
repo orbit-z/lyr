@@ -1,0 +1,9 @@
+---
+import (
+    "example.com/orbitbench/internal/data"
+    ItemList "./ItemList.orbit"
+)
+
+items := data.Fetch()
+---
+<ItemList items={items} />

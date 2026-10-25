@@ -1,0 +1,7 @@
+---
+import { fetchItems } from '../data';
+import ItemList from './ItemList.astro';
+
+const items = await fetchItems();
+---
+<ItemList items={items} />
