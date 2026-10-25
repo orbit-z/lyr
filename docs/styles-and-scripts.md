@@ -485,7 +485,7 @@ orbit check
 
 `orbit check` checks your Go code first (see the [CLI reference](reference/cli.md#orbit-check)). For TypeScript it uses `bun check`, the TypeScript type checker built into [Bun](https://bun.sh) 1.4.4 and later:
 
-1. It extracts each processed `<script>` to `.orbit/check/` as a `.ts` file, with a generated `tsconfig.json` that extends yours and also includes `src/**/*.ts`.
+1. It extracts each processed inline `<script>` to `.orbit/check/` as a `.ts` file, with a generated `tsconfig.json` that extends yours and also includes `src/**/*.ts`. The extracted files mirror `src/`, so relative imports (`../scripts/greet`) resolve from the `.orbit` file's directory, as they do in the bundle. A `<script src="…">` file is checked as one of your `.ts` files.
 2. It runs `bun check --no-pretty -p .orbit/check`.
 3. It maps every error back to the line and column in your `.orbit` file.
 
