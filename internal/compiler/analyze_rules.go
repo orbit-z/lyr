@@ -256,7 +256,7 @@ func (s *anState) placeImports() {
 			o.Place |= PlaceImpl
 		}
 		if o.Place == 0 {
-			o.Place = PlaceImpl
+			// Unused: emitted nowhere (DESIGN.md gap 1).
 			if anUpperFirst(o.Alias) == o.Alias {
 				s.errorf(o.AliasSpan, "component %s is imported but not used; remove the import", o.Alias)
 			}

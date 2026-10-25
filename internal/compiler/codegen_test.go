@@ -87,7 +87,7 @@ func generateCase(t *testing.T, c *cgCase) []*cgResult {
 			t.Fatal(err)
 		}
 		f, a := cgAnalyze(t, p, string(src), c.opts.Mode)
-		index[p] = cgInfo(a)
+		index[p] = NewComponentInfo(f, a)
 		res = append(res, &cgResult{path: p, f: f, a: a})
 	}
 	for _, r := range res {
@@ -111,6 +111,9 @@ func TestCodegenGolden(t *testing.T) {
 			for _, r := range res {
 				for _, d := range r.f.Diagnostics {
 					fmt.Fprintln(&diags, "parse:", d.Format(r.path, r.f.Lines))
+				}
+				for _, d := range r.a.Diagnostics {
+					fmt.Fprintln(&diags, "analyze:", d.Format(r.path, r.f.Lines))
 				}
 				for _, d := range r.out.Diagnostics {
 					fmt.Fprintln(&diags, d.Format(r.path, r.f.Lines))
@@ -204,6 +207,9 @@ func checkOutput(t *testing.T, r *cgResult) {
 		checkPositions(t, r, gf)
 	}
 	for _, cs := range r.out.CallSites {
+		if tw, ok := r.in.Typed[cs.Key]; ok && tw.Kind == WriteSkip {
+			continue // untyped nil: nothing emitted
+		}
 		if got := string(r.out.Impl.Content[cs.Arg.Start:cs.Arg.End]); got != cs.Code.Text {
 			t.Errorf("call site %d: Arg %q != Code %q", cs.Key, got, cs.Code.Text)
 		}

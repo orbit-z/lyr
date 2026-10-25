@@ -1,0 +1,6 @@
+---
+func dup() int { return 1 }
+
+func dup() int { return 2 }
+---
+<p>{dup()}</p>

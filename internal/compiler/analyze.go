@@ -110,7 +110,8 @@ type OrbitImport struct {
 	Resolved string
 	// Place is where the alias is used: PlaceImpl for template tags and impl
 	// Go code, PlaceDecl when decl code uses it (Props: B.Item). Unused is
-	// PlaceImpl, so Go reports it at its .orbit position.
+	// 0: the import is emitted nowhere and analysis reports it (DESIGN.md
+	// gap 1).
 	Place Placement
 }
 

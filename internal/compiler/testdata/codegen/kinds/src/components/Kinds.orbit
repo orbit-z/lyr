@@ -1,0 +1,50 @@
+---
+import (
+	"errors"
+	"fmt"
+	"time"
+)
+
+type Slug string
+type Count int
+type Flag bool
+type Ratio float64
+type Small float32
+type Status int
+
+func (s Status) String() string { return [...]string{"draft", "live"}[s] }
+
+type PtrStr struct{ N int }
+
+func (p *PtrStr) String() string { return fmt.Sprint("ptr", p.N) }
+
+type Bytes []byte
+type Fn func() int
+
+s := "a<b"
+slug := Slug("/s & t")
+var i8 int8 = -8
+var u8 byte = 200
+var u64 uint64 = 1 << 63
+f64, f32 := 0.1, float32(0.1)
+html := orbit.HTML("<b>bold</b>")
+url := orbit.URL("javascript:x")
+r := orbit.Renderer(func(w *orbit.Writer) error { w.Raw("<i>r</i>"); return nil })
+fn := func(w *orbit.Writer) error { w.Raw("<u>fn</u>"); return nil }
+err := errors.New("e<rr")
+var ifaceErr error = fmt.Errorf("wrapped: %w", err)
+var stringer fmt.Stringer = Status(1)
+var anyv any = 7
+ps := PtrStr{3}
+t := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+---
+<ul>
+<li>{nil}|{42}|{"lit<"}|{1.5}|{true}|{'x'}|{1 << 40}</li>
+<li>{s}|{slug}|{Count(-3)}|{Flag(true)}|{Ratio(2.5)}|{Small(0.1)}</li>
+<li>{i8}|{u8}|{u64}|{f64}|{f32}|{uintptr(9)}|{complex(1, 2)}</li>
+<li>{html}|{url}|{[]byte("by<")}|{Bytes("nb<")}|{r}|{fn}</li>
+<li>{err}|{ifaceErr}|{Status(0)}|{stringer}|{anyv}|{ps}|{&ps}|{t}</li>
+<li>{[]int{1, 2}}|{Fn(nil) == nil}|{map[string]int{"k": 1}}</li>
+</ul>
+<a href={slug} title={s} data-h={html} data-u={url} data-b={Flag(false)} data-t={true} data-n={Count(4)} data-f={f32} data-s={Status(1)}>x</a>
+<img src={"javascript:img"} alt={slug} hidden={false} />

@@ -1,3 +1,4 @@
+analyze: src/pages/index.orbit:6:8: component Unused is imported but not used; remove the import
 src/pages/index.orbit:5:13: no such component: src/components/Gone.orbit
 src/pages/index.orbit:8:2: unknown component <Crad>: no .orbit import with this alias
 src/pages/index.orbit:9:7: unknown prop "psot" on <Card> (props: title, isOpen)

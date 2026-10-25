@@ -1,0 +1,18 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+
+	kinds "example.com/blog/orbit_gen/decl/components/kinds"
+	_ "example.com/blog/orbit_gen/impl/components/kinds"
+	"github.com/bertrandkhe/orbit"
+)
+
+func main() {
+	var buf bytes.Buffer
+	if err := kinds.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), kinds.Props{}, orbit.Slots{}); err != nil {
+		panic(err)
+	}
+	fmt.Print(buf.String())
+}

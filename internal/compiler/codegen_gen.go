@@ -67,11 +67,18 @@ func cgGenerate(in *Input) (out *Output) {
 			if c, ok := n.(*Component); ok && !c.Self {
 				g.tagUsed[c.Name] = true
 			}
+			// Go inserts a semicolon at the newline a // comment ends with,
+			// which would break the glue after the code.
+			for _, c := range cgTemplateCodes(n) {
+				if endsInLineComment(c.Text) {
+					g.errorf(c.Span, "a // comment can't end Go code in the template; use /* */")
+				}
+			}
 			return true
 		})
 	}
 	for _, imp := range g.a.OrbitImports {
-		if _, ok := g.in.Index[imp.Resolved]; !ok && g.tagUsed[imp.Alias] {
+		if _, ok := g.in.Index[imp.Resolved]; !ok && imp.Place != 0 {
 			g.errorf(imp.PathSpan, "no such component: %s", imp.Resolved)
 		}
 	}
@@ -127,11 +134,7 @@ func (g *cgGen) userImports(place Placement) {
 		specs = append(specs, spec{imp.Span.Start, func() { o.copySeg(imp.Span) }})
 	}
 	for _, imp := range g.a.OrbitImports {
-		use := imp.Place&place != 0
-		if place == PlaceImpl {
-			use = g.tagUsed[imp.Alias] // unused imports are A's error (gap 1)
-		}
-		if !use {
+		if imp.Place&place == 0 { // unused: A's error, emitted nowhere (gap 1)
 			continue
 		}
 		target, err := PackageFor(imp.Resolved)
@@ -306,4 +309,28 @@ func (g *cgGen) genImpl() *GenFile {
 	o.depth = 0
 	o.str("}\n")
 	return g.finish(gf)
+}
+
+// cgTemplateCodes lists the Go regions of one template node: an
+// expression, a control header, attribute expressions and spreads.
+func cgTemplateCodes(n Node) []GoCode {
+	var codes []GoCode
+	switch n := n.(type) {
+	case *Expr:
+		codes = append(codes, n.Code)
+	case *Branch:
+		if !n.Else {
+			codes = append(codes, n.Cond)
+		}
+	case *For:
+		codes = append(codes, n.Clause)
+	}
+	if tg := TagOf(n); tg != nil {
+		for _, a := range tg.Attrs {
+			if a.Kind == AttrExpr || a.Kind == AttrShorthand || a.Kind == AttrSpread {
+				codes = append(codes, a.Code)
+			}
+		}
+	}
+	return codes
 }

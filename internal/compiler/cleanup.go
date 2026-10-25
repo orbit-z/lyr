@@ -13,6 +13,17 @@ type ErrorNames struct {
 	// Aliases maps a project-relative .orbit path to its .orbit imports:
 	// decl import path → alias.
 	Aliases map[string]map[string]string
+	// Imported maps a project-relative .orbit path to the package names its
+	// Go imports may bind (the explicit name, else the path's last element
+	// and its usual variants). A bare generated package name that is also in
+	// this list is ambiguous in that file's errors and is left as is.
+	Imported map[string][]string
+	// Declared maps a decl import path to the names its package declares
+	// (Props, Render, Orbit__Render, a page's Params, the decl-placed
+	// hoisted names). A bare pkg.X is rewritten only when X is one of them,
+	// so a user package with a generated package's name, reached
+	// transitively, keeps its names. Nil disables the check.
+	Declared map[string][]string
 }
 
 // NewErrorNames builds the table from every file's Analysis (using
@@ -27,7 +38,8 @@ func NewErrorNames(module string, files []*Analysis) *ErrorNames {
 // "example.com/blog/orbit_gen/decl/components/card".Props) to the alias the
 // reporting .orbit file uses (Card.Props), or to the bare name (Props,
 // Params) in the component's own file. A name with no alias in the
-// reporting file (or an ambiguous package name) is left as is. Lines not
+// reporting file, or a bare package name that is ambiguous there (two
+// generated packages, or a user import, with that name), is left as is. Lines not
 // about .orbit files pass through unchanged.
 func CleanGoOutput(out []byte, names *ErrorNames) []byte {
 	return cleanGoOutput(out, names)

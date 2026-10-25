@@ -45,8 +45,8 @@ func TestCleanGoOutputGolden(t *testing.T) {
 	}
 	build, vet := m.buildErrors()
 	names := tyErrorNames()
-	got := "-- go build --\n" + string(CleanGoOutput([]byte(build), names)) +
-		"-- go vet --\n" + string(CleanGoOutput([]byte(vet), names))
+	got := "-- go build --\n" + sortPackages(string(CleanGoOutput([]byte(build), names))) +
+		"-- go vet --\n" + sortPackages(string(CleanGoOutput([]byte(vet), names)))
 	golden := filepath.Join("testdata", "typed", "cleanup.golden")
 	if *update {
 		if err := os.MkdirAll(filepath.Dir(golden), 0o755); err != nil {
@@ -93,8 +93,8 @@ func TestCleanGoOutput(t *testing.T) {
 	tests := []struct{ name, in, want string }{
 		{"not about orbit", "# example.com/blog/internal/posts\ninternal/posts/p.go:3:1: card.Props\n",
 			"# example.com/blog/internal/posts\ninternal/posts/p.go:3:1: card.Props\n"},
-		{"own name", "./src/components/Card.orbit:6:16: cannot use p (variable of type card.Props) as card.Params value\n",
-			"src/components/Card.orbit:6:16: cannot use p (variable of type Props) as Params value\n"},
+		{"own name", "./src/components/Card.orbit:6:16: cannot use p (variable of type card.Props) as card.Render value\n",
+			"src/components/Card.orbit:6:16: cannot use p (variable of type Props) as Render value\n"},
 		{"own impl", "src/components/Card.orbit:3:6: card_impl.helper is unused, card_impl.Item\n",
 			"src/components/Card.orbit:3:6: helper is unused, Item\n"},
 		{"alias by package name", "./src/pages/index.orbit:4:2: x (type index.Params) is not card.Props\n",

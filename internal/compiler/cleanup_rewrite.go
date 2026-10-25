@@ -12,13 +12,28 @@ import (
 )
 
 func newErrorNames(module string, files []*Analysis) *ErrorNames {
-	n := &ErrorNames{Module: module, Own: map[string]string{}, Aliases: map[string]map[string]string{}}
+	n := &ErrorNames{Module: module, Own: map[string]string{}, Aliases: map[string]map[string]string{},
+		Imported: map[string][]string{}, Declared: map[string][]string{}}
 	for _, a := range files {
 		if a == nil {
 			continue
 		}
+		for _, im := range a.GoImports {
+			n.Imported[a.Info.Path] = append(n.Imported[a.Info.Path], importNames(im)...)
+		}
 		if pkg, err := PackageFor(a.Info.Path); err == nil {
-			n.Own[a.Info.Path] = pkg.DeclImportPath(module)
+			decl := pkg.DeclImportPath(module)
+			n.Own[a.Info.Path] = decl
+			names := []string{"Props", "Render", "Orbit__Render"}
+			if a.Info.Role == RolePage {
+				names = append(names, "Params")
+			}
+			for _, h := range a.Decls {
+				if h.Place == PlaceDecl {
+					names = append(names, h.Names...)
+				}
+			}
+			n.Declared[decl] = names
 		}
 		for _, im := range a.OrbitImports {
 			pkg, err := PackageFor(im.Resolved)
@@ -53,6 +68,9 @@ type clFile struct {
 	byPath map[string]string // decl import path → alias ("" for its own)
 	byName map[string]string // package name → alias; ambiguous names absent
 	impl   string            // the own impl package's name
+	// declared maps a package name to the names its decl package declares;
+	// nil when ErrorNames.Declared is.
+	declared map[string]map[string]bool
 }
 
 func (n *ErrorNames) file(orbit string) *clFile {
@@ -65,21 +83,62 @@ func (n *ErrorNames) file(orbit string) *clFile {
 		f.byPath[p] = alias
 	}
 	count := map[string]int{}
+	if n.Declared != nil {
+		f.declared = map[string]map[string]bool{}
+	}
 	for p, alias := range f.byPath {
 		name := path.Base(p)
 		count[name]++
 		f.byName[name] = alias
+		if f.declared != nil {
+			set := map[string]bool{}
+			for _, d := range n.Declared[p] {
+				set[d] = true
+			}
+			f.declared[name] = set
+		}
 	}
 	// The own impl package (card_impl) qualifies impl names in vet output.
 	f.impl = path.Base(own) + "_impl"
 	count[f.impl]++
 	f.byName[f.impl] = ""
+	// A user import with a generated package's name makes it ambiguous.
+	for _, name := range n.Imported[orbit] {
+		count[name] += 2
+	}
 	for name, c := range count {
 		if c > 1 {
 			delete(f.byName, name)
 		}
 	}
 	return f
+}
+
+// importNames are the package names a Go import may bind: its explicit
+// name, else its path's last element (skipping a major-version element such
+// as v2) and that element without a go- prefix or a -go or .go suffix. A
+// wrong guess only leaves a name unrewritten.
+func importNames(im GoImport) []string {
+	if im.Name != "" {
+		if im.Name == "_" || im.Name == "." {
+			return nil
+		}
+		return []string{im.Name}
+	}
+	elems := strings.Split(im.Path, "/")
+	base := elems[len(elems)-1]
+	if len(elems) > 1 && len(base) > 1 && base[0] == 'v' && strings.Trim(base[1:], "0123456789") == "" {
+		base = elems[len(elems)-2]
+	}
+	names := []string{base}
+	trimmed := strings.TrimSuffix(strings.TrimSuffix(strings.TrimPrefix(base, "go-"), "-go"), ".go")
+	if i := strings.IndexByte(trimmed, '.'); i > 0 {
+		trimmed = trimmed[:i] // gopkg.in/yaml.v3
+	}
+	if trimmed != base {
+		names = append(names, trimmed)
+	}
+	return names
 }
 
 func (n *ErrorNames) lookup(orbit string) (string, bool) {
@@ -170,7 +229,15 @@ func rewriteNames(line string, f *clFile) string {
 		}
 		qual, name := line[loc[2]:loc[3]], line[loc[4]:loc[5]]
 		alias, ok := f.byName[qual]
-		if !ok || !ast.IsExported(name) && qual != f.impl {
+		switch {
+		case !ok:
+			continue
+		case qual == f.impl:
+		case f.declared != nil:
+			if !f.declared[qual][name] {
+				continue // not generated: a user package with that name
+			}
+		case !ast.IsExported(name):
 			continue
 		}
 		b.WriteString(line[last:loc[0]])

@@ -241,6 +241,13 @@ func (s *tyState) load(ctx context.Context, loader ExportLoader) {
 		return
 	}
 	s.imp = &tyExtImporter{imp: imp, failed: map[string]string{}}
+	// Import every path once, serially, before the parallel checks: the gc
+	// importer completes a package that an earlier import only referenced
+	// by writing to it (SetImports), which would race with checkers reading
+	// it. Afterwards every Import returns a complete, cached package.
+	for _, p := range paths {
+		s.imp.Import(p)
+	}
 }
 
 type failImporter struct{ err error }

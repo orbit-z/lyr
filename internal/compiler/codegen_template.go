@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	gotoken "go/token"
 	"strconv"
 	"strings"
 )
@@ -74,11 +75,18 @@ func (g *cgGen) ifNode(n *If, c *wsCtx, i int) {
 	o := g.o
 	o.flush()
 	for bi, br := range n.Branches {
+		// A chain starts at the first branch, and again after a recovered
+		// {else} that isn't last (Tolerant).
+		start := bi == 0
+		if bi > 0 && n.Branches[bi-1].Else {
+			o.ln("}")
+			start = true
+		}
 		o.ind()
 		switch {
-		case bi == 0 && br.Else:
+		case start && br.Else:
 			o.str("{\n") // recovered {else} without {if}
-		case bi == 0:
+		case start:
 			o.str("if ")
 			o.exact(br.Cond.Span)
 			o.str(" {\n")
@@ -186,6 +194,21 @@ func (g *cgGen) discard(code GoCode) {
 	o.str(")\n")
 }
 
+// discardHeader emits a control header as an empty "if c {}" or
+// "for c {}", since a header may hold an init statement (Tolerant only).
+func (g *cgGen) discardHeader(kw string, code GoCode) {
+	if !g.tolerant || code.Text == "" {
+		return
+	}
+	o := g.o
+	o.flush()
+	o.ind()
+	o.str(kw)
+	o.exact(code.Span)
+	o.str(" {\n")
+	o.ln("}")
+}
+
 // htmlAttrs writes the attributes of an HTML element (or script/style) and
 // returns its set: directive, if any.
 func (g *cgGen) htmlAttrs(t *Tag, node Node) (set *Attr) {
@@ -278,9 +301,9 @@ func (g *cgGen) discardAll(n Node) {
 		case *Expr:
 			g.discard(n.Code)
 		case *Branch:
-			g.discard(n.Cond)
+			g.discardHeader("if ", n.Cond)
 		case *For:
-			g.discard(n.Clause)
+			g.discardHeader("for ", n.Clause)
 		}
 		if t := TagOf(n); t != nil {
 			for _, a := range t.Attrs {
@@ -431,6 +454,11 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 		key, err := MatchProp(props, a.Name)
 		if err != nil {
 			g.errorf(a.NameSpan, "unknown prop %q on <%s> (%s)", a.Name, n.Name, propList(n.Name, props))
+			pre = append(pre, a.Code)
+			continue
+		}
+		if !gotoken.IsIdentifier(key) { // a non-listable Props: FieldName("1x")
+			g.errorf(a.NameSpan, "unknown prop %q on <%s>: not a Go field name", a.Name, n.Name)
 			pre = append(pre, a.Code)
 			continue
 		}
