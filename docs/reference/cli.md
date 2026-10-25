@@ -279,9 +279,9 @@ You need it when instances of **different builds** must open each other's island
 orbit lsp
 ```
 
-Runs the Orbit language server over stdin/stdout. Your editor starts it; you don't run it by hand. It proxies Go features to gopls and adds template features of its own. It never writes files: if `orbit_gen/` is missing, it offers to run `orbit generate` for you, as a separate process.
+Runs the Orbit language server over stdin/stdout. Your editor starts it; you don't run it by hand. It proxies Go features to gopls and adds template features of its own. It never writes files, and works without `orbit_gen/` too.
 
-It accepts the `goplsPath` initialization option to choose the gopls binary. See [Editor setup](../editor-setup.md).
+It accepts the `goplsPath` initialization option to choose the gopls binary. A `--stdio` flag, which many editors pass, is accepted and ignored: stdio is the only transport. See [Editor setup](../editor-setup.md).
 
 ## Error output
 

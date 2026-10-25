@@ -13,6 +13,8 @@ import (
 func runLSP(e *env, args []string) int {
 	c := lookup("lsp")
 	fs := c.flagSet(e)
+	// Many editors' clients pass --stdio; stdio is the only transport.
+	fs.Bool("stdio", false, "accepted and ignored: orbit lsp always uses stdio")
 	if code := parseNoArgs(e, c, fs, args); code >= 0 {
 		return code
 	}

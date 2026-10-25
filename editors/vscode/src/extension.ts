@@ -12,7 +12,6 @@ import {
   LanguageClient,
   type LanguageClientOptions,
   type ServerOptions,
-  TransportKind,
 } from "vscode-languageclient/node";
 
 const installURL = "https://github.com/bertrandkhe/orbit/blob/main/docs/editor-setup.md";
@@ -56,7 +55,8 @@ async function start(): Promise<void> {
   const serverOptions: ServerOptions = {
     command: orbit.command,
     args: [...orbit.args, "lsp"],
-    transport: TransportKind.stdio,
+    // No transport field: TransportKind.stdio would append --stdio to the
+    // arguments. A plain command already talks over stdin/stdout.
     options: cwd ? { cwd } : {},
   };
   const clientOptions: LanguageClientOptions = {
