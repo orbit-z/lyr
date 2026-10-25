@@ -103,8 +103,7 @@ var skipPages = map[string]string{}
 // skipExamples are expect-error and expect-warning blocks not built, by
 // page and PATH ("page PATH"), with the Orbit bug that makes their output
 // differ from the documented one.
-var skipExamples = map[string]string{
-}
+var skipExamples = map[string]string{}
 
 // block is a tagged code block.
 type block struct {
