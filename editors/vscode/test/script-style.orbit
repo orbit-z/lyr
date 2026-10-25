@@ -1,0 +1,18 @@
+<button class="hero">Click</button>
+<style>
+  .hero { color: red; }
+</style>
+<style is:global>
+  body { margin: 0 }
+</style>
+<script>
+  const el = document.querySelector<HTMLElement>(".hero");
+  if (el) { el.addEventListener("click", () => alert(`hi ${el.id}`)); }
+</script>
+<script is:inline>
+  window.x = { a: 1 };
+</script>
+<script type="application/json" id="posts" set:json={list}></script>
+<script type="application/ld+json">{"@type": "Blog"}</script>
+<script src="/x.js" />
+<p>{after}</p>

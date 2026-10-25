@@ -46,9 +46,17 @@ code --install-extension bertrandkhe.orbit
 The extension:
 
 - registers the `orbit` language for `*.orbit` files;
-- highlights them: the frontmatter and `{…}` expressions as Go, `<style>` as CSS, `<script>` as TypeScript, and the rest as HTML;
+- highlights them: the frontmatter and `{…}` expressions as Go, `<style>` as CSS, `<script>` as TypeScript (`<script type="application/json">` as JSON), and the rest as HTML, with components and directives set apart;
 - adds bracket matching, comment toggling and auto-closing;
-- starts `orbit lsp` for completion, diagnostics and the rest.
+- starts `orbit lsp` for completion, diagnostics and the rest;
+- adds three commands to the Command Palette:
+  - **Orbit: Restart Language Server**, for example after installing a new gopls;
+  - **Orbit: Run orbit generate**;
+  - **Orbit: Run orbit doctor**.
+
+  The last two run in your project root (the nearest directory above the active `.orbit` file, or else above the workspace folder, that holds `go.mod` and `src/`), with their output in the **Orbit** output channel.
+
+One language server runs per window. In a multi-root workspace with several Orbit projects, it serves the first one it finds: the project of the `.orbit` file that's active when it starts, else that of the first workspace folder in one.
 
 It runs the `orbit` on your `PATH`. Inside a project that pins the CLI in `go.mod`, that `orbit` hands over to the pinned version (the binary `go tool orbit lsp` would run), so the language server always matches your project's Orbit version. To use a different binary, set `orbit.path`; to choose the gopls that Orbit starts, set `orbit.goplsPath` (see [How gopls is found](#how-gopls-is-found)):
 
