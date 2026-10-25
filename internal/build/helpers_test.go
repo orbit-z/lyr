@@ -77,7 +77,9 @@ func orbitCLI(t *testing.T) string {
 
 // fixture copies testdata/site into a new directory, with a go.mod that
 // replaces the runtime with this repository, and, when userServer is set,
-// testdata/server/main.go as cmd/server/main.go. It returns the directory.
+// the files of testdata/user on top: its own cmd/server, src/locals, the
+// /account page and the LikeButton component. Without them, the site has no
+// src/locals and pages get orbit.NoLocals. It returns the directory.
 func fixture(t *testing.T, userServer bool) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -87,11 +89,9 @@ func fixture(t *testing.T, userServer bool) string {
 	gomod := "module example.com/site\n\ngo 1.27\n\ntoolchain go1.27.3\n\nrequire github.com/bertrandkhe/orbit v0.0.0\n\nreplace github.com/bertrandkhe/orbit => " + filepath.ToSlash(repoRoot) + "\n"
 	writeFile(t, dir, "go.mod", gomod)
 	if userServer {
-		src, err := os.ReadFile("testdata/server/main.go")
-		if err != nil {
+		if err := os.CopyFS(dir, os.DirFS("testdata/user")); err != nil {
 			t.Fatal(err)
 		}
-		writeFile(t, dir, "cmd/server/main.go", string(src))
 	}
 	return dir
 }
@@ -169,10 +169,16 @@ func freePort(t *testing.T) string {
 // waits until the port accepts connections.
 func start(t *testing.T, dir, name string, args ...string) *server {
 	t.Helper()
+	return startEnv(t, dir, nil, name, args...)
+}
+
+// startEnv is start with env added to the environment.
+func startEnv(t *testing.T, dir string, env []string, name string, args ...string) *server {
+	t.Helper()
 	port := freePort(t)
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "PORT="+port, "ORBIT_ADDR=")
+	cmd.Env = append(append(os.Environ(), "PORT="+port, "ORBIT_ADDR="), env...)
 	s := &server{t: t, cmd: cmd, base: "http://127.0.0.1:" + port, stderr: &syncBuffer{}, done: make(chan struct{})}
 	cmd.Stdout, cmd.Stderr = s.stderr, s.stderr
 	if err := cmd.Start(); err != nil {
@@ -223,14 +229,28 @@ func (s *server) stop() int {
 // get requests path and returns the response with its body read.
 func (s *server) get(path string) (*http.Response, string) {
 	s.t.Helper()
-	resp, err := httpClient.Get(s.base + path)
+	return s.do("GET", path, "")
+}
+
+// do sends a method request for path, with a Cookie header when cookie
+// isn't empty, and returns the response with its body read.
+func (s *server) do(method, path, cookie string) (*http.Response, string) {
+	s.t.Helper()
+	req, err := http.NewRequest(method, s.base+path, nil)
 	if err != nil {
-		s.t.Fatalf("GET %s: %v", path, err)
+		s.t.Fatal(err)
+	}
+	if cookie != "" {
+		req.Header.Set("Cookie", cookie)
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		s.t.Fatalf("%s %s: %v", method, path, err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		s.t.Fatalf("GET %s: %v", path, err)
+		s.t.Fatalf("%s %s: %v", method, path, err)
 	}
 	return resp, string(body)
 }

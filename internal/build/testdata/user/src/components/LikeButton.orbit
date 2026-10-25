@@ -1,0 +1,17 @@
+---
+type Props struct {
+	Slug  string
+	Likes int
+}
+---
+<button class="like" hx-post={"/blog/" + props.Slug + "/like"} data-theme={locals.Theme} data-request={locals.RequestID}>{props.Likes} likes</button>
+
+<style>
+  .like { color: crimson; }
+</style>
+
+<script>
+  for (const b of document.querySelectorAll<HTMLButtonElement>("button.like")) {
+    b.dataset.ready = "1";
+  }
+</script>

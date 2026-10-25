@@ -40,7 +40,7 @@ func TestExtrasGolden(t *testing.T) {
 			for _, f := range proj.GenFiles() {
 				got[f.Path] = f.Content
 			}
-			for _, path := range []string{AppFile, ManifestFile, ServerFile} {
+			for _, path := range []string{AppFile, AppEmbedFile, ManifestFile, ServerFile} {
 				content, ok := got[path]
 				if !ok {
 					t.Fatalf("%s not generated", path)

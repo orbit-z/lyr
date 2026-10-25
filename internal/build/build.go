@@ -31,15 +31,12 @@ const (
 	ServerBin = DistDir + "/server"
 )
 
-// ErrEmbedNotImplemented is returned for --embed and "embed": true until
-// milestone 7.
-var ErrEmbedNotImplemented = errors.New("orbit build --embed (or \"embed\": true in orbit.json): not implemented yet")
-
 // Options configure a build.
 type Options struct {
 	// Root is the module root.
 	Root string
-	// Embed is --embed.
+	// Embed is --embed: the server embeds dist/client (orbit.json's
+	// "embed": true turns it on too).
 	Embed bool
 	// Env is appended to the process environment of the go commands
 	// (GOFLAGS, GOOS, GOARCH, CGO_ENABLED, … pass through from the process
@@ -69,8 +66,8 @@ func (r *Result) Failed() bool {
 
 // Run builds the project at o.Root into dist/. Problems in the user's files
 // are in the Result; the error is for problems that stop the build early
-// (no go.mod, an invalid orbit.json, --embed, I/O errors, a missing go
-// command, ctx cancellation).
+// (no go.mod, an invalid orbit.json, I/O errors, a missing go command, ctx
+// cancellation).
 func Run(ctx context.Context, o Options) (*Result, error) {
 	root, err := filepath.Abs(o.Root)
 	if err != nil {
@@ -80,9 +77,7 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if o.Embed || cfg.Embed {
-		return nil, ErrEmbedNotImplemented
-	}
+	embed := o.Embed || cfg.Embed
 
 	res := &Result{}
 	g := &project.Generator{Root: root, Env: o.Env}
@@ -120,8 +115,20 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 		return res, nil
 	}
 
+	var flags []string
+	if embed {
+		if err := writeStatic(root, client); err != nil {
+			return nil, err
+		}
+		tags, err := embedTagsFlag(ctx, root, o.Env)
+		if err != nil {
+			return nil, fmt.Errorf("go env GOFLAGS: %w", err)
+		}
+		flags = append(flags, tags)
+	}
+
 	server := filepath.Join(stage, "server")
-	out, err := goBuild(ctx, root, server, p.ServerEntry, o.Env)
+	out, err := goBuild(ctx, root, server, p.ServerEntry, flags, o.Env)
 	if len(out) > 0 {
 		res.GoOutput = CleanOutput(p, out)
 	}
@@ -149,10 +156,11 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 	return res, nil
 }
 
-// goBuild runs go build -o out entry in root and returns its combined
-// output.
-func goBuild(ctx context.Context, root, out, entry string, env []string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "go", "build", "-o", out, entry)
+// goBuild runs go build -o out [flags] entry in root and returns its
+// combined output.
+func goBuild(ctx context.Context, root, out, entry string, flags, env []string) ([]byte, error) {
+	args := append(append([]string{"build", "-o", out}, flags...), entry)
+	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(), env...)
 	var b bytes.Buffer

@@ -64,6 +64,13 @@ func TestEnsureLocals(t *testing.T) {
 			t.Errorf("EnsureLocals = %p, want %p", l, attached)
 		}
 	})
+	t.Run("a second call returns the first one's value and request", func(t *testing.T) {
+		r1, l1 := EnsureLocals[testLocals](httptest.NewRequest("GET", "/", nil))
+		r2, l2 := EnsureLocals[testLocals](r1)
+		if r2 != r1 || l2 != l1 {
+			t.Errorf("second EnsureLocals = %p, %p; want %p, %p", r2, l2, r1, l1)
+		}
+	})
 }
 
 func TestWithLocalsShadowsDownstream(t *testing.T) {

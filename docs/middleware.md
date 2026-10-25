@@ -154,6 +154,8 @@ Locals carry request-scoped data, such as a request ID or the visitor's theme, f
 
 Put `type Locals struct` in the Go package `src/locals` (package `locals`), as in `src/locals/locals.go` above. Orbit finds it by name. Without one, `locals` in pages is an `*orbit.NoLocals`, an empty struct.
 
+`Locals` may also be an alias of a struct declared elsewhere (`type Locals = auth.Session`). A `src/locals` whose package isn't named `locals`, or whose `Locals` is a defined type that isn't a struct (`type Locals map[string]any`), is an error at that line.
+
 ### Set locals from middleware
 
 Every middleware that sets fields starts with the same line:
@@ -277,7 +279,13 @@ Orbit checks this before Go does and reports the import, for example:
 src/locals/locals.go:4:8: src/locals can't import example.com/blog/orbit_gen/app: every page imports src/locals, so this is an import cycle
 ```
 
-An indirect import is reported at the import in `src/locals` that leads to it, with the chain of packages. `orbit doctor` checks it too.
+An indirect import is reported at the import in `src/locals` that leads to it, with the chain of packages:
+
+```
+src/locals/locals.go:4:2: src/locals can't import example.com/blog/orbit_gen/app: every page imports src/locals, so this is an import cycle (src/locals → example.com/blog/internal/auth → example.com/blog/orbit_gen/app)
+```
+
+The same goes for the generated component packages under `orbit_gen/impl/`. `orbit doctor` checks it too.
 
 ## See also
 

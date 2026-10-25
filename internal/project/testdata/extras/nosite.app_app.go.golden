@@ -24,10 +24,16 @@ import (
 	_ "example.com/blog/orbit_gen/impl/pages/p_404"
 )
 
+// embedded is set by embed.go in an orbit build --embed binary (build tag
+// orbit_embed): it serves the static files embedded in the binary.
+var embedded []orbit.Option
+
 // New returns the site: every page of src/pages, with its assets. Options
-// passed here come after the ones from orbit.json, so they win.
+// passed here come after the ones from orbit.json and --embed, so they win.
 func New(opts ...orbit.Option) *orbit.Site {
-	return orbit.NewSite(routes(), nil, opts...)
+	var defaults []orbit.Option
+	defaults = append(defaults, embedded...)
+	return orbit.NewSite(routes(), nil, append(defaults, opts...)...)
 }
 
 // routes returns a fresh route table, sorted by file.

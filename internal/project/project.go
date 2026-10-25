@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sync"
 
 	"github.com/bertrandkhe/orbit/internal/assets"
@@ -46,6 +47,9 @@ type Project struct {
 	// Assets is the bundle of every page's scripts and styles (set by
 	// Bundle); nil until then, and the generated manifest is then empty.
 	Assets *assets.Result
+	// localsDiags are the problems with src/locals found by Load; Front
+	// reports them.
+	localsDiags []Diagnostic
 }
 
 // File is one .orbit file of the project, through the pipeline.
@@ -69,7 +73,7 @@ type File struct {
 }
 
 // Load reads the project at root: orbit.json, the module path from go.mod,
-// the server entry, and every .orbit file's source. It returns an error for
+// the server entry, the typed locals (src/locals, PLAN.md §5b), and every .orbit file's source. It returns an error for
 // problems that stop everything (no go.mod, an invalid orbit.json, no src/
 // directory, unreadable files); problems in .orbit files are diagnostics,
 // reported by Front.
@@ -97,6 +101,7 @@ func Load(root string) (*Project, error) {
 		Options: compiler.Options{Module: module, Mode: compiler.Strict, CompressHTML: cfg.CompressHTML},
 	}
 	p.ServerEntry, p.GeneratedServer = cfg.ServerEntry(root)
+	p.Options.Locals, p.localsDiags = detectLocals(root, module)
 	for _, path := range paths {
 		src, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
 		if err != nil {
@@ -115,7 +120,7 @@ func Load(root string) (*Project, error) {
 
 // Front runs the pipeline up to pass 1 on every file: parse (Strict),
 // Analyze, the component index, the project checks (routes, package
-// collisions, Props import cycles) and pass-1 Generate. It sets
+// collisions, Props import cycles, src/locals) and pass-1 Generate. It sets
 // p.Diagnostics, and reports whether there are errors.
 func (p *Project) Front() bool {
 	// Files are independent until the index, and the index is read-only
@@ -133,7 +138,7 @@ func (p *Project) Front() bool {
 		f.Pass1 = compiler.Generate(f.Input)
 		f.Output, f.Typed, f.Writes = f.Pass1, false, nil
 	})
-	var ds []Diagnostic
+	ds := slices.Clone(p.localsDiags)
 	ds = append(ds, checkFiles(p.Files)...)
 	ds = append(ds, checkPropsCycles(p.Files)...)
 	for _, f := range p.Files {

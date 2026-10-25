@@ -139,6 +139,9 @@ func checkSite(t *testing.T, s *server, userServer bool) {
 		}
 	}
 	checkAssets(t, s)
+	if userServer {
+		checkLocals(t, s)
+	}
 	if resp, _ := s.get("/blog/teapot"); resp.Header.Get("X-Fixture") != "teapot" {
 		t.Errorf("GET /blog/teapot: X-Fixture %q", resp.Header.Get("X-Fixture"))
 	}
@@ -150,6 +153,47 @@ func checkSite(t *testing.T, s *server, userServer bool) {
 	}
 	if n := strings.Count(s.stderr.String(), "/blog/boom"); n != 1 {
 		t.Errorf("server stderr mentions /blog/boom %d times, want 1:\n%s", n, s.stderr)
+	}
+}
+
+// checkLocals checks the typed locals end to end (PLAN.md §13 "Middleware
+// and locals"): the user entry's middlewares fill them with EnsureLocals,
+// and a page, a component in it, and a RenderComponent fragment from a
+// custom handler all see the same values.
+func checkLocals(t *testing.T, s *server) {
+	t.Helper()
+	resp, body := s.do("GET", "/account", "theme=dark")
+	id := resp.Header.Get("X-Request-ID")
+	if resp.StatusCode != 200 || !strings.HasPrefix(id, "req-") {
+		t.Fatalf("GET /account: %d, X-Request-ID %q\n%s", resp.StatusCode, id, body)
+	}
+	for _, want := range []string{
+		"<p>Theme: dark</p>",
+		"<p>Request ID: <code>" + id + "</code></p>",
+		`data-theme="dark" data-request="` + id + `" data-o-`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("GET /account: body lacks %q:\n%s", want, body)
+		}
+	}
+	if !cssLink.MatchString(body) || !jsScript.MatchString(body) {
+		t.Errorf("GET /account: no LikeButton assets:\n%s", body)
+	}
+	if _, body := s.get("/account"); !strings.Contains(body, "<p>Theme: light</p>") {
+		t.Errorf("GET /account without a cookie: body lacks the light theme:\n%s", body)
+	}
+
+	resp, body = s.do("POST", "/blog/hello/like", "theme=dark")
+	id = resp.Header.Get("X-Request-ID")
+	want := regexp.MustCompile(`^<button class="like" hx-post="/blog/hello/like" data-theme="dark" data-request="` + regexp.QuoteMeta(id) + `" data-o-[0-9a-f]{8}>\d+ likes</button>\n*$`)
+	if resp.StatusCode != 200 || !want.MatchString(body) {
+		t.Errorf("POST /blog/hello/like: %d, X-Request-ID %q\n%s\nwant %s", resp.StatusCode, id, body, want)
+	}
+	if strings.Contains(body, "<link") || strings.Contains(body, "<script") {
+		t.Errorf("POST /blog/hello/like: assets injected into the fragment:\n%s", body)
+	}
+	if ct, cl := resp.Header.Get("Content-Type"), resp.Header.Get("Content-Length"); ct != "text/html; charset=utf-8" || cl != strconv.Itoa(len(body)) {
+		t.Errorf("POST /blog/hello/like: Content-Type %q, Content-Length %q for %d bytes", ct, cl, len(body))
 	}
 }
 

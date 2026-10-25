@@ -21,21 +21,26 @@ type GenFile struct {
 // Paths of the extra generated files (PLAN.md §3.1).
 const (
 	AppFile      = compiler.GenDir + "/app/app.go"
+	AppEmbedFile = compiler.GenDir + "/app/embed.go"
 	ManifestFile = compiler.GenDir + "/manifest/manifest.go"
 	ServerFile   = compiler.GenDir + "/cmd/server/main.go"
 )
 
 // GenFiles returns every generated file: each .orbit file's decl.go and
-// render.go (its final Output), then orbit_gen/app, orbit_gen/manifest and,
-// when the project has no server entry, orbit_gen/cmd/server.
+// render.go (its final Output), then orbit_gen/app (app.go and the
+// orbit_embed-tagged embed.go), orbit_gen/manifest and, when the project has
+// no server entry, orbit_gen/cmd/server.
 func (p *Project) GenFiles() []GenFile {
-	files := make([]GenFile, 0, 2*len(p.Files)+3)
+	files := make([]GenFile, 0, 2*len(p.Files)+4)
 	for _, f := range p.Files {
 		files = append(files,
 			GenFile{Path: f.Output.Decl.Path, Content: f.Output.Decl.Content},
 			GenFile{Path: f.Output.Impl.Path, Content: f.Output.Impl.Content})
 	}
-	files = append(files, GenFile{Path: AppFile, Content: p.appGo()}, GenFile{Path: ManifestFile, Content: p.manifestGo()})
+	files = append(files,
+		GenFile{Path: AppFile, Content: p.appGo()},
+		GenFile{Path: AppEmbedFile, Content: p.appEmbedGo()},
+		GenFile{Path: ManifestFile, Content: p.manifestGo()})
 	if p.GeneratedServer {
 		files = append(files, GenFile{Path: ServerFile, Content: p.serverGo()})
 	}
@@ -80,13 +85,19 @@ func (p *Project) appGo() []byte {
 		}
 	}
 	b.WriteString(")\n\n")
+	b.WriteString("// embedded is set by embed.go in an orbit build --embed binary (build tag\n")
+	b.WriteString("// orbit_embed): it serves the static files embedded in the binary.\n")
+	b.WriteString("var embedded []orbit.Option\n\n")
 	b.WriteString("// New returns the site: every page of src/pages, with its assets. Options\n")
-	b.WriteString("// passed here come after the ones from orbit.json, so they win.\n")
+	b.WriteString("// passed here come after the ones from orbit.json and --embed, so they win.\n")
 	b.WriteString("func New(opts ...orbit.Option) *orbit.Site {\n")
 	if p.Config.Site != "" {
-		fmt.Fprintf(&b, "\topts = append([]orbit.Option{orbit.WithSite(%s)}, opts...)\n", strconv.Quote(p.Config.Site))
+		fmt.Fprintf(&b, "\tdefaults := []orbit.Option{orbit.WithSite(%s)}\n", strconv.Quote(p.Config.Site))
+	} else {
+		b.WriteString("\tvar defaults []orbit.Option\n")
 	}
-	b.WriteString("\treturn orbit.NewSite(routes(), nil, opts...)\n}\n\n")
+	b.WriteString("\tdefaults = append(defaults, embedded...)\n")
+	b.WriteString("\treturn orbit.NewSite(routes(), nil, append(defaults, opts...)...)\n}\n\n")
 	b.WriteString("// routes returns a fresh route table, sorted by file.\n")
 	b.WriteString("func routes() []orbit.Route {\n\treturn []orbit.Route{\n")
 	for _, f := range pages {
@@ -99,6 +110,21 @@ func (p *Project) appGo() []byte {
 		b.WriteString("\t\t},\n")
 	}
 	b.WriteString("\t}\n}\n")
+	return gofmt(b.Bytes())
+}
+
+// appEmbedGo generates orbit_gen/app/embed.go, compiled only with the
+// orbit_embed build tag that orbit build --embed sets: app.New() then serves
+// the static files embedded by orbit_gen/static (PLAN.md §6 orbit build step
+// 6). Without the tag, orbit_gen/static isn't needed.
+func (p *Project) appEmbedGo() []byte {
+	var b bytes.Buffer
+	b.WriteString(compiler.GenHeader + "\n\n")
+	b.WriteString("//go:build orbit_embed\n\n")
+	b.WriteString("package app\n\nimport (\n")
+	fmt.Fprintf(&b, "\torbit %q\n\n", compiler.RuntimePath)
+	fmt.Fprintf(&b, "\t%q\n)\n\n", p.Module+"/"+StaticDir)
+	b.WriteString("func init() {\n\tembedded = []orbit.Option{orbit.WithStaticFS(static.FS)}\n}\n")
 	return gofmt(b.Bytes())
 }
 
