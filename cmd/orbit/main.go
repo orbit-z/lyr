@@ -49,19 +49,22 @@ func init() {
 		{name: "preview", short: "run the built server", run: runPreview},
 		{name: "new", args: "<dir> [--module path]", short: "create a project", run: runNew},
 		{name: "check", short: "type-check Go and TypeScript", run: runCheck},
-		{name: "doctor", args: "[--json]", short: "check the environment and project", run: notYet("doctor")},
+		{name: "doctor", args: "[--json]", short: "check the environment and project", run: runDoctor},
 		{name: "create-key", short: "print a new island key for ORBIT_KEY", run: runCreateKey},
 		{name: "lsp", short: "language server over stdio", run: notYet("lsp")},
 	}
 }
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	dir, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "orbit:", err)
 		os.Exit(exitFail)
 	}
+	if code, done := pinned(os.Args[1:], dir, os.Stderr); done {
+		os.Exit(code)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	code := run(&env{stdout: os.Stdout, stderr: os.Stderr, dir: dir, ctx: ctx}, os.Args[1:])
 	stop()
 	os.Exit(code)

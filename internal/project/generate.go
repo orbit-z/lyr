@@ -59,6 +59,25 @@ func (r *Result) HasErrors() bool { return HasErrors(r.Diagnostics) }
 // is for problems that stop the run early (no go.mod, an invalid
 // orbit.json, I/O errors, ctx cancellation).
 func (g *Generator) Run(ctx context.Context) (*Result, error) {
+	res, files, err := g.Plan(ctx)
+	if err != nil || files == nil {
+		return res, err
+	}
+	t := &res.Timings
+	mark := time.Now()
+	res.Write, err = WriteGenerated(res.Project.Root, files)
+	if err != nil {
+		return nil, err
+	}
+	t.Write = time.Since(mark)
+	t.Total += t.Write
+	return res, nil
+}
+
+// Plan runs the pipeline as Run does but writes nothing: it returns the
+// files Run would write, or nil files when the run found errors (see
+// Result.Diagnostics). orbit doctor compares them with orbit_gen/.
+func (g *Generator) Plan(ctx context.Context) (*Result, []GenFile, error) {
 	start := time.Now()
 	res := &Result{}
 	t := &res.Timings
@@ -66,7 +85,7 @@ func (g *Generator) Run(ctx context.Context) (*Result, error) {
 
 	p, err := Load(g.Root)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	res.Project = p
 	t.Load = time.Since(start)
@@ -76,7 +95,7 @@ func (g *Generator) Run(ctx context.Context) (*Result, error) {
 	res.Diagnostics = p.Diagnostics
 	t.Front = time.Since(mark)
 	if hasErrors {
-		return res, nil
+		return res, nil, nil
 	}
 
 	// PLAN.md §6 orbit build step 3: bundle before generating, since the
@@ -87,7 +106,7 @@ func (g *Generator) Run(ctx context.Context) (*Result, error) {
 	ds, err := p.Bundle(b)
 	b.Close()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	t.Assets = time.Since(mark)
 	if len(ds) > 0 {
@@ -95,7 +114,7 @@ func (g *Generator) Run(ctx context.Context) (*Result, error) {
 		sortDiagnostics(res.Diagnostics)
 		p.Diagnostics = res.Diagnostics
 		if HasErrors(ds) {
-			return res, nil
+			return res, nil, nil
 		}
 	}
 
@@ -107,24 +126,17 @@ func (g *Generator) Run(ctx context.Context) (*Result, error) {
 	g.golist.Store(0)
 	res.Warnings, err = p.Typecheck(ctx, g.checker)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	t.GoList = time.Duration(g.golist.Load())
 	t.Check = time.Since(mark) - t.GoList
 	res.Diagnostics = p.Diagnostics
 	if HasErrors(res.Diagnostics) {
-		return res, nil
+		return res, nil, nil
 	}
 
 	mark = time.Now()
 	files := p.GenFiles()
 	t.Extras = time.Since(mark)
-
-	mark = time.Now()
-	res.Write, err = WriteGenerated(p.Root, files)
-	if err != nil {
-		return nil, err
-	}
-	t.Write = time.Since(mark)
-	return res, nil
+	return res, files, nil
 }
