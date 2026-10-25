@@ -167,18 +167,19 @@ These names are provided in the render body and the template, without declaring 
 | Name | Type | What it is |
 |---|---|---|
 | `props` | `Props` | The values the parent passed. |
-| `ctx` | `*orbit.Ctx` | The request: `ctx.Request`, `ctx.URL`, `ctx.Params`, `ctx.Site`, plus `ctx.SetStatus`, `ctx.Header` and `ctx.Redirect`. See [Rendering](rendering.md) and [Runtime API](reference/runtime-api.md). |
+| `ctx` | `*orbit.Ctx` | The request: `ctx.Request`, `ctx.URL`, `ctx.Site`, plus `ctx.Param`, `ctx.SetStatus`, `ctx.Header` and `ctx.Redirect`. See [Rendering](rendering.md) and [Runtime API](reference/runtime-api.md). |
 | `slots` | `orbit.Slots` | The children the parent passed. See [Slots](#slots). |
+| `params` | `Params` | **Pages only.** The route params, typed: `params.Slug` for `src/pages/blog/[slug].orbit`. Orbit generates the `Params` struct from the file path. Components read a route param with `ctx.Param("slug")` instead. See [Route params](routing.md#route-params-params). |
 | `locals` | `*locals.Locals` | Request-scoped data, typed by your `type Locals struct` in the package `src/locals`. Without one, it's `*orbit.NoLocals`. See [Middleware and locals](middleware.md). |
 | `orbit` | package | The runtime package `github.com/bertrandkhe/orbit`. You can use it without importing it; an explicit import of it under the name `orbit` is merged with the implicit one. |
 
 A page and all its components share one `ctx` and one `locals`. (A component rendered with `server:defer` is the exception: it renders in its own request, with its own `ctx`; see [Lazy loading](lazy-loading.md).) `ctx` is pooled and reused for later requests, so don't keep it, or start a goroutine that uses it, after the render returns.
 
-Hoisted declarations live at package level, so they **can't see** `props`, `ctx`, `slots` or `locals`. Pass what a helper needs as arguments, as `href(props.Post)` does.
+Hoisted declarations live at package level, so they **can't see** `props`, `ctx`, `slots`, `locals` or `params`. Pass what a helper needs as arguments, as `href(props.Post)` does.
 
 ### Redeclaring and shadowing
 
-You can't redeclare `props`, `ctx`, `slots`, `locals` or `orbit` at the top level of the body (with `:=` or `var`):
+You can't redeclare `props`, `ctx`, `slots`, `locals` or `orbit`, or `params` in a page, at the top level of the body (with `:=` or `var`); in a component, `params` is an ordinary name:
 
 ```text
 src/components/Card.orbit:11:1: props is provided by Orbit and can't be redeclared here
@@ -306,7 +307,7 @@ Go packages are imported by their import paths, as usual.
 
 ### Pages
 
-A page is a component under `src/pages/`. It has no special names: it reads its route data from `ctx`, such as `ctx.Params["slug"]` for `src/pages/blog/[slug].orbit` or `ctx.Request.URL.Query()`. See [Routing](routing.md).
+A page is a component under `src/pages/`. It gets one extra name, `params`: its route params as a generated struct, such as `params.Slug` for `src/pages/blog/[slug].orbit`. The rest of the request is in `ctx`, such as `ctx.Request.URL.Query()`. See [Route params](routing.md#route-params-params).
 
 Pages never receive props, so declaring `type Props` in a page is an error at the declaration (won't compile):
 
@@ -319,8 +320,10 @@ type Props struct {
 ```
 
 ```text
-src/pages/blog/[slug].orbit:2:1: pages don't receive props; move this to a component or read ctx.Params
+src/pages/blog/[slug].orbit:2:1: pages don't receive props; move this to a component or read params
 ```
+
+For the same reason, a page can't declare `type Params`: Orbit generates it from the route (`Params is generated from the page's route; rename this type`).
 
 ## Props
 
@@ -650,7 +653,7 @@ import (
     CommentThread "../../components/CommentThread.orbit"
 )
 
-post, err := posts.Find(ctx.Params["slug"])
+post, err := posts.Find(params.Slug)
 if errors.Is(err, posts.ErrNotFound) {
     return orbit.ErrNotFound
 }
@@ -872,7 +875,7 @@ There's no switch to silence these warnings. Static values you write yourself (`
 
 ## How it compiles
 
-Each `.orbit` file becomes two Go packages under `orbit_gen/`. The **declaration package** (`orbit_gen/decl/components/card`) holds `Props`, what it depends on, and a `Render` function; the **implementation package** holds everything else, including your render body and template. Components import each other's declaration packages only, which is why mutual recursion doesn't create a Go import cycle, why names `Props` uses must be exported, and why errors mention `Card.Props` (Orbit rewrites generated names to your import alias).
+Each `.orbit` file becomes two Go packages under `orbit_gen/`. The **declaration package** (`orbit_gen/decl/components/card`) holds `Props`, what it depends on, and a `Render` function (for a page, also the generated `Params`); the **implementation package** holds everything else, including your render body and template. Components import each other's declaration packages only, which is why mutual recursion doesn't create a Go import cycle, why names `Props` uses must be exported, and why errors mention `Card.Props` (Orbit rewrites generated names to your import alias).
 
 Your Go code is copied as is, with line directives, so both Orbit's errors and the Go compiler's point at the `.orbit` file as `file:line:col` (columns count bytes, and a tab counts as one). The `orbit` CLI prints every error as `src/…`; `go build` or `go vet` run directly print the same positions as `./src/…`.
 
@@ -882,7 +885,7 @@ Your own Go code (a test or an HTTP handler) can import a component through its 
 
 - [Template syntax](reference/template-syntax.md): the full grammar, every directive, and how each value type renders
 - [Lazy loading](lazy-loading.md): `server:defer` and `client:*`
-- [Routing](routing.md): pages, `ctx.Params` and `404.orbit`
+- [Routing](routing.md): pages, typed `params`, `ctx.Param` and `404.orbit`
 - [Rendering](rendering.md): the request lifecycle, status codes, redirects and errors
 - [Middleware and locals](middleware.md): typed `locals`
 - [Styles and scripts](styles-and-scripts.md): scoped CSS and TypeScript

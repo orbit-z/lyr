@@ -103,6 +103,10 @@ When independent tasks can run in parallel, launch them in **one message**. If p
   - Mixed route segments (`post-[id]`) and non-trailing rest params are an error in the MVP.
   - Production 500: a built-in page plus a stderr log; `500.orbit` comes after the MVP.
   - The minor ones are logged in `docs/DECISIONS.md`.
+- **Typed route params**:
+  - Codegen generates `type Params struct{…}` per page from its route, and pages get `params` (e.g. `params.Slug`).
+  - Components use `ctx.Param("slug")`. There's no `ctx.Params` map.
+  - Router matches allocate nothing.
 - **Bundler**: esbuild via its Go API (in-process, no runtime requirement), behind one internal interface. Bun stays optional (`bun check`, later `bun fmt`) and isn't used for bundling.
 - **Formatter (`orbit fmt`)**: comes after the MVP. Go parts are formatted by Orbit; script/style blocks go through `bun fmt --stdin-filepath`.
 - **Other settled choices**:

@@ -47,7 +47,17 @@ To override a decision, say which row and the alternative you want; the docs and
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
+| `+` isn't HTML-escaped (html/template escapes it against UTF-7 sniffing, impossible with Orbit's `charset=utf-8`); escaped set: `& < > " '`, and NUL → U+FFFD | simplest (typed and `Expr` output stay byte-identical, e.g. `1e+06`) | Escape `+` like html/template | [Template syntax](reference/template-syntax.md) |
+| Only unnamed slices render element by element; a named slice (`type Tags []string`) uses `fmt.Sprint`, following the exact-type rule | Go stdlib | Expand named slices too | [Template syntax](reference/template-syntax.md) |
+| A named bool in `Attr`/`Spread` behaves like `bool` (bare or omitted), matching the `AttrBool` codegen emits | simplest | `fmt.Sprint` it | [Template syntax](reference/template-syntax.md) |
+| URL attribute names match case-insensitively; tabs/newlines inside a scheme are ignored (`java\tscript:`), as browsers do | Go stdlib / browsers | Exact match | [Components](components.md) |
+| A nil pointer whose `String`/`Error` method panics prints `<nil>`, like fmt | Go stdlib | Propagate the panic | [Template syntax](reference/template-syntax.md) |
+| The depth-limit error lists the component stack outermost first, naming the first 10 then ` > …` | simplest | Full stack | [Components](components.md) |
+| Head-injected tags keep asset order; whitespace before `<!DOCTYPE>` is allowed; pooled buffers over 1 MiB are dropped, new ones start at 8 KB | simplest | — | [Performance](performance.md) |
 | Declaring `type Props` in a page is a build error (pages never receive props) | simplest | Ignore it, or warn | [Components](components.md#pages) |
+| The page-`Props` error now ends `…or read params` (it used to point at the removed `ctx.Params`) | simplest | `…or read ctx.Param` | [Components](components.md#pages) |
+| Declaring `type Params` in a page is a build error at the declaration: `Params is generated from the page's route; rename this type`. Components may declare a `Params` | simplest (like `Props` in a page) | Let the user's type replace the generated one; a warning | [Troubleshooting](troubleshooting.md#params-is-generated-from-the-pages-route-rename-this-type) |
+| `params` can't be redeclared at the top level of a page's body (same message as `props`); in a component it's an ordinary name | simplest (the "provided by Orbit" message would be false in a component) | Reserve `params` in components too | [Components](components.md#redeclaring-and-shadowing) |
 | Astro's `class:list` and `define:vars` are compile errors with a hint (other colon attributes like `xlink:href` stay plain HTML) | simplest | Write them out as plain attributes | [Template syntax](reference/template-syntax.md#combining-and-reserved-namespaces) |
 | A lowercase component alias (`card "./Card.orbit"`) is an error suggesting `Card` | simplest | Accept it and capitalize the tag | [Components](components.md#importing-components) |
 | A relative import that isn't `.orbit` (`"./util.ts"`) gets its own error, not the framework-component one | simplest | Reuse the framework-component message | [Components](components.md#no-framework-components) |
@@ -76,11 +86,21 @@ To override a decision, say which row and the alternative you want; the docs and
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
+| At `/docs`, an exact route `/docs` beats `/docs/[...rest]` (which also matches with an empty rest) | Astro | More segments win | [Routing](routing.md) |
+| Page routes under `/_orbit/` are a build error (the prefix is reserved for assets and islands) | simplest | Allow and shadow them | [Routing](routing.md) |
+| Paths with empty segments (`/blog//x`) never match a page, and a trailing-slash redirect never targets `//…` | simplest | Collapse slashes | [Routing](routing.md) |
+| `404.orbit` uses a reserved pattern outside the route trie, so `/404` isn't a routable URL | simplest | Route `/404` too | [Routing](routing.md) |
+| All route errors are reported together (`errors.Join`); a duplicate reads `<file>: route /x is already defined by <file>; remove or rename one of them` | Go stdlib | Stop at the first | [Routing](routing.md) |
 | Mixed segments (`post-[id].orbit`) and non-trailing rest params (`[...path]/edit.orbit`) are a build error in the MVP, suggesting a whole-segment `[param]` | user | Support them like Astro | [Routing](routing.md#dynamic-routes-with-param) |
 | A rest param must be the last segment | simplest | (see the row above) | [Routing](routing.md#catch-all-routes-with-rest) |
 | Route errors name the file, without a line and column (they're about the file, not a position in it) | simplest | Report them at `:1:1` | [Routing](routing.md#file-based-routes) |
 | Two files with the same route are a build error naming both | simplest | Pick one by a priority rule | [Routing](routing.md#file-based-routes) |
 | Params are percent-decoded; a rest param joins its segments with `/`, and is `""` when it matches none | Go stdlib (`PathValue`) | Raw, undecoded values | [Routing](routing.md#dynamic-routes-with-param) |
+| Typed route params: each page gets a generated `Params` struct (one `string` field per param, PascalCase with the props initialism rules) as `params`; `ctx.Params` and `orbit.Params` are removed; components use `ctx.Param(name)` | user | Keep the `map[string]string` | [Routing](routing.md#route-params-params) |
+| `ctx.Param(name)` returns `""` for a name the route doesn't have, with no second result | Go stdlib (`Request.PathValue`) | `(string, bool)` | [Runtime API](reference/runtime-api.md#request-context-ctx) |
+| Two route params whose field names collide (`[post-id]` and `[postId]`, or `[id]` twice) are a build error at the file naming both | simplest | Let the last one win | [Routing](routing.md#field-names) |
+| A route param name must match `[A-Za-z][A-Za-z0-9_-]*`; anything else (`[1st]`, `[é]`) is a build error at the file | simplest | Mangle it into a field name (`P1st`) | [Routing](routing.md#field-names) |
+| A page's `Params` is filled by its generated `Render` wrapper from `ctx.Param` calls, not by the route table, so `orbittest.Render` and real requests build it the same way | simplest (keeps one `Render` signature for pages and components) | Pass `Params` from the route table as an extra `Render` argument | [Testing](testing.md#route-params-withparam) |
 | Without a `404.orbit`, a not-found response is a 404 with an empty body | simplest | A built-in 404 page | [Routing](routing.md#the-404-page) |
 | The trailing-slash 308 is sent only when the slash-less path is a page; otherwise the request reaches `next` untouched | simplest (never steals your routes) | Redirect every trailing-slash path | [Routing](routing.md#trailing-slashes) |
 | The island endpoint answers other methods with 405 and `Allow: GET, HEAD, POST` | Astro (405), Go stdlib (`Allow`) | Fall through to `next` | [Routing](routing.md#which-http-methods-orbit-handles) |
@@ -89,6 +109,8 @@ To override a decision, say which row and the alternative you want; the docs and
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
+| `ctx.Redirect` with a non-3xx code panics with a clear message (recovered per request as a 500 pointing at the call) | Go stdlib (net/http panics on invalid codes) | Pass any code through | [Rendering](rendering.md) |
+| `ctx.Redirect` stores `Location` as given; relative paths are resolved when the response is written, like `http.Redirect` | Go stdlib | Resolve in `Redirect` | [Rendering](rendering.md) |
 | Production 500: a minimal built-in page; the error and its `.orbit` position are logged to stderr. A custom `src/pages/500.orbit` comes after the MVP | user | A `500.orbit` page now | [Rendering](rendering.md#status-codes-and-errors) |
 | The 500 log line reads `orbit: <METHOD> <path>: <file:line:col>: <error>` | simplest | Structured (`log/slog`) output | [Rendering](rendering.md#status-codes-and-errors) |
 | `orbit.ListenAndServe` returns nil after a graceful shutdown on SIGINT/SIGTERM, so `log.Fatal(orbit.ListenAndServe(h))` doesn't exit 1 on Ctrl-C | coordinator (simplest) | Return `http.ErrServerClosed`, like `net/http` | [Server](server.md#listening-listenandserve-and-addr), [Runtime API](reference/runtime-api.md#serving) |
@@ -141,6 +163,7 @@ To override a decision, say which row and the alternative you want; the docs and
 | Under `go test` (`testing.Testing()`), `orbittest.Render` and `app.New()` (so `orbittest.Get`) seal `server:defer` placeholders with a fixed test island key and build ID `0000000000000000`, unless `ORBIT_KEY`/`WithKey` is set, so snapshots are stable | coordinator (simplest) | The normal key resolution; an `orbittest.WithKey` option | [Testing](testing.md#testing-serverdefer-components) |
 | `orbittest.Render` uses `GET /` by default and does no head injection | simplest (like `RenderComponent`) | Inject the page's assets | [Testing](testing.md#a-first-component-test), [Runtime API](reference/runtime-api.md#orbittest) |
 | `orbittest.Get` accepts only `WithLocals` and `WithRequest`; any option that doesn't apply fails the test | simplest | Ignore it silently | [Testing](testing.md#options) |
+| `orbittest.WithParams(orbit.Params)` is replaced by `WithParam(name, value string)`: one call per param, a later call for the same name replaces the value, `Render` only | Go stdlib (`http.Request.SetPathValue(name, value)`) | `WithParams(map[string]string)`; a variadic name/value list | [Testing](testing.md#route-params-withparam) |
 | A missing golden file fails the test, with a hint; `orbittest` owns the `-update` flag | simplest (Go golden-file convention) | Create the file on first run; a differently named flag | [Testing](testing.md#snapshot-tests) |
 
 ## Deploy and Docker

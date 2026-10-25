@@ -163,11 +163,40 @@ See [Error output](reference/cli.md#error-output).
 
 **Fix:** convert content you trust, such as your own Markdown renderer's output: `<div set:html={orbit.HTML(body)}></div>`. For text from users, use `{body}` or `set:text={body}`, which escape it. See [Raw HTML with `orbit.HTML`](components.md#raw-html-with-orbithtml).
 
-### `pages don't receive props; move this to a component or read ctx.Params`
+### `pages don't receive props; move this to a component or read params`
 
 **Cause:** a file under `src/pages/` declares `type Props`. Pages never receive props, so it could never be set.
 
-**Fix:** read the route data from `ctx` (`ctx.Params["slug"]`, `ctx.Request.URL.Query()`), or move the markup that needs props into a component under `src/components/`. See [Pages](components.md#pages).
+**Fix:** read the route params from `params` (`params.Slug`) and the rest of the request from `ctx` (`ctx.Request.URL.Query()`), or move the markup that needs props into a component under `src/components/`. See [Pages](components.md#pages).
+
+### `Params is generated from the page's route; rename this type`
+
+**Cause:** a file under `src/pages/` declares `type Params`. Orbit generates `Params` for every page, from its file path, so the name is taken.
+
+**Fix:** rename your type (for example `type Filters struct`). Read route params from the generated `params`. Components may declare a `Params` type. See [Route params](routing.md#route-params-params).
+
+### `params.slug undefined (type Params has no field or method slug, but does have field Slug)`
+
+```text
+src/pages/blog/[slug].orbit:9:26: params.slug undefined (type Params has no field or method slug, but does have field Slug)
+src/pages/blog/[slug].orbit:9:26: params.Slg undefined (type Params has no field or method Slg)
+```
+
+**Cause:** the field doesn't exist in the page's generated `Params`. Its fields are the route params, in PascalCase (`[slug]` is `Slug`, `[post-id]` is `PostID`, `[id]` is `ID`), and only the params of *this* page's path are there. The same error, with `params` itself `undefined`, appears in a component: only pages get `params`.
+
+**Fix:** use the field name your editor completes after `params.`, or check the file name. In a component, use `ctx.Param("slug")`. See [Field names](routing.md#field-names).
+
+### `route params [post-id] and [postId] both become params.PostID; rename one`
+
+**Cause:** two parameters in one page's path give the same `params` field name, after the PascalCase conversion (`[post-id]` and `[postId]`), or the same name is used twice (`[id]/[id].orbit`).
+
+**Fix:** rename one of the directories or files so the names differ, such as `[post-id]/[comment-id].orbit`. Route errors name the file, without a line and column. See [Field names](routing.md#field-names).
+
+### `route param [1st] can't become a Go field name; use letters, digits, - and _, starting with a letter`
+
+**Cause:** a parameter name, such as `[1st]` or `[é]`, can't be turned into an exported Go field of `params`.
+
+**Fix:** rename it, for example `[first].orbit`. See [Field names](routing.md#field-names).
 
 ### `component alias card must start with an uppercase letter (rename it to Card)`
 
@@ -215,7 +244,7 @@ See [Error output](reference/cli.md#error-output).
 
 ### `props is provided by Orbit and can't be redeclared here`
 
-**Cause:** the top level of the render body declares one of the names Orbit provides, `props`, `ctx`, `slots`, `locals` or `orbit`, with `:=` or `var`.
+**Cause:** the top level of the render body declares one of the names Orbit provides, `props`, `ctx`, `slots`, `locals` or `orbit` (or, in a page, `params`), with `:=` or `var`.
 
 **Fix:** pick another name (`post := props.Post`). Shadowing these names inside a nested block, such as `{for _, props := range variants}`, is allowed. Names starting with `orbit__` or `Orbit__`, and a hoisted declaration named `Render`, are reserved too. See [Redeclaring and shadowing](components.md#redeclaring-and-shadowing).
 
@@ -237,7 +266,7 @@ See [Error output](reference/cli.md#error-output).
 
 **Cause:** a page's file or directory name mixes text and a parameter in one segment (`post-[id].orbit`, `[lang]-[version].orbit`). That isn't supported yet.
 
-**Fix:** rename it to a whole-segment parameter (`[id].orbit`) and parse the value in the page, for example with `id, ok := strings.CutPrefix(ctx.Params["id"], "post-")`. Route errors name the file, without a line and column. See [Dynamic routes](routing.md#dynamic-routes-with-param).
+**Fix:** rename it to a whole-segment parameter (`[id].orbit`) and parse the value in the page, for example with `id, ok := strings.CutPrefix(params.ID, "post-")`. Route errors name the file, without a line and column. See [Dynamic routes](routing.md#dynamic-routes-with-param).
 
 ### `rest parameter [...path] must be the last segment of the route; use a whole-segment parameter such as [path] instead`
 

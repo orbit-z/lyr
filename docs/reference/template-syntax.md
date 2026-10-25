@@ -110,7 +110,7 @@ Braces inside composite literals, strings, runes, raw strings and comments don't
 
 - Statements aren't expressions: `{x := 1}` is an error. Declare variables in the frontmatter.
 - A call that returns several values (`posts.All()` returns a slice and an error) can't be used directly. Call it in the frontmatter and handle the error there.
-- Expressions see everything the render body declares, plus `props`, `ctx`, `slots`, `locals` and the `orbit` package. See [Components](../components.md#whats-available-in-the-render-body).
+- Expressions see everything the render body declares, plus `props`, `ctx`, `slots`, `locals`, `params` (in pages) and the `orbit` package. See [Components](../components.md#whats-available-in-the-render-body).
 
 ## Comments
 
@@ -377,7 +377,7 @@ Other attributes with a colon, such as `xlink:href` or `xml:lang`, are ordinary 
 
 ## Component attributes and props
 
-On a component tag, each attribute (other than a directive) sets a field of the target component's `Props`. Pages don't have `Props`: declaring `type Props` in a page is a build error (`pages don't receive props; move this to a component or read ctx.Params`).
+On a component tag, each attribute (other than a directive) sets a field of the target component's `Props`. Pages don't have `Props`: declaring `type Props` in a page is a build error (`pages don't receive props; move this to a component or read params`).
 
 ### Name matching
 
@@ -394,6 +394,8 @@ The attribute name is matched against the `Props` field names, **ignoring case, 
 Two fields of one `Props` that normalize to the same name (`IsOpen` and `Is_Open`) are an error.
 
 When Orbit can't list the target's fields from its source, because `Props` embeds another struct or is an alias (`type Props = other.T`), it converts the attribute to PascalCase, writing each word found in Go's common-initialism table in capitals: `user-id` becomes `UserID`, `api-url` becomes `APIURL`. The table is the one Go linters use: `ACL`, `API`, `ASCII`, `CPU`, `CSS`, `DNS`, `EOF`, `GUID`, `HTML`, `HTTP`, `HTTPS`, `ID`, `IP`, `JSON`, `LHS`, `QPS`, `RAM`, `RHS`, `RPC`, `SLA`, `SMTP`, `SQL`, `SSH`, `TCP`, `TLS`, `TTL`, `UDP`, `UI`, `UID`, `UUID`, `URI`, `URL`, `UTF8`, `VM`, `XML`, `XMPP`, `XSRF`, `XSS`.
+
+A page's route params get their `params` field names from this PascalCase conversion: `[post-id]` becomes `params.PostID`, `[id]` becomes `params.ID` (see [Route params](../routing.md#field-names)).
 
 ### Values
 

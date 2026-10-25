@@ -140,7 +140,7 @@ It's worth clicking. Without `orbit_gen/` on disk, gopls loads each component on
 
 ## What completion covers
 
-**Go**, through gopls, everywhere you write Go: the frontmatter, `{…}` expressions, attribute expressions and `{if}`/`{for}` headers. You get completion (including `props.`, `ctx.`, `slots.` and your typed `locals.`), hover, signature help, go-to-definition, references and rename, across your `.orbit` files and your `.go` packages. Accepting a completion for an unimported package adds the import to the frontmatter.
+**Go**, through gopls, everywhere you write Go: the frontmatter, `{…}` expressions, attribute expressions and `{if}`/`{for}` headers. You get completion (including `props.`, `ctx.`, `slots.`, your typed `locals.` and, in pages, the route's `params.`), hover, signature help, go-to-definition, references and rename, across your `.orbit` files and your `.go` packages. Accepting a completion for an unimported package adds the import to the frontmatter.
 
 **Templates**, natively:
 

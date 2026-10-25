@@ -105,7 +105,7 @@ import (
     ShareButtons "../../components/ShareButtons.orbit"
 )
 
-post, err := posts.Find(ctx.Params["slug"])
+post, err := posts.Find(params.Slug)
 if errors.Is(err, posts.ErrNotFound) {
     return orbit.ErrNotFound
 }
@@ -268,7 +268,7 @@ func main() {
 A deferred component renders with a fresh `ctx` for the island request, as Astro does:
 
 - `ctx.Request` and `ctx.URL` are the island request (`/_orbit/island/…`), not the page.
-- `ctx.Params` is empty.
+- There are no route params: `ctx.Param` returns `""` for every name. Pass what the component needs, such as the post's slug, as props.
 - The page's URL is in the `Referer` header:
 
   ```orbit

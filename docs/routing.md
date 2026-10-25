@@ -10,7 +10,7 @@ import (
     "example.com/blog/internal/posts"
 )
 
-post, err := posts.Find(ctx.Params["slug"])
+post, err := posts.Find(params.Slug)
 if errors.Is(err, posts.ErrNotFound) {
     return orbit.ErrNotFound
 }
@@ -23,7 +23,7 @@ if err != nil {
 </article>
 ```
 
-A request for `/blog/hello` renders this page with `ctx.Params["slug"] == "hello"`. An unknown slug answers with your 404 page. The examples on this page leave out the layout to keep them short; see [Components](components.md) for layouts.
+A request for `/blog/hello` renders this page with `params.Slug == "hello"`: Orbit generates a typed `params` from the file name (see [Route params](#route-params-params)). An unknown slug answers with your 404 page. The examples on this page leave out the layout to keep them short; see [Components](components.md) for layouts.
 
 <details>
 <summary><code>internal/posts/posts.go</code>, the tiny post store used by the examples on this page</summary>
@@ -79,18 +79,24 @@ The file path under `src/pages/` becomes the URL. `index.orbit` is the root of i
 
 Every `.orbit` file under `src/pages/` is a route. Keep reusable pieces in `src/components/` or `src/layouts/` and import them.
 
-Pages render on every request; Orbit never writes HTML files at build time (see [Rendering](rendering.md)). Pages also don't take props: they read the URL from `ctx`, and declaring `type Props` in a page is a build error.
+Pages render on every request; Orbit never writes HTML files at build time (see [Rendering](rendering.md)). Pages also don't take props: they read their route params from `params` and the rest of the URL from `ctx`, and declaring `type Props` in a page is a build error.
 
 Route errors are about a file, not a position in it, so they name the file without a line and column. Two files that produce the same route are a build error that names both files. That covers `src/pages/blog.orbit` next to `src/pages/blog/index.orbit`, and `[slug].orbit` next to `[id].orbit` in one directory.
+
+The `/_orbit/` prefix is reserved for Orbit's assets and islands, so a page under `src/pages/_orbit/` is a build error:
+
+```text
+src/pages/_orbit/stats.orbit: route /_orbit/stats is under /_orbit/, which Orbit reserves for its assets and islands; rename the page or its directory
+```
 
 ## Dynamic routes with `[param]`
 
 A path segment in square brackets is a parameter. `src/pages/blog/[slug].orbit` matches `/blog/hello` and `/blog/anything-else`. A `[param]` matches exactly one non-empty path segment, so it never matches `/blog/hello/like`.
 
-Read the value from `ctx.Params`, an `orbit.Params` (`map[string]string`):
+Read the value from `params.Slug`, a field of the page's generated `params` (see [Route params](#route-params-params)):
 
 ```orbit
-<p>You asked for {ctx.Params["slug"]}</p>
+<p>You asked for {params.Slug}</p>
 ```
 
 The value is percent-decoded, as `ServeMux`'s `PathValue` is: `/blog/caf%C3%A9` gives `"café"`.
@@ -114,19 +120,18 @@ titles := map[string]string{
     "install":        "Install",
     "guides/routing": "Routing guide",
 }
-path := ctx.Params["path"]
-title, ok := titles[path]
+title, ok := titles[params.Path]
 if !ok {
     return orbit.ErrNotFound
 }
 ---
 <h1>{title}</h1>
-<p>Path: "{path}"</p>
+<p>Path: "{params.Path}"</p>
 ```
 
 The value is the matched segments joined with `/`, with no leading or trailing slash, and percent-decoded like a `[param]`:
 
-| URL | `ctx.Params["path"]` |
+| URL | `params.Path` |
 |---|---|
 | `/docs` | `""` |
 | `/docs/install` | `"install"` |
@@ -139,6 +144,78 @@ src/pages/docs/[...path]/edit.orbit: rest parameter [...path] must be the last s
 ```
 
 A catch-all page answers **every method** under its prefix. See [Which HTTP methods Orbit handles](#which-http-methods-orbit-handles).
+
+## Route params: `params`
+
+Every page gets **`params`**, a struct that Orbit generates from the page's file path, with one `string` field per route parameter. For `src/pages/shop/[category]/[...rest].orbit`, Orbit generates, in the page's package:
+
+```go
+type Params struct {
+	Category string // [category]
+	Rest     string // [...rest]
+}
+```
+
+So the page reads `params.Category` and `params.Rest`, as Astro pages read `Astro.params.category`. The compiler checks every use: a typo such as `{params.Categroy}` is a build error at its `.orbit` line, and your editor completes `params.` with the real field names.
+
+A page whose route has no parameters, such as `index.orbit` or `404.orbit`, gets an empty `Params` (`struct{}`), so `params` always exists in a page.
+
+### Field names
+
+Each parameter becomes a field named in PascalCase, with the same rules as prop names (see [Template syntax](reference/template-syntax.md#name-matching)): the name is split into words at `-`, `_` and case changes, each word is capitalized, and common initialisms are written in capitals.
+
+| File name part | Field |
+|---|---|
+| `[slug]` | `Slug` |
+| `[...path]` | `Path` |
+| `[id]` | `ID` |
+| `[post-id]`, `[post_id]`, `[postId]` | `PostID` |
+| `[api-url]` | `APIURL` |
+
+Every field is a `string`. A `[param]` field holds one percent-decoded segment; a `[...rest]` field holds the matched segments joined with `/`, and `""` when the rest matched none (see [Catch-all routes](#catch-all-routes-with-rest)). Convert in the frontmatter when you need another type:
+
+```orbit file=src/pages/posts/[id].orbit
+---
+import "strconv"
+
+id, err := strconv.Atoi(params.ID)
+if err != nil {
+    return orbit.ErrNotFound
+}
+---
+<h1>Post #{id}</h1>
+```
+
+A parameter name must start with a letter and use only letters, digits, `-` and `_`, so that it makes a Go field name. Two parameters of one route that give the same field name, such as `[post-id]` and `[postId]`, or `[id]` twice, are a build error at the file:
+
+```text
+src/pages/[post-id]/[postId].orbit: route params [post-id] and [postId] both become params.PostID; rename one
+src/pages/[1st].orbit: route param [1st] can't become a Go field name; use letters, digits, - and _, starting with a letter
+```
+
+`Params` is generated for you, so a page can't declare its own `type Params`, and it can't redeclare `params` at the top of its frontmatter (see [Troubleshooting](troubleshooting.md#params-is-generated-from-the-pages-route-rename-this-type)).
+
+### In components: `ctx.Param`
+
+`params` exists only in pages: a component or layout can be used on many routes, so it has no route of its own. A component that needs a route param, such as a pagination bar or a language switcher, reads it by its bracket name with `ctx.Param`, which returns `""` when the current route has no such param:
+
+```orbit file=src/components/LangSwitch.orbit
+---
+lang := ctx.Param("lang")
+if lang == "" {
+    lang = "en"
+}
+---
+<nav>
+  {if lang == "fr"}
+    <a href="/en">English</a>
+  {else}
+    <a href="/fr">Français</a>
+  {/if}
+</nav>
+```
+
+A page and its components share one `ctx`, so `ctx.Param("slug")` in a component on `blog/[slug].orbit` returns the same value as the page's `params.Slug`. In a deferred (`server:defer`) component, which renders in its own request, `ctx.Param` returns `""` for every name; pass what it needs as props (see [Lazy loading](lazy-loading.md)).
 
 ## Route priority
 
@@ -232,5 +309,5 @@ So a `POST /blog/hello/like` handler in your own mux works even when Orbit comes
 - [Rendering](rendering.md): the request lifecycle, status codes, redirects and errors
 - [Server](server.md): where Orbit sits in your handler chain
 - [Middleware and locals](middleware.md): net/http middleware and typed `Locals`
-- [Components](components.md): layouts, props and templates
+- [Components](components.md): layouts, props, templates and the names a page gets (`params`, `ctx`)
 - [Lazy loading](lazy-loading.md): the `/_orbit/island/` endpoint

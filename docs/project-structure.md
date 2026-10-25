@@ -99,6 +99,7 @@ Orbit compiles every `.orbit` file to Go packages under `orbit_gen/`. Each gener
 ```
 orbit_gen/
   decl/        one declaration package per .orbit file: its Props type and Render function
+               (and, for a page, its generated Params type)
   impl/        the rendering code for each .orbit file; never import these
   app/         app.New(): the route table and the wiring of every page
   manifest/    the CSS and JS URLs of each page

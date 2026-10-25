@@ -163,6 +163,10 @@ func parsePattern(pattern, file string) ([]routeSeg, error) {
 		return nil, malformed("must not end with /")
 	}
 	parts := strings.Split(pattern[1:], "/")
+	if parts[0] == "_orbit" {
+		return nil, fmt.Errorf("%s: route %s is under /_orbit/, which Orbit reserves for its assets and islands; rename the page or its directory",
+			file, pattern)
+	}
 	segs := make([]routeSeg, 0, len(parts))
 	names := make(map[string]bool)
 	for i, p := range parts {

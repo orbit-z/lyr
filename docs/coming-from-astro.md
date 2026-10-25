@@ -132,7 +132,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 | `src/pages/about.astro` → `/about` | `src/pages/about.orbit` → `/about` | `index.orbit` is its directory's root. Only `.orbit` files are pages. See [Routing](routing.md). |
 | `[slug].astro` | `[slug].orbit` | A parameter must be a whole segment: `post-[id].orbit` is a build error for now. See [Dynamic routes](routing.md#dynamic-routes-with-param). |
 | `[...path].astro` | `[...path].orbit` | Must be the last segment. With zero segments the value is `""`, not `undefined`. See [Catch-all routes](routing.md#catch-all-routes-with-rest). |
-| `Astro.params.slug` | `ctx.Params["slug"]` | An `orbit.Params` (`map[string]string`), percent-decoded. |
+| `Astro.params.slug` | `params.Slug` | Typed: Orbit generates a `Params` struct per page from its file path, so `params.Slg` is a compile error at its line and your editor completes `params.`. Values are percent-decoded strings. Components read `ctx.Param("slug")`. See [Route params](routing.md#route-params-params). |
 | `404.astro` | `404.orbit` | A custom `500` page isn't supported yet: production errors get a built-in 500 page and a log line. See [The 404 page](routing.md#the-404-page). |
 | `Astro.request` | `ctx.Request` | A standard `*http.Request`: method, headers, cookies (`ctx.Request.Cookie("theme")`), form. See [The request](rendering.md#the-request-ctx). |
 | `Astro.url` | `ctx.URL` | The query string is `ctx.URL.Query().Get("q")`. |
@@ -186,7 +186,8 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 ## Things that work differently
 
 - **Types are checked at compile time.** A misspelled prop is an error at its attribute, listing the props that work: `src/pages/index.orbit:9:6: unknown prop "titel" on <Card> (props: title, tags, featured)`. A wrong value type, or a typo in `{props.Titel}`, is a Go compiler error at its `.orbit` line. See [Unknown props](components.md#unknown-props).
-- **Pages don't take props.** There's no `getStaticPaths` to pass them, so declaring `type Props` in a page is a build error: `pages don't receive props; move this to a component or read ctx.Params`. Pages read `ctx.Params` and `ctx.Request`. See [Pages](components.md#pages).
+- **Route params are typed.** `Astro.params` is an untyped object; an Orbit page gets `params`, a struct generated from its file path (`[post-id]` becomes `params.PostID`). A misspelled param is caught at build time instead of rendering `undefined`. See [Route params](routing.md#route-params-params).
+- **Pages don't take props.** There's no `getStaticPaths` to pass them, so declaring `type Props` in a page is a build error: `pages don't receive props; move this to a component or read params`. Pages read `params` and `ctx.Request`. See [Pages](components.md#pages).
 - **Responses are buffered, never streamed.** A page is sent in one write once it has fully rendered, so one slow query delays the first byte. Move slow parts into a `server:defer` component. See [Responses are always buffered](rendering.md#responses-are-always-buffered).
 - **URLs have no trailing slash.** `/blog/hello/` gets a 308 redirect to `/blog/hello`, keeping the query string. See [Trailing slashes](routing.md#trailing-slashes).
 - **No framework components, by design.** Importing a `.tsx`, `.jsx`, `.svelte` or `.vue` file from the frontmatter is a compile error. Client code is a vanilla `<script>`, best written as a custom element. See [No framework components](components.md#no-framework-components).

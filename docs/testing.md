@@ -143,7 +143,7 @@ orbit: src/components/Card.orbit not linked; import example.com/blog/orbit_gen/a
 | Option | `Render` | `Get` |
 |---|---|---|
 | `WithSlot(name, html)` | fills a slot | fails the test: a request has no slots |
-| `WithParams(p)` | sets `ctx.Params` | fails the test: the router sets params from the path |
+| `WithParam(name, value)` | sets one route param: a page's `params` field and `ctx.Param(name)`; repeat it for each param | fails the test: the router sets params from the path |
 | `WithLocals(l)` | sets `locals` | attaches `l` to the request, as [`orbit.WithLocals`](middleware.md) does, so `EnsureLocals` in your middleware returns it |
 | `WithRequest(r)` | sets `ctx.Request` | sends a copy of `r` with its method set to `GET` and its URL set to `path`, so its headers and cookies carry over |
 
@@ -246,9 +246,9 @@ func TestGreeting(t *testing.T) {
 
 Without `WithLocals`, the component sees a zero `Locals`, as on a request where no middleware set anything.
 
-### Route params: `WithParams`
+### Route params: `WithParam`
 
-Pages are components too. A dynamic page reads its params from `ctx.Params`, which `orbittest.WithParams` sets. This post page also defers its comments with [`server:defer`](lazy-loading.md):
+Pages are components too. A dynamic page reads its route params from its typed `params`, and `orbittest.WithParam` sets them, one call per param. This post page also defers its comments with [`server:defer`](lazy-loading.md):
 
 ```orbit file=src/components/Comments.orbit
 ---
@@ -280,7 +280,7 @@ import (
     Comments "../../components/Comments.orbit"
 )
 
-post, err := posts.Find(ctx.Params["slug"])
+post, err := posts.Find(params.Slug)
 if errors.Is(err, posts.ErrNotFound) {
     return orbit.ErrNotFound
 }
@@ -310,7 +310,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit"
 	"github.com/bertrandkhe/orbit/orbittest"
 
 	"example.com/blog/orbit_gen/decl/pages/blog/slug_param"
@@ -318,14 +317,14 @@ import (
 
 func TestPostPage(t *testing.T) {
 	html := orbittest.Render(t, slug_param.Render, slug_param.Props{},
-		orbittest.WithParams(orbit.Params{"slug": "hello"}))
+		orbittest.WithParam("slug", "hello"))
 	if !strings.Contains(html, "<title>Hello, world</title>") {
 		t.Errorf("unexpected page:\n%s", html)
 	}
 }
 ```
 
-The test passes `slug_param.Props{}` because pages never take props: Orbit generates an empty `Props` for every page.
+The test passes `slug_param.Props{}` because pages never take props: Orbit generates an empty `Props` for every page. `WithParam` takes the name in brackets (`"slug"`), not the field name; the page's `Render` builds `params.Slug` from it, as it does for a real request. For a route with several params, repeat the option: `WithParam("cat", "books"), WithParam("item", "dune")`.
 
 ### The request: `WithRequest`
 

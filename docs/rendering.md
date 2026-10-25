@@ -110,8 +110,9 @@ Every page and component gets `ctx`, an `*orbit.Ctx`:
 |---|---|
 | `ctx.Request` | the `*http.Request`, with its method, headers, cookies, form and `Context()` |
 | `ctx.URL` | the request URL, including the query string |
-| `ctx.Params` | the route parameters, such as `ctx.Params["slug"]` (see [Routing](routing.md)) |
 | `ctx.Site` | the `site` URL from [`orbit.json`](configuration.md) |
+
+`ctx.Param(name)` returns a route parameter by its bracket name, or `""` when the route has none by that name. Pages rarely need it: a page gets its route parameters as `params`, a struct Orbit generates from the file path (`params.Slug` for `blog/[slug].orbit`; see [Route params](routing.md#route-params-params)). Components use `ctx.Param`.
 
 Next to `ctx`, the frontmatter has `locals`, your typed request-scoped data (see [Middleware and locals](middleware.md#read-locals-in-pages-and-components)).
 
@@ -162,10 +163,10 @@ This uses the tools from the next sections: a redirect, a status code, and a tem
 
 ## Redirects
 
-Return `ctx.Redirect(to, code)` from the frontmatter:
+Return `ctx.Redirect(to, code)` from the frontmatter, here in `src/pages/blog/[slug].orbit`:
 
 ```go
-if ctx.Params["slug"] == "hello-orbit" {
+if params.Slug == "hello-orbit" {
     return ctx.Redirect("/blog/hello", http.StatusMovedPermanently)
 }
 ```

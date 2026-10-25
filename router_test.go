@@ -180,6 +180,9 @@ func TestNewRouterErrors(t *testing.T) {
 		{"mixed text and param", []string{"/blog/post-[id]"}, []string{
 			`src/pages/blog/post-[id].orbit: route segment "post-[id]" mixes text and a parameter; use a whole-segment parameter such as [id].orbit and parse it in the page`,
 		}},
+		{"reserved /_orbit prefix", []string{"/_orbit/stats"}, []string{
+			`src/pages/_orbit/stats.orbit: route /_orbit/stats is under /_orbit/, which Orbit reserves for its assets and islands; rename the page or its directory`,
+		}},
 		{"two params in one segment", []string{"/[lang]-[version]"}, []string{
 			`src/pages/[lang]-[version].orbit: route segment "[lang]-[version]" mixes text and a parameter; use a whole-segment parameter such as [lang].orbit and parse it in the page`,
 		}},

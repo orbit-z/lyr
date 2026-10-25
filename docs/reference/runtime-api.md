@@ -6,7 +6,7 @@ This page lists the API of the `orbit` package (`github.com/bertrandkhe/orbit`),
 import "github.com/bertrandkhe/orbit"
 ```
 
-Inside `.orbit` files you don't need this import: `orbit` is always available, and so are `ctx`, `props`, `slots` and `locals` in the frontmatter body and the template. The runtime package depends only on the Go standard library.
+Inside `.orbit` files you don't need this import: `orbit` is always available, and so are `ctx`, `props`, `slots` and `locals` in the frontmatter body and the template, plus `params` in pages. The runtime package depends only on the Go standard library.
 
 Many of the names below are used by the code Orbit generates and rarely appear in your own code. Each section says which ones you're likely to use.
 
@@ -18,7 +18,6 @@ Every page and component gets the request context as `ctx`.
 type Ctx struct {
     Request *http.Request // the request
     URL     *url.URL      // the request URL
-    Params  Params        // route params, e.g. Params["slug"] for blog/[slug].orbit
     Site    *url.URL      // the "site" URL from orbit.json
     // unexported fields
 }
@@ -26,9 +25,24 @@ type Ctx struct {
 
 `Site` is `nil` when `orbit.json` doesn't set `site`, as `Astro.site` is `undefined` in Astro.
 
-In a component rendered with `server:defer`, `Request` and `URL` are the island request (`/_orbit/island/…`), not the page's, and `Params` is empty. The page's URL is in the `Referer` header: `page, err := url.Parse(ctx.Request.Referer())`. See [Lazy loading](../lazy-loading.md).
+In a component rendered with `server:defer`, `Request` and `URL` are the island request (`/_orbit/island/…`), not the page's, and `Param` returns `""` for every name. The page's URL is in the `Referer` header: `page, err := url.Parse(ctx.Request.Referer())`. See [Lazy loading](../lazy-loading.md).
 
 A `Ctx` is pooled and reused across requests: don't keep it, or anything it holds, after the request ends (for example in a goroutine that outlives the render).
+
+```go
+func (c *Ctx) Param(name string) string
+```
+Returns the route parameter `name`, by the name in brackets (`"slug"` for `[slug]`, `"path"` for `[...path]`), percent-decoded; a rest parameter's segments are joined with `/`. Returns `""` when the current route has no parameter by that name, like `http.Request.PathValue`. Components, layouts and other shared code use it; a page usually reads the same values from its typed `params` (see [Route params](../routing.md#route-params-params)). It doesn't allocate.
+
+There's no map of route params: the router stores the matched values in the pooled `Ctx`, and each page gets them as a generated struct:
+
+```go
+type Params struct { // generated per page; here for src/pages/blog/[slug].orbit
+	Slug string
+}
+```
+
+A page sees it as `params`, of type `Params`. A page without route parameters gets `type Params struct{}`. Field names follow the [prop name rules](template-syntax.md#name-matching): `[post-id]` is `PostID`, `[id]` is `ID`.
 
 ```go
 func (c *Ctx) SetStatus(code int)
@@ -81,11 +95,6 @@ A trusted URL. In URL attributes (`href`, `src`, …), Orbit replaces `javascrip
 type Attrs map[string]any
 ```
 Attributes to spread onto an HTML element with `{...attrs}`. Each value follows the [attribute rules](#attribute-values); each name must be a valid attribute name.
-
-```go
-type Params map[string]string
-```
-Route params, keyed by the name in brackets: `[slug]` → `Params["slug"]`.
 
 ## Locals
 
@@ -481,9 +490,9 @@ func WithRequest(r *http.Request) Option
 Sets `ctx.Request`: method, URL and query, headers, cookies. Without it, `Render` uses `httptest.NewRequest("GET", "/", nil)`. With `Get`, a copy of `r` is sent, with its method set to `GET` and its URL to `path`.
 
 ```go
-func WithParams(p orbit.Params) Option
+func WithParam(name, value string) Option
 ```
-Sets `ctx.Params`. `Render` only.
+Sets the route parameter `name` to `value`, as the router would: `ctx.Param(name)` returns it, and a page's `params` field for it holds it. Repeat it for each parameter (`WithParam("cat", "books"), WithParam("item", "dune")`); a later call for the same name replaces the value, like `http.Request.SetPathValue`. `Render` only: with `Get`, the router sets params from the path.
 
 An option passed to the function it doesn't apply to fails the test.
 

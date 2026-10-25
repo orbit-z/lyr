@@ -48,6 +48,7 @@ The request context (`*orbit.Ctx`) is pooled along with its writer and buffer, s
 ### Routing and locals
 
 - **Routes** are matched by walking a tree of path segments built at startup. No regular expressions.
+- **Route params allocate nothing**: the router stores matched values in the pooled request context instead of a map, and a page's typed `params` is a plain struct filled from them. (A `map[string]string` cost 2 allocations, 336 bytes, per match.) Only a value with percent-escapes (`caf%C3%A9`) allocates its decoded string.
 - **Typed locals** are allocated lazily, the first time a page or component uses them, and once per request at most.
 
 ### What Orbit leaves to you
