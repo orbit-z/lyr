@@ -82,6 +82,7 @@ func allocPostPage(c *Ctx, w *Writer) error {
 var allocRoutes = []Route{
 	{Pattern: "/", File: "src/pages/index.orbit", Render: allocPage},
 	{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].orbit", Render: allocPostPage},
+	{Pattern: "/assets", File: "src/pages/assets.orbit", Render: allocPage, Assets: benchAssets},
 }
 
 // fakeResponseWriter is a reusable, allocation-free http.ResponseWriter.
@@ -140,6 +141,8 @@ func TestServeAllocs(t *testing.T) {
 	}{
 		{"/", "<!DOCTYPE html>"},
 		{"/blog/hello-world", "<!DOCTYPE html><html><head><title>hello-world"},
+		{"/assets", `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Orbit &amp; friends</title>` +
+			`<link rel="stylesheet" href="/_orbit/index-3f9a2c1d.css"><script type="module" src="/_orbit/index-9b1e44a2.js"></script></head>`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.target, func(t *testing.T) {
@@ -179,6 +182,49 @@ func BenchmarkServePage(b *testing.B) {
 				fw.reset()
 				h.ServeHTTP(fw, r)
 			}
+		})
+	}
+}
+
+// allocCardsPage is a large page: 500 cards.
+func allocCardsPage(c *Ctx, w *Writer) error {
+	w.Raw(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Cards</title>`)
+	w.HeadEnd()
+	w.Raw(`</head><body><main>`)
+	for i := range 500 {
+		if err := allocCardHook(c, w, allocCardProps{Title: "Card & title", Count: i * 37}, Slots{Default: allocSlot}); err != nil {
+			return err
+		}
+	}
+	w.Raw(`</main></body></html>`)
+	return nil
+}
+
+var benchAssets = []Asset{
+	{Kind: "css", URL: "/_orbit/index-3f9a2c1d.css"},
+	{Kind: "js", URL: "/_orbit/index-9b1e44a2.js"},
+}
+
+// BenchmarkServeAssets serves pages with a stylesheet and a script, so the
+// asset tags are inserted at </head>.
+func BenchmarkServeAssets(b *testing.B) {
+	b.Setenv("ORBIT_DEV", "")
+	b.Setenv("ORBIT_STATIC", b.TempDir())
+	s := NewSite([]Route{
+		{Pattern: "/", File: "src/pages/index.orbit", Render: allocPage, Assets: benchAssets},
+		{Pattern: "/cards", File: "src/pages/cards.orbit", Render: allocCardsPage, Assets: benchAssets},
+	}, nil)
+	h := s.Middleware(http.NotFoundHandler())
+	for _, target := range []string{"/", "/cards"} {
+		b.Run(target, func(b *testing.B) {
+			fw := newFakeResponseWriter()
+			r := httptest.NewRequest("GET", target, nil)
+			b.ReportAllocs()
+			for b.Loop() {
+				fw.reset()
+				h.ServeHTTP(fw, r)
+			}
+			b.SetBytes(int64(fw.n))
 		})
 	}
 }

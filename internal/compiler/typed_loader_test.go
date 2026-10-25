@@ -152,6 +152,9 @@ func tyWriteString(s CallSite, w TypedWrite, ok bool) string {
 	if w.Kind == WriteSkip {
 		k = "skip"
 	}
+	if w.Kind.attrPieces() {
+		k = "attr:" + k
+	}
 	if w.Conv != "" {
 		k += "/" + w.Conv
 	}

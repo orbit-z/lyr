@@ -151,10 +151,28 @@ const (
 	WriteAttrString
 	WriteAttrURL
 	WriteAttrBool
+	// Numbers in an attribute (Attr's output for them; digits never need
+	// escaping or URL filtering), written without boxing in an interface.
+	WriteAttrInt
+	WriteAttrUint
+	WriteAttrFloat
+	WriteAttrFloat32
 )
 
+// writeMethods is the Writer method each kind calls. WriteAttrString and the
+// number attributes are attribute pieces (see attrPieces), so they call the
+// content method.
 var writeMethods = [...]string{"Expr", "", "String", "Int", "Uint", "Float", "Float32", "Bool",
-	"HTML", "Bytes", "Error", "Stringer", "Render", "AttrString", "AttrURL", "AttrBool"}
+	"HTML", "Bytes", "Error", "Stringer", "Render", "String", "AttrURL", "AttrBool",
+	"Int", "Uint", "Float", "Float32"}
+
+// attrPieces reports whether k writes its attribute as pieces: the static
+// ` name="` and `"` join the neighbouring Raw constants, and the call writes
+// only the value, with no attribute name. That's byte-identical to
+// AttrString (and to Attr for a number) and saves the name and quote writes.
+func (k WriteKind) attrPieces() bool {
+	return k == WriteAttrString || k >= WriteAttrInt && k <= WriteAttrFloat32
+}
 
 // Method is the Writer method the write calls ("Expr" for a content
 // fallback; the caller uses "Attr" for an attribute fallback), "" for

@@ -184,7 +184,9 @@ func basicWrite(b *types.Basic) (TypedWrite, bool) {
 // mirroring Writer.Attr: string, HTML and named strings without
 // error/String/Format methods are written as their text (AttrURL in a URL
 // attribute, which filters javascript: like Attr), URL unfiltered, bools and
-// named bools (Attr tests the reflect kind) as AttrBool, untyped nil as
+// named bools (Attr tests the reflect kind) as AttrBool, numbers (and named
+// numbers without error/String/Format methods, which fmt prints as their
+// value) as Raw pieces around Int, Uint, Float or Float32, untyped nil as
 // nothing; everything else keeps Attr.
 func (e *tyEnv) classifyAttr(tv types.TypeAndValue, urlAttr bool) TypedWrite {
 	t, nilv, ok := tyStatic(tv)
@@ -206,18 +208,51 @@ func (e *tyEnv) classifyAttr(tv types.TypeAndValue, urlAttr bool) TypedWrite {
 	case types.Identical(t, types.Typ[types.Bool]):
 		return TypedWrite{Kind: WriteAttrBool}
 	}
+	if b, isB := t.(*types.Basic); isB { // an exact predeclared type
+		w := attrNumber(b)
+		if w.Conv == b.Name() {
+			w.Conv = ""
+		}
+		return w
+	}
 	if _, named := t.(*types.Named); !named || types.IsInterface(t) {
 		return TypedWrite{}
 	}
 	b, isB := t.Underlying().(*types.Basic)
-	switch {
-	case !isB:
+	if !isB {
 		return TypedWrite{}
-	case b.Info()&types.IsBoolean != 0:
+	}
+	if b.Info()&types.IsBoolean != 0 {
 		return TypedWrite{Kind: WriteAttrBool, Conv: "bool"}
-	case b.Info()&types.IsString != 0 && !types.Implements(t, e.errorIface) &&
-		!types.Implements(t, e.stringer) && !hasFormat(t):
+	}
+	if types.Implements(t, e.errorIface) || types.Implements(t, e.stringer) || hasFormat(t) {
+		return TypedWrite{}
+	}
+	if b.Info()&types.IsString != 0 {
 		return TypedWrite{Kind: text, Conv: "string"}
 	}
-	return TypedWrite{}
+	return attrNumber(b)
+}
+
+// attrNumber is the number-attribute write for a value of basic type b, with
+// the conversion to the number write's parameter type, or the fallback for
+// a type that isn't a number with a typed write.
+func attrNumber(b *types.Basic) TypedWrite {
+	w, ok := basicWrite(b)
+	if !ok {
+		return TypedWrite{}
+	}
+	switch w.Kind {
+	case WriteInt:
+		w.Kind = WriteAttrInt
+	case WriteUint:
+		w.Kind = WriteAttrUint
+	case WriteFloat:
+		w.Kind = WriteAttrFloat
+	case WriteFloat32:
+		w.Kind = WriteAttrFloat32
+	default:
+		return TypedWrite{}
+	}
+	return w
 }

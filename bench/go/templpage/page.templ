@@ -1,0 +1,57 @@
+package templpage
+
+import "github.com/bertrandkhe/orbit/bench/go/data"
+
+templ Layout(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title }</title>
+		</head>
+		<body>
+			{ children... }
+			<footer>Rendered by Orbit</footer>
+		</body>
+	</html>
+}
+
+templ Header(title string, links []data.Link) {
+	<header class="site-header">
+		<h1>{ title }</h1>
+		<nav>
+			for _, l := range links {
+				<a href={ templ.URL(l.Href) }>{ l.Text }</a>
+			}
+		</nav>
+	</header>
+}
+
+templ Card(id int, title string, count int, featured bool, href string, body string) {
+	<article class="card" data-id={ id } data-featured?={ featured }>
+		<h2><a href={ templ.URL(href) }>{ title }</a></h2>
+		<p class="body">{ body }</p>
+		<span class="count">{ count }</span>
+		<div class="extra">
+			{ children... }
+		</div>
+	</article>
+}
+
+templ Cards(items []data.Item) {
+	@Layout(data.PageTitle) {
+		@Header(data.PageTitle, data.Nav)
+		<main>
+			<ul class="cards">
+				for _, it := range items {
+					<li>
+						@Card(it.ID, it.Title, it.Count, it.Featured, it.Href, it.Body) {
+							<em>#{ it.ID }</em>
+						}
+					</li>
+				}
+			</ul>
+		</main>
+	}
+}

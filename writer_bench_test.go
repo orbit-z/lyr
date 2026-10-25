@@ -109,15 +109,16 @@ func BenchmarkEscapeLongEscaped(b *testing.B) {
 	bench(b, func(w *Writer) { w.String(s) })
 }
 
+// BenchmarkInjectHead inserts the head tags of a page without </head>
+// after its doctype, which moves the whole page.
 func BenchmarkInjectHead(b *testing.B) {
-	page := "<!DOCTYPE html><html><head><title>x</title></head><body>" + strings.Repeat("<p>hi</p>", 1000) + "</body></html>"
-	marker := strings.Index(page, "</head>")
-	assets := []Asset{{Kind: "css", URL: "/_orbit/a.css"}, {Kind: "js", URL: "/_orbit/b.js"}}
+	page := "<!DOCTYPE html><html><body>" + strings.Repeat("<p>hi</p>", 1000) + "</body></html>"
+	tags := headTags("", []Asset{{Kind: "css", URL: "/_orbit/a.css"}, {Kind: "js", URL: "/_orbit/b.js"}})
 	b.ReportAllocs()
 	for b.Loop() {
 		buf := getBuffer()
 		buf.WriteString(page)
-		injectHead(buf, marker, "", assets)
+		injectHead(buf, tags)
 		putBuffer(buf)
 	}
 }

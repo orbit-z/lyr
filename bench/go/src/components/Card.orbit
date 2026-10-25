@@ -1,0 +1,16 @@
+---
+type Props struct {
+	ID       int
+	Title    string
+	Count    int
+	Featured bool
+	Href     string
+	Body     string
+}
+---
+<article class="card" data-id={props.ID} data-featured={props.Featured}>
+  <h2><a href={props.Href}>{props.Title}</a></h2>
+  <p class="body">{props.Body}</p>
+  <span class="count">{props.Count}</span>
+  <div class="extra"><slot /></div>
+</article>
