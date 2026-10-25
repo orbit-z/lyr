@@ -403,3 +403,15 @@ To override a decision, say which row and the alternative you want; the docs and
 | The docs advise against a gopls `directoryFilters` entry for `orbit_gen/`, because Orbit's gopls gets the same settings | simplest | Strip `directoryFilters` from the settings Orbit forwards | [Editor setup](editor-setup.md#the-go-extensions-errors-in-orbit_gen) |
 | The LSP always generates every file in memory and uses its own source maps; it never reads maps for `orbit_gen/` files, and none are written to disk | coordinator (simplest) | Sidecar map files next to the generated code | — |
 | Tolerant (editor) code is never type-checked: every expression uses `Expr` | simplest (keeps the editor fast; output isn't rendered) | Type-check it too | — |
+
+## Example site (`examples/blog`)
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| `examples/blog/go.mod` requires `v0.0.0` with `replace github.com/bertrandkhe/orbit => ../..`; the integration test copies the example and rewrites the replace to the repository's absolute path | simplest | An absolute path from `orbit new`; a `go.work` file | `examples/blog/README.md` |
+| The integration test lives in `internal/build` (`TestExampleBlog`), next to the other end-to-end tests whose helpers it reuses | simplest | A new `internal/examples` test package with copied helpers | — |
+| `LikeButton` is a custom element whose script POSTs to `/blog/{slug}/like` and swaps in the returned fragment (`outerHTML`); no htmx | simplest (no dependency; the docs' recommended custom-element pattern) | htmx `hx-post`, as in the `server.md` snippet | `examples/blog/README.md` |
+| The `javascript:` URL filter is shown by an untrusted commenter website in the deferred comments, not a dedicated page | simplest (keeps the example realistic) | A `/security` demo page | `examples/blog/README.md` |
+| The JSON-LD `<script>` goes into the layout's `<head>` through a named `head` slot | Astro (named slot in a layout's `<head>`) | Put it in `<body>` | `examples/blog/README.md` |
+| The `theme` cookie sets `Theme` to `dark` only for the value `dark`, `light` otherwise | simplest (as in [Middleware and locals](middleware.md)) | Copy any cookie value | [Middleware and locals](middleware.md) |
+| The simulated slow comment query is a package variable, `posts.CommentDelay` (200 ms), which `views_test` sets to 0 | simplest | A build tag; an environment variable | — |

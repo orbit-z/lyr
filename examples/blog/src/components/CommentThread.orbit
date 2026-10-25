@@ -1,0 +1,40 @@
+---
+import "example.com/blog/internal/posts"
+
+type Props struct {
+    Comments []posts.Comment
+}
+---
+<ul class="thread">
+  {for _, c := range props.Comments}
+    <li>
+      <p class="author">
+        {if c.Website != ""}
+          <a href={c.Website} rel="nofollow ugc">{c.Author}</a>
+        {else}
+          {c.Author}
+        {/if}
+      </p>
+      <p>{c.Text}</p>
+      {if len(c.Replies) > 0}
+        <Self comments={c.Replies} />
+      {/if}
+    </li>
+  {/for}
+</ul>
+<style>
+  .thread {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .thread .thread {
+    padding-left: 1.25rem;
+    border-left: 2px solid var(--border);
+  }
+  .author {
+    margin: 0.75rem 0 0;
+    font-weight: 600;
+  }
+  p { margin: 0.25rem 0; }
+</style>

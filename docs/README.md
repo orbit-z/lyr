@@ -7,6 +7,7 @@ Orbit is a server-rendered (SSR) web framework with Astro's developer experience
 - [Project structure](project-structure.md)
 - [Editor setup](editor-setup.md): VS Code, Neovim, gopls
 - [Coming from Astro](coming-from-astro.md): how Astro concepts map to Orbit
+- [Example blog](../examples/blog/README.md): a small site that uses the features these pages describe
 
 ## Guides
 - [Components](components.md): frontmatter, props, templates, slots, recursion, escaping
