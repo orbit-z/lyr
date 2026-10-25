@@ -90,6 +90,7 @@ type clientCaps struct {
 	configuration   bool // workspace.configuration
 	watchDynamic    bool // workspace.didChangeWatchedFiles.dynamicRegistration
 	documentChanges bool // workspace.workspaceEdit.documentChanges
+	snippets        bool // textDocument.completion.completionItem.snippetSupport
 }
 
 func (s *Server) logf(format string, args ...any) {
@@ -161,6 +162,10 @@ func (s *Server) request(ctx context.Context, method string, params jsonRaw) (an
 		return s.definition(ctx, params)
 	case "textDocument/references":
 		return s.references(ctx, params)
+	case "textDocument/completion":
+		return s.completion(ctx, params)
+	case "textDocument/signatureHelp":
+		return s.signatureHelp(ctx, params)
 	}
 	return nil, &rpcError{Code: codeMethodNotFound, Message: "method not supported: " + method}
 }
@@ -235,6 +240,7 @@ func (s *Server) initialize(params jsonRaw) (any, *rpcError) {
 		configuration:   capBool(p.Capabilities, "workspace", "configuration"),
 		watchDynamic:    capBool(p.Capabilities, "workspace", "didChangeWatchedFiles", "dynamicRegistration"),
 		documentChanges: capBool(p.Capabilities, "workspace", "workspaceEdit", "documentChanges"),
+		snippets:        capBool(p.Capabilities, "textDocument", "completion", "completionItem", "snippetSupport"),
 	}
 	var dirs []string
 	if d := uriToPath(p.RootURI); d != "" {
@@ -265,6 +271,12 @@ func (s *Server) initialize(params jsonRaw) (any, *rpcError) {
 			"hoverProvider":      true,
 			"definitionProvider": true,
 			"referencesProvider": true,
+			// No resolveProvider: gopls's items are complete (docs inline,
+			// no data) and so are Orbit's.
+			"completionProvider": map[string]any{
+				"triggerCharacters": []string{".", "<", " ", ":", `"`, "'", "{"},
+			},
+			"signatureHelpProvider": map[string]any{"triggerCharacters": []string{"(", ","}},
 		},
 		"serverInfo": map[string]any{"name": "orbit", "version": s.opts.Version},
 	}, nil

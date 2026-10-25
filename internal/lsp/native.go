@@ -27,6 +27,15 @@ const (
 	regionProp
 	// regionImport is an .orbit import's alias or path in the frontmatter.
 	regionImport
+	// regionTagName is another tag name being typed (<di), or the position
+	// right after a lone "<" in text.
+	regionTagName
+	// regionAttr is an attribute-name position in a start tag: between
+	// attributes, or on the name of a directive or of a non-component's
+	// attribute (a prop's name is regionProp).
+	regionAttr
+	// regionSlot is the value of a slot="…" attribute.
+	regionSlot
 )
 
 // region is the classified cursor position.
@@ -35,6 +44,17 @@ type region struct {
 	comp *compiler.Component
 	attr *compiler.Attr
 	imp  *compiler.OrbitImport
+	// node is the tag-shaped node of a regionTag, regionTagName,
+	// regionAttr, regionProp or regionSlot (nil after a lone "<").
+	node compiler.Node
+	// span is what a completion replaces: the tag name typed so far
+	// (regionTag, regionTagName) or the slot value (regionSlot).
+	span compiler.Span
+	// parent is the component a regionSlot tag is passed to: the nearest
+	// enclosing component with only control flow in between, else nil.
+	parent *compiler.Component
+	// frontmatter is true for a regionGo in the frontmatter.
+	frontmatter bool
 }
 
 // classify returns the region at byte offset off of f.
@@ -52,51 +72,106 @@ func classify(f *project.File, off int) region {
 				}
 			}
 		}
-		return region{kind: regionGo}
+		return region{kind: regionGo, frontmatter: true}
 	}
 	var out region
-	compiler.Walk(f.AST.Template, func(n compiler.Node) bool {
-		if out.kind != regionNone || !n.Bounds().Contains(off) {
+	// visit reports whether it settled out (possibly as regionNone) at n
+	// or below.
+	var visit func(n compiler.Node, parent *compiler.Component) bool
+	visit = func(n compiler.Node, parent *compiler.Component) bool {
+		if !n.Bounds().Contains(off) {
 			return false
 		}
 		switch n := n.(type) {
+		case *compiler.Text:
+			if off > n.Start && f.Src[off-1] == '<' {
+				out = region{kind: regionTagName, span: compiler.Span{Start: off, End: off}}
+				return true
+			}
+			return false
 		case *compiler.Expr:
 			if n.Code.Contains(off) {
 				out = region{kind: regionGo}
+				return true
 			}
 		case *compiler.Branch:
 			if !n.Else && n.Header.Contains(off) && n.Cond.Contains(off) {
 				out = region{kind: regionGo}
+				return true
 			}
 		case *compiler.For:
 			if n.Header.Contains(off) && n.Clause.Contains(off) {
 				out = region{kind: regionGo}
+				return true
 			}
 		}
-		if out.kind != regionNone {
-			return false
+		if t := compiler.TagOf(n); t != nil && inStartTag(f.Src, t, off) {
+			out = classifyTag(n, t, off, parent)
+			return true
 		}
-		if t := compiler.TagOf(n); t != nil && t.StartTag.Contains(off) {
-			comp, _ := n.(*compiler.Component)
-			if comp != nil && t.NameSpan.Contains(off) {
-				out = region{kind: regionTag, comp: comp}
-				return false
-			}
-			for _, a := range t.Attrs {
-				switch {
-				case (a.IsExpr() || a.Kind == compiler.AttrSpread) && a.Code.Contains(off):
-					out = region{kind: regionGo, comp: comp, attr: a}
-				case comp != nil && a.Directive == compiler.NotDirective && a.Kind != compiler.AttrSpread && a.NameSpan.Contains(off):
-					out = region{kind: regionProp, comp: comp, attr: a}
-				default:
-					continue
-				}
-				return false
+		switch n := n.(type) {
+		case *compiler.Component:
+			parent = n
+		case *compiler.Element, *compiler.Slot, *compiler.Fragment, *compiler.Script, *compiler.Style:
+			parent = nil
+		}
+		for _, c := range compiler.ChildNodes(n) {
+			if visit(c, parent) {
+				return true
 			}
 		}
-		return out.kind == regionNone
-	})
+		return false
+	}
+	visit(f.AST.Template, nil)
 	return out
+}
+
+// inStartTag reports whether off is inside t's start tag: after the "<"
+// and, when the tag is closed, not after its ">" or "/>".
+func inStartTag(src string, t *compiler.Tag, off int) bool {
+	st := t.StartTag
+	if !st.Contains(off) || off == st.Start {
+		return false
+	}
+	if st.End > st.Start && st.End <= len(src) && src[st.End-1] == '>' {
+		end := st.End - 1
+		if t.SelfClosing && end > st.Start && src[end-1] == '/' {
+			end--
+		}
+		return off <= end
+	}
+	return true
+}
+
+// classifyTag classifies a position inside the start tag of n; parent is
+// the component n is passed to as slot content.
+func classifyTag(n compiler.Node, t *compiler.Tag, off int, parent *compiler.Component) region {
+	comp, _ := n.(*compiler.Component)
+	if t.NameSpan.Contains(off) {
+		if comp != nil {
+			return region{kind: regionTag, comp: comp, node: n, span: t.NameSpan}
+		}
+		return region{kind: regionTagName, node: n, span: t.NameSpan}
+	}
+	for _, a := range t.Attrs {
+		switch {
+		case (a.IsExpr() || a.Kind == compiler.AttrSpread) && a.Code.Contains(off):
+			return region{kind: regionGo, comp: comp, attr: a, node: n}
+		case a.IsStatic() && a.ValueSpan.Contains(off):
+			if a.Directive == compiler.SlotDirective {
+				return region{kind: regionSlot, comp: comp, attr: a, node: n, span: a.ValueSpan, parent: parent}
+			}
+			return region{}
+		case a.Kind != compiler.AttrSpread && a.NameSpan.Contains(off):
+			if comp != nil && a.Directive == compiler.NotDirective {
+				return region{kind: regionProp, comp: comp, attr: a, node: n}
+			}
+			return region{kind: regionAttr, comp: comp, attr: a, node: n}
+		case off > a.Start && off < a.End:
+			return region{} // on "=", a quote or a brace
+		}
+	}
+	return region{kind: regionAttr, comp: comp, node: n}
 }
 
 // target returns the index entry of the component a tag calls: the file
@@ -167,19 +242,7 @@ func (ws *workspace) nativeHover(f *project.File, reg region, lines *lineIndex) 
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "```orbit\n<%s>\n```\n\nComponent `%s`", reg.comp.Name, info.Path)
-	if len(info.Props.Fields) > 0 {
-		b.WriteString("\n\nProps:\n")
-		for _, pf := range info.Props.Fields {
-			fmt.Fprintf(&b, "- `%s %s`", pf.Name, pf.Type)
-			if doc := strings.TrimSpace(pf.Doc); doc != "" {
-				fmt.Fprintf(&b, ": %s", strings.ReplaceAll(doc, "\n", " "))
-			}
-			b.WriteString("\n")
-		}
-	}
-	if len(info.Slots) > 0 {
-		fmt.Fprintf(&b, "\n\nSlots: %s", "`"+strings.Join(info.Slots, "`, `")+"`")
-	}
+	b.WriteString(propsAndSlots(info))
 	return map[string]any{
 		"contents": map[string]any{"kind": "markdown", "value": b.String()},
 		"range":    lines.rangeOf(reg.comp.NameSpan.Start, reg.comp.NameSpan.End, encUTF16),

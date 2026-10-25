@@ -45,6 +45,9 @@ type workspace struct {
 	goplsDiags map[string]goplsDiags
 	// published is the last diagnostics JSON published per .orbit path.
 	published map[string]string
+	// scratch are the scratch files open in gopls, by module-relative
+	// path (complete.go).
+	scratch map[string]*scratchFile
 }
 
 // document is an .orbit file open in the editor.
@@ -107,7 +110,7 @@ func loadWorkspace(root string) (*workspace, error) {
 	p.Front()
 	ws := &workspace{root: p.Root, module: p.Module, proj: p, lines: map[string]*lineIndex{},
 		docs: map[string]*document{}, gen: map[string]*genFile{}, goplsDiags: map[string]goplsDiags{},
-		published: map[string]string{}}
+		published: map[string]string{}, scratch: map[string]*scratchFile{}}
 	if mod, err := config.ReadGoMod(p.Root); err == nil {
 		ws.goVersion = mod.Go
 	}
@@ -307,6 +310,7 @@ func (g *genFile) diskMatches() bool {
 // that differs from disk as an overlay.
 func (ws *workspace) openOverlays(c *Conn) {
 	ws.gopls = c
+	clear(ws.scratch)
 	for _, rel := range slices.Sorted(maps.Keys(ws.gen)) {
 		ws.pushOverlay(ws.gen[rel])
 	}
