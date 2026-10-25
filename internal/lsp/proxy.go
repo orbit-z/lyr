@@ -109,7 +109,23 @@ func (s *Server) startGopls(ws *workspace) {
 	}()
 	s.mu.Lock()
 	s.gopls = proc
-	params := s.goplsInitParams(ws)
+	// With many overlay-only files, gopls starts on an empty placeholder
+	// folder and gets the project's folder once the overlays are open.
+	placeholder := ""
+	if ws.overlayOnlyCount() >= reloadMin {
+		if dir, err := os.MkdirTemp("", "orbit-lsp-"); err == nil {
+			placeholder = dir
+			s.placeholder = pathToURI(dir)
+			defer os.RemoveAll(dir)
+		} else {
+			s.logf("gopls placeholder folder: %v", err)
+		}
+	}
+	folder := ws.root
+	if placeholder != "" {
+		folder = placeholder
+	}
+	params := s.goplsInitParams(ws, folder)
 	s.mu.Unlock()
 
 	// go tool gopls builds gopls on first use, which can take a minute.
@@ -152,21 +168,33 @@ func (s *Server) startGopls(ws *workspace) {
 			overlays++
 		}
 	}
-	// gopls's initial workspace load ran before the overlays arrived, so it
-	// missed the packages that exist only as overlays, and loads each one
-	// lazily with its own go list (~25 ms each at 200 files, serially).
-	// With many of them, re-adding the workspace folder starts a new
-	// workspace load that sees them all at once.
-	reload := len(targets) >= reloadMin
+	// A workspace load misses the packages that exist only as overlays
+	// sent after it started, and gopls then loads each one lazily with its
+	// own go list (~25 ms each at 200 files, serially). With many of them,
+	// the project's folder is added only now, so that its one workspace
+	// load sees them all. gopls ran on the placeholder folder meanwhile:
+	// with the project's folder there, each didOpen costs gopls time
+	// proportional to the overlays already open (a lazy load of the file's
+	// package, a snapshot clone), and its initial load (~0.2 s) would only
+	// delay the folder change. Without a placeholder (overlay-only files
+	// found only by the typed check), re-adding the folder reloads it.
+	reload := placeholder != "" || len(targets) >= reloadMin
 	if reload {
-		folder := map[string]any{"uri": pathToURI(ws.root), "name": filepath.Base(ws.root)}
+		root := map[string]any{"uri": pathToURI(ws.root), "name": filepath.Base(ws.root)}
+		old := root
+		if placeholder != "" {
+			old = map[string]any{"uri": pathToURI(placeholder), "name": filepath.Base(placeholder)}
+		}
 		proc.conn.Notify("workspace/didChangeWorkspaceFolders", map[string]any{
-			"event": map[string]any{"removed": []any{folder}, "added": []any{folder}}})
+			"event": map[string]any{"removed": []any{old}, "added": []any{root}}})
 	}
 	s.mu.Unlock()
 	s.markReady()
 	reloaded := ""
-	if reload {
+	switch {
+	case placeholder != "":
+		reloaded = "; project folder added after them"
+	case reload:
 		reloaded = "; workspace reloaded"
 	}
 	s.logf("gopls ready in %v (%d generated files, %d overlays, %d of them overlay-only%s)", time.Since(start).Round(time.Millisecond),
@@ -206,18 +234,18 @@ const barrierParallel = 4
 // goplsInitParams builds gopls's initialize params from the editor's
 // capabilities, with UTF-16 positions, configuration, progress and
 // versioned diagnostics, which the proxy handles itself.
-func (s *Server) goplsInitParams(ws *workspace) map[string]any {
+func (s *Server) goplsInitParams(ws *workspace, folder string) map[string]any {
 	caps := cloneJSON(s.rawCaps)
 	setCap(caps, []string{"general", "positionEncodings"}, []string{"utf-16"})
 	setCap(caps, []string{"workspace", "configuration"}, true)
 	setCap(caps, []string{"window", "workDoneProgress"}, true)
 	setCap(caps, []string{"textDocument", "publishDiagnostics", "versionSupport"}, true)
-	uri := pathToURI(ws.root)
+	uri := pathToURI(folder)
 	return map[string]any{
 		"processId":        os.Getpid(),
 		"clientInfo":       map[string]any{"name": "orbit lsp"},
 		"rootUri":          uri,
-		"workspaceFolders": []any{map[string]any{"uri": uri, "name": filepath.Base(ws.root)}},
+		"workspaceFolders": []any{map[string]any{"uri": uri, "name": filepath.Base(folder)}},
 		"capabilities":     caps,
 	}
 }
@@ -624,8 +652,8 @@ func (s *Server) configuration(ctx context.Context, params jsonRaw, ask bool) js
 		items := make([]obj, len(p.Items))
 		for i, it := range p.Items {
 			it = maps1(it)
-			if scope := it.str("scopeUri"); scope != "" && ws != nil && isGenPath(ws.rel(uriToPath(scope))) {
-				it.set("scopeUri", pathToURI(ws.root)) // the editor doesn't know generated files
+			if scope := it.str("scopeUri"); scope != "" && ws != nil && (scope == s.placeholder || isGenPath(ws.rel(uriToPath(scope)))) {
+				it.set("scopeUri", pathToURI(ws.root)) // the editor knows neither generated files nor the placeholder
 			}
 			items[i] = it
 		}
@@ -647,6 +675,13 @@ func (s *Server) configuration(ctx context.Context, params jsonRaw, ask bool) js
 			}
 			if _, set := o["diagnosticsDelay"]; !set {
 				o.set("diagnosticsDelay", "50ms")
+			}
+			// Orbit's gopls sees only the project's module, so it needs no
+			// zero-config views for open files, whose selection costs each
+			// didOpen time proportional to the files already open (it walks
+			// each one's directories): ~1 s over 400 overlays.
+			if _, set := o["zeroConfig"]; !set {
+				o.set("zeroConfig", false)
 			}
 			v = o.marshal()
 		}
