@@ -604,7 +604,7 @@ func TestInjectHead(t *testing.T) {
 			defer putBuffer(buf)
 			w := NewWriter(buf)
 			tt.write(w)
-			injectHead(buf, w.headOffset(), tt.assets)
+			injectHead(buf, w.headOffset(), "", tt.assets)
 			if got := buf.String(); got != tt.want {
 				t.Errorf("got\n%s\nwant\n%s", got, tt.want)
 			}

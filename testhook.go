@@ -19,8 +19,9 @@ var _ = func() bool {
 func testRender(r *http.Request, names, vals []string, render func(ctx, w any) error) (html string, err error) {
 	c := acquireCtx(r, nil, false)
 	c.paramNames, c.paramVals = names, vals
-	// Milestone 8: set the fixed test island key and build ID
-	// "0000000000000000" on c here, so server:defer placeholders are stable.
+	// The fixed test island key and build ID 0000000000000000, so
+	// server:defer placeholders are the same on every run.
+	c.keys = testKeyring()
 	buf := getBuffer()
 	wr := writerPool.Get().(*Writer)
 	wr.reset(buf)

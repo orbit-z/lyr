@@ -2,6 +2,7 @@ package build
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -48,6 +49,11 @@ func TestE2E(t *testing.T) {
 			entries, _ := os.ReadDir(filepath.Join(dir, "dist"))
 			if len(entries) != 2 {
 				t.Errorf("dist/ has %d entries, want client and server", len(entries))
+			}
+			// The island key and build ID are embedded with -ldflags=-X.
+			info, err := exec.Command("go", "version", "-m", filepath.Join(dir, "dist/server")).Output()
+			if err != nil || !regexp.MustCompile(`-X github.com/bertrandkhe/orbit.buildKey=[A-Za-z0-9+/]{43}= -X github.com/bertrandkhe/orbit.buildID=[0-9a-f]{16}`).Match(info) {
+				t.Errorf("go version -m dist/server: %v\n%s", err, info)
 			}
 
 			s := start(t, dir, filepath.Join(dir, "dist/server"))

@@ -35,8 +35,9 @@ func putBuffer(buf *bytes.Buffer) {
 	bufferPool.Put(buf)
 }
 
-// injectHead inserts the <link> and <script> tags for assets into the
-// rendered page in buf, in asset order.
+// injectHead inserts loader (the loader tags, or "") and then the <link>
+// and <script> tags for assets into the rendered page in buf, in asset
+// order.
 //
 // marker is the offset recorded by Writer.HeadEnd (the first </head>), or -1
 // if the page has none. Without a marker, the tags go right after a leading
@@ -44,10 +45,11 @@ func putBuffer(buf *bytes.Buffer) {
 // and the page doesn't drop into quirks mode; otherwise at the start.
 //
 // Only "css" and "js" assets produce tags. "lazy" assets are loaded by the
-// client loader, and other kinds are ignored.
-func injectHead(buf *bytes.Buffer, marker int, assets []Asset) {
+// client loader (whose map is in loader), and other kinds are ignored.
+func injectHead(buf *bytes.Buffer, marker int, loader string, assets []Asset) {
 	tags := getBuffer()
 	defer putBuffer(tags)
+	tags.WriteString(loader)
 	for _, a := range assets {
 		switch a.Kind {
 		case "css":

@@ -50,7 +50,7 @@ func init() {
 		{name: "new", args: "<dir> [--module path]", short: "create a project", run: runNew},
 		{name: "check", short: "type-check Go and TypeScript", run: runCheck},
 		{name: "doctor", args: "[--json]", short: "check the environment and project", run: notYet("doctor")},
-		{name: "create-key", short: "print a new island key for ORBIT_KEY", run: notYet("create-key")},
+		{name: "create-key", short: "print a new island key for ORBIT_KEY", run: runCreateKey},
 		{name: "lsp", short: "language server over stdio", run: notYet("lsp")},
 	}
 }

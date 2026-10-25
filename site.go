@@ -29,6 +29,11 @@ type Site struct {
 	// devAssets, in dev with ORBIT_STATIC set, gives the page assets from
 	// $ORBIT_STATIC/manifest.json; nil in production.
 	devAssets *devManifest
+	keys      *keyring           // island key and build ID
+	islands   map[string]*Island // the island table, by component ID
+	// loaders holds the precomputed loader tags (loaderHead) of the routes
+	// that need the loader; unused in dev with a dev manifest.
+	loaders map[*Route]string
 }
 
 // Option configures a Site. Pass options to app.New().
@@ -38,19 +43,20 @@ type siteOptions struct {
 	site      *url.URL
 	staticDir string
 	staticFS  fs.FS
-}
-
-// Island is one entry of the server:defer island table (milestone 8).
-// Generated code passes nil until then.
-type Island struct {
-	_ struct{}
+	key       []byte // WithKey
 }
 
 // NewSite is called by the generated orbit_gen/app.New(). It compiles the
 // routes and panics if they're invalid; orbit build reports the same errors
-// at build time. It reads the environment once: ORBIT_DEV, ORBIT_STATIC and,
-// in dev, ORBIT_PUBLIC. In dev, page assets come from
+// at build time. It reads the environment once: ORBIT_DEV, ORBIT_STATIC,
+// ORBIT_KEY and, in dev, ORBIT_PUBLIC. In dev, page assets come from
 // $ORBIT_STATIC/manifest.json when it exists (orbit dev writes it).
+//
+// The island key is WithKey's, else $ORBIT_KEY (standard base64 of 32 bytes;
+// anything else panics), else the fixed test key under go test, else the key
+// embedded by orbit build, else a random key for the process (with a
+// warning on stderr when the site has islands). A duplicate island ID
+// panics.
 func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 	rt, err := newRouter(routes)
 	if err != nil {
@@ -64,6 +70,25 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 		router: rt,
 		site:   o.site,
 		dev:    os.Getenv("ORBIT_DEV") == "1",
+		keys:   resolveKeyring(o.key),
+	}
+	s.keys.warnIfRandom(len(islands))
+	s.islands = make(map[string]*Island, len(islands))
+	for i := range islands {
+		isl := &islands[i]
+		if prev, ok := s.islands[isl.id]; ok {
+			panic(fmt.Sprintf("orbit: island %s is registered twice (%s and %s)", isl.id, prev.file, isl.file))
+		}
+		s.islands[isl.id] = isl
+	}
+	for i := range routes {
+		r := &routes[i]
+		if head := loaderHead(s.dev, r.Islands, r.Assets); head != "" {
+			if s.loaders == nil {
+				s.loaders = make(map[*Route]string)
+			}
+			s.loaders[r] = head
+		}
 	}
 	s.assets = resolveStatic(o, s.dev)
 	s.public = s.assets
@@ -104,7 +129,8 @@ func WithStaticFS(fsys fs.FS) Option {
 }
 
 // Middleware serves the requests Orbit owns and passes the rest to next,
-// untouched. In order: static files (/_orbit/* assets and public/ files,
+// untouched. In order: island requests (/_orbit/island/…, GET, HEAD and
+// POST; other methods get a 405), static files (/_orbit/* assets and public/ files,
 // GET and HEAD only), then pages (all methods), including the 308 redirect
 // of a trailing-slash path whose slash-less form is a page.
 func (s *Site) Middleware(next http.Handler) http.Handler {
@@ -127,13 +153,17 @@ type middleware struct {
 
 func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s := m.site
+	if rest, ok := strings.CutPrefix(r.URL.Path, islandPrefix); ok {
+		s.serveIsland(w, r, rest)
+		return
+	}
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
 		if s.serveFile(w, r) {
 			return
 		}
 	}
 	path := r.URL.EscapedPath()
-	c := acquireCtx(r, s.site, s.dev)
+	c := s.acquire(r)
 	if route := c.matchRoute(s.router, path); route != nil {
 		s.servePage(w, r, c, route, false)
 		return
@@ -160,7 +190,14 @@ func (s *Site) serveNotFound(w http.ResponseWriter, r *http.Request) {
 		emptyNotFound(w)
 		return
 	}
-	s.servePage(w, r, acquireCtx(r, s.site, s.dev), route, true)
+	s.servePage(w, r, s.acquire(r), route, true)
+}
+
+// acquire returns a pooled Ctx for a request to s.
+func (s *Site) acquire(r *http.Request) *Ctx {
+	c := acquireCtx(r, s.site, s.dev)
+	c.keys = s.keys
+	return c
 }
 
 func emptyNotFound(w http.ResponseWriter) {
@@ -197,11 +234,15 @@ func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *
 		return
 	}
 	assets := route.Assets
+	var loader string
 	if s.devAssets != nil {
 		assets = s.devAssets.assets(route)
+		loader = loaderHead(s.dev, route.Islands, assets)
+	} else if s.loaders != nil {
+		loader = s.loaders[route]
 	}
-	if len(assets) > 0 {
-		injectHead(buf, wr.headOffset(), assets)
+	if len(assets) > 0 || loader != "" {
+		injectHead(buf, wr.headOffset(), loader, assets)
 	}
 	wr.reset(nil)
 	writerPool.Put(wr)
@@ -322,7 +363,7 @@ func (s *Site) renderFailed(w http.ResponseWriter, r *http.Request, err error, h
 			emptyNotFound(w)
 			return
 		}
-		s.servePage(w, r, acquireCtx(r, s.site, s.dev), s.router.notFound, true)
+		s.servePage(w, r, s.acquire(r), s.router.notFound, true)
 	default:
 		s.serverError(w, r, err)
 	}

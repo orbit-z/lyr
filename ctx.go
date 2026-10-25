@@ -25,6 +25,7 @@ type Ctx struct {
 	status     int         // 0 means unset (200)
 	header     http.Header // nil until Header is first called on this Ctx
 	dev        bool        // running under orbit dev
+	keys       *keyring    // island key and build ID for Defer; nil: defaultKeyring
 }
 
 // Param returns the percent-decoded value of the route parameter name, such

@@ -373,7 +373,9 @@ Sets the 32-byte island key that encrypts `server:defer` props. Without it, the 
 1. `WithKey`, if given;
 2. `$ORBIT_KEY`: the standard base64 encoding of exactly 32 bytes, as printed by [`orbit create-key`](cli.md#orbit-create-key). Any other value panics at startup with a message saying what's wrong;
 3. the key `orbit build` embeds in the binary, new for each build;
-4. otherwise (a plain `go build` or `go run`), a random key for the process, with a one-line warning on stderr.
+4. otherwise (a plain `go build` or `go run`), a random key for the process, with a one-line warning on stderr when the site has `server:defer` components.
+
+Under `go test`, the fixed test key replaces steps 3 and 4, and the build ID is `0000000000000000`. A key that isn't 32 bytes long makes `WithKey` panic.
 
 All instances of one build share its embedded key. For rolling deploys, or several builds behind one load balancer, set the same `ORBIT_KEY` everywhere. See [Deploy](../deploy.md).
 

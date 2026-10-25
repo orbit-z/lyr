@@ -117,7 +117,7 @@ func BenchmarkInjectHead(b *testing.B) {
 	for b.Loop() {
 		buf := getBuffer()
 		buf.WriteString(page)
-		injectHead(buf, marker, assets)
+		injectHead(buf, marker, "", assets)
 		putBuffer(buf)
 	}
 }
