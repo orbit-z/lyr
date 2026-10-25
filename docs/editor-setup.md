@@ -133,13 +133,11 @@ go install golang.org/x/tools/gopls@latest
 
 A gopls built with a recent enough Go but older than v0.24.0 still runs; `orbit doctor` warns about it.
 
-## The "Run orbit generate" nudge
+## Startup and `orbit_gen/`
 
 The language server never writes to `orbit_gen/`. It generates the Go code for your `.orbit` files in memory and hands it to gopls, so it works in a fresh clone too.
 
-If `orbit_gen/` doesn't exist when the language server starts, your editor shows a one-time message, **"Run orbit generate for faster startup"**, with a button that runs `orbit generate` for you as a separate process.
-
-It's worth clicking. With an up-to-date `orbit_gen/`, gopls reads the generated code of every file you haven't edited from disk, as it would for any Go project; only the files you're editing, and those changed since `orbit generate` last ran, are handed over from memory. On a 200-component project, Go features answer about 0.2 s after the editor starts. Without `orbit_gen/`, gopls first loads every component from memory, in one go: Go features answer about 0.4 s after the editor starts on the same project, and **references and rename wait** for that load, so they don't miss any uses. Your editor shows a progress indicator meanwhile. With only a few components missing from `orbit_gen/`, gopls loads those one by one instead; completion, hover and diagnostics don't wait for them. Keeping `orbit dev` running keeps `orbit_gen/` up to date.
+With an up-to-date `orbit_gen/`, gopls reads the generated code of every file you haven't edited from disk, as it would for any Go project; only the files you're editing, and those changed since `orbit generate` last ran, are handed over from memory. On a 200-component project, Go features answer about 0.2 s after the editor starts. Without `orbit_gen/`, gopls first loads every component from memory, in one go: Go features answer about 0.4 s after the editor starts on the same project, and **references and rename wait** for that load, so they don't miss any uses. Your editor shows a progress indicator meanwhile. With only a few components missing from `orbit_gen/`, gopls loads those one by one instead; completion, hover and diagnostics don't wait for them. Keeping `orbit dev` running keeps `orbit_gen/` up to date.
 
 ## What completion covers
 
@@ -189,7 +187,7 @@ Orbit refuses a rename, with a message:
 - when it would have to change generated code that doesn't correspond to anything in your files;
 - of a `Props` field to an unexported name (`article`): a parent couldn't set it.
 
-Rename waits until the language server has loaded the whole project (see [the nudge above](#the-run-orbit-generate-nudge)), so it never misses a use.
+Rename waits until the language server has loaded the whole project (see [Startup and `orbit_gen/`](#startup-and-orbit_gen)), so it never misses a use.
 
 ## See also
 

@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -27,9 +26,6 @@ type Options struct {
 	Log io.Writer
 	// Version is reported in serverInfo.
 	Version string
-	// Orbit is the orbit executable the "Run orbit generate" action runs;
-	// "" means os.Executable().
-	Orbit string
 }
 
 // Run serves one editor session on in/out until the editor sends exit or
@@ -797,18 +793,6 @@ func (s *Server) references(ctx context.Context, params jsonRaw) (any, *rpcError
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.mapper().mapLocations(raw, nil), nil
-}
-
-// orbitExecutable is the orbit binary for the generate action.
-func (s *Server) orbitExecutable() string {
-	if s.opts.Orbit != "" {
-		return s.opts.Orbit
-	}
-	exe, err := os.Executable()
-	if err != nil {
-		return "orbit"
-	}
-	return exe
 }
 
 var (

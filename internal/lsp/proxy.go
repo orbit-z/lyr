@@ -199,9 +199,6 @@ func (s *Server) startGopls(ws *workspace) {
 	}
 	s.logf("gopls ready in %v (%d generated files, %d overlays, %d of them overlay-only%s)", time.Since(start).Round(time.Millisecond),
 		len(ws.gen), overlays, len(targets), reloaded)
-	if ws.genMissing {
-		go s.nudge(ws)
-	}
 	t := time.Now()
 	loaded := s.barrier(proc.conn, ws, targets)
 	s.logf("readiness barrier: %v (%d packages loaded one by one)", time.Since(t).Round(time.Millisecond), len(loaded))
@@ -505,36 +502,6 @@ func (s *Server) progressBegin(title, msg string) string {
 
 func (s *Server) progress(token string, value map[string]any) {
 	s.client.Notify("$/progress", map[string]any{"token": token, "value": value})
-}
-
-// nudge is the one-time "Run orbit generate" message (PLAN.md §9 step 2),
-// shown when orbit_gen/ was missing at startup. Its action runs orbit
-// generate as a separate process; the server itself writes nothing.
-func (s *Server) nudge(ws *workspace) {
-	const action = "Run orbit generate"
-	raw, err := s.client.Call(context.Background(), "window/showMessageRequest", map[string]any{
-		"type":    msgInfo,
-		"message": "Run orbit generate for faster startup",
-		"actions": []any{map[string]any{"title": action}},
-	})
-	if err != nil || isNull(raw) || decodeObj(raw).str("title") != action {
-		return
-	}
-	cmd := exec.Command(s.orbitExecutable(), "generate")
-	cmd.Dir = ws.root
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		msg := strings.TrimSpace(string(out))
-		if i := strings.IndexByte(msg, '\n'); i >= 0 {
-			msg = msg[:i] + " …"
-		}
-		if msg == "" {
-			msg = err.Error()
-		}
-		s.showMessage(msgError, "Orbit: orbit generate failed: "+msg)
-		return
-	}
-	s.showMessage(msgInfo, "Orbit: orbit generate wrote orbit_gen/.")
 }
 
 // fromGopls handles a message from gopls: requests to its client in their

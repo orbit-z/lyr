@@ -127,11 +127,12 @@ When independent tasks can run in parallel, launch them in **one message**. If p
   - **Typed writes**: on in dev too (hot, incremental). Engine: go/types + `go list -export` (no go/packages, no type cache). float32 prints as `0.1`. Dev builds use `-ldflags=-w`.
   - **LSP**:
     - UTF-16 positions to the editor.
-    - In-memory start plus a readiness barrier and an "orbit generate" nudge.
+    - In-memory start plus a readiness barrier. The "orbit generate" nudge was removed at the M12 checkpoint (user decision: startup is ~50 ms slower without `orbit_gen/`).
     - Rename drops `echo` edits.
     - An **old gopls is refused** for Go features.
   - `orbit new` always writes the `toolchain` line.
 - **Milestone 11 checkpoint**: `orbit doctor` reports a missing gopls as ✗ (kept); `orbit new`'s next steps and `getting-started.md` use the global `orbit dev` (it execs the pinned CLI, so Ctrl-C exits 0; `go tool orbit dev` exits 1); docs error examples become `expect-error` blocks; M12 runs in 3 stages (transport/proxy, completion, rename) plus an LSP latency benchmark.
+- **Milestone 12 checkpoint**: the "Run orbit generate" nudge is removed; M13 (VS Code extension) packages a `.vsix` **and** sets up publishing (a script for the Marketplace and Open VSX that the user runs with their own tokens; nothing is published by Claude); additions: commands (Restart Language Server, Run orbit generate, Run orbit doctor) and grammar snapshot tests (`vscode-tmgrammar-test`); `editors/vscode` uses **Bun** as its package manager.
 - **URLs** have no trailing slash (`/blog/hello`; `/blog/hello/` gets a 308 to `/blog/hello`).
 - **Middleware**: no `OnRequest`. There's one middleware model: plain net/http middleware plus typed locals (`WithLocals`/`LocalsFromRequest`). Orbit ships no auth.
 - **Server→client data**:

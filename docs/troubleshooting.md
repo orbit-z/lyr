@@ -730,7 +730,7 @@ TypeScript inside `<script>` gets syntax highlighting only, with no completion o
 
 **Cause:** until gopls has loaded every component, references and rename would miss uses, so Orbit holds them; your editor shows a progress indicator meanwhile. Without `orbit_gen/` on disk, gopls loads every component from memory first, which is a little slower: about 0.4 s for 200 components, against about 0.3 s with an up-to-date `orbit_gen/`.
 
-**Fix:** click **Run orbit generate for faster startup** when your editor offers it, or run `orbit generate` yourself (or keep `orbit dev` running). If a rename is refused with a message, it would have changed generated code that doesn't correspond to anything in your files. See [The "Run orbit generate" nudge](editor-setup.md#the-run-orbit-generate-nudge) and [Rename](editor-setup.md#rename).
+**Fix:** nothing to fix: it lasts well under a second. Running `orbit generate` (or keeping `orbit dev` running) makes it a little shorter. If a rename is refused with a message, it would have changed generated code that doesn't correspond to anything in your files. See [Startup and `orbit_gen/`](editor-setup.md#startup-and-orbit_gen) and [Rename](editor-setup.md#rename).
 
 ## See also
 

@@ -191,11 +191,10 @@ func TestIntegration(t *testing.T) {
 	})
 
 	t.Run("startup messages", func(t *testing.T) {
-		c.waitFor("the orbit generate nudge", 30*time.Second, func() bool { return len(c.requests) > 0 })
 		c.mu.Lock()
 		defer c.mu.Unlock()
-		if !strings.Contains(c.requests[0], "Run orbit generate for faster startup") {
-			t.Errorf("showMessageRequest: %q", c.requests[0])
+		if len(c.requests) != 0 {
+			t.Errorf("showMessageRequest without orbit_gen/: %q", c.requests)
 		}
 		for _, m := range c.messages {
 			if strings.Contains(m, "generated file") || strings.HasPrefix(m, "1:") {
