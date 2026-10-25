@@ -1,0 +1,24 @@
+// This file is added to bench/orbit-site's cmd/server by go build -overlay
+// (bench/profile/run.sh); it is not part of the site. With ORBIT_PPROF_ADDR
+// set, it serves net/http/pprof on that address, on its own listener, so
+// the site's handler and middleware chain are unchanged.
+
+package main
+
+import (
+	"log"
+	"net/http"
+	"net/http/pprof"
+	"os"
+)
+
+func init() {
+	addr := os.Getenv("ORBIT_PPROF_ADDR")
+	if addr == "" {
+		return
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	go func() { log.Println(http.ListenAndServe(addr, mux)) }()
+}

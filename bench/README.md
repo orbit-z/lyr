@@ -9,6 +9,7 @@ This directory holds the head-to-head SSR benchmark from `PLAN.md` §4b. Results
 | `load/` | The load generator, a separate Go module that uses only the standard library (`run`, `check` and `report` subcommands). |
 | `run.sh` | Builds both sites, checks they serve the same content, runs every scenario and writes the report. |
 | `go/` | Go-only render benchmarks: Orbit vs. templ vs. `html/template`. They're separate from this harness. |
+| `profile/` | CPU profiles of both servers on `/cards` under the same load, summarized by category (`profile/run.sh`, see `profile/README.md`). |
 
 ## Running
 
