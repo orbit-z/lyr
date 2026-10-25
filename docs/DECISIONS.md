@@ -157,6 +157,10 @@ To override a decision, say which row and the alternative you want; the docs and
 | `RenderComponent` is buffered: on success 200, `text/html; charset=utf-8` and `Content-Length`; on error nothing is written; locals come from `r` | simplest (follows buffered pages) | Stream the fragment; write a 500 itself | [Server](server.md#rendering-components-from-handlers) |
 | `ORBIT_STATIC` wins over `WithStaticDir`, which wins over `--embed` files, then `client/` next to the binary | simplest (so `orbit dev` keeps working) | Code options win over the environment | [Deploy](deploy.md#setting-the-static-directory-or-the-key-in-code), [Runtime API](reference/runtime-api.md#options) |
 | The server finds `client/` next to the binary (its own directory, not the working directory) | simplest | Relative to the working directory | [Deploy](deploy.md#server-binary-distserver-and-distclient) |
+| Zero allocations in Orbit's own render path for a typical page is asserted by allocation-count tests, not just benchmarked | coordinator (you had no preference; matches the router's tested 0-alloc match) | Report allocations in benchmarks only | [Performance](performance.md#allocations-per-request) |
+| Slot content that uses parent variables allocates one closure per slot | user | Direct calls for non-cyclic imports (keeps it on the stack; slower dev loop) | [Performance](performance.md#components-are-cheap-to-call) |
+| Constant response headers (`Content-Type`) use a shared read-only value instead of `Header().Set` | simplest (saves 1 alloc/request, measured) | `Header().Set` | [Performance](performance.md#allocations-per-request) |
+| Locals aren't pooled | coordinator (simplest; a pooled value kept after the request would be silently reused) | A `sync.Pool` per `Locals` type | [Performance](performance.md#allocations-per-request) |
 
 ## Locals
 

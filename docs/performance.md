@@ -42,7 +42,7 @@ The request context (`*orbit.Ctx`) is pooled along with its writer and buffer, s
 ### Components are cheap to call
 
 - A component call is a plain Go function call, plus one indirect call through the component's generated package.
-- **Slots are a small struct**, not a map: a default slot plus a short list of named ones. A call with no children allocates nothing; a call with children allocates one closure per slot.
+- **Slots are a small struct**, not a map: a default slot plus a short list of named ones. A call with no children allocates nothing, and neither does slot content that uses no variables from the parent. Slot content that does (`<Card>{p.Title}</Card>`) allocates one small closure per slot.
 - The recursion depth guard, which turns runaway recursion into an error instead of a crash, costs one integer increment per component render. It's always on.
 
 ### Routing and locals
@@ -50,6 +50,23 @@ The request context (`*orbit.Ctx`) is pooled along with its writer and buffer, s
 - **Routes** are matched by walking a tree of path segments built at startup. No regular expressions.
 - **Route params allocate nothing**: the router stores matched values in the pooled request context instead of a map, and a page's typed `params` is a plain struct filled from them. (A `map[string]string` cost 2 allocations, 336 bytes, per match.) Only a value with percent-escapes (`caf%C3%A9`) allocates its decoded string.
 - **Typed locals** are allocated lazily, the first time a page or component uses them, and once per request at most.
+
+### Allocations per request
+
+For a typical page, Orbit's own code allocates nothing: routing, the request context, the buffer, escaping, typed writes and head injection are all allocation-free. Orbit's tests check this, so a change that adds an allocation fails `go test`.
+
+A "typical page" here means:
+- its expressions are plain types, so they get typed writes
+- its slot content doesn't use variables from the parent
+- it doesn't use locals or `server:defer`
+
+What still allocates:
+- **Go's `net/http` server itself**: about 14 allocations (1.4 KB) per request even for an empty handler, and about 19 (2.2 KB) once it writes a 1 KB page (measured on Go 1.27.3). Orbit uses the standard library server, so this floor is the same as for any Go web app.
+- **Locals**: one allocation for the struct, plus the request copy that `EnsureLocals` makes in your middleware.
+- **Slot content that uses parent variables**: one small closure per slot.
+- **Values without a typed write** (the `Expr` fallback) and your own `String()` or `Error()` methods.
+- **Route params with percent-escapes**, and **`server:defer` props** (encoded and encrypted per instance).
+- **Your frontmatter code**: database queries and the like. This is usually the biggest part.
 
 ### What Orbit leaves to you
 
@@ -141,7 +158,7 @@ A separate set of Go benchmarks (`bench/go`) renders an equivalent page with Orb
 
 ### Micro-benchmarks
 
-The runtime's writer and escaper have their own Go micro-benchmarks, which report allocations. They're development tools for Orbit itself, run when the runtime changes. There are no automatic performance gates in CI.
+The runtime's writer and escaper have their own Go micro-benchmarks, which report allocations. They're development tools for Orbit itself, run when the runtime changes. There are no automatic timing gates in CI. Allocation counts on the hot path are the exception: they're checked by ordinary tests (see [Allocations per request](#allocations-per-request)).
 
 ## Results
 

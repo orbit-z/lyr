@@ -90,7 +90,8 @@ When independent tasks can run in parallel, launch them in **one message**. If p
     - Scenarios: a render-heavy page and a page with a simulated 10 ms data fetch. Orbit runs at `GOMAXPROCS=1` and at all cores.
     - Metrics: req/s, p50/p99 latency, RSS.
     - Also compared with templ and html/template (measure only; parity with templ isn't a gate).
-  - **Slots**: a value struct `orbit.Slots{Default, Named []NamedSlot}`, not a map. No allocation without children.
+  - **Slots**: a value struct `orbit.Slots{Default, Named []NamedSlot}`, not a map. No allocation without children. Slot content that captures parent variables costs 1 alloc per slot (accepted; no direct-call scheme).
+  - **Zero allocations in Orbit's own render path** for a typical page, asserted by `AllocsPerRun` tests from milestone 5. `net/http`'s own ~14–19 allocs/request is the floor.
     - No fixed target number: we measure and publish the results.
   - SSR caching is not in the MVP.
 - **MVP additions**:
