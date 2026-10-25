@@ -1,0 +1,26 @@
+package main
+
+import (
+	"log"
+	"net/http"
+
+	"github.com/bertrandkhe/orbit"
+
+	"{{.Module}}/orbit_gen/app"
+)
+
+func main() {
+	site := app.New() // generated from src/: routes, pages and assets
+
+	mux := http.NewServeMux()
+	// Add your own routes here. More specific patterns win over "/":
+	// mux.HandleFunc("GET /api/hello", hello)
+
+	// Everything else goes to Orbit: pages, /_orbit/* assets and public/ files.
+	mux.Handle("/", site.Handler())
+
+	// Wrap mux in your own net/http middleware (logging, auth, locals) here.
+	if err := orbit.ListenAndServe(mux); err != nil {
+		log.Fatal(err)
+	}
+}
