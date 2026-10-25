@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -110,7 +111,16 @@ func (m *genModule) run(mainSrc string) string {
 	if err != nil {
 		m.t.Fatalf("go run: %v\n%s", err, out)
 	}
-	return out
+	return normalizeIslands(out)
+}
+
+// islandPlaceholder matches the parts of a server:defer placeholder that
+// change on every go run (a random build ID and key outside go test): the
+// runtime's own tests check the tokens.
+var islandPlaceholder = regexp.MustCompile(`/_orbit/island/[0-9a-f]{16}/([^"]*)" props="[A-Za-z0-9_-]*"`)
+
+func normalizeIslands(s string) string {
+	return islandPlaceholder.ReplaceAllString(s, `/_orbit/island/*/$1" props="*"`)
 }
 
 // TestHarness checks the harness itself with a hand-written package in the

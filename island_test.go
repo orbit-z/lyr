@@ -97,7 +97,7 @@ func islandRoutes() []Route {
 		{Pattern: "/plain", File: "src/pages/plain.orbit", Render: headPage("plain"),
 			Assets: []Asset{{Kind: "css", URL: "/_orbit/plain-1234.css"}}},
 		{Pattern: "/lazy", File: "src/pages/lazy.orbit", Render: headPage("lazy"),
-			Assets: []Asset{{Kind: "lazy", ID: "Counter-1c2d3e4f", URL: "/_orbit/Counter-ABCD.js"}, {Kind: "lazy", ID: "x</script>", URL: "/_orbit/x.js"}}},
+			Assets: []Asset{{Kind: "lazy", ID: "Counter-1c2d3e4f", URL: "/_orbit/Counter-ABCD.js"}, {Kind: "lazy", ID: "Counter-1c2d3e4f", URL: "/_orbit/Inner-EFGH.js"}, {Kind: "lazy", ID: "Counter-1c2d3e4f", URL: "/_orbit/Counter-ABCD.js"}, {Kind: "lazy", ID: "x</script>", URL: "/_orbit/x.js"}}},
 	}
 }
 
@@ -455,7 +455,7 @@ func TestLoaderInjection(t *testing.T) {
 
 			lazy := do(h, "GET", "/lazy").Body.String()
 			wantLazy := `<head>` + loaderStyle +
-				`<script type="application/json" id="orbit-loader">{"dev":` + devJSON + `,"lazy":{"Counter-1c2d3e4f":"/_orbit/Counter-ABCD.js","x` + escLT + `/script` + escGT + `":"/_orbit/x.js"}}</script>` +
+				`<script type="application/json" id="orbit-loader">{"dev":` + devJSON + `,"lazy":{"Counter-1c2d3e4f":["/_orbit/Counter-ABCD.js","/_orbit/Inner-EFGH.js"],"x` + escLT + `/script` + escGT + `":["/_orbit/x.js"]}}</script>` +
 				`<script type="module">` + loaderLazyJS + `</script></head>`
 			if lazy != `<html>`+wantLazy+`<body>lazy</body></html>` {
 				t.Errorf("/lazy = %s\nwant %s", lazy, wantLazy)

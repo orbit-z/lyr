@@ -240,6 +240,24 @@ To override a decision, say which row and the alternative you want; the docs and
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
+| Under `go test` the build ID is always `0000000000000000` (only the key follows `ORBIT_KEY`), and `orbittest.Render` always uses the fixed test key | simplest (stable snapshots) | Follow `ORBIT_KEY` under test | [Testing](testing.md) |
+| The random-key warning is printed once, and only when the site has `server:defer` components | simplest (no noise on every `go run`) | Always | [Lazy loading](lazy-loading.md) |
+| A failing island in production gets a 500 with an empty body and a log line; in dev the body is the error as `text/plain` | simplest (the loader keeps the fallback) | The built-in 500 page | [Lazy loading](lazy-loading.md) |
+| Everything under `/_orbit/island/` belongs to the endpoint: a malformed path or unknown ID is an empty 404, never `next`; the method check (405) comes first | PLAN (the prefix is reserved) | Fall through to `next` | [Lazy loading](lazy-loading.md) |
+| A POST token is read from the whitespace-trimmed body (`?p=` is ignored on POST); a body read error other than the size limit is a 400 | simplest | — | [Lazy loading](lazy-loading.md) |
+| `X-Robots-Tag: noindex` is set only if the component didn't set one, like `Cache-Control` | simplest | Always overwrite | [Lazy loading](lazy-loading.md) |
+| A duplicate island ID panics in `NewSite` naming both files; an invalid embedded key or build ID panics at startup | Go stdlib (constructor convention) | — | — |
+| The loader tags go before the page's CSS/JS in `<head>`, so the `display:contents` style comes first | simplest | After | — |
+| The loader config's `lazy` map is always present and lists URLs per component ID (`{"Counter-…":["/_orbit/Counter-….js", …]}`), in module-evaluation order without duplicates | coordinator (a lazy call site can need several entries) | One URL per ID | [Lazy loading](lazy-loading.md) |
+| Lists from several lazy call sites of the same component on a page are merged (the marker names only the component) | simplest | A per-call-site key on the wrapper | — |
+| Slot content passed to a lazy component is part of its lazy subtree | Astro (island children render inside the island) | Count only the component's own imports | [Lazy loading](lazy-loading.md) |
+| A lazy entry is built for every component with scripts that is lazy on at least one page (none for components eager everywhere) | simplest (no unused files) | One for every component with a lazy call site | — |
+| CSS imported by a lazy entry's scripts is an extra page `css` asset on pages where that component is lazy | simplest (CSS stays with the page) | Merge it into the page CSS bundle | — |
+| A `client:visible` value is copied as written into `opts` (only `"` is escaped), like other static attributes | simplest | Full HTML escaping | — |
+| The JSON-check error names the field path with dots and `[]`, one error per top-level field, types qualified by package name | simplest | Every problem | [Lazy loading](lazy-loading.md) |
+| A page may use `<Self server:defer>`; its island renders the page with empty params | simplest | Reject it | — |
+| The island table in `orbit_gen/app` is sorted by file | simplest | By ID | — |
+| The island loader's GET limit and test key: the fixed test key is the bytes `"orbit fixed test island key 0000"` | simplest | — | — |
 | The islands loader watches the page with a `MutationObserver`, so placeholders and lazy markers in HTML inserted later (htmx partials, island fragments) load on pages that have the loader | coordinator (the docs and PLAN §5b promise it) | Scan only fragments the loader inserts | [Lazy loading](lazy-loading.md) |
 | The islands and lazy scripts hand off through `window.orbit__lazy`; either can start first | simplest | A custom DOM event | — |
 | A lazy component's entries load when its **first** instance on the page fires; markers nested in a lazy subtree wait until an enclosing lazy ID has fired | simplest (each script loads at most once per page) | Per-instance nesting | [Lazy loading](lazy-loading.md) |

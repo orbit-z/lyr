@@ -27,17 +27,20 @@ type loaderConfig struct {
 	Lazy lazyMap `json:"lazy"`
 }
 
-// lazyMap maps a component ID to the entry URL its <orbit-lazy> markers
-// import. To change the value type (say, to a list of URLs per call site's
-// component), change lazyMap and addLazy only.
-type lazyMap map[string]string
+// lazyMap maps a component ID to the entry URLs its <orbit-lazy> markers
+// import, in module-evaluation order: the tagged component's entry plus
+// every lazy-on-this-page component in its subtree (one "lazy" asset each).
+type lazyMap map[string][]string
 
-// addLazy records one "lazy" asset in m. With several assets for one ID,
-// the first wins.
+// addLazy records one "lazy" asset in m, keeping order and skipping a URL
+// already listed for that ID.
 func (m lazyMap) addLazy(a Asset) {
-	if _, ok := m[a.ID]; !ok {
-		m[a.ID] = a.URL
+	for _, u := range m[a.ID] {
+		if u == a.URL {
+			return
+		}
 	}
+	m[a.ID] = append(m[a.ID], a.URL)
 }
 
 // loaderHead returns the loader tags for a page with the given islands flag
@@ -54,7 +57,7 @@ func loaderHead(dev, islands bool, assets []Asset) string {
 	}
 	data, err := json.Marshal(loaderConfig{Dev: dev, Lazy: lazy})
 	if err != nil {
-		panic("orbit: loader config: " + err.Error()) // a map of strings always encodes
+		panic("orbit: loader config: " + err.Error()) // a map of string lists always encodes
 	}
 	var b bytes.Buffer
 	b.WriteString(loaderStyle)
