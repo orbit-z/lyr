@@ -264,24 +264,24 @@ Most of a template edit is `go build`, and most of that is the link, about 135 m
 
 ### Editor (`orbit lsp`)
 
-> **Preliminary.** Measured once on the same machine while other work was running (load average 0.8 at the start, 2.0 at the end). These numbers will be re-measured on a quiet machine.
-
-`bench/lsp` starts `orbit lsp` on the same 200-file project as the dev-loop benchmark and drives it as an editor would, with gopls v0.24.0 and a warm Go build cache. It runs in two modes: without `orbit_gen/` on disk, where every generated file reaches gopls in memory, and after `orbit generate`. Startup times are the median of 3 starts, measured from process start. Request times are the median of 20 runs after the readiness barrier, and a completion includes the edit before it. The last column is from the milestone 0 spike, which drove gopls directly with hand-written generated code, at a smaller size.
+`bench/lsp` starts `orbit lsp` on the same 200-file project as the dev-loop benchmark and drives it as an editor would, with gopls v0.24.0 and a warm Go build cache. It runs in two modes: without `orbit_gen/` on disk, where every generated file reaches gopls in memory, and after `orbit generate`. Startup times are the median of 3 starts, measured from process start. Request times are the median of 20 runs after the readiness barrier, and a completion includes the edit before it. Measured on a quiet machine (load average 1.5 at the start, 1.4 at the end). The last column is from the milestone 0 spike, which drove gopls directly with hand-written generated code, at a smaller size.
 
 | | No `orbit_gen/` | `orbit_gen/` on disk | Spike |
 |---|---:|---:|---:|
-| Start → first hover or completion | 1.37 s | 668 ms | 386 ms cold, 132 ms warm (102 files) |
-| Readiness barrier (references, rename wait for it) | 9.61 s | 3.70 s | 2.4–2.5 s in memory, 0.8 s on disk (102 files) |
-| Start → references answered | 9.77 s | 3.78 s | – |
-| Edit + completion, `{props.` | 2.28 ms | 1.96 ms | 1.6–3 ms |
-| Edit + completion, a bare identifier | 7.58 ms | 8.01 ms | – |
-| Edit + completion, `<Card ` props | 1.32 ms | 1.25 ms | – |
-| Hover, definition, references of a local | 0.08–0.12 ms | 0.08–0.12 ms | – |
-| References of a `Props` field | 0.16 ms | 14.6 ms | – |
-| Memory: `orbit lsp` | 38 MB | 39 MB | – |
-| Memory: gopls, after the barrier | 2.97 GB | 1.95 GB | 260 MB warm / 650 MB cold (50 components) |
+| Start → first hover or completion | 340 ms | 290 ms | 386 ms cold, 132 ms warm (102 files) |
+| Start → gopls's diagnostics on an open page | 342 ms | 234 ms | – |
+| Start → references answered (references and rename wait until every package is loaded) | 342 ms | 274 ms | 2.4–2.5 s in memory, 0.8 s on disk (102 files) |
+| Edit + completion, `{props.` | 2.07 ms | 2.54 ms | 1.6–3 ms |
+| Edit + completion, a bare identifier | 7.88 ms | 9.18 ms | – |
+| Edit + completion, `<Card ` props | 1.38 ms | 1.22 ms | – |
+| Hover, definition, references of a local | 0.07–0.10 ms | 0.08–0.11 ms | – |
+| Rename of a local | 0.18 ms | 0.18 ms | – |
+| References of a `Props` field (used by other components) | 0.15 ms | 13.2 ms | – |
+| Memory: `orbit lsp` (peak) | 38 MB | 47 MB (109 MB) | – |
+| Memory: gopls, after startup | 182 MB | 180 MB | 260 MB warm / 650 MB cold (50 components) |
+| Memory: gopls, after the requests | 282 MB | 300 MB | – |
 
-Orbit answers `initialize` and publishes its own diagnostics (such as an unknown prop) in about 25 ms. Go features wait for gopls, which loads the generated packages lazily. Run `orbit generate` once in a fresh clone for a faster start.
+Orbit answers `initialize` and publishes its own diagnostics (such as an unknown prop) in about 25 ms. With `orbit_gen/` on disk, gopls reads the generated files that are up to date from disk, and only the files you edit go to it in memory. That's why references of a `Props` field take longer there: gopls keeps only the packages it holds in memory fully loaded, and reloads the others for a cross-component search. `orbit lsp`'s peak on disk is a one-time check at startup that compares `orbit_gen/` with the sources (about 70 ms). Plain gopls on the same generated code uses about 300 MB.
 
 ## See also
 
