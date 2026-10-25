@@ -391,6 +391,7 @@ To override a decision, say which row and the alternative you want; the docs and
 | Dev server binaries are built to `.orbit/devserver/server-0` and `server-1` alternately, so `go build` never overwrites the running binary | simplest | A new temp file per build | [Project structure](project-structure.md#orbit-cache) |
 | The terminal gets one line per change (`orbit dev: <file>: server restarted in 250ms`, `…: CSS and JS rebuilt in 3ms`, `…: reloaded`), plus errors and warnings | simplest | Astro's per-file update lines with timestamps | [Dev server](dev-server.md#errors) |
 | `--port` must be 1–65535; anything else is a usage error (exit 2) | Go stdlib (`flag` values) | Accept 0 as "random port" | [CLI](reference/cli.md#orbit-dev) |
+| Each restarted dev app gets a new random build ID; island tokens still open, since the per-session `ORBIT_KEY` is shared and the build ID comes from the URL | simplest | A fixed per-session build ID passed with `-X`, so island URLs also stay identical across restarts | [Dev server](dev-server.md) |
 
 ## Editor support
 

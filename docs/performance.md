@@ -210,19 +210,19 @@ Orbit's 501 allocations are the 500 slot closures plus the layout's (each slot t
 
 ### Dev loop (`bench/devloop`)
 
-The time from a saved edit to a new server running, on a generated project with 200 `.orbit` files (40 pages, 158 components, scoped styles and scripts on a quarter of them, two user Go packages, typed locals). It covers generating, the type check, esbuild, `go build -ldflags=-w` and restarting the server, but not the watcher's 50 ms debounce or the browser's reload. Median of the runs.
+The time from a saved edit to a new server running, measured on `orbit dev`'s own rebuild pipeline (`bench/devloop -dev`) with a generated project of 200 `.orbit` files (40 pages, 158 components, scoped styles and scripts on a quarter of them, two user Go packages, typed locals). It covers generating, the type check, esbuild when needed, `go build -ldflags=-w` and restarting the server, but not the watcher's 50 ms debounce or the browser's reload. Median of the runs, on a quiet machine.
 
 | Edit | 16 threads | 4 cores |
 |---|---:|---:|
-| Template text | 253 ms | 255 ms |
-| Frontmatter statement | 255 ms | 258 ms |
-| Add a `Props` field (component imported by 10 others) | 273 ms | 304 ms |
-| Add a page | 273 ms | 277 ms |
-| Only a `<style>` or `<script>` (no Go rebuild) | 33 ms | 42 ms |
-| A Go package every `Props` imports, function body only | 875 ms | 1.54 s |
-| The same package, new exported name | 923 ms | 1.57 s |
+| Template text | 229 ms | 228 ms |
+| Frontmatter statement | 226 ms | 261 ms |
+| Add a `Props` field (component imported by 10 others) | 248 ms | 275 ms |
+| Add a page | 263 ms | 270 ms |
+| Only a `<style>` or `<script>` (no Go rebuild) | 30 ms | 38 ms |
+| A Go package every `Props` imports, function body only | 793 ms | 1.46 s |
+| The same package, new exported name | 842 ms | 1.50 s |
 
-Most of a template edit is `go build`, and most of that is the link, about 135 ms, a fixed cost for any Go binary of this size. The slow rows are a Go package that every component imports: `go build` then recompiles all 363 generated packages, even when only a function body changed, because Go recompiles a package's importers whenever it changes. Keep frequently edited Go code out of packages that every `Props` imports.
+Most of a template edit is `go build`, and most of that is the link, about 135 ms, a fixed cost for any Go binary of this size. Template, frontmatter and `Props` edits skip esbuild, and a `.go` edit starts `go build` at once, while Orbit regenerates. The slow rows are a Go package that every component imports: `go build` then recompiles all the generated packages, even when only a function body changed, because Go recompiles a package's importers whenever it changes. Keep frequently edited Go code out of packages that every `Props` imports.
 
 ## See also
 
