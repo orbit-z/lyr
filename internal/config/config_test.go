@@ -21,8 +21,8 @@ func TestParse(t *testing.T) {
 		{`{"compressHTML": false}`, Config{CompressHTML: compiler.CompressNone}, ""},
 		{`{"compressHTML": null, "site": null}`, Config{}, ""},
 		{`{"unknown": 1, "Site": "https://x.dev"}`, Config{Site: "https://x.dev"}, ""}, // encoding/json matches keys case-insensitively
-		{`{"compressHTML": true}`, Config{}, `orbit.json: compressHTML must be "html", "jsx" or false, not true`},
-		{`{"compressHTML": "none"}`, Config{}, `orbit.json: compressHTML must be "html", "jsx" or false, not "none"`},
+		{`{"compressHTML": true}`, Config{CompressHTML: compiler.CompressHTML}, ""},
+		{`{"compressHTML": "none"}`, Config{}, `orbit.json: compressHTML must be "html" (or true), "jsx" or false, not "none"`},
 		{`{"site": "blog.example.com"}`, Config{}, `orbit.json: site "blog.example.com" isn't an absolute URL; include the scheme and host, such as "https://example.com"`},
 		{`{"site": "/blog"}`, Config{}, `orbit.json: site "/blog" isn't an absolute URL; include the scheme and host, such as "https://example.com"`},
 		{`{"site": 3}`, Config{}, `orbit.json: site must be a string`},

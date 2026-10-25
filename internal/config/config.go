@@ -34,7 +34,7 @@ type Config struct {
 	Server string
 	// Embed is "embed": true.
 	Embed bool
-	// CompressHTML is "compressHTML" ("html" by default).
+	// CompressHTML is "compressHTML" ("html" by default; true means "html").
 	CompressHTML compiler.Compression
 }
 
@@ -101,14 +101,14 @@ func Parse(data []byte) (*Config, error) {
 		var v any
 		_ = json.Unmarshal(raw.CompressHTML, &v)
 		switch v {
-		case "html":
+		case "html", true: // true is Astro's spelling of "html"
 			c.CompressHTML = compiler.CompressHTML
 		case "jsx":
 			c.CompressHTML = compiler.CompressJSX
 		case false:
 			c.CompressHTML = compiler.CompressNone
 		default:
-			return nil, fmt.Errorf(`%s: compressHTML must be "html", "jsx" or false, not %s`, FileName, bytes.TrimSpace(raw.CompressHTML))
+			return nil, fmt.Errorf(`%s: compressHTML must be "html" (or true), "jsx" or false, not %s`, FileName, bytes.TrimSpace(raw.CompressHTML))
 		}
 	}
 	return c, nil
