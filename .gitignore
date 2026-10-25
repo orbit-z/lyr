@@ -1,0 +1,18 @@
+# Build outputs
+dist/
+.orbit/
+orbit_gen/
+bin/
+*.test
+*.out
+
+# Spike artifacts (regenerable)
+spike/*/bin/
+spike/typecheck/sites/
+spike/lsp/results/*.log
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+node_modules/

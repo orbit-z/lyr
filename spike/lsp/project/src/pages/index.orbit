@@ -1,0 +1,12 @@
+---
+import (
+    "example.com/blog/internal/posts"
+    Card "../components/Card.orbit"
+)
+title := "Héllo ✓"
+all := []posts.Post{{Title: "Hello", Slug: "hello"}}
+---
+<h1>{title}</h1>
+{for _, p := range all}
+  <Card post={p} featured />
+{/for}

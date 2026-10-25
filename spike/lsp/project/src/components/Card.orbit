@@ -1,0 +1,13 @@
+---
+import "example.com/blog/internal/posts"
+type Props struct {
+    Post     posts.Post
+    Featured bool
+}
+func href(p posts.Post) string { return "/blog/" + p.Slug + "/" }
+url := href(props.Post)
+---
+<article class="card" data-featured={props.Featured}>
+  <a href={url}>{props.Post.Title}</a>
+  <slot />
+</article>
