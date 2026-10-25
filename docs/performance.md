@@ -262,6 +262,27 @@ The time from a saved edit to a new server running, measured on `orbit dev`'s ow
 
 Most of a template edit is `go build`, and most of that is the link, about 135 ms, a fixed cost for any Go binary of this size. Template, frontmatter and `Props` edits skip esbuild, and a `.go` edit starts `go build` at once, while Orbit regenerates. The slow rows are a Go package that every component imports: `go build` then recompiles all the generated packages, even when only a function body changed, because Go recompiles a package's importers whenever it changes. Keep frequently edited Go code out of packages that every `Props` imports.
 
+### Editor (`orbit lsp`)
+
+> **Preliminary.** Measured once on the same machine while other work was running (load average 0.8 at the start, 2.0 at the end). These numbers will be re-measured on a quiet machine.
+
+`bench/lsp` starts `orbit lsp` on the same 200-file project as the dev-loop benchmark and drives it as an editor would, with gopls v0.24.0 and a warm Go build cache. It runs in two modes: without `orbit_gen/` on disk, where every generated file reaches gopls in memory, and after `orbit generate`. Startup times are the median of 3 starts, measured from process start. Request times are the median of 20 runs after the readiness barrier, and a completion includes the edit before it. The last column is from the milestone 0 spike, which drove gopls directly with hand-written generated code, at a smaller size.
+
+| | No `orbit_gen/` | `orbit_gen/` on disk | Spike |
+|---|---:|---:|---:|
+| Start → first hover or completion | 1.37 s | 668 ms | 386 ms cold, 132 ms warm (102 files) |
+| Readiness barrier (references, rename wait for it) | 9.61 s | 3.70 s | 2.4–2.5 s in memory, 0.8 s on disk (102 files) |
+| Start → references answered | 9.77 s | 3.78 s | – |
+| Edit + completion, `{props.` | 2.28 ms | 1.96 ms | 1.6–3 ms |
+| Edit + completion, a bare identifier | 7.58 ms | 8.01 ms | – |
+| Edit + completion, `<Card ` props | 1.32 ms | 1.25 ms | – |
+| Hover, definition, references of a local | 0.08–0.12 ms | 0.08–0.12 ms | – |
+| References of a `Props` field | 0.16 ms | 14.6 ms | – |
+| Memory: `orbit lsp` | 38 MB | 39 MB | – |
+| Memory: gopls, after the barrier | 2.97 GB | 1.95 GB | 260 MB warm / 650 MB cold (50 components) |
+
+Orbit answers `initialize` and publishes its own diagnostics (such as an unknown prop) in about 25 ms. Go features wait for gopls, which loads the generated packages lazily. Run `orbit generate` once in a fresh clone for a faster start.
+
 ## See also
 
 - [Rendering](rendering.md): the request lifecycle and buffered responses

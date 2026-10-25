@@ -70,7 +70,7 @@ In `-dev` mode:
 
 ## The project
 
-There are 200 `.orbit` files by default:
+There are 200 `.orbit` files by default. The generator is package `synth`, which `bench/lsp` uses too.
 
 - **Pages**: 40. They include the index, `[slug]` and `[...rest]` routes,
   and pages that use either layout.
