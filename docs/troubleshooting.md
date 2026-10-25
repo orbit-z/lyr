@@ -544,7 +544,7 @@ See [The 404 page](routing.md#the-404-page) and [Choosing precedence](server.md#
 orbit: GET /blog/hello: src/pages/blog/[slug].orbit:14:5: posts: connection refused
 ```
 
-**Fix:** find the line in your server's stderr (your platform's logs) and fix the error at that position. `orbit dev` shows the same error in an overlay. Because responses are buffered, a failed render never sends half a page. In a stack trace from a binary built with `-trimpath`, frames from `.orbit` files keep their absolute paths. A custom `src/pages/500.orbit` is planned after the first release. See [Status codes and errors](rendering.md#status-codes-and-errors) and [Stack traces and `-trimpath`](reference/cli.md#stack-traces-and--trimpath).
+**Fix:** find the line in your server's stderr (your platform's logs) and fix the error at that position: the frontmatter `return` that returned it, or the line that panicked. `orbit dev` shows the same error in an overlay. Because responses are buffered, a failed render never sends half a page. In a stack trace from a binary built with `-trimpath`, frames from `.orbit` files keep their absolute paths. A custom `src/pages/500.orbit` is planned after the first release. See [Status codes and errors](rendering.md#status-codes-and-errors) and [Stack traces and `-trimpath`](reference/cli.md#stack-traces-and--trimpath).
 
 ### A `server:defer` component only shows its fallback
 

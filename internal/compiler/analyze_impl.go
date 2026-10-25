@@ -519,7 +519,7 @@ func (s *anState) parseBody() {
 		}
 	} else {
 		for _, st := range stmts {
-			s.a.Body = append(s.a.Body, Stmt{Span: st.span})
+			s.a.Body = append(s.a.Body, Stmt{Span: st.span, Returns: s.returns(st.stmt)})
 		}
 	}
 	s.echo(stmts)
@@ -533,6 +533,31 @@ func (s *anState) parseBody() {
 			}
 		}
 	}
+}
+
+// returns lists the single-result returns of a body statement that return
+// from the render function: function literals are skipped.
+func (s *anState) returns(st ast.Stmt) []Return {
+	var rs []Return
+	ast.Inspect(st, func(n ast.Node) bool {
+		switch n := n.(type) {
+		case *ast.FuncLit:
+			return false
+		case *ast.ReturnStmt:
+			if len(n.Results) != 1 {
+				return false // bare or multi-value: Go reports it
+			}
+			kw, ok1 := s.fmOff(s.bodyTF, n.Return, s.bodyPrefix)
+			a, ok2 := s.fmOff(s.bodyTF, n.Results[0].Pos(), s.bodyPrefix)
+			b, ok3 := s.fmOff(s.bodyTF, n.Results[0].End(), s.bodyPrefix)
+			if ok1 && ok2 && ok3 && kw < a && a < b {
+				rs = append(rs, Return{Keyword: kw, Result: Span{a, b}})
+			}
+			return false
+		}
+		return true
+	})
+	return rs
 }
 
 // usage records the import and name uses of the body file (body and

@@ -8,6 +8,7 @@ decl type @193-227 place=decl Props@198-203
   "type Props struct { Title string }"
 stmt @262-286 "list, err := posts.All()"
 stmt @341-369 "if err != nil { return err }"
+  return @357 @364-367 "err"
 stmt @370-407 "title := strings.ToUpper(props.Title)"
 echo [list err title]
 terminating false

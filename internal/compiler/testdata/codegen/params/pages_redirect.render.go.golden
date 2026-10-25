@@ -19,5 +19,5 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	_, _, _, _, _ = ctx, props, slots, params, locals
 /*line ../../../../src/pages/redirect.orbit:2:1*/n := 1/*line render.go:20:80*/
 	_ = n
-/*line ../../../../src/pages/redirect.orbit:3:1*/return ctx.Redirect("/login", 302+n-1)/*line render.go:22:113*/
+/*line ../../../../src/pages/redirect.orbit:3:1*/return /*line render.go:22:81*/orbit__rt.ErrorAt("src/pages/redirect.orbit:3:1", /*line ../../../../src/pages/redirect.orbit:3:8*/ctx.Redirect("/login", 302+n-1)/*line render.go:22:236*/)
 }

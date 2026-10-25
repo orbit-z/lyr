@@ -1,0 +1,6 @@
+---
+if ctx == nil {
+	return "oops"
+}
+---
+<p>ok</p>

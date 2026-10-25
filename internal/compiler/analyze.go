@@ -76,6 +76,20 @@ type Stmt struct {
 	// Span runs from the statement's first token to its last, without the
 	// separating semicolon. Codegen copies src[Span] (kind=exact).
 	Span Span
+	// Returns are the statement's return statements with exactly one
+	// result, nested ones included but none inside a function literal, in
+	// source order. Codegen wraps each result in orbit__rt.ErrorAt with the
+	// position of the return keyword. Empty when the body doesn't parse.
+	Returns []Return
+}
+
+// Return is one frontmatter return statement that returns from the render
+// function.
+type Return struct {
+	// Keyword is the offset of the return keyword; Result spans the result
+	// expression.
+	Keyword int
+	Result  Span
 }
 
 // GoImport is one Go import spec of the frontmatter.

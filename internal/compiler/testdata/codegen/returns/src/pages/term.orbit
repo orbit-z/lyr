@@ -1,0 +1,9 @@
+---
+import "fmt"
+
+n, err := 1, error(nil)
+if err != nil {
+	return err
+}
+return fmt.Errorf("term %d", n)
+---

@@ -71,6 +71,9 @@ func dumpAnalysis(f *File, a *Analysis) string {
 	}
 	for _, s := range a.Body {
 		fmt.Fprintf(&b, "stmt %s\n", spanText(src, s.Span))
+		for _, r := range s.Returns {
+			fmt.Fprintf(&b, "  return @%d %s\n", r.Keyword, spanText(src, r.Result))
+		}
 	}
 	fmt.Fprintf(&b, "echo %v\n", a.Echo)
 	fmt.Fprintf(&b, "terminating %v\n", a.Terminating)
@@ -122,6 +125,14 @@ func checkAnalysis(t testing.TB, f *File, a *Analysis) {
 	for _, s := range a.Body {
 		in("stmt", s.Span)
 		regions = append(regions, s.Span)
+		at := s.Span.Start
+		for _, r := range s.Returns {
+			in("return", r.Result)
+			if r.Keyword < at || r.Result.Start <= r.Keyword || r.Result.End > s.Span.End || !strings.HasPrefix(f.Src[r.Keyword:], "return") {
+				t.Fatalf("return %+v not in order inside stmt %v", r, s.Span)
+			}
+			at = r.Result.End
+		}
 	}
 	slices.SortFunc(regions, func(x, y Span) int { return x.Start - y.Start })
 	for _, r := range regions {
