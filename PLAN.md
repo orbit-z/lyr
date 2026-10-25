@@ -1060,7 +1060,7 @@ Dependencies:
 
 ## 12. Out of scope (later)
 - First-class API endpoint files (for now, users write plain handlers in their own server, §5b)
-- Markdown and content collections
+- Content collections (typed sets of `.md` files with a frontmatter schema)
 - Image optimization
 - i18n
 - HMR (dev uses full-page live reload)
@@ -1069,6 +1069,7 @@ Dependencies:
 
 **Deferred past MVP** (planned, but not in the first release):
 - **Order after the MVP** (user decision, after milestone 13): dogfood Orbit on a real site first, then `orbit fmt`, the typed server→client bridge, and cacheable server islands; the rest after.
+- **Markdown** (user decision, after milestone 13; designed after the dogfood report): `src/pages/*.md` pages with frontmatter (`title`, `layout` pointing at an `.orbit` layout that receives it), and `.md` imports into `.orbit` files (`Post "./post.md"`, rendered with `<Post />`). Rendered by goldmark **at generate time** into precomputed HTML constants: no runtime cost, the runtime stays stdlib-only, goldmark becomes a CLI dependency. Docs first, then implementation.
 - **`orbit fmt`** (also LSP `textDocument/formatting`): gofmt-style flags `-l -w -d`.
   - **Phase 1** (Go parts only, which can never change rendered output): format frontmatter chunks with `go/format`. Declarations are formatted as file-level code; body statements are wrapped in a dummy func and dedented. Comments are kept, and imports are sorted.
   - **Then** template expressions and control headers, via Go's expression printer.
