@@ -92,7 +92,7 @@ What follows from this:
 - **Only the last compound is scoped.** In `.theme-dark .card`, `.card` must be in this component, but `.theme-dark` can be anywhere, for example on `<body>`.
 - **Pseudo-elements stay at the end**, as in Astro: `p::first-line` becomes `p:where([data-o-8a161775])::first-line`.
 - **At-rules**: rules inside `@media`, `@supports`, `@layer`, `@container`, `@scope`, `@starting-style` and `@document` are scoped too. The bodies of every other at-rule (`@keyframes`, `@font-face`, `@page`, `@property`, …) are left alone, since they contain no selectors. Keyframe names aren't scoped: they're global, as in plain CSS.
-- **`html` and `:root` are never scoped**, as in Astro: `html { … }` and `:root { --accent: … }` work in a scoped style, and in `:root .card` only `.card` is scoped.
+- **`html`, `body` and `:root` are never scoped**, as in Astro: `html { … }`, `body { … }` and `:root { --accent: … }` work in a scoped style, and in `body .card` only `.card` is scoped.
 - **Nesting**: nested rules are scoped like top-level ones (`.card { .title { … } }` scopes both). A nested selector whose last part holds `&` (`&:hover`, `.dark &`) isn't scoped again, since `&` is the already scoped parent.
 - Selector arguments of `:is()`, `:not()`, `:where()` and `:has()` aren't rewritten; the scope goes after them: `li:not(.done)` becomes `li:not(.done):where([data-o-8a161775])`.
 - **Child components aren't affected.** A parent's scoped styles don't match the elements inside a child component's template, because those carry the child's scope attribute (or none).

@@ -323,7 +323,7 @@ func (s *cssScoper) selectorList(a, b int, nested bool) {
 
 type cssCompound struct {
 	first, last int
-	// skip: inside :global(…), or html / :root, which are never scoped
+	// skip: inside :global(…), or html / body / :root, which are never scoped
 	// (as in Astro); the scope moves to the nearest compound before it.
 	skip bool
 	// nest: holds '&', the parent selector, which is scoped already.
@@ -396,7 +396,7 @@ func (s *cssScoper) complexSelector(a, b int, nested bool) {
 		case css.LeftParenthesisToken, css.FunctionToken, css.LeftBracketToken:
 			depth++
 		case css.IdentToken:
-			if k == c.first && strings.EqualFold(s.text(t), "html") {
+			if k == c.first && (strings.EqualFold(s.text(t), "html") || strings.EqualFold(s.text(t), "body")) {
 				c.skip = true
 			}
 		case css.DelimToken:
