@@ -597,4 +597,3 @@ func BenchmarkServeLazyPage(b *testing.B) {
 		h.ServeHTTP(w, req)
 	}
 }
-

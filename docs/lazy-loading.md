@@ -159,7 +159,7 @@ Orbit renders the whole page into a buffer and sends it in one write, never stre
 
 With `server:defer`, the page renders the fallback and is sent at once, and the comments render in their own request, in parallel with anything else the browser does. Use it for the parts of a page that depend on slow work (a database query, a third-party API) and that the reader can wait for.
 
-The cost on the page is small: one `encoding/json` encode and one encryption per deferred instance (about 1 µs for 1 KB of props), plus the loader, a few hundred bytes. Pages without deferred components pay nothing. See [Performance](performance.md).
+The cost on the page is small: one `encoding/json` encode and one encryption per deferred instance (about 1 µs for 1 KB of props), plus the inline loader, about 1.1 KB (0.7 KB gzipped). Pages without deferred components pay nothing. See [Performance](performance.md).
 
 ### The fallback slot
 
@@ -318,11 +318,13 @@ The island URLs are already deterministic, with the build ID in the path. HTTP c
 
 The loader requests `GET <src>?p=<token>`. When that URL would be longer than 8000 characters (about 8 KB of props), it sends a `POST` to the same URL instead, with the token as a `text/plain` body. The server reads at most 1 MiB of body.
 
+POST responses aren't cacheable, so in `orbit dev` the loader warns once per deferred component in the browser console when it falls back to POST. Pass a small prop, such as an ID, instead of a large object. In production it stays silent.
+
 ### Nested islands and lazy components inside islands
 
 A deferred component can render `server:defer` components and `client:*` components of its own. When a fragment arrives, the loader scans it for both, so nested islands load and lazy scripts are observed.
 
-A placeholder inside an HTML fragment that you insert yourself (for example an htmx partial from `orbit.RenderComponent`) loads only if the page already has the loader, which happens when the page has a deferred component of its own.
+A placeholder inside an HTML fragment that you insert yourself (for example an htmx partial from `orbit.RenderComponent`) loads only if the page already has the loader, which happens when the page has a deferred component of its own: the loader watches the page for added placeholders (with a `MutationObserver`). On such a page, `<orbit-lazy>` markers in HTML you insert are observed too, if the page has lazy components of its own.
 
 ### Scripts and styles of deferred components
 
@@ -410,7 +412,7 @@ To observe a component, Orbit wraps its output in an element (a component can re
 ```
 
 - The wrapper has `display: contents`, so it doesn't affect layout. It is in the DOM, though: a child selector such as `.list > .item` doesn't match across it.
-- `client:visible` observes the wrapper's element children, because a `display: contents` element has no box of its own.
+- `client:visible` observes the wrapper's element children, because a `display: contents` element has no box of its own. A component that renders only text never becomes visible this way, so its scripts never load; wrap the text in an element.
 - The wrapper is written even on pages where the script ends up eager. `client:load` writes no wrapper.
 - The wrapper is static HTML, merged with the surrounding markup when Orbit compiles the template, so it costs nothing at render time. Styles aren't affected: a lazy component's CSS is in the page's stylesheet.
 
@@ -438,7 +440,7 @@ To lazy-load scripts inside deferred HTML, put the `client:*` directive on a com
 
 ## The loader and Content Security Policy
 
-Pages that need it get one small inline `<script type="module">` (a few hundred bytes) and a one-line `<style>` that gives `<orbit-island>` and `<orbit-lazy>` `display: contents`, both in `<head>`. Orbit decides this when it builds, from the components a page can render: pages without deferred or lazy components get neither.
+Pages that need it get small inline `<script type="module">`s (one for deferred components and one for lazy ones, each about 1 KB, under 0.8 KB gzipped), a JSON `<script type="application/json">` with their settings, and a one-line `<style>` that gives `<orbit-island>` and `<orbit-lazy>` `display: contents`, both in `<head>`. Orbit decides this when it builds, from the components a page can render: pages without deferred or lazy components get neither.
 
 The loader is inline, as Astro's island script is, which saves a request before the island fetches can start. A strict Content Security Policy must allow it, with `'unsafe-inline'` or the script's hash. Generated CSP hashes are planned after the first release.
 

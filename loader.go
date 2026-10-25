@@ -7,13 +7,16 @@ import (
 
 // Head injection of the client loader (PLAN.md §5 "The loader"), on pages
 // that need it: the islands part when Route.Islands is set, the lazy part
-// when the page has "lazy" assets. See loader_stub.go / loader_gen.go for
-// the contract with the loader:
+// when the page has "lazy" assets. The scripts (loaderIslandsJS,
+// loaderLazyJS) are built from loader/*.ts into loader_gen.go. The contract
+// with the loader:
 //
 //	<style>orbit-island,orbit-lazy{display:contents}</style>
 //	<script type="application/json" id="orbit-loader">{"dev":false,"lazy":{…}}</script>
 //	<script type="module">…loaderIslandsJS…</script>   (when Route.Islands)
 //	<script type="module">…loaderLazyJS…</script>      (when the page has lazy assets)
+
+//go:generate go run ./loader/internal/gen
 
 const loaderStyle = `<style>orbit-island,orbit-lazy{display:contents}</style>`
 
