@@ -174,7 +174,7 @@ A page that passes a string to a `bool` prop, and a `Card` with a typo in a fiel
 ---
 import Card "../components/Card.orbit"
 ---
-<Card featured={"yes"} />
+<Card featured="yes" />
 ```
 
 ```orbit file=src/components/Card.orbit expect-error
@@ -190,7 +190,7 @@ type Props struct {
 ```
 
 ```text
-src/pages/index.orbit:4:17: cannot use "yes" (untyped string constant) as bool value in struct literal
+src/pages/index.orbit:4:16: cannot use "yes" (untyped string constant) as bool value in struct literal
 src/components/Card.orbit:9:17: props.Post.Titel undefined (type posts.Post has no field or method Titel)
 ```
 

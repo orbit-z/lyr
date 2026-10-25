@@ -56,9 +56,9 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	orbit__w.Raw("</ul>\n")
 	if orbit__err := /*line ../../../../src/pages/index.orbit:26:6*/Card.Render/*line render.go:58:102*/(orbit__ctx, orbit__w, Card.Props{
-		/*line ../../../../src/pages/index.orbit:26:11*/Title/*line render.go:59:80*/: "hello",
-		/*line ../../../../src/pages/index.orbit:26:25*/Featured/*line render.go:60:83*/: true,
-		/*line ../../../../src/pages/index.orbit:26:34*/Href/*line render.go:61:79*/: "/p/1",
+		/*line ../../../../src/pages/index.orbit:26:11*/Title/*line render.go:59:80*/: /*line ../../../../src/pages/index.orbit:26:17*/"hello"/*line render.go:59:162*/,
+		/*line ../../../../src/pages/index.orbit:26:25*/Featured/*line render.go:60:83*/: /*line ../../../../src/pages/index.orbit:26:25*/true/*line render.go:60:162*/,
+		/*line ../../../../src/pages/index.orbit:26:34*/Href/*line render.go:61:79*/: /*line ../../../../src/pages/index.orbit:26:39*/"/p/1"/*line render.go:61:160*/,
 		/*line ../../../../src/pages/index.orbit:26:46*/PostID/*line render.go:62:81*/: /*line ../../../../src/pages/index.orbit:26:55*/42/*line render.go:62:158*/,
 	}, orbit__rt.Slots{
 		Default: func(orbit__w *orbit__rt.Writer) error {

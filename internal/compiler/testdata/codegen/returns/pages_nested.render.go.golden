@@ -21,7 +21,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	_, _, _, _ = ctx, props, slots, params
 	orbit__w.Raw("<div>")
 	if orbit__err := /*line ../../../../src/pages/nested.orbit:4:7*/R.Render/*line render.go:23:98*/(orbit__ctx, orbit__w, R.Props{
-		/*line ../../../../src/pages/nested.orbit:4:9*/Mode/*line render.go:24:78*/: "top",
+		/*line ../../../../src/pages/nested.orbit:4:9*/Mode/*line render.go:24:78*/: /*line ../../../../src/pages/nested.orbit:4:14*/"top"/*line render.go:24:158*/,
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}

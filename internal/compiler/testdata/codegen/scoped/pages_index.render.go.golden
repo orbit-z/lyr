@@ -61,7 +61,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	orbit__w.Raw("</ul>\n<em data-o-81707d2a>in fragment</em>\n")
 	if orbit__err := /*line ../../../../src/pages/index.orbit:36:6*/Box.Render/*line render.go:63:101*/(orbit__ctx, orbit__w, Box.Props{
-		/*line ../../../../src/pages/index.orbit:36:10*/Title/*line render.go:64:80*/: "box",
+		/*line ../../../../src/pages/index.orbit:36:10*/Title/*line render.go:64:80*/: /*line ../../../../src/pages/index.orbit:36:16*/"box"/*line render.go:64:160*/,
 	}, orbit__rt.Slots{
 		Default: func(orbit__w *orbit__rt.Writer) error {
 			orbit__w.Raw("\n<p data-o-81707d2a>slotted</p>\n")

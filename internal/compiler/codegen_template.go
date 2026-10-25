@@ -560,9 +560,17 @@ func (g *cgGen) propFields(fields []cgField) {
 		case a.IsExpr():
 			o.exact(a.Code.Span)
 		case a.IsStatic():
-			o.str(strconv.Quote(a.Value))
+			// A directive, so a type error (featured="yes" for a bool)
+			// lands on the value; a quoted value's position is its quote.
+			sp := a.ValueSpan
+			if a.Kind == AttrQuoted {
+				sp = Span{sp.Start - 1, sp.End + 1}
+			}
+			o.inline(sp, strconv.Quote(a.Value), SegSpan)
 		default:
-			o.str("true")
+			// A bare attribute's true: a type error lands on its name.
+			o.str("/*line " + o.dirFile + ":" + o.pos(a.NameSpan.Start) + "*/true")
+			o.reset()
 		}
 		o.str(",\n")
 	}

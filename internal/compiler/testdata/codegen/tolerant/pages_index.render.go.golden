@@ -36,7 +36,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	orbit__w.Raw("\n")
 	_ = (/*line ../../../../src/pages/index.orbit:9:13*/post.Title/*line render.go:37:88*/)
 	if orbit__err := /*line ../../../../src/pages/index.orbit:9:2*/Card.Render/*line render.go:38:101*/(orbit__ctx, orbit__w, Card.Props{
-		/*line ../../../../src/pages/index.orbit:9:25*/Title/*line render.go:39:79*/: "x",
+		/*line ../../../../src/pages/index.orbit:9:25*/Title/*line render.go:39:79*/: /*line ../../../../src/pages/index.orbit:9:31*/"x"/*line render.go:39:156*/,
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}

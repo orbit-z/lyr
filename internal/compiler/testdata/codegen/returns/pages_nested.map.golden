@@ -4,4 +4,5 @@ orbit_gen/impl/pages/nested/render.go (src/pages/nested.orbit)
   span  2:10 "\"../components/R.orbit\"" -> 212-258 "\"example.com/blog/orbit_gen/decl/components/r\""
   span  4:7 "R" -> 843-851 "R.Render"
   span  4:9 "mode" -> 956-960 "Mode"
+  span  4:14 "\"top\"" -> 1034-1039 "\"top\""
 call sites

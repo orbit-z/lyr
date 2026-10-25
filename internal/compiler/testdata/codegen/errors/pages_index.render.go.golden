@@ -27,32 +27,32 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	_, _, _, _ = ctx, props, slots, params
 	orbit__w.Raw("\n")
 	if orbit__err := /*line ../../../../src/pages/index.orbit:9:2*/Card.Render/*line render.go:29:101*/(orbit__ctx, orbit__w, Card.Props{
-		/*line ../../../../src/pages/index.orbit:9:16*/Title/*line render.go:30:79*/: "ok",
-		/*line ../../../../src/pages/index.orbit:9:27*/IsOpen/*line render.go:31:80*/: true,
+		/*line ../../../../src/pages/index.orbit:9:16*/Title/*line render.go:30:79*/: /*line ../../../../src/pages/index.orbit:9:22*/"ok"/*line render.go:30:157*/,
+		/*line ../../../../src/pages/index.orbit:9:27*/IsOpen/*line render.go:31:80*/: /*line ../../../../src/pages/index.orbit:9:27*/true/*line render.go:31:158*/,
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("\n")
 	if orbit__err := orbit__rt.Defer(orbit__ctx, orbit__w, "Card-c039c8bb", /*line ../../../../src/pages/index.orbit:10:2*/Card.Props/*line render.go:36:156*/{
-		/*line ../../../../src/pages/index.orbit:10:20*/Title/*line render.go:37:80*/: "d",
+		/*line ../../../../src/pages/index.orbit:10:20*/Title/*line render.go:37:80*/: /*line ../../../../src/pages/index.orbit:10:26*/"d"/*line render.go:37:158*/,
 	}, nil); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("\n<orbit-lazy component=\"Card-c039c8bb\" client=\"idle\">")
 	if orbit__err := /*line ../../../../src/pages/index.orbit:11:2*/Card.Render/*line render.go:42:102*/(orbit__ctx, orbit__w, Card.Props{
-		/*line ../../../../src/pages/index.orbit:11:19*/Title/*line render.go:43:80*/: "i",
+		/*line ../../../../src/pages/index.orbit:11:19*/Title/*line render.go:43:80*/: /*line ../../../../src/pages/index.orbit:11:25*/"i"/*line render.go:43:158*/,
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("</orbit-lazy>\n<orbit-lazy component=\"Card-c039c8bb\" client=\"visible\">")
 	if orbit__err := /*line ../../../../src/pages/index.orbit:12:2*/Card.Render/*line render.go:48:102*/(orbit__ctx, orbit__w, Card.Props{
-		/*line ../../../../src/pages/index.orbit:12:22*/Title/*line render.go:49:80*/: "v",
+		/*line ../../../../src/pages/index.orbit:12:22*/Title/*line render.go:49:80*/: /*line ../../../../src/pages/index.orbit:12:28*/"v"/*line render.go:49:158*/,
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("</orbit-lazy>\n")
 	if orbit__err := /*line ../../../../src/pages/index.orbit:13:2*/Card.Render/*line render.go:54:102*/(orbit__ctx, orbit__w, Card.Props{
-		/*line ../../../../src/pages/index.orbit:13:19*/Title/*line render.go:55:80*/: "l",
+		/*line ../../../../src/pages/index.orbit:13:19*/Title/*line render.go:55:80*/: /*line ../../../../src/pages/index.orbit:13:25*/"l"/*line render.go:55:158*/,
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
@@ -62,7 +62,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	orbit__w.Raw("\n")
 	if orbit__err := /*line ../../../../src/pages/index.orbit:15:2*/Embed.Render/*line render.go:64:103*/(orbit__ctx, orbit__w, Embed.Props{
-		/*line ../../../../src/pages/index.orbit:15:8*/Name/*line render.go:65:78*/: "e",
+		/*line ../../../../src/pages/index.orbit:15:8*/Name/*line render.go:65:78*/: /*line ../../../../src/pages/index.orbit:15:13*/"e"/*line render.go:65:156*/,
 		/*line ../../../../src/pages/index.orbit:15:17*/Extra/*line render.go:66:80*/: /*line ../../../../src/pages/index.orbit:15:24*/2/*line render.go:66:156*/,
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err

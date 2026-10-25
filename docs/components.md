@@ -452,11 +452,11 @@ import (
 
 post, _ := posts.Find("hello")
 ---
-<Card post={post} featured={"yes"} />
+<Card post={post} featured="yes" />
 ```
 
 ```text
-src/pages/index.orbit:9:29: cannot use "yes" (untyped string constant) as bool value in struct literal
+src/pages/index.orbit:9:28: cannot use "yes" (untyped string constant) as bool value in struct literal
 ```
 
 ### Fields must be exported

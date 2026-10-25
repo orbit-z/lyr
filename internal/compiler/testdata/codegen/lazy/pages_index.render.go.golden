@@ -28,7 +28,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	orbit__w.Raw("<main data-o-81707d2a>\n")
 	if orbit__err := orbit__rt.Defer(orbit__ctx, orbit__w, "Comments-99b30ef4", /*line ../../../../src/pages/index.orbit:8:4*/Comments.Props/*line render.go:29:163*/{
 		/*line ../../../../src/pages/index.orbit:8:26*/PostID/*line render.go:30:80*/: /*line ../../../../src/pages/index.orbit:8:34*/7/*line render.go:30:155*/,
-		/*line ../../../../src/pages/index.orbit:8:37*/Title/*line render.go:31:79*/: "t",
+		/*line ../../../../src/pages/index.orbit:8:37*/Title/*line render.go:31:79*/: /*line ../../../../src/pages/index.orbit:8:43*/"t"/*line render.go:31:156*/,
 	}, func(orbit__w *orbit__rt.Writer) error {
 		orbit__w.Raw("<p data-o-81707d2a>Loading comments…</p>")
 		return orbit__w.Err()
