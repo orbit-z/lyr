@@ -224,7 +224,9 @@ The key that seals props is resolved once, at startup, in this order:
 1. `orbit.WithKey(key)`, if you pass it to `app.New` (32 bytes).
 2. The `ORBIT_KEY` environment variable: 32 bytes in standard base64. Any other value stops the server at startup with a clear message.
 3. The key that `orbit build` embeds in the binary: new random bytes for each build. It's never written to `orbit_gen/` or to your repository.
-4. Otherwise (a plain `go build` or `go run`), a random key for each process, with a one-line warning on stderr.
+4. Otherwise (a plain `go build` or `go run`), a random key for each process, with a one-line warning on stderr when the site has `server:defer` components.
+
+Under `go test`, a site without `WithKey` or `ORBIT_KEY` uses a fixed test key instead of steps 3 and 4, and the build ID is always `0000000000000000`, so test output with island placeholders is the same on every run.
 
 `orbit dev` sets one `ORBIT_KEY` for the whole session, so islands on open pages keep working when the app restarts; an `ORBIT_KEY` you set yourself wins.
 
@@ -299,9 +301,9 @@ The island response is buffered and written once, with `Content-Type: text/html;
 | 404 | The component ID isn't one used with `server:defer` (only those can be rendered by URL), or the component returned `orbit.ErrNotFound`. Empty body: `404.orbit` is a full page, so it isn't used here. |
 | 405 | A method other than GET, HEAD or POST. The response has `Allow: GET, HEAD, POST`. |
 | 413 | A POST body over 1 MiB. |
-| 500 | The component returned an error or panicked. |
+| 500 | The component returned an error or panicked. The error is logged on stderr; the body is empty in production. |
 
-In `orbit dev`, a 500 body holds the error and its `.orbit` position, and the loader logs the status and body with `console.error`. In production, the loader stays silent.
+In `orbit dev`, a 500 body holds the error and its `.orbit` position as plain text, and the loader logs the status and body with `console.error`. In production, the loader stays silent.
 
 ### Response headers and caching
 

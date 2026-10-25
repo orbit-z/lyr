@@ -81,13 +81,17 @@ func TestStaticFiles(t *testing.T) {
 				t.Errorf("Content-Type = %q", rec.Header().Get("Content-Type"))
 			}
 
-			// Requests that must reach next: other methods on a file, the
-			// island prefix, traversal, directories and file paths with a
+			// The island prefix is never a file: the island endpoint answers
+			// it (an unknown island is an empty 404).
+			if rec := do(s.Handler(), "GET", "/_orbit/island/x"); rec.Code != 404 || rec.Body.Len() != 0 {
+				t.Errorf("GET /_orbit/island/x: got %d %q, want an empty 404", rec.Code, rec.Body)
+			}
+
+			// Requests that must reach next: other methods on a file, traversal, directories and file paths with a
 			// trailing slash.
 			for _, tt := range []struct{ method, target string }{
 				{"POST", "/robots.txt"},
 				{"PUT", "/_orbit/app-1234.js"},
-				{"GET", "/_orbit/island/x"},
 				{"GET", "/../secret.txt"},
 				{"GET", "/%2e%2e/secret.txt"},
 				{"GET", "/_orbit/../../secret.txt"},

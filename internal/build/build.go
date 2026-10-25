@@ -12,12 +12,16 @@ package build
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/bertrandkhe/orbit/internal/assets"
 	"github.com/bertrandkhe/orbit/internal/config"
@@ -127,6 +131,12 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 		flags = append(flags, tags)
 	}
 
+	ld, err := islandLDFlags(ctx, root, o.Env)
+	if err != nil {
+		return nil, fmt.Errorf("go env GOFLAGS: %w", err)
+	}
+	flags = append(flags, ld)
+
 	server := filepath.Join(stage, "server")
 	out, err := goBuild(ctx, root, server, p.ServerEntry, flags, o.Env)
 	if len(out) > 0 {
@@ -181,4 +191,80 @@ var dotSlash = regexp.MustCompile(`(?m)(^|\s)\./([^\s:\[\]]+:\d+)`)
 func CleanOutput(p *project.Project, out []byte) []byte {
 	out = p.CleanGoOutput(out)
 	return dotSlash.ReplaceAll(out, []byte("$1$2"))
+}
+
+// runtimePkg is the import path of the Orbit runtime, whose buildKey and
+// buildID variables islandLDFlags sets.
+const runtimePkg = "github.com/bertrandkhe/orbit"
+
+// islandLDFlags returns the -ldflags flag of a build (PLAN.md §6): the
+// -ldflags already in GOFLAGS (a -ldflags on the command line replaces the
+// one in GOFLAGS, so both are passed), plus a fresh random island key and
+// build ID set with -X, so nothing random is written to orbit_gen/.
+func islandLDFlags(ctx context.Context, root string, env []string) (string, error) {
+	cmd := exec.CommandContext(ctx, "go", "env", "GOFLAGS")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), env...)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	key := make([]byte, 32)
+	rand.Read(key)
+	id := make([]byte, 8)
+	rand.Read(id)
+	return ldflagsWithIslandKey(string(out), base64.StdEncoding.EncodeToString(key), hex.EncodeToString(id)), nil
+}
+
+// ldflagsWithIslandKey merges the -ldflags of goflags (the value of
+// GOFLAGS) with the -X flags for key and id.
+func ldflagsWithIslandKey(goflags, key, id string) string {
+	ld := ""
+	for _, f := range splitQuoted(goflags) {
+		f = strings.TrimPrefix(f, "-")
+		if v, ok := strings.CutPrefix(f, "-ldflags="); ok {
+			ld = v
+		} else if v, ok := strings.CutPrefix(f, "ldflags="); ok {
+			ld = v
+		}
+	}
+	x := "-X " + runtimePkg + ".buildKey=" + key + " -X " + runtimePkg + ".buildID=" + id
+	if ld = strings.TrimSpace(ld); ld != "" {
+		return "-ldflags=" + ld + " " + x
+	}
+	return "-ldflags=" + x
+}
+
+// splitQuoted splits s at spaces, keeping single- or double-quoted runs
+// together without their quotes, as the go command splits GOFLAGS.
+func splitQuoted(s string) []string {
+	var out []string
+	var cur strings.Builder
+	in, quote := false, byte(0)
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case quote != 0:
+			if c == quote {
+				quote = 0
+			} else {
+				cur.WriteByte(c)
+			}
+		case c == '\'' || c == '"':
+			quote, in = c, true
+		case c == ' ' || c == '\t' || c == '\n' || c == '\r':
+			if in {
+				out = append(out, cur.String())
+				cur.Reset()
+				in = false
+			}
+		default:
+			cur.WriteByte(c)
+			in = true
+		}
+	}
+	if in {
+		out = append(out, cur.String())
+	}
+	return out
 }
