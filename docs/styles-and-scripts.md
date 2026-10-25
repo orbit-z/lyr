@@ -499,7 +499,7 @@ orbit check
 
 For example, this script:
 
-```orbit file=src/components/Total.orbit
+```orbit file=src/components/Total.orbit expect-error
 <output class="total"></output>
 
 <script>
@@ -509,8 +509,8 @@ For example, this script:
 
 is reported at its `.orbit` position, in the same `file:line:col: message` format as every other error, with the TypeScript error code kept in the message:
 
-```
-src/components/Total.orbit:4:9: error TS2322: Type 'string | null' is not assignable to type 'number'.
+```text
+src/components/Total.orbit:4:9: error TS2322: Type 'string' is not assignable to type 'number'.
 ```
 
 **Bun 1.4.4 or later is required** for the TypeScript half. Without Bun, or with an older one, `orbit check` skips the TypeScript half, prints a notice with the command to install or upgrade Bun (`bun upgrade`), and still runs the Go checks. Its exit code then reflects the Go checks only. `orbit doctor` reports a missing or old Bun as a warning, never as an error, since nothing else in Orbit needs it.

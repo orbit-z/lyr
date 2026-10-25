@@ -403,3 +403,12 @@ To override a decision, say which row and the alternative you want; the docs and
 | The docs advise against a gopls `directoryFilters` entry for `orbit_gen/`, because Orbit's gopls gets the same settings | simplest | Strip `directoryFilters` from the settings Orbit forwards | [Editor setup](editor-setup.md#the-go-extensions-errors-in-orbit_gen) |
 | The LSP always generates every file in memory and uses its own source maps; it never reads maps for `orbit_gen/` files, and none are written to disk | coordinator (simplest) | Sidecar map files next to the generated code | — |
 | Tolerant (editor) code is never type-checked: every expression uses `Expr` | simplest (keeps the editor fast; output isn't rendered) | Type-check it too | — |
+
+## Docs examples
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| Only code blocks tagged `file=PATH` are built; untagged blocks are fragments and are ignored; a `PATH` starting with `~` or `/` (editor config) is skipped | simplest | Build every `go`/`orbit` block, wrapping fragments | `internal/docstest/docs_test.go` |
+| Each docs page is one project: the `orbit new` starter (module `example.com/blog`), hidden per-page stubs, then the page's tagged blocks; one page tagging the same `PATH` twice is an error | simplest | Later blocks replace earlier ones; one project for all pages | `internal/docstest/docs_test.go` |
+| A project passes when `orbit check` (TypeScript half only with Bun), `go vet ./...`, `go build ./...` and `go test ./...` pass; the testing page first runs `go test ./internal/views_test -update`, as it tells the reader to | simplest (what a reader would run) | Build only, no `go test` | `internal/docstest/docs_test.go` |
+| A block whose info string has `expect-error` shows failing code: it's built with the page's other blocks, must fail, and the first line of the next fenced block (the documented `file:line:col: message`) must appear in the output; without Bun a passing build is only logged | simplest | An `expect-error="message"` attribute (quoting, no position) | `internal/docstest/docs_test.go`, [Styles and scripts](styles-and-scripts.md#type-checking-with-orbit-check) |
