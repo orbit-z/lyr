@@ -165,11 +165,31 @@ Formatting `.orbit` files and semantic highlighting are not yet supported.
 Rename works on Go identifiers in the frontmatter and in expressions, and updates every place that refers to them:
 
 - **A frontmatter variable**: renaming `title` updates its declaration and every `{title}` in the template.
-- **A `Props` field**: renaming `Post` to `Article` in `Card.orbit` also renames the attribute at every call site, keeping its spelling style: `post={p}` becomes `article={p}`, and `is-open` would become `is-closed` rather than `isClosed`.
-- **An `.orbit` import alias**: renaming `Card` updates every `<Card>` tag in that file.
+- **A `Props` field**: renaming `Post` to `Article` in `Card.orbit` also renames the attribute at every call site, keeping its spelling style: `post={p}` becomes `article={p}`, and `is-open` would become `is-closed` rather than `isClosed`. You can start the rename from the field's declaration, from a `props.Post` use, or from a `post=` attribute at a call site; there you type the new attribute name (`is-closed`), and the field becomes `IsClosed`.
+- **An `.orbit` import alias**: renaming `Card`, from its import or from a `<Card>` or `</Card>` tag, updates the import and every `<Card>` tag in that file. The new alias must start with an uppercase letter.
 - **Anything in your `.go` packages** that an `.orbit` file uses, such as `posts.Post`, is renamed in both.
 
-Orbit refuses a rename, with a message, when it would have to change generated code that doesn't correspond to anything in your files. Rename waits until the language server has loaded the whole project (see [the nudge above](#the-run-orbit-generate-nudge)), so it never misses a use.
+How call sites keep their spelling, for a field renamed to `IsClosed`:
+
+| At the call site | Becomes |
+|---|---|
+| `isOpen` | `isClosed` |
+| `is-open` | `is-closed` |
+| `is_open` | `is_closed` |
+| `isopen` | `isclosed` |
+| `IsOpen` | `IsClosed` |
+| `{isOpen}` (shorthand) | `isClosed={isOpen}` |
+
+Any other spelling (`ISOPEN`) becomes the camelCase one completion inserts (`isClosed`). Renaming the variable of a shorthand keeps the attribute's name: renaming `isOpen` to `open` turns `{isOpen}` into `isOpen={open}`.
+
+Orbit refuses a rename, with a message:
+
+- of a name the generated code declares rather than your file: `props`, `ctx`, `slots`, `locals`, `params`, and the `Props` type itself;
+- of a `params` field, such as `params.Slug`: it comes from the file path (`[slug].orbit`), so rename the file instead;
+- when it would have to change generated code that doesn't correspond to anything in your files;
+- of a `Props` field to an unexported name (`article`): a parent couldn't set it.
+
+Rename waits until the language server has loaded the whole project (see [the nudge above](#the-run-orbit-generate-nudge)), so it never misses a use.
 
 ## See also
 

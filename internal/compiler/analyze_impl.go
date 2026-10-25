@@ -232,12 +232,31 @@ func (s *anState) orbitImport(alias string, aliasSpan Span, p string, pathSpan, 
 		s.errorf(pathSpan, "component path %s is outside src/", p)
 		return
 	}
-	if r, _ := utf8.DecodeRuneInString(alias); !unicode.IsUpper(r) {
-		s.errorf(aliasSpan, "component alias %s must start with an uppercase letter (rename it to %s)", alias, anUpperFirst(alias))
+	if msg := AliasError(alias); msg != "" {
+		s.errorf(aliasSpan, "%s", msg)
 	}
 	s.a.OrbitImports = append(s.a.OrbitImports, OrbitImport{
 		Alias: alias, AliasSpan: aliasSpan, Path: p, Span: full, PathSpan: pathSpan, Resolved: resolved,
 	})
+}
+
+// AliasError returns the error for an .orbit import alias that doesn't
+// start with an uppercase letter (a lowercase tag is always an HTML
+// element), or "" when it does. The LSP checks a renamed alias with it.
+func AliasError(alias string) string {
+	if r, _ := utf8.DecodeRuneInString(alias); !unicode.IsUpper(r) {
+		return fmt.Sprintf("component alias %s must start with an uppercase letter (rename it to %s)", alias, anUpperFirst(alias))
+	}
+	return ""
+}
+
+// UnexportedPropError returns the error for an unexported Props field
+// name, or "" for an exported one. The LSP checks a renamed field with it.
+func UnexportedPropError(name string) string {
+	if ast.IsExported(name) {
+		return ""
+	}
+	return fmt.Sprintf("Props field %s must be exported, since a parent sets it (rename it to %s)", name, anUpperFirst(name))
 }
 
 // anUpperFirst upper-cases the first letter of name.

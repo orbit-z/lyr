@@ -441,15 +441,7 @@ func (m mapper) paramsFallback(g *genFile, r Range) (string, Range, bool) {
 	id := identAt(g.content, off)
 	top := Range{}
 	if g.decl {
-		if f.Info.Role != compiler.RolePage {
-			return "", Range{}, false
-		}
-		start := bytes.Index(g.content, []byte("\ntype Params struct"))
-		if start < 0 {
-			return "", Range{}, false
-		}
-		end := bytes.Index(g.content[start:], []byte("\n}\n"))
-		if end < 0 || off < start || off > start+end+2 {
+		if !inParams(g, f, off) {
 			return "", Range{}, false
 		}
 		return m.ws.orbitURI(g.orbit), top, true

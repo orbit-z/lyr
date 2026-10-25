@@ -202,8 +202,8 @@ func (s *anState) props(ts *ast.TypeSpec, broken bool) {
 				continue
 			}
 			sp := s.span(id)
-			if !ast.IsExported(id.Name) && !broken {
-				s.errorf(sp, "Props field %s must be exported, since a parent sets it (rename it to %s)", id.Name, anUpperFirst(id.Name))
+			if msg := UnexportedPropError(id.Name); msg != "" && !broken {
+				s.errorf(sp, "%s", msg)
 			}
 			key := NormalizeName(id.Name)
 			if prev, dup := norm[key]; dup && !broken {
