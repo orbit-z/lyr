@@ -80,7 +80,7 @@ tags := []string{"go", "web"}
 
 ## Text
 
-Text, including whitespace and newlines, is written exactly as it appears in the template. HTML entities such as `&amp;` and `&lt;` pass through unchanged.
+Text is written as it appears in the template, except for whitespace, which is compressed by default (see [Whitespace](#whitespace)). HTML entities such as `&amp;` and `&lt;` pass through unchanged.
 
 A `<` begins a tag only when the next character is a letter, `/` or `!`. Everything else is text, so comparisons and emoticons need no escaping:
 
@@ -93,6 +93,51 @@ A `<` begins a tag only when the next character is a letter, `/` or `!`. Everyth
 ```orbit
 <code>func main() {"{"} }</code>
 ```
+
+## Whitespace
+
+Orbit compresses template whitespace when it generates the Go code, following the `compressHTML` setting in `orbit.json` (see [Configuration](../configuration.md#compresshtml)). Whitespace here means spaces, tabs, newlines, carriage returns and form feeds.
+
+**Never altered**, in every mode:
+
+- the content of `<pre>` and `<textarea>` (including nested elements), and of `<script>` and `<style>`;
+- HTML comments (`<!-- … -->`) and doctypes;
+- attribute values;
+- the output of `{expr}`: it's runtime data, so `{" "}` always writes one space.
+
+**`"html"`** (the default, Astro's `compressHTML: true`) is lossless for rendering:
+
+- Each run of whitespace becomes one space, or one newline if the run contains a newline.
+- A text that is only whitespace is dropped when what can render on each side of it is a block-level boundary: the tag of a block-level element, a doctype, a `<script>` or `<style>`, or the start or end of the template. It's also dropped when the whitespace on one side is kept anyway.
+- Anything else counts as inline, and whitespace next to it is kept: text, inline elements (`<a>`, `<b>`, `<span>`, …), `{expr}`, components, `<slot>`, HTML comments, and the start and end of a component's children. So words never join.
+- Orbit looks through `{if}` and `{for}` to find the neighbors: every branch of an `{if}` (and nothing, when it has no `{else}`), and zero or more iterations of a `{for}`. Whitespace is dropped only when every possible neighbor allows it.
+- Template comments (`{/* … */}`) are removed first, so the whitespace around one is a single run.
+
+The block-level elements are `html`, `head`, `body`, `title`, `meta`, `link`, `base`, `style`, `script`, `noscript`, `template`, `address`, `article`, `aside`, `blockquote`, `details`, `dialog`, `dd`, `div`, `dl`, `dt`, `fieldset`, `figcaption`, `figure`, `footer`, `form`, `h1`–`h6`, `header`, `hgroup`, `hr`, `li`, `main`, `nav`, `ol`, `p`, `pre`, `section`, `summary`, `menu`, `ul`, `br`, `table`, `caption`, `colgroup`, `col`, `thead`, `tbody`, `tfoot`, `tr`, `td`, `th`, `legend`, `optgroup` and `option`.
+
+```orbit
+<ul>
+  <li>Posts by <b>{name}</b>
+      and friends</li>
+</ul>
+```
+
+renders `<ul><li>Posts by <b>Ana</b>⏎and friends</li></ul>` (⏎ is one newline).
+
+**`"jsx"`** (Astro v7's default) applies JSX's rule (Babel's) to each text between two tags, expressions or blocks:
+
+- every line is trimmed of spaces and tabs, except at the start of the first line and the end of the last;
+- lines that are then empty are dropped;
+- the remaining lines are joined with one space.
+
+So whitespace that contains a newline disappears next to a tag or an expression, and whitespace within a line is kept. The example above renders `<ul><li>Posts by <b>Ana</b>and friends</li></ul>`: the words join. Write `{" "}` where a space must survive a line break:
+
+```orbit
+<li>Posts by <b>{name}</b>{" "}
+    and friends</li>
+```
+
+**`false`** writes template text exactly as it appears.
 
 ## Expressions
 

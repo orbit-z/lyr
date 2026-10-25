@@ -24,6 +24,7 @@ Unknown keys are ignored, as `encoding/json` ignores unknown fields, so check th
 | [`site`](#site) | string | none | Your site's absolute URL, available as `ctx.Site`. |
 | [`server`](#server) | string | `"./cmd/server"` if it exists, else a generated entry | The Go package of your server's `main`. |
 | [`embed`](#embed) | bool | `false` | Embed the static files in the server binary, like `orbit build --embed`. |
+| [`compressHTML`](#compresshtml) | `"html"`, `"jsx"` or `false` | `"html"` | How template whitespace is compressed. |
 
 ## `site`
 
@@ -73,6 +74,54 @@ Builds a single, self-contained server binary with the `/_orbit/` assets and `pu
 ```
 
 It's the same as passing `--embed` to `orbit build`; the flag turns embedding on even when `embed` is `false`. `dist/client/` is still written, so you can also upload it to a CDN. See [Deploy](deploy.md#single-binary---embed).
+
+## `compressHTML`
+
+How Orbit compresses the whitespace in your templates. It's applied when the Go code is generated, so it costs nothing per request:
+
+```json
+{ "compressHTML": "jsx" }
+```
+
+| Value | Effect |
+|---|---|
+| `"html"` (default) | HTML-aware and lossless, like Astro's `compressHTML: true`. Each run of whitespace becomes one space, or one newline if it contains one. Whitespace-only text between block-level tags is dropped, but whitespace next to text, inline elements or `{expr}` always keeps one character, so words never join. |
+| `"jsx"` | JSX's whitespace rules, Astro v7's default: whitespace that contains a newline is removed when it's next to a tag or an expression, and whitespace within a line is kept. Write `{" "}` where you need a space across lines. |
+| `false` | Template text is written exactly as it is. |
+
+In every mode, the content of `<pre>`, `<textarea>`, `<script>` and `<style>`, HTML comments, attribute values and the output of `{expr}` are never altered. The exact rules are in [Template syntax: Whitespace](reference/template-syntax.md#whitespace).
+
+This template:
+
+```orbit
+<ul>
+  <li><a href="/">Home</a></li>
+  <li>Posts by <b>{name}</b>
+      and friends</li>
+</ul>
+<p>
+  <a href="/a">One</a>
+  <a href="/b">Two</a>
+</p>
+```
+
+renders, with `name` set to `"Ana"`, as follows. With `"html"`, the whitespace between block tags is gone, and each run between inline content became one newline:
+
+```html
+<ul><li><a href="/">Home</a></li><li>Posts by <b>Ana</b>
+and friends</li></ul><p>
+<a href="/a">One</a>
+<a href="/b">Two</a>
+</p>
+```
+
+With `"jsx"`, every whitespace run with a newline is gone, so `Anaand` and `OneTwo` are joined; write `<b>{name}</b>{" "}` and `<a href="/a">One</a>{" "}` to keep the spaces:
+
+```html
+<ul><li><a href="/">Home</a></li><li>Posts by <b>Ana</b>and friends</li></ul><p><a href="/a">One</a><a href="/b">Two</a></p>
+```
+
+With `false`, the output is the template as written.
 
 ## Settings that aren't in `orbit.json`
 

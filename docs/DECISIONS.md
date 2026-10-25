@@ -34,6 +34,8 @@ To override a decision, say which row and the alternative you want; the docs and
 | Without a `tool` directive, a global CLI whose version differs from the runtime in `go.mod` stops with an error pointing to `orbit doctor`; skipped when `go.mod` has a local `replace` | simplest | A warning only; no check | [CLI](reference/cli.md#the-pinned-cli-orbit-and-go-tool-orbit) |
 | `orbit create-key` prints a base64 island key | Astro (`astro create-key`) | Document `openssl rand -base64 32` instead | [CLI](reference/cli.md#orbit-create-key) |
 | A committed `orbit_gen/` still ignores `orbit_gen/static/` (the `--embed` copy of the built files) | simplest | Commit `orbit_gen/static/` too | [Project structure](project-structure.md#committing-orbit_gen-optional) |
+| Generated package paths: every byte outside `[a-z0-9_]` becomes `_`, and a segment starting with `_`, or named `testdata`, `vendor` or `internal`, gets a `p_` prefix (the go command treats those specially) | simplest | Hash-based package names; reject such file names | [Project structure](project-structure.md#orbit_gen-generated-go-code) |
+| The CLI strips the `vet: ` prefix `go vet` puts before a type error, so `orbit build` and `orbit check` print it alike | simplest | Keep Go's prefix | [CLI](reference/cli.md#error-output) |
 
 ## Configuration
 
@@ -42,6 +44,9 @@ To override a decision, say which row and the alternative you want; the docs and
 | Unknown `orbit.json` keys are ignored | Go stdlib (`encoding/json`) | An error, or a warning naming the key | [Configuration](configuration.md#example) |
 | An unset `site` gives a nil `ctx.Site` (like `Astro.site` being `undefined`) | Astro | A zero `url.URL` | [Configuration](configuration.md#site), [Runtime API](reference/runtime-api.md#request-context-ctx) |
 | A `site` that isn't an absolute URL (no scheme or host) is an error when `orbit.json` loads | simplest | Accept it and resolve it later, or warn | [Configuration](configuration.md#site) |
+| `compressHTML`: `"html"` (default; HTML-aware and lossless, Astro's `true`), `"jsx"` (Astro v7's default JSX rules; `{" "}` forces a space) or `false` (verbatim), applied at codegen time | user | Astro v7's `'jsx'` default (can join words across inline elements); no compression | [Configuration](configuration.md#compresshtml), [Template syntax](reference/template-syntax.md#whitespace) |
+| `"html"` mode drops a whitespace-only text when its neighbors on both sides are block boundaries (block elements' tags, doctypes, scripts and styles, the template's ends) or kept whitespace, looking through every `{if}` branch and `{for}` iteration; components, slots and HTML comments count as inline. Other runs collapse to one space, or one newline if they contain one | simplest (never joins words, never changes rendering) | Treat components as blocks; drop only between two block tags, not looking through `{if}`/`{for}` | [Template syntax](reference/template-syntax.md#whitespace) |
+| `"jsx"` mode applies Babel's line rule to each text (lines trimmed except at the text's own ends, empty lines dropped, the rest joined with one space) | Astro (its JSX mode follows Babel) | A custom approximation | [Template syntax](reference/template-syntax.md#whitespace) |
 
 ## Components and templates
 
@@ -92,6 +97,29 @@ To override a decision, say which row and the alternative you want; the docs and
 | `client:*` values must be static strings | simplest (the marker is folded into precomputed static HTML) | Allow `{expr}` values | [Template syntax](reference/template-syntax.md#client) |
 | Wording of the errors PLAN didn't specify: `unknown component <Crad>: no .orbit import with this alias`, `unexpected </ul>: <li> opened at 12:5 isn't closed`, `server:defer takes no value`, `client:visible takes a static string value, not an expression`, `client:media needs a media query, e.g. …`, `only one client:* directive is allowed per component` | simplest (`go vet`-style: lowercase, no trailing period) | Other wording | [Template syntax](reference/template-syntax.md#directives) |
 | `rendering.md` is called that, not `rendering-modes.md`, since there's only one mode | simplest | Astro's page name | [Rendering](rendering.md) |
+| Wording of the frontmatter and codegen errors PLAN didn't specify: `orbit__x is reserved: names starting with orbit__ or Orbit__ are used by generated code`, `Render is generated for every component; rename this declaration`, `Props field title must be exported, since a parent sets it (rename it to Title)`, `Props fields IsOpen and Is_Open both match the attribute name isopen; rename one`, `dot imports aren't supported in a component; import the package by name`, `Item clashes with Item in the component's declaration package (Props uses it); rename one`, `Props can't have type parameters`, `component path ../../X.orbit is outside src/`, `no such component: src/components/Crad.orbit` | simplest (`go vet`-style) | Other wording | [Troubleshooting](troubleshooting.md#compile-errors-in-orbit-files) |
+| An `.orbit` import without an alias, or with `_`, is an error suggesting one from the file name: `a component import needs an alias: Card "./Card.orbit"` | simplest | Derive the alias from the file name | [Components](components.md#importing-components) |
+| An alias, named Go import or implementation-side name equal to `Props`, `Render` (or a page's `Params`) is an error: `Props clashes with the generated Props of the component's declaration package; rename it` | simplest (like the `Props`-export clash) | Go's own `redeclared` error at a generated position | [Components](components.md#types-used-by-props) |
+| An unused component import is an error at the alias: `component Card is imported but not used; remove the import`; it isn't emitted. A use in Go code (`Card.Props`) counts, `<Self>` doesn't | user | Emit it and let Go report the unused import | [Components](components.md#importing-components) |
+| Rename hints (`rename it to Item`, `Card "./Card.orbit"`) uppercase only the first letter (`url` → `Url`) | simplest | Apply the initialism table (`URL`) | [Components](components.md#fields-must-be-exported) |
+| Orbit doesn't report Go syntax errors in the frontmatter; Go and gopls do, at the same `.orbit` positions | simplest (no duplicate errors) | Orbit's own syntax errors | — |
+| An import without a name is placed by the package name guessed from its path's last element (skipping `/vN`, dropping `.vN`, a `go-` prefix and a `-go` suffix), without loading the package | simplest (keeps generation fast) | Load each package to read its name | — |
+| Template comments and whitespace after a terminating last statement are allowed (only other content is the "always returns" error) | simplest | Require an empty template | [Components](components.md#returning-errors-redirects-and-404s) |
+| `FieldName` keeps a word's tail as written (`isOpen` → `IsOpen`); `LowerCamel` (the unknown-prop list) follows Go's unexported-name style (`ID` → `id`) | Go stdlib (Go naming conventions) | Lowercase the tail | [Template syntax](reference/template-syntax.md#name-matching) |
+| A grouped hoisted declaration (`type (…)`, `const (…)`) goes to one package as a whole; doc comments move with their declaration | simplest | Split a group by what `Props` needs | [Components](components.md#types-used-by-props) |
+| Dot imports are rejected, Go and `.orbit` alike | simplest | Allow Go dot imports | [Troubleshooting](troubleshooting.md#dot-imports-arent-supported-in-a-component-import-the-package-by-name) |
+| A non-struct, aliased or embedding `Props` isn't listed for the unknown-prop check (Go reports unknown fields); a generic `Props` is an error | simplest | Resolve embedded fields | [Troubleshooting](troubleshooting.md#unknown-prop-psot-on-card-props-post-featured) |
+| Static attributes are copied as written; static prop values (`title="a &amp; b"`) aren't entity-decoded | simplest | Decode entities in prop values | [Template syntax](reference/template-syntax.md#attributes) |
+| Void elements are written as `<br>`, also when written `<br />` | simplest (HTML serialization) | Keep the slash as written | [Template syntax](reference/template-syntax.md#html-and-custom-elements) |
+| `slot="…"` is stripped only on a component's direct children; elsewhere it's a plain HTML attribute | simplest (keeps the attribute for web components) | Strip it everywhere | [Components](components.md#slots) |
+| Until milestone 8, `server:defer` and lazy `client:*` (`idle`, `visible`, `media`) are errors at the directive (`server:defer isn't implemented yet`, `client:idle isn't implemented yet`), not silent no-ops; `client:load` compiles like no directive | simplest | Ignore the directive until then | — |
+| Until milestone 6, processed `<script>`/`<style>` tags are left out of the generated HTML (they'll be bundled) | simplest | Copy them verbatim meanwhile | — |
+| Typed constants aren't folded into the static `Raw` HTML yet | simplest | Fold them now | — |
+| Attribute typed writes mirror `Attr`: `string`, `orbit.HTML` and named strings without methods use `AttrString`, or `AttrURL` on URL attributes; `orbit.URL` uses `AttrString`; `bool` and every named bool, with methods or not, use `AttrBool`; the rest `Attr` | simplest (byte-identical to `Attr`) | `Attr` for every named type | [Template syntax](reference/template-syntax.md#attribute-values-on-html-elements) |
+| A type with a `Format` method keeps `Expr`/`Attr`, since `fmt` calls `Format` | Go stdlib (`fmt.Formatter`) | Use the typed write of its underlying type | [Runtime API](reference/runtime-api.md#typed-writes) |
+| `uintptr` keeps `Expr` | simplest (as PLAN keeps complex types) | `Uint` | [Runtime API](reference/runtime-api.md#typed-writes) |
+| Generated glue uses predeclared names (`true`, `error`, `int64`); shadowing them in the frontmatter isn't guarded | simplest (as PLAN §3.2's example) | Qualify or alias every predeclared name | — |
+| Declaration packages on an import cycle fall back to `Expr` writes (milestone 5 reports the cycle) | simplest | Fail the type check | — |
 
 ## Routing
 
@@ -189,6 +217,7 @@ To override a decision, say which row and the alternative you want; the docs and
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
 | The dev proxy listens on localhost; `orbit dev --host` listens on all interfaces | coordinator (Astro) | All interfaces by default | [Dev server](dev-server.md#start-it), [CLI](reference/cli.md#orbit-dev) |
+| A new external import in a component reloads export data (`go list -export`) and re-checks everything, like a `go.mod` edit | simplest | Load only the new package | [Dev server](dev-server.md#what-a-change-rebuilds) |
 
 ## Editor support
 
@@ -197,3 +226,5 @@ To override a decision, say which row and the alternative you want; the docs and
 | The VS Code extension is published to the Marketplace and Open VSX as `bertrandkhe.orbit` | coordinator | A `.vsix` on GitHub releases only; Marketplace only | [Editor setup](editor-setup.md#vs-code) |
 | gopls is chosen with the `goplsPath` initialization option, set by the VS Code setting `orbit.goplsPath` | simplest | Only `PATH` | [Editor setup](editor-setup.md#how-gopls-is-found) |
 | The docs advise against a gopls `directoryFilters` entry for `orbit_gen/`, because Orbit's gopls gets the same settings | simplest | Strip `directoryFilters` from the settings Orbit forwards | [Editor setup](editor-setup.md#the-go-extensions-errors-in-orbit_gen) |
+| The LSP always generates every file in memory and uses its own source maps; it never reads maps for `orbit_gen/` files, and none are written to disk | coordinator (simplest) | Sidecar map files next to the generated code | — |
+| Tolerant (editor) code is never type-checked: every expression uses `Expr` | simplest (keeps the editor fast; output isn't rendered) | Type-check it too | — |

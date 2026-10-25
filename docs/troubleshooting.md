@@ -222,7 +222,7 @@ src/pages/blog/[slug].orbit:9:26: params.Slg undefined (type Params has no field
 
 **Fix:** move the initialization (caches, clients, configuration) into a package under `internal/`, and import that package. See [No `func init`](components.md#no-func-init).
 
-### `Props field post must be exported (rename it to Post)`
+### `Props field post must be exported, since a parent sets it (rename it to Post)`
 
 **Cause:** a parent sets `Props` fields from another Go package, so every field must be exported.
 
@@ -234,13 +234,77 @@ src/pages/blog/[slug].orbit:9:26: params.Slg undefined (type Params has no field
 
 **Fix:** rename it to `Item`. Parents then refer to it through the alias, as `List.Item`. A lowercase name that only `Props` uses is fine. See [Types used by Props](components.md#types-used-by-props).
 
-### An import alias or helper clashes with a name `Props` uses
+### `Item clashes with Item in the component's declaration package (Props uses it); rename one`
 
-**Symptom:** Orbit reports an error at a component import alias or a hoisted declaration, for example `Item "./Item.orbit"` in a file whose `Props` uses a `type Item`.
-
-**Cause:** `Props` pulled `Item` into the component's declaration package, which the rest of the component already sees, so the name is taken.
+**Cause:** a component import alias, a named Go import or a hoisted declaration reuses a name that `Props` pulled into the component's declaration package, for example `Item "./Item.orbit"` in a file whose `Props` uses a `type Item`. The rest of the component already sees that name, so it's taken.
 
 **Fix:** rename one of them, for example the alias: `ItemRow "./Item.orbit"`. Shadowing the name inside the render body (`Item := 42`) is allowed. See [Types used by Props](components.md#types-used-by-props).
+
+### `Props clashes with the generated Props of the component's declaration package; rename it`
+
+**Cause:** a component import alias, a named Go import or a hoisted declaration is named `Props` or `Render` (or, in a page, `Params`), which Orbit generates in the component's declaration package. For example `Props "./Other.orbit"`.
+
+**Fix:** rename it, for example `Other "./Other.orbit"`. See [Types used by Props](components.md#types-used-by-props).
+
+### `Render is generated for every component; rename this declaration`
+
+**Cause:** the frontmatter declares a hoisted `Render` (a func, type or const). Orbit generates `Render` for every component.
+
+**Fix:** pick another name, such as `renderRow`. See [Redeclaring and shadowing](components.md#redeclaring-and-shadowing).
+
+### `orbit__x is reserved: names starting with orbit__ or Orbit__ are used by generated code`
+
+**Cause:** a name in the frontmatter or the template starts with `orbit__` or `Orbit__`, the prefixes of Orbit's generated code.
+
+**Fix:** rename it. See [Redeclaring and shadowing](components.md#redeclaring-and-shadowing).
+
+### `Props fields IsOpen and Is_Open both match the attribute name isopen; rename one`
+
+**Cause:** attributes match `Props` fields ignoring case, `-` and `_`, so two fields that differ only in those would take the same attribute.
+
+**Fix:** rename or remove one of the fields. See [Props](components.md#props).
+
+### `Props can't have type parameters`
+
+**Cause:** `type Props` is generic (`type Props[T any] struct{…}`). A parent's tag can't pass type arguments.
+
+**Fix:** use concrete field types, or an interface. See [Props](components.md#props).
+
+### `a component import needs an alias: Card "./Card.orbit"`
+
+**Cause:** an `.orbit` import has no alias (`"./Card.orbit"`) or the blank alias `_`. The alias is the component's tag name, so it's required.
+
+**Fix:** add the suggested alias, `Card "./Card.orbit"`, and use the component as `<Card>`. See [Importing components](components.md#importing-components).
+
+### `component Card is imported but not used; remove the import`
+
+**Cause:** an `.orbit` import whose alias is used neither as a tag (`<Card>`) nor in Go code (`Card.Props`), like an unused Go import.
+
+**Fix:** remove the import, or use the component. See [Importing components](components.md#importing-components).
+
+### `dot imports aren't supported in a component; import the package by name`
+
+**Cause:** a dot import (`. "fmt"` or `. "./Card.orbit"`) in the frontmatter. Components import packages by name only.
+
+**Fix:** import the package by name and qualify its names (`fmt.Sprint`), or give a component its alias. See [Importing components](components.md#importing-components).
+
+### `component path ../../X.orbit is outside src/`
+
+**Cause:** an `.orbit` import's relative path leads out of `src/`. Components are compiled from `src/` only.
+
+**Fix:** move the component under `src/` (usually `src/components/`), and fix the path. See [Importing components](components.md#importing-components).
+
+### `no such component: src/components/Crad.orbit`
+
+**Cause:** an `.orbit` import points at a file that doesn't exist. The error is at the import path, which Orbit resolves relative to the importing file and prints from the project root.
+
+**Fix:** fix the path or the file name. See [Importing components](components.md#importing-components).
+
+### `orbit: can't read export data for example.com/blog/internal/posts: …; using Expr fallbacks`
+
+**Cause:** a warning, not an error. Orbit reads the compiled type information of your imports (with `go list -export`) to pick typed writes; when it can't (here for one package, or `orbit: can't load export data: …` for all of them), it uses the generic `Expr` writes instead. The rendered HTML is the same, only slightly slower to produce.
+
+**Fix:** usually a problem in that package or in `go.mod`: run `go build ./...` to see it. See [Expressions are written by type](performance.md#expressions-are-written-by-type-without-reflection).
 
 ### `props is provided by Orbit and can't be redeclared here`
 

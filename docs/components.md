@@ -206,7 +206,7 @@ Names that start with `orbit__` or `Orbit__` are reserved, and a hoisted declara
 
 ### Unused variables
 
-Unlike plain Go, a variable declared at the top level of the body and never used isn't an error, so you can compute a value and stop using it without editing the frontmatter. Unused **imports** are still an error, as in Go.
+Unlike plain Go, a variable declared at the top level of the body and never used isn't an error, so you can compute a value and stop using it without editing the frontmatter. Unused **imports** are still an error: Go's own for a Go package, and Orbit's for a component (see [Importing components](#importing-components)).
 
 ### No `func init`
 
@@ -280,6 +280,20 @@ The alias is required: it's the tag name you use in the template (`<Card>`) and 
 ```text
 src/pages/index.orbit:5:5: component alias card must start with an uppercase letter (rename it to Card)
 ```
+
+An import without an alias (`"./Card.orbit"`), or with `_`, is an error suggesting one, named after the file; a dot import (`. "./Card.orbit"`) is rejected too:
+
+```text
+src/pages/index.orbit:5:5: a component import needs an alias: Card "./Card.orbit"
+```
+
+A component you import but never use, neither as a tag nor in Go code (`Card.Props`), is an error at the alias, like an unused Go import:
+
+```text
+src/pages/index.orbit:3:5: component Card is imported but not used; remove the import
+```
+
+The path must stay inside `src/` (`component path ../../X.orbit is outside src/`).
 
 Components can import each other in cycles; see [Mutual recursion](#mutual-recursion).
 
@@ -379,7 +393,7 @@ src/pages/index.orbit:9:11: cannot use "yes" (untyped string constant) as bool v
 Every `Props` field must be exported (start with an uppercase letter), because the parent's code sets it from another package. An unexported field is an error naming it:
 
 ```text
-src/components/Card.orbit:5:5: Props field post must be exported (rename it to Post)
+src/components/Card.orbit:5:5: Props field post must be exported, since a parent sets it (rename it to Post)
 ```
 
 ### Types used by Props
@@ -411,7 +425,19 @@ src/components/List.orbit:2:6: item is used by Props, so it lives in the compone
 
 A lowercase name that only `Props` (and other declarations in the declaration package) uses is fine; the error appears only when the body, the template or another helper refers to it.
 
-For the same reason, a component import alias or another hoisted name can't reuse a name that `Props` pulled into the declaration package (`Item "./Item.orbit"` next to a `type Item` that `Props` uses); Orbit reports it at that name. Shadowing it inside the body (`Item := 42`) is fine.
+For the same reason, a component import alias, a named Go import or another hoisted name can't reuse a name that `Props` pulled into the declaration package (`Item "./Item.orbit"` next to a `type Item` that `Props` uses). Orbit reports it at that name:
+
+```text
+src/components/List.orbit:3:5: Item clashes with Item in the component's declaration package (Props uses it); rename one
+```
+
+The names Orbit generates there, `Props` and `Render` (and a page's `Params`), are taken the same way:
+
+```text
+src/components/List.orbit:4:5: Props clashes with the generated Props of the component's declaration package; rename it
+```
+
+Shadowing such a name inside the body (`Item := 42`) is fine.
 
 ## Templates
 
