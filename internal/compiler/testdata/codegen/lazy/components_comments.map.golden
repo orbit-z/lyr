@@ -3,7 +3,7 @@ orbit_gen/decl/components/comments/decl.go (src/components/Comments.orbit)
 orbit_gen/impl/components/comments/render.go (src/components/Comments.orbit)
   exact 2:8 "Counter" -> 226-233 "Counter"
   span  2:16 "\"./Counter.orbit\"" -> 234-286 "\"example.com/blog/orbit_gen/decl/components/counter\""
-  exact 9:24 "props.PostID" -> 918-930 "props.PostID"
-  span  9:40 "Counter" -> 1114-1128 "Counter.Render"
+  exact 9:24 "props.PostID" -> 845-857 "props.PostID"
+  span  9:40 "Counter" -> 1041-1055 "Counter.Render"
 call sites
-  content key=114 "props.PostID" call="orbit__w.Expr(\n/*line ../../../../src/components/Comments.orbit:9:24*/props.PostID/*line render.go:25:92*/,\n\t)"
+  content key=114 "props.PostID" call="orbit__w.Expr(\n/*line ../../../../src/components/Comments.orbit:9:24*/props.PostID/*line render.go:24:92*/,\n\t)"

@@ -147,7 +147,7 @@ func TestIsReservedIdent(t *testing.T) {
 }
 
 // TestIsURLAttrMatchesRuntime checks IsURLAttr against the runtime's own URL
-// filtering, so the typed AttrURL/AttrString choice mirrors Attr.
+// filtering, so the typed URL/String choice mirrors Attr.
 func TestIsURLAttrMatchesRuntime(t *testing.T) {
 	names := append(urlAttrs[:], "HREF", "Src", "class", "title", "id", "alt", "srcset", "xlink:title", "data-href")
 	for _, name := range names {

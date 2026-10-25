@@ -18,11 +18,10 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots, params := orbit__ctx, orbit__props, orbit__slots, orbit__params
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _, _ = ctx, props, slots, params, locals
+	_, _, _, _ = ctx, props, slots, params
 	orbit__w.Raw("<div>")
-	if orbit__err := /*line ../../../../src/pages/nested.orbit:4:7*/R.Render/*line render.go:24:98*/(orbit__ctx, orbit__w, R.Props{
-		/*line ../../../../src/pages/nested.orbit:4:9*/Mode/*line render.go:25:78*/: "top",
+	if orbit__err := /*line ../../../../src/pages/nested.orbit:4:7*/R.Render/*line render.go:23:98*/(orbit__ctx, orbit__w, R.Props{
+		/*line ../../../../src/pages/nested.orbit:4:9*/Mode/*line render.go:24:78*/: "top",
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}

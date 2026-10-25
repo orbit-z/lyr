@@ -18,22 +18,21 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots := orbit__ctx, orbit__props, orbit__slots
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _ = ctx, props, slots, locals
+	_, _, _ = ctx, props, slots
 	orbit__w.Raw("<div class=\"a\"")
 	orbit__w.Attr("data-depth",
-/*line ../../../../src/components/A.orbit:8:28*/props.Depth/*line render.go:25:84*/,
+/*line ../../../../src/components/A.orbit:8:28*/props.Depth/*line render.go:24:84*/,
 	)
 	orbit__w.Raw(">\n")
-	for /*line ../../../../src/components/A.orbit:9:8*/_, ctx := range []int{1, 2}/*line render.go:28:105*/ {
-		if orbit__err := /*line ../../../../src/components/A.orbit:10:6*/B.Render/*line render.go:29:101*/(orbit__ctx, orbit__w, B.Props{
-			/*line ../../../../src/components/A.orbit:10:8*/Depth/*line render.go:30:81*/: /*line ../../../../src/components/A.orbit:10:15*/props.Depth + 1/*line render.go:30:172*/,
-			/*line ../../../../src/components/A.orbit:10:32*/N/*line render.go:31:78*/: /*line ../../../../src/components/A.orbit:10:35*/ctx/*line render.go:31:157*/,
+	for /*line ../../../../src/components/A.orbit:9:8*/_, ctx := range []int{1, 2}/*line render.go:27:105*/ {
+		if orbit__err := /*line ../../../../src/components/A.orbit:10:6*/B.Render/*line render.go:28:101*/(orbit__ctx, orbit__w, B.Props{
+			/*line ../../../../src/components/A.orbit:10:8*/Depth/*line render.go:29:81*/: /*line ../../../../src/components/A.orbit:10:15*/props.Depth + 1/*line render.go:29:172*/,
+			/*line ../../../../src/components/A.orbit:10:32*/N/*line render.go:30:78*/: /*line ../../../../src/components/A.orbit:10:35*/ctx/*line render.go:30:157*/,
 		}, orbit__rt.Slots{
 			Default: func(orbit__w *orbit__rt.Writer) error {
 				orbit__w.Raw("\n<i>from A ")
 				orbit__w.Expr(
-/*line ../../../../src/components/A.orbit:11:18*/ctx/*line render.go:36:77*/,
+/*line ../../../../src/components/A.orbit:11:18*/ctx/*line render.go:35:77*/,
 				)
 				orbit__w.Raw("</i>\n")
 				return orbit__w.Err()

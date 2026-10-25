@@ -15,30 +15,29 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots := orbit__ctx, orbit__props, orbit__slots
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _ = ctx, props, slots, locals
-/*line ../../../../src/components/Ws.orbit:2:1*/items := []string{"a", "b"}/*line render.go:20:101*/
-/*line ../../../../src/components/Ws.orbit:3:1*/name := "<you>"/*line render.go:21:88*/
+	_, _, _ = ctx, props, slots
+/*line ../../../../src/components/Ws.orbit:2:1*/items := []string{"a", "b"}/*line render.go:19:101*/
+/*line ../../../../src/components/Ws.orbit:3:1*/name := "<you>"/*line render.go:20:88*/
 	_ = items
 	_ = name
 	orbit__w.Raw("<section>\n  <h1>  Hello,\n      ")
 	orbit__w.Expr(
-/*line ../../../../src/components/Ws.orbit:7:8*/name/*line render.go:26:77*/,
+/*line ../../../../src/components/Ws.orbit:7:8*/name/*line render.go:25:77*/,
 	)
 	orbit__w.Raw("   and   friends  </h1>\n\n  <p>one <b>two</b>   <i>three</i>\n     four</p>\n  \n  <ul>\n    ")
-	for /*line ../../../../src/components/Ws.orbit:13:10*/_, it := range items/*line render.go:29:101*/ {
+	for /*line ../../../../src/components/Ws.orbit:13:10*/_, it := range items/*line render.go:28:101*/ {
 		orbit__w.Raw("\n      <li>")
 		orbit__w.Expr(
-/*line ../../../../src/components/Ws.orbit:14:12*/it/*line render.go:32:77*/,
+/*line ../../../../src/components/Ws.orbit:14:12*/it/*line render.go:31:77*/,
 		)
 		orbit__w.Raw("</li>\n    ")
 	}
 	orbit__w.Raw("\n  </ul>\n  <span>x</span> <span>y</span>")
 	orbit__w.Expr(
-/*line ../../../../src/components/Ws.orbit:17:33*/" "/*line render.go:38:78*/,
+/*line ../../../../src/components/Ws.orbit:17:33*/" "/*line render.go:37:78*/,
 	)
 	orbit__w.Raw("<span>z</span>\n  ")
-	if /*line ../../../../src/components/Ws.orbit:18:7*/len(items) > 1/*line render.go:41:92*/ {
+	if /*line ../../../../src/components/Ws.orbit:18:7*/len(items) > 1/*line render.go:40:92*/ {
 		orbit__w.Raw("\n    <em>many</em>\n  ")
 	}
 	orbit__w.Raw("\n  <pre>\n  keep   this\n    as is</pre>\n  <textarea>  also\n   this </textarea>\n  <!--   comment   kept   -->\n  <script>  if (a  <  b) {}  </script>\n</section>\n")

@@ -118,7 +118,7 @@ Returns the locals attached to `r`, or `nil` if no middleware attached any, rath
 ```go
 func LocalsOf[L any](c *Ctx) *L
 ```
-Returns the request's locals, never `nil`: it allocates a zero `L` the first time it's called for a request without locals, and every component in the request shares that value. Generated code calls this to define `locals`.
+Returns the request's locals, never `nil`: it allocates a zero `L` the first time it's called for a request without locals, and every component in the request shares that value. Generated code calls this to define `locals`, only in a page or component whose code mentions `locals`.
 
 ```go
 type NoLocals struct{}
@@ -220,6 +220,7 @@ Which write an expression gets depends on its static type:
 func (w *Writer) Attr(name string, v any)       // generic path
 func (w *Writer) AttrString(name, s string)
 func (w *Writer) AttrURL(name, s string)        // for URL attributes: scheme-filtered
+func (w *Writer) URL(s string)                  // only the value AttrURL writes between the quotes
 func (w *Writer) AttrBool(name string, b bool)
 func (w *Writer) Spread(a Attrs)                // {...attrs}
 ```
@@ -228,7 +229,8 @@ func (w *Writer) Spread(a Attrs)                // {...attrs}
 
 - `true` writes the bare attribute (`disabled`); `false` and `nil` omit it.
 - Anything else is attribute-escaped and quoted.
-- **URL attributes** (`action`, `background`, `cite`, `codebase`, `data`, `formaction`, `href`, `icon`, `longdesc`, `manifest`, `poster`, `profile`, `src`, `usemap`, `xmlns` and `xlink:href`: the list Go's `html/template` uses, plus `xlink:href`): a value whose scheme is `javascript:` or `vbscript:` (ignoring case, and after trimming whitespace and control characters) is replaced with `about:invalid#orbit`, unless it has type `orbit.URL`. This applies to `Attr`, `AttrURL` and `Spread`.
+- **URL attributes** (`action`, `background`, `cite`, `codebase`, `data`, `formaction`, `href`, `icon`, `longdesc`, `manifest`, `poster`, `profile`, `src`, `usemap`, `xmlns` and `xlink:href`: the list Go's `html/template` uses, plus `xlink:href`): a value whose scheme is `javascript:` or `vbscript:` (ignoring case, and after trimming whitespace and control characters) is replaced with `about:invalid#orbit`, unless it has type `orbit.URL`. This applies to `Attr`, `AttrURL`, `URL` and `Spread`.
+- **`URL`** writes just the value: generated code writes `href={url}` (a `string`) as the static ` href="`, `w.URL(url)` and the closing `"`, the same bytes as `AttrURL("href", url)`. An `orbit.URL` value is written with `String` instead, unfiltered.
 - **`Spread`** checks each name against `[A-Za-z_:][-A-Za-z0-9_:.]*`. An invalid name (with spaces, quotes, `>`, `/` or `=`) is a render error.
 
 ### Generated-code hooks

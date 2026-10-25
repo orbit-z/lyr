@@ -514,6 +514,33 @@ func TestAnalyzeShadowing(t *testing.T) {
 	}
 }
 
+// TestAnalyzeUsesLocals: codegen declares locals only where the body or the
+// template references it (unresolved), or where the code doesn't parse.
+func TestAnalyzeUsesLocals(t *testing.T) {
+	cases := map[string]bool{
+		"":                                          false,
+		"<p>hi</p>":                                 false,
+		"---\nx := 1\n---\n<p>{x}</p>":              false,
+		"---\nu := locals.User\n---\n":              true,
+		"---\n_ = locals\n---\n":                    true,
+		"<p>{locals.User}</p>":                      true,
+		"<a href={locals.Home}></a>":                true,
+		"<a {...locals.Attrs}></a>":                 true,
+		"{if locals.Admin}x{/if}":                   true,
+		"{for _, x := range locals.Items}{x}{/for}": true,
+		"{for _, locals := range []string{\"a\"}}{locals}{/for}":         false, // shadowed
+		"---\nf := func(locals int) int { return locals }\n_ = f\n---\n": false,
+		"---\nfunc f() string { return \"\" }\n---\n{f()}":               false,
+		"---\nx := Foo{locals: 1}\n_ = x\n---\n":                         false, // a key, not a use
+		"---\nx := (\n---\n":                                             true,  // syntax error: safe side
+	}
+	for src, want := range cases {
+		if got := anComp(t, src).UsesLocals; got != want {
+			t.Errorf("%q: UsesLocals = %v, want %v", src, got, want)
+		}
+	}
+}
+
 func TestNewComponentInfo(t *testing.T) {
 	src := "---\ntype Props struct{ Title string }\n---\n<slot /><slot name=\"footer\" /><slot name=\"footer\">x</slot><slot />"
 	f := Parse(src, Strict)

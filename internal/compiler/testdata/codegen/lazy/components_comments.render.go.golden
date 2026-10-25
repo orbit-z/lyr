@@ -18,14 +18,13 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots := orbit__ctx, orbit__props, orbit__slots
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _ = ctx, props, slots, locals
+	_, _, _ = ctx, props, slots
 	orbit__w.Raw("<section>Comments for ")
 	orbit__w.Expr(
-/*line ../../../../src/components/Comments.orbit:9:24*/props.PostID/*line render.go:25:92*/,
+/*line ../../../../src/components/Comments.orbit:9:24*/props.PostID/*line render.go:24:92*/,
 	)
 	orbit__w.Raw(": <orbit-lazy component=\"Counter-8a161775\" client=\"visible\">")
-	if orbit__err := /*line ../../../../src/components/Comments.orbit:9:40*/Counter.Render/*line render.go:28:113*/(orbit__ctx, orbit__w, Counter.Props{}, orbit__rt.Slots{}); orbit__err != nil {
+	if orbit__err := /*line ../../../../src/components/Comments.orbit:9:40*/Counter.Render/*line render.go:27:113*/(orbit__ctx, orbit__w, Counter.Props{}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("</orbit-lazy></section>")

@@ -83,7 +83,7 @@ func TestDetectLocals(t *testing.T) {
 // the src/locals problems.
 func TestLoadLocals(t *testing.T) {
 	p := newTestProject(t, map[string]string{
-		"src/pages/index.orbit": "<p>hi</p>\n",
+		"src/pages/index.orbit": "<p>{locals != nil}</p>\n", // only a page using locals imports it
 		"src/locals/locals.go":  "package locals\n\ntype Locals struct{}\n",
 	})
 	proj, err := Load(p.Dir)

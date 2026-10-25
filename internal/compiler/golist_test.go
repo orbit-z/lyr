@@ -26,7 +26,7 @@ func TestGoListLoader(t *testing.T) {
 	if len(res.Warnings) > 0 || tyChecked(res) != "true true true true " {
 		t.Fatalf("checked = %s, warnings = %v", tyChecked(res), res.Warnings)
 	}
-	if got := tyGot(units[0], res.Units[0]); !reflect.DeepEqual(got, []string{"String", "AttrURL/string", "Int/int64"}) {
+	if got := tyGot(units[0], res.Units[0]); !reflect.DeepEqual(got, []string{"String", "attr:URL/string", "Int/int64"}) {
 		t.Errorf("card writes %v", got)
 	}
 	for _, u := range res.Units {

@@ -23,7 +23,7 @@ everything except `url` and `props.Post.Title` is written by a couple of constan
 
 ### Expressions are written by type, without reflection
 
-When Orbit compiles a template, it type-checks each `{…}` expression with `go/types` and emits a write for its exact type: a `string` goes through an escaping string write, an `int` is formatted with `strconv` straight into the buffer, an `orbit.HTML` value is copied raw, and so on. Attribute values are handled the same way: `data-id={n}` is written as the static ` data-id="` (merged into the surrounding constant), the number, and the closing quote. There's no conversion to `any`, no runtime type switch and no reflection. This happens in `orbit dev` too, so dev renders the same way as production.
+When Orbit compiles a template, it type-checks each `{…}` expression with `go/types` and emits a write for its exact type: a `string` goes through an escaping string write, an `int` is formatted with `strconv` straight into the buffer, an `orbit.HTML` value is copied raw, and so on. Attribute values are handled the same way: `data-id={n}` is written as the static ` data-id="` (merged into the surrounding constant), the number, and the closing quote. A URL attribute (`href={url}`) is written the same way, with the value going through a write that also does the `javascript:` check. There's no conversion to `any`, no runtime type switch and no reflection. This happens in `orbit dev` too, so dev renders the same way as production.
 
 Only values whose static type is an interface (such as `any` or `fmt.Stringer`), and a few unusual types, go through the generic path. That path is still a type switch over the common types; reflection is only its last resort (`fmt.Sprint`). Both paths produce identical bytes. The full table is in the [Runtime API](reference/runtime-api.md#typed-writes).
 
@@ -49,7 +49,7 @@ The request context (`*orbit.Ctx`) is pooled along with its writer and buffer, s
 
 - **Routes** are matched by walking a tree of path segments built at startup. No regular expressions.
 - **Route params allocate nothing**: the router stores matched values in the pooled request context instead of a map, and a page's typed `params` is a plain struct filled from them. (A `map[string]string` cost 2 allocations, 336 bytes, per match.) Only a value with percent-escapes (`caf%C3%A9`) allocates its decoded string.
-- **Typed locals** are allocated lazily, the first time a page or component uses them, and once per request at most.
+- **Typed locals** are allocated lazily, the first time a page or component uses them, and once per request at most. Orbit only fetches `locals` in a page or component whose code mentions it, so a page whose components never use `locals` costs nothing for them, even in a project that declares a `Locals` type.
 
 ### Allocations per request
 
@@ -62,7 +62,7 @@ A "typical page" here means:
 
 What still allocates:
 - **Go's `net/http` server itself**: about 14 allocations (1.4 KB) per request even for an empty handler, and about 19 (2.2 KB) once it writes a 1 KB page (measured on Go 1.27.3). Orbit uses the standard library server, so this floor is the same as for any Go web app.
-- **Locals**: one allocation for the struct, plus the request copy that `EnsureLocals` makes in your middleware.
+- **Locals**, when a page or one of its components uses them: one allocation for the struct (made by Orbit on first use, or by `EnsureLocals` in your middleware), plus the request copy that `EnsureLocals` makes.
 - **Slot content that uses parent variables**: one small closure per slot.
 - **Values without a typed write** (the `Expr` fallback) and your own `String()` or `Error()` methods.
 - **Route params with percent-escapes**, and **`server:defer` props** (encoded and encrypted per instance).

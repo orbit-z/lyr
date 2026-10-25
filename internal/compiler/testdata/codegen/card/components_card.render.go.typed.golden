@@ -22,29 +22,28 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots := orbit__ctx, orbit__props, orbit__slots
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _ = ctx, props, slots, locals
-/*line ../../../../src/components/Card.orbit:14:1*/label := shout(props.Title)/*line render.go:27:104*/
-/*line ../../../../src/components/Card.orbit:15:1*/n, err := len(label), error(nil)/*line render.go:28:109*/
-/*line ../../../../src/components/Card.orbit:16:1*/_ = err/*line render.go:29:83*/
+	_, _, _ = ctx, props, slots
+/*line ../../../../src/components/Card.orbit:14:1*/label := shout(props.Title)/*line render.go:26:104*/
+/*line ../../../../src/components/Card.orbit:15:1*/n, err := len(label), error(nil)/*line render.go:27:109*/
+/*line ../../../../src/components/Card.orbit:16:1*/_ = err/*line render.go:28:83*/
 	_ = label
 	_ = n
 	_ = err
 	orbit__w.Raw("<article class=\"card\"")
 	orbit__w.AttrBool("data-featured",
-/*line ../../../../src/components/Card.orbit:18:38*/props.Featured/*line render.go:35:91*/,
+/*line ../../../../src/components/Card.orbit:18:38*/props.Featured/*line render.go:34:91*/,
 	)
 	orbit__w.Raw(" data-id=\"")
 	orbit__w.Int(int64(
-/*line ../../../../src/components/Card.orbit:18:63*/props.PostID/*line render.go:39:89*/,
+/*line ../../../../src/components/Card.orbit:18:63*/props.PostID/*line render.go:38:89*/,
 	))
-	orbit__w.Raw("\" data-o-c039c8bb><h2 data-o-c039c8bb><a")
-	orbit__w.AttrURL("href",
-/*line ../../../../src/components/Card.orbit:19:16*/props.Href/*line render.go:43:87*/,
+	orbit__w.Raw("\" data-o-c039c8bb><h2 data-o-c039c8bb><a href=\"")
+	orbit__w.URL(
+/*line ../../../../src/components/Card.orbit:19:16*/props.Href/*line render.go:42:87*/,
 	)
-	orbit__w.Raw(" data-o-c039c8bb>")
+	orbit__w.Raw("\" data-o-c039c8bb>")
 	orbit__w.String(
-/*line ../../../../src/components/Card.orbit:19:29*/label/*line render.go:47:82*/,
+/*line ../../../../src/components/Card.orbit:19:29*/label/*line render.go:46:82*/,
 	)
 	orbit__w.Raw("</a></h2>\n")
 	if orbit__s := orbit__slots.Default; orbit__s != nil {
@@ -62,7 +61,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	orbit__w.Raw("</footer>\n<span data-o-c039c8bb>")
 	orbit__w.Int(int64(
-/*line ../../../../src/components/Card.orbit:22:10*/n/*line render.go:65:78*/,
+/*line ../../../../src/components/Card.orbit:22:10*/n/*line render.go:64:78*/,
 	))
 	orbit__w.Raw(" chars</span>\n</article>")
 	return orbit__w.Err()

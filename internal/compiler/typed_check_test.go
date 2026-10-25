@@ -102,7 +102,7 @@ func TestCheckerFullAndUpdate(t *testing.T) {
 		t.Fatalf("checked = %s", got)
 	}
 	want := [][]string{
-		{"String", "AttrURL/string", "Int/int64"},
+		{"String", "attr:URL/string", "Int/int64"},
 		{"Int/int64"},
 		{"String"},
 		{"Float"},
@@ -150,7 +150,7 @@ func TestCheckerFullAndUpdate(t *testing.T) {
 	if d, i := c.state.stats.decl.Load(), c.state.stats.impl.Load(); d != 0 || i != 1 {
 		t.Errorf("body edit: %d decl and %d impl checks, want 0 and 1", d, i)
 	}
-	if got := tyGot(card, res.Units[0]); !reflect.DeepEqual(got, []string{"String", "AttrURL/string", "Int/int64", "String/string"}) {
+	if got := tyGot(card, res.Units[0]); !reflect.DeepEqual(got, []string{"String", "attr:URL/string", "Int/int64", "String/string"}) {
 		t.Errorf("body edit writes %v", got)
 	}
 

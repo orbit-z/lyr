@@ -15,15 +15,14 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots, params := orbit__ctx, orbit__props, orbit__slots, orbit__params
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _, _ = ctx, props, slots, params, locals
+	_, _, _, _ = ctx, props, slots, params
 	orbit__w.Raw("<p>")
 	orbit__w.Expr(
-/*line ../../../../../../src/pages/docs/[post-id]/[...path].orbit:1:5*/params.Path/*line render.go:22:108*/,
+/*line ../../../../../../src/pages/docs/[post-id]/[...path].orbit:1:5*/params.Path/*line render.go:21:108*/,
 	)
 	orbit__w.Raw(" ")
 	orbit__w.Expr(
-/*line ../../../../../../src/pages/docs/[post-id]/[...path].orbit:1:19*/params.PostID/*line render.go:26:111*/,
+/*line ../../../../../../src/pages/docs/[post-id]/[...path].orbit:1:19*/params.PostID/*line render.go:25:111*/,
 	)
 	orbit__w.Raw("</p>")
 	return orbit__w.Err()

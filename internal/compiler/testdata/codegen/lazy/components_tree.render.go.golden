@@ -15,16 +15,15 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots := orbit__ctx, orbit__props, orbit__slots
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _ = ctx, props, slots, locals
+	_, _, _ = ctx, props, slots
 	orbit__w.Raw("<div>\n")
 	orbit__w.Expr(
-/*line ../../../../src/components/Tree.orbit:7:4*/props.Depth/*line render.go:22:86*/,
+/*line ../../../../src/components/Tree.orbit:7:4*/props.Depth/*line render.go:21:86*/,
 	)
 	orbit__w.Raw("\n")
-	if /*line ../../../../src/components/Tree.orbit:8:7*/props.Depth > 0/*line render.go:25:94*/ {
-		if orbit__err := orbit__rt.Defer(orbit__ctx, orbit__w, "Tree-5a0ff741", /*line ../../../../src/components/Tree.orbit:9:6*/Props/*line render.go:26:155*/{
-			/*line ../../../../src/components/Tree.orbit:9:24*/Depth/*line render.go:27:84*/: /*line ../../../../src/components/Tree.orbit:9:31*/props.Depth - 1/*line render.go:27:177*/,
+	if /*line ../../../../src/components/Tree.orbit:8:7*/props.Depth > 0/*line render.go:24:94*/ {
+		if orbit__err := orbit__rt.Defer(orbit__ctx, orbit__w, "Tree-5a0ff741", /*line ../../../../src/components/Tree.orbit:9:6*/Props/*line render.go:25:155*/{
+			/*line ../../../../src/components/Tree.orbit:9:24*/Depth/*line render.go:26:84*/: /*line ../../../../src/components/Tree.orbit:9:31*/props.Depth - 1/*line render.go:26:177*/,
 		}, func(orbit__w *orbit__rt.Writer) error {
 			orbit__w.Raw("<em>more…</em>")
 			return orbit__w.Err()

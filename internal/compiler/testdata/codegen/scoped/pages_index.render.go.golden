@@ -19,11 +19,10 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots, params := orbit__ctx, orbit__props, orbit__slots, orbit__params
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _, _ = ctx, props, slots, params, locals
-/*line ../../../../src/pages/index.orbit:4:1*/items := []string{"a", "b"}/*line render.go:24:98*/
-/*line ../../../../src/pages/index.orbit:5:1*/attrs := orbit.Attrs{"title": "t", "data-n": 2}/*line render.go:25:119*/
-/*line ../../../../src/pages/index.orbit:6:1*/cls := "big"/*line render.go:26:83*/
+	_, _, _, _ = ctx, props, slots, params
+/*line ../../../../src/pages/index.orbit:4:1*/items := []string{"a", "b"}/*line render.go:23:98*/
+/*line ../../../../src/pages/index.orbit:5:1*/attrs := orbit.Attrs{"title": "t", "data-n": 2}/*line render.go:24:119*/
+/*line ../../../../src/pages/index.orbit:6:1*/cls := "big"/*line render.go:25:83*/
 	_ = items
 	_ = attrs
 	_ = cls
@@ -31,38 +30,38 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	orbit__w.HeadEnd()
 	orbit__w.Raw("</head><body data-o-81707d2a><h1 class=\"title\" id=\"top\" data-o-81707d2a>Hello</h1><p")
 	orbit__w.Attr("class",
-/*line ../../../../src/pages/index.orbit:19:15*/cls/*line render.go:34:76*/,
+/*line ../../../../src/pages/index.orbit:19:15*/cls/*line render.go:33:76*/,
 	)
 	orbit__w.Attr("hidden",
-/*line ../../../../src/pages/index.orbit:19:28*/false/*line render.go:37:78*/,
+/*line ../../../../src/pages/index.orbit:19:28*/false/*line render.go:36:78*/,
 	)
 	orbit__w.Raw(" data-o-81707d2a>dynamic</p>\n<a")
 	orbit__w.Spread(
-/*line ../../../../src/pages/index.orbit:20:12*/attrs/*line render.go:41:78*/,
+/*line ../../../../src/pages/index.orbit:20:12*/attrs/*line render.go:40:78*/,
 	)
 	orbit__w.Raw(" data-o-81707d2a>spread</a>\n<a href=\"/x\"")
 	orbit__w.Spread(
-/*line ../../../../src/pages/index.orbit:21:22*/attrs/*line render.go:45:78*/,
+/*line ../../../../src/pages/index.orbit:21:22*/attrs/*line render.go:44:78*/,
 	)
 	orbit__w.Raw(" rel=\"next\" data-o-81707d2a>spread then static</a>\n<img src=\"/a.png\" alt=\"a\" data-o-81707d2a>\n<br data-o-81707d2a>\n<input type=\"text\" disabled data-o-81707d2a>\n<div class=\"empty\" data-o-81707d2a></div><ul data-o-81707d2a>")
-	for /*line ../../../../src/pages/index.orbit:27:12*/_, it := range items/*line render.go:48:98*/ {
-		if /*line ../../../../src/pages/index.orbit:28:13*/it == "a"/*line render.go:49:87*/ {
+	for /*line ../../../../src/pages/index.orbit:27:12*/_, it := range items/*line render.go:47:98*/ {
+		if /*line ../../../../src/pages/index.orbit:28:13*/it == "a"/*line render.go:48:87*/ {
 			orbit__w.Raw("<li class=\"first\" data-o-81707d2a>")
 			orbit__w.Expr(
-/*line ../../../../src/pages/index.orbit:29:30*/it/*line render.go:52:75*/,
+/*line ../../../../src/pages/index.orbit:29:30*/it/*line render.go:51:75*/,
 			)
 			orbit__w.Raw("</li>")
 		} else {
 			orbit__w.Raw("<li data-o-81707d2a>")
 			orbit__w.Expr(
-/*line ../../../../src/pages/index.orbit:31:16*/it/*line render.go:58:75*/,
+/*line ../../../../src/pages/index.orbit:31:16*/it/*line render.go:57:75*/,
 			)
 			orbit__w.Raw("</li>")
 		}
 	}
 	orbit__w.Raw("</ul>\n<em data-o-81707d2a>in fragment</em>\n")
-	if orbit__err := /*line ../../../../src/pages/index.orbit:36:6*/Box.Render/*line render.go:64:101*/(orbit__ctx, orbit__w, Box.Props{
-		/*line ../../../../src/pages/index.orbit:36:10*/Title/*line render.go:65:80*/: "box",
+	if orbit__err := /*line ../../../../src/pages/index.orbit:36:6*/Box.Render/*line render.go:63:101*/(orbit__ctx, orbit__w, Box.Props{
+		/*line ../../../../src/pages/index.orbit:36:10*/Title/*line render.go:64:80*/: "box",
 	}, orbit__rt.Slots{
 		Default: func(orbit__w *orbit__rt.Writer) error {
 			orbit__w.Raw("\n<p data-o-81707d2a>slotted</p>\n")

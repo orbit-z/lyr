@@ -253,7 +253,7 @@ func (g *cgGen) genImpl() *GenFile {
 	o.str(GenHeader + "\n\npackage " + g.pkg.ImplName() + "\n\nimport (\n")
 	o.ln("\t" + runtimeImport)
 	o.ln("\t. " + strconv.Quote(g.pkg.DeclImportPath(g.in.Options.Module)))
-	if g.in.Options.Locals != "" {
+	if g.in.Options.Locals != "" && g.declaresLocals() {
 		o.ln("\t" + NameLocals + " " + strconv.Quote(g.in.Options.Locals))
 	}
 	g.userImports(PlaceImpl)
@@ -280,16 +280,19 @@ func (g *cgGen) genImpl() *GenFile {
 	} else {
 		o.ln("ctx, props, slots := " + NameCtx + ", " + NameProps + ", " + NameSlots)
 	}
-	locals := NameRuntime + ".NoLocals"
-	if g.in.Options.Locals != "" {
-		locals = NameLocals + ".Locals"
-	}
-	o.ln("locals := " + NameRuntime + ".LocalsOf[" + locals + "](" + NameCtx + ")")
+	blank := "_, _, _ = ctx, props, slots"
 	if g.isPage() {
-		o.ln("_, _, _, _, _ = ctx, props, slots, params, locals")
-	} else {
-		o.ln("_, _, _, _ = ctx, props, slots, locals")
+		blank = "_, _, _, _ = ctx, props, slots, params"
 	}
+	if g.declaresLocals() {
+		locals := NameRuntime + ".NoLocals"
+		if g.in.Options.Locals != "" {
+			locals = NameLocals + ".Locals"
+		}
+		o.ln("locals := " + NameRuntime + ".LocalsOf[" + locals + "](" + NameCtx + ")")
+		blank = "_, " + blank + ", locals"
+	}
+	o.ln(blank)
 	body := g.a.Body
 	var last *Stmt
 	if g.a.Terminating && len(body) > 0 {
@@ -315,6 +318,12 @@ func (g *cgGen) genImpl() *GenFile {
 	o.str("}\n")
 	return g.finish(gf)
 }
+
+// declaresLocals reports whether the render function declares locals: when
+// the component's code references it (a request whose components never read
+// locals then skips the lookup and the new(L)), and always in Tolerant mode,
+// so gopls can complete and hover it while it's being typed.
+func (g *cgGen) declaresLocals() bool { return g.tolerant || g.a.UsesLocals }
 
 // stmt writes one body statement and its line break. Each return result is
 // wrapped as orbit__rt.ErrorAt("<path>:L:C", <result>), so a returned error

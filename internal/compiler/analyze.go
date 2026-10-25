@@ -196,6 +196,12 @@ type Analysis struct {
 	// Params are a page's route params; nil for components (and for a page
 	// without params, which still gets type Params struct{}).
 	Params []ParamField
+	// UsesLocals is true when the body or the template (expressions,
+	// control headers, attributes, slot content) references the implicit
+	// locals: an unresolved identifier named locals, as for imports. It is
+	// also true when that code doesn't parse, to stay on the safe side.
+	// Strict codegen declares locals (LocalsOf) only then.
+	UsesLocals bool
 	// Diagnostics are analysis errors and warnings, sorted by position.
 	Diagnostics []Diagnostic
 }

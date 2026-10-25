@@ -182,8 +182,9 @@ func basicWrite(b *types.Basic) (TypedWrite, bool) {
 
 // classifyAttr picks the typed write for an attribute site (a={expr}, {a}),
 // mirroring Writer.Attr: string, HTML and named strings without
-// error/String/Format methods are written as their text (AttrURL in a URL
-// attribute, which filters javascript: like Attr), URL unfiltered, bools and
+// error/String/Format methods are written as their text in Raw pieces
+// (String, or URL in a URL attribute, which filters javascript: like Attr),
+// URL unfiltered (String pieces), bools and
 // named bools (Attr tests the reflect kind) as AttrBool, numbers (and named
 // numbers without error/String/Format methods, which fmt prints as their
 // value) as Raw pieces around Int, Uint, Float or Float32, untyped nil as

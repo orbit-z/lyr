@@ -18,8 +18,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	defer orbit__w.Leave()
 	ctx, props, slots := orbit__ctx, orbit__props, orbit__slots
-	locals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)
-	_, _, _, _ = ctx, props, slots, locals
+	_, _, _ = ctx, props, slots
 	orbit__w.Raw("<div class=\"wrap\">")
 	if orbit__s := orbit__slots.Default; orbit__s != nil {
 		if orbit__err := orbit__s(orbit__w); orbit__err != nil {
@@ -27,7 +26,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 		}
 	}
 	orbit__w.Raw("<orbit-lazy component=\"Counter-8a161775\" client=\"media\" opts=\"(max-width: 600px) and (&quot;x&quot;)\">")
-	if orbit__err := /*line ../../../../src/components/Wrap.orbit:4:28*/Counter.Render/*line render.go:30:109*/(orbit__ctx, orbit__w, Counter.Props{}, orbit__rt.Slots{}); orbit__err != nil {
+	if orbit__err := /*line ../../../../src/components/Wrap.orbit:4:28*/Counter.Render/*line render.go:29:109*/(orbit__ctx, orbit__w, Counter.Props{}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("</orbit-lazy></div>")

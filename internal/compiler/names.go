@@ -302,7 +302,7 @@ var urlAttrs = [...]string{
 }
 
 // IsURLAttr reports whether the attribute name (in any case) holds a URL, so
-// a typed string write uses AttrURL rather than AttrString.
+// a typed string value is written with URL (scheme-filtered) rather than String.
 func IsURLAttr(name string) bool {
 	for _, a := range urlAttrs {
 		if strings.EqualFold(a, name) {
