@@ -15,14 +15,43 @@ type Ctx struct {
 	Request *http.Request
 	// URL is the request URL. In a deferred island it's the island request's
 	// URL; the page's URL is in Request.Referer().
-	URL    *url.URL
-	Params Params   // route params, e.g. Params["slug"] for blog/[slug].orbit
-	Site   *url.URL // the "site" URL from orbit.json; nil when unset
+	URL  *url.URL
+	Site *url.URL // the "site" URL from orbit.json; nil when unset
 
-	locals any         // nil, or the *L cached by LocalsOf
-	status int         // 0 means unset (200)
-	header http.Header // nil until Header is first called on this Ctx
-	dev    bool        // running under orbit dev
+	paramNames []string    // the matched route's param names (static)
+	paramVals  []string    // values for paramNames, usually in paramBuf
+	paramBuf   [8]string   // storage for paramVals, so matching doesn't allocate
+	locals     any         // nil, or the *L cached by LocalsOf
+	status     int         // 0 means unset (200)
+	header     http.Header // nil until Header is first called on this Ctx
+	dev        bool        // running under orbit dev
+}
+
+// Param returns the percent-decoded value of the route parameter name, such
+// as "hello" for Param("slug") on /blog/hello with src/pages/blog/[slug].orbit.
+// It returns "" if the matched route has no such parameter. A rest parameter
+// ([...path]) holds the rest of the path, "a/b" for /docs/a/b.
+//
+// Pages normally use their generated, typed params instead. Param is for
+// components, layouts and other code that doesn't know the page.
+func (c *Ctx) Param(name string) string {
+	for i, n := range c.paramNames {
+		if n == name {
+			return c.paramVals[i]
+		}
+	}
+	return ""
+}
+
+// matchRoute matches path (r.URL.EscapedPath()) and stores the route's
+// params on c. It returns nil if no page matches.
+func (c *Ctx) matchRoute(rt *router, path string) *Route {
+	cr, vals := rt.match(path, c.paramBuf[:0])
+	if cr == nil {
+		return nil
+	}
+	c.paramNames, c.paramVals = cr.names, vals
+	return cr.route
 }
 
 // SetStatus sets the response status code (default 200).
@@ -82,21 +111,21 @@ var ctxPool = sync.Pool{New: func() any { return new(Ctx) }}
 // acquireCtx returns a pooled Ctx for r, with URL set to r.URL (nil if r is
 // nil). Locals aren't read here: LocalsOf looks them up in r's context on
 // first use. Pair every acquireCtx with one releaseCtx after the response has
-// been written.
-func acquireCtx(r *http.Request, params Params, site *url.URL, dev bool) *Ctx {
+// been written. Route params are set afterwards, with matchRoute.
+func acquireCtx(r *http.Request, site *url.URL, dev bool) *Ctx {
 	c := ctxPool.Get().(*Ctx)
 	c.Request = r
 	if r != nil {
 		c.URL = r.URL
 	}
-	c.Params = params
 	c.Site = site
 	c.dev = dev
 	return c
 }
 
 // releaseCtx resets every field of c and returns it to the pool; c must not
-// be used afterwards. The header map is emptied but kept, so a reused Ctx
+// be used afterwards. Param values are cleared too, so they don't leak into
+// the next request. The header map is emptied but kept, so a reused Ctx
 // doesn't allocate it again.
 func releaseCtx(c *Ctx) {
 	h := c.header

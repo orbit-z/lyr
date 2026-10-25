@@ -3,7 +3,6 @@ package orbit
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 )
 
@@ -29,9 +28,9 @@ type routeSeg struct {
 
 // compiledRoute is a Route with its parsed pattern.
 type compiledRoute struct {
-	route   *Route
-	segs    []routeSeg
-	nparams int
+	route *Route
+	segs  []routeSeg
+	names []string // param names in path order; nil when there are none
 }
 
 // node is one level of the segment trie. Children are tried in priority
@@ -77,7 +76,7 @@ func newRouter(routes []Route) (*router, error) {
 			continue
 		}
 		seen[key] = r
-		rt.insert(&compiledRoute{route: r, segs: segs, nparams: countParams(segs)})
+		rt.insert(&compiledRoute{route: r, segs: segs, names: paramNames(segs)})
 	}
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
@@ -113,14 +112,15 @@ func (rt *router) insert(cr *compiledRoute) {
 	n.route = cr
 }
 
-func countParams(segs []routeSeg) int {
-	k := 0
+// paramNames returns the parameter names of segs in order, or nil.
+func paramNames(segs []routeSeg) []string {
+	var names []string
 	for _, s := range segs {
 		if s.kind != segStatic {
-			k++
+			names = append(names, s.text)
 		}
 	}
-	return k
+	return names
 }
 
 // shapeKey identifies the set of URLs a pattern matches: parameter names
@@ -227,25 +227,31 @@ func parseSegment(p string, last bool, file string) (*routeSeg, error) {
 	return nil, nil
 }
 
-// match finds the route for an escaped request path (r.URL.EscapedPath()).
-// Params is nil when the route has no parameters. Paths with an empty
-// segment (a trailing slash, or "//") never match; see redirectTarget.
-func (rt *router) match(path string) (route *Route, params Params, ok bool) {
+// match finds the route for an escaped request path (r.URL.EscapedPath())
+// and appends its param values to vals, in the order of cr.names. It
+// returns nil if no route matches. Paths with an empty segment (a trailing
+// slash, or "//") never match; see redirectTarget.
+//
+// Pass a reused buffer as vals (Ctx keeps one) and match doesn't allocate,
+// except to decode values that contain a %-escape.
+func (rt *router) match(path string, vals []string) (cr *compiledRoute, out []string) {
+	cr, rem := rt.find(path)
+	if cr == nil || cr.names == nil {
+		return cr, vals
+	}
+	return cr, cr.extract(rem, vals)
+}
+
+// find returns the route for path, and the path as lookup sees it.
+func (rt *router) find(path string) (*compiledRoute, string) {
 	if path == "" || path[0] != '/' {
-		return nil, nil, false
+		return nil, ""
 	}
 	rem := path
 	if rem == "/" {
 		rem = "" // the root has zero segments
 	}
-	cr := rt.root.lookup(rem)
-	if cr == nil {
-		return nil, nil, false
-	}
-	if cr.nparams == 0 {
-		return cr.route, nil, true
-	}
-	return cr.route, cr.extract(rem), true
+	return rt.root.lookup(rem), rem
 }
 
 // lookup walks the trie depth-first. rem is the unmatched rest of the path:
@@ -266,11 +272,7 @@ func (n *node) lookup(rem string) *compiledRoute {
 		return nil // empty segment: nothing matches it
 	}
 	if n.static != nil {
-		key := seg
-		if strings.IndexByte(seg, '%') >= 0 {
-			key = pathUnescape(seg)
-		}
-		if c := n.static[key]; c != nil {
+		if c := n.staticChild(seg); c != nil {
 			if m := c.lookup(next); m != nil {
 				return m
 			}
@@ -287,25 +289,24 @@ func (n *node) lookup(rem string) *compiledRoute {
 	return nil
 }
 
-// extract builds the Params for a path that matched cr. The trie already
-// chose the route, so this is a single forward pass with no backtracking.
-func (cr *compiledRoute) extract(rem string) Params {
-	params := make(Params, cr.nparams)
+// extract appends the param values of a path that matched cr to vals. The
+// trie already chose the route, so this is a single forward pass with no
+// backtracking.
+func (cr *compiledRoute) extract(rem string, vals []string) []string {
 	for _, s := range cr.segs {
 		if s.kind == segRest {
 			if rem != "" {
 				rem = rem[1:] // drop the leading slash
 			}
-			params[s.text] = pathUnescape(rem)
-			break
+			return append(vals, pathUnescape(rem))
 		}
 		seg, next := nextSegment(rem)
 		if s.kind == segParam {
-			params[s.text] = pathUnescape(seg)
+			vals = append(vals, pathUnescape(seg))
 		}
 		rem = next
 	}
-	return params
+	return vals
 }
 
 // nextSegment splits "/a/b" into "a" and "/b". rem must start with '/'.
@@ -323,17 +324,62 @@ func hasEmptySegment(rem string) bool {
 	return strings.Contains(rem, "//") || strings.HasSuffix(rem, "/")
 }
 
-// pathUnescape decodes a path segment like ServeMux does for PathValue: an
-// invalid escape leaves the text as it is.
+// staticChild returns the static child for the escaped segment seg. Static
+// keys are decoded text, so an escaped seg is decoded first, on the stack.
+func (n *node) staticChild(seg string) *node {
+	if strings.IndexByte(seg, '%') < 0 {
+		return n.static[seg]
+	}
+	var buf [128]byte
+	if b, ok := appendUnescape(buf[:0], seg); ok && len(b) <= len(buf) {
+		return n.static[string(b)] // no allocation for a map lookup
+	}
+	return n.static[pathUnescape(seg)]
+}
+
+// pathUnescape decodes a path segment like ServeMux does for PathValue (and
+// like url.PathUnescape): an invalid escape leaves the text as it is. Text
+// without a % is returned as is, with no allocation.
 func pathUnescape(s string) string {
 	if strings.IndexByte(s, '%') < 0 {
 		return s
 	}
-	u, err := url.PathUnescape(s)
-	if err != nil {
+	b, ok := appendUnescape(make([]byte, 0, len(s)), s)
+	if !ok {
 		return s
 	}
-	return u
+	return string(b)
+}
+
+// appendUnescape appends s with its %XX escapes decoded to dst. It reports
+// false if s has an invalid escape.
+func appendUnescape(dst []byte, s string) ([]byte, bool) {
+	for i := 0; i < len(s); i++ {
+		if s[i] != '%' {
+			dst = append(dst, s[i])
+			continue
+		}
+		if i+2 >= len(s) || !isHex(s[i+1]) || !isHex(s[i+2]) {
+			return dst, false
+		}
+		dst = append(dst, unhex(s[i+1])<<4|unhex(s[i+2]))
+		i += 2
+	}
+	return dst, true
+}
+
+func isHex(c byte) bool {
+	return '0' <= c && c <= '9' || 'a' <= c && c <= 'f' || 'A' <= c && c <= 'F'
+}
+
+func unhex(c byte) byte {
+	switch {
+	case c <= '9':
+		return c - '0'
+	case c >= 'a':
+		return c - 'a' + 10
+	}
+	return c - 'A' + 10
 }
 
 // redirectTarget returns the 308 Location for a trailing-slash path whose
@@ -350,7 +396,7 @@ func (rt *router) redirectTarget(path, rawQuery string) (string, bool) {
 	if strings.HasPrefix(target, "//") {
 		return "", false
 	}
-	if _, _, ok := rt.match(target); !ok {
+	if cr, _ := rt.find(target); cr == nil {
 		return "", false
 	}
 	if rawQuery != "" {

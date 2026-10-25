@@ -113,7 +113,7 @@ func TestLocalsOf(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := acquireCtx(tt.req, nil, nil, false)
+			c := acquireCtx(tt.req, nil, false)
 			defer releaseCtx(c)
 			l := LocalsOf[testLocals](c)
 			if l == nil {
@@ -133,7 +133,7 @@ func TestLocalsOf(t *testing.T) {
 }
 
 func TestLocalsOfTypeMismatchPanics(t *testing.T) {
-	c := acquireCtx(httptest.NewRequest("GET", "/", nil), nil, nil, false)
+	c := acquireCtx(httptest.NewRequest("GET", "/", nil), nil, false)
 	defer releaseCtx(c)
 	LocalsOf[testLocals](c)
 	defer func() {
@@ -153,7 +153,7 @@ func TestMiddlewareChain(t *testing.T) {
 	var outer, inner, page *testLocals
 	var outerAfter string
 	pageHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c := acquireCtx(r, nil, nil, false)
+		c := acquireCtx(r, nil, false)
 		defer releaseCtx(c)
 		page = LocalsOf[testLocals](c)
 		if page.RequestID != "req-1" || page.Theme != "dark" {
@@ -192,7 +192,7 @@ func TestMiddlewareChain(t *testing.T) {
 
 func TestLocalsOfAllocs(t *testing.T) {
 	r := WithLocals(httptest.NewRequest("GET", "/", nil), &testLocals{})
-	c := acquireCtx(r, nil, nil, false)
+	c := acquireCtx(r, nil, false)
 	defer releaseCtx(c)
 	allocs := testing.AllocsPerRun(100, func() {
 		c.locals = nil // force the request-context lookup each time
@@ -212,7 +212,7 @@ func TestLocalsOfAllocs(t *testing.T) {
 
 func BenchmarkLocalsOfAttached(b *testing.B) {
 	r := WithLocals(httptest.NewRequest("GET", "/", nil), &testLocals{})
-	c := acquireCtx(r, nil, nil, false)
+	c := acquireCtx(r, nil, false)
 	defer releaseCtx(c)
 	b.ReportAllocs()
 	for b.Loop() {
@@ -222,7 +222,7 @@ func BenchmarkLocalsOfAttached(b *testing.B) {
 }
 
 func BenchmarkLocalsOfCached(b *testing.B) {
-	c := acquireCtx(httptest.NewRequest("GET", "/", nil), nil, nil, false)
+	c := acquireCtx(httptest.NewRequest("GET", "/", nil), nil, false)
 	defer releaseCtx(c)
 	LocalsOf[testLocals](c)
 	b.ReportAllocs()

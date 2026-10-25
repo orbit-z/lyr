@@ -11,10 +11,6 @@ import (
 	"strconv"
 )
 
-// Params holds a page's route parameters, e.g. {"slug": "hello"} for
-// src/pages/blog/[slug].orbit. Values are percent-decoded.
-type Params map[string]string
-
 // HTML is trusted markup. It's written as-is, without escaping.
 type HTML string
 

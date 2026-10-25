@@ -3,6 +3,7 @@ package orbit
 import (
 	"fmt"
 	"maps"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -36,6 +37,34 @@ func mustRouter(t testing.TB, patterns ...string) *router {
 	return rt
 }
 
+// params is a test-only view of a match's params, by name.
+type params map[string]string
+
+// matchParams calls match and returns the params as a map (nil when the
+// route has none), checking that names and values line up.
+func matchParams(t testing.TB, rt *router, path string) (*Route, params, bool) {
+	t.Helper()
+	var buf [8]string
+	cr, vals := rt.match(path, buf[:0])
+	if cr == nil {
+		if len(vals) != 0 {
+			t.Fatalf("match(%q): no match but %d values", path, len(vals))
+		}
+		return nil, nil, false
+	}
+	if len(vals) != len(cr.names) {
+		t.Fatalf("match(%q): %d values for names %q", path, len(vals), cr.names)
+	}
+	if cr.names == nil {
+		return cr.route, nil, true
+	}
+	m := make(params, len(vals))
+	for i, n := range cr.names {
+		m[n] = vals[i]
+	}
+	return cr.route, m, true
+}
+
 func TestMatch(t *testing.T) {
 	rt := mustRouter(t,
 		"/",
@@ -55,7 +84,7 @@ func TestMatch(t *testing.T) {
 	tests := []struct {
 		path    string
 		pattern string // "" means no match
-		params  Params
+		params  params
 	}{
 		// root and statics
 		{"/", "/", nil},
@@ -63,31 +92,31 @@ func TestMatch(t *testing.T) {
 		{"/blog", "/blog", nil}, // blog/index.orbit
 		// priority: static > param > rest
 		{"/blog/new", "/blog/new", nil},
-		{"/blog/hello", "/blog/[slug]", Params{"slug": "hello"}},
-		{"/blog/2026/10/hello", "/blog/[...rest]", Params{"rest": "2026/10/hello"}},
-		{"/about/x", "/[...rest]", Params{"rest": "about/x"}},
-		{"/nothing", "/[...rest]", Params{"rest": "nothing"}},
+		{"/blog/hello", "/blog/[slug]", params{"slug": "hello"}},
+		{"/blog/2026/10/hello", "/blog/[...rest]", params{"rest": "2026/10/hello"}},
+		{"/about/x", "/[...rest]", params{"rest": "about/x"}},
+		{"/nothing", "/[...rest]", params{"rest": "nothing"}},
 		// backtracking: static "new" fails deeper, so [slug] is tried
-		{"/blog/new/edit", "/blog/new/[id]", Params{"id": "edit"}},
-		{"/blog/new/comments/3", "/blog/[slug]/comments/[n]", Params{"slug": "new", "n": "3"}},
-		{"/blog/new/42", "/blog/new/[id]", Params{"id": "42"}},
-		{"/blog/new/42/x", "/blog/[...rest]", Params{"rest": "new/42/x"}},
-		{"/blog/hello/edit", "/blog/[slug]/edit", Params{"slug": "hello"}},
-		{"/blog/hello/like", "/blog/[...rest]", Params{"rest": "hello/like"}},
+		{"/blog/new/edit", "/blog/new/[id]", params{"id": "edit"}},
+		{"/blog/new/comments/3", "/blog/[slug]/comments/[n]", params{"slug": "new", "n": "3"}},
+		{"/blog/new/42", "/blog/new/[id]", params{"id": "42"}},
+		{"/blog/new/42/x", "/blog/[...rest]", params{"rest": "new/42/x"}},
+		{"/blog/hello/edit", "/blog/[slug]/edit", params{"slug": "hello"}},
+		{"/blog/hello/like", "/blog/[...rest]", params{"rest": "hello/like"}},
 		// rest matching zero segments
-		{"/docs", "/docs/[...path]", Params{"path": ""}},
-		{"/docs/install", "/docs/[...path]", Params{"path": "install"}},
-		{"/docs/guides/routing", "/docs/[...path]", Params{"path": "guides/routing"}},
+		{"/docs", "/docs/[...path]", params{"path": ""}},
+		{"/docs/install", "/docs/[...path]", params{"path": "install"}},
+		{"/docs/guides/routing", "/docs/[...path]", params{"path": "guides/routing"}},
 		// several params
-		{"/shop/books/dune", "/shop/[cat]/[item]", Params{"cat": "books", "item": "dune"}},
-		{"/shop/books", "/[...rest]", Params{"rest": "shop/books"}},
+		{"/shop/books/dune", "/shop/[cat]/[item]", params{"cat": "books", "item": "dune"}},
+		{"/shop/books", "/[...rest]", params{"rest": "shop/books"}},
 		// percent-decoding
-		{"/blog/caf%C3%A9", "/blog/[slug]", Params{"slug": "café"}},
-		{"/blog/a%2Fb", "/blog/[slug]", Params{"slug": "a/b"}},
-		{"/blog/a%2Fb/edit", "/blog/[slug]/edit", Params{"slug": "a/b"}},
-		{"/blog/100%", "/blog/[slug]", Params{"slug": "100%"}}, // invalid escape kept raw
-		{"/blog/%zz", "/blog/[slug]", Params{"slug": "%zz"}},   // invalid escape kept raw
-		{"/docs/a%20b/c%2Fd", "/docs/[...path]", Params{"path": "a b/c/d"}},
+		{"/blog/caf%C3%A9", "/blog/[slug]", params{"slug": "café"}},
+		{"/blog/a%2Fb", "/blog/[slug]", params{"slug": "a/b"}},
+		{"/blog/a%2Fb/edit", "/blog/[slug]/edit", params{"slug": "a/b"}},
+		{"/blog/100%", "/blog/[slug]", params{"slug": "100%"}}, // invalid escape kept raw
+		{"/blog/%zz", "/blog/[slug]", params{"slug": "%zz"}},   // invalid escape kept raw
+		{"/docs/a%20b/c%2Fd", "/docs/[...path]", params{"path": "a b/c/d"}},
 		{"/abo%75t", "/about", nil}, // static segments compare decoded
 		{"/blog/n%65w", "/blog/new", nil},
 		// empty segments never match
@@ -98,11 +127,11 @@ func TestMatch(t *testing.T) {
 		{"", "", nil},
 		{"about", "", nil},
 		// the 404 page has no URL of its own
-		{"/404", "/[...rest]", Params{"rest": "404"}},
+		{"/404", "/[...rest]", params{"rest": "404"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
-			r, params, ok := rt.match(tt.path)
+			r, params, ok := matchParams(t, rt, tt.path)
 			if tt.pattern == "" {
 				if ok {
 					t.Fatalf("match(%q) = %q, want no match", tt.path, r.Pattern)
@@ -125,7 +154,7 @@ func TestMatch(t *testing.T) {
 func TestMatchWithoutCatchAll(t *testing.T) {
 	rt := mustRouter(t, "/", "/blog/[slug]", notFoundPattern)
 	for _, p := range []string{"/404", "/blog", "/blog/a/b", "/x"} {
-		if r, _, ok := rt.match(p); ok {
+		if r, _, ok := matchParams(t, rt, p); ok {
 			t.Errorf("match(%q) = %q, want no match", p, r.Pattern)
 		}
 	}
@@ -136,7 +165,7 @@ func TestMatchWithoutCatchAll(t *testing.T) {
 
 func TestMatchRootOnlyRest(t *testing.T) {
 	rt := mustRouter(t, "/[...all]")
-	r, params, ok := rt.match("/")
+	r, params, ok := matchParams(t, rt, "/")
 	if !ok || r.Pattern != "/[...all]" || params["all"] != "" || len(params) != 1 {
 		t.Errorf(`match("/") = %v, %v, %v; want /[...all] with all=""`, r, params, ok)
 	}
@@ -302,11 +331,9 @@ func TestRedirectNeverToOtherHost(t *testing.T) {
 	}
 }
 
-// Static routes don't allocate. A route with params allocates only its
-// Params map, and a non-empty Go map costs 2 allocations (the map header and
-// its first group), whatever its size hint; values that need no decoding are
-// substrings of the path. A pooled map could get this to 0, but Params
-// escapes to the page, which may keep it past the request.
+// Matching writes values into the caller's buffer, so it doesn't allocate,
+// with or without params. Only a value with a %-escape allocates, for its
+// decoded copy; clean values are substrings of the path.
 func TestMatchAllocs(t *testing.T) {
 	rt := benchRouter(t)
 	cases := []struct {
@@ -317,17 +344,31 @@ func TestMatchAllocs(t *testing.T) {
 		{"/about", 0},
 		{"/blog/new", 0},
 		{"/section7/page3", 0},
-		{"/blog/new/comments/3", 2},
-		{"/missing/a/b/c", 2},
-		{"/blog/hello", 2},
-		{"/docs/guides/routing", 2},
-		{"/shop/books/dune", 2},
+		{"/blog/new/comments/3", 0},
+		{"/missing/a/b/c", 0},
+		{"/blog/hello", 0},
+		{"/docs/guides/routing", 0},
+		{"/shop/books/dune", 0},
+		{"/shop/b%C3%BCcher/dune", 1},
+		{"/shop/b%C3%BCcher/d%C3%BCne", 2},
+		{"/blog/100%", 0}, // an invalid escape is kept as it is
 	}
+	var buf [8]string
 	for _, c := range cases {
-		allocs := testing.AllocsPerRun(100, func() { rt.match(c.path) })
+		allocs := testing.AllocsPerRun(100, func() { rt.match(c.path, buf[:0]) })
 		if allocs > c.max {
 			t.Errorf("match(%q): %v allocs, want ≤ %v", c.path, allocs, c.max)
 		}
+	}
+}
+
+// Routes deeper than the Ctx buffer still match; their values just spill
+// into a new slice.
+func TestMatchManyParams(t *testing.T) {
+	rt := mustRouter(t, "/[a]/[b]/[c]/[d]/[e]/[f]/[g]/[h]/[i]/[...j]")
+	r, p, ok := matchParams(t, rt, "/1/2/3/4/5/6/7/8/9/10/11")
+	if !ok || r.Pattern != "/[a]/[b]/[c]/[d]/[e]/[f]/[g]/[h]/[i]/[...j]" || p["a"] != "1" || p["i"] != "9" || p["j"] != "10/11" {
+		t.Errorf("match = %v, %v, %v", r, p, ok)
 	}
 }
 
@@ -358,12 +399,14 @@ func BenchmarkMatch(b *testing.B) {
 		"/blog/new/comments/3", // backtracks from the static "new"
 		"/shop/books/dune",
 		"/docs/guides/routing",
-		"/missing/a/b/c", // falls to /[...rest]
+		"/blog/caf%C3%A9", // decodes one value
+		"/missing/a/b/c",  // falls to /[...rest]
 	} {
 		b.Run(path, func(b *testing.B) {
+			var buf [8]string
 			b.ReportAllocs()
 			for b.Loop() {
-				rt.match(path)
+				rt.match(path, buf[:0])
 			}
 		})
 	}
@@ -456,10 +499,17 @@ func FuzzMatch(f *testing.F) {
 			continue
 		}
 		segs, _ := parsePattern(routes[i].Pattern, routes[i].File)
-		all = append(all, &compiledRoute{route: &routes[i], segs: segs, nparams: countParams(segs)})
+		all = append(all, &compiledRoute{route: &routes[i], segs: segs, names: paramNames(segs)})
 	}
 	f.Fuzz(func(t *testing.T, path, query string) {
-		r, params, ok := rt.match(path)
+		dec, err := url.PathUnescape(path)
+		if err != nil {
+			dec = path
+		}
+		if got := pathUnescape(path); got != dec {
+			t.Fatalf("pathUnescape(%q) = %q, url.PathUnescape gives %q", path, got, dec)
+		}
+		r, params, ok := matchParams(t, rt, path)
 		want := refMatch(rt, all, path)
 		if ok != (want != nil) {
 			t.Fatalf("match(%q) ok = %v, reference = %v", path, ok, want != nil)
@@ -475,8 +525,8 @@ func FuzzMatch(f *testing.F) {
 			if r.Pattern == notFoundPattern {
 				t.Fatalf("match(%q) returned the 404 route", path)
 			}
-			if len(params) != want.nparams || (want.nparams == 0) != (params == nil) {
-				t.Fatalf("match(%q) params = %#v, want %d", path, params, want.nparams)
+			if len(params) != len(want.names) || (want.names == nil) != (params == nil) {
+				t.Fatalf("match(%q) params = %#v, want %q", path, params, want.names)
 			}
 			for _, s := range want.segs {
 				if _, has := params[s.text]; s.kind != segStatic && !has {
@@ -493,7 +543,7 @@ func FuzzMatch(f *testing.F) {
 			if strings.HasPrefix(target, "//") || p == path || target != want {
 				t.Fatalf("redirectTarget(%q, %q) = %q, want %q", path, query, target, want)
 			}
-			if _, _, ok := rt.match(p); !ok {
+			if _, _, ok := matchParams(t, rt, p); !ok {
 				t.Fatalf("redirectTarget(%q) = %q, which doesn't match", path, target)
 			}
 		}
