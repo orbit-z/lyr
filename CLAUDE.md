@@ -107,6 +107,8 @@ When independent tasks can run in parallel, launch them in **one message**. If p
   - Codegen generates `type Params struct{…}` per page from its route, and pages get `params` (e.g. `params.Slug`).
   - Components use `ctx.Param("slug")`. There's no `ctx.Params` map.
   - Router matches allocate nothing.
+- **Whitespace**: `orbit.json` `compressHTML`: `"html"` (default, HTML-aware lossless), `"jsx"` (Astro v7 rules) or `false`. Applied at codegen time.
+- **Unused component import**: an Orbit error.
 - **Bundler**: esbuild via its Go API (in-process, no runtime requirement), behind one internal interface. Bun stays optional (`bun check`, later `bun fmt`) and isn't used for bundling.
 - **Formatter (`orbit fmt`)**: comes after the MVP. Go parts are formatted by Orbit; script/style blocks go through `bun fmt --stdin-filepath`.
 - **Other settled choices**:

@@ -60,7 +60,11 @@ Path sanitizing also `p_`-prefixes segments starting with `_` and `testdata`/`ve
 - **C**: `Classify` table ported from `spike/typecheck/typed` (55 kinds, the Float32 change, attribute kinds); a test `ExportLoader` over `importer.ForCompiler(fset, "source", nil)`; fallback on a package with type errors and on a failing loader (warning); split checking (writes) from re-emission so it's testable before B lands; once B lands, the typed-vs-`Expr` test renders every golden both ways and compares bytes, and `go vet` stays clean; `GoListLoader` against a `newGenModule`; `CleanGoOutput` golden over the position test's output.
 - Order of integration: A, then B (end-to-end goldens), then C.
 
-## Gaps the implementers must not settle (coordinator asks the user)
-1. **Unused `.orbit` import**: Go's own error (`"…/orbit_gen/decl/components/card" imported as Card and not used`, the interim default) / an Orbit error `Card is imported but not used` / allowed, as in Astro. A computes `Place` either way.
-2. **Template whitespace**: copied verbatim (interim default, as PLAN §3.2 and the spike) / collapsed like Astro's default `compressHTML`. It changes every golden.
-3. **Source maps for files on disk (M12)**: the LSP needs maps for `orbit_gen` files it didn't generate (typed, so offsets differ from its tolerant output): a sidecar map file / rebuild from the directives / always overlay its own tolerant output. Not needed for M4.
+## Settled gaps (user and coordinator decisions)
+1. **Unused `.orbit` import** (user): an Orbit error at the alias, `src/pages/index.orbit:3:5: component Card is imported but not used; remove the import`. A reports it (it scans the template for `<Card>` uses, `<Self>` excluded); the import isn't emitted.
+2. **Template whitespace** (user): `Options.CompressHTML` with three modes from `orbit.json` `"compressHTML"`:
+   - `"html"` (**default**, Astro's `true`): HTML-aware, lossless collapsing at codegen time. Runs of whitespace are collapsed to one space, or to one newline if the run contains one. Whitespace-only text between block-level tags may be dropped, but a run between inline content (text, inline elements, expressions) always keeps at least one space, so words never join. `<pre>`, `<textarea>`, `<script>`, `<style>` and HTML comments are never touched. Expression output (`{expr}`) is never altered: it's runtime data.
+   - `"jsx"` (Astro v7's default): JSX whitespace rules. Whitespace containing a newline next to a tag boundary is removed; whitespace within a single line is kept; `{" "}` forces a space. The same untouched elements apply.
+   - `false`: verbatim.
+   - Goldens are generated in `"html"` mode, with a small dedicated golden set for `"jsx"` and `false`.
+3. **Source maps for on-disk files (M12)** (coordinator, by rule: simplest): the LSP always generates every file itself in memory and uses its own maps; it never reads maps for `orbit_gen` files. No sidecar files.
