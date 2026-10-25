@@ -1,0 +1,4 @@
+---
+type Props map[string]string
+---
+<p>{len(props)}</p>

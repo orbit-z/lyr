@@ -1,0 +1,14 @@
+info src/components/shadowing.orbit component route=""
+goimport name="" path="strings" @14-23 "\"strings\"" path=@14-23 place=impl
+goimport name="" path="strconv" @25-34 "\"strconv\"" path=@25-34 place=impl
+implicit orbit: none
+decl type @38-69 place=decl Item@43-47
+  "type Item struct{ Name string }"
+decl type @71-104 place=decl Props@76-81
+  "type Props struct{ Items []Item }"
+stmt @106-140 "if true {\n\tprops := 1\n\t_ = props\n}"
+stmt @141-160 "strconv := \"shadow\""
+echo [strconv]
+terminating false
+props declared=true listable=true span=@76-104
+  field @90-95 "Items" type="[]Item" doc=""

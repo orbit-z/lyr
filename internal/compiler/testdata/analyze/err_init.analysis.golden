@@ -1,0 +1,10 @@
+info src/components/err_init.orbit component route=""
+implicit orbit: none
+decl func @33-77 place=impl init@38-42
+  "func init() {\n\tcache = map[string]string{}\n}"
+decl func @79-103 place=impl recv=Props
+  "func (p Props) init() {}"
+stmt @4-31 "var cache map[string]string"
+echo [cache]
+terminating false
+props declared=false listable=true span=@0-0

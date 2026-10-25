@@ -1,0 +1,26 @@
+---
+import (
+	"strings"
+	"strconv"
+	"fmt"
+)
+
+type Status int
+
+func (s Status) String() string { return label(int(s)) }
+
+func label(n int) string { return strconv.Itoa(n) }
+
+func (s *Status) Set(v int) { *s = Status(v) }
+
+type unrelated struct{}
+
+func (unrelated) Name() string { return strings.ToLower("U") }
+
+const Default Status = 1
+
+type Props struct {
+	S Status
+}
+---
+<p>{props.S}{fmt.Sprint(unrelated{}.Name())}{Default}</p>

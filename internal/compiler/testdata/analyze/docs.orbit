@@ -1,0 +1,26 @@
+---
+import "strings"
+
+x := 1 // line comment of x, not a doc
+type A int
+
+// Detached comment.
+
+// Doc of B,
+// two lines.
+type B int
+
+/* block doc */
+const C = 1
+
+// Doc of the group.
+type (
+	// D's own doc.
+	D int
+	E int
+)
+y := strings.ToUpper("a"); type F int; z := 2
+// Doc of g.
+func g() int { return x + y + z }
+---
+<p>{g()}</p>

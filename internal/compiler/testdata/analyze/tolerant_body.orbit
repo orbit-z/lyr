@@ -1,0 +1,9 @@
+---
+import "strings"
+
+type Props struct{ Title string }
+
+x := strings.ToUpper(props.Title
+y := 2
+---
+<p>{x}{y}</p>

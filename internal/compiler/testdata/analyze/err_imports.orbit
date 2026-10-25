@@ -1,0 +1,22 @@
+---
+import (
+	"strings"
+	. "fmt"
+	card "./Card.orbit"
+	Chart "./Chart.tsx"
+	Widget "./Widget.svelte"
+	util "./util.ts"
+	"./Bare.orbit"
+	_ "./Blank.orbit"
+	. "./Dot.orbit"
+	Far "../../../Far.orbit"
+	Unused "../layouts/Unused.orbit"
+	Used "./Used.orbit"
+	InGo "./InGo.orbit"
+)
+
+s := strings.ToUpper(Sprint(1))
+p := InGo.Props{}
+---
+<card />
+<Used>{s}{p}</Used>

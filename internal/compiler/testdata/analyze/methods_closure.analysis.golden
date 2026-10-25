@@ -1,0 +1,25 @@
+info src/components/methods_closure.orbit component route=""
+goimport name="" path="strings" @14-23 "\"strings\"" path=@14-23 place=impl
+goimport name="" path="strconv" @25-34 "\"strconv\"" path=@25-34 place=decl
+goimport name="" path="fmt" @36-41 "\"fmt\"" path=@36-41 place=impl
+implicit orbit: none
+decl type @45-60 place=decl Status@50-56
+  "type Status int"
+decl func @62-118 place=decl recv=Status
+  "func (s Status) String() string { return label(int(s)) }"
+decl func @120-171 place=decl label@125-130
+  "func label(n int) string { return strconv.Itoa(n) }"
+decl func @173-219 place=decl recv=Status
+  "func (s *Status) Set(v int) { *s = Status(v) }"
+decl type @221-244 place=impl unrelated@226-235
+  "type unrelated struct{}"
+decl func @246-308 place=impl recv=unrelated
+  "func (unrelated) Name() string { return strings.ToLower(\"U\")…"
+decl const @310-334 place=impl Default@316-323
+  "const Default Status = 1"
+decl type @336-367 place=decl Props@341-346
+  "type Props struct {\n\tS Status\n}"
+echo []
+terminating false
+props declared=true listable=true span=@341-367
+  field @357-358 "S" type="Status" doc=""

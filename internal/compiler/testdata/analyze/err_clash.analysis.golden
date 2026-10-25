@@ -1,0 +1,19 @@
+info src/components/err_clash.orbit component route=""
+goimport name="Kind" path="example.com/kind" @83-106 "Kind \"example.com/kind\"" path=@88-106 place=impl
+orbitimport @14-18 "Item" path="./Item.orbit" resolved=src/components/Item.orbit @14-33 pathspan=@19-33 place=impl
+orbitimport @35-40 "Props" path="./Other.orbit" resolved=src/components/Other.orbit @35-56 pathspan=@41-56 place=impl
+orbitimport @58-64 "Render" path="./Render.orbit" resolved=src/components/Render.orbit @58-81 pathspan=@65-81 place=impl
+implicit orbit: none
+decl type @110-141 place=decl Item@115-119
+  "type Item struct{ Name string }"
+decl type @143-156 place=decl Kind@148-152
+  "type Kind int"
+decl type @158-201 place=decl Props@163-168
+  "type Props struct {\n\tItem Item\n\tK    Kind\n}"
+decl type @203-215 place=impl Row@208-211
+  "type Row int"
+echo []
+terminating false
+props declared=true listable=true span=@163-201
+  field @179-183 "Item" type="Item" doc=""
+  field @190-191 "K" type="Kind" doc=""

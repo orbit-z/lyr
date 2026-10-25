@@ -1,0 +1,18 @@
+info src/components/err_unexported.orbit component route=""
+implicit orbit: none
+decl type @4-37 place=decl item@9-13
+  "type item struct {\n\tName string\n}"
+decl type @39-54 place=decl hidden@44-50
+  "type hidden int"
+decl const @56-71 place=decl limit@62-67
+  "const limit = 3"
+decl type @73-140 place=decl Props@78-83
+  "type Props struct {\n\tItems []item\n\tH     hidden\n\tN     [limi…"
+decl func @142-186 place=impl helper@147-153
+  "func helper(i item) string { return i.Name }"
+echo []
+terminating false
+props declared=true listable=true span=@78-140
+  field @94-99 "Items" type="[]item" doc=""
+  field @108-109 "H" type="hidden" doc=""
+  field @122-123 "N" type="[limit]int" doc=""

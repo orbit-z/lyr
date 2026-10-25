@@ -1,0 +1,8 @@
+info src/components/terminating_ok.orbit component route=""
+implicit orbit: impl
+stmt @4-20 "x, err := load()"
+stmt @21-50 "if err != nil {\n\treturn err\n}"
+stmt @51-75 "return orbit.ErrNotFound"
+echo [x err]
+terminating true
+props declared=false listable=true span=@0-0

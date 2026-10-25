@@ -1,0 +1,10 @@
+info src/components/tolerant_body.orbit component route=""
+goimport name="" path="strings" @11-20 "\"strings\"" path=@11-20 place=impl
+implicit orbit: none
+decl type @22-55 place=decl Props@27-32
+  "type Props struct{ Title string }"
+stmt @57-96 "x := strings.ToUpper(props.Title\ny := 2"
+echo [x]
+terminating false
+props declared=true listable=true span=@27-55
+  field @41-46 "Title" type="string" doc=""

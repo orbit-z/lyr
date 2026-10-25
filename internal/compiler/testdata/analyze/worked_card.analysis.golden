@@ -1,0 +1,13 @@
+info src/components/worked_card.orbit component route=""
+goimport name="" path="example.com/blog/internal/posts" @11-44 "\"example.com/blog/internal/posts\"" path=@11-44 place=both
+implicit orbit: none
+decl type @45-108 place=decl Props@50-55
+  "type Props struct {\n    Post     posts.Post\n    Featured boo…"
+decl func @109-168 place=impl href@114-118
+  "func href(p posts.Post) string { return \"/blog/\" + p.Slug }"
+stmt @169-192 "url := href(props.Post)"
+echo [url]
+terminating false
+props declared=true listable=true span=@50-108
+  field @69-73 "Post" type="posts.Post" doc=""
+  field @93-101 "Featured" type="bool" doc=""

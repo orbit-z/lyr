@@ -1,0 +1,10 @@
+src/components/err_imports.orbit:4:2: dot imports aren't supported in a component; import the package by name
+src/components/err_imports.orbit:5:2: component alias card must start with an uppercase letter (rename it to Card)
+src/components/err_imports.orbit:6:8: framework components aren't supported; use a .orbit component with a <script>
+src/components/err_imports.orbit:7:9: framework components aren't supported; use a .orbit component with a <script>
+src/components/err_imports.orbit:8:7: only .orbit components can be imported by relative path; import client modules from a <script>
+src/components/err_imports.orbit:9:2: a component import needs an alias: Bare "./Bare.orbit"
+src/components/err_imports.orbit:10:2: a component import needs an alias: Blank "./Blank.orbit"
+src/components/err_imports.orbit:11:2: dot imports aren't supported in a component; import the package by name
+src/components/err_imports.orbit:12:6: component path ../../../Far.orbit is outside src/
+src/components/err_imports.orbit:13:2: component Unused is imported but not used; remove the import

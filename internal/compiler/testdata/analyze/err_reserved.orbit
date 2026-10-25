@@ -1,0 +1,7 @@
+---
+orbit__x := 1
+var Orbit__Render = 2
+type orbit__T struct{ orbit__f int }
+---
+<p class={orbit__x}>{Orbit__Render}</p>
+{if orbit__ok := true; orbit__ok}<b>x</b>{/if}

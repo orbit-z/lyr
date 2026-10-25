@@ -1,0 +1,11 @@
+---
+type Props struct {
+	Title string
+}
+
+type (
+	Params struct{ Slug string }
+	Extra  int
+)
+---
+<p>{params}</p>

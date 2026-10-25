@@ -34,5 +34,5 @@ type ComponentInfo struct {
 // NewComponentInfo builds the index entry of a parsed and analyzed file.
 // Implemented by agent A.
 func NewComponentInfo(f *File, a *Analysis) *ComponentInfo {
-	panic("not implemented: milestone 4 (A)")
+	return newComponentInfo(f, a)
 }

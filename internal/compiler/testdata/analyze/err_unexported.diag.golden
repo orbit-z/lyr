@@ -1,0 +1,1 @@
+src/components/err_unexported.orbit:2:6: item is used by Props, so it lives in the component's declaration package and must be exported (rename it to Item)

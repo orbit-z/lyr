@@ -1,0 +1,19 @@
+info src/components/spike_A.orbit component route=""
+goimport name="" path="strings" @17-26 "\"strings\"" path=@17-26 place=both
+orbitimport @31-32 "B" path="./B.orbit" resolved=src/components/B.orbit @31-44 pathspan=@33-44 place=impl
+implicit orbit: none
+decl type @48-99 place=decl Item@53-57
+  "type Item struct {\n    Name  string\n    Count int\n}"
+decl func @101-164 place=decl recv=Item
+  "func (i Item) Title() string { return strings.ToUpper(i.Name…"
+decl type @166-216 place=decl Props@171-176
+  "type Props struct {\n    Item  Item\n    Depth int\n}"
+decl func @218-282 place=impl label@223-228
+  "func label(n int) string { return \"A\" + strings.Repeat(\">\", …"
+stmt @284-311 "title := label(props.Depth)"
+stmt @312-324 "unused := 42"
+echo [title unused]
+terminating false
+props declared=true listable=true span=@171-216
+  field @190-194 "Item" type="Item" doc=""
+  field @205-210 "Depth" type="int" doc=""

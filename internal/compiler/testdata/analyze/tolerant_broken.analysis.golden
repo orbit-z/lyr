@@ -1,0 +1,10 @@
+info src/components/tolerant_broken.orbit component route=""
+goimport name="" path="strings" @11-20 "\"strings\"" path=@11-20 place=impl
+implicit orbit: none
+decl type @22-85 place=decl Props@27-32
+  "type Props struct {\n\tTitle string\n\nx := strings.ToUpper(\nif …"
+echo []
+terminating false
+props declared=true listable=true span=@27-27
+  field @43-48 "Title" type="string" doc=""
+  field @57-58 "x" type=":= strings.ToUpper(\nif y {\n" doc=""

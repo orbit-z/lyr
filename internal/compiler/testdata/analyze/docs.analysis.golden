@@ -1,0 +1,21 @@
+info src/components/docs.orbit component route=""
+goimport name="" path="strings" @11-20 "\"strings\"" path=@11-20 place=impl
+implicit orbit: none
+decl type @61-71 place=impl A@66-67
+  "type A int"
+decl type @122-132 place=impl B@127-128 doc=@95-121 "// Doc of B,\n// two lines."
+  "type B int"
+decl const @150-161 place=impl C@156-157 doc=@134-149 "/* block doc */"
+  "const C = 1"
+decl type @184-223 place=impl D@209-210 E@216-217 doc=@163-183 "// Doc of the group."
+  "type (\n\t// D's own doc.\n\tD int\n\tE int\n)"
+decl type @251-261 place=impl F@256-257
+  "type F int"
+decl func @283-316 place=impl g@288-289 doc=@270-282 "// Doc of g."
+  "func g() int { return x + y + z }"
+stmt @22-28 "x := 1"
+stmt @224-249 "y := strings.ToUpper(\"a\")"
+stmt @263-269 "z := 2"
+echo [x y z]
+terminating false
+props declared=false listable=true span=@0-0

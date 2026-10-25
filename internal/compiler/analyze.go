@@ -211,5 +211,5 @@ func (a *Analysis) HasErrors() bool {
 // statement followed by template content. The exact messages are listed in
 // DESIGN.md.
 func Analyze(f *File, info FileInfo) *Analysis {
-	panic("not implemented: milestone 4 (A)")
+	return analyze(f, info)
 }

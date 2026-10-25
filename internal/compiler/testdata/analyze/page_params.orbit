@@ -1,0 +1,4 @@
+---
+title := params.PostID + "/" + params.Rest
+---
+<h1>{title}</h1>

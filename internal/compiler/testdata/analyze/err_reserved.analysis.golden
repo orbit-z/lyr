@@ -1,0 +1,9 @@
+info src/components/err_reserved.orbit component route=""
+implicit orbit: none
+decl type @40-76 place=impl orbit__T@45-53
+  "type orbit__T struct{ orbit__f int }"
+stmt @4-17 "orbit__x := 1"
+stmt @18-39 "var Orbit__Render = 2"
+echo [orbit__x Orbit__Render]
+terminating false
+props declared=false listable=true span=@0-0

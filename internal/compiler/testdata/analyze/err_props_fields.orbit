@@ -1,0 +1,18 @@
+---
+import "time"
+
+type Base struct{ ID string }
+
+type Props struct {
+	Base
+	// Title is the heading.
+	Title string // shown in <h1>
+	// Only a doc.
+	IsOpen  bool
+	Is_Open bool
+	count   int
+	When, Until time.Time
+	_ int
+}
+---
+<p>{props.Title}</p>

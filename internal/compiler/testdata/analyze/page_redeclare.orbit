@@ -1,0 +1,5 @@
+---
+params := 1
+ctx = nil
+---
+<p>{params}</p>
