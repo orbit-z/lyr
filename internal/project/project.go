@@ -111,15 +111,27 @@ func Load(root string) (*Project, error) {
 		if err != nil {
 			return nil, err
 		}
-		role, route := RouteFor(path)
-		f := &File{Path: path, Info: compiler.FileInfo{Path: path, Role: role, Route: route}, Src: string(src)}
-		f.Pkg, err = compiler.PackageFor(path)
+		f, err := NewFile(path, string(src))
 		if err != nil {
 			return nil, err // Discover only returns clean paths under src/
 		}
 		p.Files = append(p.Files, f)
 	}
 	return p, nil
+}
+
+// NewFile returns the File for the .orbit file at the project-relative path
+// with source src, not yet through Front. The error is for a path that isn't
+// a clean .orbit path under src/.
+func NewFile(path, src string) (*File, error) {
+	role, route := RouteFor(path)
+	f := &File{Path: path, Info: compiler.FileInfo{Path: path, Role: role, Route: route}, Src: src}
+	var err error
+	f.Pkg, err = compiler.PackageFor(path)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
 // Front runs the pipeline up to pass 1 on every file: parse (Strict),
@@ -143,6 +155,13 @@ func (p *Project) Front() bool {
 		f.Pass1 = compiler.Generate(f.Input)
 		f.Output, f.Typed, f.Writes = f.Pass1, false, nil
 	})
+	p.collectDiagnostics()
+	return HasErrors(p.Diagnostics)
+}
+
+// collectDiagnostics sets p.Diagnostics from the project checks and every
+// file's parse, analysis and pass-1 diagnostics.
+func (p *Project) collectDiagnostics() {
 	ds := slices.Clone(p.localsDiags)
 	ds = append(ds, checkFiles(p.Files)...)
 	ds = append(ds, checkPropsCycles(p.Files)...)
@@ -155,7 +174,77 @@ func (p *Project) Front() bool {
 	}
 	sortDiagnostics(ds)
 	p.Diagnostics = ds
-	return HasErrors(ds)
+}
+
+// Refresh is Front for an edit of the files at paths, whose Src the caller
+// has replaced (the language server's unsaved buffers, PLAN.md §9): it
+// re-parses and re-analyzes those files and updates their index entries,
+// then regenerates (pass 1) them and every file that imports one whose
+// entry changed in a way codegen depends on (Props fields, slots), and
+// recomputes p.Diagnostics. It returns the regenerated files, in p.Files
+// order. Every path must already be in p.Files; after adding or removing
+// files, call Front instead.
+func (p *Project) Refresh(paths []string) []*File {
+	byPath := p.byPath()
+	changed := map[string]bool{} // files whose index entry changed
+	regen := map[string]bool{}
+	for _, path := range paths {
+		f := byPath[path]
+		if f == nil {
+			continue
+		}
+		f.AST = compiler.Parse(f.Src, p.Options.Mode)
+		f.Analysis = compiler.Analyze(f.AST, f.Info)
+		f.callList, f.callsDone = nil, false
+		info := compiler.NewComponentInfo(f.AST, f.Analysis)
+		if !sameInfo(p.Index[f.Path], info) {
+			changed[f.Path] = true
+		}
+		p.Index[f.Path] = info
+		regen[f.Path] = true
+	}
+	if len(changed) > 0 {
+		for _, f := range p.Files {
+			for _, im := range f.Analysis.OrbitImports {
+				if changed[im.Resolved] {
+					regen[f.Path] = true
+				}
+			}
+		}
+	}
+	var out []*File
+	for _, f := range p.Files {
+		if regen[f.Path] {
+			out = append(out, f)
+		}
+	}
+	parallel(out, func(f *File) {
+		f.Input = &compiler.Input{File: f.AST, Analysis: f.Analysis, Index: p.Index, Options: p.Options}
+		f.Pass1 = compiler.Generate(f.Input)
+		f.Output, f.Typed, f.Writes = f.Pass1, false, nil
+	})
+	p.collectDiagnostics()
+	return out
+}
+
+// sameInfo reports whether two index entries of a file generate the same
+// code in its importers: the same Props field names and shape, and the
+// same slots. Positions and doc comments don't matter.
+func sameInfo(a, b *compiler.ComponentInfo) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if a.Role != b.Role || a.Name != b.Name || a.ID != b.ID || a.Pkg != b.Pkg ||
+		a.Props.Declared != b.Props.Declared || a.Props.Listable != b.Props.Listable ||
+		!slices.Equal(a.Slots, b.Slots) || len(a.Props.Fields) != len(b.Props.Fields) {
+		return false
+	}
+	for i, f := range a.Props.Fields {
+		if g := b.Props.Fields[i]; f.Name != g.Name || f.Type != g.Type {
+			return false
+		}
+	}
+	return true
 }
 
 // parallel calls fn for every file, on up to GOMAXPROCS goroutines.

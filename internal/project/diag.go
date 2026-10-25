@@ -18,6 +18,10 @@ type Diagnostic struct {
 	Pos      compiler.Position
 	Severity compiler.Severity
 	Message  string
+	// Span is the byte range in File for a diagnostic with a position in an
+	// .orbit file (the LSP underlines it); zero for file-level ones and for
+	// those about other files.
+	Span compiler.Span
 	// off orders diagnostics within a file.
 	off int
 }
@@ -51,6 +55,7 @@ func fromCompiler(f *File, d compiler.Diagnostic) Diagnostic {
 		return out
 	}
 	out.Pos = f.AST.Lines.Position(d.Start)
+	out.Span = d.Span
 	return out
 }
 

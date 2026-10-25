@@ -51,7 +51,7 @@ func init() {
 		{name: "check", short: "type-check Go and TypeScript", run: runCheck},
 		{name: "doctor", args: "[--json]", short: "check the environment and project", run: runDoctor},
 		{name: "create-key", short: "print a new island key for ORBIT_KEY", run: runCreateKey},
-		{name: "lsp", short: "language server over stdio", run: notYet("lsp")},
+		{name: "lsp", short: "language server over stdio", run: runLSP},
 	}
 }
 
@@ -144,13 +144,6 @@ func parse(fs *flag.FlagSet, args []string) int {
 		return exitUsage
 	}
 	return -1
-}
-
-func notYet(name string) func(*env, []string) int {
-	return func(e *env, _ []string) int {
-		fmt.Fprintf(e.stderr, "orbit %s: not implemented yet\n", name)
-		return exitFail
-	}
 }
 
 // runGenerate is orbit generate: generate orbit_gen/ for the project around
