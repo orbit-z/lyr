@@ -1,0 +1,43 @@
+---
+type Props struct {
+    Title string
+}
+---
+<share-buttons data-title={props.Title}>
+  <button type="button" data-action="copy">Copy link</button>
+  <button type="button" data-action="share" hidden>Share…</button>
+</share-buttons>
+<style>
+  share-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin: 2rem 0 0;
+  }
+  button {
+    padding: 0.3rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+  }
+</style>
+<script>
+  // Loaded lazily: the post page renders <ShareButtons client:visible="200px" />.
+  class ShareButtons extends HTMLElement {
+    connectedCallback(): void {
+      const title = this.dataset.title ?? document.title;
+      const copy = this.querySelector<HTMLButtonElement>('[data-action="copy"]')!;
+      const share = this.querySelector<HTMLButtonElement>('[data-action="share"]')!;
+      copy.addEventListener("click", async () => {
+        await navigator.clipboard.writeText(location.href);
+        copy.textContent = "Copied!";
+      });
+      if ("share" in navigator) {
+        share.hidden = false;
+        share.addEventListener("click", () => navigator.share({ title, url: location.href }));
+      }
+    }
+  }
+  customElements.define("share-buttons", ShareButtons);
+</script>

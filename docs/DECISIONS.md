@@ -412,3 +412,14 @@ To override a decision, say which row and the alternative you want; the docs and
 | Each docs page is one project: the `orbit new` starter (module `example.com/blog`), hidden per-page stubs, then the page's tagged blocks; one page tagging the same `PATH` twice is an error | simplest | Later blocks replace earlier ones; one project for all pages | `internal/docstest/docs_test.go` |
 | A project passes when `orbit check` (TypeScript half only with Bun), `go vet ./...`, `go build ./...` and `go test ./...` pass; the testing page first runs `go test ./internal/views_test -update`, as it tells the reader to | simplest (what a reader would run) | Build only, no `go test` | `internal/docstest/docs_test.go` |
 | A block whose info string has `expect-error` shows failing code: it's built with the page's other blocks, must fail, and the first line of the next fenced block (the documented `file:line:col: message`) must appear in the output; without Bun a passing build is only logged | simplest | An `expect-error="message"` attribute (quoting, no position) | `internal/docstest/docs_test.go`, [Styles and scripts](styles-and-scripts.md#type-checking-with-orbit-check) |
+## Example site (`examples/blog`)
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| `examples/blog/go.mod` requires `v0.0.0` with `replace github.com/bertrandkhe/orbit => ../..`; the integration test copies the example and rewrites the replace to the repository's absolute path | simplest | An absolute path from `orbit new`; a `go.work` file | `examples/blog/README.md` |
+| The integration test lives in `internal/build` (`TestExampleBlog`), next to the other end-to-end tests whose helpers it reuses | simplest | A new `internal/examples` test package with copied helpers | — |
+| `LikeButton` is a custom element whose script POSTs to `/blog/{slug}/like` and swaps in the returned fragment (`outerHTML`); no htmx | simplest (no dependency; the docs' recommended custom-element pattern) | htmx `hx-post`, as in the `server.md` snippet | `examples/blog/README.md` |
+| The `javascript:` URL filter is shown by an untrusted commenter website in the deferred comments, not a dedicated page | simplest (keeps the example realistic) | A `/security` demo page | `examples/blog/README.md` |
+| The JSON-LD `<script>` goes into the layout's `<head>` through a named `head` slot | Astro (named slot in a layout's `<head>`) | Put it in `<body>` | `examples/blog/README.md` |
+| The `theme` cookie sets `Theme` to `dark` only for the value `dark`, `light` otherwise | simplest (as in [Middleware and locals](middleware.md)) | Copy any cookie value | [Middleware and locals](middleware.md) |
+| The simulated slow comment query is a package variable, `posts.CommentDelay` (200 ms), which `views_test` sets to 0 | simplest | A build tag; an environment variable | — |

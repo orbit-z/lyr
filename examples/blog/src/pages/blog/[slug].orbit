@@ -1,0 +1,44 @@
+---
+import (
+    "errors"
+
+    "example.com/blog/internal/posts"
+    Base "../../layouts/Base.orbit"
+    Comments "../../components/Comments.orbit"
+    LikeButton "../../components/LikeButton.orbit"
+    ShareButtons "../../components/ShareButtons.orbit"
+)
+
+post, err := posts.Find(params.Slug)
+if errors.Is(err, posts.ErrNotFound) {
+    return orbit.ErrNotFound
+}
+if err != nil {
+    return err
+}
+---
+<Base title={post.Title}>
+  <article>
+    <h1>{post.Title}</h1>
+    <p class="meta">
+      <time datetime={post.Published.Format("2006-01-02")}>{post.Published.Format("2 January 2006")}</time>
+    </p>
+    <div class="body" set:html={orbit.HTML(post.Body)}></div>
+    <LikeButton slug={post.Slug} likes={posts.Likes(post.Slug)} />
+  </article>
+  <ShareButtons title={post.Title} client:visible="200px" />
+  <Comments server:defer postID={post.ID}>
+    <p slot="fallback" class="loading">Loading comments…</p>
+  </Comments>
+</Base>
+<style>
+  h1 { margin: 0; }
+  .meta {
+    margin: 0 0 1.5rem;
+    color: var(--muted);
+  }
+  .loading {
+    margin-top: 2rem;
+    color: var(--muted);
+  }
+</style>
