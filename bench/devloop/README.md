@@ -36,12 +36,37 @@ too: the type checker and `go build -p` size their parallelism from it.
 | `-fresh=false` | skip the fresh-checker comparison (it runs off the critical path) |
 | `-json out.json` | also write every sample |
 | `-keep -dir d` | build the project in `d` and keep it |
+| `-dev` | measure `internal/dev`'s pipeline, which is what `orbit dev` runs (below) |
 | `DEVLOOP_VERBOSE=1` | log every package `go build` compiled |
 
 Each run uses a fresh random salt in every edit, so no stage can hit the
 build cache from an earlier run. The header prints the load average at the
 start and at the end. If it's well above 1, other work was competing and
 the numbers are noisy.
+
+## `-dev`: the real `orbit dev` pipeline
+
+By default each step runs the prototype stages described below, which
+predate `internal/dev`. With `-dev`, each step instead calls
+`internal/dev.Pipeline.Run` with the paths the edit wrote, so it measures
+what `orbit dev` runs after a debounced save: the change classifier, the
+resident checker, esbuild skipped when no style or script changed, and,
+on a `.go`-only edit, `go build` started before regenerating (kept when
+regenerating writes nothing to `orbit_gen/`). The server swap and the
+first request are the same as in the default mode.
+
+In `-dev` mode:
+
+- `go build` is the time after gen+write until the binary is ready. With
+  an early build it's only the part that didn't overlap the stages before
+  (the `early build` column says `used`, or `rebuilt after` when
+  regenerating wrote files and `go build` ran again).
+- `-ldflags`, `-buildflags` and `-fresh` don't apply: the pipeline uses
+  `orbit dev`'s `-ldflags=-w` (merged with any `-ldflags` in `GOFLAGS`),
+  and other go flags come from `GOFLAGS`, e.g.
+  `GOFLAGS=-gcflags=-l ./devloop -dev`.
+- `compiled` and `(link)` aren't measured (no action graph), and `noop` is
+  an empty change: `orbit dev` never runs one, so it shows only the front.
 
 ## The project
 

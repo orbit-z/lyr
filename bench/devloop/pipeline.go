@@ -18,6 +18,7 @@ import (
 
 	"github.com/bertrandkhe/orbit/internal/assets"
 	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/bertrandkhe/orbit/internal/dev"
 	"github.com/bertrandkhe/orbit/internal/project"
 )
 
@@ -57,6 +58,9 @@ type pipeline struct {
 	server  *exec.Cmd
 	addr    string
 	builds  int
+	// dev, with -dev, is internal/dev's pipeline: step runs it instead of
+	// the prototype stages below.
+	dev *dev.Pipeline
 }
 
 func newPipeline(root, binDir, ldflags string) *pipeline {
@@ -74,6 +78,9 @@ func newPipeline(root, binDir, ldflags string) *pipeline {
 func (pl *pipeline) close() {
 	pl.stopServer()
 	pl.bundler.Close()
+	if pl.dev != nil {
+		pl.dev.Close()
+	}
 }
 
 // sample is one measured edit: stage durations and counters.
@@ -88,6 +95,9 @@ type sample struct {
 	// Mismatch is set when the resident checker's output differs from a
 	// fresh full check (a correctness problem in the incremental path).
 	Mismatch string
+	// Early (-dev) is set when go build started before regenerating, and
+	// EarlyUsed when that build was the one used.
+	Early, EarlyUsed bool
 }
 
 // binaryReady is the time from "file written" to "new server binary ready".
@@ -104,6 +114,9 @@ type stepOpts struct {
 	invalidate bool // a user .go file changed: reload export data
 	fresh      bool // also time a fresh Checker (go list + full check)
 	verify     string
+	// paths are the files the edit wrote, for -dev (internal/dev's
+	// classifier decides from them).
+	paths []string
 }
 
 // front loads the project and runs pass 1.
@@ -128,6 +141,9 @@ func diagErr(ds []project.Diagnostic) error {
 
 // step runs the dev pipeline after an edit and measures each stage.
 func (pl *pipeline) step(ctx context.Context, o stepOpts) (sample, error) {
+	if pl.dev != nil {
+		return pl.stepDev(ctx, o)
+	}
 	var s sample
 	mark := time.Now()
 	p, err := pl.front()
@@ -404,4 +420,55 @@ func get(url string) (string, error) {
 		return "", fmt.Errorf("GET %s: %s\n%s", url, resp.Status, b)
 	}
 	return string(b), nil
+}
+
+// stepDev is step with -dev: internal/dev's pipeline (classifier, resident
+// checker, esbuild skip, early go build on .go-only edits), then the same
+// server swap and first request as the prototype.
+func (pl *pipeline) stepDev(ctx context.Context, o stepOpts) (sample, error) {
+	var s sample
+	mark := time.Now()
+	r, err := pl.dev.Run(ctx, o.paths, pl.server != nil)
+	if err != nil {
+		return s, err
+	}
+	if r.Failure != "" {
+		return s, errors.New(r.Failure)
+	}
+	t := r.Timings
+	s.Front, s.Esbuild, s.Check, s.GenWrite = t.Front, t.Esbuild, t.Check, t.Write
+	// go build's share: everything after writing, including the wait for
+	// an early build (which overlapped the stages before).
+	s.GoBuild = max(0, time.Since(mark)-t.Front-t.Esbuild-t.Check-t.Write)
+	s.Rechecked, s.Written, s.Early, s.EarlyUsed = t.Rechecked, t.Written, t.EarlyBuild, t.EarlyUsed
+	if r.Bin == "" {
+		if !o.assetsOnly && len(o.paths) > 0 {
+			return s, fmt.Errorf("internal/dev built no server for %v", o.paths)
+		}
+		s.GoBuild = 0
+		return s, nil
+	}
+	if o.assetsOnly {
+		return s, fmt.Errorf("internal/dev rebuilt the server for an asset-only edit of %v", o.paths)
+	}
+	s.Linked = true
+
+	mark = time.Now()
+	pl.stopServer()
+	s.Stop = time.Since(mark)
+	mark = time.Now()
+	if err := pl.startServer(r.Bin); err != nil {
+		return s, err
+	}
+	s.Start = time.Since(mark)
+	mark = time.Now()
+	body, err := get("http://" + pl.addr + "/")
+	if err != nil {
+		return s, err
+	}
+	s.FirstReq = time.Since(mark)
+	if o.verify != "" && !strings.Contains(body, o.verify) {
+		return s, fmt.Errorf("GET / doesn't show the edit %q", o.verify)
+	}
+	return s, nil
 }

@@ -18,7 +18,12 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/bertrandkhe/orbit/internal/dev"
 )
+
+// useDev is -dev.
+var useDev bool
 
 // edit is one edit kind.
 type edit struct {
@@ -40,10 +45,15 @@ func main() {
 	jsonOut := flag.String("json", "", "also write every sample to this JSON file")
 	fresh := flag.Bool("fresh", true, "also time a fresh Checker (go list -export + full check) on every Go edit")
 	extra := flag.String("buildflags", "", "extra go build flags, space-separated (e.g. \"-p=8\")")
+	devMode := flag.Bool("dev", false, "measure internal/dev's pipeline (what orbit dev runs) instead of the prototype stages; -ldflags, -buildflags and -fresh don't apply")
 	flag.Parse()
 	buildFlags = strings.Fields(*extra)
 	if quick {
 		*files, *runs = 50, 2
+	}
+	useDev = *devMode
+	if useDev {
+		*fresh = false
 	}
 	if err := run(*files, *runs, *orbitRoot, *dir, *keep, *ldflags, *only, *jsonOut, *fresh); err != nil {
 		fmt.Fprintln(os.Stderr, "devloop:", err)
@@ -91,6 +101,13 @@ func run(nfiles, runs int, orbitRoot, dir string, keep bool, ldflags, only, json
 
 	pl := newPipeline(dir, binDir, ldflags)
 	defer pl.close()
+	if useDev {
+		pl.dev, err = dev.NewPipeline(ctx, dir, goEnv)
+		if err != nil {
+			return err
+		}
+		fmt.Println("# -dev: internal/dev's pipeline (orbit dev's -ldflags=-w, esbuild skip, early go build on .go-only edits)")
+	}
 
 	// Initial build: with a warm GOCACHE for std and the runtime, this is
 	// close to the first orbit dev start.
@@ -121,35 +138,43 @@ func run(nfiles, runs int, orbitRoot, dir string, keep bool, ldflags, only, json
 		{"body", fmt.Sprintf("template text in C%d (rendered at /)", t), func(k int) (stepOpts, error) {
 			o := goEdit
 			o.verify = "edit-" + id(k)
+			o.paths = []string{compPath(t)}
 			return o, writeFile(dir, compPath(t), componentOrbit(t, n, badgeT, " <em>"+o.verify+"</em>", "", "", ""))
 		}},
 		{"frontmatter", fmt.Sprintf("a frontmatter statement in C%d", t), func(k int) (stepOpts, error) {
 			o := goEdit
 			o.verify = "-f" + id(k)
+			o.paths = []string{compPath(t)}
 			return o, writeFile(dir, compPath(t), componentOrbit(t, n, badgeT, "", fmt.Sprintf(" + %q", o.verify), "", ""))
 		}},
 		{"props", fmt.Sprintf("add a Props field to Badge (imported by %d components)", len(s.badgeImporters())), func(k int) (stepOpts, error) {
-			return goEdit, writeFile(dir, badgePath, badgeOrbit("\tExtra"+id(k)+" string\n"))
+			o := goEdit
+			o.paths = []string{badgePath}
+			return o, writeFile(dir, badgePath, badgeOrbit("\tExtra"+id(k)+" string\n"))
 		}},
 		{"newpage", "add a page (Base layout + C3)", func(k int) (stepOpts, error) {
 			name, src := newPage(k)
-			return goEdit, writeFile(dir, name, strings.Replace(src, "Added page", "Added page "+id(k), 1))
+			o := goEdit
+			o.paths = []string{name}
+			return o, writeFile(dir, name, strings.Replace(src, "Added page", "Added page "+id(k), 1))
 		}},
 		{"gofile-body", "internal/data: a function body (export data unchanged)", func(k int) (stepOpts, error) {
 			o := goEdit
 			o.invalidate = true
+			o.paths = []string{dataPath}
 			return o, writeFile(dir, dataPath, dataGo(id(k), ""))
 		}},
 		{"gofile-api", "internal/data: add an exported const (every Props depends on it)", func(k int) (stepOpts, error) {
 			o := goEdit
 			o.invalidate = true
+			o.paths = []string{dataPath}
 			return o, writeFile(dir, dataPath, dataGo(salt, fmt.Sprintf("\nconst API%s = %d\n", id(k), k)))
 		}},
 		{"css", fmt.Sprintf("scoped <style> content in C%d (esbuild only)", t), func(k int) (stepOpts, error) {
-			return stepOpts{assetsOnly: true}, writeFile(dir, compPath(t), componentOrbit(t, n, badgeT, "", "", fmt.Sprintf("\n  .c%d p { margin: %dpx; }", t, k+1), ""))
+			return stepOpts{assetsOnly: true, paths: []string{compPath(t)}}, writeFile(dir, compPath(t), componentOrbit(t, n, badgeT, "", "", fmt.Sprintf("\n  .c%d p { margin: %dpx; }", t, k+1), ""))
 		}},
 		{"ts", fmt.Sprintf("<script> content in C%d (esbuild only)", t), func(k int) (stepOpts, error) {
-			return stepOpts{assetsOnly: true}, writeFile(dir, compPath(t), componentOrbit(t, n, badgeT, "", "", "", fmt.Sprintf("\n  console.log(%q);", id(k))))
+			return stepOpts{assetsOnly: true, paths: []string{compPath(t)}}, writeFile(dir, compPath(t), componentOrbit(t, n, badgeT, "", "", "", fmt.Sprintf("\n  console.log(%q);", id(k))))
 		}},
 	}
 	if only != "" {
@@ -164,7 +189,7 @@ func run(nfiles, runs int, orbitRoot, dir string, keep bool, ldflags, only, json
 		if err := base(); err != nil {
 			return err
 		}
-		if _, err := pl.step(ctx, stepOpts{}); err != nil {
+		if _, err := pl.step(ctx, stepOpts{paths: []string{compPath(t), badgePath, dataPath}}); err != nil {
 			return fmt.Errorf("settle before %s: %w", e.name, err)
 		}
 		for r := 0; r <= runs; r++ {
@@ -236,12 +261,12 @@ func report(edits []edit, results map[string][]sample) {
 	for _, c := range cols {
 		fmt.Printf(" %s |", c.name)
 	}
-	fmt.Println(" written | rechecked | compiled | linked |")
+	fmt.Println(" written | rechecked | compiled | linked | early build |")
 	fmt.Print("|---|")
 	for range cols {
 		fmt.Print("---:|")
 	}
-	fmt.Println("---:|---:|---:|---|")
+	fmt.Println("---:|---:|---:|---|---|")
 	for _, e := range edits {
 		ss := results[e.name]
 		if len(ss) == 0 {
@@ -252,7 +277,14 @@ func report(edits []edit, results map[string][]sample) {
 			fmt.Printf(" %s |", stat(ss, c.get))
 		}
 		last := ss[len(ss)-1]
-		fmt.Printf(" %d | %d | %d | %v |\n", last.Written, last.Rechecked, last.Compiled, last.Linked)
+		early := "–"
+		switch {
+		case last.EarlyUsed:
+			early = "used"
+		case last.Early:
+			early = "rebuilt after"
+		}
+		fmt.Printf(" %d | %d | %d | %v | %s |\n", last.Written, last.Rechecked, last.Compiled, last.Linked, early)
 	}
 	fmt.Println()
 	for _, e := range edits {
