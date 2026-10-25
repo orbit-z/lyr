@@ -75,6 +75,14 @@ type genFile struct {
 	// open is true while gopls has an overlay for it, at version.
 	open    bool
 	version int
+	// tol is non-nil while gopls reads the file from disk although the
+	// workspace generates it in tolerant mode: content, lines and smap are
+	// then the typed output orbit generate wrote, which a typed check
+	// found on disk (disk.go), and tol and tolMap are the tolerant output
+	// it stands for. The file's first change switches it back to its
+	// tolerant output, as an overlay.
+	tol    []byte
+	tolMap *compiler.SourceMap
 }
 
 // goplsDiags is one publishDiagnostics of a generated file.
@@ -274,6 +282,13 @@ func (ws *workspace) syncGen(f *project.File, out *compiler.GenFile, decl bool) 
 		abs := filepath.Join(ws.root, filepath.FromSlash(out.Path))
 		g = &genFile{rel: out.Path, abs: abs, uri: pathToURI(abs), orbit: f.Path, decl: decl}
 		ws.gen[out.Path] = g
+	} else if g.tol != nil {
+		if bytes.Equal(g.tol, out.Content) {
+			g.tolMap = out.Map // the same code: gopls keeps reading the disk
+			return
+		}
+		g.tol, g.tolMap = nil, nil
+		delete(ws.goplsDiags, g.rel) // they were about the typed content
 	} else if bytes.Equal(g.content, out.Content) {
 		g.smap = out.Map
 		return
@@ -331,6 +346,11 @@ func (ws *workspace) recheckDisk(g *genFile) {
 	}
 	match := g.diskMatches()
 	switch {
+	case g.tol != nil && !match:
+		// The disk changed under the typed content gopls was reading:
+		// back to the tolerant output, as an overlay.
+		ws.useTolerant(g)
+		ws.pushOverlay(g)
 	case g.open && match && ws.docs[g.orbit] == nil:
 		g.open = false
 		ws.gopls.Notify("textDocument/didClose", map[string]any{"textDocument": map[string]any{"uri": g.uri}})

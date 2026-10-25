@@ -338,7 +338,13 @@ func TestRenameChanges(t *testing.T) {
 // TestRenameOverlayOnly: with no orbit_gen/ on disk and 50 components, a
 // rename asked right at startup is complete (it waits for the readiness
 // barrier); then the warm latency of prepareRename and rename.
-func TestRenameOverlayOnly(t *testing.T) {
+func TestRenameOverlayOnly(t *testing.T) { testRename50(t, false) }
+
+// TestRenameOnDisk is TestRenameOverlayOnly with orbit_gen/ on disk except
+// for the last five components (see TestReferencesOnDisk).
+func TestRenameOnDisk(t *testing.T) { testRename50(t, true) }
+
+func testRename50(t *testing.T, onDisk bool) {
 	needGopls(t)
 	const n = 50
 	files := map[string]string{}
@@ -355,6 +361,11 @@ func TestRenameOverlayOnly(t *testing.T) {
 	}
 	files["src/pages/index.orbit"] = page.String()
 	dir := writeProject(t, maps2(files))
+	mode := "overlay-only"
+	if onDisk {
+		mode = "on disk"
+		removeGenerated(t, dir, n-5, n)
+	}
 	c := startClient(t, dir, nil)
 
 	rename := func(i int, newName string) map[string][]textEdit {
@@ -392,9 +403,9 @@ func TestRenameOverlayOnly(t *testing.T) {
 		ren = append(ren, time.Since(t1))
 		check(i, edits)
 	}
-	t.Logf("%d components, overlay-only: first rename (barrier included) %v; warm prepareRename p50 %v max %v; rename p50 %v max %v",
-		n, first.Round(time.Millisecond), p50(prep), slices.Max(prep).Round(time.Microsecond), p50(ren), slices.Max(ren).Round(time.Microsecond))
-	if _, err := os.Stat(filepath.Join(dir, "orbit_gen")); !os.IsNotExist(err) {
+	t.Logf("%d components, %s: first rename (barrier included) %v; warm prepareRename p50 %v max %v; rename p50 %v max %v",
+		n, mode, first.Round(time.Millisecond), p50(prep), slices.Max(prep).Round(time.Microsecond), p50(ren), slices.Max(ren).Round(time.Microsecond))
+	if _, err := os.Stat(filepath.Join(dir, "orbit_gen")); !onDisk && !os.IsNotExist(err) {
 		t.Errorf("orbit_gen/ was written: %v", err)
 	}
 }

@@ -48,12 +48,17 @@ well above 1, other work was competing and the numbers are noisy.
 Both modes start with a warm Go build cache: the setup runs `orbit
 generate` and `go build ./cmd/server` on the project first. gopls's own
 cache (`~/.cache/gopls`) is left as it is. The project content is the same
-on every run (a fixed salt), so after the first run that cache is warm too.
+on every run (a fixed salt), but gopls's cache keys include the project's
+path, and each run uses a new temporary directory (unless `-dir` is given):
+the first start of a run sees a cold gopls cache for this project, the
+later ones a warm one. The memory rows come from the last start. Before
+the fixes described in the notes below, that made gopls's memory depend on
+the number of starts (0.5 GB on a cold cache, 2–3 GB on a warm one).
 
 | Mode | Project on disk |
 |---|---|
 | `overlay` | no `orbit_gen/`: every generated file reaches gopls as an overlay, the case of a fresh clone |
-| `disk` | `orbit_gen/` from `orbit generate`. Orbit sends overlays only for the generated files whose in-memory content differs from disk |
+| `disk` | `orbit_gen/` from `orbit generate`. Orbit's startup typed check finds the generated files whose typed output (what `orbit generate` writes) is on disk; gopls reads those from disk, and only the others are overlays: here, the edited `index.orbit`'s two files |
 
 ## What a session does
 
@@ -83,9 +88,9 @@ Every time is measured from process start, so the rows are cumulative.
 | Orbit's diagnostic | Orbit's own `unknown prop "bogus"` on `index.orbit` is published |
 | first hover / first completion | answered by gopls through Orbit |
 | gopls's diagnostic | gopls's `undefined: nope` on `index.orbit` is published |
-| barrier progress ended | Orbit's `$/progress` "Loading N generated files" ends |
+| barrier progress ended | Orbit's `$/progress` "Loading N generated files" ends ("not seen" when there's nothing to load: no overlay-only files, as in `disk` mode) |
 | references answered | the `references` request held for the barrier is answered |
-| server log rows | from `orbit lsp`'s own log: spawning gopls up to all overlays sent, and the barrier on its own |
+| server log rows | from `orbit lsp`'s own log: spawning gopls up to all overlays sent (in `disk` mode this includes waiting for the typed check), and the barrier on its own ("not seen" when it took 0 s) |
 
 ### Latency rows
 
@@ -113,3 +118,31 @@ warning.
 `VmRSS` of `orbit lsp` and of its gopls child (found through
 `/proc/<pid>/task/*/children`), right after the barrier and again after
 the request runs, plus each one's peak (`VmHWM`).
+
+## Notes
+
+What this benchmark found, and what changed (milestone 12):
+
+- **Every `render.go` was an overlay, even with `orbit_gen/` on disk.**
+  The language server generates tolerant code (untyped `Expr`/`Attr`
+  writes) while `orbit generate` writes typed writes, so a byte comparison
+  never matched. The startup typed check (`internal/lsp/disk.go`, ~70 ms
+  at 200 files with a warm build cache) now finds the files that are on
+  disk, and gopls reads them there.
+- **gopls's memory was a per-overlay cost.** gopls keeps an open file's
+  type-checked package together with the imports of the request that
+  checked it. The old readiness barrier sent one `documentHighlight` per
+  overlay; each one type-checked its package in its own batch and kept its
+  own copy of the imported packages (`gcimporter.IImportShallow` was 80% of
+  the heap): about 7 MB per overlay, 3 GB at 400 overlays. With a cold
+  gopls cache the type checks were most likely slow enough to overlap and share their
+  imports, hence the 0.5 GB. The barrier now asks gopls which packages it
+  has loaded (`gopls.packages`) and touches only the missing ones.
+- **The barrier took ~25 ms per overlay-only file**, one lazy `go list`
+  each, serially (9.7 s at 400). With 16 or more of them, Orbit now
+  re-adds gopls's workspace folder after sending the overlays, so a single
+  workspace load sees them all.
+
+To see gopls's memory yourself, put a `gopls` script first on `PATH` that
+runs `gopls -debug=localhost:6061 "$@"`, then fetch
+`http://localhost:6061/debug/pprof/heap` (or `/memory`) during a session.

@@ -276,3 +276,20 @@ func (p *Project) ErrorNames() *compiler.ErrorNames {
 func (p *Project) CleanGoOutput(out []byte) []byte {
 	return compiler.CleanGoOutput(out, p.ErrorNames())
 }
+
+// Clone returns a copy of p whose Files are new Files with the same paths
+// and sources, not yet through Front, generated in mode. The language
+// server uses it to compute, from its current buffers, the typed output
+// orbit generate would write (PLAN.md §9 Startup step 2) without touching
+// its own tolerant project.
+func (p *Project) Clone(mode compiler.Mode) *Project {
+	c := *p
+	c.Options.Mode = mode
+	c.Index, c.Diagnostics, c.Assets = nil, nil, nil
+	c.localsDiags = slices.Clone(p.localsDiags)
+	c.Files = make([]*File, len(p.Files))
+	for i, f := range p.Files {
+		c.Files[i] = &File{Path: f.Path, Info: f.Info, Pkg: f.Pkg, Src: f.Src}
+	}
+	return &c
+}
