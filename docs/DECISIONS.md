@@ -242,6 +242,17 @@ To override a decision, say which row and the alternative you want; the docs and
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
+| `orbit generate` (and `orbit check`) also run esbuild, in memory, to fill `orbit_gen/manifest`, so `generate` and `build` write the same `orbit_gen/`; bundling errors fail them too | coordinator (simplest; keeps the committed-`orbit_gen/` CI check working, about 8 ms) | An empty manifest from `generate` | [CLI](reference/cli.md#orbit-generate) |
+| Dev bundles aren't minified | Astro (Vite) | Minify in dev too | [Styles and scripts](styles-and-scripts.md) |
+| Source map sources are root-relative `/src/…` paths, with the `.orbit` file as their content; CSS columns after an inserted `:where(…)` can be off by a few, lines are exact | Astro (Vite) | Paths relative to the map file | [Styles and scripts](styles-and-scripts.md#source-maps) |
+| With `"sourcemap": true`, the `.map` files are in `dist/client/_orbit/` and served if requested (not linked); delete them before deploying if your sources are private | user (unlinked maps under `/_orbit/`) | Write them outside `dist/client` | [Deploy](deploy.md) |
+| `orbit build --verbose` prints to stdout in Vite's format (kB = 1000 bytes, 2 decimals, gzip at the default level) | Astro (Vite) | stderr, like `go build -v` | [CLI](reference/cli.md#orbit-build) |
+| Fonts and images imported from scripts or CSS (woff, woff2, ttf, otf, eot, png, jpg, jpeg, gif, svg, webp, avif, ico, bmp) are copied, hashed, into `/_orbit/` | Astro | esbuild's default "no loader" error | [Styles and scripts](styles-and-scripts.md) |
+| In a component, its styles come before the CSS its scripts import | simplest | Script CSS first | [Styles and scripts](styles-and-scripts.md) |
+| A page with only styles gets a CSS entry, not an empty JS one; a JS bundle with no code (type-only scripts) is dropped with its `<script>` tag | simplest (PLAN: no empty entries) | Always emit both | [Styles and scripts](styles-and-scripts.md) |
+| esbuild errors without a location print as `esbuild: …`; esbuild warnings (including CSS syntax warnings) are printed as Orbit warnings and don't fail the build | simplest | Fail on warnings | — |
+| Importing a `.orbit` file from a script is an error: `a script can't import a .orbit file; import a .ts file instead` | simplest | Let esbuild fail on it | [Troubleshooting](troubleshooting.md) |
+| Bundle names come from the page path (`blog-slug-HASH.js`), made unique on collision | simplest | One name per page file hash | — |
 | The scope attribute (`data-o-xxxxxxxx`) is written last on each element, after spreads | Astro | First | [Styles and scripts](styles-and-scripts.md) |
 | Elements that never get the scope attribute: `head`, `title`, `meta`, `link`, `base`, `noscript`, `font`, `frame`, `frameset`, `noframes`, and `is:inline` scripts and styles (`html` and `body` do get it) | Astro (its compiler's `NeverScopedElements`, checked in its source) | Scope every element | [Styles and scripts](styles-and-scripts.md) |
 | The selectors `html`, `body` and `:root` are never scoped | Astro (checked in its source) | Scope them | [Styles and scripts](styles-and-scripts.md) |
