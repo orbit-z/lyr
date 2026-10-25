@@ -123,7 +123,9 @@ func (p *Project) serverGo() []byte {
 	b.WriteString("package main\n\nimport (\n\t\"log\"\n\n")
 	fmt.Fprintf(&b, "\torbit %q\n\n", compiler.RuntimePath)
 	fmt.Fprintf(&b, "\t%q\n)\n\n", p.Module+"/"+compiler.GenDir+"/app")
-	b.WriteString("func main() {\n\tlog.Fatal(orbit.ListenAndServe(app.New().Handler()))\n}\n")
+	// Not log.Fatal(orbit.ListenAndServe(…)): log.Fatal exits 1 even for
+	// the nil of a graceful shutdown.
+	b.WriteString("func main() {\n\tif err := orbit.ListenAndServe(app.New().Handler()); err != nil {\n\t\tlog.Fatal(err)\n\t}\n}\n")
 	return gofmt(b.Bytes())
 }
 

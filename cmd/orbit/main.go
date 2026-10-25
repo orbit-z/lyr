@@ -44,9 +44,9 @@ var commands []*command
 func init() {
 	commands = []*command{
 		{name: "generate", short: "generate the Go code in orbit_gen/", run: runGenerate},
-		{name: "build", args: "[--embed]", short: "build the server and its assets into dist/", run: notYet("build")},
+		{name: "build", args: "[--embed]", short: "build the server and its assets into dist/", run: runBuild},
 		{name: "dev", args: "[--port 4321] [--host]", short: "run the dev server", run: notYet("dev")},
-		{name: "preview", short: "run the built server", run: notYet("preview")},
+		{name: "preview", short: "run the built server", run: runPreview},
 		{name: "new", args: "<dir> [--module path]", short: "create a project", run: notYet("new")},
 		{name: "check", short: "type-check Go and TypeScript", run: notYet("check")},
 		{name: "doctor", args: "[--json]", short: "check the environment and project", run: notYet("doctor")},
@@ -155,13 +155,8 @@ func notYet(name string) func(*env, []string) int {
 func runGenerate(e *env, args []string) int {
 	c := lookup("generate")
 	fs := c.flagSet(e)
-	if code := parse(fs, args); code >= 0 {
+	if code := parseNoArgs(e, c, fs, args); code >= 0 {
 		return code
-	}
-	if fs.NArg() > 0 {
-		fmt.Fprintf(e.stderr, "orbit generate: unexpected argument %q\n", fs.Arg(0))
-		fs.Usage()
-		return exitUsage
 	}
 	root, err := config.FindRoot(e.dir)
 	if err != nil {

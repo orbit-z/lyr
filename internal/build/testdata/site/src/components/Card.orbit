@@ -1,0 +1,7 @@
+---
+type Props struct {
+	Title string
+	Count int
+}
+---
+<article class="card"><h2>{props.Title}</h2><p>count={props.Count}</p><slot /></article>

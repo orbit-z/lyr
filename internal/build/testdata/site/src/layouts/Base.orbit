@@ -1,0 +1,6 @@
+---
+type Props struct{ Title string }
+---
+<!DOCTYPE html>
+<html><head><title>{props.Title}</title></head>
+<body><slot /></body></html>

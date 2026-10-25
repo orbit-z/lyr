@@ -29,7 +29,11 @@ func TestDispatch(t *testing.T) {
 		{[]string{"help", "generate"}, 0, "usage: orbit generate", ""},
 		{[]string{"help", "nope"}, 2, "", "orbit help nope: unknown command"},
 		{[]string{"nope"}, 2, "", "orbit nope: unknown command"},
-		{[]string{"build"}, 1, "", "orbit build: not implemented yet"},
+		{[]string{"dev"}, 1, "", "orbit dev: not implemented yet"},
+		{[]string{"build", "extra"}, 2, "", `orbit build: unexpected argument "extra"`},
+		{[]string{"build"}, 1, "", "no go.mod"},
+		{[]string{"preview", "--port", "3000"}, 2, "", "flag provided but not defined: -port"},
+		{[]string{"preview"}, 1, "", "no go.mod"},
 		{[]string{"generate", "--bogus"}, 2, "", "flag provided but not defined: -bogus"},
 		{[]string{"generate", "extra"}, 2, "", `orbit generate: unexpected argument "extra"`},
 		{[]string{"generate", "-h"}, 0, "", "usage: orbit generate"},
@@ -47,6 +51,28 @@ func TestGenerateNoModule(t *testing.T) {
 	code, _, stderr := runCLI(t, t.TempDir(), "generate")
 	if code != 1 || !strings.Contains(stderr, "no go.mod") {
 		t.Errorf("exit %d, stderr %s", code, stderr)
+	}
+}
+
+func TestBuildPreviewErrors(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/site\n\ngo 1.27\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, _, stderr := runCLI(t, dir, "build", "--embed")
+	if code != 1 || !strings.Contains(stderr, "not implemented yet") {
+		t.Errorf("build --embed: exit %d, stderr %s", code, stderr)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "orbit.json"), []byte(`{"embed": true}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, _, stderr = runCLI(t, dir, "build")
+	if code != 1 || !strings.Contains(stderr, "not implemented yet") {
+		t.Errorf(`build with "embed": true: exit %d, stderr %s`, code, stderr)
+	}
+	code, _, stderr = runCLI(t, dir, "preview")
+	if code != 1 || !strings.Contains(stderr, "orbit preview: no dist/server in "+dir+"; run orbit build first") {
+		t.Errorf("preview: exit %d, stderr %s", code, stderr)
 	}
 }
 
