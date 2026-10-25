@@ -270,7 +270,14 @@ func TestOldGopls(t *testing.T) {
 // TestReferencesOverlayOnly: with no orbit_gen/ on disk and 50 components,
 // references asked right at startup are complete: the readiness barrier
 // holds them until gopls has loaded every overlay. It also measures startup.
-func TestReferencesOverlayOnly(t *testing.T) {
+func TestReferencesOverlayOnly(t *testing.T) { testReferences50(t, false) }
+
+// TestReferencesOnDisk is TestReferencesOverlayOnly with orbit_gen/ on
+// disk, except for the last five components (as if added since orbit
+// generate ran): those are overlay-only, loaded one by one by the barrier.
+func TestReferencesOnDisk(t *testing.T) { testReferences50(t, true) }
+
+func testReferences50(t *testing.T, onDisk bool) {
 	needGopls(t)
 	const n = 50
 	files := map[string]string{}
@@ -287,6 +294,11 @@ func TestReferencesOverlayOnly(t *testing.T) {
 	}
 	files["src/pages/index.orbit"] = page.String()
 	dir := writeProject(t, files)
+	mode := "overlay-only"
+	if onDisk {
+		mode = "on disk"
+		removeGenerated(t, dir, n-5, n)
+	}
 
 	c := startClient(t, dir, nil)
 	start := c.start
@@ -324,10 +336,28 @@ func TestReferencesOverlayOnly(t *testing.T) {
 		}
 	}
 	c.mu.Unlock()
-	t.Logf("%d components, overlay-only: start → first diagnostics %v, → first hover %v; 50 references (barrier included) %v; RSS %s",
-		n, firstDiag.Round(time.Millisecond), firstHover.Round(time.Millisecond), refs.Round(time.Millisecond), rss(c))
-	if _, err := os.Stat(filepath.Join(dir, "orbit_gen")); !os.IsNotExist(err) {
+	t.Logf("%d components, %s: start → first diagnostics %v, → first hover %v; 50 references (barrier included) %v; RSS %s",
+		n, mode, firstDiag.Round(time.Millisecond), firstHover.Round(time.Millisecond), refs.Round(time.Millisecond), rss(c))
+	if _, err := os.Stat(filepath.Join(dir, "orbit_gen")); !onDisk && !os.IsNotExist(err) {
 		t.Errorf("orbit_gen/ was written: %v", err)
+	}
+}
+
+// removeGenerated runs orbit generate in dir, then removes the generated
+// packages of components C<from> to C<to-1>.
+func removeGenerated(t *testing.T, dir string, from, to int) {
+	t.Helper()
+	orbitGenerate(t, dir)
+	for i := from; i < to; i++ {
+		for _, kind := range []string{"decl", "impl"} {
+			pkg := filepath.Join(dir, "orbit_gen", kind, "components", fmt.Sprintf("c%d", i))
+			if _, err := os.Stat(pkg); err != nil {
+				t.Fatalf("generated package: %v", err)
+			}
+			if err := os.RemoveAll(pkg); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 }
 

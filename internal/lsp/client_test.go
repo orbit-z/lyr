@@ -160,7 +160,7 @@ func startClient(t *testing.T, dir string, initOpts map[string]any, env ...strin
 	t.Cleanup(func() {
 		c.shutdown()
 		logf.Close()
-		if t.Failed() {
+		if t.Failed() || testing.Verbose() {
 			b, _ := os.ReadFile(logf.Name())
 			t.Logf("orbit lsp log:\n%s", b)
 		}

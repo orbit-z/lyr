@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -275,5 +276,35 @@ func TestHasMarker(t *testing.T) {
 		if got, err := hasMarker(name); err != nil || got != want {
 			t.Errorf("hasMarker(%q) = %v, %v; want %v", content, got, err, want)
 		}
+	}
+}
+
+// TestClone: a clone has its own Files with the same sources and its own
+// mode; going through Front leaves the original untouched.
+func TestClone(t *testing.T) {
+	tp := newTestProject(t, map[string]string{
+		"src/pages/index.orbit": "---\nx := 1\n---\n<p>{x}</p>\n",
+	})
+	p, err := Load(tp.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Options.Mode = compiler.Tolerant
+	p.Front()
+	c := p.Clone(compiler.Strict)
+	if c.Options.Mode != compiler.Strict || p.Options.Mode != compiler.Tolerant {
+		t.Fatalf("modes: clone %v, original %v", c.Options.Mode, p.Options.Mode)
+	}
+	if len(c.Files) != 1 || c.Files[0] == p.Files[0] || c.Files[0].Src != p.Files[0].Src || c.Files[0].Pass1 != nil {
+		t.Fatalf("clone files: %+v", c.Files)
+	}
+	pass1 := p.Files[0].Pass1
+	c.Files[0].Src = "---\ny := 2\n---\n<p>{y}</p>\n"
+	c.Front()
+	if p.Files[0].Pass1 != pass1 || strings.Contains(string(p.Files[0].Pass1.Impl.Content), "y := 2") {
+		t.Error("Front on the clone changed the original")
+	}
+	if !strings.Contains(string(c.Files[0].Pass1.Impl.Content), "y := 2") {
+		t.Error("the clone wasn't regenerated from its own source")
 	}
 }

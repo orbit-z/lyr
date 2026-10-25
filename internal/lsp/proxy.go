@@ -7,15 +7,19 @@ import (
 	"errors"
 	"fmt"
 	"go/version"
+	"maps"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/bertrandkhe/orbit/internal/compiler"
 	"github.com/bertrandkhe/orbit/internal/config"
 )
 
@@ -135,35 +139,69 @@ func (s *Server) startGopls(ws *workspace) {
 	}
 	proc.conn.Notify("initialized", map[string]any{})
 
+	// Overlays go only where the typed check found nothing on disk.
+	<-s.mapped
 	s.mu.Lock()
 	s.goplsEnc = parseEncoding(res.Capabilities.PositionEncoding)
 	s.goEnabled = true
 	ws.openOverlays(proc.conn)
 	targets := s.barrierTargets(ws)
+	overlays := 0
+	for _, g := range ws.gen {
+		if g.open {
+			overlays++
+		}
+	}
+	// gopls's initial workspace load ran before the overlays arrived, so it
+	// missed the packages that exist only as overlays, and loads each one
+	// lazily with its own go list (~25 ms each at 200 files, serially).
+	// With many of them, re-adding the workspace folder starts a new
+	// workspace load that sees them all at once.
+	reload := len(targets) >= reloadMin
+	if reload {
+		folder := map[string]any{"uri": pathToURI(ws.root), "name": filepath.Base(ws.root)}
+		proc.conn.Notify("workspace/didChangeWorkspaceFolders", map[string]any{
+			"event": map[string]any{"removed": []any{folder}, "added": []any{folder}}})
+	}
 	s.mu.Unlock()
 	s.markReady()
-	s.logf("gopls ready in %v (%d generated files)", time.Since(start).Round(time.Millisecond), len(targets))
-
+	reloaded := ""
+	if reload {
+		reloaded = "; workspace reloaded"
+	}
+	s.logf("gopls ready in %v (%d generated files, %d overlays, %d of them overlay-only%s)", time.Since(start).Round(time.Millisecond),
+		len(ws.gen), overlays, len(targets), reloaded)
 	if ws.genMissing {
 		go s.nudge(ws)
 	}
 	t := time.Now()
-	s.barrier(proc.conn, targets)
-	s.logf("readiness barrier: %v", time.Since(t).Round(time.Millisecond))
+	loaded := s.barrier(proc.conn, ws, targets)
+	s.logf("readiness barrier: %v (%d packages loaded one by one)", time.Since(t).Round(time.Millisecond), len(loaded))
 	// gopls diagnoses an overlay-only file when it's opened, before the
 	// lazy load of its package, and publishes nothing then; it doesn't
-	// diagnose it again once loaded. Re-sending the overlays (same
-	// content, new version) makes it publish the real diagnostics.
+	// diagnose it again once loaded. Re-sending those overlays (same
+	// content, new version) makes it publish the real diagnostics. A
+	// workspace load diagnoses what it loads.
 	s.mu.Lock()
 	if s.goEnabled && ws.gopls == proc.conn {
-		for _, g := range ws.gen {
-			if g.open {
+		for _, t := range loaded {
+			if g := ws.gen[t.rel]; g != nil && g.open {
 				ws.pushOverlay(g)
 			}
 		}
 	}
 	s.mu.Unlock()
 }
+
+// reloadMin is the number of overlay-only generated files from which
+// startup reloads gopls's workspace rather than letting gopls load each
+// one lazily: about 16 lazy loads cost one workspace load.
+const reloadMin = 16
+
+// barrierParallel bounds the barrier's lazy loads in flight: gopls runs
+// them one at a time anyway, and requests for the open documents
+// shouldn't queue behind hundreds of them.
+const barrierParallel = 4
 
 // goplsInitParams builds gopls's initialize params from the editor's
 // capabilities, with UTF-16 positions, configuration, progress and
@@ -301,44 +339,80 @@ func (s *Server) goplsExited() {
 	}
 }
 
-// barrierTarget is one generated file to load: its URI and the position of
-// its package name.
+// barrierTarget is one overlay-only generated file to load: its path, URI,
+// package path and the position of its package name.
 type barrierTarget struct {
-	uri string
-	pos Position
+	rel, uri, pkg string
+	pos           Position
 }
 
+// barrierTargets returns the generated files gopls has as overlays only
+// (no file on disk), the open documents' first (with s.mu held). The
+// others are in gopls's initial workspace load.
 func (s *Server) barrierTargets(ws *workspace) []barrierTarget {
-	var out []barrierTarget
-	for _, g := range ws.gen {
+	var first, rest []barrierTarget
+	for _, rel := range slices.Sorted(maps.Keys(ws.gen)) {
+		g := ws.gen[rel]
+		if !g.open {
+			continue
+		}
+		if _, err := os.Stat(g.abs); err == nil {
+			continue
+		}
 		off := bytes.Index(g.content, []byte("\npackage "))
 		if off < 0 {
 			continue
 		}
-		out = append(out, barrierTarget{uri: g.uri, pos: g.lines.position(off+len("\npackage "), s.goplsEnc)})
+		t := barrierTarget{rel: rel, uri: g.uri, pkg: ws.module + "/" + path.Dir(rel),
+			pos: g.lines.position(off+len("\npackage "), s.goplsEnc)}
+		if ws.docs[g.orbit] != nil {
+			first = append(first, t)
+		} else {
+			rest = append(rest, t)
+		}
 	}
-	return out
+	return append(first, rest...)
 }
 
-// barrier is the readiness barrier (PLAN.md §9 step 6): one
-// documentHighlight per generated file, in parallel. gopls loads
-// overlay-only packages lazily, one go list each, and reverse lookups miss
-// importers until all are loaded; when every highlight has answered, they
-// are. References wait for it; progress shows in the editor.
-func (s *Server) barrier(c *Conn, targets []barrierTarget) {
+// barrier is the readiness barrier (PLAN.md §9 step 6). gopls loads an
+// overlay-only package lazily, with its own go list, and reverse lookups
+// miss importers until every one is loaded. The barrier asks gopls which
+// packages under orbit_gen/ it knows (gopls.packages, which waits for the
+// workspace load), then loads each missing target with a
+// documentHighlight, the open documents' first, a few at a time. It
+// returns the targets it loaded that way. References and rename wait for
+// it; progress shows in the editor.
+//
+// The barrier never type-checks the packages gopls already knows: gopls
+// keeps an open file's type-checked package with the imports of the
+// request that checked it, so one request per overlay, each in its own
+// type-checking batch, cost ~7 MB per overlay (3 GB at 200 files) when
+// gopls's file cache was warm.
+func (s *Server) barrier(c *Conn, ws *workspace, targets []barrierTarget) []barrierTarget {
+	defer s.markLoaded()
+	if len(targets) == 0 {
+		return nil
+	}
 	token := s.progressBegin("Orbit", fmt.Sprintf("Loading %d generated files", len(targets)))
-	var done atomic.Int64
-	var wg sync.WaitGroup
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	step := max(len(targets)/10, 1)
-	for _, t := range targets {
+	missing := targets
+	if known, ok := s.goplsPackages(ctx, c, ws); ok {
+		missing = slices.DeleteFunc(slices.Clone(targets), func(t barrierTarget) bool { return known[t.pkg] })
+	}
+	var done atomic.Int64
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, barrierParallel)
+	step := max(len(missing)/10, 1)
+	for _, t := range missing {
+		sem <- struct{}{}
 		wg.Go(func() {
+			defer func() { <-sem }()
 			c.Call(ctx, "textDocument/documentHighlight", map[string]any{
 				"textDocument": map[string]any{"uri": t.uri}, "position": t.pos})
 			if n := done.Add(1); token != "" && n%int64(step) == 0 {
-				s.progress(token, map[string]any{"kind": "report", "percentage": int(n * 100 / int64(len(targets))),
-					"message": fmt.Sprintf("%d/%d generated files", n, len(targets))})
+				s.progress(token, map[string]any{"kind": "report", "percentage": int(n * 100 / int64(len(missing))),
+					"message": fmt.Sprintf("%d/%d generated files", n, len(missing))})
 			}
 		})
 	}
@@ -347,6 +421,37 @@ func (s *Server) barrier(c *Conn, targets []barrierTarget) {
 	if token != "" {
 		s.progress(token, map[string]any{"kind": "end", "message": "Components loaded"})
 	}
+	return missing
+}
+
+// internalToken is the work-done token of Orbit's own gopls commands: their
+// progress isn't forwarded to the editor.
+const internalToken = "orbit-internal"
+
+// goplsPackages returns the package paths under orbit_gen/ that gopls has
+// loaded, after its workspace load; ok is false if gopls can't tell (a
+// gopls without the gopls.packages command).
+func (s *Server) goplsPackages(ctx context.Context, c *Conn, ws *workspace) (map[string]bool, bool) {
+	raw, err := c.Call(ctx, "workspace/executeCommand", map[string]any{
+		"command":       "gopls.packages",
+		"arguments":     []any{map[string]any{"Files": []string{pathToURI(filepath.Join(ws.root, compiler.GenDir))}, "Recursive": true}},
+		"workDoneToken": internalToken,
+	})
+	if err != nil {
+		s.logf("gopls.packages: %v", err)
+		return nil, false
+	}
+	var res struct {
+		Packages []struct{ Path string }
+	}
+	if err := json.Unmarshal(raw, &res); err != nil {
+		return nil, false
+	}
+	known := make(map[string]bool, len(res.Packages))
+	for _, p := range res.Packages {
+		known[p.Path] = true
+	}
+	return known, true
 }
 
 var progressTokens atomic.Int64
@@ -424,7 +529,7 @@ func (s *Server) fromGopls(c *Conn, m *message) {
 		s.mu.Lock()
 		ok := s.caps.progress
 		s.mu.Unlock()
-		if ok {
+		if ok && decodeObj(m.Params).str("token") != internalToken {
 			s.client.Notify(m.Method, m.Params)
 		}
 	case "window/showMessage":

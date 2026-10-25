@@ -1,7 +1,7 @@
 // Package lsp is orbit lsp, Orbit's language server (PLAN.md §9). It
 // speaks LSP over stdio to the editor, generates every .orbit file in
 // memory (tolerant mode, never writing orbit_gen/), sends the generated Go
-// to its own gopls as overlays, proxies Go features to it with positions
+// that isn't on disk to its own gopls as overlays, proxies Go features to it with positions
 // mapped through the source maps, and answers template features natively.
 package lsp
 
@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bertrandkhe/orbit/internal/project"
 )
@@ -38,7 +39,7 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, opts Options) error {
 		opts.Log = io.Discard
 	}
 	s := &Server{opts: opts, cancels: map[string]context.CancelFunc{}, exited: make(chan struct{}),
-		ready: make(chan struct{}), loaded: make(chan struct{})}
+		ready: make(chan struct{}), loaded: make(chan struct{}), mapped: make(chan struct{})}
 	s.client = newConn(in, out)
 	errc := make(chan error, 1)
 	go func() { errc <- s.client.Run(s.handle) }()
@@ -79,6 +80,16 @@ type Server struct {
 	// when it won't run; loaded when the readiness barrier finished.
 	ready, loaded         chan struct{}
 	readyOnce, loadedOnce sync.Once
+	// mapped is closed once the startup typed check (disk.go) has decided
+	// which generated files gopls reads from disk, or has timed out:
+	// requests map positions through the generated files only after it.
+	mapped     chan struct{}
+	mappedOnce sync.Once
+
+	// The typed checks after orbit_gen/ changes (disk.go): the debounce
+	// timer, and whether one runs and another was asked for meanwhile.
+	diskTimer                *time.Timer
+	diskRunning, diskPending bool
 
 	exited   chan struct{}
 	exitOnce sync.Once
@@ -100,6 +111,22 @@ func (s *Server) logf(format string, args ...any) {
 
 func (s *Server) markReady()  { s.readyOnce.Do(func() { close(s.ready) }) }
 func (s *Server) markLoaded() { s.loadedOnce.Do(func() { close(s.loaded) }) }
+func (s *Server) markMapped() { s.mappedOnce.Do(func() { close(s.mapped) }) }
+
+// waitMapped waits until positions can be mapped through the generated
+// files (the startup typed check is done), when the workspace started.
+func (s *Server) waitMapped(ctx context.Context) {
+	s.mu.Lock()
+	started := s.started
+	s.mu.Unlock()
+	if !started {
+		return
+	}
+	select {
+	case <-s.mapped:
+	case <-ctx.Done():
+	}
+}
 
 // handle dispatches one message from the editor, on the reading goroutine:
 // notifications are handled in order, requests in their own goroutine.
@@ -156,6 +183,10 @@ func (s *Server) handle(m *message) {
 
 // request answers one editor request.
 func (s *Server) request(ctx context.Context, method string, params jsonRaw) (any, *rpcError) {
+	// Every request below may map positions through the generated files,
+	// which the startup typed check can still switch to orbit_gen/'s typed
+	// content.
+	s.waitMapped(ctx)
 	switch method {
 	case "textDocument/hover":
 		return s.hover(ctx, params)
@@ -328,6 +359,7 @@ func (s *Server) start(ws *workspace) {
 			}},
 		})
 	}
+	go s.startupCheck(ws)
 	go s.startGopls(ws)
 }
 
@@ -526,6 +558,9 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 	}
 	for _, g := range gens {
 		ws.recheckDisk(g)
+	}
+	if len(gens) > 0 {
+		s.scheduleDiskCheck()
 	}
 	if orbitChanged {
 		s.publishAll(ws)
