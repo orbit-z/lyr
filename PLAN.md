@@ -1068,6 +1068,7 @@ Dependencies:
 - **No framework islands, by design**: no React/Preact/Svelte/Vue/Solid components and no hydration. Importing a `.tsx`, `.jsx`, `.svelte` or `.vue` file is a compile error (§2.2), and `client:only` is rejected (§2.3). Client code is vanilla `<script>` modules in `.orbit` components, which `client:*` can load lazily, and `server:defer` covers deferred server rendering.
 
 **Deferred past MVP** (planned, but not in the first release):
+- **Order after the MVP** (user decision, after milestone 13): dogfood Orbit on a real site first, then `orbit fmt`, the typed server→client bridge, and cacheable server islands; the rest after.
 - **`orbit fmt`** (also LSP `textDocument/formatting`): gofmt-style flags `-l -w -d`.
   - **Phase 1** (Go parts only, which can never change rendered output): format frontmatter chunks with `go/format`. Declarations are formatted as file-level code; body statements are wrapped in a dummy func and dedented. Comments are kept, and imports are sorted.
   - **Then** template expressions and control headers, via Go's expression printer.
