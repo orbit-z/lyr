@@ -6,6 +6,8 @@ src/components/E4.orbit:5:7: undefined: titel
 src/components/E5.orbit:8:15: props.Dpth undefined (type Props has no field or method Dpth)
 src/components/E6.orbit:4:6: dup redeclared in this block
 	src/components/E6.orbit:2:6: other declaration of dup
+src/components/E7.orbit:9:16: cannot use "r" (untyped string constant) as int value in argument to strconv.Itoa
+src/components/E8.orbit:3:9: cannot use "oops" (constant of type string) as error value in return statement: string does not implement error (missing method Error)
 src/pages/alias.orbit:4:13: cannot use Emb.Props{} (value of struct type Emb.Props) as int value in variable declaration
 src/pages/index.orbit:5:8: unknown field Nmae in struct literal of type Emb.Props
 -- go vet --
@@ -15,5 +17,7 @@ src/components/E3.orbit:4:8: undefined: intt
 src/components/E4.orbit:5:7: undefined: titel
 src/components/E5.orbit:8:15: props.Dpth undefined (type Props has no field or method Dpth)
 src/components/E6.orbit:4:6: dup redeclared in this block
+src/components/E7.orbit:9:16: cannot use "r" (untyped string constant) as int value in argument to strconv.Itoa
+src/components/E8.orbit:3:9: cannot use "oops" (constant of type string) as error value in return statement: string does not implement error (missing method Error)
 src/pages/alias.orbit:4:13: cannot use Emb.Props{} (value of struct type Emb.Props) as int value in variable declaration
 src/pages/index.orbit:5:8: unknown field Nmae in struct literal of type Emb.Props

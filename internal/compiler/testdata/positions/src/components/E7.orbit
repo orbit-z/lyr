@@ -1,0 +1,12 @@
+---
+import (
+	"errors"
+	"strconv"
+)
+
+if ctx.Param("x") != "" {
+	return errors.New(
+		strconv.Itoa("r"))
+}
+---
+<p>ok</p>

@@ -190,6 +190,8 @@ In production, the visitor gets a minimal built-in page, `500 Internal Server Er
 orbit: GET /blog/hello: src/pages/blog/[slug].orbit:14:5: posts: connection refused
 ```
 
+The position is the frontmatter `return` that returned the error: here, line 14 is `return fmt.Errorf("posts: %w", err)`. Orbit adds it when it compiles the page, to every `return` of the frontmatter (not to returns inside a `func` you declare there). The original error is still in the chain, so `errors.Is` and `errors.As` work on it. `orbit.ErrNotFound` and `ctx.Redirect(…)` are returned as is, and an error that already has a position, such as one returned by a component's `Render`, isn't prefixed twice.
+
 A panic is logged at the innermost `.orbit` line on the stack, with the file relative to the server's working directory, and without a stack trace:
 
 ```text

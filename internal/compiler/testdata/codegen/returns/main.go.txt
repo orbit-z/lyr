@@ -1,0 +1,33 @@
+package main
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"io/fs"
+
+	r "example.com/blog/orbit_gen/decl/components/r"
+	nested "example.com/blog/orbit_gen/decl/pages/nested"
+	term "example.com/blog/orbit_gen/decl/pages/term"
+	_ "example.com/blog/orbit_gen/impl/components/r"
+	_ "example.com/blog/orbit_gen/impl/pages/nested"
+	_ "example.com/blog/orbit_gen/impl/pages/term"
+	"github.com/bertrandkhe/orbit"
+)
+
+func main() {
+	var buf bytes.Buffer
+	for _, mode := range []string{"", "top", "for", "switch", "notfound", "redirect", "nil", "closure", "helper", "multi", "block", "two"} {
+		buf.Reset()
+		err := r.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), r.Props{Mode: mode}, orbit.Slots{})
+		var re *orbit.RedirectError
+		fmt.Printf("%s: %v %q notExist=%v unwrappedNotFound=%v unwrappedRedirect=%v\n", mode, err, buf.String(),
+			errors.Is(err, fs.ErrNotExist), err == orbit.ErrNotFound, errors.As(err, &re) && err == error(re))
+	}
+	buf.Reset()
+	err := nested.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), nested.Props{}, orbit.Slots{})
+	fmt.Printf("nested: %v\n", err)
+	buf.Reset()
+	err = term.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), term.Props{}, orbit.Slots{})
+	fmt.Printf("term: %v %q\n", err, buf.String())
+}

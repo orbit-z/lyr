@@ -290,15 +290,13 @@ func (g *cgGen) genImpl() *GenFile {
 		body = body[:len(body)-1]
 	}
 	for _, s := range body {
-		o.exact(s.Span)
-		o.str("\n")
+		g.stmt(s)
 	}
 	for _, name := range g.a.Echo {
 		o.echo(name)
 	}
 	if last != nil {
-		o.exact(last.Span)
-		o.str("\n")
+		g.stmt(*last)
 	} else {
 		if g.f.Template != nil {
 			g.nodes(g.f.Template.Children, &wsCtx{kind: wsBlock})
@@ -309,6 +307,44 @@ func (g *cgGen) genImpl() *GenFile {
 	o.depth = 0
 	o.str("}\n")
 	return g.finish(gf)
+}
+
+// stmt writes one body statement and its line break. Each return result is
+// wrapped as orbit__rt.ErrorAt("<path>:L:C", <result>), so a returned error
+// carries the .orbit position of its return; the statement's other code and
+// each result are copied inline (kind=exact), the wrapper is glue.
+func (g *cgGen) stmt(s Stmt) {
+	o := g.o
+	if len(s.Returns) == 0 {
+		o.exact(s.Span)
+		o.str("\n")
+		return
+	}
+	// copy copies src[a:b] after the result of a return: the whitespace
+	// after the glue as glue, so the segment starts on a token.
+	copy := func(a, b int) {
+		i := a
+		for i < b && strings.IndexByte(" \t\r\n", g.src[i]) >= 0 {
+			i++
+		}
+		o.str(g.src[a:i])
+		if i < b {
+			o.exact(Span{i, b})
+		}
+	}
+	at := s.Span.Start
+	for _, r := range s.Returns {
+		if r.Result.Start < at || r.Result.End > s.Span.End {
+			continue // out of order: copy it unwrapped
+		}
+		copy(at, r.Result.Start)
+		o.str(NameRuntime + ".ErrorAt(" + strconv.Quote(g.a.Info.Path+":"+o.pos(r.Keyword)) + ", ")
+		o.exact(r.Result)
+		o.str(")")
+		at = r.Result.End
+	}
+	copy(at, s.Span.End)
+	o.str("\n")
 }
 
 // cgTemplateCodes lists the Go regions of one template node: an

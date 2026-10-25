@@ -398,6 +398,11 @@ type Asset struct {
 ```
 Used by the generated `app.New()`. You don't build routes by hand. A route with `Islands` set, or with `lazy` assets, also gets the inline loader in its `<head>`.
 
+```go
+func ErrorAt(pos string, err error) error
+```
+Generated around the result of every frontmatter `return`: `return x` compiles to `return orbit.ErrorAt("src/pages/blog/[slug].orbit:14:5", x)`, the position of the `return`. A non-nil error comes back as an error whose text is `pos + ": " + err.Error()` and which unwraps to `err`, so `errors.Is` and `errors.As` still match it; that's the position in the [500 log line](../rendering.md#status-codes-and-errors). `nil`, `ErrNotFound`, a `*RedirectError` and an error that already carries a position are returned unchanged, so a redirect or 404 keeps working and an error from a component isn't prefixed twice. Only the failing case allocates.
+
 ## Deferred islands
 
 `server:defer` renders a component in its own request, after the page is sent. See [Lazy loading](../lazy-loading.md). These names are used by generated code; you don't call them yourself.

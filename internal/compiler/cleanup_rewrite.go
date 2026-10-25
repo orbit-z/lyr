@@ -198,6 +198,9 @@ func cleanGoOutput(out []byte, names *ErrorNames) []byte {
 			line = line[len("vet: "):]
 		}
 		line = clPos.ReplaceAllString(line, "$2:$3:$4")
+		// A frontmatter return's result is the argument of the generated
+		// ErrorAt wrapper: say what the user wrote.
+		line = strings.ReplaceAll(line, " in argument to "+NameRuntime+".ErrorAt", " in return statement")
 		if cur != nil {
 			line = rewriteNames(line, cur)
 		}

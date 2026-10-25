@@ -39,7 +39,9 @@ func NewErrorNames(module string, files []*Analysis) *ErrorNames {
 // reporting .orbit file uses (Card.Props), or to the bare name (Props,
 // Params) in the component's own file. A name with no alias in the
 // reporting file, or a bare package name that is ambiguous there (two
-// generated packages, or a user import, with that name), is left as is. Lines not
+// generated packages, or a user import, with that name), is left as is. "in
+// argument to orbit__rt.ErrorAt" (the wrapper around a frontmatter return's
+// result) becomes "in return statement". Lines not
 // about .orbit files pass through unchanged.
 func CleanGoOutput(out []byte, names *ErrorNames) []byte {
 	return cleanGoOutput(out, names)
