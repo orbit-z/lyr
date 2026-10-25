@@ -21,6 +21,14 @@ To override a decision, say which row and the alternative you want; the docs and
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
+| Before Orbit's first release, `orbit new` adds a `replace` to your local checkout: from `ORBIT_REPLACE=/path/to/orbit`, or found automatically when the CLI was built from a git clone (not a tagged release) | coordinator (simplest for trying Orbit from the repo) | `ORBIT_REPLACE` only | [Getting started](getting-started.md#trying-orbit-before-its-first-release) |
+| With a replace, the requirement is `github.com/bertrandkhe/orbit v0.0.0` | simplest | A zero pseudo-version | — |
+| The `toolchain` line is the CLI's `runtime.Version()` when it's a release (`go1.N.P`, rc, beta), else the framework's own `go1.27.3` | simplest | Always the framework's | [CLI](reference/cli.md#orbit-new) |
+| If generating or `go mod tidy` fails, `orbit new` names the failed step and leaves the directory | simplest | Delete the directory | [Getting started](getting-started.md) |
+| A malformed `--module` path is exit 1, before anything is written | Go stdlib (`go mod init`) | Exit 2 (usage) | [CLI](reference/cli.md#orbit-new) |
+| `orbit new` accepts flags before or after `<dir>` | simplest (the docs show `orbit new blog --module …`) | Flags before `<dir>` only | [CLI](reference/cli.md#orbit-new) |
+| `orbit new` runs its own `go` commands with `GOWORK=off`, so a `go.work` in a parent directory doesn't break it | simplest | Respect `go.work` | — |
+| Until `orbit dev` exists, `orbit new`'s next steps say `go tool orbit build && go tool orbit preview` | simplest (only print commands that work) | Print `go tool orbit dev` already | [Getting started](getting-started.md) |
 | `orbit new <dir> [--module path]`; the module path defaults to the directory name | user | Always ask for a module path; default to `example.com/<dir>` | [Getting started](getting-started.md#create-a-project), [CLI](reference/cli.md#orbit-new) |
 | `orbit new` refuses a `<dir>` that exists and isn't empty | simplest | Scaffold into a non-empty directory, skipping or overwriting files | [CLI](reference/cli.md#orbit-new) |
 | The starter has `public/favicon.svg`, and no `Card` component, `orbit.json` or `package.json` | simplest | A richer starter with a sample component and config | [Getting started](getting-started.md#a-tour-of-the-starter) |

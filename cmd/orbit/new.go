@@ -71,7 +71,9 @@ func runNew(e *env, args []string) int {
 	// Before go mod tidy, go.mod has no requirements for the CLI's
 	// dependencies and there's no go.sum, so the typed pass's go list runs
 	// with -mod=mod.
-	g := &project.Generator{Root: abs, Env: []string{"GOFLAGS=" + strings.TrimSpace(os.Getenv("GOFLAGS")+" -mod=mod")}}
+	// GOWORK=off: a go.work in a parent directory doesn't list the new
+	// module, so the go commands would refuse to run in it.
+	g := &project.Generator{Root: abs, Env: []string{"GOFLAGS=" + strings.TrimSpace(os.Getenv("GOFLAGS")+" -mod=mod"), "GOWORK=off"}}
 	res, err := g.Run(e.ctx)
 	if err == nil && report(e, res) != exitOK {
 		err = errors.New("generating orbit_gen/ failed")
@@ -81,12 +83,13 @@ func runNew(e *env, args []string) int {
 	}
 	tidy := exec.CommandContext(e.ctx, "go", "mod", "tidy")
 	tidy.Dir = abs
+	tidy.Env = append(os.Environ(), "GOWORK=off")
 	tidy.Stdout, tidy.Stderr = e.stderr, e.stderr
 	if err := tidy.Run(); err != nil {
 		return fail(fmt.Errorf("go mod tidy: %v; the project is in %s", err, dir))
 	}
 
-	fmt.Fprintf(e.stdout, "Created %s (module %s).\n\nNext steps:\n\n\tcd %s\n\tgo tool orbit dev\n", dir, *module, dir)
+	fmt.Fprintf(e.stdout, "Created %s (module %s).\n\nNext steps:\n\n\tcd %s\n\tgo tool orbit build && go tool orbit preview\n", dir, *module, dir)
 	if src.Replace != "" {
 		fmt.Fprintf(e.stdout, "\ngo.mod replaces %s with your local checkout, %s.\n", scaffold.OrbitModule, src.Replace)
 	}
