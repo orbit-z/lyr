@@ -436,6 +436,7 @@ To override a decision, say which row and the alternative you want; the docs and
 | Slot-name completion offers the target component's slot names in order of appearance, `default` included | simplest | Omit `default` | [Editor setup](editor-setup.md#what-completion-covers) |
 | The HTML data is a hand-curated subset of the WHATWG element index (current elements, their attributes, the global attributes and a few ARIA ones; no event handlers, which Orbit warns about), with Orbit's own descriptions | simplest (no license notice needed; small) | Derive it from vscode-html-languageservice's data | — |
 | When gopls answers a `Props{}` completion with no field but the index lists some (it couldn't load the scratch package), the index's fields are used; when gopls is off or fails, too | simplest | Show nothing | — |
+| Completion on an empty frontmatter line returns nothing until a character is typed (no source-map segment covers the empty line); editors ask again as you type, so identifiers complete from the first letter | simplest (MVP) | Map empty frontmatter lines to the render body | — |
 
 ## Docs examples
 
