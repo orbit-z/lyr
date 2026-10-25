@@ -58,6 +58,7 @@ To override a decision, say which row and the alternative you want; the docs and
 | A key set to `null` counts as unset | Go stdlib (`encoding/json`) | An error | [Configuration](configuration.md#example) |
 | `server` must be non-empty and relative to the project root; `orbit generate` doesn't check that it exists (`orbit doctor` does) | simplest | Check existence on every generate | [Configuration](configuration.md#server) |
 | JSON syntax errors carry `orbit.json:L:C` | simplest | Go's byte offset only | [Configuration](configuration.md#example) |
+| `orbit.json` keys match case-insensitively (`"Site"` works like `"site"`) | Go stdlib (`encoding/json`) | Exact-case keys only | — |
 
 ## Components and templates
 
