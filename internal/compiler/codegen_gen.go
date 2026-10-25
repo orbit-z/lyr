@@ -18,6 +18,8 @@ type cgGen struct {
 	o     *cgOut // the file being written (impl, while the template is emitted)
 	diags []Diagnostic
 	sites []CallSite
+	// defers are the server:defer call sites, in order.
+	defers []DeferSite
 
 	// imports maps an .orbit import alias to its spec.
 	imports map[string]*OrbitImport
@@ -90,7 +92,7 @@ func cgGenerate(in *Input) (out *Output) {
 	decl := g.genDecl()
 	impl := g.genImpl()
 	sortDiagnostics(g.diags)
-	return &Output{Decl: decl, Impl: impl, CallSites: g.sites, Diagnostics: g.diags}
+	return &Output{Decl: decl, Impl: impl, CallSites: g.sites, DeferSites: g.defers, Diagnostics: g.diags}
 }
 
 // cgFailed is the output of an input codegen can't handle: two files with

@@ -76,7 +76,25 @@ type Page struct {
 	// order, then the component itself; each file once; the page last
 	// (PLAN.md §5). Files that aren't in Input.Sources are skipped.
 	//
-	// Milestone 8 adds the lazy (client:*) entries next to this list.
+	// The scripts of the files listed in Lazy aren't in the page bundle;
+	// their styles are.
+	Modules []string
+	// Lazy are the page's lazy call-site lists (client:idle, client:visible
+	// and client:media, PLAN.md §5), one per tagged component, sorted by
+	// ID.
+	Lazy []Lazy
+}
+
+// Lazy is the list of entries a lazy marker loads on one page.
+type Lazy struct {
+	// ID is the component ID of the tagged component, the marker's
+	// component attribute.
+	ID string
+	// Modules are the files whose lazy entries the marker imports: the
+	// tagged component and every component in its static subtree that is
+	// lazy on this page (nested lazy directives excluded), in
+	// module-evaluation order. Files without scripts are skipped. A file
+	// listed here is lazy on the page: never in its bundle.
 	Modules []string
 }
 
@@ -113,8 +131,12 @@ func (r *Result) File(url string) *File {
 	return nil
 }
 
-// Asset is a page asset, as in orbit.Asset: Kind "css" or "js" (and "lazy"
-// from milestone 8), URL under /_orbit/.
+// Asset is a page asset, as in orbit.Asset: Kind "css", "js" or "lazy",
+// URL under /_orbit/. A "lazy" asset is one entry of a lazy marker's list:
+// ID is the tagged component's ID, URL the entry of one component in that
+// list. A marker that loads several entries has several "lazy" assets with
+// the same ID, and an entry can be listed under several IDs. The CSS that
+// a lazy entry's scripts import is a "css" asset of the page.
 type Asset struct {
 	Kind string
 	URL  string

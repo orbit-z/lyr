@@ -41,6 +41,10 @@ type TypedUnit struct {
 	// package has type errors (the later go build reports them), or export
 	// data for one of its imports couldn't be read (with a warning).
 	Checked bool
+	// Diagnostics are the typed pass's errors at .orbit positions: the
+	// server:defer Props that aren't JSON-serializable (PLAN.md §3.4).
+	// Only a checked unit has them.
+	Diagnostics []Diagnostic
 }
 
 // CheckResult is the result of a full or incremental check.

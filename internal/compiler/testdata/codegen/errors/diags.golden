@@ -2,8 +2,5 @@ analyze: src/pages/index.orbit:6:8: component Unused is imported but not used; r
 src/pages/index.orbit:5:13: no such component: src/components/Gone.orbit
 src/pages/index.orbit:8:2: unknown component <Crad>: no .orbit import with this alias
 src/pages/index.orbit:9:7: unknown prop "psot" on <Card> (props: title, isOpen)
-src/pages/index.orbit:10:7: server:defer isn't implemented yet
-src/pages/index.orbit:11:7: client:idle isn't implemented yet
-src/pages/index.orbit:12:7: client:visible isn't implemented yet
 src/pages/index.orbit:14:7: unknown prop "x" on <Bare> (Bare takes no props)
 src/pages/index.orbit:17:7: unknown prop "foo" on <Self> (Self takes no props)

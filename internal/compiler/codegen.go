@@ -62,6 +62,10 @@ type Output struct {
 	// in Impl. Generating the same Input with a different Typed gives the
 	// same sites with the same keys (only their Go spans move).
 	CallSites []CallSite
+	// DeferSites are the server:defer call sites, in the order they
+	// appear in Impl, for the JSON-serializable Props check of the typed
+	// pass (PLAN.md §3.4).
+	DeferSites []DeferSite
 	// Diagnostics are codegen errors and warnings (unknown component or
 	// prop, missing component file, not-yet-implemented directives),
 	// sorted by position. Generate always returns both files, even with
@@ -114,6 +118,17 @@ type CallSite struct {
 	// closing paren); Arg is the expression's bytes in it, exactly
 	// Code.Text, between its line directive and its reset.
 	Call, Arg Span
+}
+
+// DeferSite is one server:defer call site: orbit__rt.Defer(…, <Alias>.Props{…}, …).
+type DeferSite struct {
+	// Attr is the server:defer attribute, where Props errors are reported.
+	Attr Span
+	// Tag is the component's tag name ("Comments", or "Self").
+	Tag string
+	// Lit is the type of the Props composite literal in Impl.Content
+	// ("Comments.Props" or "Props"): the literal starts there.
+	Lit Span
 }
 
 // WriteKind is the write chosen for a call site (PLAN.md §3.3 table).

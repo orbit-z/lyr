@@ -38,16 +38,16 @@ func New(opts Options) Bundler {
 // as files: copied to /_orbit/ with a hashed name, and referenced by URL.
 var fileLoaders = []string{".avif", ".bmp", ".eot", ".gif", ".ico", ".jpeg", ".jpg", ".otf", ".png", ".svg", ".ttf", ".webp", ".woff", ".woff2"}
 
-func (b *esbuildBundler) buildOptions(entries []string) api.BuildOptions {
+func (b *esbuildBundler) buildOptions(p *plan) api.BuildOptions {
 	loaders := map[string]api.Loader{}
 	for _, ext := range fileLoaders {
 		loaders[ext] = api.LoaderFile
 	}
-	eps := make([]api.EntryPoint, len(entries))
-	for i, spec := range entries {
-		// "orbit-page:blog-slug.ts" → [name] blog-slug
-		name := strings.TrimPrefix(spec, pageNamespace+":")
-		eps[i] = api.EntryPoint{InputPath: spec, OutputPath: name[:strings.LastIndexByte(name, '.')]}
+	eps := make([]api.EntryPoint, len(p.entries))
+	for i, spec := range p.entries {
+		// "orbit-page:blog-slug.ts" → [name] blog-slug,
+		// "orbit:lazy/Counter-1c2d3e4f.ts" → Counter
+		eps[i] = api.EntryPoint{InputPath: spec, OutputPath: p.outName[spec]}
 	}
 	o := api.BuildOptions{
 		AbsWorkingDir:       b.opts.Root,
@@ -101,6 +101,16 @@ func (b *esbuildBundler) plugin() api.Plugin {
 					Suffix:    blk.suffix,
 				}, nil
 			})
+			pb.OnResolve(api.OnResolveOptions{Filter: "^" + lazyPrefix}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
+				return api.OnResolveResult{Path: strings.TrimPrefix(a.Path, lazyPrefix), Namespace: lazyNamespace}, nil
+			})
+			pb.OnLoad(api.OnLoadOptions{Filter: ".*", Namespace: lazyNamespace}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
+				src, ok := b.current().lazySrc[a.Path]
+				if !ok {
+					return api.OnLoadResult{}, fmt.Errorf("unknown lazy entry %s", a.Path)
+				}
+				return api.OnLoadResult{Contents: &src, Loader: api.LoaderTS, ResolveDir: b.opts.Root}, nil
+			})
 			pb.OnLoad(api.OnLoadOptions{Filter: ".*", Namespace: pageNamespace}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
 				src, ok := b.current().pageSrc[a.Path]
 				if !ok {
@@ -147,7 +157,7 @@ func (b *esbuildBundler) Bundle(in *Input) (*Result, error) {
 	}
 	if b.ctx == nil || b.ctxKey != p.key() {
 		b.dispose()
-		ctx, cerr := api.Context(b.buildOptions(p.entries))
+		ctx, cerr := api.Context(b.buildOptions(p))
 		if cerr != nil {
 			return nil, fmt.Errorf("esbuild: %s", messagesText(cerr.Errors))
 		}
@@ -206,7 +216,23 @@ func (b *esbuildBundler) collect(p *plan, r api.BuildResult, res *Result) error 
 	// "_orbit/index-HASH.js".
 	name := func(key string) string { return strings.TrimPrefix(filepath.ToSlash(key), "_orbit/") }
 	var empty []string
+	lazyJS, lazyCSS := map[string]string{}, map[string]string{} // by component file
 	for key, out := range meta.Outputs {
+		if file, ok := p.lazyOf[out.EntryPoint]; ok {
+			n := name(key)
+			if !strings.HasSuffix(n, ".js") {
+				continue
+			}
+			if out.CSSBundle != "" {
+				lazyCSS[file] = URLPrefix + name(out.CSSBundle)
+			}
+			if isEmptyJS(files[n]) {
+				empty = append(empty, n)
+				continue
+			}
+			lazyJS[file] = URLPrefix + n
+			continue
+		}
 		page, ok := p.pageOf[out.EntryPoint]
 		if !ok {
 			continue
@@ -230,8 +256,24 @@ func (b *esbuildBundler) collect(p *plan, r api.BuildResult, res *Result) error 
 		delete(files, n)
 		delete(files, n+".map")
 	}
+	// Each page's lazy assets, in Lazy order (sorted by ID), and the CSS
+	// of its lazy entries after its own stylesheet.
+	for _, pg := range p.pages {
+		cssSeen := map[string]bool{}
+		for _, l := range pg.Lazy {
+			for _, file := range l.Modules {
+				if css := lazyCSS[file]; css != "" && !cssSeen[css] {
+					cssSeen[css] = true
+					res.Pages[pg.File] = append(res.Pages[pg.File], Asset{Kind: "css", URL: css})
+				}
+				if js := lazyJS[file]; js != "" {
+					res.Pages[pg.File] = append(res.Pages[pg.File], Asset{Kind: "lazy", URL: js, ID: l.ID})
+				}
+			}
+		}
+	}
 	for page, as := range res.Pages {
-		// The stylesheet first, then the module.
+		// The stylesheets first, then the module, then the lazy entries.
 		slices.SortStableFunc(as, func(x, y Asset) int { return strings.Compare(x.Kind, y.Kind) })
 		res.Pages[page] = as
 	}

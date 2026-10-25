@@ -17,7 +17,7 @@ func (p *Project) AssetInput() *assets.Input {
 	}
 	for _, f := range p.Files {
 		if f.Info.Role == compiler.RolePage {
-			in.Pages = append(in.Pages, assets.Page{File: f.Path, Modules: p.AssetGraph(f)})
+			in.Pages = append(in.Pages, assets.Page{File: f.Path, Modules: p.AssetGraph(f), Lazy: p.LazyLists(f)})
 		}
 	}
 	return in

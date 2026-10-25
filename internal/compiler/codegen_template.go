@@ -445,11 +445,9 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 		props = &info.Props
 		qual = n.Name + "."
 	}
-	if n.Defer != nil {
-		g.errorf(n.Defer.Span, "server:defer isn't implemented yet")
-	}
-	if a := n.Client; a != nil && (a.Directive == ClientIdle || a.Directive == ClientVisible || a.Directive == ClientMedia) {
-		g.errorf(a.Span, "%s isn't implemented yet", a.Name)
+	id := ComponentID(g.a.Info.Path)
+	if !n.Self {
+		id = g.in.Index[g.imports[n.Name].Resolved].ID
 	}
 	var fields []cgField
 	var pre []GoCode // Go code of broken attributes, for Tolerant mode
@@ -477,6 +475,19 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	}
 	slots := g.groupSlots(n.Children)
 
+	if n.Defer != nil && n.Client == nil {
+		g.deferCall(n, qual, id, fields, pre, slots, c)
+		return
+	}
+	lazy := n.Client != nil && n.Client.Directive.IsLazy() && n.Defer == nil
+	if lazy {
+		o.html(lazyOpen(id, n.Client))
+	}
+	defer func() {
+		if lazy {
+			o.html("</orbit-lazy>")
+		}
+	}()
 	o.flush()
 	for _, code := range pre {
 		g.discard(code)
@@ -489,27 +500,7 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 		o.inline(n.NameSpan, qual+"Render", SegSpan)
 	}
 	o.str("(" + NameCtx + ", " + NameW + ", " + qual + "Props{")
-	if len(fields) > 0 {
-		o.str("\n")
-		o.depth++
-		for _, f := range fields {
-			a := f.attr
-			o.ind()
-			o.inline(a.NameSpan, f.key, SegSpan)
-			o.str(": ")
-			switch {
-			case a.IsExpr():
-				o.exact(a.Code.Span)
-			case a.IsStatic():
-				o.str(strconv.Quote(a.Value))
-			default:
-				o.str("true")
-			}
-			o.str(",\n")
-		}
-		o.depth--
-		o.ind()
-	}
+	g.propFields(fields)
 	o.str("}, " + NameRuntime + ".Slots{")
 	if len(slots) > 0 {
 		o.str("\n")
@@ -544,6 +535,84 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	o.ln("\treturn " + NameErr)
 	o.ln("}")
 }
+
+// propFields emits the fields of a Props literal, after its "{".
+func (g *cgGen) propFields(fields []cgField) {
+	o := g.o
+	if len(fields) == 0 {
+		return
+	}
+	o.str("\n")
+	o.depth++
+	for _, f := range fields {
+		a := f.attr
+		o.ind()
+		o.inline(a.NameSpan, f.key, SegSpan)
+		o.str(": ")
+		switch {
+		case a.IsExpr():
+			o.exact(a.Code.Span)
+		case a.IsStatic():
+			o.str(strconv.Quote(a.Value))
+		default:
+			o.str("true")
+		}
+		o.str(",\n")
+	}
+	o.depth--
+	o.ind()
+}
+
+// deferCall emits a server:defer call site (PLAN.md §3.4): orbit__rt.Defer
+// with the component ID, the Props literal and the fallback renderer
+// (compiled here, in the parent, with its scope attribute) or nil.
+func (g *cgGen) deferCall(n *Component, qual, id string, fields []cgField, pre []GoCode, slots []cgSlot, c *wsCtx) {
+	o := g.o
+	o.flush()
+	for _, code := range pre {
+		g.discard(code)
+	}
+	o.ind()
+	o.str("if " + NameErr + " := " + NameRuntime + ".Defer(" + NameCtx + ", " + NameW + ", " + strconv.Quote(id) + ", ")
+	lit := o.inline(n.NameSpan, qual+"Props", SegSpan)
+	o.str("{")
+	g.propFields(fields)
+	o.str("}, ")
+	var fallback []Node
+	for _, s := range slots {
+		if s.name == "fallback" {
+			fallback = s.nodes
+		}
+	}
+	if fallback == nil {
+		o.str("nil")
+	} else {
+		g.closure(fallback, c)
+	}
+	o.str("); " + NameErr + " != nil {\n")
+	o.ln("\treturn " + NameErr)
+	o.ln("}")
+	tag := n.Name
+	if n.Self {
+		tag = "Self"
+	}
+	g.defers = append(g.defers, DeferSite{Attr: n.Defer.Span, Tag: tag, Lit: lit})
+}
+
+// lazyOpen is the <orbit-lazy> start tag of a client:idle|visible|media
+// call site, folded into the surrounding Raw (PLAN.md §3.4).
+func lazyOpen(id string, a *Attr) string {
+	s := `<orbit-lazy component="` + attrEscaper.Replace(id) + `" client="` + strings.TrimPrefix(a.Name, "client:") + `"`
+	if a.Kind != AttrEmpty && !a.IsExpr() && a.Value != "" {
+		s += ` opts="` + attrEscaper.Replace(a.Value) + `"`
+	}
+	return s + ">"
+}
+
+// attrEscaper escapes a static value for a double-quoted attribute. Like
+// every static attribute value, it is otherwise copied as written
+// (character references included).
+var attrEscaper = strings.NewReplacer(`"`, "&quot;")
 
 // propList is the list of valid props in the unknown-prop error.
 func propList(tag string, p *PropsInfo) string {

@@ -111,6 +111,10 @@ func (g *Generator) Run(ctx context.Context) (*Result, error) {
 	}
 	t.GoList = time.Duration(g.golist.Load())
 	t.Check = time.Since(mark) - t.GoList
+	res.Diagnostics = p.Diagnostics
+	if HasErrors(res.Diagnostics) {
+		return res, nil
+	}
 
 	mark = time.Now()
 	files := p.GenFiles()

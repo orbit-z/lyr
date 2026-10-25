@@ -29,7 +29,12 @@ import (
 // Resolving in the file namespace also gives each block the nearest
 // tsconfig.json of its file, and the .orbit file's directory as resolveDir.
 
+// A lazy entry (client:*, PLAN.md §5) is orbit:lazy/<ComponentID>.ts,
+// served from lazyNamespace: it imports the component's script modules.
+
 const (
+	lazyPrefix    = "orbit:lazy/"
+	lazyNamespace = "orbit-lazy"
 	pageNamespace = "orbit-page"
 	scriptPrefix  = "orbit:script/"
 	stylePrefix   = "orbit:style/"
@@ -46,6 +51,15 @@ type plan struct {
 	// pageSrc holds each entry's contents, by its path in pageNamespace
 	// ("index.ts").
 	pageSrc map[string]string
+	// lazyOf maps a lazy entry, as the metafile names it
+	// ("orbit-lazy:Counter-1c2d3e4f.ts"), to its component file, and
+	// lazySrc holds its contents by path in lazyNamespace.
+	lazyOf  map[string]string
+	lazySrc map[string]string
+	// outName is each entry's bundle name ("blog-slug", "Counter").
+	outName map[string]string
+	// pages are the input pages, sorted by file.
+	pages []Page
 	// blocks maps a block specifier ("orbit:style/Card-3fa2c1d0-0.css") to
 	// its module.
 	blocks map[string]*block
@@ -73,6 +87,9 @@ func newPlan(in *Input) *plan {
 	p := &plan{
 		pageOf:   map[string]string{},
 		pageSrc:  map[string]string{},
+		lazyOf:   map[string]string{},
+		lazySrc:  map[string]string{},
+		outName:  map[string]string{},
 		blocks:   map[string]*block{},
 		byKey:    map[string]*block{},
 		orbitSrc: map[string]string{},
@@ -80,9 +97,18 @@ func newPlan(in *Input) *plan {
 	names := map[string]bool{}
 	pages := slices.Clone(in.Pages)
 	slices.SortFunc(pages, func(a, b Page) int { return strings.Compare(a.File, b.File) })
+	p.pages = pages
+	lazyFiles := map[string]bool{} // files lazy on some page
 	for _, pg := range pages {
 		var imports []string
 		hasScript := false
+		lazy := map[string]bool{}
+		for _, l := range pg.Lazy {
+			for _, file := range l.Modules {
+				lazy[file] = true
+				lazyFiles[file] = true
+			}
+		}
 		for _, file := range pg.Modules {
 			src := in.Sources[file]
 			if src == nil {
@@ -93,6 +119,9 @@ func newPlan(in *Input) *plan {
 			}
 			for _, st := range src.Styles {
 				imports = append(imports, p.style(src, st))
+			}
+			if lazy[file] {
+				continue
 			}
 			for i, sc := range src.Scripts {
 				imports = append(imports, p.script(src, sc, i))
@@ -119,9 +148,50 @@ func newPlan(in *Input) *plan {
 		p.entries = append(p.entries, spec)
 		p.pageOf[spec] = pg.File
 		p.pageSrc[name+ext] = b.String()
+		p.outName[spec] = name
+	}
+	// One lazy entry per component that is lazy on some page and has
+	// scripts (PLAN.md §5), named after the component.
+	files := make([]string, 0, len(lazyFiles))
+	for file := range lazyFiles {
+		files = append(files, file)
+	}
+	slices.Sort(files)
+	for _, file := range files {
+		src := in.Sources[file]
+		if src == nil || len(src.Scripts) == 0 {
+			continue
+		}
+		p.orbitSrc[file] = src.Src
+		var b strings.Builder
+		for i, sc := range src.Scripts {
+			fmt.Fprintf(&b, "import %s;\n", strconv.Quote(p.script(src, sc, i)))
+		}
+		id := compiler.ComponentID(file)
+		spec := lazyPrefix + id + ".ts"
+		p.entries = append(p.entries, spec)
+		p.lazyOf[lazyNamespace+":"+id+".ts"] = file
+		p.lazySrc[id+".ts"] = b.String()
+		p.outName[spec] = uniqueName(entryBase(file), names)
 	}
 	slices.Sort(p.entries)
 	return p
+}
+
+// entryBase is the bundle name of a lazy entry: the component's base name,
+// with only letters, digits, "-" and "_" kept.
+func entryBase(file string) string {
+	s := strings.TrimSuffix(file[strings.LastIndexByte(file, '/')+1:], ".orbit")
+	var b strings.Builder
+	for _, r := range s {
+		if r == '-' || r == '_' || r >= '0' && r <= '9' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' {
+			b.WriteRune(r)
+		}
+	}
+	if b.Len() == 0 {
+		return "component"
+	}
+	return b.String()
 }
 
 // style registers the module of a style block and returns its specifier.

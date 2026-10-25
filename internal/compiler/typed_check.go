@@ -426,7 +426,8 @@ func (s *tyState) checkUnit(u *tyUnit, generate func(*Input) *Output) TypedUnit 
 		return fallback
 	}
 	writes := siteWrites(s.fset, u.implFile, u.unit.Pass1.CallSites, info, env)
-	res := TypedUnit{Output: u.unit.Pass1, Writes: writes, Checked: true}
+	res := TypedUnit{Output: u.unit.Pass1, Writes: writes, Checked: true,
+		Diagnostics: checkDeferProps(s.fset, u.implFile, u.unit.Pass1.DeferSites, info)}
 	if len(writes) > 0 {
 		in := *u.unit.Input
 		in.Typed = writes
