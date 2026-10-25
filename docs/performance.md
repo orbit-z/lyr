@@ -140,8 +140,8 @@ They're kept separate from the example blog so the comparison is easy to audit. 
 
 1. **Render-heavy** (`cards`): a list of 500 cards built from nested components. This measures the template engine itself.
 2. **Realistic** (`fetch`): a page whose frontmatter waits on a simulated 10 ms data fetch. This measures how well each server handles many requests waiting on I/O at once.
-3. **Cores**: Orbit runs each scenario twice, with `GOMAXPROCS=1` (one core, the fair comparison with a single Node process) and with all cores (how a Go server normally runs).
-4. **Deferred** (`fetch-deferred`): the 10 ms-fetch page with the slow part moved into a `server:defer` component (Astro's mirror uses `server:defer` too). This measures the page's time to first byte, and the island request's latency on its own.
+3. **Cores**: Orbit runs each scenario twice, with `GOMAXPROCS=1` (one core, the fair comparison with a single Node process) and with all cores (how a Go server normally runs). Astro also runs twice: on the same 8 CPUs as Orbit at all cores, so its garbage collector and I/O threads have room, and pinned to one CPU, like Orbit at `GOMAXPROCS=1`.
+4. **Deferred** (`fetch-deferred`): the 10 ms-fetch page with the slow part moved into a `server:defer` component (Astro's mirror uses `server:defer` too). This measures the page's time to first byte, and the island request's latency on its own. A second run requests only the deferred page, as fast as the server allows, to show what the page costs without its island.
 
 **Metrics**:
 
@@ -162,17 +162,18 @@ The runtime's writer and escaper have their own Go micro-benchmarks, which repor
 
 ## Results
 
-Measured on 2026-10-25 on an AMD Ryzen 7 9700X (8 cores, 16 threads), 46 GB RAM, Linux 7.2.11, with Go 1.27.3, Node 25.6.1, Astro 7.3.8 and `@astrojs/node` 11.1.7 (standalone, one process). Every run uses 64 keep-alive connections, a 5 s warm-up and 20 s of measurement. The server runs on cores 0–3 (both threads of each) and the load generator on cores 4–7; Orbit at `GOMAXPROCS=1` is pinned to one CPU. Astro gets the same 8 CPUs as Orbit at all cores, so its garbage collector and I/O threads have room. No run had an error. Reproduce with `bench/run.sh` (about 4 minutes).
+Measured on 2026-10-25 on an AMD Ryzen 7 9700X (8 cores, 16 threads), 46 GB RAM, Linux 7.2.11, with Go 1.27.3, Node 25.6.1, Astro 7.3.8 and `@astrojs/node` 11.1.7 (standalone, one process). Every run uses 64 keep-alive connections, a 5 s warm-up and 20 s of measurement. The server runs on cores 0–3 (both threads of each) and the load generator on cores 4–7; Orbit at `GOMAXPROCS=1` and "Astro, one CPU" are pinned to one CPU; "Astro" gets the same 8 CPUs as Orbit at all cores. No run had an error. Reproduce with `bench/run.sh` (about 7 minutes).
 
 ### Render-heavy page (`/cards`, 500 cards from nested components)
 
 | Server | req/s | p50 | p99 | Memory (RSS) | CPU per page |
 |---|---:|---:|---:|---:|---:|
-| Orbit, `GOMAXPROCS=1` | 7,915 | 7.3 ms | 31.7 ms | 15 MB | 0.12 ms |
-| Orbit, all cores | 31,084 | 0.87 ms | 13.2 ms | 37 MB | 0.23 ms |
-| Astro | 680 | 92.9 ms | 127 ms | 361 MB | 1.56 ms |
+| Orbit, `GOMAXPROCS=1` | 8,518 | 7.4 ms | 20.8 ms | 15 MB | 0.11 ms |
+| Orbit, all cores | 33,012 | 0.78 ms | 12.7 ms | 37 MB | 0.22 ms |
+| Astro, one CPU | 679 | 92.9 ms | 149 ms | 445 MB | 1.45 ms |
+| Astro | 696 | 90.2 ms | 124 ms | 505 MB | 1.55 ms |
 
-On one core, Orbit serves about 12× as many pages as Astro's single Node process; with all cores, about 46×. Part of that second number is Go using every core while Node runs JavaScript on one thread.
+On one CPU each, Orbit serves about 12.5× as many pages as Astro. With all cores, about 47× as many as Astro's single Node process. Part of that second number is Go using every core while Node runs JavaScript on one thread: giving Astro 8 CPUs instead of one helps it by only 2% here.
 
 ### Where the time goes (Orbit vs. Astro)
 
@@ -186,12 +187,12 @@ To see where that gap comes from, both servers were CPU-profiled while serving `
 | Allocation and garbage collection | 4% | 11% |
 | Converting the HTML to bytes and sending it (UTF-8 encoding, streams, socket writes) | 17% | 18% |
 | Request handling (HTTP parsing, routing, middleware) | 3% | 3% |
-| **CPU per page** (from the table above) | **1.56 ms** | **0.12 ms** |
+| **CPU per page** (from the table above) | **1.55 ms** | **0.11 ms** |
 
 In Orbit a component is a plain function call, so its cost is in the other rows. Astro's GC row counts only the main thread's pauses; V8's helper threads used about 5% more CPU, mostly for concurrent GC.
 
 What the profiles show:
-- **Both spend most of their time rendering**, roughly 70–75% of the CPU. Astro's rendering costs roughly 14× Orbit's per page. Fixed per-request costs are small for both: the `/fetch` page below costs each about 7–8% of `/cards`' CPU.
+- **Both spend most of their time rendering**, roughly 70–75% of the CPU. Astro's rendering costs roughly 14× Orbit's per page. Fixed per-request costs are small for both: the `/fetch` page below costs each under 10% of `/cards`' CPU.
 - **Astro does at request time what Orbit does at compile time.** Each component render creates objects (an `Astro` global, a component instance, a template result holding the static parts and the expression values), and a generic loop walks them, checking each value's type and concatenating JavaScript strings. Every interpolated string goes through a regular-expression escaper, and every dynamic attribute is classified by name and built at runtime. Orbit's generated code writes merged static HTML and typed values straight into one buffer.
 - **It isn't promises.** Astro 7 renders synchronously while components are synchronous: a `/cards` request creates about 120 promises for 1,501 component renders, and promise handling doesn't show up in the profile.
 - **Sending costs about the same share for both**, but Astro first encodes the whole page from a JavaScript string to UTF-8 and pulls it through a web stream into Node's HTTP server.
@@ -202,9 +203,10 @@ The shares and counts are measured. The per-row grouping of functions is ours, a
 
 | Server | req/s | p50 | p99 | Memory (RSS) | CPU per page |
 |---|---:|---:|---:|---:|---:|
-| Orbit, `GOMAXPROCS=1` | 5,834 | 11.0 ms | 11.8 ms | 15 MB | 0.010 ms |
-| Orbit, all cores | 5,949 | 10.8 ms | 11.2 ms | 18 MB | 0.023 ms |
-| Astro | 5,305 | 11.9 ms | 16.0 ms | 526 MB | 0.114 ms |
+| Orbit, `GOMAXPROCS=1` | 5,842 | 10.9 ms | 11.8 ms | 15 MB | 0.010 ms |
+| Orbit, all cores | 5,947 | 10.8 ms | 11.2 ms | 18 MB | 0.023 ms |
+| Astro, one CPU | 4,737 | 13.0 ms | 27.2 ms | 304 MB | 0.102 ms |
+| Astro | 5,333 | 11.9 ms | 15.6 ms | 294 MB | 0.112 ms |
 
 Every server spends most of each request waiting, and 64 connections waiting 10 ms each cap the rate near 6,400 req/s, so throughput is close. The differences are in the tail latency, the CPU and the memory.
 
@@ -214,11 +216,23 @@ Each iteration requests the page, then its island, as the browser's loader does.
 
 | Server | iterations/s | page TTFB p50 | page TTFB p99 | island p50 | island p99 | Memory (RSS) |
 |---|---:|---:|---:|---:|---:|---:|
-| Orbit, `GOMAXPROCS=1` | 5,582 | 0.46 ms | 1.28 ms | 11.0 ms | 12.0 ms | 15 MB |
-| Orbit, all cores | 5,915 | 0.06 ms | 0.48 ms | 10.8 ms | 11.3 ms | 17 MB |
-| Astro | 2,818 | 6.06 ms | 11.9 ms | 15.8 ms | 22.4 ms | 306 MB |
+| Orbit, `GOMAXPROCS=1` | 5,584 | 0.46 ms | 1.29 ms | 11.0 ms | 12.0 ms | 15 MB |
+| Orbit, all cores | 5,920 | 0.06 ms | 0.49 ms | 10.8 ms | 11.3 ms | 18 MB |
+| Astro, one CPU | 2,284 | 7.23 ms | 39.5 ms | 16.6 ms | 43.9 ms | 292 MB |
+| Astro | 2,833 | 6.11 ms | 12.6 ms | 15.7 ms | 21.4 ms | 316 MB |
 
-Deferring the slow component takes Orbit's first byte from about 11 ms to well under 1 ms. Astro's deferred page is slower to start mostly because its single thread is also busy rendering the island requests.
+Deferring the slow component takes Orbit's first byte from about 11 ms to well under 1 ms. Astro's first byte stays at several milliseconds because its single JavaScript thread is nearly saturated by the pages and islands together (0.9 cores busy).
+
+The deferred page on its own, without its island (`fetch-deferred-page` in `bench/run.sh`):
+
+| Server | req/s | TTFB p50 | TTFB p99 | Memory (RSS) | CPU per page |
+|---|---:|---:|---:|---:|---:|
+| Orbit, `GOMAXPROCS=1` | 141,910 | 0.45 ms | 0.99 ms | 15 MB | 0.005 ms |
+| Orbit, all cores | 416,746 | 0.09 ms | 0.58 ms | 17 MB | 0.010 ms |
+| Astro, one CPU | 6,541 | 7.50 ms | 37.2 ms | 295 MB | 0.150 ms |
+| Astro | 8,681 | 6.65 ms | 13.0 ms | 299 MB | 0.158 ms |
+
+Even without island requests, Astro's TTFB is mostly queueing: one thread at about 8,700 pages per second is full. Orbit at all cores is limited by the load generator here, which used about 6 of its 8 CPUs. Deferring costs the page one seal of its props (about 1 µs, see [Slow data and the first byte](#slow-data-and-the-first-byte-serverdefer)), which is why this page costs Astro more CPU than `/fetch`.
 
 ### Orbit vs. other Go templates (`bench/go`)
 
@@ -226,25 +240,25 @@ The same 500-card page (a layout, a header with a nav loop, and cards with attri
 
 | Engine | Time per page | Memory per page | Allocations per page |
 |---|---:|---:|---:|
-| Orbit | 61.6 µs | 39 KB | 501 |
-| templ v0.3.1070 | 248 µs | 276 KB | 8,985 |
-| `html/template` | 1.74 ms | 622 KB | 26,810 |
+| Orbit | 59.4 µs | 39 KB | 501 |
+| templ v0.3.1070 | 245 µs | 276 KB | 8,985 |
+| `html/template` | 1.73 ms | 622 KB | 26,810 |
 
-Orbit's 501 allocations are the 500 slot closures plus the layout's (each slot that uses a loop variable costs one, see [Allocations per request](#allocations-per-request)). Serving the page through `site.Handler()` adds one allocation (`Content-Length`) and almost no time (61.6 µs). A small page with a route param is served in 0.40 µs with 3 allocations: `Content-Length`, a slot closure, and the page's own string concatenation.
+Orbit's 501 allocations are the 500 slot closures plus the layout's (each slot that uses a loop variable costs one, see [Allocations per request](#allocations-per-request)). Serving the page through `site.Handler()` adds one allocation (`Content-Length`) and almost no time (59.8 µs). A small page with a route param is served in 0.39 µs with 3 allocations: `Content-Length`, a slot closure, and the page's own string concatenation.
 
 ### Dev loop (`bench/devloop`)
 
-The time from a saved edit to a new server running, measured on `orbit dev`'s own rebuild pipeline (`bench/devloop -dev`) with a generated project of 200 `.orbit` files (40 pages, 158 components, scoped styles and scripts on a quarter of them, two user Go packages, typed locals). It covers generating, the type check, esbuild when needed, `go build -ldflags=-w` and restarting the server, but not the watcher's 50 ms debounce or the browser's reload. Median of the runs, on a quiet machine.
+The time from a saved edit to a new server running, measured on `orbit dev`'s own rebuild pipeline (`bench/devloop -dev`) with a generated project of 200 `.orbit` files (40 pages, 158 components, scoped styles and scripts on a quarter of them, two user Go packages, typed locals). It covers generating, the type check, esbuild when needed, `go build -ldflags=-w -gcflags=./orbit_gen/...=-l` (no inlining in the generated packages, dev only) and restarting the server, but not the watcher's 50 ms debounce or the browser's reload. Median of the runs, on a quiet machine.
 
 | Edit | 16 threads | 4 cores |
 |---|---:|---:|
-| Template text | 229 ms | 228 ms |
-| Frontmatter statement | 226 ms | 261 ms |
-| Add a `Props` field (component imported by 10 others) | 248 ms | 275 ms |
-| Add a page | 263 ms | 270 ms |
+| Template text | 222 ms | 219 ms |
+| Frontmatter statement | 222 ms | 220 ms |
+| Add a `Props` field (component imported by 10 others) | 241 ms | 259 ms |
+| Add a page | 261 ms | 265 ms |
 | Only a `<style>` or `<script>` (no Go rebuild) | 30 ms | 38 ms |
-| A Go package every `Props` imports, function body only | 793 ms | 1.46 s |
-| The same package, new exported name | 842 ms | 1.50 s |
+| A Go package every `Props` imports, function body only | 726 ms | 1.26 s |
+| The same package, new exported name | 743 ms | 1.29 s |
 
 Most of a template edit is `go build`, and most of that is the link, about 135 ms, a fixed cost for any Go binary of this size. Template, frontmatter and `Props` edits skip esbuild, and a `.go` edit starts `go build` at once, while Orbit regenerates. The slow rows are a Go package that every component imports: `go build` then recompiles all the generated packages, even when only a function body changed, because Go recompiles a package's importers whenever it changes. Keep frequently edited Go code out of packages that every `Props` imports.
 

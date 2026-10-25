@@ -150,8 +150,8 @@ These numbers come from Orbit's dev-loop benchmark (`bench/devloop`) on a genera
 
 | Change | 16 threads | 4 cores |
 |---|---:|---:|
-| a component's frontmatter or template | about 0.23 s | about 0.23–0.26 s |
-| a `.go` file that every component's `Props` depends on, such as `internal/posts` (even a function body) | about 0.8 s | about 1.5 s |
+| a component's frontmatter or template | about 0.22 s | about 0.22 s |
+| a `.go` file that every component's `Props` depends on, such as `internal/posts` (even a function body) | about 0.73 s | about 1.3 s |
 | only `<style>` or `<script>` contents (no Go rebuild) | about 30 ms | about 40 ms |
 
 The goal is for a save to show up in the browser in about a second.

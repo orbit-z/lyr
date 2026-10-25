@@ -675,7 +675,7 @@ Your own server keeps running on `127.0.0.1` behind the proxy either way. See [S
 
 ### Rebuilds are slow after editing a widely imported package
 
-**Cause:** when you edit a `.go` package that every component's `Props` depends on (such as `internal/posts`), `go build` recompiles every generated package. Go recompiles a package's importers whenever it changes, even when only a function body did. On a 200-component project this took about 0.8 s on 16 threads and about 1.5 s on 4 cores, against about 0.23 s for a component edit. Edits to only a `<style>` or `<script>` need no Go rebuild at all.
+**Cause:** when you edit a `.go` package that every component's `Props` depends on (such as `internal/posts`), `go build` recompiles every generated package. Go recompiles a package's importers whenever it changes, even when only a function body did. On a 200-component project this took about 0.73 s on 16 threads and about 1.3 s on 4 cores, against about 0.22 s for a component edit. Edits to only a `<style>` or `<script>` need no Go rebuild at all.
 
 **Fix:** this is `go build` time. Dev builds already skip DWARF (`-ldflags=-w`) to link faster, and on a `.go`-only edit `orbit dev` starts `go build` right away, while it regenerates. Keep frequently edited Go code out of packages that every `Props` imports. Edits to packages fewer components import rebuild less. Also check your server: each Go rebuild restarts it, so a slow startup adds to every save, and a server that runs its own `http.Server` without handling `SIGINT` is only killed after 5 seconds. `orbit.ListenAndServe` handles `SIGINT` for you. See [How long a rebuild takes](dev-server.md#how-long-a-rebuild-takes).
 
