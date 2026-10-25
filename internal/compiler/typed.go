@@ -64,6 +64,9 @@ type Checker struct {
 	// Implementation state (agent C): the shared FileSet, the importer from
 	// the last Load, the memoized decl packages, the last units by path,
 	// and the import graph between generated packages.
+	state *tyState
+	// generate re-emits pass 2; nil means Generate (tests stub it).
+	generate func(*Input) *Output
 }
 
 // NewChecker returns a Checker that loads non-generated packages through
@@ -79,7 +82,7 @@ func NewChecker(loader ExportLoader) *Checker {
 // replaces all state from earlier calls. The error is only for ctx
 // cancellation; checking problems become fallbacks and warnings.
 func (c *Checker) Check(ctx context.Context, units []Unit) (*CheckResult, error) {
-	panic("not implemented: milestone 4 (C)")
+	return c.check(ctx, units)
 }
 
 // Update re-checks after an edit (orbit dev, PLAN.md §3.3 Dev). changed are
@@ -90,13 +93,13 @@ func (c *Checker) Check(ctx context.Context, units []Unit) (*CheckResult, error)
 // earlier Check. May be implemented after milestone 4 as a full Check over
 // the cached units.
 func (c *Checker) Update(ctx context.Context, changed []Unit, removed []string) (*CheckResult, error) {
-	panic("not implemented: milestone 4 (C)")
+	return c.update(ctx, changed, removed)
 }
 
 // Invalidate drops the loaded export data, so the next Update reloads it:
 // call it when a user .go file, go.mod or orbit.json changes.
 func (c *Checker) Invalidate() {
-	panic("not implemented: milestone 4 (C)")
+	c.invalidate()
 }
 
 // TypedPass is the one-shot pass of orbit build and orbit generate:
@@ -119,5 +122,5 @@ type GoListLoader struct {
 
 // Load implements ExportLoader.
 func (l *GoListLoader) Load(ctx context.Context, fset *gotoken.FileSet, paths []string) (types.Importer, error) {
-	panic("not implemented: milestone 4 (C)")
+	return l.load(ctx, fset, paths)
 }
