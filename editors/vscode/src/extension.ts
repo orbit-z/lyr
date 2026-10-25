@@ -44,18 +44,18 @@ export async function deactivate(): Promise<void> {
 // start launches `orbit lsp`, once for the window: the server finds the
 // project root itself (the nearest go.mod next to a src/ directory).
 async function start(): Promise<void> {
-  const bin = resolveBinary();
-  if (!bin) {
+  // The server runs in the project root, so a global orbit hands over to
+  // the version the project pins in go.mod (go tool orbit).
+  const cwd = projectRoot() ?? firstFolder();
+  const orbit = resolveOrbit(cwd);
+  if (!orbit) {
     return;
   }
   const config = vscode.workspace.getConfiguration("orbit");
   const goplsPath = expandHome(config.get<string>("goplsPath", "").trim());
-  // The server runs in the project root, so a global orbit hands over to
-  // the version the project pins in go.mod (go tool orbit).
-  const cwd = projectRoot() ?? firstFolder();
   const serverOptions: ServerOptions = {
-    command: bin,
-    args: ["lsp"],
+    command: orbit.command,
+    args: [...orbit.args, "lsp"],
     transport: TransportKind.stdio,
     options: cwd ? { cwd } : {},
   };
@@ -67,7 +67,7 @@ async function start(): Promise<void> {
   try {
     await client.start();
   } catch (err) {
-    void vscode.window.showErrorMessage(`Orbit: couldn't start ${bin} lsp: ${message(err)}`);
+    void vscode.window.showErrorMessage(`Orbit: couldn't start ${orbit.label} lsp: ${message(err)}`);
   }
 }
 
@@ -88,13 +88,28 @@ async function restart(): Promise<void> {
   await start();
 }
 
-// resolveBinary returns the orbit binary from orbit.path, or shows an error
-// pointing at the install instructions and returns undefined.
-function resolveBinary(): string | undefined {
+// orbitCommand is how to run the orbit CLI: a binary, or go tool orbit.
+interface OrbitCommand {
+  command: string;
+  args: string[];
+  label: string;
+}
+
+// resolveOrbit returns the orbit binary from orbit.path; with the default
+// setting and no orbit on PATH, `go tool orbit` when the project's go.mod
+// pins the CLI (like gopls's lookup, PATH first). Otherwise it shows an
+// error pointing at the install instructions and returns undefined.
+function resolveOrbit(root: string | undefined): OrbitCommand | undefined {
   const setting = vscode.workspace.getConfiguration("orbit").get<string>("path", "orbit").trim() || "orbit";
   const found = findBinary(setting);
   if (found) {
-    return found;
+    return { command: found, args: [], label: found };
+  }
+  if (setting === "orbit" && root && pinsOrbit(root)) {
+    const go = findBinary("go");
+    if (go) {
+      return { command: go, args: ["tool", "orbit"], label: "go tool orbit" };
+    }
   }
   const what =
     setting === "orbit"
@@ -138,6 +153,19 @@ function findBinary(setting: string): string | undefined {
   const folder = firstFolder();
   const abs = path.isAbsolute(p) || !folder ? p : path.join(folder, p);
   return isExecutable(abs) ? abs : undefined;
+}
+
+// pinsOrbit reports whether root's go.mod has the tool directive for the
+// orbit CLI (orbit new writes it).
+function pinsOrbit(root: string): boolean {
+  try {
+    const mod = fs.readFileSync(path.join(root, "go.mod"), "utf8");
+    // `tool github.com/bertrandkhe/orbit/cmd/orbit`, or the path alone on
+    // a line of a tool ( … ) block; require lines carry a version.
+    return /^\s*(tool\s+)?github\.com\/bertrandkhe\/orbit\/cmd\/orbit\s*(\/\/.*)?$/m.test(mod);
+  } catch {
+    return false;
+  }
 }
 
 function isExecutable(file: string): boolean {
@@ -206,11 +234,11 @@ function isDir(p: string): boolean {
 // runCommand runs `orbit <name>` in the project root, with its output in
 // the Orbit output channel, and reports the result with a notification.
 async function runCommand(name: "generate" | "doctor"): Promise<void> {
-  const bin = resolveBinary();
-  if (!bin) {
+  const cwd = projectRoot();
+  const orbit = resolveOrbit(cwd);
+  if (!orbit) {
     return;
   }
-  const cwd = projectRoot();
   if (!cwd) {
     void vscode.window.showErrorMessage(
       `Orbit: no Orbit project found (a directory with go.mod and src/) for orbit ${name}. Open a .orbit file or a project folder.`,
@@ -225,7 +253,7 @@ async function runCommand(name: "generate" | "doctor"): Promise<void> {
     { location: vscode.ProgressLocation.Window, title: `orbit ${name}` },
     () =>
       new Promise<number | string>((resolve) => {
-        const child = cp.spawn(bin, [name], { cwd });
+        const child = cp.spawn(orbit.command, [...orbit.args, name], { cwd });
         child.stdout.on("data", (b: Buffer) => output.append(b.toString()));
         child.stderr.on("data", (b: Buffer) => output.append(b.toString()));
         child.on("error", (err) => resolve(message(err)));

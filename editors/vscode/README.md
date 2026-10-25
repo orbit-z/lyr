@@ -16,7 +16,7 @@ Language support for [Orbit](https://github.com/bertrandkhe/orbit) `.orbit` comp
   go install github.com/bertrandkhe/orbit/cmd/orbit@latest
   ```
 
-  Inside a project that pins the CLI in `go.mod`, that `orbit` hands over to the pinned version, so the language server matches your project.
+  Inside a project that pins the CLI in `go.mod`, that `orbit` hands over to the pinned version, so the language server matches your project. Without an `orbit` on your `PATH`, the extension runs `go tool orbit` in a project that pins the CLI (as `orbit new` projects do).
 - gopls v0.24.0 or later, built with a Go at least as recent as your project's `go` directive:
 
   ```sh

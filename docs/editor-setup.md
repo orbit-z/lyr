@@ -58,7 +58,7 @@ The extension:
 
 One language server runs per window. In a multi-root workspace with several Orbit projects, it serves the first one it finds: the project of the `.orbit` file that's active when it starts, else that of the first workspace folder in one.
 
-It runs the `orbit` on your `PATH`. Inside a project that pins the CLI in `go.mod`, that `orbit` hands over to the pinned version (the binary `go tool orbit lsp` would run), so the language server always matches your project's Orbit version. To use a different binary, set `orbit.path`; to choose the gopls that Orbit starts, set `orbit.goplsPath` (see [How gopls is found](#how-gopls-is-found)):
+It runs the `orbit` on your `PATH`. Inside a project that pins the CLI in `go.mod`, that `orbit` hands over to the pinned version (the binary `go tool orbit lsp` would run), so the language server always matches your project's Orbit version. Without an `orbit` on your `PATH`, it runs `go tool orbit` instead when the project pins the CLI, as projects made by `orbit new` do. To use a different binary, set `orbit.path`; to choose the gopls that Orbit starts, set `orbit.goplsPath` (see [How gopls is found](#how-gopls-is-found)):
 
 ```json file=.vscode/settings.json
 {
