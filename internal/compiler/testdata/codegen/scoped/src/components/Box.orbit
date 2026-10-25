@@ -1,0 +1,11 @@
+---
+type Props struct {
+	Title string
+}
+---
+<section class="box">
+  <h3>{props.Title}</h3>
+  <slot />
+  <footer><slot name="footer" /></footer>
+</section>
+<style is:global>.box { padding: 1rem }</style>

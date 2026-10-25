@@ -2,8 +2,7 @@ package compiler
 
 // Milestone 6 contract (PLAN.md §5): the processed <script> and <style>
 // blocks of a file, for the bundler (internal/assets) and orbit check, and
-// the scoped-CSS rewrite. Scripts and Styles are final; ScopeCSS is a stub
-// that the CSS agent replaces.
+// the scoped-CSS rewrite (css.go).
 
 // ScriptBlock is a processed <script> of a file: Orbit bundles it.
 type ScriptBlock struct {
@@ -76,9 +75,11 @@ func ScopeAttr(orbitPath string) string { return "data-o-" + ScopeHash(orbitPath
 // each selector (PLAN.md §5). Diagnostics have spans relative to css; the
 // caller shifts them to the style's Content.Start.
 //
-// Stub: returns css unchanged.
+// Comments and formatting are kept; only the scope is inserted and the
+// :global(…) wrappers removed. The rules are in docs/styles-and-scripts.md.
+// On errors the output is still the best-effort rewrite.
 func ScopeCSS(css, attr string) (string, []Diagnostic) {
-	return css, nil
+	return scopeCSS(css, attr)
 }
 
 func walkTemplate(f *File, fn func(Node)) {

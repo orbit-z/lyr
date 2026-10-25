@@ -256,12 +256,23 @@ func (g *cgGen) setContent(set *Attr, node Node) {
 	}
 }
 
+// unscopedElements never get the scope attribute: Astro's
+// NeverScopedElements (document metadata and legacy frames), minus the
+// ones Orbit models as other nodes (Fragment, slot, script, style).
+var unscopedElements = map[string]bool{
+	"base": true, "font": true, "frame": true, "frameset": true, "head": true,
+	"link": true, "meta": true, "noframes": true, "noscript": true, "title": true,
+}
+
 var verbatimElements = map[string]bool{"pre": true, "textarea": true, "script": true, "style": true}
 
 func (g *cgGen) element(n *Element, c *wsCtx, i int) {
 	o := g.o
 	o.html("<" + n.Name)
 	set := g.htmlAttrs(&n.Tag, n)
+	if g.scope != "" && !unscopedElements[strings.ToLower(n.Name)] {
+		o.html(" " + g.scope) // last, after spreads, as in Astro
+	}
 	o.html(">")
 	if n.Void {
 		if set != nil {
