@@ -283,6 +283,14 @@ To override a decision, say which row and the alternative you want; the docs and
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
+| `orbittest` reaches the runtime through a module-internal bridge (`internal/testhook`), so package `orbit` gains no exported test API | simplest | Exported helpers in package `orbit` | — |
+| `WithSlot` with the same name twice: the later one wins | Go stdlib (like `WithParam`) | Fail the test | [Testing](testing.md#slots-withslot) |
+| `WithLocals` and `WithRequest` can come in any order (locals are attached to the chosen request) | simplest | Apply options strictly in order | [Testing](testing.md#locals-withlocals) |
+| Golden names may contain `/` (`pages/post`), and `-update` creates the directories; empty, absolute, `..`, `.`, empty elements, a trailing `/` and backslashes fail | simplest | Flat names only | [Testing](testing.md#snapshot-tests) |
+| A snapshot mismatch shows the first difference with line, column and about 60 bytes from each side, not a line diff (a compressed page is often one line) | simplest | A line diff | [Testing](testing.md#snapshot-tests) |
+| `Snapshot` normalizes `/_orbit/<name>-<8 base32 chars>.<ext>` to `/_orbit/<name>-*.<ext>` and `/_orbit/island/<16 hex>/` to `/_orbit/island/*/`, only in what it compares and stores | user (stable snapshots) | Compare raw HTML | [Testing](testing.md#hashed-asset-urls) |
+| `Get` with a path that doesn't start with `/` fails the test (instead of `httptest.NewRequest` panicking) | simplest | Panic | [Testing](testing.md#testing-through-http-with-get) |
+| `Render` of a page that returns `ErrNotFound` or a redirect fails the test; use `Get` to test those | PLAN (render errors fail) | Return the error to the caller | [Testing](testing.md#a-first-component-test) |
 | Under `go test` (`testing.Testing()`), `orbittest.Render` and `app.New()` (so `orbittest.Get`) seal `server:defer` placeholders with a fixed test island key and build ID `0000000000000000`, unless `ORBIT_KEY`/`WithKey` is set, so snapshots are stable | coordinator (simplest) | The normal key resolution; an `orbittest.WithKey` option | [Testing](testing.md#testing-serverdefer-components) |
 | `orbittest.Render` uses `GET /` by default and does no head injection | simplest (like `RenderComponent`) | Inject the page's assets | [Testing](testing.md#a-first-component-test), [Runtime API](reference/runtime-api.md#orbittest) |
 | `orbittest.Get` accepts only `WithLocals` and `WithRequest`; any option that doesn't apply fails the test | simplest | Ignore it silently | [Testing](testing.md#options) |

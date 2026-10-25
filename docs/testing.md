@@ -109,7 +109,7 @@ go tool orbit generate
 go test ./internal/views_test
 ```
 
-`orbittest.Render` calls the component and returns its HTML as a string. If rendering fails, it stops the test with `t.Fatal`. It uses the same pooled writer and the same escaping as a real request, so the string is byte-for-byte what your users get, including the `data-o-…` scope attributes.
+`orbittest.Render` calls the component and returns its HTML as a string. If rendering fails, it stops the test with `t.Fatal`, and that includes a page returning `orbit.ErrNotFound` or `ctx.Redirect(…)`. To test a page's 404 or redirect, use [`Get`](#testing-through-http-with-get) and check the status code. It uses the same pooled writer and the same escaping as a real request, so the string is byte-for-byte what your users get, including the `data-o-…` scope attributes.
 
 `Render` calls the component directly. Your `net/http` middleware doesn't run, and no `<link>` or `<script>` tags are added, because a component on its own has no page assets (the same as [`orbit.RenderComponent`](reference/runtime-api.md#rendering-from-your-handlers)). To test a page the way a browser gets it, use [`Get`](#testing-through-http-with-get).
 
