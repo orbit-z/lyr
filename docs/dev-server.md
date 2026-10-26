@@ -120,7 +120,7 @@ To add the script, the proxy asks your server for uncompressed responses (it rem
 
 ## What a change rebuilds
 
-Orbit watches `src/`, `public/`, `orbit.json`, `go.mod`, `tsconfig.json` and every `.go` file in your module. It skips `orbit_gen/`, `dist/`, `node_modules/`, directories starting with `.` (such as `.orbit/` and `.git/`), and, as the `go` command does, `testdata/` and `_test.go` files; editors' swap and backup files are ignored too. Changes are grouped with a 50 ms debounce. Requests that arrive from the first change until the rebuild is done wait for it, so you never get a half-built page.
+Orbit watches `src/`, `public/`, `orbit.json`, `go.mod`, `tsconfig.json`, every `.go` file in your module, and the files that match the [`watch`](configuration.md#watch) patterns in `orbit.json` (which can be outside the module). It skips `orbit_gen/`, `dist/`, `node_modules/`, directories starting with `.` (such as `.orbit/` and `.git/`), and, as the `go` command does, `testdata/` and `_test.go` files; editors' swap and backup files are ignored too. Changes are grouped with a 50 ms debounce. Requests that arrive from the first change until the rebuild is done wait for it, so you never get a half-built page.
 
 | You change | Orbit does |
 |---|---|
@@ -128,6 +128,7 @@ Orbit watches `src/`, `public/`, `orbit.json`, `go.mod`, `tsconfig.json` and eve
 | a file in `public/` | nothing to rebuild; it just reloads. |
 | a template, frontmatter or `Props` | regenerates the affected Go packages, rebuilds your server and restarts it. The CSS/JS bundles aren't rebuilt unless a `<style>` or `<script>` changed too. |
 | only `.go` files (including `src/locals`) or `go.mod` | starts `go build` at once, while it regenerates; when regenerating changes nothing in `orbit_gen/` (the usual case), that build is the one it runs, otherwise it builds again. Then it restarts your server. |
+| a file matching a [`watch`](configuration.md#watch) pattern in `orbit.json` | nothing to rebuild; it restarts your server (the same binary), then reloads. |
 | `orbit.json`, or several kinds of files at once | regenerates, rebuilds your server and restarts it. |
 
 Adding or removing a component's scoped `<style>` or a processed `<script>`, or toggling `is:global`, counts as "anything else": it changes the HTML (scope attributes, bundle entries), not just the CSS or JS.

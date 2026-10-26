@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/orbit-z/orbit/internal/build"
+	"github.com/orbit-z/orbit/internal/config"
 )
 
 // DefaultPort is the dev server's default port, as Astro's.
@@ -115,6 +116,7 @@ func Run(ctx context.Context, o Options) error {
 		ctx:    ctx,
 		o:      o,
 		s:      s,
+		w:      w,
 		pl:     newPipeline(root, o.Env, goflags),
 		env:    appEnv(os.Environ(), o.Env),
 		exited: make(chan *app),
@@ -122,6 +124,7 @@ func Run(ctx context.Context, o Options) error {
 	d.pl.trace = o.trace
 	defer d.pl.close()
 	defer d.stopApp()
+	d.loadWatch()
 
 	raw := make(chan event, 64)
 	batches := make(chan Change)
@@ -129,7 +132,7 @@ func Run(ctx context.Context, o Options) error {
 	go debounce(ctx, raw, batches, Debounce, s.setBusy, func(rel string) bool {
 		_, err := os.Lstat(filepath.Join(root, filepath.FromSlash(rel)))
 		return err == nil
-	})
+	}, w.classify)
 
 	start := time.Now()
 	d.rebuild(ctx, Change{}, true)
@@ -158,6 +161,7 @@ type devLoop struct {
 	ctx    context.Context
 	o      Options
 	s      *server
+	w      *watcher
 	pl     *pipeline
 	env    []string // the server's environment, without ORBIT_ADDR
 	exited chan *app
@@ -191,10 +195,17 @@ func (d *devLoop) rebuild(ctx context.Context, c Change, initial bool) {
 		d.setFailure(f)
 		return
 	}
+	if c.Has(KindConfig) {
+		d.loadWatch()
+	}
+	bin := out.Bin
+	if a, _ := s.state(); bin == "" && a != nil && c.Has(KindWatch) {
+		bin = a.bin // a watched file changed: restart the same binary
+	}
 	switch {
-	case out.Bin != "":
+	case bin != "":
 		d.stopApp()
-		na, err := startApp(ctx, out.Bin, d.pl.root, d.env, d.o.Stdout, d.o.Stderr)
+		na, err := startApp(ctx, bin, d.pl.root, d.env, d.o.Stdout, d.o.Stderr)
 		if err != nil {
 			if ctx.Err() != nil {
 				return
@@ -225,6 +236,16 @@ func (d *devLoop) rebuild(ctx context.Context, c Change, initial bool) {
 		}
 	}
 	s.hub.broadcast()
+}
+
+// loadWatch applies orbit.json's "watch" patterns to the watcher. An
+// invalid orbit.json leaves them as they were: the pipeline reports it.
+func (d *devLoop) loadWatch() {
+	cfg, err := config.Load(d.pl.root)
+	if err != nil {
+		return
+	}
+	d.w.setWatch(cfg.Watch, func(msg string) { fmt.Fprintln(d.o.Stderr, "orbit dev:", msg) })
 }
 
 func (d *devLoop) setFailure(f *failure) {

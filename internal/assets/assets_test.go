@@ -121,7 +121,7 @@ func TestBundle(t *testing.T) {
 	}
 	css := string(res.File(idx[0].URL).Contents)
 	// Graph order: the layout, then the card, then the page.
-	body, card, p := strings.Index(css, "body{"), strings.Index(css, ".card:where("), strings.Index(css, "p:where(")
+	body, card, p := strings.Index(css, "body{"), strings.Index(css, ".card[data-o-"), strings.Index(css, "p[data-o-")
 	if body < 0 || card < 0 || p < 0 || !(body < card && card < p) {
 		t.Errorf("CSS order wrong:\n%s", css)
 	}

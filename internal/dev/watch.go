@@ -2,12 +2,17 @@ package dev
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/orbit-z/orbit/internal/config"
 )
 
 // Debounce is how long the watcher waits after the last change before it
@@ -15,7 +20,7 @@ import (
 const Debounce = 50 * time.Millisecond
 
 // event is one relevant file-system change, relative to the module root
-// and slash-separated.
+// and slash-separated (starting with ../ for a watched path outside it).
 type event struct {
 	rel   string
 	isDir bool
@@ -28,11 +33,16 @@ type event struct {
 // watcher watches the module root (PLAN.md §7): src/, public/ and every
 // .go file in the module, excluding the directories skipDir rejects
 // (orbit_gen/, dist/, .orbit/, node_modules/). fsnotify isn't recursive, so
-// it adds every directory, and the new ones as they're created.
+// it adds every directory, and the new ones as they're created. It also
+// watches the directories of the orbit.json "watch" patterns (setWatch),
+// which may be outside the module.
 type watcher struct {
 	root string
 	fw   *fsnotify.Watcher
 	errf func(error) // reports watch errors
+
+	mu sync.Mutex
+	ws watchSet
 }
 
 func newWatcher(root string, errf func(error)) (*watcher, error) {
@@ -50,13 +60,59 @@ func newWatcher(root string, errf func(error)) (*watcher, error) {
 
 func (w *watcher) close() error { return w.fw.Close() }
 
-// rel returns name relative to the root, slash-separated.
+// rel returns name relative to the root, slash-separated; it starts with
+// ../ outside the root.
 func (w *watcher) rel(name string) (string, bool) {
 	r, err := filepath.Rel(w.root, name)
-	if err != nil || r == ".." || len(r) > 2 && r[:3] == ".."+string(filepath.Separator) {
+	if err != nil {
 		return "", false
 	}
 	return filepath.ToSlash(r), true
+}
+
+// classify classifies a path with the current watch patterns.
+func (w *watcher) classify(rel string, isDir bool) Kind {
+	w.mu.Lock()
+	ws := w.ws
+	w.mu.Unlock()
+	return ws.classify(rel, isDir)
+}
+
+// setWatch sets the "watch" patterns and watches their directories: a
+// pattern's fixed leading directory, and the directories under it when
+// the pattern can match deeper (skipping the directories skipDir rejects
+// below it). A directory that doesn't exist is reported to warn and
+// skipped. Watches added for earlier patterns stay; their events are
+// ignored once no pattern matches.
+func (w *watcher) setWatch(patterns []string, warn func(string)) {
+	w.mu.Lock()
+	w.ws = watchSet(patterns)
+	w.mu.Unlock()
+	for _, p := range patterns {
+		dir, recursive := config.WatchBase(p)
+		abs := filepath.Join(w.root, filepath.FromSlash(dir))
+		fi, err := os.Stat(abs)
+		if err != nil || !fi.IsDir() {
+			switch {
+			case err == nil:
+				warn(fmt.Sprintf("orbit.json: watch %q: %s isn't a directory; not watched", p, dir))
+			case errors.Is(err, fs.ErrNotExist):
+				warn(fmt.Sprintf("orbit.json: watch %q: directory %s doesn't exist; not watched", p, dir))
+			default:
+				w.errf(err)
+			}
+			continue
+		}
+		if !recursive {
+			if err := w.fw.Add(abs); err != nil {
+				w.errf(err)
+			}
+			continue
+		}
+		if err := w.addTree(abs, nil); err != nil {
+			w.errf(err)
+		}
+	}
 }
 
 // addTree watches dir and every directory under it that isn't skipped.
@@ -75,7 +131,7 @@ func (w *watcher) addTree(dir string, found func(event)) error {
 			return nil
 		}
 		if d.IsDir() {
-			if rel != "." && skipDir(rel) {
+			if name != dir && skipDir(rel) {
 				return filepath.SkipDir
 			}
 			if err := w.fw.Add(name); err != nil {
@@ -92,7 +148,7 @@ func (w *watcher) addTree(dir string, found func(event)) error {
 // run forwards relevant events to out until ctx is done.
 func (w *watcher) run(ctx context.Context, out chan<- event) {
 	send := func(e event) {
-		if Classify(e.rel, e.isDir) == KindIgnore {
+		if w.classify(e.rel, e.isDir) == KindIgnore {
 			return
 		}
 		select {
@@ -127,6 +183,9 @@ func (w *watcher) run(ctx context.Context, out chan<- event) {
 					if skipDir(rel) {
 						continue
 					}
+					if strings.HasPrefix(rel, "../") && w.classify(rel, true) == KindIgnore {
+						continue // outside the module, and no pattern reaches into it
+					}
 					if err := w.addTree(ev.Name, send); err != nil {
 						w.errf(err)
 					}
@@ -144,8 +203,8 @@ func (w *watcher) run(ctx context.Context, out chan<- event) {
 // called on every event, so requests can start waiting for the rebuild
 // before the batch is even ready. exists reports whether a path exists
 // when the batch is made: a path created during the batch that no longer
-// exists is dropped.
-func debounce(ctx context.Context, in <-chan event, out chan<- Change, d time.Duration, busy func(), exists func(rel string) bool) {
+// exists is dropped. classify classifies the paths of a batch.
+func debounce(ctx context.Context, in <-chan event, out chan<- Change, d time.Duration, busy func(), exists func(rel string) bool, classify classifier) {
 	var (
 		pending []event
 		timer   *time.Timer
@@ -191,7 +250,7 @@ func debounce(ctx context.Context, in <-chan event, out chan<- Change, d time.Du
 					dirs[e.rel] = true
 				}
 			}
-			batch = NewChange(paths, dirs)
+			batch = newChange(paths, dirs, classify)
 			outC = out
 		case outC <- batch:
 			ready, outC = nil, nil

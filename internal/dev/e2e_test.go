@@ -249,6 +249,8 @@ var (
 func TestDevServer(t *testing.T) {
 	needE2E(t)
 	dir := fixture(t)
+	writeFile(t, dir, "orbit.json", `{"watch": ["content/**"]}`)
+	writeFile(t, dir, "content/post.md", "# post")
 	s := startSession(t, dir)
 	defer s.stop()
 
@@ -376,5 +378,21 @@ func TestDevServer(t *testing.T) {
 	}
 	if _, body := s.get("/new.txt"); body != "new file" {
 		t.Errorf("new public file: %q", body)
+	}
+
+	// A file matching orbit.json's "watch": the same binary is restarted
+	// (no pipeline stage runs), then a reload.
+	_, pid = s.get("/pid")
+	m0 = s.mark()
+	writeFile(t, dir, "content/post.md", "# changed")
+	waitReload(t, events, "watched file")
+	if st := s.since(m0); len(st) != 0 {
+		t.Errorf("stages for a watched file: %v", st)
+	}
+	if _, p := s.get("/pid"); p == pid {
+		t.Errorf("a watched file didn't restart the server")
+	}
+	if !strings.Contains(s.out.String(), "orbit dev: content/post.md: server restarted in") {
+		t.Errorf("no restart message for the watched file")
 	}
 }

@@ -240,7 +240,7 @@ func checkBlogPost(t *testing.T, s *server) {
 			t.Errorf("GET %s/: %d, want 404 (no redirect)", url, resp.StatusCode)
 		}
 	}
-	if _, b := s.get(css[1]); !strings.Contains(b, ":where([data-o-") {
+	if _, b := s.get(css[1]); !strings.Contains(b, "[data-o-") {
 		t.Errorf("GET %s: no scoped selectors:\n%s", css[1], b)
 	}
 	// LikeButton's script, with util.ts bundled in and its types stripped.

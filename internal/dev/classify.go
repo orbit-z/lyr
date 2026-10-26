@@ -4,6 +4,8 @@ import (
 	"path"
 	"slices"
 	"strings"
+
+	"github.com/orbit-z/orbit/internal/config"
 )
 
 // Kind is what a changed path asks the dev pipeline to do (PLAN.md §7.1),
@@ -31,10 +33,41 @@ const (
 	KindGo
 	// KindConfig: orbit.json: regenerate everything and go build.
 	KindConfig
+	// KindWatch: a file that matches an orbit.json "watch" pattern and is
+	// no other kind: restart the app (no rebuild) and reload.
+	KindWatch
 )
 
 func (k Kind) String() string {
-	return [...]string{"ignore", "public", "asset", "orbit", "go", "config"}[k]
+	return [...]string{"ignore", "public", "asset", "orbit", "go", "config", "watch"}[k]
+}
+
+// classifier classifies a changed path (Classify, or watchSet.classify).
+type classifier func(rel string, isDir bool) Kind
+
+// watchSet is the orbit.json "watch" patterns.
+type watchSet []string
+
+// classify is Classify, plus KindWatch for a path that Classify ignores
+// and a pattern matches (for a directory: a pattern could match below it),
+// except under Orbit's own output (orbit_gen/, dist/, .orbit/) and for
+// editors' temporary files.
+func (ws watchSet) classify(rel string, isDir bool) Kind {
+	k := Classify(rel, isDir)
+	if k != KindIgnore || len(ws) == 0 {
+		return k
+	}
+	rel = path.Clean(rel)
+	first, _, _ := strings.Cut(rel, "/")
+	if first == "orbit_gen" || first == "dist" || first == ".orbit" || editorTemp(path.Base(rel)) {
+		return KindIgnore
+	}
+	for _, p := range ws {
+		if config.MatchWatch(p, rel, isDir) {
+			return KindWatch
+		}
+	}
+	return KindIgnore
 }
 
 // skipDir reports whether the watcher skips a directory, by its
@@ -138,10 +171,14 @@ type Change struct {
 // NewChange classifies paths into a Change. dirs are the paths that are
 // directories.
 func NewChange(paths []string, dirs map[string]bool) Change {
+	return newChange(paths, dirs, Classify)
+}
+
+func newChange(paths []string, dirs map[string]bool, classify classifier) Change {
 	c := Change{kinds: map[Kind]bool{}}
 	seen := map[string]bool{}
 	for _, p := range paths {
-		k := Classify(p, dirs[p])
+		k := classify(p, dirs[p])
 		if k == KindIgnore || seen[p] {
 			continue
 		}

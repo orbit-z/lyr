@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -43,10 +45,32 @@ func Addr() string {
 // (log.Fatal always exits 1, even for a nil error). A
 // second signal during the shutdown stops the process at once. It reads no
 // command-line flags.
+//
+// Once listening, it logs the server's URL with the log package, such as
+// "orbit: listening on http://localhost:4321", except under orbit dev
+// (ORBIT_DEV=1), whose proxy prints its own URL.
 func ListenAndServe(h http.Handler) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	return serve(ctx, stop, Addr(), h, nil)
+	var ready func(net.Addr)
+	if os.Getenv("ORBIT_DEV") != "1" {
+		ready = func(a net.Addr) { log.Printf("orbit: listening on %s", listenURL(a)) }
+	}
+	return serve(ctx, stop, Addr(), h, ready)
+}
+
+// listenURL is the URL of a server listening on a: an unspecified address
+// (":4321", "0.0.0.0", "[::]") is shown as localhost.
+func listenURL(a net.Addr) string {
+	t, ok := a.(*net.TCPAddr)
+	if !ok {
+		return "http://" + a.String()
+	}
+	host := "localhost"
+	if t.IP != nil && !t.IP.IsUnspecified() {
+		host = t.IP.String()
+	}
+	return "http://" + net.JoinHostPort(host, strconv.Itoa(t.Port))
 }
 
 // serve listens on addr and serves h until ctx is done, then shuts down

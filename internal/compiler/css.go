@@ -4,7 +4,7 @@ package compiler
 // tokenized with tdewolff/parse/v2/css's lexer, whose tokens cover the input
 // byte for byte, and walked by a small structural parser (rule lists,
 // declaration lists with CSS nesting, at-rules). The output is the input
-// with edits applied: ":where([attr])" inserted into each selector and the
+// with edits applied: "[attr]" inserted into each selector and the
 // ":global(" … ")" wrappers removed. Everything else, comments and
 // formatting included, is copied as written.
 
@@ -26,11 +26,6 @@ var cssGroupRules = map[string]bool{
 	"scope": true, "starting-style": true, "document": true,
 }
 
-// cssLegacyPseudoElements are the pseudo-elements CSS 2 wrote with one colon.
-var cssLegacyPseudoElements = map[string]bool{
-	"before": true, "after": true, "first-line": true, "first-letter": true,
-}
-
 type cssTok struct {
 	tt         css.TokenType
 	start, end int
@@ -47,14 +42,14 @@ type cssScoper struct {
 	src   string
 	toks  []cssTok
 	i     int
-	where string // ":where([data-o-…])"
+	scope string // "[data-o-…]"
 	edits []cssEdit
 	diags []Diagnostic
 	stack []int // prelude's open-bracket stack, reused
 }
 
 func scopeCSS(src, attr string) (string, []Diagnostic) {
-	s := &cssScoper{src: src, where: ":where([" + attr + "])"}
+	s := &cssScoper{src: src, scope: "[" + attr + "]"}
 	if !s.lex() {
 		return src, s.diags
 	}
@@ -328,7 +323,8 @@ type cssCompound struct {
 	skip bool
 	// nest: holds '&', the parent selector, which is scoped already.
 	nest bool
-	// pseudo is the token of the first pseudo-element's colon, or -1.
+	// pseudo is the token of the first pseudo-class's or pseudo-element's
+	// colon, or -1: the scope goes before it, as in Astro (a[s]:hover).
 	pseudo int
 }
 
@@ -413,11 +409,11 @@ func (s *cssScoper) complexSelector(a, b int, nested bool) {
 				c.last = k
 			case s.is(k+1, css.FunctionToken) && strings.EqualFold(s.text(s.toks[k+1]), "global("):
 				c.skip = true
-			case s.is(k+1, css.IdentToken):
-				name := strings.ToLower(s.text(s.toks[k+1]))
-				if cssLegacyPseudoElements[name] && c.pseudo < 0 {
+			default:
+				if c.pseudo < 0 {
 					c.pseudo = k
-				} else if name == "root" {
+				}
+				if s.is(k+1, css.IdentToken) && strings.EqualFold(s.text(s.toks[k+1]), "root") {
 					c.skip = true
 				}
 			}
@@ -443,7 +439,7 @@ func (s *cssScoper) complexSelector(a, b int, nested bool) {
 		if c.pseudo >= 0 {
 			at = s.toks[c.pseudo].start
 		}
-		s.edits = append(s.edits, cssEdit{at, at, s.where})
+		s.edits = append(s.edits, cssEdit{at, at, s.scope})
 		return
 	}
 }
@@ -495,7 +491,7 @@ func (s *cssScoper) apply() string {
 		return (x.end - x.start) - (y.end - y.start) // insertions first
 	})
 	var b strings.Builder
-	b.Grow(len(s.src) + len(s.edits)*len(s.where))
+	b.Grow(len(s.src) + len(s.edits)*len(s.scope))
 	pos := 0
 	for _, e := range s.edits {
 		if e.start < pos {

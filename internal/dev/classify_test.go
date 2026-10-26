@@ -64,6 +64,40 @@ func TestClassify(t *testing.T) {
 	}
 }
 
+// TestClassifyWatch checks the orbit.json "watch" patterns: a matching path
+// that's no other kind is KindWatch; other kinds win; Orbit's own output
+// and editors' temporary files never are.
+func TestClassifyWatch(t *testing.T) {
+	ws := watchSet{"../*.md", "content/**", "testdata/*.json", "dist/**", "src/**"}
+	tests := []struct {
+		rel   string
+		isDir bool
+		want  Kind
+	}{
+		{"../README.md", false, KindWatch},
+		{"../reference/cli.md", false, KindIgnore},
+		{"../x.txt", false, KindIgnore},
+		{"content/a/b.md", false, KindWatch},
+		{"content/a", true, KindWatch},
+		{"content/.b.md.swp", false, KindIgnore},
+		{"testdata/x.json", false, KindWatch}, // a directory the watcher skips otherwise
+		{"dist/x", false, KindIgnore},
+		{"src/a.ts", false, KindAsset},
+		{"src/pages/a.orbit", false, KindOrbit},
+		{"README.md", false, KindIgnore},
+		{"go.mod", false, KindGo},
+	}
+	for _, tt := range tests {
+		if got := ws.classify(tt.rel, tt.isDir); got != tt.want {
+			t.Errorf("classify(%q, dir=%v) = %v, want %v", tt.rel, tt.isDir, got, tt.want)
+		}
+	}
+	c := newChange([]string{"../README.md", "public/x"}, nil, ws.classify)
+	if !c.Only(KindWatch, KindPublic) || !c.Has(KindWatch) {
+		t.Errorf("watch change: %+v", c)
+	}
+}
+
 func TestChange(t *testing.T) {
 	c := NewChange([]string{"internal/a/a.go", "README.md", "go.mod", "internal/a/a.go"}, nil)
 	if want := []string{"go.mod", "internal/a/a.go"}; !slices.Equal(c.Paths, want) {

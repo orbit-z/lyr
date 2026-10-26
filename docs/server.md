@@ -289,7 +289,7 @@ Rendering a full page, with its assets, from a custom handler is not yet support
 
 ## Listening: `ListenAndServe` and `Addr`
 
-`orbit.ListenAndServe(h)` starts an HTTP server for `h` on `orbit.Addr()` and shuts down gracefully on `SIGINT` or `SIGTERM`. It reads no command-line flags, so it never clashes with your own. After a graceful shutdown it returns `nil`, so `if err := orbit.ListenAndServe(h); err != nil { log.Fatal(err) }` exits cleanly on Ctrl-C and only logs real failures, such as a port that's already taken. (Don't write `log.Fatal(orbit.ListenAndServe(h))`: `log.Fatal` exits with status 1 even when the error is nil.) Its settings:
+`orbit.ListenAndServe(h)` starts an HTTP server for `h` on `orbit.Addr()` and shuts down gracefully on `SIGINT` or `SIGTERM`. It reads no command-line flags, so it never clashes with your own. Once it's listening, it logs where, with Go's `log` package (so on stderr, with the log's timestamp): `orbit: listening on http://localhost:4321`. The address is the one it actually bound; an address without a host (`:4321`, `0.0.0.0`) is shown as `localhost`. Under `orbit dev` it logs nothing, since the dev server prints its own URL. After a graceful shutdown it returns `nil`, so `if err := orbit.ListenAndServe(h); err != nil { log.Fatal(err) }` exits cleanly on Ctrl-C and only logs real failures, such as a port that's already taken. (Don't write `log.Fatal(orbit.ListenAndServe(h))`: `log.Fatal` exits with status 1 even when the error is nil.) Its settings:
 
 - `ReadHeaderTimeout` of 10 seconds and `IdleTimeout` of 120 seconds;
 - no `ReadTimeout` or `WriteTimeout`, so slow uploads and your own streaming handlers keep working;

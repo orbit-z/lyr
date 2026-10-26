@@ -242,7 +242,7 @@ func checkAssets(t *testing.T, s *server) {
 	if b := bodies[js[1]]; !strings.Contains(b, "querySelectorAll") || strings.Contains(b, "NodeListOf") || strings.Contains(b, ": string") || strings.Contains(b, " as number") {
 		t.Errorf("JS bundle isn't stripped TypeScript:\n%s", b)
 	}
-	scope := regexp.MustCompile(`\.site:where\(\[data-o-[0-9a-f]{8}\]\)\{color:navy\}`)
+	scope := regexp.MustCompile(`\.site\[data-o-[0-9a-f]{8}\]\{color:navy\}`)
 	if b := bodies[css[1]]; !scope.MatchString(b) || !strings.Contains(b, ".card{border:1px solid gray}") {
 		t.Errorf("CSS bundle lacks the scoped and the global style:\n%s", b)
 	}

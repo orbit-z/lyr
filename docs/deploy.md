@@ -26,7 +26,11 @@ Deploy both, side by side, and run the binary:
 ./dist/server
 ```
 
-The server looks for its static files in the `client/` directory next to the binary (in the binary's own directory, not the working directory, after resolving symlinks to the binary), so you can start it from anywhere. It listens on `:4321` unless you set `ORBIT_ADDR` or `PORT`, and it shuts down gracefully on SIGINT and SIGTERM (when your `main` uses `orbit.ListenAndServe`, as the scaffolded one does).
+The server looks for its static files in the `client/` directory next to the binary (in the binary's own directory, not the working directory, after resolving symlinks to the binary), so you can start it from anywhere. It listens on `:4321` unless you set `ORBIT_ADDR` or `PORT`, and it shuts down gracefully on SIGINT and SIGTERM (when your `main` uses `orbit.ListenAndServe`, as the scaffolded one does). `orbit.ListenAndServe` also logs where it listens, on stderr:
+
+```text
+2026/10/26 09:00:00 orbit: listening on http://localhost:4321
+```
 
 To deploy, copy the binary and the directory together:
 
@@ -126,6 +130,20 @@ orbit_gen
 `node_modules/` stays in the context, because esbuild resolves npm imports in your scripts from it and the image has no Node or Bun to install them.
 
 A project created before Orbit's first release has a `replace` directive in `go.mod` pointing at a local clone of Orbit (see [Getting started](getting-started.md#trying-orbit-before-its-first-release)). The build stage can't see that directory, so `go mod download` fails. To build the image anyway (in a copy of the project, since local builds need the original `replace`), point the `replace` at a path inside the image, such as `replace github.com/orbit-z/orbit => /orbit`, add `COPY --from=orbit . /orbit` after `WORKDIR /src`, and pass the clone as a named build context: `docker build --build-context orbit=/path/to/orbit -t blog .`.
+
+### Projects that need files outside their directory
+
+The scaffolded `Dockerfile` assumes the project is self-contained: the build context is the project directory, so the image can't see anything outside it. If your project needs files from a parent directory, such as a local `replace` for a module next to it, or content kept higher up in a monorepo, build from that parent directory instead and point Docker at the `Dockerfile`:
+
+```sh
+docker build -f site/Dockerfile -t site .
+```
+
+In the `Dockerfile`, paths are then relative to the parent: copy `site/go.mod` and `site/go.sum` (and those of any module it replaces) before `go mod download`, `COPY . .`, then set `WORKDIR` to the project before `go tool orbit build --embed`, and copy `/src/site/dist/server` in the final stage.
+
+A `.dockerignore` only applies at the root of the build context, so the project's own one is no longer used. With BuildKit (the default builder in current Docker), put the ignore rules next to the `Dockerfile` as `site/Dockerfile.dockerignore`; it's used for builds with that `Dockerfile`, whatever the context. Write its paths relative to the context, with `**/` to match at any depth (`**/dist`, `**/orbit_gen`, `**/.orbit`).
+
+Orbit's own docs site is built this way: see [`docs/site/Dockerfile`](https://github.com/orbit-z/orbit/blob/main/docs/site/Dockerfile) and its `Dockerfile.dockerignore`.
 
 ## Island key: `ORBIT_KEY`
 

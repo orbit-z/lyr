@@ -39,6 +39,9 @@ type Config struct {
 	// Sourcemap is "sourcemap": true: orbit build writes external source
 	// maps next to the bundles, not linked from them (PLAN.md §5).
 	Sourcemap bool
+	// Watch are the "watch" globs: extra files whose changes restart the
+	// app in orbit dev (PLAN.md §7), relative to the project root.
+	Watch []string
 }
 
 // Load reads dir/orbit.json. A missing file gives the defaults.
@@ -63,6 +66,7 @@ func Parse(data []byte) (*Config, error) {
 		Embed        json.RawMessage `json:"embed"`
 		CompressHTML json.RawMessage `json:"compressHTML"`
 		Sourcemap    json.RawMessage `json:"sourcemap"`
+		Watch        json.RawMessage `json:"watch"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		var syn *json.SyntaxError
@@ -104,6 +108,16 @@ func Parse(data []byte) (*Config, error) {
 	if isSet(raw.Sourcemap) {
 		if json.Unmarshal(raw.Sourcemap, &c.Sourcemap) != nil {
 			return nil, fmt.Errorf("%s: sourcemap must be true or false", FileName)
+		}
+	}
+	if isSet(raw.Watch) {
+		if json.Unmarshal(raw.Watch, &c.Watch) != nil {
+			return nil, fmt.Errorf("%s: watch must be an array of strings", FileName)
+		}
+		for i, p := range c.Watch {
+			if err := CheckWatch(p); err != nil {
+				return nil, fmt.Errorf("%s: watch[%d] %q: %v", FileName, i, p, err)
+			}
 		}
 	}
 	if isSet(raw.CompressHTML) {

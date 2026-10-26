@@ -67,11 +67,11 @@ func HasScopedStyle(f *File) bool {
 }
 
 // ScopeAttr returns the scope attribute name of a file, "data-o-" plus its
-// ScopeHash, e.g. data-o-3fa2c1d0. CSS selectors use :where([data-o-…]).
+// ScopeHash, e.g. data-o-3fa2c1d0. CSS selectors use [data-o-…].
 func ScopeAttr(orbitPath string) string { return "data-o-" + ScopeHash(orbitPath) }
 
 // ScopeCSS rewrites css so its selectors only match elements carrying
-// attr (ScopeAttr): :where([attr]) is appended to the last compound of
+// attr (ScopeAttr): [attr] is added to the last compound of
 // each selector (PLAN.md §5). Diagnostics have spans relative to css; the
 // caller shifts them to the style's Content.Start.
 //
