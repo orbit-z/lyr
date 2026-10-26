@@ -54,6 +54,10 @@ func (s *Server) completion(ctx context.Context, params jsonRaw) (any, *rpcError
 		return nil, nil
 	}
 	snippets := s.caps.snippets
+	if items, ok := c.ws.importPathItems(c, trigger); ok {
+		s.mu.Unlock()
+		return completionList(false, items), nil
+	}
 	switch c.reg.kind {
 	case regionGo:
 		if !goTrigger(c.reg, trigger) {

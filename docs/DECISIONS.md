@@ -546,7 +546,6 @@ Decided with the Markdown spec (`PLAN.md` §2.4); the choices that shape the pub
 | The highlight CSS comes first in the page stylesheet, so user styles override it | simplest | Last | [Markdown](markdown.md#code-blocks) |
 | `<Post />` takes no attributes (unknown-prop error) and ignores children | Astro (`<Content />` takes no props) | Pass attributes to its layout | [Markdown](markdown.md#importing-markdown-into-a-component) |
 | `server:defer` and `client:*` on a Markdown component aren't special-cased | simplest | Reject them | `PLAN.md` §2.4 |
-| The Orbit language server does nothing for `.md` files | simplest | Frontmatter and link diagnostics | [Markdown](markdown.md#in-the-dev-server) |
 | An empty list (`tags: []`) is a `[]string` in `Frontmatter` | simplest | `[]any`, or an error | [Markdown](markdown.md#postfrontmatter) |
 | The keys of nested maps follow the field-name rules, also when the layout field is a `map[string]T` | simplest (one parse for `Frontmatter` and the props) | Map keys as written | [Markdown](markdown.md#frontmatter) |
 | A YAML number with a fraction can't set an integer field (`1.5` for `uint8`); an integer can set a float field | Go (constant conversion rules) | Truncate | [Markdown](markdown.md#layouts) |
@@ -558,7 +557,23 @@ Decided with the Markdown spec (`PLAN.md` §2.4); the choices that shape the pub
 | A theme with no text or background color of its own uses `CanvasText` / `Canvas` in the generated CSS | simplest (`light-dark()` needs two colors) | Inherit (impossible inside `light-dark()`) | [Markdown](markdown.md#code-blocks) |
 | `<<` and `>>` aren't turned into guillemets | Astro (smartypants has no such rule) | goldmark Typographer's default | [Markdown](markdown.md#what-you-can-write) |
 | Link errors and warnings point at the link's `[`; a `?query` and the `#fragment` are kept when a link is rewritten | simplest | The destination's position | [Markdown](markdown.md#links-between-markdown-files) |
-| `orbit lsp` regenerates on `.md` changes on disk (its file watcher), so gopls completes `Post.Frontmatter.`, and publishes no diagnostics for `.md` files | simplest (`PLAN.md` §9: nothing for `.md` in this release) | Diagnostics in `.md` files | [Markdown](markdown.md#in-the-dev-server) |
+| `orbit lsp` regenerates on `.md` changes on disk (its file watcher), so gopls completes `Post.Frontmatter.`; an open `.md` follows its buffer instead, like an `.orbit` file | simplest | — | [Editor setup](editor-setup.md#markdown-files) |
+
+## Markdown in the language server
+
+Decided with the language server's Markdown support (user-approved: `.md` diagnostics and `.md` import paths; `PLAN.md` §9).
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| Diagnostics are published for every compiled `.md` file (pages and imported files), open or not, and stay after `didClose` (then about the disk content); `.md` files Orbit doesn't compile, or outside `src/`, get none | same as `.orbit` files (simplest) | Only open files; clear on close | [Editor setup](editor-setup.md#markdown-files) |
+| gopls's diagnostics in a `.md` file's generated Go aren't shown | simplest (no user code there; the untyped fallback assignments would report false mismatches, such as a YAML number for a `string` field) | Map them to the key through the `//line` directives | `PLAN.md` §9 |
+| A frontmatter type error comes from the typed check (startup, and after `orbit_gen/` changes), shown at its key while the key's text and the layout's `Props` are unchanged; the check now also runs at startup without `orbit_gen/` when a compiled `.md` has a layout | simplest (no extra go/types runs while typing) | A typed check debounced after each `.md` edit | [Editor setup](editor-setup.md#markdown-files) |
+| Requests other than diagnostics on a `.md` (hover, completion, definition, references, rename) answer `null` | simplest | — | [Editor setup](editor-setup.md#markdown-files) |
+| Opening a `.md` doesn't make the server look for a project (an `.orbit` file does, when the editor's root isn't one) | simplest (a `src/` next to a `go.mod` isn't always an Orbit project) | Also load from a `.md` | — |
+| The VS Code extension selects Markdown by path (`**/src/**/*.{md,markdown,mdown,mkdn,mkd,mdwn}`, any language id), and its middleware skips every request but diagnostics for non-`.orbit` documents | simplest (covers every extension Orbit accepts, even ones VS Code doesn't call `markdown`) | `language: "markdown"` plus the pattern | `editors/vscode/README.md` |
+| Import path completion offers full paths relative to the file (every `.orbit` file and every `.md` under `src/`, minus the file itself and those already imported), sorted nearest first; it starts at `./` or `../`, with `/` as a new trigger character; with no alias, accepting adds one, derived as for tag auto-imports | simplest | Directory-by-directory completion; offering only components | [Editor setup](editor-setup.md#what-completion-covers) |
+| Tag completion offers a `.md` component only when Orbit compiles it (it's in the component index); `.md` pages aren't offered, like `.orbit` pages | simplest (consistent with the index) | Every `.md` under `src/` | [Editor setup](editor-setup.md#what-completion-covers) |
+| Renaming a layout `Props` field that a frontmatter sets is refused, naming the file, line and key | user decision (Orbit doesn't edit Markdown) | — | [Editor setup](editor-setup.md#rename) |
 
 ## Codegen speed
 

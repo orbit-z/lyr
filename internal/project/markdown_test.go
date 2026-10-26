@@ -344,3 +344,56 @@ func TestMarkdownRefresh(t *testing.T) {
 		t.Errorf("after the removal: %s", got)
 	}
 }
+
+// TestUpdateMarkdown: the language server's edits of open Markdown files.
+func TestUpdateMarkdown(t *testing.T) {
+	p := newTestProject(t, map[string]string{
+		"src/pages/index.orbit": "---\nimport Intro \"../content/intro.md\"\n---\n<Intro />\n",
+		"src/pages/about.md":    "# About\n\n[intro](./other.md)\n",
+		"src/pages/other.md":    "# Other\n",
+		"src/content/intro.md":  "Intro.\n",
+		"src/content/README.md": "not compiled\n",
+	})
+	proj, err := Load(p.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if proj.Front() {
+		t.Fatalf("Front: %v", diagStrings(proj.Diagnostics))
+	}
+	paths := func(fs []*File) string {
+		var s []string
+		for _, f := range fs {
+			s = append(s, f.Path)
+		}
+		return strings.Join(s, " ")
+	}
+	if _, ok := proj.UpdateMarkdown("src/pages/other.md", "# Other\n", false); ok {
+		t.Error("an unchanged source changed something")
+	}
+	if _, ok := proj.UpdateMarkdown("docs/x.md", "x", false); ok {
+		t.Error("a file outside src/ changed something")
+	}
+	// An edit regenerates only that file; the link check reruns.
+	out, ok := proj.UpdateMarkdown("src/pages/about.md", "# About\n\n[intro](./other.md#nope)\n", false)
+	if !ok || paths(out) != "src/pages/about.md" {
+		t.Fatalf("edit: %v %q", ok, paths(out))
+	}
+	if got := joinLines(diagStrings(proj.Diagnostics)); got != "src/pages/about.md:3:1: warning: link ./other.md#nope: src/pages/other.md has no heading #nope" {
+		t.Errorf("after the edit: %s", got)
+	}
+	// A file that isn't compiled regenerates nothing.
+	if out, ok := proj.UpdateMarkdown("src/content/README.md", "still not\n", false); !ok || len(out) != 0 {
+		t.Errorf("README.md: %v %q", ok, paths(out))
+	}
+	// Removing a link target is an error at the link.
+	if _, ok := proj.UpdateMarkdown("src/pages/other.md", "", true); !ok {
+		t.Fatal("removal")
+	}
+	if got := joinLines(diagStrings(proj.Diagnostics)); !strings.Contains(got, "src/pages/about.md:3:1: link ./other.md") {
+		t.Errorf("after the removal: %s", got)
+	}
+	if proj.byPath()["src/pages/other.md"] != nil {
+		t.Error("other.md still compiled")
+	}
+}

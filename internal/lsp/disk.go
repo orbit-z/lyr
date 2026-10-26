@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"time"
 
 	"github.com/orbit-z/orbit/internal/compiler"
@@ -42,8 +43,11 @@ type diskCheck struct {
 	// typed are the typed generated files found on disk, by
 	// module-relative path (set by run).
 	typed map[string]*compiler.GenFile
-	files int // generated files compared
-	took  time.Duration
+	// mdTyped are the typed pass's diagnostics of Markdown files
+	// (mdtyped.go; set by run).
+	mdTyped map[string][]mdTypedDiag
+	files   int // generated files compared
+	took    time.Duration
 }
 
 // newDiskCheck snapshots ws for a typed check (with s.mu held).
@@ -66,9 +70,11 @@ func (c *diskCheck) run(ctx context.Context) error {
 	p := c.proj
 	checker := compiler.NewChecker(&compiler.GoListLoader{Dir: p.Root})
 	p.FrontPreload(checker) // go list -export runs during pass 1
+	front := slices.Clone(p.Diagnostics)
 	if _, err := p.Typecheck(ctx, checker); err != nil {
 		return err
 	}
+	c.mdTyped = typedMarkdownDiags(p, front)
 	c.typed = map[string]*compiler.GenFile{}
 	for _, f := range p.Files {
 		if f.Output == nil {
@@ -134,8 +140,16 @@ func (ws *workspace) adopt(c *diskCheck, skipOpen bool) int {
 // sent meanwhile.
 func (s *Server) startupCheck(ws *workspace) {
 	if ws.genMissing {
+		// Nothing on disk to match, so requests needn't wait; the check
+		// still runs for the typed diagnostics of Markdown files that
+		// have a layout.
 		s.markMapped()
-		return
+		s.mu.Lock()
+		need := ws.hasMarkdownLayouts()
+		s.mu.Unlock()
+		if !need {
+			return
+		}
 	}
 	s.mu.Lock()
 	c := ws.newDiskCheck()
@@ -159,7 +173,8 @@ func (s *Server) startupCheck(ws *workspace) {
 	n := 0
 	if err == nil && s.ws == ws {
 		n = ws.adopt(c, late)
-		if late && n > 0 {
+		ws.mdTyped = c.mdTyped
+		if late && n > 0 || len(c.mdTyped) > 0 {
 			s.publishAll(ws)
 		}
 	}
@@ -240,7 +255,9 @@ func (s *Server) runDiskCheck() {
 	n := 0
 	if err == nil && s.ws == ws && ws.gopls != nil {
 		n = ws.adopt(c, false)
-		if n > 0 {
+		had := len(ws.mdTyped) > 0
+		ws.mdTyped = c.mdTyped
+		if n > 0 || had || len(c.mdTyped) > 0 {
 			s.publishAll(ws)
 		}
 	}

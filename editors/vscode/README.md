@@ -6,7 +6,8 @@ Language support for [Orbit](https://github.com/orbit-z/orbit) `.orbit` componen
 
 - **Syntax highlighting**: the frontmatter and `{…}` expressions (including `{if}`/`{else if}`/`{else}`/`{/if}`, `{for}`/`{/for}`, attribute values `a={…}`, the shorthand `{a}` and spreads `{...attrs}`) as Go, `<style>` as CSS, `<script>` as TypeScript (`<script type="application/json">` and `ld+json` as JSON), and the rest as HTML. Components (`<Card>`, `<Self>`, `<Fragment>`) and directives (`set:html`, `client:visible`, `server:defer`, `slot`, `is:inline`, …) get their own scopes. `{/* … */}` is a template comment; braces inside `<script>`, `<style>` and HTML comments aren't expressions.
 - **Editing**: bracket matching, comment toggling (`//` in the frontmatter, `<!-- -->` in the template) and auto-closing pairs.
-- **Language server**: the extension starts `orbit lsp`, which gives you Go completion, hover, diagnostics, go-to-definition, references and rename inside `.orbit` files (through gopls), plus completion of tags, component props, directives and slot names. See [Editor setup](https://github.com/orbit-z/orbit/blob/main/docs/editor-setup.md) for what it covers.
+- **Language server**: the extension starts `orbit lsp`, which gives you Go completion, hover, diagnostics, go-to-definition, references and rename inside `.orbit` files (through gopls), plus completion of tags, component props, directives, slot names and import paths (`.orbit` and Markdown files).
+- **Markdown diagnostics**: for Markdown pages and imported `.md` files under `src/`, the language server reports Orbit's errors and warnings as you type (frontmatter, layout, links, routes). Highlighting, preview and every other Markdown feature stay VS Code's own; the extension sends Markdown files to `orbit lsp` for diagnostics only. See [Editor setup](https://github.com/orbit-z/orbit/blob/main/docs/editor-setup.md) for what it covers.
 
 ## Requirements
 
@@ -66,7 +67,7 @@ vim.lsp.config('orbit', {
 vim.lsp.enable('orbit')
 ```
 
-The highlighting grammar is a TextMate grammar, which Neovim doesn't use.
+The highlighting grammar is a TextMate grammar, which Neovim doesn't use. For Orbit's diagnostics in Markdown pages too, use `filetypes = { 'orbit', 'markdown' }`: the server ignores Markdown files Orbit doesn't compile, and answers other requests on Markdown files with nothing.
 
 ## Development
 

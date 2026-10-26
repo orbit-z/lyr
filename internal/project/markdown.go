@@ -186,3 +186,41 @@ func (p *Project) highlighted(page *File) bool {
 	}
 	return false
 }
+
+// MarkdownPaths returns the paths of every Markdown file under src/,
+// sorted, whether Front compiles it or not (the language server completes
+// them in import paths).
+func (p *Project) MarkdownPaths() []string { return slices.Clone(p.mdPaths) }
+
+// UpdateMarkdown is SetMarkdown followed by the part of Front that the
+// edit affects, as Reload does it: the file is re-parsed (if Front
+// compiles it), the files that depend on it are regenerated, and the link
+// checks and diagnostics are recomputed. It returns the Files whose pass-1
+// output changed (new Files included), and false when path isn't a
+// Markdown file under src/ or nothing changed. The language server runs it
+// on every edit of an open Markdown file (PLAN.md §9).
+func (p *Project) UpdateMarkdown(path, src string, removed bool) ([]*File, bool) {
+	old, had := p.markdown[path]
+	if removed && !had || !removed && had && old == src {
+		return nil, false
+	}
+	if p.Index == nil || !p.SetMarkdown(path, src, removed) {
+		return nil, false
+	}
+	before := make(map[*File]*compiler.Output, len(p.Files))
+	var orbit []*File
+	for _, f := range p.Files {
+		before[f] = f.Pass1
+		if !f.IsMD() {
+			orbit = append(orbit, f)
+		}
+	}
+	p.frontChanged(orbit, map[string]bool{path: true}, removed || !had)
+	var out []*File
+	for _, f := range p.Files {
+		if prev, ok := before[f]; !ok || prev != f.Pass1 {
+			out = append(out, f)
+		}
+	}
+	return out, true
+}

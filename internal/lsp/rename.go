@@ -179,6 +179,20 @@ func reservedErr(name string) *rpcError {
 	return nil
 }
 
+// mdRenameErr refuses a rename that would change the generated code of
+// the Markdown file f: a layout Props field its frontmatter sets (user
+// decision: Orbit doesn't edit Markdown files).
+func mdRenameErr(f *project.File, name string) *rpcError {
+	where := f.Path
+	for _, fd := range f.MD.Fields {
+		if compiler.NormalizeName(fd.Key) == compiler.NormalizeName(name) {
+			where = fmt.Sprintf("%s:%d (%s)", f.Path, f.MD.Lines.Position(fd.KeyPos).Line, fd.Key)
+			break
+		}
+	}
+	return renameErr("can't rename %s: the frontmatter of %s sets it, and Orbit doesn't rename Markdown frontmatter keys; rename the field and the key by hand", name, where)
+}
+
 func paramsErr(name, page string) *rpcError {
 	return renameErr("can't rename params.%s: route params come from the file path (%s); rename the file instead", name, page)
 }
@@ -783,6 +797,9 @@ func (rm *renameMapper) edit(g *genFile, r Range, text string, set *editSet) *rp
 	}
 	if inParams(g, f, gs) {
 		return paramsErr(name, g.orbit)
+	}
+	if f.MD != nil {
+		return mdRenameErr(f, name)
 	}
 	p := g.lines.position(gs, encUTF8)
 	return renameErr("can't rename %s: it would change Orbit's generated code where it has no place in your .orbit files (%s:%d:%d)",
