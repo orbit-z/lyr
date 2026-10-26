@@ -12,7 +12,7 @@ href := "/blog/" + props.Post.Slug
   <p class="meta">
     <time datetime={props.Post.Published.Format("2006-01-02")}>{props.Post.Published.Format("2 Jan 2006")}</time>
     {for _, tag := range props.Post.Tags}
-      <span class="tag">{tag}</span>
+      {" "}<span class="tag">{tag}</span>
     {/for}
   </p>
   <slot />

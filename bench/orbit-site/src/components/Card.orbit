@@ -15,10 +15,10 @@ type Props struct {
   <p class="meta">
     <span class="likes">{props.Likes} likes</span>
     {for _, t := range props.Tags}
-      <Badge label={t} />
+      {" "}<Badge label={t} />
     {/for}
     {if props.Featured}
-      <strong class="featured">Featured</strong>
+      {" "}<strong class="featured">Featured</strong>
     {/if}
   </p>
 </article>

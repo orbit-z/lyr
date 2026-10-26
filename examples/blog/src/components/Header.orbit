@@ -1,8 +1,8 @@
 <header class="site-header">
   <a class="brand" href="/">Orbit blog</a>
   <nav>
-    <a href="/">Posts</a>
-    <a href="/search">Search</a>
+    <a href="/">Posts</a>{" "}
+    <a href="/search">Search</a>{" "}
     <a href="/account">Account</a>
   </nav>
 </header>

@@ -7,7 +7,7 @@ import Base "../layouts/Base.orbit"
   <p>Request ID: <code>{locals.RequestID}</code></p>
   <p>Both come from the <code>requestInfo</code> middleware in <code>cmd/server/main.go</code>, through typed locals.</p>
   <theme-picker>
-    <button type="button" data-theme="light">Light</button>
+    <button type="button" data-theme="light">Light</button>{" "}
     <button type="button" data-theme="dark">Dark</button>
   </theme-picker>
 </Base>

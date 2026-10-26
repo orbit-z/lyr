@@ -15,8 +15,8 @@ const { title, href, likes, featured, tags } = Astro.props;
   <div class="body"><slot /></div>
   <p class="meta">
     <span class="likes">{likes} likes</span>
-    {tags.map((t) => <Badge label={t} />)}
-    {featured && <strong class="featured">Featured</strong>}
+    {tags.map((t) => [" ", <Badge label={t} />])}
+    {featured && [" ", <strong class="featured">Featured</strong>]}
   </p>
 </article>
 <style>

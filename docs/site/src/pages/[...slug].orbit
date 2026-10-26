@@ -31,7 +31,7 @@ prev, next := docs.Neighbors(page)
   </article>
   <footer class="pager">
     {if prev != nil}
-      <a class="prev" href={prev.URL}><small>Previous</small>{prev.Title}</a>
+      <a class="prev" href={prev.URL}><small>Previous</small>{prev.Title}</a>{" "}
     {/if}
     {if next != nil}
       <a class="next" href={next.URL}><small>Next</small>{next.Title}</a>
