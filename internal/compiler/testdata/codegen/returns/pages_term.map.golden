@@ -1,12 +1,12 @@
 orbit_gen/decl/pages/term/decl.go (src/pages/term.orbit)
 orbit_gen/impl/pages/term/render.go (src/pages/term.orbit)
   exact 2:8 "\"fmt\"" -> 200-205 "\"fmt\""
-  exact 4:1 "n, err := 1, error(nil)" -> 745-768 "n, err := 1, error(nil)"
-  exact 5:1 "if err != nil {\n\treturn " -> 838-862 "if err != nil {\n\treturn "
-  exact 6:9 "err" -> 977-980 "err"
-  exact 7:1 "}" -> 1052-1053 "}"
-  echo  - -> 1083-1084 "n"
-  echo  - -> 1090-1093 "err"
-  exact 8:1 "return " -> 1139-1146 "return "
-  exact 8:8 "fmt.Errorf(\"term %d\", n)" -> 1261-1285 "fmt.Errorf(\"term %d\", n)"
+  exact 4:1 "n, err := 1, error(nil)" -> 753-776 "n, err := 1, error(nil)"
+  exact 5:1 "if err != nil {\n\treturn " -> 846-870 "if err != nil {\n\treturn "
+  exact 6:9 "err" -> 985-988 "err"
+  exact 7:1 "}" -> 1060-1061 "}"
+  echo  - -> 1091-1092 "n"
+  echo  - -> 1098-1101 "err"
+  exact 8:1 "return " -> 1147-1154 "return "
+  exact 8:8 "fmt.Errorf(\"term %d\", n)" -> 1269-1293 "fmt.Errorf(\"term %d\", n)"
 call sites

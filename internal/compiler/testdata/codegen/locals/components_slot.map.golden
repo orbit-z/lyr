@@ -2,7 +2,7 @@ orbit_gen/decl/components/slot/decl.go (src/components/Slot.orbit)
 orbit_gen/impl/components/slot/render.go (src/components/Slot.orbit)
   exact 2:8 "Doc" -> 255-258 "Doc"
   span  2:12 "\"./Doc.orbit\"" -> 259-307 "\"example.com/blog/orbit_gen/decl/components/doc\""
-  span  4:2 "Doc" -> 894-904 "Doc.Render"
-  exact 4:10 "locals.User" -> 1126-1137 "locals.User"
+  span  4:2 "Doc" -> 902-912 "Doc.Render"
+  exact 4:10 "locals.User" -> 1134-1145 "locals.User"
 call sites
   content key=42 "locals.User" call="orbit__w.Expr(\n/*line ../../../../src/components/Slot.orbit:4:10*/locals.User/*line render.go:28:87*/,\n\t\t\t)"

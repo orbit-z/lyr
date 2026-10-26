@@ -266,13 +266,13 @@ func (g *cgGen) genImpl() *GenFile {
 	}
 	o.str(")\n\n")
 	g.hoisted(PlaceImpl)
-	o.str("var _ = func() int { " + NameHook + " = " + NameRender + "; return 0 }()\n\n")
+	o.str("var _ = func() int { " + NameHook + " = " + NameRenderImpl + "; return 0 }()\n\n")
 
 	params, paramsArg := "", ""
 	if g.isPage() {
 		params, paramsArg = ", "+NameParams+" Params", ", "+NameParams
 	}
-	o.str("func " + NameRender + "(" + NameCtx + " *" + NameRuntime + ".Ctx, " + NameW + " *" + NameRuntime + ".Writer, " +
+	o.str("func " + NameRenderImpl + "(" + NameCtx + " *" + NameRuntime + ".Ctx, " + NameW + " *" + NameRuntime + ".Writer, " +
 		NameProps + " Props, " + NameSlots + " " + NameRuntime + ".Slots" + params + ") error {\n")
 	o.depth = 1
 	o.ln("if " + NameErr + " := " + NameW + ".Enter(" + strconv.Quote(g.a.Info.Path) + "); " + NameErr + " != nil {")
