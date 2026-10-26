@@ -51,11 +51,11 @@ func TestInline(t *testing.T) {
 	fs := fakeFS{
 		"/p/src/styles/fonts/fonts.css": "@charset \"utf-8\";\n@font-face { font-family: X; src: url(./x.woff2) format(\"woff2\"), url('../img/y.woff?v=1#iefix'); }\n" +
 			".bg { background: url(data:image/png;base64,AA), url(https://e.com/a.png), url(/public.png), url(#f), url(\"z.png\"); }\n",
-		"/p/src/styles/theme.css": "@import \"./fonts/fonts.css\";\n@theme { --c: red; }\n@source \"../components\";\n@source not \"./legacy\";\n@plugin \"./plug.mjs\";\n@plugin \"daisyui\";\n@reference \"./ref.css\";\n",
+		"/p/src/styles/theme.css":                                "@import \"./fonts/fonts.css\";\n@theme { --c: red; }\n@source \"../components\";\n@source not \"./legacy\";\n@plugin \"./plug.mjs\";\n@plugin \"daisyui\";\n@reference \"./ref.css\";\n",
 		"/p/node_modules/@fontsource-variable/figtree/index.css": "@font-face { font-family: 'Figtree Variable'; src: url(./files/figtree-latin-wght-normal.woff2) format('woff2-variations'); }\n",
-		"/p/src/styles/print.css":                               ".p { color: black }\n",
-		"/p/src/styles/a.css":                                   "@import \"./b.css\";\n.a{}\n",
-		"/p/src/styles/b.css":                                   "@import \"./a.css\";\n.b{}\n",
+		"/p/src/styles/print.css":                                ".p { color: black }\n",
+		"/p/src/styles/a.css":                                    "@import \"./b.css\";\n.a{}\n",
+		"/p/src/styles/b.css":                                    "@import \"./a.css\";\n.b{}\n",
 	}
 	src := Source{
 		File: "/p/src/styles/global.css", Line: 1, Col: 1, Dir: "/p/src/styles",

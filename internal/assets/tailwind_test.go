@@ -19,8 +19,8 @@ var twFiles = map[string]string{
 		"@theme {\n  --color-ember: #d1703f;\n  --font-ui: \"Figtree Variable\", system-ui, sans-serif;\n}\n\n" +
 		"@utility card-row {\n  @apply flex items-baseline gap-2;\n}\n\n" +
 		"@custom-variant hocus (&:hover, &:focus);\n",
-	"node_modules/@fontsource-variable/figtree/package.json": `{"name":"@fontsource-variable/figtree","version":"5.2.10","main":"index.css","exports":{".":{"sass":"./index.scss","default":"./index.css"},"./*":"./*"}}`,
-	"node_modules/@fontsource-variable/figtree/index.css":    "/* figtree */\n@font-face {\n  font-family: 'Figtree Variable';\n  font-display: swap;\n  src: url(./files/figtree-latin-wght-normal.woff2) format('woff2-variations');\n}\n",
+	"node_modules/@fontsource-variable/figtree/package.json":                          `{"name":"@fontsource-variable/figtree","version":"5.2.10","main":"index.css","exports":{".":{"sass":"./index.scss","default":"./index.css"},"./*":"./*"}}`,
+	"node_modules/@fontsource-variable/figtree/index.css":                             "/* figtree */\n@font-face {\n  font-family: 'Figtree Variable';\n  font-display: swap;\n  src: url(./files/figtree-latin-wght-normal.woff2) format('woff2-variations');\n}\n",
 	"node_modules/@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2": "wOF2fake",
 	"src/layouts/Base.orbit": "---\ntype Props struct{ Title string }\n---\n<html><head><title>{props.Title}</title></head>\n<body class=\"bg-zinc-900 font-ui\"><slot /></body></html>\n\n" +
 		"<style is:global>\n  @import \"../styles/global.css\";\n</style>\n",
