@@ -14,6 +14,7 @@ import (
 // importer's view of the runtime package.
 type tyEnv struct {
 	html, url, renderer types.Type // orbit.HTML, orbit.URL, orbit.Renderer
+	jsonValue           types.Type // orbit.JSONValue
 	renderFunc          types.Type // func(*orbit.Writer) error
 	stringer            *types.Interface
 	errorIface          *types.Interface
@@ -39,6 +40,7 @@ func newTyEnv(rt *types.Package) *tyEnv {
 	e := &tyEnv{
 		html:       lookup("HTML"),
 		url:        lookup("URL"),
+		jsonValue:  lookup("JSONValue"),
 		renderer:   lookup("Renderer"),
 		stringer:   str,
 		errorIface: errT.Underlying().(*types.Interface),
@@ -200,6 +202,8 @@ func (e *tyEnv) classifyAttr(tv types.TypeAndValue, urlAttr bool) TypedWrite {
 		return TypedWrite{}
 	case nilv:
 		return TypedWrite{Kind: WriteSkip}
+	case identical(t, e.jsonValue):
+		return TypedWrite{Kind: WriteAttrJSON}
 	case types.Identical(t, types.Typ[types.String]):
 		return TypedWrite{Kind: text}
 	case identical(t, e.html):

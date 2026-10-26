@@ -1,0 +1,18 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+
+	bridge "example.com/blog/orbit_gen/decl/components/bridge"
+	_ "example.com/blog/orbit_gen/impl/components/bridge"
+	"github.com/orbit-z/orbit"
+)
+
+func main() {
+	var buf bytes.Buffer
+	if err := bridge.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), bridge.Props{}, orbit.Slots{}); err != nil {
+		panic(err)
+	}
+	fmt.Print(buf.String())
+}

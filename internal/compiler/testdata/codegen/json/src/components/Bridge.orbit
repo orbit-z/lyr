@@ -1,0 +1,22 @@
+---
+type Author struct {
+	Name string `json:"name"`
+	URL  string `json:"url,omitempty"`
+}
+
+type Post struct {
+	ID     int64    `json:"id"`
+	Title  string   `json:"title"`
+	Tags   []string `json:"tags"`
+	Author *Author  `json:"author,omitempty"`
+}
+
+post := Post{ID: 42, Title: "it's <b>", Tags: []string{"go"}}
+v := orbit.JSON(map[string]int{"n": 1})
+---
+<like-button data-post={orbit.JSON(post)} data-liked={orbit.JSON(false)} data-author-name={orbit.JSON(post.Author)} data-v={v} hx-vals={orbit.JSON(map[string]string{"a": "b"})}>
+	<pre>{orbit.JSON(post.Tags)}</pre>
+	<span {...orbit.Attrs{"data-x": orbit.JSON(1)}}></span>
+	<i data-nil={orbit.JSON(nil)} data-plain={post.Title} data-post={orbit.JSON(&post)}></i>
+</like-button>
+<script type="application/json" id="cfg" set:json={post}></script>
