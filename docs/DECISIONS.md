@@ -882,3 +882,20 @@ With esbuild's code splitting (`PLAN.md` §5e). The bigger choices (one build wi
 | The limit counts goroutines running now (a finished one frees its place) | simplest | Count every fork of the render | [Runtime API](reference/runtime-api.md#withconcurrencylimit) |
 | The runtime function is `orbit.Concurrent` (§3.6's sketch said `Parallel`), the option `WithConcurrencyLimit` | consistent with the directive's name | `Parallel`, `WithParallelLimit` | [Runtime API](reference/runtime-api.md#concurrent-rendering) |
 | A marked component's `</head>` gets the page's tags when it's the first in output order; inside a capture it's the usual capture error | simplest (the in-order result) | — | — |
+
+## Concurrent loads
+
+`orbit.All` (`PLAN.md` §4f). The shape, the name, cancellation and panics re-panicked on the caller were the user's (§4f (Q1), (Q3), (Q5), (Q6)); the first error in time, the load's position, `*Ctx` first and no memoizing helper the coordinator's ((Q2), (Q4), (Q7), (Q8)), not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| The first load runs on the calling goroutine; zero loads return `nil`; one load runs inline with the request's own context (no derived one); a nil `*Ctx` uses `context.Background()` | simplest | Every load in a goroutine | [Runtime API](reference/runtime-api.md#loading-data-all) |
+| `All` waits for every load before returning, after an error too | Go stdlib (`errgroup.Wait`) | Return at the first error | [Loading data](data-loading.md#load-the-pages-data-with-orbitall) |
+| No concurrency limit | simplest (the loads are written out) | A cap like `server:concurrent`'s | [Loading data](data-loading.md#load-the-pages-data-with-orbitall) |
+| `ErrNotFound`, `*RedirectError` and already-positioned errors are recorded unwrapped | consistent with `ErrorAt` | Wrap them with the load's position | [Runtime API](reference/runtime-api.md#loading-data-all) |
+| A load whose func isn't in a `.orbit` file (Go code, a method value) gets no position; the frontmatter's `return` adds one | simplest (no `.orbit` line to name) | The Go file's line | [Runtime API](reference/runtime-api.md#loading-data-all) |
+| A panic in any load is re-panicked even when another load failed first; the first panic in time wins | simplest (a panic stays a panic) | The first failure in time, panic or error | [Loading data](data-loading.md#panics) |
+| `http.ErrAbortHandler` from a load is re-panicked as is | Go stdlib (`net/http`) | Wrap it in a position | [Runtime API](reference/runtime-api.md#loading-data-all) |
+| A nested `All` derives its context from the request's (its first argument), not from the outer load's `rc`; an outer sibling's failure doesn't cancel it | simplest (the API takes a `*Ctx`) | Thread the outer `rc` through | [Loading data](data-loading.md#loads-that-depend-on-each-other) |
+| Safety rules (`SetStatus`, `Header()`, `RenderHTML` inside a load) are documented, not checked | simplest (`-race` reports them) | A runtime guard on every call | [Loading data](data-loading.md#whats-safe-inside-a-load) |
+| The runtime file is `load.go` | §4f | `all.go` | — |

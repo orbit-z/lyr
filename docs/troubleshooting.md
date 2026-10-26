@@ -731,6 +731,18 @@ orbit: GET /blog/hello: src/pages/blog/[slug].orbit:14:5: posts: connection refu
 
 **Fix:** find the line in your server's stderr (your platform's logs) and fix the error at that position: the frontmatter `return` that returned it, or the line that panicked. `orbit dev` shows the same error in an overlay. Because responses are buffered, a failed render never sends half a page. In a stack trace from a binary built with `-trimpath`, frames from `.orbit` files keep their absolute paths. For errors your app expects (a reader who must sign in, a backend that's down), answer them yourself with [`orbit.WithErrorHandler`](rendering.md#answering-errors-yourself-witherrorhandler); a handler that returns `false` leaves the error to this 500. A custom `src/pages/500.orbit` is planned after the first release. See [Status codes and errors](rendering.md#status-codes-and-errors) and [Stack traces and `-trimpath`](reference/cli.md#stack-traces-and--trimpath).
 
+### `go test -race` reports a data race inside an `orbit.All` load
+
+**Cause:** loads run on other goroutines while the frontmatter waits, so they share the render's state. The usual culprits: two loads assigning the same variable, a load writing a `locals` field that another load or component reads, or a load calling `ctx.SetStatus`, `ctx.Header()` or `orbit.RenderHTML`.
+
+**Fix:** assign each variable from one load only and read it after `orbit.All` returns; give `locals` fields that loads write a `sync` type or a mutex; set the status and headers, and render, after `orbit.All`. See [What's safe inside a load](data-loading.md#whats-safe-inside-a-load).
+
+### A request hangs on a memoized load
+
+**Cause:** with a per-request loader in `locals` (`sync.OnceValues` per key), the load for a key asked for that same key, directly or through another call. The `OnceValues` waits for itself: the request never gets an answer, and its goroutine stays blocked even after the client gives up.
+
+**Fix:** keep each key's load free of calls back into the loader for the same key. See [the loader](data-loading.md#share-data-without-props-drilling-a-loader-in-locals).
+
 ### A `server:defer` component only shows its fallback
 
 The placeholder keeps its fallback whenever the island request fails. In `orbit dev`, the loader logs the status and the response body to the **browser console**; in production it stays silent, so look at the request to `/_orbit/island/…` in your browser's network panel. By status:

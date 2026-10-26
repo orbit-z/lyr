@@ -138,9 +138,22 @@ What it costs:
 
 Lazy component scripts (`client:idle`, `client:visible`, `client:media`) cost nothing at render time: their wrapper elements are part of the precomputed static HTML. Pages that have them get the lazy loader script inline (about 1.3 KB, 0.8 KB gzipped).
 
+## Loading data concurrently: `orbit.All`
+
+A page that loads its data in its frontmatter with [`orbit.All`](data-loading.md) waits for its slowest load instead of the sum: three loads that each wait 10 ms take about 10 ms together, and a chain of two 10 ms calls next to a third takes about 20 ms. The helper itself costs a few hundred nanoseconds per call (`BenchmarkAll` in the runtime; 3 trivial loads; Ryzen 7 9700X, Go 1.27.3, medians of 5):
+
+| Call | One core | 16 threads | Allocations |
+|---|---|---|---|
+| 3 plain calls in a row (no concurrency) | 4.8 ns | 4.7 ns | 0 |
+| `orbit.All` with 3 loads | 460 ns | 470 ns | 8: 5 in `All` (its state, the cancellable context, 2 goroutine starts), 3 for the closures and what they capture |
+| `orbit.All` with 1 load | inline call | inline call | 0 in `All` |
+| 2 loads, one failing (the error path, with the load's position) | 1.5 µs | 1.8 µs | 11 |
+
+The first load runs on the calling goroutine, so 3 loads start 2 goroutines. The failing load's `.orbit` position is looked up only on the error path. A page that doesn't call `All` pays nothing: no codegen, no field in `Ctx` or `Writer`, and the allocation tests are unchanged.
+
 ## Slow components in the same response: `server:concurrent`
 
-The recommended way to load a page's data is in the page itself, with the fetches overlapped there (goroutines and a `sync.WaitGroup`, or an `errgroup`), passing the results down as props. Components that fetch their own data, as Astro components often do (code ported from Astro, for example), are where `server:concurrent` helps. When such a slow part must be in the HTML (SEO, above the fold, no layout shift), `server:defer` doesn't fit. [`server:concurrent`](rendering.md#slow-components) renders each marked component in its own goroutine and buffer instead, and the response is assembled in source order once they're done: the page still waits for its slowest part, but slow parts no longer add up. Two components that each wait 10 ms take about 10 ms together, not 20.
+The recommended way to load a page's data is in the page itself, with the fetches overlapped by [`orbit.All`](#loading-data-concurrently-orbitall), passing the results down as props. Components that fetch their own data, as Astro components often do (code ported from Astro, for example), are where `server:concurrent` helps. When such a slow part must be in the HTML (SEO, above the fold, no layout shift), `server:defer` doesn't fit. [`server:concurrent`](rendering.md#slow-components) renders each marked component in its own goroutine and buffer instead, and the response is assembled in source order once they're done: the page still waits for its slowest part, but slow parts no longer add up. Two components that each wait 10 ms take about 10 ms together, not 20.
 
 It's opt-in because it isn't free, and Go can't know in advance which components will block. Doing it for every component would cost each one a goroutine, a buffer and a copy, about 10 times the render of a small component.
 

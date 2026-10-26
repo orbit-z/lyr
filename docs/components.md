@@ -1099,7 +1099,7 @@ Both work only on `.orbit` components, and they can't be combined on one tag.
 
 ## Fetching data in components
 
-The recommended pattern is to load a page's data in the page and pass it down as props (see [Slow components](rendering.md#slow-components)). A component can still fetch its own data in its frontmatter, as in Astro. Orbit renders components in order, so two slow components add up; mark each slow one with `server:concurrent` to render it in its own goroutine, overlapping the others (see [Slow components](rendering.md#slow-components)):
+Prefer loading data in the page and passing it down as props, or reading it from a per-request loader in `locals` when several components need it: see [Loading data](data-loading.md). A component can still fetch its own data in its frontmatter, as in Astro. Orbit renders components in order, so two slow components add up; mark each slow one with `server:concurrent` to render it in its own goroutine, overlapping the others (see [Slow components](rendering.md#slow-components)):
 
 ```orbit
 <Weather server:concurrent city="Paris" />

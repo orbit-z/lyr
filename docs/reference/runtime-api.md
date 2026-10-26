@@ -79,6 +79,26 @@ The error returned by `ctx.Redirect`. Orbit answers with status `Code` and a `Lo
 
 Any other non-nil error is a server error: a 500 page in production, the error overlay in `orbit dev`, unless the site's [error handler](#witherrorhandler) answers it. Panics are recovered per request and handled the same way. A recovered panic is an error whose text names the innermost `.orbit` line (`src/pages/x.orbit:7: panic: …`) and whose `Unwrap` returns the panic value when it's an `error`, so `errors.As` finds a `panic(err)`.
 
+## Loading data: `All`
+
+```go
+func All(c *Ctx, loads ...func(context.Context) error) error
+```
+Runs each load concurrently and waits for all of them, after an error too. Call it in a frontmatter (see [Loading data](../data-loading.md)):
+
+```go
+err := orbit.All(ctx,
+	func(rc context.Context) (err error) { book, err = locals.Catalog.Book(rc, params.Slug); return err },
+	func(rc context.Context) (err error) { chapters, err = locals.Catalog.Chapters(rc, params.Slug); return err },
+)
+```
+
+- **Context**: each load gets a context derived from `c.Request.Context()`, cancelled when a load fails and when `All` returns. With a single load, it's the request's context itself (nothing to cancel); with a nil `c`, `context.Background()`.
+- **Goroutines**: every load but the first starts in its own goroutine, in argument order; the first runs on the calling goroutine. No concurrency limit. Zero loads return `nil`.
+- **Errors**: the first error in time, or `nil`. A load's error is prefixed with the `.orbit` line of its `func` literal (`src/pages/x.orbit:23: …`; Go code outside `.orbit` files gets no prefix), and the frontmatter's `return` keeps that position. `errors.Is` and `errors.As` see through the prefix. `ErrNotFound`, a `*RedirectError` and an error that already carries a position are returned as they are.
+- **Panics**: a panic in a load is recovered there, cancels the others, and is re-panicked on the calling goroutine once every load has returned, with the `.orbit` line of the panicking load. The request's recovery turns it into the usual server error. `http.ErrAbortHandler` is re-panicked as is.
+- **Safety**: loads share the render's state. Don't call `ctx.SetStatus`, `ctx.Header()` or `RenderHTML`, or render components, inside a load; see [What's safe inside a load](../data-loading.md#whats-safe-inside-a-load).
+
 ## Values
 
 ```go
