@@ -164,6 +164,11 @@ func TestTsconfig(t *testing.T) {
 			`"include": ["../../src/**/*.ts", "../../types/*.d.ts", "/abs/x.ts", "src/**/*.ts", "../../orbit_gen/types/*.d.ts"]`,
 			`"exclude": ["../../src/**/*.test.ts"]`,
 		}, nil},
+		{"user include lists orbit_gen/types already", &UserTsconfig{
+			Include: []string{"src/**/*.ts", "orbit_gen/types/*.d.ts"},
+		}, []string{
+			`"include": ["../../src/**/*.ts", "../../orbit_gen/types/*.d.ts", "src/**/*.ts"]`,
+		}, nil},
 		{"no user tsconfig", nil, []string{
 			`"strict": true`, `"moduleResolution": "Bundler"`, `"isolatedModules": true`, `"noEmit": true`,
 			`"allowImportingTsExtensions": true`, `"rootDirs"`, `"include": ["../../src/**/*.ts", "src/**/*.ts", "../../orbit_gen/types/*.d.ts"]`,
