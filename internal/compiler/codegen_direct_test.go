@@ -198,7 +198,7 @@ func TestDirectCallShapes(t *testing.T) {
 		`orbit__rt "github.com/orbit-z/orbit"; orbit__Card "example.com/blog/orbit_gen/impl/components/card"; orbit__Frame "example.com/blog/orbit_gen/impl/components/frame"; orbit__Tree "example.com/blog/orbit_gen/impl/components/tree"` + "\n",
 		"*/orbit__Card.Orbit__RenderImpl/*line",
 		"*/orbit__Frame.Orbit__RenderImpl/*line",
-		"*/About.Render/*line",            // a page callee keeps the hook
+		"*/About.Render/*line",                        // a page callee keeps the hook
 		`orbit__rt.Defer(orbit__ctx, orbit__w, "Box-`, // server:defer: no render call
 		"/*line ../../../../../src/pages/index.orbit:",
 	} {
