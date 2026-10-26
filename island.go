@@ -161,6 +161,7 @@ func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string) 
 	defer releaseCtx(c)
 	wr := writerPool.Get().(*Writer)
 	wr.reset(buf)
+	c.w = wr
 	err = isl.render(c, wr, props)
 	if err == nil {
 		err = wr.err
@@ -194,7 +195,8 @@ func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string) 
 
 // islandFailed answers an island render that returned err: props that
 // don't decode give a 400, a redirect its 3xx, ErrNotFound an empty 404,
-// anything else a 500 (in dev, with the error text as the body).
+// anything else goes to the error handler, then a 500 (in dev, with the
+// error text as the body).
 func (s *Site) islandFailed(w http.ResponseWriter, r *http.Request, err error, head http.Header) {
 	var re *RedirectError
 	var pe *islandPropsError
@@ -210,6 +212,14 @@ func (s *Site) islandFailed(w http.ResponseWriter, r *http.Request, err error, h
 	case errors.Is(err, ErrNotFound):
 		emptyNotFound(w)
 	default:
+		if s.onError != nil {
+			h := w.Header()
+			h["Cache-Control"] = islandCacheControl
+			h["X-Robots-Tag"] = islandRobots
+			if s.onError(w, r, err) {
+				return
+			}
+		}
 		log.Printf("orbit: %s %s: %v", r.Method, r.URL.Path, err)
 		if !s.dev {
 			emptyStatus(w, http.StatusInternalServerError)

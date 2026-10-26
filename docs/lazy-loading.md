@@ -322,6 +322,8 @@ The island response is buffered and written once, with `Content-Type: text/html;
 
 In `orbit dev`, a 500 body holds the error and its `.orbit` position as plain text, and the loader logs the status and body with `console.error`. In production, the loader stays silent.
 
+An [error handler](rendering.md#answering-errors-yourself-witherrorhandler) set with `orbit.WithErrorHandler` sees the errors that would give the 500, as it does for pages, with the island request as `r` (the page is `r.Referer()`). Orbit sets `Cache-Control: private, no-store` and `X-Robots-Tag: noindex` on the response before calling it, so its answer isn't cached unless it replaces them. Whatever it answers, the loader keeps the fallback for any non-2xx status, a 303 to a sign-in page included, since it doesn't follow redirects. The 400, 404, 405 and 413 above never reach the handler.
+
 ### Response headers and caching
 
 Island responses carry:
@@ -342,6 +344,12 @@ POST responses aren't cacheable, so in `orbit dev` the loader warns once per def
 A deferred component can render `server:defer` components and `client:*` components of its own. When a fragment arrives, the loader scans it for both, so nested islands load and lazy scripts are observed.
 
 A placeholder inside an HTML fragment that you insert yourself (for example an htmx partial from `orbit.RenderComponent`) loads only if the page already has the loader, which happens when the page has a deferred component of its own: the loader watches the page for added placeholders (with a `MutationObserver`). On such a page, `<orbit-lazy>` markers in HTML you insert are observed too, if the page has lazy components of its own.
+
+### `server:defer` inside cached fragments
+
+A placeholder holds a deterministic token: the same props, component and build always give the same one. So a placeholder inside HTML that you cache with `orbit.RenderHTML` (see [Caching fragments](rendering.md#caching-fragments)) stays valid for the life of the process, and each visitor's browser still fetches the island's content with its own cookies, through your middleware. That's the way to put per-user parts inside a cached fragment.
+
+A cache shared across deploys (Redis, say) must put the deploy in its key: a new build has a new build ID and, without a stable `ORBIT_KEY`, a new key, so an old placeholder would get a 400.
 
 ### Scripts and styles of deferred components
 

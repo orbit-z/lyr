@@ -1,0 +1,4 @@
+<button class="counter">0</button>
+<script>
+  document.querySelectorAll(".counter").forEach((b) => b.addEventListener("click", () => (b.textContent = String(Number(b.textContent) + 1))));
+</script>

@@ -103,6 +103,8 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 | `<Astro.self />` | `<Self />` | Mutual recursion works too. Runaway recursion stops at a depth of 1000 with an error. See [Recursion](components.md#recursion-with-self). |
 | `<slot />`, `<slot name="x">fallback</slot>`, `slot="x"` | The same | See [Slots](components.md#slots). |
 | `Astro.slots.has("x")` | `slots.Has("x")` | `"default"` names the default slot. Whitespace-only children don't count. |
+| `await Astro.slots.render("default")` | `orbit.RenderHTML(ctx, slots.Default)` | Returns `(orbit.HTML, error)`, written with `set:html`; `slots.Get("x")` for a named slot. Unlike Astro, a slot you don't render isn't built at all, so a fragment cache skips the work on a hit. See [Rendering a slot to a string](components.md#rendering-a-slot-to-a-string) and [Caching fragments](rendering.md#caching-fragments). |
+| `Astro.slots.render("default", [item])` (a slot as a function) | No equivalent | Slots take no arguments. Pass the data as props to a component instead, or call a component's `Render` from Go code. |
 | `<Fragment>` | `<Fragment>` | As in Astro, it takes only `slot`, `set:html` and `set:text`. See [`<Fragment>`](components.md#fragment). |
 
 ### Templates
@@ -137,7 +139,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 | `[slug].astro` | `[slug].orbit` | A parameter must be a whole segment: `post-[id].orbit` is a build error for now. See [Dynamic routes](routing.md#dynamic-routes-with-param). |
 | `[...path].astro` | `[...path].orbit` | Must be the last segment. With zero segments the value is `""`, not `undefined`. See [Catch-all routes](routing.md#catch-all-routes-with-rest). |
 | `Astro.params.slug` | `params.Slug` | Typed: Orbit generates a `Params` struct per page from its file path, so `params.Slg` is a compile error at its line and your editor completes `params.`. Values are percent-decoded strings. Components read `ctx.Param("slug")`. See [Route params](routing.md#route-params-params). |
-| `404.astro` | `404.orbit` | A custom `500` page isn't supported yet: production errors get a built-in 500 page and a log line. See [The 404 page](routing.md#the-404-page). |
+| `404.astro` | `404.orbit` | A custom `500` page isn't supported yet: production errors get a built-in 500 page and a log line, unless an [error handler](rendering.md#answering-errors-yourself-witherrorhandler) answers them. See [The 404 page](routing.md#the-404-page). |
 | `Astro.request` | `ctx.Request` | A standard `*http.Request`: method, headers, cookies (`ctx.Request.Cookie("theme")`), form. See [The request](rendering.md#the-request-ctx). |
 | `Astro.url` | `ctx.URL` | The query string is `ctx.URL.Query().Get("q")`. |
 | `Astro.site` | `ctx.Site` | From `site` in `orbit.json`; `nil` when unset. |
@@ -155,6 +157,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 | `onRequest` in `src/middleware.ts` | Plain `net/http` middleware in `cmd/server/main.go` | A `func(http.Handler) http.Handler` that sets locals with `r, l := orbit.EnsureLocals[locals.Locals](r)`. There's no Orbit-specific middleware type. See [Middleware and locals](middleware.md). |
 | `sequence(a, b)` | `a(b(mux))` | The middleware listed first runs first. |
 | Returning a `Response` from middleware | Write the response and don't call `next` | See [Short-circuit responses](middleware.md#short-circuit-responses). |
+| `try { return await next() } catch (e) { … }` in middleware | `app.New(orbit.WithErrorHandler(answerError))` | Orbit answers a page's error before `next` returns, so middleware can't catch it. The handler gets every error that would become the 500 (from the page, its components, deferred islands, and panics), before anything is written, and returns `false` for the ones it leaves to Orbit. See [Answering errors yourself](rendering.md#answering-errors-yourself-witherrorhandler). |
 | Endpoints: `export const GET` in `src/pages/api/posts.ts` | A handler in `cmd/server/main.go`: `mux.HandleFunc("GET /api/posts", listPosts)` | There are no endpoint files. Your `main.go` decides whether your routes or the pages win. For HTML fragments (htmx), use `orbit.RenderComponent`. Pages also receive every method, so a page can handle its own form. See [Server](server.md#choosing-precedence). |
 
 ### Markdown

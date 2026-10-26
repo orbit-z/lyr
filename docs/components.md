@@ -822,6 +822,32 @@ import (
 
 The `<a>` links render inside `<div class="actions">`, with no wrapper around them.
 
+### Rendering a slot to a string
+
+`orbit.RenderHTML(ctx, slots.Default)` renders a slot in the frontmatter and returns its HTML as an `orbit.HTML` value (Astro's `await Astro.slots.render("default")`), which the template writes with `set:html`. Use `slots.Get("footer")` for a named slot. This component wraps its children's HTML in a `<details>` only when it's long:
+
+```orbit file=src/components/Collapse.orbit
+---
+html, err := orbit.RenderHTML(ctx, slots.Default)
+if err != nil {
+	return err
+}
+---
+{if len(html) > 2000}
+  <details><summary>Show more</summary><Fragment set:html={html} /></details>
+{else}
+  <Fragment set:html={html} />
+{/if}
+```
+
+- **Same HTML**: the string is byte for byte what the slot would write in place, with the components, scoped styles, `class:list`, `client:*` markers and `server:defer` placeholders in it.
+- **Errors are returned**: the error of the slot's content comes back as `err`, its partial output is dropped, and the page isn't affected until you `return err`. A slot that wasn't passed gives `""`.
+- **The depth limit counts through it**, so [runaway recursion](#the-depth-limit) through a rendered slot stops with the usual error.
+- **No `</head>` inside**: the page's asset tags go at the page's own `</head>`, so rendering a document head inside `orbit.RenderHTML` is a render error: `orbit: </head> can't be inside orbit.RenderHTML; keep the document head outside the captured content`.
+- **Cost**: one allocation, the returned string; the buffer is pooled.
+
+`orbit.RenderHTML` takes any `orbit.Renderer`, so it works for renderers written in Go too. Its main use is a fragment cache: see [Caching fragments](rendering.md#caching-fragments).
+
 ## Recursion with `<Self>`
 
 Inside a component, `<Self>` renders the component itself, with the same props and slots rules as any other component. It's how you render trees:

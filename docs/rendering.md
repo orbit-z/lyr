@@ -181,8 +181,8 @@ The status is 200 unless you change it:
 
 - `ctx.SetStatus(code)` sets it, and the template still renders. The form example above uses it for a 422 with an error message.
 - `return orbit.ErrNotFound` stops rendering and answers with your `404.orbit` page and status 404 (see [Routing](routing.md#the-404-page)).
-- `return err` with any other error stops rendering and answers 500.
-- A panic in a page or component is recovered per request and also answers 500.
+- `return err` with any other error stops rendering and answers 500, unless your [error handler](#answering-errors-yourself-witherrorhandler) answers it.
+- A panic in a page or component is recovered per request and also answers 500 (or goes to the error handler).
 
 In production, the visitor gets a minimal built-in page, `500 Internal Server Error`, which never shows the error. The error itself, with its `.orbit` position, is logged to stderr with Go's `log` package:
 
@@ -205,6 +205,101 @@ In `orbit dev`, you get an error overlay with the `.orbit` file and line instead
 Because responses are buffered, a failed render never sends half a page: the visitor gets a clean error response.
 
 Inside a deferred component, errors don't replace the page: the island request fails and the fallback stays. See [Lazy loading](lazy-loading.md).
+
+### Answering errors yourself: `WithErrorHandler`
+
+Your data layer often fails in ways that deserve a real answer rather than a 500: a reader who must sign in first, a backend that's down for a minute. Give `app.New` an error handler, and Orbit hands it every error that would otherwise become the 500:
+
+```go file=internal/access/access.go
+// Package access holds the errors the error handler example maps to
+// responses.
+package access
+
+import "errors"
+
+// ErrUnavailable means the backing service is down.
+var ErrUnavailable = errors.New("library: unavailable")
+
+// Refused means the reader must sign in first.
+type Refused struct{ Reason string }
+
+func (e *Refused) Error() string { return "access refused: " + e.Reason }
+```
+
+```orbit file=src/pages/members.orbit
+---
+import "example.com/blog/internal/access"
+
+if _, err := ctx.Request.Cookie("session"); err != nil {
+	return &access.Refused{Reason: "no session"}
+}
+---
+<h1>Members</h1>
+```
+
+```go file=cmd/server/main.go
+package main
+
+import (
+	"errors"
+	"log"
+	"net/http"
+	"net/url"
+	"strings"
+
+	"github.com/orbit-z/orbit"
+
+	"example.com/blog/internal/access"
+	"example.com/blog/orbit_gen/app"
+)
+
+func main() {
+	site := app.New(orbit.WithErrorHandler(answerError))
+	if err := orbit.ListenAndServe(site.Handler()); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// answerError maps the app's errors to responses. It returns false for any
+// other error, which then gets Orbit's built-in 500 and its log line.
+func answerError(w http.ResponseWriter, r *http.Request, err error) bool {
+	var refused *access.Refused
+	switch {
+	case errors.As(err, &refused):
+		http.Redirect(w, r, "/signin?next="+url.QueryEscape(pageURL(r)), http.StatusSeeOther)
+	case errors.Is(err, access.ErrUnavailable):
+		log.Printf("%s %s: %v", r.Method, r.URL.Path, err)
+		w.Header().Set("Retry-After", "60")
+		http.Error(w, "The library is unavailable right now. Try again in a minute.", http.StatusServiceUnavailable)
+	default:
+		return false
+	}
+	return true
+}
+
+// pageURL is the page the reader was on: for a deferred island's request,
+// its Referer.
+func pageURL(r *http.Request) string {
+	if strings.HasPrefix(r.URL.Path, "/_orbit/island/") {
+		return r.Referer()
+	}
+	return r.URL.RequestURI()
+}
+```
+
+The rules:
+
+- **What reaches it**: every error that would become the 500, from a page or any component it renders, at any depth (the `404.orbit` page and [deferred islands](lazy-loading.md#status-codes-and-errors) included), and recovered panics. `orbit.ErrNotFound` and `ctx.Redirect(…)` never reach it: they keep their 404 and redirect, however the handler is written. The island endpoint's own 400 and 413 (a bad token, props that don't decode, a body over 1 MiB) aren't render errors and don't reach it either.
+- **`true` or `false`**: return `true` when the handler wrote the response, `false` to let Orbit answer with the built-in 500 and its log line.
+- **Your error is still there**: the error carries the `.orbit` position of the `return` that returned it (its text starts with `src/pages/members.orbit:5:2: `), but `errors.Is` and `errors.As` see through it, through any number of components and through `errors.Join`. A panic reaches the handler as an error whose text names the `.orbit` line (`src/pages/x.orbit:7: panic: …`); when the panic value is an `error`, `errors.As` finds it too.
+- **Nothing has been written yet**: responses are buffered, so the handler can send any status, headers and body. The page's partial output and the headers it set with `ctx.Header()` are dropped, as for the 500. Headers your middleware set on the response before calling Orbit stay.
+- **`r`** is the request Orbit was serving: the page request, or the island request, whose page is in `r.Referer()`. Locals your middleware attached are there (`orbit.LocalsFromRequest`).
+- **Logging is yours**: Orbit logs only the errors it answers itself. Log in the handler when you want a line, as `answerError` does for the 503.
+- **The same in `orbit dev`**: the handler runs in development too; only the errors it declines show the dev error page.
+- **Not recovered**: a panic in the handler itself goes to `net/http`, which logs it and drops the connection.
+- **One handler**: with several `WithErrorHandler` options, the last one wins.
+
+In your own handlers, `site.ServeError(w, r, err)` answers an error exactly as a page's would be: a redirect, `404.orbit`, your error handler, then the 500. See [Rendering components from handlers](server.md#rendering-components-from-handlers).
 
 ## Response headers
 
@@ -236,6 +331,156 @@ See [Lazy loading](lazy-loading.md) for the details, and [Performance](performan
 
 For true streaming (server-sent events, large downloads), write a regular handler in your [server](server.md); Orbit doesn't touch it.
 
+## Caching fragments
+
+`orbit.RenderHTML(ctx, slots.Default)` renders a slot, or any renderer, to an `orbit.HTML` string instead of into the page (see [Rendering a slot to a string](components.md#rendering-a-slot-to-a-string)). That's the building block of a fragment cache: a component that renders its children once, keeps the HTML for a while, and writes the cached copy on later requests. Orbit has no cache of its own; the pattern below is a few dozen lines of your code.
+
+The cache, with a time to live, a size cap, and single-flight, so that concurrent misses for one key render once:
+
+```go file=internal/htmlcache/htmlcache.go
+// Package htmlcache is a small in-memory cache of rendered HTML fragments.
+package htmlcache
+
+import (
+	"errors"
+	"sync"
+	"time"
+
+	"github.com/orbit-z/orbit"
+)
+
+// Fragments is the process's fragment cache.
+var Fragments = New(10_000)
+
+// Cache maps keys to rendered HTML. It's safe for concurrent use.
+type Cache struct {
+	mu      sync.Mutex
+	max     int
+	entries map[string]*entry
+}
+
+type entry struct {
+	done    chan struct{} // closed once html and err are set
+	html    orbit.HTML
+	err     error
+	expires time.Time
+}
+
+var errPanicked = errors.New("htmlcache: render panicked")
+
+// New returns a cache that holds up to max entries.
+func New(max int) *Cache {
+	return &Cache{max: max, entries: make(map[string]*entry)}
+}
+
+// Get returns the HTML cached for key, or calls render and caches its
+// result for ttl. Concurrent calls for a missing key wait for one render.
+// Errors aren't cached.
+func (c *Cache) Get(key string, ttl time.Duration, render func() (orbit.HTML, error)) (orbit.HTML, error) {
+	for {
+		c.mu.Lock()
+		e, ok := c.entries[key]
+		if !ok {
+			if len(c.entries) >= c.max {
+				clear(c.entries) // a crude cap: start over
+			}
+			e = &entry{done: make(chan struct{})}
+			c.entries[key] = e
+			c.mu.Unlock()
+			c.fill(key, e, ttl, render)
+			return e.html, e.err
+		}
+		c.mu.Unlock()
+		<-e.done
+		if e.err != nil || time.Now().Before(e.expires) {
+			return e.html, e.err
+		}
+		c.mu.Lock()
+		if c.entries[key] == e {
+			delete(c.entries, key) // expired: the next turn renders it again
+		}
+		c.mu.Unlock()
+	}
+}
+
+// fill renders e. A failed or panicking render is removed, so the next
+// request tries again, and its waiters are always released.
+func (c *Cache) fill(key string, e *entry, ttl time.Duration, render func() (orbit.HTML, error)) {
+	defer func() {
+		c.mu.Lock()
+		if e.err != nil && c.entries[key] == e {
+			delete(c.entries, key)
+		}
+		c.mu.Unlock()
+		close(e.done)
+	}()
+	e.err = errPanicked // replaced unless render panics
+	e.html, e.err = render()
+	e.expires = time.Now().Add(ttl)
+}
+```
+
+The component; its `key` must hold everything its children's HTML depends on:
+
+```orbit file=src/components/Cached.orbit
+---
+import (
+	"time"
+
+	"example.com/blog/internal/htmlcache"
+)
+
+type Props struct {
+	Key string        // everything the children's HTML depends on
+	TTL time.Duration // how long a copy is served
+}
+
+html, err := htmlcache.Fragments.Get(props.Key, props.TTL, func() (orbit.HTML, error) {
+	return orbit.RenderHTML(ctx, slots.Default)
+})
+if err != nil {
+	return err
+}
+---
+<Fragment set:html={html} />
+```
+
+And a page using it:
+
+```orbit file=src/pages/archive.orbit
+---
+import (
+	"time"
+
+	Cached "../components/Cached.orbit"
+	"example.com/blog/internal/posts"
+)
+
+all, err := posts.All()
+if err != nil {
+	return err
+}
+---
+<h1>Archive</h1>
+<Cached key="archive:v1" ttl={time.Hour}>
+  <ul>
+    {for _, p := range all}
+      <li><a href={"/blog/" + p.Slug}>{p.Title}</a></li>
+    {/for}
+  </ul>
+</Cached>
+```
+
+On a hit, the children don't render at all (in Astro, the slot is built on a hit too). The rules that keep this safe:
+
+- **Never cache per-user content.** The key must hold everything the HTML depends on (a data version, the locale), and the cached children must not read cookies, the session or per-user `locals`, or one visitor's page ends up in another's. Orbit can't check this for you. If you want a guard, set a flag on your `locals` around the render (`locals.Shared = true`, reset with `defer`) and make your per-user accessors refuse while it's set.
+- **Per-user parts go outside** the cached component, or inside it with `server:defer`: a deferred placeholder is the same for every visitor, and the browser loads its content per visitor, through your middleware (see [Lazy loading](lazy-loading.md#serverdefer-inside-cached-fragments)).
+- **Side effects run only on a miss**: `ctx.SetStatus`, `ctx.Header()` and `locals` writes inside the cached children happen when they render, not when a cached copy is served.
+- **Assets need nothing**: the children's components are imported by the file that renders `<Cached>`, so their CSS and scripts are already in the page's bundles, and `client:*` markers keep working in a cached copy.
+- **No `</head>` inside**: the page's `<link>` and `<script>` tags go at the page's own `</head>`, never into a fragment, so a `</head>` inside `orbit.RenderHTML` is a render error.
+- **The render shares the request's `ctx`** only while it runs; the cache keeps only the HTML.
+- **Measure first.** A hit costs a map lookup and a copy into the page (about 20 ns for 2 KB) and a miss one allocation on top of the render, but writing static markup in place is cheaper still. Caching pays off when the children need slow data or heavy work.
+
 ## The build output: `dist/server` and `dist/client`
 
 `orbit build` produces your server binary and the files it serves:
@@ -256,4 +501,5 @@ There are no HTML files: the binary renders every page. Run it with `./dist/serv
 - [Middleware and locals](middleware.md): code that runs around every page
 - [Server](server.md): the `cmd/server` entry point
 - [Lazy loading](lazy-loading.md): `server:defer` for slow parts of a page
+- [Runtime API](reference/runtime-api.md): `WithErrorHandler`, `ServeError` and `RenderHTML`
 - [Deploy](deploy.md): `dist/server`, `--embed` and Docker

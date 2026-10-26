@@ -384,3 +384,43 @@ func TestDifferenceMultiline(t *testing.T) {
 		t.Errorf("difference = %q", got)
 	}
 }
+
+// cacher captures its default slot with orbit.RenderHTML, as a fragment
+// cache component does, and writes the copy.
+func cacher(ctx *orbit.Ctx, w *orbit.Writer, _ struct{}, s orbit.Slots) error {
+	html, err := orbit.RenderHTML(ctx, s.Default)
+	if err != nil {
+		return err
+	}
+	w.Raw("<cached>")
+	w.HTML(html)
+	w.Raw("</cached>")
+	return nil
+}
+
+func TestRenderRenderHTML(t *testing.T) {
+	got := Render(t, cacher, struct{}{}, WithSlot("default", "<em>slot</em>"))
+	if want := "<cached><em>slot</em></cached>"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestGetErrorHandler(t *testing.T) {
+	t.Setenv("ORBIT_STATIC", t.TempDir())
+	errDown := errors.New("down")
+	page := func(c *orbit.Ctx, w *orbit.Writer) error {
+		return orbit.ErrorAt("src/pages/index.orbit:3:2", errDown)
+	}
+	site := orbit.NewSite([]orbit.Route{{Pattern: "/", File: "src/pages/index.orbit", Render: page}}, nil,
+		orbit.WithErrorHandler(func(w http.ResponseWriter, r *http.Request, err error) bool {
+			if !errors.Is(err, errDown) {
+				return false
+			}
+			http.Error(w, "unavailable: "+err.Error(), http.StatusServiceUnavailable)
+			return true
+		}))
+	rec := Get(t, site.Handler(), "/")
+	if rec.Code != http.StatusServiceUnavailable || rec.Body.String() != "unavailable: src/pages/index.orbit:3:2: down\n" {
+		t.Errorf("got %d %q", rec.Code, rec.Body)
+	}
+}

@@ -232,9 +232,25 @@ A page short-circuits from its frontmatter by returning early. The template does
 |---|---|
 | `return ctx.Redirect("/blog", http.StatusFound)` | the redirect |
 | `return orbit.ErrNotFound` | your `404.orbit` page, status 404 |
-| `return err` | a 500 |
+| `return err` | a 500, or your error handler's answer |
 
 See [Rendering](rendering.md#status-codes-and-errors) for status codes and errors.
+
+### Catching what the page returned
+
+In Astro, middleware can wrap `next()` in a `try`/`catch` to answer what the page threw. In Orbit, a page's error is answered inside `site.Middleware`, so by the time `next.ServeHTTP` returns in your middleware, the response is written. Map errors to responses with an error handler instead, given to `app.New`:
+
+```go
+site := app.New(orbit.WithErrorHandler(func(w http.ResponseWriter, r *http.Request, err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		http.Error(w, "The page took too long. Try again.", http.StatusGatewayTimeout)
+		return true
+	}
+	return false // the built-in 500
+}))
+```
+
+It runs before anything is written, for errors from the page, any component, and deferred islands, and for recovered panics; `orbit.ErrNotFound` and redirects never reach it. Locals your middleware attached are on `r`. See [Answering errors yourself](rendering.md#answering-errors-yourself-witherrorhandler).
 
 ## Rewrite responses
 

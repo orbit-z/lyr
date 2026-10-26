@@ -25,6 +25,7 @@ func testRender(r *http.Request, names, vals []string, render func(ctx, w any) e
 	buf := getBuffer()
 	wr := writerPool.Get().(*Writer)
 	wr.reset(buf)
+	c.w = wr
 	defer func() {
 		wr.reset(nil)
 		writerPool.Put(wr)

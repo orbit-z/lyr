@@ -178,6 +178,14 @@ if err := orbit.ListenAndServe(app.New().Handler()); err != nil {
 
 `cmd/server` imports `orbit_gen/app`, which only exists after `orbit generate` (or `orbit build`/`orbit dev`). On a fresh clone, run `go tool orbit generate` before `go build` or `go vet`. See [Project structure](project-structure.md).
 
+`app.New` takes the site's options. The one you're most likely to add is an error handler, which turns your app's errors into real answers (a redirect to the sign-in page, a 503 with `Retry-After`) instead of the built-in 500:
+
+```go
+site := app.New(orbit.WithErrorHandler(answerError))
+```
+
+`answerError` is a `func(w http.ResponseWriter, r *http.Request, err error) bool` that returns `false` for errors it doesn't know. Middleware around Orbit can't catch a page's error itself, since Orbit has answered by the time `next` returns; the handler runs inside Orbit, before anything is written. See [Answering errors yourself](rendering.md#answering-errors-yourself-witherrorhandler) for a complete `main.go`, and [Options](reference/runtime-api.md#options) for the others.
+
 ## Choosing precedence
 
 When one of your routes and a page could both answer a URL, the order you compose them in decides who wins. There are two patterns.
@@ -283,7 +291,15 @@ if err := orbit.RenderComponent(w, r, likebutton.Render, props); err != nil {
 
 - **Import components** from their generated declaration package: `src/components/LikeButton.orbit` is `example.com/blog/orbit_gen/decl/components/likebutton`, with `Render` and `Props`.
 - **Buffered, like a page**: the fragment is written with status 200, `Content-Type: text/html; charset=utf-8` and `Content-Length`. As in a page, the component can change the status with `ctx.SetStatus` and add headers with `ctx.Header()` (an htmx `HX-Trigger`, say, or its own `Content-Type`).
-- **Errors are returned**: if rendering fails, nothing is written and the error is returned, so you can still send your own error response. That includes a panic in the component (returned as an error naming the `.orbit` line) and the `ctx.Redirect` and `orbit.ErrNotFound` errors, which only a page turns into a redirect or the 404 page.
+- **Errors are returned**: if rendering fails, nothing is written and the error is returned, so you can still send your own error response. That includes a panic in the component (returned as an error naming the `.orbit` line) and the `ctx.Redirect` and `orbit.ErrNotFound` errors, which only a page turns into a redirect or the 404 page. To answer it the way a page's error would be answered (the redirect, `404.orbit`, your [error handler](rendering.md#answering-errors-yourself-witherrorhandler), then the 500 with its log line), pass it to `site.ServeError`:
+
+  ```go
+  if err := orbit.RenderComponent(w, r, likebutton.Render, props); err != nil {
+      site.ServeError(w, r, err)
+  }
+  ```
+
+  A `nil` error writes nothing.
 - **No head injection**: a fragment has no `<head>`, so Orbit adds no `<link>` or `<script>` tags. The component's CSS and scripts load only on pages that already include the component, such as the post page rendering `<LikeButton slug={post.Slug} likes={0} />`. Its scoped styles then apply to the fragment too.
 - **Locals**: the component's `locals` are the ones attached to `r` by your middleware with `orbit.EnsureLocals`.
 - **No site URL**: `ctx.Site` is nil in a fragment, since `RenderComponent` doesn't know your `Site`.
