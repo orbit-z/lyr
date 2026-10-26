@@ -968,7 +968,7 @@ type Locals struct {
 - **Import rule**: `src/locals` (and anything it imports) must not import `orbit_gen/app`, because `app` → impl packages → `src/locals` would be an import cycle. Keep it a plain types package. The generator checks this and reports it clearly.
 
 ## 5c. Typed server→client bridge
-**Status: Proposed, (Q) points open** (2026-10-26). Written before implementation, like §6.1; the user answers the **(Q)** points, then it's implemented. Replaces the §12 sketch; deviations from it are listed at the end.
+**Status: Accepted** (2026-10-26): the user chose the recommended answer to every **(Q)** point: (Q1) per-component modules imported by relative path (`import { data } from "./LikeButton.orbit"`); (Q2) `orbit.JSON` on any attribute, several per element; (Q3) `set:json` typed too (`json(id)`); (Q4) single-quoted values; (Q5) nil slices and maps typed `| null`; (Q6) 64-bit ints are `number` with a docs note; (Q7) types in `orbit_gen/types/`; (Q8) TypeScript editor support inside `<script>` is a separate item, next after this one; (Q9) no `bun check` in `orbit dev`. Written before implementation, like §6.1. Replaces the §12 sketch; deviations from it are listed at the end.
 
 **Goal**: data that a component hands to its own `<script>` keeps its Go type on the TypeScript side, so `orbit check` reports a script that reads a field the server doesn't send, or treats a nullable value as present, at the `.orbit` line:col. Nothing new at runtime beyond `encoding/json` and a ~180-byte accessor; no new dependency.
 
@@ -1571,7 +1571,8 @@ Dependencies:
   - **Later**: safe HTML reindent, between block-level elements only, never touching inline text, `<pre>` or `<textarea>`.
   - **Script/style**: piped through `bun fmt --stdin-filepath=<n>.ts|.css` (Bun ≥ 1.4.4's Prettier-compatible formatter; verified on TS and CSS). Skipped with a notice without Bun. The **HTML** template can't be passed to `bun fmt` directly: it rewrites `title={x}` to `title="{x}"` and merges control blocks onto one line. HTML formatting would need Orbit syntax masked first; evaluate it then.
   - **Tests**: idempotence (fmt∘fmt = fmt), AST equivalence, and rendered-output equality.
-- **Typed server→client bridge**: specified in §5c (proposed, (Q) points open).
+- **Typed server→client bridge**: specified in §5c (accepted).
+- **TypeScript editor support inside `.orbit` `<script>`** (user decision at the §5c checkpoint: a separate item, next after the bridge; own spec first): completion, hover and diagnostics for block scripts, likely by proxying a TypeScript language server over virtual documents (§9 "Out of scope").
 - `{switch}` template blocks
 - esbuild code splitting (shared chunks between pages, and between page bundles and `client:*` lazy entries, §5)
 - **Cacheable server islands** (the MVP already makes island URLs deterministic and puts the build ID in the path, §3.4, so no URL format change is needed):
