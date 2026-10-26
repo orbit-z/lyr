@@ -142,6 +142,7 @@ Every page renders on the server for each request; a component renders as part o
 |---|---|
 | `Astro.props` | `props` (a typed `Props` struct) |
 | `interface Props { … }` | `type Props struct { … }` |
+| `const { variant, ...rest } = Astro.props`, `<button {...rest}>` | An `Attrs orbit.RestAttrs` field, `<button {...props.Attrs}>`: see [Passing HTML attributes through](#passing-html-attributes-through) |
 | `import Card from "./Card.astro"` | `Card "./Card.orbit"` inside `import` |
 | `{cond && <p/>}`, `{list.map(…)}` | `{if cond}…{/if}`, `{for _, x := range list}…{/for}` |
 | `Astro.slots.has("x")` | `slots.Has("x")` |
@@ -475,10 +476,10 @@ post, _ := posts.Find("hello")
 ```
 
 ```text
-src/pages/index.orbit:9:7: unknown prop "psot" on <Card> (props: post, featured)
+src/pages/index.orbit:9:7: unknown prop "psot" on <Card> (props: post, featured; add an orbit.RestAttrs field to pass HTML attributes through)
 ```
 
-The list spells each field in lower camel case, as Astro props are usually written: a field `IsOpen` is listed as `isOpen`, `ID` as `id`.
+The list spells each field in lower camel case, as Astro props are usually written: a field `IsOpen` is listed as `isOpen`, `ID` as `id`. A component that should accept any HTML attribute (`name`, `aria-label`, `data-*`, …) declares an `orbit.RestAttrs` field instead: see [Passing HTML attributes through](#passing-html-attributes-through).
 
 A value of the wrong type is a regular Go error, also at the `.orbit` position:
 
@@ -516,6 +517,63 @@ type Props struct {
 ```text
 src/components/Card.orbit:5:2: Props field post must be exported, since a parent sets it (rename it to Post)
 ```
+
+### Passing HTML attributes through
+
+A component that wraps an HTML element, such as a button or an input, usually lets the caller add any attribute to it: `name`, `form`, `disabled`, `aria-*`, `data-*`. In Astro, that's `const { variant, ...rest } = Astro.props` and `<button {...rest}>`. In Orbit, declare a `Props` field of type **`orbit.RestAttrs`**: it collects every attribute of the call site that matches no other field, and `{...props.Attrs}` writes them on an element.
+
+```orbit file=src/components/Button.orbit
+---
+type Props struct {
+	Variant string
+	// Type is a prop, not a passed attribute, because the component sets
+	// the attribute itself.
+	Type string
+	// Attrs holds every other attribute of the call site.
+	Attrs orbit.RestAttrs
+}
+
+typ := props.Type
+if typ == "" {
+	typ = "button"
+}
+---
+<button {...props.Attrs} type={typ} class:list={"btn", "btn-" + props.Variant}><slot /></button>
+```
+
+```orbit file=src/pages/settings.orbit
+---
+import Button "../components/Button.orbit"
+
+shelf := "s-81"
+---
+<form method="post">
+  <Button variant="quiet" name="shelf" data-shelf={shelf} required class="mt-2">Save</Button>
+</form>
+<style>
+  .mt-2 {
+    margin-top: 0.5rem;
+  }
+</style>
+```
+
+renders (with the page's scope attribute `data-o-…`):
+
+```html
+<form method="post" data-o-…>
+  <button name="shelf" data-shelf="s-81" required data-o-… type="button" class="btn btn-quiet mt-2">Save</button>
+</form>
+```
+
+- **What's collected**: `variant` sets `Variant`, as usual. `name`, `data-shelf` and `required` match no field, so they go into `Attrs`, in the order you wrote them, with their names as written. Static values (`name="shelf"`) cost nothing at render time; expression values (`data-shelf={shelf}`) follow the same [rules as on an element](reference/template-syntax.md#attribute-values-on-html-elements): `true` is bare, `false` and `nil` are omitted, URL attributes are filtered.
+- **`class` is merged**: a passed `class` (or `class:list`) joins the element's own `class` or `class:list` instead of being written twice (`class="btn btn-quiet mt-2"`). On an element without a class, the spread writes `class="mt-2"`. If the component declares a `Class` prop, `class` sets that prop instead.
+- **The caller's scoped styles apply**: when the calling file has a scoped `<style>`, its scope attribute is passed along too, so the page's `.mt-2` rule matches the button, as in Astro.
+- **Declare a prop for any attribute the component sets itself.** If both the call site and the element write `type`, both are written and the browser keeps the first. Declaring `Type` makes `type="submit"` set the prop, and the component decides.
+- **Spread it on any number of elements**: `{...props.Attrs}` can appear on several elements, say an `<a>` when an `href` is passed and a `<button>` otherwise. `props.Attrs.Has("href")` and `props.Attrs.Get("href")` read a passed attribute.
+- **Forwarding**: a wrapper passes its own pass-through attributes on with a spread on the inner component, `<Input {...props.Attrs} />`; attributes written on the tag win over the spread's. A spread on a component works only when the component has an `orbit.RestAttrs` field, and takes an `orbit.RestAttrs` or an `orbit.Attrs`.
+- **Typos aren't caught**: on a component with an `orbit.RestAttrs` field, a misspelled prop (`varient="quiet"`) becomes an HTML attribute instead of an error, as in Astro. Declared props come first in editor completion.
+
+A `Props` takes at most one `orbit.RestAttrs` field, and it can't have embedded fields (Orbit must be able to tell props from pass-through attributes). From Go code, such as a test, build the field with `orbit.RestOf(orbit.Attrs{"name": "shelf"})`. The [template syntax reference](reference/template-syntax.md#pass-through-attributes) has the details and the error messages.
 
 ### Types used by Props
 

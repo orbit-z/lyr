@@ -273,7 +273,7 @@ Attribute names match `Props` fields ignoring case, so `title` sets `Title`. Now
 Save. The browser shows an error overlay instead of the page, pointing at the attribute and listing the props `Card` accepts:
 
 ```text
-src/pages/index.orbit:17:9: unknown prop "tga" on <Card> (props: title, href, tag)
+src/pages/index.orbit:17:9: unknown prop "tga" on <Card> (props: title, href, tag; add an orbit.RestAttrs field to pass HTML attributes through)
 ```
 
 Fix the typo (`tag="New"`) and save. The overlay goes away and the page reloads, now with the tag. Your Go code is type-checked the same way: a wrong type in an attribute or a typo in `{props.Titel}` is reported at its `.orbit` line and column.

@@ -360,7 +360,7 @@ As in Astro, `<Fragment>` takes only `slot`, `set:html` and `set:text`. `<Fragme
 | `a=bare` | A static unquoted value, as in HTML | `A: "bare"` (a Go string literal, like a quoted value) |
 | `a={expr}` | Rendered from the value (see below) | `A: expr` |
 | `{a}` | Shorthand for `a={a}` | Shorthand for `a={a}` |
-| `{...attrs}` | Spread of an `orbit.Attrs` | Not allowed |
+| `{...attrs}` | Spread of an `orbit.Attrs`, or of the component's `orbit.RestAttrs` field | Merged into the component's [pass-through attributes](#pass-through-attributes) (it needs an `orbit.RestAttrs` field) |
 
 Quoted values are literal text: `class="card {extra}"` renders `card {extra}`. To build a value, use an expression: `class={"card " + extra}`.
 
@@ -407,9 +407,13 @@ HTML attribute names are written to the output exactly as you spell them; only c
 <input {...props.Attrs} />
 ```
 
-Each name must match `[A-Za-z_:][-A-Za-z0-9_:.]*`. A name with a space, quote, `>`, `/` or `=` is a render error, so a map built from user input can't inject markup. Spread works on HTML elements only.
+Each name must match `[A-Za-z_:][-A-Za-z0-9_:.]*`. A name with a space, quote, `>`, `/` or `=` is a render error, so a map built from user input can't inject markup.
 
 Attributes are written in source order, with a spread's entries at the spread's position. Orbit doesn't merge duplicates: if a spread repeats an attribute written on the same element, both are written, and browsers use the first one.
+
+**Pass-through attributes**: in a component whose `Props` has an `orbit.RestAttrs` field, `{...props.Attrs}` (the field itself, spelled `props.<Field>`) writes the attributes the caller passed ([Pass-through attributes](#pass-through-attributes)): in the caller's order, then the caller's scope attribute. Their `class` is merged into the element's own `class` or `class:list` (`<button class="btn" {...props.Attrs}>` renders `class="btn mt-2"`, wherever the spread is written), or written as a `class` attribute on an element without one. Other duplicates are written twice, as above.
+
+On a component tag, a spread merges into the component's pass-through attributes ([below](#pass-through-attributes)); `<slot>` and `<Fragment>` take none.
 
 ## Directives
 
@@ -462,8 +466,8 @@ With `Hidden` true, `Class` set to `"mt-4"` and `Pairs` false, this renders `<in
 - **Order and whitespace**: classes are written in list order, separated by single spaces, whatever whitespace the items hold. Empty items are dropped; duplicates are kept, as in Astro.
 - **An empty list writes no `class` attribute** (`class:list={"active": false}` renders `<div>`).
 - **Escaping**: classes are escaped like any attribute value.
-- **A `class` attribute on the same element is merged in**, first, wherever it's written: `<p class="card" class:list={"featured": on}>` renders `<p class="card featured">`, at the position of `class:list`. A spread's `class` isn't merged: both are written, and browsers use the first.
-- **On a component tag**, the classes are joined into its `class` prop, so the component's `Props` needs a `Class string` field. Without one, it's an error at `class:list`: `class:list sets the class prop, which <Card> doesn't have (props: title)`.
+- **A `class` attribute on the same element is merged in**, first, wherever it's written: `<p class="card" class:list={"featured": on}>` renders `<p class="card featured">`, at the position of `class:list`. An `orbit.Attrs` spread's `class` isn't merged: both are written, and browsers use the first. [Pass-through attributes](#pass-through-attributes)' class is merged, after the list's classes.
+- **On a component tag**, the classes are joined into its `class` prop, so the component's `Props` needs a `Class string` field, or an `orbit.RestAttrs` field, which takes the joined classes as its class ([Pass-through attributes](#pass-through-attributes)). Without either, it's an error at `class:list`: `class:list sets the class prop, which <Card> doesn't have (props: title)`.
 - **Types**: an item of any other type is a build error at the item, `class:list items must be a string or []string, not int`. A condition that isn't a `bool` is Go's error at the condition.
 - **Syntax**: a nested list (`{"a", {"b": on}}`) is an error, `class:list items can't be nested lists; list the classes directly, or use a []string`; so is a value that isn't in braces, `class:list takes a list in braces, e.g. class:list={"card", "active": active}`. A tag takes one `class:list`; `<slot>`, `<Fragment>`, `<script>` and `<style>` take none.
 - **Cost**: static classes are joined into the surrounding HTML at build time and each condition becomes an `if`, so a `class:list` renders as fast as hand-written markup and, on an HTML element, allocates nothing. On a component, joining items that aren't all static allocates the prop's string (nothing when a single item is already clean).
@@ -619,8 +623,10 @@ import PostMeta "../components/PostMeta.orbit"
 ```
 
 ```text
-src/pages/index.orbit:4:11: unknown prop "titel" on <PostMeta> (props: title, url, date, tags, draft, attrs)
+src/pages/index.orbit:4:11: unknown prop "titel" on <PostMeta> (props: title, url, date, tags, draft, attrs; add an orbit.RestAttrs field to pass HTML attributes through)
 ```
+
+A component with an `orbit.RestAttrs` field never reports an unknown prop: the attribute is passed through ([below](#pass-through-attributes)).
 
 When Orbit can't list the fields (the embed and alias case above), it skips this check. Go then reports the unknown field, still at the attribute name, with the type name rewritten to your alias. With this `Card`, whose `Props` embeds a struct:
 
@@ -650,6 +656,37 @@ import Card "../components/Card.orbit"
 ```text
 src/pages/index.orbit:4:7: unknown field Psot in struct literal of type Card.Props
 ```
+
+### Pass-through attributes
+
+A `Props` field of type `orbit.RestAttrs` collects the call site's attributes that match no other field (see [Components](../components.md#passing-html-attributes-through) for the guide). The type is the marker; the field's name is yours (`Attrs` by convention).
+
+| Written on the tag | Passed as |
+|---|---|
+| `a="s"`, `a='s'`, `a=bare` | A static attribute `a="s"`, escaped at build time. |
+| `a` | A bare attribute. |
+| `a={expr}`, `{a}` | A dynamic attribute, written by the [attribute value rules](#attribute-values-on-html-elements): `true` bare, `false`/`nil` omitted, URL attributes filtered, `orbit.URL` trusted, `orbit.JSON(v)` single-quoted. |
+| `class`, `class:list` | The joined classes, kept apart and merged into the class of the element the attributes are spread on. With a `Class` prop, they set the prop instead. |
+| `{...x}` (`x` an `orbit.RestAttrs` or `orbit.Attrs`) | Merged in: attributes written on the tag win over the spread's for the same name (`class` included); of two spreads, the first wins. |
+| `attrs={x}` | Sets the field itself, like any prop (forwarding a value built in Go). |
+
+- **Names** are kept as written, and attributes in source order. Directives (`slot`, `server:defer`, `client:*`, `set:*`, …) aren't passed.
+- **The caller's scope attribute** (`data-o-…`, when the calling file has a scoped `<style>`) is passed too, so the caller's scoped rules match the element it lands on. Components without an `orbit.RestAttrs` field never get it.
+- **On the element**, `{...props.Attrs}` writes them (see [Spread attributes](#spread-attributes)). In Go, `props.Attrs.Has("href")` and `props.Attrs.Get("href")` read one ([Runtime API](runtime-api.md#restattrs)).
+- **Declaration**: at most one `orbit.RestAttrs` field, written `orbit.RestAttrs`, in a `Props` without embedded fields.
+
+Errors, each at its position:
+
+```text
+src/components/Button.orbit:6:2: Props has two orbit.RestAttrs fields (Attrs, Extra); a component takes one
+src/components/Button.orbit:6:2: an orbit.RestAttrs field needs a Props without embedded fields, so Orbit can tell props from pass-through attributes
+src/pages/index.orbit:4:28: attribute name is passed twice to <Button>
+src/pages/index.orbit:4:2: <Button> gets attrs={…} and pass-through attributes; use {...x} to merge them
+src/pages/index.orbit:4:7: {...} spread on <Card> needs an orbit.RestAttrs field in its Props, to pass HTML attributes through
+src/pages/index.orbit:4:15: class={…} merged with pass-through attributes must be a string or []string, not int
+```
+
+The same name twice is an error even in another case (`name` and `NAME`). A `class={…}` passed through, or written next to `{...props.Attrs}`, is a class list item, so it must be a `string` or `[]string`.
 
 ## How values render
 

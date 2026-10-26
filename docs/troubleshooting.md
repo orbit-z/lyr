@@ -156,9 +156,9 @@ The same applies after you edit an `.orbit` file: `go test` runs against the old
 
 ### `unknown prop "psot" on <Card> (props: post, featured)`
 
-**Cause:** an attribute on a component tag matches no field of its `Props`. Matching ignores case, `-` and `_`, and the list shows the names that would work.
+**Cause:** an attribute on a component tag matches no field of its `Props`. Matching ignores case, `-` and `_`, and the list shows the names that would work. The message ends with a hint, `add an orbit.RestAttrs field to pass HTML attributes through`.
 
-**Fix:** use one of the listed names (`post={p}`), or add the field to the component's `Props`. When `Props` embeds another struct or is an alias (`type Props = other.T`), Orbit can't list the fields, and Go reports the same mistake at the same place as `unknown field Psot in struct literal of type Card.Props`. See [Unknown props](components.md#unknown-props).
+**Fix:** use one of the listed names (`post={p}`), or add the field to the component's `Props`. If the attribute is meant for an element of the component (`name`, `aria-label`, `data-*`), give `Props` an `Attrs orbit.RestAttrs` field and spread it, `{...props.Attrs}`: see [Passing HTML attributes through](components.md#passing-html-attributes-through). When `Props` embeds another struct or is an alias (`type Props = other.T`), Orbit can't list the fields, and Go reports the same mistake at the same place as `unknown field Psot in struct literal of type Card.Props`. See [Unknown props](components.md#unknown-props).
 
 ### `unknown component <Crad>: no .orbit import with this alias`
 
@@ -519,6 +519,20 @@ A value `encoding/json` can't encode (a NaN float, a cyclic structure) fails at 
 | `class:list only works on HTML elements and components` | Put the classes on an element: `<slot>`, `<Fragment>`, `<script>` and `<style>` take no `class:list`. |
 
 A condition that isn't a `bool` is Go's own error at the condition: `non-boolean condition in if statement` on an HTML element, `cannot use n (variable of type int) as bool value in class:list condition` on a component. See [Template syntax: `class:list`](reference/template-syntax.md#classlist).
+
+### Pass-through attribute errors
+
+| Message | Fix |
+|---|---|
+| `Props has two orbit.RestAttrs fields (Attrs, Extra); a component takes one` | Keep one: it collects every attribute that matches no other field. |
+| `an orbit.RestAttrs field needs a Props without embedded fields, so Orbit can tell props from pass-through attributes` | List the embedded struct's fields in `Props`, or drop the `orbit.RestAttrs` field. |
+| `attribute name is passed twice to <Button>` | Remove one: the same attribute, in any case, can be passed once. |
+| `<Button> gets attrs={…} and pass-through attributes; use {...x} to merge them` | Setting the field itself replaces everything else: write `{...x}` to merge `x` with the other attributes. |
+| `{...} spread on <Card> needs an orbit.RestAttrs field in its Props, to pass HTML attributes through` | A spread on a component tag goes into its pass-through attributes. Add an `orbit.RestAttrs` field, or set the props one by one. |
+| `class={…} merged with pass-through attributes must be a string or []string, not int` | A passed `class={…}`, or one next to `{...props.Attrs}`, joins a class list: convert it to a string. |
+| `cannot use rest (variable of struct type orbit.RestAttrs) as orbit.Attrs value in argument to orbit__w.Spread` | Spread the field itself, `{...props.Attrs}`: Orbit recognizes pass-through attributes by that spelling, and spreads anything else as an `orbit.Attrs`. |
+
+An attribute that should set a prop but is written with a typo (`varient="quiet"`) isn't an error on a component with an `orbit.RestAttrs` field: it's passed through as an HTML attribute, as in Astro. See [Template syntax: Pass-through attributes](reference/template-syntax.md#pass-through-attributes).
 
 ### `define:vars isn't supported; pass data with orbit.JSON on a data-* attribute, or set:json`
 

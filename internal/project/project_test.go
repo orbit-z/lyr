@@ -122,7 +122,7 @@ func TestProjectErrors(t *testing.T) {
 			"src/components/Card.orbit": "---\ntype Props struct{ Post int }\n---\n<p>{props.Post}</p>\n",
 			"src/pages/b.orbit":         "---\nfunc init() {}\n---\n<p>",
 		}, []string{
-			`src/pages/a.orbit:4:7: unknown prop "psot" on <Card> (props: post)`,
+			`src/pages/a.orbit:4:7: unknown prop "psot" on <Card> (props: post; add an orbit.RestAttrs field to pass HTML attributes through)`,
 			`src/pages/b.orbit:2:6: func init isn't allowed in a component; use a package under internal/ for initialization`,
 			`src/pages/b.orbit:4:1: <p> isn't closed; add </p>`,
 			`src/pages/z-[id].orbit: route segment "z-[id]" mixes text and a parameter; use a whole-segment parameter such as [id].orbit and parse it in the page`,

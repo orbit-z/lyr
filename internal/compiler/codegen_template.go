@@ -549,6 +549,9 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	o := g.o
 	var props *PropsInfo
 	qual := "" // "Card." or "" for <Self>
+	// The unknown-prop error's hint, for a target that can take an
+	// orbit.RestAttrs field (not a Markdown import).
+	hint := "; add an orbit.RestAttrs field to pass HTML attributes through"
 	if n.Self {
 		props = &g.a.Props
 	} else {
@@ -565,6 +568,9 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 		}
 		props = &info.Props
 		qual = n.Name + "."
+		if strings.HasSuffix(imp.Resolved, ".md") {
+			hint = ""
+		}
 	}
 	id := ComponentID(g.a.Info.Path)
 	if !n.Self {
@@ -630,7 +636,7 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 			continue
 		}
 		if err != nil {
-			g.errorf(a.NameSpan, "unknown prop %q on <%s> (%s; add an orbit.RestAttrs field to pass HTML attributes through)", a.Name, n.Name, propList(n.Name, props))
+			g.errorf(a.NameSpan, "unknown prop %q on <%s> (%s%s)", a.Name, n.Name, propList(n.Name, props), hint)
 			pre = append(pre, a.Code)
 			continue
 		}
