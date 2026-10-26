@@ -7,7 +7,7 @@ package main
 import (
 	"log"
 
-	orbit "github.com/bertrandkhe/orbit"
+	orbit "github.com/orbit-z/orbit"
 
 	"example.com/blog/orbit_gen/app"
 )

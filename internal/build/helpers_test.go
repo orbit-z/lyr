@@ -86,7 +86,7 @@ func fixture(t *testing.T, userServer bool) string {
 	if err := os.CopyFS(dir, os.DirFS("testdata/site")); err != nil {
 		t.Fatal(err)
 	}
-	gomod := "module example.com/site\n\ngo 1.27\n\ntoolchain go1.27.3\n\nrequire github.com/bertrandkhe/orbit v0.0.0\n\nreplace github.com/bertrandkhe/orbit => " + filepath.ToSlash(repoRoot) + "\n"
+	gomod := "module example.com/site\n\ngo 1.27\n\ntoolchain go1.27.3\n\nrequire github.com/orbit-z/orbit v0.0.0\n\nreplace github.com/orbit-z/orbit => " + filepath.ToSlash(repoRoot) + "\n"
 	writeFile(t, dir, "go.mod", gomod)
 	if userServer {
 		if err := os.CopyFS(dir, os.DirFS("testdata/user")); err != nil {

@@ -131,7 +131,7 @@ func TestHarness(t *testing.T) {
 
 package hello
 
-import orbit__rt "github.com/bertrandkhe/orbit"
+import orbit__rt "github.com/orbit-z/orbit"
 
 type Props struct{ Name string }
 
@@ -149,7 +149,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 	hello "example.com/blog/orbit_gen/decl/components/hello"
 )
 

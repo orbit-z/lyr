@@ -275,15 +275,15 @@ type Props struct{ Body orbit.HTML }
 ---
 {for _, orbit := range []int{1}}{orbit}{/for}`, map[string]string{"orbit": "none"}},
 		{"explicit orbit import merged", `---
-import "github.com/bertrandkhe/orbit"
+import "github.com/orbit-z/orbit"
 x := orbit.HTML("a")
 ---
-{x}`, map[string]string{"import github.com/bertrandkhe/orbit": "impl", "orbit": "none"}},
+{x}`, map[string]string{"import github.com/orbit-z/orbit": "impl", "orbit": "none"}},
 		{"explicit orbit import, used in decl too", `---
-import orbit "github.com/bertrandkhe/orbit"
+import orbit "github.com/orbit-z/orbit"
 type Props struct{ H orbit.HTML }
 ---
-{orbit.HTML("x")}`, map[string]string{"import github.com/bertrandkhe/orbit": "both", "Props": "decl", "orbit": "none"}},
+{orbit.HTML("x")}`, map[string]string{"import github.com/orbit-z/orbit": "both", "Props": "decl", "orbit": "none"}},
 		{"unused and blank imports", `---
 import (
 	"fmt"

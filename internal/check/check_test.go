@@ -40,7 +40,7 @@ func newProject(t *testing.T, files map[string]string) string {
 	}
 	dir := t.TempDir()
 	all := map[string]string{
-		"go.mod": "module example.com/site\n\ngo 1.27\n\ntoolchain go1.27.3\n\nrequire github.com/bertrandkhe/orbit v0.0.0\n\nreplace github.com/bertrandkhe/orbit => " + filepath.ToSlash(repo) + "\n",
+		"go.mod": "module example.com/site\n\ngo 1.27\n\ntoolchain go1.27.3\n\nrequire github.com/orbit-z/orbit v0.0.0\n\nreplace github.com/orbit-z/orbit => " + filepath.ToSlash(repo) + "\n",
 		"tsconfig.json": `{
   "compilerOptions": {
     "target": "ESNext",

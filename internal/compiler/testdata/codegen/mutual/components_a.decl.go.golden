@@ -3,7 +3,7 @@
 package a
 
 import (
-	orbit__rt "github.com/bertrandkhe/orbit"
+	orbit__rt "github.com/orbit-z/orbit"
 )
 
 //line ../../../../src/components/A.orbit:4:1

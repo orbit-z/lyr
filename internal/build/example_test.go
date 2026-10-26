@@ -106,13 +106,13 @@ func exampleBlog(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const replace = "replace github.com/bertrandkhe/orbit => ../..\n"
-	for _, want := range []string{"module example.com/blog\n", "\ngo 1.27\n", "\ntoolchain go1.27.3\n", "\ntool github.com/bertrandkhe/orbit/cmd/orbit\n", replace} {
+	const replace = "replace github.com/orbit-z/orbit => ../..\n"
+	for _, want := range []string{"module example.com/blog\n", "\ngo 1.27\n", "\ntoolchain go1.27.3\n", "\ntool github.com/orbit-z/orbit/cmd/orbit\n", replace} {
 		if !strings.Contains(string(gomod), want) {
 			t.Fatalf("examples/blog/go.mod lacks %q:\n%s", want, gomod)
 		}
 	}
-	abs := strings.Replace(string(gomod), replace, "replace github.com/bertrandkhe/orbit => "+filepath.ToSlash(repoRoot)+"\n", 1)
+	abs := strings.Replace(string(gomod), replace, "replace github.com/orbit-z/orbit => "+filepath.ToSlash(repoRoot)+"\n", 1)
 	writeFile(t, dir, "go.mod", abs)
 	return dir
 }

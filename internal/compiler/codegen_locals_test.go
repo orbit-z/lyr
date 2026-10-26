@@ -69,7 +69,7 @@ import (
 	_ "example.com/blog/orbit_gen/impl/components/who"
 	_ "example.com/blog/orbit_gen/impl/pages/plain"
 	_ "example.com/blog/orbit_gen/impl/pages/who"
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 )
 
 type discard struct{ h http.Header }

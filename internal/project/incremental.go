@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 // Incremental is the resident typed pass of orbit dev (PLAN.md §3.3 Dev):

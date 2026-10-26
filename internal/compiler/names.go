@@ -19,7 +19,7 @@ import (
 // Fixed paths and names of the generated code (PLAN.md §2.2, §3.1, §3.2).
 const (
 	// RuntimePath is the import path of the runtime package.
-	RuntimePath = "github.com/bertrandkhe/orbit"
+	RuntimePath = "github.com/orbit-z/orbit"
 	// GenDir is the root of the generated tree, relative to the module root.
 	GenDir = "orbit_gen"
 	// GenHeader is the first line of every generated file.

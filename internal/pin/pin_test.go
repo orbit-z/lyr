@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/internal/config"
+	"github.com/orbit-z/orbit/internal/config"
 )
 
 func TestFromBuildInfo(t *testing.T) {
@@ -30,10 +30,10 @@ func TestFromBuildInfo(t *testing.T) {
 func TestDecide(t *testing.T) {
 	const (
 		head    = "module example.com/blog\n\ngo 1.27\n"
-		tool    = "tool github.com/bertrandkhe/orbit/cmd/orbit\n"
-		req     = "require github.com/bertrandkhe/orbit v0.1.0\n"
-		local   = "replace github.com/bertrandkhe/orbit => ../orbit\n"
-		remote  = "replace github.com/bertrandkhe/orbit => example.com/fork v0.1.1\n"
+		tool    = "tool github.com/orbit-z/orbit/cmd/orbit\n"
+		req     = "require github.com/orbit-z/orbit v0.1.0\n"
+		local   = "replace github.com/orbit-z/orbit => ../orbit\n"
+		remote  = "replace github.com/orbit-z/orbit => example.com/fork v0.1.1\n"
 		release = "v0.1.0"
 	)
 	global := Self{Version: release}
@@ -68,7 +68,7 @@ func TestDecide(t *testing.T) {
 
 	mod, _ := config.ParseGoMod([]byte(head + req))
 	err := Mismatch(mod, Self{Version: "v0.2.0"})
-	want := "version mismatch: this orbit is v0.2.0, but go.mod requires github.com/bertrandkhe/orbit v0.1.0; pin the CLI with go get -tool github.com/bertrandkhe/orbit/cmd/orbit@v0.1.0, then run go tool orbit (see orbit doctor)"
+	want := "version mismatch: this orbit is v0.2.0, but go.mod requires github.com/orbit-z/orbit v0.1.0; pin the CLI with go get -tool github.com/orbit-z/orbit/cmd/orbit@v0.1.0, then run go tool orbit (see orbit doctor)"
 	if err == nil || err.Error() != want {
 		t.Errorf("Mismatch:\n got %v\nwant %s", err, want)
 	}

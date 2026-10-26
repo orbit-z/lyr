@@ -23,7 +23,7 @@ This is a greenfield project: `/home/bertrandkhe/Projects/rs-astro` is empty. No
   - `b.Loop()` in benchmarks
   - Check the 1.26/1.27 release notes at implementation time for anything else worth adopting.
 
-Module: `github.com/bertrandkhe/orbit`.
+Module: `github.com/orbit-z/orbit`.
 
 ---
 
@@ -31,8 +31,8 @@ Module: `github.com/bertrandkhe/orbit`.
 
 ```
 my-site/
-  go.mod               module example.com/blog; requires github.com/bertrandkhe/orbit;
-                       `tool github.com/bertrandkhe/orbit/cmd/orbit` pins the CLI (§6)
+  go.mod               module example.com/blog; requires github.com/orbit-z/orbit;
+                       `tool github.com/orbit-z/orbit/cmd/orbit` pins the CLI (§6)
   orbit.json           optional config (see §8)
   src/
     pages/             file-based routes (.orbit)
@@ -96,7 +96,7 @@ title := strings.ToUpper(props.Title)
   - These are the only documented generated names. Every other generated identifier starts with `orbit__` (`orbit__ctx`, `orbit__props`, `orbit__slots`, `orbit__params`, `orbit__w`, `orbit__rt`, `orbit__render`, `orbit__err`, `orbit__locals`) or `Orbit__` (`Orbit__Render`). User identifiers with either prefix, and a hoisted `Render`, are rejected.
   - **Generated glue never refers to a name the user can shadow.** `render`'s parameters are private (`orbit__ctx`, `orbit__props`, `orbit__slots`, plus `orbit__w`), and the user names are bound at the top of `render` (`ctx, props, slots := orbit__ctx, orbit__props, orbit__slots`, then `locals`; a page binds `params` too: `ctx, props, slots, params := orbit__ctx, orbit__props, orbit__slots, orbit__params`). Glue uses only the private names, and imports the runtime as `orbit__rt`. The `orbit` import is emitted only in the generated packages whose user code uses it (decided by the same object-resolution scan as other imports, §3.1). So a nested `{for _, ctx := range …}` around a component call, or a local `orbit` in a nested block, can't break the generated code.
   - Redeclaring `ctx`, `props`, `slots`, `locals` or `orbit`, or in a page `params`, at the top level of the body (`props := …`, `var ctx …`) is an error: "props is provided by Orbit and can't be redeclared here". Shadowing in nested blocks is allowed, as in Go. In a component, `params` is an ordinary name, since Orbit doesn't provide it there (*decided by rule*: simplest; the error message would be false in a component).
-  - A user import of `github.com/bertrandkhe/orbit` under the name `orbit` is merged with the implicit one.
+  - A user import of `github.com/orbit-z/orbit` under the name `orbit` is merged with the implicit one.
 - **No `func init`**: a hoisted `func init()` in the frontmatter is rejected at its position: "func init isn't allowed in a component; use a package under internal/ for initialization". Rendering a component during package initialization isn't supported (§3.1).
 - If there's no `type Props`, generate `type Props struct{}`. Every `Props` field must be exported (a parent can't set an unexported field); an unexported field is an error naming the field: `src/components/Card.orbit:5:5: Props field post must be exported, since a parent sets it (rename it to Post)`.
 - **Unused locals**: Go rejects variables that are declared but not used, and Astro allows them. Parse the body with `go/parser`, collect names declared at its top level (`:=`, `var`), and emit `_ = name` after the body. These lines are recorded in the source map as `kind=echo` (§3.3), so an LSP rename drops gopls's edits to them (§9). Unused imports stay a Go error, which is consistent with Go.
@@ -237,7 +237,7 @@ url := href(props.Post)
 package card
 
 import (
-	orbit__rt "github.com/bertrandkhe/orbit"
+	orbit__rt "github.com/orbit-z/orbit"
 //line ../../../../src/components/Card.orbit:2:8
 "example.com/blog/internal/posts"
 //line decl.go:10:1
@@ -266,7 +266,7 @@ func Render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit__props 
 package card_impl
 
 import (
-	orbit__rt "github.com/bertrandkhe/orbit"
+	orbit__rt "github.com/orbit-z/orbit"
 	. "example.com/blog/orbit_gen/decl/components/card"
 //line ../../../../src/components/Card.orbit:2:8
 "example.com/blog/internal/posts"
@@ -464,7 +464,7 @@ and `Defer` (§4) writes:
 - `client:visible` observes the wrapper's element children, as Astro does, because a `display:contents` element has no box of its own.
 - The wrapper is always emitted for a lazy directive, even on a page where the component's scripts end up eager (eager wins, §5). The loader ignores IDs that aren't in the page's lazy map.
 
-## 4. Runtime package (`github.com/bertrandkhe/orbit`, repo root)
+## 4. Runtime package (`github.com/orbit-z/orbit`, repo root)
 The runtime package depends only on the standard library (plus the framework's own stdlib-only `internal/islandcrypto`, §3.4, §10).
 ```go
 type Ctx struct {
@@ -572,7 +572,7 @@ func ListenAndServe(h http.Handler) error  // listens on Addr(); graceful shutdo
                                            // clashes with the user's own.
 ```
 
-**Component testing (`github.com/bertrandkhe/orbit/orbittest`)**, so users can unit-test components and pages with plain `go test`:
+**Component testing (`github.com/orbit-z/orbit/orbittest`)**, so users can unit-test components and pages with plain `go test`:
 ```go
 func Render[P any](t testing.TB, render func(*orbit.Ctx, *orbit.Writer, P, orbit.Slots) error,
     props P, opts ...Option) string                            // returns the HTML; t.Fatal on render error
@@ -838,7 +838,7 @@ type Locals struct {
 | `orbit build [--embed] [--verbose]` | Steps below. `--embed` (or `"embed": true` in `orbit.json`) produces a **single-binary deploy**: see step 6. `--verbose` (user request, milestone 6) prints each page's CSS/JS bundles with raw and gzip sizes, and totals; without it the build is silent. |
 | `orbit dev [--port 4321] [--host]` | Dev server (§7). Listens on localhost only; `--host` listens on all interfaces (decided by coordinator: Astro behavior). |
 | `orbit preview` | Run `dist/server` with the user's environment, so it listens on `Addr()` (`PORT=3000 orbit preview` picks a port). No flags. Exits with the server's exit code; errors if `dist/server` is missing. |
-| `orbit new <dir> [--module path]` | Scaffold from an embedded template (`embed.FS`) into `<dir>`, which must not exist or be empty. `--module` sets the module path; the default is the directory name (user decision). `go.mod` gets `go 1.27`, **always** a `toolchain goX.Y.Z` line with the Go version the CLI was built with (`runtime.Version()`; without it, `GOTOOLCHAIN=auto` fetches go1.27.0), and `tool github.com/bertrandkhe/orbit/cmd/orbit` (at the running CLI's version). Then run `orbit generate`, then `go mod tidy`. Generate must come first: the scaffolded `cmd/server` imports `orbit_gen/app`, so tidy fails without it.<br>**Starter**: `cmd/server/main.go`, a base layout with a scoped `<style>`, `src/pages/index.orbit` and `404.orbit`, `public/favicon.svg`, `tsconfig.json`, `src/env.d.ts`, `.gitignore` (`orbit_gen/`, `.orbit/`, `dist/`, `node_modules/`); no `Card` component, no `orbit.json` and no `package.json`. `orbit build` on it produces `dist/server` with no edits.<br>**Also scaffolds a `Dockerfile`** (plus `.dockerignore`), as a multi-stage build that works on the unmodified starter:<br>• **Build stage**: `FROM golang:<CLI's Go version>` (exact tag), `CGO_ENABLED=0 go tool orbit build --embed`. No Node or Bun is needed, because esbuild runs inside the CLI.<br>• The build stage uses `WORKDIR /src` and copies `go.mod`/`go.sum` first for a cached `go mod download` layer.<br>• **Final stage**: `FROM gcr.io/distroless/static-debian12:nonroot`, with only `dist/server` copied in, as `/server`. `ENV PORT=8080`, `EXPOSE 8080`, `USER nonroot:nonroot`, `ENTRYPOINT ["/server"]`. Typically a ~10–20 MB image.<br>• **`.dockerignore`**: `.git`, `.orbit`, `dist`, `orbit_gen`. It keeps `node_modules` in the context, because esbuild resolves npm imports from it and the image has no Node or Bun.<br>It sets `PORT`, not `ORBIT_ADDR`, so a `PORT` set by the platform (Cloud Run, Fly, Heroku) wins: `Addr()` reads `$ORBIT_ADDR`, else `:$PORT`, else `:4321` (§4). |
+| `orbit new <dir> [--module path]` | Scaffold from an embedded template (`embed.FS`) into `<dir>`, which must not exist or be empty. `--module` sets the module path; the default is the directory name (user decision). `go.mod` gets `go 1.27`, **always** a `toolchain goX.Y.Z` line with the Go version the CLI was built with (`runtime.Version()`; without it, `GOTOOLCHAIN=auto` fetches go1.27.0), and `tool github.com/orbit-z/orbit/cmd/orbit` (at the running CLI's version). Then run `orbit generate`, then `go mod tidy`. Generate must come first: the scaffolded `cmd/server` imports `orbit_gen/app`, so tidy fails without it.<br>**Starter**: `cmd/server/main.go`, a base layout with a scoped `<style>`, `src/pages/index.orbit` and `404.orbit`, `public/favicon.svg`, `tsconfig.json`, `src/env.d.ts`, `.gitignore` (`orbit_gen/`, `.orbit/`, `dist/`, `node_modules/`); no `Card` component, no `orbit.json` and no `package.json`. `orbit build` on it produces `dist/server` with no edits.<br>**Also scaffolds a `Dockerfile`** (plus `.dockerignore`), as a multi-stage build that works on the unmodified starter:<br>• **Build stage**: `FROM golang:<CLI's Go version>` (exact tag), `CGO_ENABLED=0 go tool orbit build --embed`. No Node or Bun is needed, because esbuild runs inside the CLI.<br>• The build stage uses `WORKDIR /src` and copies `go.mod`/`go.sum` first for a cached `go mod download` layer.<br>• **Final stage**: `FROM gcr.io/distroless/static-debian12:nonroot`, with only `dist/server` copied in, as `/server`. `ENV PORT=8080`, `EXPOSE 8080`, `USER nonroot:nonroot`, `ENTRYPOINT ["/server"]`. Typically a ~10–20 MB image.<br>• **`.dockerignore`**: `.git`, `.orbit`, `dist`, `orbit_gen`. It keeps `node_modules` in the context, because esbuild resolves npm imports from it and the image has no Node or Bun.<br>It sets `PORT`, not `ORBIT_ADDR`, so a `PORT` set by the platform (Cloud Run, Fly, Heroku) wins: `Addr()` reads `$ORBIT_ADDR`, else `:$PORT`, else `:4321` (§4). |
 | `orbit lsp` | Language server over stdio (§9). |
 | `orbit create-key` | Prints a new random 32-byte island key in base64, for `ORBIT_KEY` (§4). It's needed for rolling deploys and for several builds behind one load balancer (decided by rule: Astro has `astro create-key`). |
 | `orbit doctor [--json]` | Checks the environment and project, printing ✓ / ⚠ / ✗ with a fix command for each problem. Exit code 1 on any ✗. Outside a project (a `go.mod` plus `src/`, the LSP's rule), only the environment checks run (Go, gopls, Bun). `--json` prints `{"checks":[{"name","status","message","fix"}]}`, one entry per check in the order below, with `status` `"ok"`, `"warning"` or `"error"` and an empty `fix` for a passing check. **Checks**:<br>• **Go**: the `go` command, the active toolchain, and that `go.mod` has `go ≥ 1.27` and a `toolchain` line.<br>• **CLI version**: with the tool directive, `go list` of the pinned CLI package (the hand-over works, no build); without it, the CLI version vs. the `go.mod` requirement.<br>• **gopls** (found on PATH): its version, and its build Go version ≥ the project's `go` directive. This is the LSP refuse rule (§9), so ✗ → `go install golang.org/x/tools/gopls@latest`. ⚠ if older than the recommended v0.24.0.<br>• **Bun ≥ 1.4.4** for `orbit check`'s TypeScript half (⚠ only, with the upgrade command).<br>• **Generated code**: `orbit_gen/` present and fresh: the project is regenerated in memory (`Generator.Plan`, no writes) and diffed with `orbit_gen/`, stale files included, except `orbit_gen/manifest/manifest.go`, which `orbit dev` keeps empty (⚠ → `orbit generate`; about 60 ms on the starter).<br>• **`.gitignore`** covers `orbit_gen/`, `.orbit/` and `dist/`.<br>• **Config**: `orbit.json` is valid; the server entry exists; `src/locals` imports no `orbit_gen/app`.<br>The LSP's old-gopls error and the CLI's version-mismatch errors point to `orbit doctor`. |
@@ -850,7 +850,7 @@ type Locals struct {
 
 **Positions in CLI output** are printed relative to the project root as `src/…:L:C`; Go's own `./src/…` prefix is normalized away, while plain `go build`/`go vet` still print `./src/…`.
 
-**Version pinning**: when the project's `go.mod` has the `tool github.com/bertrandkhe/orbit/cmd/orbit` directive, a globally installed `orbit` hands the command to the pinned CLI, so the generator always matches the runtime version in `go.mod` (implemented, milestone 11): `go tool -n orbit` builds the pinned CLI (or finds it in the build cache) and prints its path, and the global CLI execs that binary directly (`syscall.Exec` on Unix; a child process on Windows), with `ORBIT_REEXEC=1` set to prevent loops and the toolchain's `bin` first on `PATH`, as `go tool` does. Going around the `go` command keeps Ctrl-C clean: `go tool orbit dev` exits 1 on Ctrl-C (the tool gets SIGINT twice, from the terminal and from `go`), the hand-over exits 0. It costs about 35 ms per command (`go tool orbit` itself adds about 65 ms). A global CLI is one whose main module is `github.com/bertrandkhe/orbit`; a `go tool` build never hands over. `orbit new` and `orbit doctor` are exempt (doctor must run when the pinned CLI doesn't build, and it reports the mismatch). Without the directive, a global CLI whose version differs from the `github.com/bertrandkhe/orbit` requirement in `go.mod` stops with a version-mismatch error pointing to `orbit doctor`; the check is skipped when `go.mod` has a `replace` of the module with a local directory, or doesn't require it. The tool directive adds the CLI's dependencies (esbuild, fsnotify, tdewolff) to the user's module graph; the runtime package itself stays stdlib-only.
+**Version pinning**: when the project's `go.mod` has the `tool github.com/orbit-z/orbit/cmd/orbit` directive, a globally installed `orbit` hands the command to the pinned CLI, so the generator always matches the runtime version in `go.mod` (implemented, milestone 11): `go tool -n orbit` builds the pinned CLI (or finds it in the build cache) and prints its path, and the global CLI execs that binary directly (`syscall.Exec` on Unix; a child process on Windows), with `ORBIT_REEXEC=1` set to prevent loops and the toolchain's `bin` first on `PATH`, as `go tool` does. Going around the `go` command keeps Ctrl-C clean: `go tool orbit dev` exits 1 on Ctrl-C (the tool gets SIGINT twice, from the terminal and from `go`), the hand-over exits 0. It costs about 35 ms per command (`go tool orbit` itself adds about 65 ms). A global CLI is one whose main module is `github.com/orbit-z/orbit`; a `go tool` build never hands over. `orbit new` and `orbit doctor` are exempt (doctor must run when the pinned CLI doesn't build, and it reports the mismatch). Without the directive, a global CLI whose version differs from the `github.com/orbit-z/orbit` requirement in `go.mod` stops with a version-mismatch error pointing to `orbit doctor`; the check is skipped when `go.mod` has a `replace` of the module with a local directory, or doesn't require it. The tool directive adds the CLI's dependencies (esbuild, fsnotify, tdewolff) to the user's module graph; the runtime package itself stays stdlib-only.
 
 **Fresh clones and CI**: `orbit_gen/` is gitignored by default, so a clone needs one step before anything else. Document it in `project-structure.md`:
 ```sh
@@ -867,7 +867,7 @@ Alternative: commit `orbit_gen/` (replace the `orbit_gen/` line in `.gitignore` 
 4. Generate `orbit_gen/` (two passes with typed writes, §3.3; no type cache).
 5. Copy `public/` into `dist/client/`. A conflict with `_orbit/` is an error.
 6. `go build -o dist/server <server entry>` (the user's `main`, or the generated default). Errors already point at `.orbit` lines via line directives; the CLI strips generated positions and rewrites generated type names (§3.3, error output). At runtime, `app.New()` finds the `client/` directory next to the binary (in the binary's own directory, not the working directory) unless `ORBIT_STATIC` or `WithStaticDir` overrides it.
-   - **Island key and build ID**: each `orbit build` generates a random island key and a random build ID and passes both with `-ldflags=-X github.com/bertrandkhe/orbit.buildKey=… -X github.com/bertrandkhe/orbit.buildID=…`, so nothing random is written to `orbit_gen/` (§4). `$ORBIT_KEY` at runtime overrides the embedded key.
+   - **Island key and build ID**: each `orbit build` generates a random island key and a random build ID and passes both with `-ldflags=-X github.com/orbit-z/orbit.buildKey=… -X github.com/orbit-z/orbit.buildID=…`, so nothing random is written to `orbit_gen/` (§4). `$ORBIT_KEY` at runtime overrides the embedded key.
    - **`--embed`**: before the server build, copy `dist/client` to `orbit_gen/static/client/` (go:embed can't reach outside the package directory) and generate `orbit_gen/static/static.go` with `//go:embed all:client` behind the `orbit_embed` build tag. The server is built with `-tags orbit_embed`, and `app.New()` then uses `WithStaticFS(static.FS)` automatically. The result is one self-contained `dist/server` binary; `dist/client` is still written for CDN uploads. The env var `ORBIT_STATIC` overrides the embedded files if set.
 
 ## 7. Dev server (`internal/dev`)
@@ -975,13 +975,13 @@ There is no `base` or `trailingSlash` option in the MVP (§12); trailing-slash b
 - **Commands** (user addition, milestone 12 checkpoint): `Orbit: Restart Language Server`, `Orbit: Run orbit generate` and `Orbit: Run orbit doctor` (output in an `Orbit` output channel), running the same `orbit` binary as the client (`orbit.path`, else `orbit` on PATH) in the workspace's project root.
 - **Grammar snapshot tests** (user addition): `vscode-tmgrammar-test` runs the grammar on sample `.orbit` files under `editors/vscode/test/` and compares the scopes with committed snapshots.
 - **Package manager: Bun** (user decision; `bun.lock`, `bun install --frozen-lockfile`, like `loader/`).
-- Built with esbuild and packaged with `vsce` (`--no-dependencies`: the bundle is self-contained) into a `.vsix`. A publish script for the VS Code Marketplace (`vsce publish`) and Open VSX (`ovsx publish`) as **`bertrandkhe.orbit`** (decided by coordinator), so VSCodium and Cursor users can install it; the user runs it with their own tokens (`VSCE_PAT`, `OVSX_PAT`), Claude never publishes (user decision).
+- Built with esbuild and packaged with `vsce` (`--no-dependencies`: the bundle is self-contained) into a `.vsix`. A publish script for the VS Code Marketplace (`vsce publish`) and Open VSX (`ovsx publish`) as **`orbit-z.orbit`** (decided by coordinator), so VSCodium and Cursor users can install it; the user runs it with their own tokens (`VSCE_PAT`, `OVSX_PAT`), Claude never publishes (user decision).
 - The README includes a Neovim `vim.lsp.config('orbit', …)` snippet and a filetype detection line.
 - `editor-setup.md` warns that the VS Code Go extension runs its own gopls, which also reports errors in `orbit_gen/` files; Orbit doesn't suppress them. It advises against hiding them with a gopls `directoryFilters` entry (`-orbit_gen`): Orbit forwards the client's `gopls` settings to its own gopls, which needs `orbit_gen/`.
 
 ## 10. Repository layout (framework)
 ```
-go.mod                       github.com/bertrandkhe/orbit
+go.mod                       github.com/orbit-z/orbit
 orbit.go ctx.go writer.go escape.go router.go head.go island.go locals.go main.go   // runtime (package orbit), *_bench_test.go
 loader/                      client loader TypeScript (islands + lazy) and its go:generate'd minified Go constant (§5)
 internal/islandcrypto/       island props sealing: HKDF keys, HMAC-SHA256 nonce, AES-256-GCM (§3.4)
@@ -1005,7 +1005,7 @@ internal/scaffold/template/  embedded `orbit new` starter (incl. Dockerfile, .do
 orbittest/                   component/page test helpers (package orbittest)
 docs/                        user documentation (milestone 1)
 editors/vscode/
-examples/blog/               go.mod with replace github.com/bertrandkhe/orbit => ../..
+examples/blog/               go.mod with replace github.com/orbit-z/orbit => ../..
 bench/orbit-site/            Orbit benchmark site (cards + fetch pages)
 bench/astro-site/            Astro (Node adapter) mirror of bench/orbit-site
 bench/go/                    own go.mod: Orbit vs templ vs html/template Go benchmarks

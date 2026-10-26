@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 
 	"example.com/orbitbench/orbit_gen/app"
 )

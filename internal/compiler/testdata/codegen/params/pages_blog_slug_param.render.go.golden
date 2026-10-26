@@ -3,7 +3,7 @@
 package slug_param_impl
 
 import (
-	orbit__rt "github.com/bertrandkhe/orbit"
+	orbit__rt "github.com/orbit-z/orbit"
 	. "example.com/blog/orbit_gen/decl/pages/blog/slug_param"
 //line ../../../../../src/pages/blog/[slug].orbit:2:8
 Layout "example.com/blog/orbit_gen/decl/components/layout"

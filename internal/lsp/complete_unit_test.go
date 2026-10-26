@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 func TestMapCompletion(t *testing.T) {
@@ -25,7 +25,7 @@ func TestMapCompletion(t *testing.T) {
 	cursor := at("props./", len("props."))
 	empty := Range{Start: cursor, End: cursor}
 	glue := Range{Start: at("orbit__w.Enter", 0), End: at("orbit__w.Enter", 5)}
-	rtLine := `orbit__rt "github.com/bertrandkhe/orbit"`
+	rtLine := `orbit__rt "github.com/orbit-z/orbit"`
 	afterRT := at(rtLine, len(rtLine))
 	importEdit := map[string]any{"range": Range{Start: afterRT, End: afterRT}, "newText": "\n\t\"strings\""}
 	genImport := map[string]any{"range": Range{Start: afterRT, End: afterRT}, "newText": "\n\t\"example.com/site/orbit_gen/decl/components/card\""}

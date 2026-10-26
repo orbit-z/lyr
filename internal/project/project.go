@@ -19,9 +19,9 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/bertrandkhe/orbit/internal/assets"
-	"github.com/bertrandkhe/orbit/internal/compiler"
-	"github.com/bertrandkhe/orbit/internal/config"
+	"github.com/orbit-z/orbit/internal/assets"
+	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/config"
 )
 
 // Project is a loaded Orbit project.

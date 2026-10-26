@@ -1,6 +1,6 @@
 ---
 import (
-    "github.com/bertrandkhe/orbit/docs/site/internal/content"
+    "github.com/orbit-z/orbit/docs/site/internal/content"
     // Imported first, so the global styles come before every component's
     // scoped styles in the page's stylesheet, and lose to them on ties.
     GlobalStyles "../components/GlobalStyles.orbit"

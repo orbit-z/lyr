@@ -14,8 +14,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/bertrandkhe/orbit/internal/compiler"
-	"github.com/bertrandkhe/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/project"
 )
 
 // Rename (PLAN.md §9 Request routing, rename): Go identifiers go to gopls

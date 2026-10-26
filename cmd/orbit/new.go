@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bertrandkhe/orbit/internal/project"
-	"github.com/bertrandkhe/orbit/internal/scaffold"
+	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/scaffold"
 )
 
 // runNew is orbit new <dir> [--module path]: write the starter, generate

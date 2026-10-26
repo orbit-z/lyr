@@ -31,7 +31,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bertrandkhe/orbit/internal/build"
+	"github.com/orbit-z/orbit/internal/build"
 )
 
 // DefaultPort is the dev server's default port, as Astro's.

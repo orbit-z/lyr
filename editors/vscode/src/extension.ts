@@ -14,8 +14,8 @@ import {
   type ServerOptions,
 } from "vscode-languageclient/node";
 
-const installURL = "https://github.com/bertrandkhe/orbit/blob/main/docs/editor-setup.md";
-const installCommand = "go install github.com/bertrandkhe/orbit/cmd/orbit@latest";
+const installURL = "https://github.com/orbit-z/orbit/blob/main/docs/editor-setup.md";
+const installCommand = "go install github.com/orbit-z/orbit/cmd/orbit@latest";
 
 let client: LanguageClient | undefined;
 let output: vscode.OutputChannel;
@@ -160,9 +160,9 @@ function findBinary(setting: string): string | undefined {
 function pinsOrbit(root: string): boolean {
   try {
     const mod = fs.readFileSync(path.join(root, "go.mod"), "utf8");
-    // `tool github.com/bertrandkhe/orbit/cmd/orbit`, or the path alone on
+    // `tool github.com/orbit-z/orbit/cmd/orbit`, or the path alone on
     // a line of a tool ( … ) block; require lines carry a version.
-    return /^\s*(tool\s+)?github\.com\/bertrandkhe\/orbit\/cmd\/orbit\s*(\/\/.*)?$/m.test(mod);
+    return /^\s*(tool\s+)?github\.com\/orbit-z\/orbit\/cmd\/orbit\s*(\/\/.*)?$/m.test(mod);
   } catch {
     return false;
   }

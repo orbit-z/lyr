@@ -3,8 +3,8 @@
 package doc
 
 import (
-	orbit__rt "github.com/bertrandkhe/orbit"
-	orbit "github.com/bertrandkhe/orbit"
+	orbit__rt "github.com/orbit-z/orbit"
+	orbit "github.com/orbit-z/orbit"
 //line ../../../../src/components/Doc.orbit:3:2
 "fmt"
 //line ../../../../src/components/Doc.orbit:4:2

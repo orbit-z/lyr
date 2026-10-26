@@ -3,7 +3,7 @@
 package b_impl
 
 import (
-	orbit__rt "github.com/bertrandkhe/orbit"
+	orbit__rt "github.com/orbit-z/orbit"
 	. "example.com/blog/orbit_gen/decl/components/b"
 //line ../../../../src/components/B.orbit:2:8
 "strconv"

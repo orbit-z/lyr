@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 // project writes files into a new directory and returns it.

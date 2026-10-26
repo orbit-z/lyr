@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 // LocalsDir is the optional package that declares the typed locals

@@ -4,7 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 // declEdge is one .orbit import that the declaration package uses: Props

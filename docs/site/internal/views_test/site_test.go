@@ -9,14 +9,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/orbittest"
+	"github.com/orbit-z/orbit/orbittest"
 
-	"github.com/bertrandkhe/orbit/docs/site/internal/content"
-	"github.com/bertrandkhe/orbit/docs/site/orbit_gen/app"
-	"github.com/bertrandkhe/orbit/docs/site/orbit_gen/decl/components/sidebar"
-	"github.com/bertrandkhe/orbit/docs/site/orbit_gen/decl/pages/search"
-	"github.com/bertrandkhe/orbit/docs/site/orbit_gen/decl/pages/slug_rest"
-	"github.com/bertrandkhe/orbit/docs/site/src/locals"
+	"github.com/orbit-z/orbit/docs/site/internal/content"
+	"github.com/orbit-z/orbit/docs/site/orbit_gen/app"
+	"github.com/orbit-z/orbit/docs/site/orbit_gen/decl/components/sidebar"
+	"github.com/orbit-z/orbit/docs/site/orbit_gen/decl/pages/search"
+	"github.com/orbit-z/orbit/docs/site/orbit_gen/decl/pages/slug_rest"
+	"github.com/orbit-z/orbit/docs/site/src/locals"
 )
 
 func TestDocPageRenders(t *testing.T) {

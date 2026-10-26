@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bertrandkhe/orbit/internal/doctor"
+	"github.com/orbit-z/orbit/internal/doctor"
 )
 
 // doctorEnv returns the environment orbit doctor checks; tests replace it.

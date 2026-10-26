@@ -131,8 +131,8 @@ func readLog(t *testing.T, log string) string {
 
 const (
 	pinHead = "module example.com/site\n\ngo 1.27\n\ntoolchain go1.27.3\n\n"
-	pinTool = "tool github.com/bertrandkhe/orbit/cmd/orbit\n\n"
-	pinReq  = "require github.com/bertrandkhe/orbit v9.9.9\n"
+	pinTool = "tool github.com/orbit-z/orbit/cmd/orbit\n\n"
+	pinReq  = "require github.com/orbit-z/orbit v9.9.9\n"
 )
 
 // TestReexec checks the global CLI's re-exec into the pinned CLI with a
@@ -191,7 +191,7 @@ func TestVersionMismatch(t *testing.T) {
 	dir := pinProject(t, pinHead+pinReq)
 	code, out := runBin(t, bin, dir, env, "generate")
 	want := "orbit: version mismatch: this orbit is "
-	tail := ", but go.mod requires github.com/bertrandkhe/orbit v9.9.9; pin the CLI with go get -tool github.com/bertrandkhe/orbit/cmd/orbit@v9.9.9, then run go tool orbit (see orbit doctor)\n"
+	tail := ", but go.mod requires github.com/orbit-z/orbit v9.9.9; pin the CLI with go get -tool github.com/orbit-z/orbit/cmd/orbit@v9.9.9, then run go tool orbit (see orbit doctor)\n"
 	if code != 1 || !strings.HasPrefix(out, want) || !strings.HasSuffix(out, tail) {
 		t.Errorf("exit %d\n%s", code, out)
 	}
@@ -200,7 +200,7 @@ func TestVersionMismatch(t *testing.T) {
 		t.Errorf("orbit doctor -h: exit %d\n%s", code, out)
 	}
 
-	dir = pinProject(t, pinHead+pinReq+"replace github.com/bertrandkhe/orbit => ../orbit\n")
+	dir = pinProject(t, pinHead+pinReq+"replace github.com/orbit-z/orbit => ../orbit\n")
 	if code, out := runBin(t, bin, dir, env, "help"); code != 0 {
 		t.Errorf("local replace: exit %d\n%s", code, out)
 	}

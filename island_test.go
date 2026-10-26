@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/internal/islandcrypto"
+	"github.com/orbit-z/orbit/internal/islandcrypto"
 )
 
 const commentsID = "Comments-9b1e44a2"

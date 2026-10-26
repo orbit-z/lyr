@@ -1,6 +1,6 @@
 package main
 
-import "github.com/bertrandkhe/orbit/bench/devloop/synth"
+import "github.com/orbit-z/orbit/bench/devloop/synth"
 
 // The synthetic project lives in package synth, shared with bench/lsp;
 // these wrappers keep this command's names.

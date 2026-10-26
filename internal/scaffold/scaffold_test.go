@@ -35,7 +35,7 @@ func TestFiles(t *testing.T) {
 		t.Errorf("files:\n%q\nwant:\n%q", got, want)
 	}
 
-	gomod := "module example.com/blog\n\ngo 1.27\n\ntoolchain go1.27.3\n\ntool github.com/bertrandkhe/orbit/cmd/orbit\n\nrequire github.com/bertrandkhe/orbit v0.1.0\n"
+	gomod := "module example.com/blog\n\ngo 1.27\n\ntoolchain go1.27.3\n\ntool github.com/orbit-z/orbit/cmd/orbit\n\nrequire github.com/orbit-z/orbit v0.1.0\n"
 	if got := string(files["go.mod"]); got != gomod {
 		t.Errorf("go.mod:\n%s\nwant:\n%s", got, gomod)
 	}
@@ -76,8 +76,8 @@ func TestFiles(t *testing.T) {
 
 func TestFilesReplace(t *testing.T) {
 	for dir, want := range map[string]string{
-		"/home/me/orbit":  "replace github.com/bertrandkhe/orbit => /home/me/orbit\n",
-		"/home/me/my src": "replace github.com/bertrandkhe/orbit => \"/home/me/my src\"\n",
+		"/home/me/orbit":  "replace github.com/orbit-z/orbit => /home/me/orbit\n",
+		"/home/me/my src": "replace github.com/orbit-z/orbit => \"/home/me/my src\"\n",
 	} {
 		o := opts
 		o.Version, o.Replace = "v0.0.0", dir
@@ -86,7 +86,7 @@ func TestFilesReplace(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := string(files["go.mod"])
-		if !strings.HasSuffix(got, "require github.com/bertrandkhe/orbit v0.0.0\n\n"+want) {
+		if !strings.HasSuffix(got, "require github.com/orbit-z/orbit v0.0.0\n\n"+want) {
 			t.Errorf("go.mod:\n%s\nwant suffix %q", got, want)
 		}
 	}
@@ -116,10 +116,10 @@ func TestFallbackToolchain(t *testing.T) {
 
 func TestResolve(t *testing.T) {
 	checkout := t.TempDir() // a git checkout of Orbit
-	write(t, checkout, "go.mod", "module github.com/bertrandkhe/orbit\n\ngo 1.27\n")
+	write(t, checkout, "go.mod", "module github.com/orbit-z/orbit\n\ngo 1.27\n")
 	write(t, checkout, ".git", "gitdir: elsewhere\n")
 	cache := t.TempDir() // a module cache copy: no .git
-	write(t, cache, "go.mod", "module github.com/bertrandkhe/orbit\n\ngo 1.27\n")
+	write(t, cache, "go.mod", "module github.com/orbit-z/orbit\n\ngo 1.27\n")
 	other := t.TempDir()
 	write(t, other, "go.mod", "module example.com/other\n")
 
@@ -132,7 +132,7 @@ func TestResolve(t *testing.T) {
 		{version: "v0.1.0", src: checkout, want: Source{Version: "v0.1.0"}},
 		{version: "v0.2.0-rc.1", want: Source{Version: "v0.2.0-rc.1"}},
 		{version: "v0.1.0", env: checkout, want: Source{Version: "v0.0.0", Replace: checkout}},
-		{version: "v0.1.0", env: other, err: "not a checkout of github.com/bertrandkhe/orbit"},
+		{version: "v0.1.0", env: other, err: "not a checkout of github.com/orbit-z/orbit"},
 		{version: "(devel)", src: checkout, want: Source{Version: "v0.0.0", Replace: checkout}},
 		{version: "", src: checkout, want: Source{Version: "v0.0.0", Replace: checkout}},
 		{version: pseudo, src: checkout, want: Source{Version: "v0.0.0", Replace: checkout}},

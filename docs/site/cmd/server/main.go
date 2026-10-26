@@ -5,11 +5,11 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 
-	"github.com/bertrandkhe/orbit/docs/site/internal/content"
-	"github.com/bertrandkhe/orbit/docs/site/orbit_gen/app"
-	"github.com/bertrandkhe/orbit/docs/site/src/locals"
+	"github.com/orbit-z/orbit/docs/site/internal/content"
+	"github.com/orbit-z/orbit/docs/site/orbit_gen/app"
+	"github.com/orbit-z/orbit/docs/site/src/locals"
 )
 
 func main() {

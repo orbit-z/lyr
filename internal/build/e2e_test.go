@@ -52,7 +52,7 @@ func TestE2E(t *testing.T) {
 			}
 			// The island key and build ID are embedded with -ldflags=-X.
 			info, err := exec.Command("go", "version", "-m", filepath.Join(dir, "dist/server")).Output()
-			if err != nil || !regexp.MustCompile(`-X github.com/bertrandkhe/orbit.buildKey=[A-Za-z0-9+/]{43}= -X github.com/bertrandkhe/orbit.buildID=[0-9a-f]{16}`).Match(info) {
+			if err != nil || !regexp.MustCompile(`-X github.com/orbit-z/orbit.buildKey=[A-Za-z0-9+/]{43}= -X github.com/orbit-z/orbit.buildID=[0-9a-f]{16}`).Match(info) {
 				t.Errorf("go version -m dist/server: %v\n%s", err, info)
 			}
 

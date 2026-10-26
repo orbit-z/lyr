@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bertrandkhe/orbit/internal/build"
+	"github.com/orbit-z/orbit/internal/build"
 )
 
 // Pipeline is the resident rebuild pipeline of orbit dev without the

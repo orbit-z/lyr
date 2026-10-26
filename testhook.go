@@ -3,7 +3,7 @@ package orbit
 import (
 	"net/http"
 
-	"github.com/bertrandkhe/orbit/internal/testhook"
+	"github.com/orbit-z/orbit/internal/testhook"
 )
 
 // The orbittest bridge: package orbittest renders through these hooks, so it

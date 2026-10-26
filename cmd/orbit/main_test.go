@@ -97,7 +97,7 @@ func TestGenerateCommand(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("go.mod", "module example.com/site\n\ngo 1.27\n\nrequire github.com/bertrandkhe/orbit v0.0.0\n\nreplace github.com/bertrandkhe/orbit => "+filepath.ToSlash(root)+"\n")
+	write("go.mod", "module example.com/site\n\ngo 1.27\n\nrequire github.com/orbit-z/orbit v0.0.0\n\nreplace github.com/orbit-z/orbit => "+filepath.ToSlash(root)+"\n")
 	write("src/pages/index.orbit", "<p>{1 + 1}</p>\n")
 
 	// From a subdirectory: the root is found by walking up to go.mod.

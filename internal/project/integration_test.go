@@ -121,7 +121,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 
 	"example.com/blog/orbit_gen/app"
 )

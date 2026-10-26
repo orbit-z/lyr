@@ -293,7 +293,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 	cases "example.com/blog/orbit_gen/decl/components/cases"
 	typedcases "example.com/blog/orbit_gen/decl/components/typedcases"
 	_ "example.com/blog/orbit_gen/impl/components/cases"

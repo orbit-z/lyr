@@ -10,7 +10,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
@@ -22,7 +22,7 @@ import (
 )
 
 // RepoURL is where links to files outside docs/ point.
-const RepoURL = "https://github.com/bertrandkhe/orbit/blob/main/"
+const RepoURL = "https://github.com/orbit-z/orbit/blob/main/"
 
 type navLink struct {
 	group, title, desc, slug string

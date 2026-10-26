@@ -1,19 +1,19 @@
 # Orbit for VS Code
 
-Language support for [Orbit](https://github.com/bertrandkhe/orbit) `.orbit` components: Go frontmatter, an HTML template with `{…}` Go expressions, `<script>` in TypeScript and `<style>` in CSS.
+Language support for [Orbit](https://github.com/orbit-z/orbit) `.orbit` components: Go frontmatter, an HTML template with `{…}` Go expressions, `<script>` in TypeScript and `<style>` in CSS.
 
 ## Features
 
 - **Syntax highlighting**: the frontmatter and `{…}` expressions (including `{if}`/`{else if}`/`{else}`/`{/if}`, `{for}`/`{/for}`, attribute values `a={…}`, the shorthand `{a}` and spreads `{...attrs}`) as Go, `<style>` as CSS, `<script>` as TypeScript (`<script type="application/json">` and `ld+json` as JSON), and the rest as HTML. Components (`<Card>`, `<Self>`, `<Fragment>`) and directives (`set:html`, `client:visible`, `server:defer`, `slot`, `is:inline`, …) get their own scopes. `{/* … */}` is a template comment; braces inside `<script>`, `<style>` and HTML comments aren't expressions.
 - **Editing**: bracket matching, comment toggling (`//` in the frontmatter, `<!-- -->` in the template) and auto-closing pairs.
-- **Language server**: the extension starts `orbit lsp`, which gives you Go completion, hover, diagnostics, go-to-definition, references and rename inside `.orbit` files (through gopls), plus completion of tags, component props, directives and slot names. See [Editor setup](https://github.com/bertrandkhe/orbit/blob/main/docs/editor-setup.md) for what it covers.
+- **Language server**: the extension starts `orbit lsp`, which gives you Go completion, hover, diagnostics, go-to-definition, references and rename inside `.orbit` files (through gopls), plus completion of tags, component props, directives and slot names. See [Editor setup](https://github.com/orbit-z/orbit/blob/main/docs/editor-setup.md) for what it covers.
 
 ## Requirements
 
 - The `orbit` CLI on your `PATH`:
 
   ```sh
-  go install github.com/bertrandkhe/orbit/cmd/orbit@latest
+  go install github.com/orbit-z/orbit/cmd/orbit@latest
   ```
 
   Inside a project that pins the CLI in `go.mod`, that `orbit` hands over to the pinned version, so the language server matches your project. Without an `orbit` on your `PATH`, the extension runs `go tool orbit` in a project that pins the CLI (as `orbit new` projects do).
@@ -84,8 +84,8 @@ After changing the grammar, review the scope changes and refresh the snapshots w
 
 Publishing is done by hand, by the maintainer, with two tokens:
 
-- `VSCE_PAT`: an Azure DevOps personal access token with the **Marketplace (Manage)** scope, for the `bertrandkhe` publisher on the [VS Code Marketplace](https://marketplace.visualstudio.com/manage).
-- `OVSX_PAT`: an [Open VSX](https://open-vsx.org) access token for the `bertrandkhe` namespace (used by VSCodium, Cursor and other VS Code-based editors).
+- `VSCE_PAT`: an Azure DevOps personal access token with the **Marketplace (Manage)** scope, for the `orbit-z` publisher on the [VS Code Marketplace](https://marketplace.visualstudio.com/manage).
+- `OVSX_PAT`: an [Open VSX](https://open-vsx.org) access token for the `orbit-z` namespace (used by VSCodium, Cursor and other VS Code-based editors).
 
 Bump `version` in `package.json` and add a `CHANGELOG.md` entry, then:
 

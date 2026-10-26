@@ -3,7 +3,7 @@
 package slot_impl
 
 import (
-	orbit__rt "github.com/bertrandkhe/orbit"
+	orbit__rt "github.com/orbit-z/orbit"
 	. "example.com/blog/orbit_gen/decl/components/slot"
 	orbit__locals "example.com/blog/src/locals"
 //line ../../../../src/components/Slot.orbit:2:8

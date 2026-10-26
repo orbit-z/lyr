@@ -187,7 +187,7 @@ type Analysis struct {
 	GoImports    []GoImport
 	OrbitImports []OrbitImport
 	// ImplicitOrbit is where codegen emits the implicit
-	// orbit "github.com/bertrandkhe/orbit" import: the packages whose user
+	// orbit "github.com/orbit-z/orbit" import: the packages whose user
 	// code uses the name orbit, minus those a user import of it covers.
 	ImplicitOrbit Placement
 	// Props describes the component's Props (for a page: not declared,

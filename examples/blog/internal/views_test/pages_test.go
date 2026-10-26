@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/orbittest"
+	"github.com/orbit-z/orbit/orbittest"
 
 	"example.com/blog/orbit_gen/app"
 	"example.com/blog/orbit_gen/decl/components/comments"

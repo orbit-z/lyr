@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bertrandkhe/orbit/internal/compiler"
-	"github.com/bertrandkhe/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/project"
 )
 
 // EmbedTag is the build tag of an orbit build --embed server: it compiles

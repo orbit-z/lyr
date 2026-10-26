@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 )
 
 // fakeTB records failures. Fatal stops the calling goroutine, as testing

@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bertrandkhe/orbit/internal/config"
-	"github.com/bertrandkhe/orbit/internal/pin"
+	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/orbit/internal/pin"
 )
 
 // exemptFromPin are the commands a global CLI always runs itself: orbit new

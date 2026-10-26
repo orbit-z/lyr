@@ -19,8 +19,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bertrandkhe/orbit/internal/compiler"
-	"github.com/bertrandkhe/orbit/internal/config"
+	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/config"
 )
 
 // The gopls side (PLAN.md §9 Startup steps 4–6 and Acting as gopls's

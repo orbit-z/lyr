@@ -12,19 +12,19 @@ go 1.27
 
 toolchain go1.27.3
 
-tool github.com/bertrandkhe/orbit/cmd/orbit
+tool github.com/orbit-z/orbit/cmd/orbit
 tool (
 	golang.org/x/tools/gopls
 )
 
-require github.com/bertrandkhe/orbit v0.1.0
+require github.com/orbit-z/orbit v0.1.0
 
 require (
 	github.com/evanw/esbuild v0.25.0 // indirect
 	"example.com/quoted" v1.0.0
 )
 
-replace github.com/bertrandkhe/orbit => ../orbit
+replace github.com/orbit-z/orbit => ../orbit
 
 replace (
 	example.com/a v1.0.0 => example.com/b v1.1.0
@@ -39,14 +39,14 @@ exclude example.com/x v1.0.0
 	}
 	want := &GoMod{
 		Module: "example.com/blog", Go: "1.27", Toolchain: "go1.27.3",
-		Tools: []string{"github.com/bertrandkhe/orbit/cmd/orbit", "golang.org/x/tools/gopls"},
+		Tools: []string{"github.com/orbit-z/orbit/cmd/orbit", "golang.org/x/tools/gopls"},
 		Require: map[string]string{
-			"github.com/bertrandkhe/orbit": "v0.1.0",
-			"github.com/evanw/esbuild":     "v0.25.0",
-			"example.com/quoted":           "v1.0.0",
+			"github.com/orbit-z/orbit": "v0.1.0",
+			"github.com/evanw/esbuild": "v0.25.0",
+			"example.com/quoted":       "v1.0.0",
 		},
 		Replace: []Replace{
-			{Old: "github.com/bertrandkhe/orbit", New: "../orbit"},
+			{Old: "github.com/orbit-z/orbit", New: "../orbit"},
 			{Old: "example.com/a", OldVersion: "v1.0.0", New: "example.com/b", NewVersion: "v1.1.0"},
 			{Old: "example.com/c", New: "/abs/c"},
 		},
@@ -54,10 +54,10 @@ exclude example.com/x v1.0.0
 	if !reflect.DeepEqual(m, want) {
 		t.Errorf("got  %+v\nwant %+v", m, want)
 	}
-	if !m.HasTool("github.com/bertrandkhe/orbit/cmd/orbit") || m.HasTool("example.com/nope") {
+	if !m.HasTool("github.com/orbit-z/orbit/cmd/orbit") || m.HasTool("example.com/nope") {
 		t.Error("HasTool")
 	}
-	if r := m.Replacement("github.com/bertrandkhe/orbit", "v0.1.0"); r == nil || !r.Local() {
+	if r := m.Replacement("github.com/orbit-z/orbit", "v0.1.0"); r == nil || !r.Local() {
 		t.Errorf("Replacement(orbit) = %+v", r)
 	}
 	if r := m.Replacement("example.com/a", "v1.0.0"); r == nil || r.Local() {

@@ -11,7 +11,7 @@ over stdio as a client would. It measures:
   rename, once the server offers it);
 - the memory of `orbit lsp` and of its gopls child.
 
-It is a separate module (`github.com/bertrandkhe/orbit/bench/lsp`), so it
+It is a separate module (`github.com/orbit-z/orbit/bench/lsp`), so it
 adds nothing to the root module. The project generator lives in
 `bench/devloop/synth`, which both benchmarks import.
 

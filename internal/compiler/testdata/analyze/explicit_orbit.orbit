@@ -1,5 +1,5 @@
 ---
-import orbit "github.com/bertrandkhe/orbit"
+import orbit "github.com/orbit-z/orbit"
 
 type Props struct{ Body orbit.HTML }
 ---

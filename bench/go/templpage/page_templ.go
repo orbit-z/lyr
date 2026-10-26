@@ -8,7 +8,7 @@ package templpage
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/bertrandkhe/orbit/bench/go/data"
+import "github.com/orbit-z/orbit/bench/go/data"
 
 func Layout(title string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {

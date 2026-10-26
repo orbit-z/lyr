@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 // Diagnostic is an error or warning about a project file.

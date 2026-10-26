@@ -12,8 +12,8 @@ import (
 	"os/signal"
 	"strings"
 
-	"github.com/bertrandkhe/orbit/internal/config"
-	"github.com/bertrandkhe/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/orbit/internal/project"
 )
 
 // Exit codes (PLAN.md §6), following Go's flag package.

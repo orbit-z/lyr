@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/internal/assets"
-	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/assets"
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 var lazyFiles = map[string]string{

@@ -5,7 +5,7 @@ package unlinked_test
 import (
 	"testing"
 
-	"github.com/bertrandkhe/orbit/orbittest"
+	"github.com/orbit-z/orbit/orbittest"
 
 	card "example.com/site/orbit_gen/decl/components/card"
 )

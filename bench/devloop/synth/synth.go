@@ -91,7 +91,7 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 
 	"example.com/devloop/orbit_gen/app"
 	"example.com/devloop/src/locals"
@@ -339,7 +339,7 @@ items := data.Items(2)
 // WriteProject writes files and a go.mod requiring the runtime at orbitRoot.
 func WriteProject(dir, orbitRoot string, files map[string]string) error {
 	gomod := "module example.com/devloop\n\ngo 1.27\n\ntoolchain go1.27.3\n\n" +
-		"require github.com/bertrandkhe/orbit v0.0.0\n\nreplace github.com/bertrandkhe/orbit => " + filepath.ToSlash(orbitRoot) + "\n"
+		"require github.com/orbit-z/orbit v0.0.0\n\nreplace github.com/orbit-z/orbit => " + filepath.ToSlash(orbitRoot) + "\n"
 	if err := WriteFile(dir, "go.mod", gomod); err != nil {
 		return err
 	}

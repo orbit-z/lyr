@@ -171,7 +171,7 @@ These names are provided in the render body and the template, without declaring 
 | `slots` | `orbit.Slots` | The children the parent passed. See [Slots](#slots). |
 | `params` | `Params` | **Pages only.** The route params, typed: `params.Slug` for `src/pages/blog/[slug].orbit`. Orbit generates the `Params` struct from the file path. Components read a route param with `ctx.Param("slug")` instead. See [Route params](routing.md#route-params-params). |
 | `locals` | `*locals.Locals` | Request-scoped data, typed by your `type Locals struct` in the package `src/locals`. Without one, it's `*orbit.NoLocals`. See [Middleware and locals](middleware.md). |
-| `orbit` | package | The runtime package `github.com/bertrandkhe/orbit`. You can use it without importing it; an explicit import of it under the name `orbit` is merged with the implicit one. |
+| `orbit` | package | The runtime package `github.com/orbit-z/orbit`. You can use it without importing it; an explicit import of it under the name `orbit` is merged with the implicit one. |
 
 A page and all its components share one `ctx` and one `locals`. (A component rendered with `server:defer` is the exception: it renders in its own request, with its own `ctx`; see [Lazy loading](lazy-loading.md).) `ctx` is pooled and reused for later requests, so don't keep it, or start a goroutine that uses it, after the render returns.
 

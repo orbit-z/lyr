@@ -12,13 +12,13 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/internal/islandcrypto"
+	"github.com/orbit-z/orbit/internal/islandcrypto"
 )
 
 // Island key and build ID resolution (PLAN.md §4 "Island key", "Build ID").
 
 // buildKey and buildID are set by orbit build with
-// -ldflags=-X github.com/bertrandkhe/orbit.buildKey=… -X …buildID=…: a
+// -ldflags=-X github.com/orbit-z/orbit.buildKey=… -X …buildID=…: a
 // random island key (standard base64 of 32 bytes) and build ID (16 hex
 // chars) per build. Both are empty in a plain go build or go run.
 var (

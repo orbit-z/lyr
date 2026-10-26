@@ -3,7 +3,7 @@
 // Package manifest lists the assets of every page.
 package manifest
 
-import orbit "github.com/bertrandkhe/orbit"
+import orbit "github.com/orbit-z/orbit"
 
 // Pages maps a page's .orbit path to its CSS and JS assets.
 var Pages = map[string][]orbit.Asset{}

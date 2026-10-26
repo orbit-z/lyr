@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 func TestRouteFor(t *testing.T) {

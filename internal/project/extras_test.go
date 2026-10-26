@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 // TestExtrasGolden compares the generated app.go, manifest.go and default

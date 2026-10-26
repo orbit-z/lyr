@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/internal/doctor"
+	"github.com/orbit-z/orbit/internal/doctor"
 )
 
 // fakeDoctor replaces orbit doctor's environment: everything is found, and

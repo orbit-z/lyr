@@ -7,7 +7,7 @@ import (
 	a "example.com/blog/orbit_gen/decl/components/a"
 	_ "example.com/blog/orbit_gen/impl/components/a"
 	_ "example.com/blog/orbit_gen/impl/components/b"
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 )
 
 func main() {

@@ -44,7 +44,7 @@ func fixture(t *testing.T) string {
 	if err := os.CopyFS(dir, os.DirFS("testdata/site")); err != nil {
 		t.Fatal(err)
 	}
-	gomod := "module example.com/devsite\n\ngo 1.27\n\ntoolchain go1.27.3\n\nrequire github.com/bertrandkhe/orbit v0.0.0\n\nreplace github.com/bertrandkhe/orbit => " + filepath.ToSlash(repo) + "\n"
+	gomod := "module example.com/devsite\n\ngo 1.27\n\ntoolchain go1.27.3\n\nrequire github.com/orbit-z/orbit v0.0.0\n\nreplace github.com/orbit-z/orbit => " + filepath.ToSlash(repo) + "\n"
 	writeFile(t, dir, "go.mod", gomod)
 	// The checkout's go.sum covers the runtime's module graph, so go build
 	// doesn't write go.sum (which the watcher would see as a Go edit).

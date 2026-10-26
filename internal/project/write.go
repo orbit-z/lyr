@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 // StaticDir is orbit_gen/static, written by orbit build --embed. Generate

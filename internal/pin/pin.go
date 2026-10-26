@@ -1,19 +1,19 @@
 // Package pin decides how a globally installed orbit CLI defers to the
 // version a project pins (PLAN.md §6 "Version pinning"): it re-execs
 // go tool orbit when go.mod has the tool directive, and otherwise stops
-// on a version mismatch with the github.com/bertrandkhe/orbit requirement.
+// on a version mismatch with the github.com/orbit-z/orbit requirement.
 package pin
 
 import (
 	"fmt"
 	"runtime/debug"
 
-	"github.com/bertrandkhe/orbit/internal/config"
+	"github.com/orbit-z/orbit/internal/config"
 )
 
 const (
 	// Module is the framework's module path.
-	Module = "github.com/bertrandkhe/orbit"
+	Module = "github.com/orbit-z/orbit"
 	// Tool is the CLI's package, named by the go.mod tool directive.
 	Tool = Module + "/cmd/orbit"
 	// ReexecEnv is set to "1" for the go tool orbit the global CLI

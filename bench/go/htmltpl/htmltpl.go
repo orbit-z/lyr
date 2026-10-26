@@ -6,7 +6,7 @@ import (
 	"html/template"
 	"io"
 
-	"github.com/bertrandkhe/orbit/bench/go/data"
+	"github.com/orbit-z/orbit/bench/go/data"
 )
 
 const src = `

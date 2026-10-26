@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 
 	"example.com/blog/orbit_gen/app"
 	"example.com/blog/src/locals"

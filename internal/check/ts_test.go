@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bertrandkhe/orbit/internal/compiler"
-	"github.com/bertrandkhe/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/project"
 )
 
 const cardSrc = `---

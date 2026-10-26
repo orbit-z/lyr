@@ -9,13 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 
-	"github.com/bertrandkhe/orbit/bench/go/data"
-	"github.com/bertrandkhe/orbit/bench/go/htmltpl"
-	"github.com/bertrandkhe/orbit/bench/go/orbit_gen/app"
-	"github.com/bertrandkhe/orbit/bench/go/orbit_gen/decl/pages/cards"
-	"github.com/bertrandkhe/orbit/bench/go/templpage"
+	"github.com/orbit-z/orbit/bench/go/data"
+	"github.com/orbit-z/orbit/bench/go/htmltpl"
+	"github.com/orbit-z/orbit/bench/go/orbit_gen/app"
+	"github.com/orbit-z/orbit/bench/go/orbit_gen/decl/pages/cards"
+	"github.com/orbit-z/orbit/bench/go/templpage"
 )
 
 // The three engines render the same cards page into a reused buffer.

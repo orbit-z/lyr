@@ -3,7 +3,7 @@
 package card
 
 import (
-	orbit__rt "github.com/bertrandkhe/orbit"
+	orbit__rt "github.com/orbit-z/orbit"
 )
 
 //line ../../../../src/components/Card.orbit:4:1

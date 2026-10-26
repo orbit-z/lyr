@@ -46,8 +46,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bertrandkhe/orbit/internal/check"
-	"github.com/bertrandkhe/orbit/internal/scaffold"
+	"github.com/orbit-z/orbit/internal/check"
+	"github.com/orbit-z/orbit/internal/scaffold"
 )
 
 // goEnv runs the go command in a temp project: no workspace, and go.sum

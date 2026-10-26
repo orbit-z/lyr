@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 
 	"example.com/site/orbit_gen/app"
 	"example.com/site/orbit_gen/decl/components/likebutton"

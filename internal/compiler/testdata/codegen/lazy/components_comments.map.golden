@@ -1,9 +1,9 @@
 orbit_gen/decl/components/comments/decl.go (src/components/Comments.orbit)
-  exact 4:1 "type Props struct {\n\tPostID int\n\tTitle  string\n}" -> 167-215 "type Props struct {\n\tPostID int\n\tTitle  string\n}"
+  exact 4:1 "type Props struct {\n\tPostID int\n\tTitle  string\n}" -> 163-211 "type Props struct {\n\tPostID int\n\tTitle  string\n}"
 orbit_gen/impl/components/comments/render.go (src/components/Comments.orbit)
-  exact 2:8 "Counter" -> 226-233 "Counter"
-  span  2:16 "\"./Counter.orbit\"" -> 234-286 "\"example.com/blog/orbit_gen/decl/components/counter\""
-  exact 9:24 "props.PostID" -> 845-857 "props.PostID"
-  span  9:40 "Counter" -> 1041-1055 "Counter.Render"
+  exact 2:8 "Counter" -> 222-229 "Counter"
+  span  2:16 "\"./Counter.orbit\"" -> 230-282 "\"example.com/blog/orbit_gen/decl/components/counter\""
+  exact 9:24 "props.PostID" -> 841-853 "props.PostID"
+  span  9:40 "Counter" -> 1037-1051 "Counter.Render"
 call sites
   content key=114 "props.PostID" call="orbit__w.Expr(\n/*line ../../../../src/components/Comments.orbit:9:24*/props.PostID/*line render.go:24:92*/,\n\t)"

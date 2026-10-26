@@ -78,7 +78,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/orbittest"
+	"github.com/orbit-z/orbit/orbittest"
 
 	"example.com/blog/internal/posts"
 	_ "example.com/blog/orbit_gen/app"
@@ -160,7 +160,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/orbittest"
+	"github.com/orbit-z/orbit/orbittest"
 
 	"example.com/blog/internal/posts"
 	card "example.com/blog/orbit_gen/decl/components/card"
@@ -223,7 +223,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/orbittest"
+	"github.com/orbit-z/orbit/orbittest"
 
 	"example.com/blog/internal/auth"
 	"example.com/blog/orbit_gen/decl/components/greeting"
@@ -310,7 +310,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/orbittest"
+	"github.com/orbit-z/orbit/orbittest"
 
 	"example.com/blog/orbit_gen/decl/pages/blog/slug_param"
 )
@@ -358,7 +358,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/orbittest"
+	"github.com/orbit-z/orbit/orbittest"
 
 	"example.com/blog/orbit_gen/decl/pages/search"
 )
@@ -386,7 +386,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/orbittest"
+	"github.com/orbit-z/orbit/orbittest"
 
 	"example.com/blog/orbit_gen/app"
 )
@@ -433,7 +433,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/orbittest"
+	"github.com/orbit-z/orbit/orbittest"
 
 	"example.com/blog/orbit_gen/app"
 	"example.com/blog/orbit_gen/decl/components/comments"
@@ -482,7 +482,7 @@ package views_test
 import (
 	"testing"
 
-	"github.com/bertrandkhe/orbit/orbittest"
+	"github.com/orbit-z/orbit/orbittest"
 
 	"example.com/blog/internal/posts"
 	card "example.com/blog/orbit_gen/decl/components/card"

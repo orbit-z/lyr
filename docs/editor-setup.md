@@ -37,10 +37,10 @@ go install golang.org/x/tools/gopls@latest
 
 ## VS Code
 
-Install the **Orbit** extension, `bertrandkhe.orbit`. It's published on the VS Code Marketplace and on Open VSX, so VSCodium, Cursor and other VS Code-based editors can install it too. From the command line:
+Install the **Orbit** extension, `orbit-z.orbit`. It's published on the VS Code Marketplace and on Open VSX, so VSCodium, Cursor and other VS Code-based editors can install it too. From the command line:
 
 ```sh
-code --install-extension bertrandkhe.orbit
+code --install-extension orbit-z.orbit
 ```
 
 The extension:

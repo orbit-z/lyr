@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit"
-	"github.com/bertrandkhe/orbit/internal/testhook"
+	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/orbit/internal/testhook"
 )
 
 // An Option sets up what Render or Get gives a component. An option passed to

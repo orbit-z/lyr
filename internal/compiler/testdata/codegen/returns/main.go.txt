@@ -12,7 +12,7 @@ import (
 	_ "example.com/blog/orbit_gen/impl/components/r"
 	_ "example.com/blog/orbit_gen/impl/pages/nested"
 	_ "example.com/blog/orbit_gen/impl/pages/term"
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 )
 
 func main() {

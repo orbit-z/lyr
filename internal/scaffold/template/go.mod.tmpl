@@ -4,10 +4,10 @@ go 1.27
 
 toolchain {{.Toolchain}}
 
-tool github.com/bertrandkhe/orbit/cmd/orbit
+tool github.com/orbit-z/orbit/cmd/orbit
 
-require github.com/bertrandkhe/orbit {{.Version}}
+require github.com/orbit-z/orbit {{.Version}}
 {{- if .Replace}}
 
-replace github.com/bertrandkhe/orbit => {{.Replace}}
+replace github.com/orbit-z/orbit => {{.Replace}}
 {{- end}}

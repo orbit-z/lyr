@@ -2,7 +2,7 @@
 import (
     "errors"
 
-    "github.com/bertrandkhe/orbit/docs/site/internal/content"
+    "github.com/orbit-z/orbit/docs/site/internal/content"
     Base "../layouts/Base.orbit"
 )
 

@@ -1,6 +1,6 @@
 orbit_gen/decl/components/counter/decl.go (src/components/Counter.orbit)
-  exact 2:1 "type Props struct {\n\tStart int\n}" -> 165-197 "type Props struct {\n\tStart int\n}"
+  exact 2:1 "type Props struct {\n\tStart int\n}" -> 161-193 "type Props struct {\n\tStart int\n}"
 orbit_gen/impl/components/counter/render.go (src/components/Counter.orbit)
-  exact 6:10 "props.Start" -> 691-702 "props.Start"
+  exact 6:10 "props.Start" -> 687-698 "props.Start"
 call sites
   content key=50 "props.Start" call="orbit__w.Expr(\n/*line ../../../../src/components/Counter.orbit:6:10*/props.Start/*line render.go:21:90*/,\n\t)"

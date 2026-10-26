@@ -75,19 +75,19 @@ See [Why `go.mod` has a `toolchain` line](getting-started.md#why-gomod-has-a-too
 ### The global `orbit` stops with a version-mismatch error
 
 ```
-orbit: version mismatch: this orbit is v0.2.0, but go.mod requires github.com/bertrandkhe/orbit v0.1.0; pin the CLI with go get -tool github.com/bertrandkhe/orbit/cmd/orbit@v0.1.0, then run go tool orbit (see orbit doctor)
+orbit: version mismatch: this orbit is v0.2.0, but go.mod requires github.com/orbit-z/orbit v0.1.0; pin the CLI with go get -tool github.com/orbit-z/orbit/cmd/orbit@v0.1.0, then run go tool orbit (see orbit doctor)
 ```
 
-**Cause:** your project has no `tool github.com/bertrandkhe/orbit/cmd/orbit` directive in `go.mod`, and your globally installed `orbit` has a different version than the `github.com/bertrandkhe/orbit` requirement. The generated code must match the runtime it runs against, so the CLI stops and points you to `orbit doctor`.
+**Cause:** your project has no `tool github.com/orbit-z/orbit/cmd/orbit` directive in `go.mod`, and your globally installed `orbit` has a different version than the `github.com/orbit-z/orbit` requirement. The generated code must match the runtime it runs against, so the CLI stops and points you to `orbit doctor`.
 
 **Fix:** pin the CLI in the project, at the version `go.mod` already requires (`v0.1.0` here; use the one on your `require` line):
 
 ```sh
-go get -tool github.com/bertrandkhe/orbit/cmd/orbit@v0.1.0
+go get -tool github.com/orbit-z/orbit/cmd/orbit@v0.1.0
 go tool orbit build
 ```
 
-With the directive, a global `orbit` hands over to `go tool orbit` on its own, so the versions always match. The first `go tool orbit` compiles the CLI, which takes a moment. The check is skipped when `go.mod` replaces `github.com/bertrandkhe/orbit` with a local directory. See [The pinned CLI](reference/cli.md#the-pinned-cli-orbit-and-go-tool-orbit).
+With the directive, a global `orbit` hands over to `go tool orbit` on its own, so the versions always match. The first `go tool orbit` compiles the CLI, which takes a moment. The check is skipped when `go.mod` replaces `github.com/orbit-z/orbit` with a local directory. See [The pinned CLI](reference/cli.md#the-pinned-cli-orbit-and-go-tool-orbit).
 
 ### Go features are disabled in the editor: gopls is too old
 
@@ -714,7 +714,7 @@ Your own server keeps running on `127.0.0.1` behind the proxy either way. See [S
 Go through these in order:
 
 1. Run `orbit doctor` and fix the gopls line. If only template completion works (tags, props, slots, directives) and Go completion doesn't, see [Go features are disabled in the editor](#go-features-are-disabled-in-the-editor-gopls-is-too-old).
-2. **VS Code**: install the extension with `code --install-extension bertrandkhe.orbit`. It runs the `orbit` on your `PATH`; if it isn't there, set `orbit.path`.
+2. **VS Code**: install the extension with `code --install-extension orbit-z.orbit`. It runs the `orbit` on your `PATH`; if it isn't there, set `orbit.path`.
 3. **Neovim**: add the `vim.filetype.add({ extension = { orbit = 'orbit' } })` line and `vim.lsp.enable('orbit')` from [Editor setup](editor-setup.md#neovim).
 4. Open the project at its root: the language server looks for the directory with `go.mod` and `src/`.
 

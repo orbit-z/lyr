@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/internal/compiler"
-	"github.com/bertrandkhe/orbit/internal/pin"
-	"github.com/bertrandkhe/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/pin"
+	"github.com/orbit-z/orbit/internal/project"
 )
 
 const healthyGoMod = `module example.com/blog
@@ -21,9 +21,9 @@ go 1.27
 
 toolchain go1.27.3
 
-tool github.com/bertrandkhe/orbit/cmd/orbit
+tool github.com/orbit-z/orbit/cmd/orbit
 
-require github.com/bertrandkhe/orbit v0.1.0
+require github.com/orbit-z/orbit v0.1.0
 `
 
 // fakes is a fake world: commands on PATH, their outputs and binaries'
@@ -44,7 +44,7 @@ func healthy() *fakes {
 		path: map[string]string{"go": "/usr/bin/go", "gopls": "/bin/gopls", "bun": "/bin/bun"},
 		out: map[string]string{
 			"go env GOVERSION GOTOOLCHAIN": "go1.27.3\nauto\n",
-			"go list -f {{with .Module}}{{.Version}}{{with .Replace}} => {{.Path}}{{end}}{{end}} github.com/bertrandkhe/orbit/cmd/orbit": "v0.1.0\n",
+			"go list -f {{with .Module}}{{.Version}}{{with .Replace}} => {{.Path}}{{end}}{{end}} github.com/orbit-z/orbit/cmd/orbit": "v0.1.0\n",
 			"/bin/bun --version": "1.4.4\n",
 		},
 		errs: map[string]error{},
@@ -185,18 +185,18 @@ func TestChecks(t *testing.T) {
 			f.out["go env GOVERSION GOTOOLCHAIN"] = "go1.26.2\nlocal\n"
 		}, "go", Error, "the active toolchain go1.26.2 is older than go 1.27 in go.mod", "go env -w GOTOOLCHAIN=auto"},
 		{"pinned CLI doesn't load", func(t *testing.T, _ string, f *fakes) {
-			f.errs["go list -f {{with .Module}}{{.Version}}{{with .Replace}} => {{.Path}}{{end}}{{end}} github.com/bertrandkhe/orbit/cmd/orbit"] = errors.New("missing go.sum entry")
+			f.errs["go list -f {{with .Module}}{{.Version}}{{with .Replace}} => {{.Path}}{{end}}{{end}} github.com/orbit-z/orbit/cmd/orbit"] = errors.New("missing go.sum entry")
 		}, "cli", Error, "go tool orbit can't load the pinned CLI: missing go.sum entry", "go mod tidy"},
 		{"running pinned", func(t *testing.T, _ string, f *fakes) { f.self = pin.Self{Pinned: true, Version: "v0.1.0"} },
 			"cli", OK, "running the project's pinned CLI (go tool orbit, v0.1.0)", ""},
 		{"version mismatch", func(t *testing.T, dir string, f *fakes) {
-			write(t, dir, "go.mod", strings.Replace(healthyGoMod, "tool github.com/bertrandkhe/orbit/cmd/orbit\n", "", 1))
+			write(t, dir, "go.mod", strings.Replace(healthyGoMod, "tool github.com/orbit-z/orbit/cmd/orbit\n", "", 1))
 			f.self = pin.Self{Version: "v0.2.0"}
-		}, "cli", Error, "this orbit is v0.2.0, but go.mod requires github.com/bertrandkhe/orbit v0.1.0 (no tool directive)", "go get -tool github.com/bertrandkhe/orbit/cmd/orbit@v0.1.0"},
+		}, "cli", Error, "this orbit is v0.2.0, but go.mod requires github.com/orbit-z/orbit v0.1.0 (no tool directive)", "go get -tool github.com/orbit-z/orbit/cmd/orbit@v0.1.0"},
 		{"mismatch skipped with a local replace", func(t *testing.T, dir string, f *fakes) {
-			write(t, dir, "go.mod", strings.Replace(healthyGoMod, "tool github.com/bertrandkhe/orbit/cmd/orbit\n", "", 1)+"replace github.com/bertrandkhe/orbit => ../orbit\n")
+			write(t, dir, "go.mod", strings.Replace(healthyGoMod, "tool github.com/orbit-z/orbit/cmd/orbit\n", "", 1)+"replace github.com/orbit-z/orbit => ../orbit\n")
 			f.self = pin.Self{Version: "(devel)"}
-		}, "cli", OK, "go.mod replaces github.com/bertrandkhe/orbit with ../orbit", ""},
+		}, "cli", OK, "go.mod replaces github.com/orbit-z/orbit with ../orbit", ""},
 		{"orbit_gen deleted", func(t *testing.T, dir string, f *fakes) { os.RemoveAll(filepath.Join(dir, "orbit_gen")) },
 			"orbit_gen", Warning, "orbit_gen/ is missing", "orbit generate"},
 		{"orbit_gen stale", func(t *testing.T, _ string, f *fakes) {

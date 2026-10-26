@@ -3,7 +3,7 @@
 package tree
 
 import (
-	orbit__rt "github.com/bertrandkhe/orbit"
+	orbit__rt "github.com/orbit-z/orbit"
 )
 
 //line ../../../../src/components/Tree.orbit:2:1

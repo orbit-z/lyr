@@ -4,9 +4,9 @@ go 1.27
 
 toolchain go1.27.3
 
-tool github.com/bertrandkhe/orbit/cmd/orbit
+tool github.com/orbit-z/orbit/cmd/orbit
 
-require github.com/bertrandkhe/orbit v0.0.0
+require github.com/orbit-z/orbit v0.0.0
 
 require (
 	github.com/evanw/esbuild v0.28.2 // indirect
@@ -15,4 +15,4 @@ require (
 	golang.org/x/sys v0.13.0 // indirect
 )
 
-replace github.com/bertrandkhe/orbit => ../..
+replace github.com/orbit-z/orbit => ../..

@@ -1,14 +1,14 @@
-module github.com/bertrandkhe/orbit/bench/go
+module github.com/orbit-z/orbit/bench/go
 
 go 1.27
 
 toolchain go1.27.3
 
-tool github.com/bertrandkhe/orbit/cmd/orbit
+tool github.com/orbit-z/orbit/cmd/orbit
 
 require (
 	github.com/a-h/templ v0.3.1070
-	github.com/bertrandkhe/orbit v0.0.0
+	github.com/orbit-z/orbit v0.0.0
 )
 
 require (
@@ -18,4 +18,4 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 )
 
-replace github.com/bertrandkhe/orbit => ../..
+replace github.com/orbit-z/orbit => ../..

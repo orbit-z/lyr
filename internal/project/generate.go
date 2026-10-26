@@ -5,8 +5,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bertrandkhe/orbit/internal/assets"
-	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/assets"
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 // Generator runs the whole generate pipeline (PLAN.md §6 orbit build steps

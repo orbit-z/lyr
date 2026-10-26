@@ -1,4 +1,4 @@
-module github.com/bertrandkhe/orbit
+module github.com/orbit-z/orbit
 
 go 1.27
 

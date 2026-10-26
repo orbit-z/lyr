@@ -22,11 +22,11 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/bertrandkhe/orbit/internal/check"
-	"github.com/bertrandkhe/orbit/internal/compiler"
-	"github.com/bertrandkhe/orbit/internal/config"
-	"github.com/bertrandkhe/orbit/internal/pin"
-	"github.com/bertrandkhe/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/check"
+	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/orbit/internal/pin"
+	"github.com/orbit-z/orbit/internal/project"
 )
 
 // Status is a check's outcome.

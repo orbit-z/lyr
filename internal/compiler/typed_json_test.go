@@ -13,7 +13,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 )
 
 type point struct{ X, Y int }

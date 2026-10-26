@@ -47,26 +47,26 @@ Every command uses the same exit codes, following Go's `flag` package:
 Each project pins its CLI version in `go.mod`:
 
 ```
-tool github.com/bertrandkhe/orbit/cmd/orbit
+tool github.com/orbit-z/orbit/cmd/orbit
 ```
 
-You can run that pinned version directly with `go tool orbit <command>`. You can also keep using a globally installed `orbit`: when it runs inside a project whose `go.mod` has this directive, it hands the command over to the pinned version, with the same arguments, as `go tool orbit <args>` would. The generated code therefore always matches the `github.com/bertrandkhe/orbit` runtime version in your `go.mod`. The CLI sets `ORBIT_REEXEC=1` for the pinned process, so it never loops.
+You can run that pinned version directly with `go tool orbit <command>`. You can also keep using a globally installed `orbit`: when it runs inside a project whose `go.mod` has this directive, it hands the command over to the pinned version, with the same arguments, as `go tool orbit <args>` would. The generated code therefore always matches the `github.com/orbit-z/orbit` runtime version in your `go.mod`. The CLI sets `ORBIT_REEXEC=1` for the pinned process, so it never loops.
 
 The hand-over runs `go tool -n orbit`, which builds the pinned CLI (or finds it in Go's build cache) and prints its path, and then runs that binary in place of the global one (on Unix it replaces the process), with the selected Go toolchain first on `PATH`, as `go tool` does. So the exit code, signals and output are the pinned CLI's own: Ctrl-C on `orbit dev` exits with code 0. (Run directly, `go tool orbit dev` exits with code 1 on Ctrl-C: the `go` command forwards the terminal's `SIGINT` to the tool, which then gets it twice.) If the pinned CLI doesn't build, you see the `go` command's error and its exit code.
 
-The global CLI tells itself apart from a pinned copy by its build info: a global install (`go install github.com/bertrandkhe/orbit/cmd/orbit@…`, or `go build` in a clone) has Orbit as its main module, while `go tool orbit` is built inside your module, with Orbit as a dependency, and never hands over.
+The global CLI tells itself apart from a pinned copy by its build info: a global install (`go install github.com/orbit-z/orbit/cmd/orbit@…`, or `go build` in a clone) has Orbit as its main module, while `go tool orbit` is built inside your module, with Orbit as a dependency, and never hands over.
 
 `orbit new` and `orbit doctor` are the exceptions: they always run the version you invoked. `orbit new` has no project yet, and `orbit doctor` must work when the pinned CLI or the versions are what's broken (it reports both).
 
 In scripts, CI and Dockerfiles, call `go tool orbit` directly: it needs no global install.
 
-In a project without the `tool` directive, the global CLI checks that its version matches the `github.com/bertrandkhe/orbit` version in `go.mod`. If they differ, it stops with exit code 1 and a version-mismatch error that points to `orbit doctor`:
+In a project without the `tool` directive, the global CLI checks that its version matches the `github.com/orbit-z/orbit` version in `go.mod`. If they differ, it stops with exit code 1 and a version-mismatch error that points to `orbit doctor`:
 
 ```
-orbit: version mismatch: this orbit is v0.2.0, but go.mod requires github.com/bertrandkhe/orbit v0.1.0; pin the CLI with go get -tool github.com/bertrandkhe/orbit/cmd/orbit@v0.1.0, then run go tool orbit (see orbit doctor)
+orbit: version mismatch: this orbit is v0.2.0, but go.mod requires github.com/orbit-z/orbit v0.1.0; pin the CLI with go get -tool github.com/orbit-z/orbit/cmd/orbit@v0.1.0, then run go tool orbit (see orbit doctor)
 ```
 
-The check is skipped when `go.mod` replaces `github.com/bertrandkhe/orbit` with a local directory, and when `go.mod` doesn't require it at all.
+The check is skipped when `go.mod` replaces `github.com/orbit-z/orbit` with a local directory, and when `go.mod` doesn't require it at all.
 
 ## `orbit generate`
 
@@ -193,7 +193,7 @@ Creates a project in the directory `<dir>` from the starter template built into 
   - `module` set to `--module` or the directory name;
   - `go 1.27`;
   - a `toolchain` line naming the Go version the CLI was built with (for example `toolchain go1.27.3`), so `GOTOOLCHAIN=auto` uses that exact release;
-  - `tool github.com/bertrandkhe/orbit/cmd/orbit`, at the version of the CLI you ran;
+  - `tool github.com/orbit-z/orbit/cmd/orbit`, at the version of the CLI you ran;
 - `cmd/server/main.go`, your server, which composes Orbit with your own handlers (see [Server](../server.md));
 - a base layout with a scoped `<style>`, `src/pages/index.orbit`, `src/pages/404.orbit` and `public/favicon.svg`;
 - `tsconfig.json` and `src/env.d.ts`, for TypeScript in your scripts (see [Styles and scripts](../styles-and-scripts.md#tsconfigjson));
@@ -204,7 +204,7 @@ It then runs `orbit generate`, then `go mod tidy`, in that order: the scaffolded
 
 Flags may come before or after `<dir>`. A missing `<dir>`, a second argument or an unknown flag is a usage error (exit code 2). A module path with characters Go doesn't allow (`orbit new "my site"`) or a non-empty `<dir>` fails with exit code 1 before anything is written. If generating the code or `go mod tidy` fails, `orbit new` exits with code 1, names the failed step, and leaves `<dir>` as it is for you to inspect.
 
-**Before Orbit's first release**, the `require github.com/bertrandkhe/orbit` version can't be downloaded. A CLI that isn't a tagged release (built with `go install ./cmd/orbit`, `go build` or `go run` in a clone) writes `require github.com/bertrandkhe/orbit v0.0.0` plus a `replace` directive pointing at the clone it was built from, when that directory is still there. `ORBIT_REPLACE=/path/to/orbit` picks the clone explicitly (it must hold Orbit's `go.mod`). See [Trying Orbit before its first release](../getting-started.md#trying-orbit-before-its-first-release).
+**Before Orbit's first release**, the `require github.com/orbit-z/orbit` version can't be downloaded. A CLI that isn't a tagged release (built with `go install ./cmd/orbit`, `go build` or `go run` in a clone) writes `require github.com/orbit-z/orbit v0.0.0` plus a `replace` directive pointing at the clone it was built from, when that directory is still there. `ORBIT_REPLACE=/path/to/orbit` picks the clone explicitly (it must hold Orbit's `go.mod`). See [Trying Orbit before its first release](../getting-started.md#trying-orbit-before-its-first-release).
 
 `orbit new` always runs the CLI version you invoked; it never re-executes a pinned version.
 
@@ -234,7 +234,7 @@ Checks your environment and project. Each check prints ✓ (passed), ⚠ (warnin
 | Check (`name`) | What it verifies |
 |---|---|
 | Go (`go`) | The `go` command and the active toolchain (`go env GOVERSION`, run in the project, so it's the toolchain `go.mod` selects); that `go.mod` has `go 1.27` or later (✗) and a `toolchain` line (⚠, fixed by `go get toolchain@go1.27.3`). Outside a project, a Go older than 1.27 passes when it can switch toolchains (Go 1.21 or later, `GOTOOLCHAIN` not `local`). |
-| CLI version (`cli`) | With the `tool` directive: that the `go` command can load the pinned CLI (✗ otherwise, fixed by `go mod tidy`), so the hand-over works. Without it: the global `orbit` version against the `github.com/bertrandkhe/orbit` requirement (✗ on a mismatch, unless a local `replace`). |
+| CLI version (`cli`) | With the `tool` directive: that the `go` command can load the pinned CLI (✗ otherwise, fixed by `go mod tidy`), so the hand-over works. Without it: the global `orbit` version against the `github.com/orbit-z/orbit` requirement (✗ on a mismatch, unless a local `replace`). |
 | gopls (`gopls`) | The gopls on your `PATH`: its version, and that it was built with a Go at least as new as your `go` directive (✗ otherwise, the same rule `orbit lsp` uses to refuse a gopls, fixed by `go install golang.org/x/tools/gopls@latest`). ✗ if there's none. ⚠ if it's older than the recommended v0.24.0. |
 | Bun (`bun`) | That Bun 1.4.4 or later is installed, for `orbit check`'s TypeScript half. ⚠ only, with the install or upgrade command (`bun upgrade`). |
 | Generated code (`orbit_gen`) | That `orbit_gen/` exists and matches your sources (⚠, fixed by `orbit generate`). The generated files carry no source hash, so `orbit doctor` regenerates the project in memory, as `orbit generate` would, and compares; it writes nothing. `orbit_gen/manifest/manifest.go` isn't compared: it only lists asset URLs, `orbit dev` writes it empty and `orbit build` rewrites it. If your `.orbit` files have errors, it's a ⚠ naming the first one. |

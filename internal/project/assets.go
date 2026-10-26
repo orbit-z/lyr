@@ -1,8 +1,8 @@
 package project
 
 import (
-	"github.com/bertrandkhe/orbit/internal/assets"
-	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/assets"
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 // AssetInput returns the bundler input of the project (PLAN.md §5): every

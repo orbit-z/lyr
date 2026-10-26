@@ -33,7 +33,7 @@ const categories = [
 	['allocation (mallocgc)', (s) => has(s, /^runtime\.mallocgc/)],
 	['syscalls (socket read/write, epoll)', (s) => has(s, /^(syscall\.|internal\/runtime\/syscall\.|runtime\.netpoll|internal\/poll\.)/)],
 	['page render (generated code, writer, escaping)', (s) => has(s, /\/orbit_gen\//)],
-	['Orbit serving (routing, context, response)', (s) => has(s, /^github\.com\/bertrandkhe\/orbit\./)],
+	['Orbit serving (routing, context, response)', (s) => has(s, /^github\.com\/orbit-z\/orbit\./)],
 	['net/http (request parsing, headers, connection)', (s) => has(s, /^(net\/http|net\/textproto|bufio|net\.)/)],
 	['Go scheduler and other runtime', (s) => has(s, /^runtime\./)],
 	['other', () => true],
@@ -56,7 +56,7 @@ for (const { ms, stack } of samples) {
 		else if (/orbit\.(escape|firstEsc|.*[Ee]sc)/.test(leaf)) k = 'escaping (scan + escape)';
 		else if (/^(internal\/)?strconv\./.test(leaf)) k = 'number formatting (strconv)';
 		else if (/^runtime\./.test(leaf)) k = 'runtime (write barriers, stack growth, GC bookkeeping)';
-		else if (/^github\.com\/bertrandkhe\/orbit\./.test(leaf)) k = 'other Orbit runtime (writer, slots, URL check)';
+		else if (/^github\.com\/orbit-z\/orbit\./.test(leaf)) k = 'other Orbit runtime (writer, slots, URL check)';
 		else if (/\/orbit_gen\//.test(leaf)) k = 'generated component code';
 		else k = 'other (' + leaf + ')';
 		add(renderByLeaf, k, ms);

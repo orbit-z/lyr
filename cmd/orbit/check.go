@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/bertrandkhe/orbit/internal/check"
-	"github.com/bertrandkhe/orbit/internal/config"
+	"github.com/orbit-z/orbit/internal/check"
+	"github.com/orbit-z/orbit/internal/config"
 )
 
 // runCheck is orbit check: type-check the Go and TypeScript of the project

@@ -32,8 +32,8 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	gomod := "module example.com/site\n\ngo 1.27\n\ntoolchain go1.27.3\n\n" +
-		"require github.com/bertrandkhe/orbit v0.0.0\n\n" +
-		"replace github.com/bertrandkhe/orbit => " + filepath.ToSlash(repo) + "\n"
+		"require github.com/orbit-z/orbit v0.0.0\n\n" +
+		"replace github.com/orbit-z/orbit => " + filepath.ToSlash(repo) + "\n"
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
 		t.Fatal(err)
 	}

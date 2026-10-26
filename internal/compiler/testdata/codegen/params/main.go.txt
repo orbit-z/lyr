@@ -10,7 +10,7 @@ import (
 	_ "example.com/blog/orbit_gen/impl/components/layout"
 	_ "example.com/blog/orbit_gen/impl/pages/blog/slug_param"
 	_ "example.com/blog/orbit_gen/impl/pages/redirect"
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 )
 
 func main() {

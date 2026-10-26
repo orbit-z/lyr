@@ -1,13 +1,13 @@
-module github.com/bertrandkhe/orbit/docs/site
+module github.com/orbit-z/orbit/docs/site
 
 go 1.27
 
 toolchain go1.27.3
 
-tool github.com/bertrandkhe/orbit/cmd/orbit
+tool github.com/orbit-z/orbit/cmd/orbit
 
 require (
-	github.com/bertrandkhe/orbit v0.0.0
+	github.com/orbit-z/orbit v0.0.0
 	github.com/yuin/goldmark v1.8.6
 )
 
@@ -18,4 +18,4 @@ require (
 	golang.org/x/sys v0.13.0 // indirect
 )
 
-replace github.com/bertrandkhe/orbit => ../..
+replace github.com/orbit-z/orbit => ../..

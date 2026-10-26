@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bertrandkhe/orbit/internal/lsp"
-	"github.com/bertrandkhe/orbit/internal/pin"
+	"github.com/orbit-z/orbit/internal/lsp"
+	"github.com/orbit-z/orbit/internal/pin"
 )
 
 // runLSP is orbit lsp: the language server over stdin/stdout (PLAN.md §9).

@@ -3,7 +3,7 @@
 package index_impl
 
 import (
-	orbit__rt "github.com/bertrandkhe/orbit"
+	orbit__rt "github.com/orbit-z/orbit"
 	. "example.com/blog/orbit_gen/decl/pages/index"
 //line ../../../../src/pages/index.orbit:2:8
 Comments "example.com/blog/orbit_gen/decl/components/comments"

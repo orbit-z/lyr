@@ -3,7 +3,7 @@
 package r_impl
 
 import (
-	orbit__rt "github.com/bertrandkhe/orbit"
+	orbit__rt "github.com/orbit-z/orbit"
 	. "example.com/blog/orbit_gen/decl/components/r"
 //line ../../../../src/components/R.orbit:3:2
 "errors"
@@ -12,7 +12,7 @@ import (
 //line ../../../../src/components/R.orbit:5:2
 "io/fs"
 //line render.go:15:1
-	orbit "github.com/bertrandkhe/orbit"
+	orbit "github.com/orbit-z/orbit"
 )
 
 //line ../../../../src/components/R.orbit:12:1

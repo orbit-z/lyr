@@ -7,7 +7,7 @@ This page takes you from an empty machine to a running Orbit site: you install t
 Install the CLI with Go, then let `orbit doctor` check your setup:
 
 ```sh
-go install github.com/bertrandkhe/orbit/cmd/orbit@latest
+go install github.com/orbit-z/orbit/cmd/orbit@latest
 orbit doctor
 ```
 
@@ -63,10 +63,10 @@ To move to a newer Go release later, update the line with `go get toolchain@go1.
 
 ## Projects pin their CLI version
 
-The `orbit` CLI generates Go code that runs against the `github.com/bertrandkhe/orbit` runtime package, so the two must come from the same version. Each project pins the CLI in `go.mod` with a `tool` directive:
+The `orbit` CLI generates Go code that runs against the `github.com/orbit-z/orbit` runtime package, so the two must come from the same version. Each project pins the CLI in `go.mod` with a `tool` directive:
 
 ```
-tool github.com/bertrandkhe/orbit/cmd/orbit
+tool github.com/orbit-z/orbit/cmd/orbit
 ```
 
 Inside a project, run the pinned CLI as `go tool orbit`:
@@ -80,7 +80,7 @@ You can keep typing plain `orbit`, too: inside a project with this directive, th
 To upgrade a project, update the module. The CLI and the runtime move together, because they're the same module:
 
 ```sh
-go get -tool github.com/bertrandkhe/orbit/cmd/orbit@latest
+go get -tool github.com/orbit-z/orbit/cmd/orbit@latest
 ```
 
 ## Create a project
@@ -109,10 +109,10 @@ If generating the code or `go mod tidy` fails, `orbit new` says which step faile
 
 ### Trying Orbit before its first release
 
-Orbit has no published release yet, so `go install …@latest` and the `require github.com/bertrandkhe/orbit` line that `orbit new` writes can't be downloaded. Build the CLI from a clone of the repository instead, and `orbit new` points the new project at that clone:
+Orbit has no published release yet, so `go install …@latest` and the `require github.com/orbit-z/orbit` line that `orbit new` writes can't be downloaded. Build the CLI from a clone of the repository instead, and `orbit new` points the new project at that clone:
 
 ```sh
-git clone https://github.com/bertrandkhe/orbit
+git clone https://github.com/orbit-z/orbit
 cd orbit
 go install ./cmd/orbit
 cd ..
@@ -122,9 +122,9 @@ orbit new blog --module example.com/blog
 A CLI built from a checkout (with `go install ./cmd/orbit`, `go build` or `go run`: any version that isn't a tagged release) looks for the checkout it was built from. When the directory is still there, `orbit new` adds a `replace` directive to `go.mod`:
 
 ```
-require github.com/bertrandkhe/orbit v0.0.0
+require github.com/orbit-z/orbit v0.0.0
 
-replace github.com/bertrandkhe/orbit => /home/you/orbit
+replace github.com/orbit-z/orbit => /home/you/orbit
 ```
 
 `go tool orbit` then builds the CLI from your clone too, so a `git pull` there updates both the CLI and the runtime of every project that uses it. To use another checkout, or when the CLI can't find its sources (a binary built with `-trimpath`), set `ORBIT_REPLACE`:
@@ -254,7 +254,7 @@ year := time.Now().Year()
 ---
 <Base title="My Orbit site">
   <h1>Hello, {name}</h1>
-  <Card title="Read the docs" href="https://github.com/bertrandkhe/orbit">
+  <Card title="Read the docs" href="https://github.com/orbit-z/orbit">
     <p>Components, routing, server rendering and more.</p>
   </Card>
   <footer>Rendered by Orbit in {year}</footer>
@@ -264,7 +264,7 @@ year := time.Now().Year()
 Attribute names match `Props` fields ignoring case, so `title` sets `Title`. Now pass a tag, but misspell the attribute on purpose:
 
 ```orbit file=src/pages/index.orbit expect-error at=17
-  <Card tga="New" title="Read the docs" href="https://github.com/bertrandkhe/orbit">
+  <Card tga="New" title="Read the docs" href="https://github.com/orbit-z/orbit">
 ```
 
 Save. The browser shows an error overlay instead of the page, pointing at the attribute and listing the props `Card` accepts:
@@ -347,9 +347,9 @@ go 1.27
 
 toolchain go1.27.3
 
-tool github.com/bertrandkhe/orbit/cmd/orbit
+tool github.com/orbit-z/orbit/cmd/orbit
 
-require github.com/bertrandkhe/orbit v0.1.0
+require github.com/orbit-z/orbit v0.1.0
 ```
 
 The `require` line names the version of the CLI that ran `orbit new`. `go mod tidy` also adds `require` lines for the CLI's own dependencies (esbuild and a few others), because the `tool` directive makes them part of your module graph. The `orbit` runtime package your server imports uses only the standard library.
@@ -415,7 +415,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 
 	"example.com/blog/orbit_gen/app"
 )

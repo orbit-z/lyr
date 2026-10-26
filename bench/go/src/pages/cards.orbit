@@ -1,6 +1,6 @@
 ---
 import (
-	"github.com/bertrandkhe/orbit/bench/go/data"
+	"github.com/orbit-z/orbit/bench/go/data"
 
 	Card "../components/Card.orbit"
 	Header "../components/Header.orbit"

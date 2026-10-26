@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bertrandkhe/orbit/orbittest"
+	"github.com/orbit-z/orbit/orbittest"
 
 	"example.com/blog/internal/posts"
 	_ "example.com/blog/orbit_gen/app" // links every component's implementation

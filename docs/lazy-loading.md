@@ -272,7 +272,7 @@ import (
 	"net/http"
 
 	"example.com/blog/orbit_gen/app"
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 )
 
 func main() {

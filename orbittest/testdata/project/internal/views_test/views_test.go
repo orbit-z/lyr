@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/orbittest"
+	"github.com/orbit-z/orbit/orbittest"
 
 	"example.com/site/orbit_gen/app"
 	card "example.com/site/orbit_gen/decl/components/card"

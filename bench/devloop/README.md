@@ -7,7 +7,7 @@ applies each kind of edit several times. For each one it measures the time
 from "file written" to "new server binary ready" and to "new server
 accepting connections".
 
-It is a separate module (`github.com/bertrandkhe/orbit/bench/devloop`,
+It is a separate module (`github.com/orbit-z/orbit/bench/devloop`,
 `replace … => ../..`). That lets it import Orbit's `internal/` packages
 without adding anything to the root module.
 

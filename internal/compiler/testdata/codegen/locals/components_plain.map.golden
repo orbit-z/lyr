@@ -1,8 +1,8 @@
 orbit_gen/decl/components/plain/decl.go (src/components/Plain.orbit)
 orbit_gen/impl/components/plain/render.go (src/components/Plain.orbit)
-  exact 2:1 "names := []string{\"a\", \"b\"}" -> 640-667 "names := []string{\"a\", \"b\"}"
-  echo  - -> 698-703 "names"
-  exact 5:6 "_, locals := range names" -> 784-808 "_, locals := range names"
-  exact 5:36 "locals" -> 928-934 "locals"
+  exact 2:1 "names := []string{\"a\", \"b\"}" -> 636-663 "names := []string{\"a\", \"b\"}"
+  echo  - -> 694-699 "names"
+  exact 5:6 "_, locals := range names" -> 780-804 "_, locals := range names"
+  exact 5:36 "locals" -> 924-930 "locals"
 call sites
   content key=76 "locals" call="orbit__w.Expr(\n/*line ../../../../src/components/Plain.orbit:5:36*/locals/*line render.go:25:83*/,\n\t\t)"

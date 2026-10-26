@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 )
 
 //go:embed all:md

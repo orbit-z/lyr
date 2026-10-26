@@ -6,7 +6,7 @@ import (
 
 	ws "example.com/blog/orbit_gen/decl/components/ws"
 	_ "example.com/blog/orbit_gen/impl/components/ws"
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 )
 
 func main() {

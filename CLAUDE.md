@@ -139,7 +139,7 @@ When independent tasks can run in parallel, launch them in **one message**. If p
   - MVP: `data-*` attributes plus `set:json` JSON blocks.
   - After the MVP: a **typed bridge** (`orbit.JSON`, `orbit:client` `data<T>(el)`, TS types generated from Go).
 - **Go**: latest stable, currently **1.27.3** (`go 1.27`, `toolchain go1.27.3`).
-- **Name**: Orbit. Repo **https://github.com/orbit-z/orbit**; the module is being renamed from `github.com/bertrandkhe/orbit` to **`github.com/orbit-z/orbit`** (user decision, after M13; done after the dogfood branch merges). VS Code extension publisher **`orbit-z`** (ID `orbit-z.orbit`).
+- **Name**: Orbit. Repo **https://github.com/orbit-z/orbit**, module **`github.com/orbit-z/orbit`** (renamed from `github.com/bertrandkhe/orbit` after M13, user decision). VS Code extension publisher **`orbit-z`** (ID `orbit-z.orbit`).
 - **License**: MIT (`LICENSE` at the repo root; milestone 12 checkpoint).
 - **After the MVP** (M13 checkpoint): dogfood on a real site first; then `orbit fmt`, the typed server→client bridge, cacheable islands. Markdown: `.md` pages and `.md` imports, compiled at generate time with goldmark (a CLI dependency; runtime stays stdlib-only), designed after the dogfood report.
 

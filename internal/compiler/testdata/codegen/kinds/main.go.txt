@@ -6,7 +6,7 @@ import (
 
 	kinds "example.com/blog/orbit_gen/decl/components/kinds"
 	_ "example.com/blog/orbit_gen/impl/components/kinds"
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 )
 
 func main() {

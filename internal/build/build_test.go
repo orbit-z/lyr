@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/project"
 )
 
 func TestCopyPublic(t *testing.T) {

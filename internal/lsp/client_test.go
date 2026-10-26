@@ -88,10 +88,10 @@ func writeProject(t *testing.T, files map[string]string) string {
 		t.Fatal(err)
 	}
 	files["go.mod"] = "module example.com/site\n\ngo 1.27\n\ntoolchain go1.27.3\n\n" +
-		"require github.com/bertrandkhe/orbit v0.0.0\n\n" +
+		"require github.com/orbit-z/orbit v0.0.0\n\n" +
 		"require (\n\tgithub.com/evanw/esbuild v0.28.2 // indirect\n\tgithub.com/fsnotify/fsnotify v1.10.1 // indirect\n" +
 		"\tgithub.com/tdewolff/parse/v2 v2.8.16 // indirect\n\tgolang.org/x/sys v0.13.0 // indirect\n)\n\n" +
-		"replace github.com/bertrandkhe/orbit => " + filepath.ToSlash(root) + "\n"
+		"replace github.com/orbit-z/orbit => " + filepath.ToSlash(root) + "\n"
 	files["go.sum"] = string(sum)
 	for name, content := range files {
 		p := filepath.Join(dir, filepath.FromSlash(name))

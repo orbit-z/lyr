@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 
 	"example.com/blog/internal/posts"
 	"example.com/blog/orbit_gen/app"

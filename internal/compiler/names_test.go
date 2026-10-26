@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 )
 
 func TestPackageFor(t *testing.T) {

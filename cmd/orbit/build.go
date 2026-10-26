@@ -12,10 +12,10 @@ import (
 	"os/signal"
 	"path/filepath"
 
-	"github.com/bertrandkhe/orbit/internal/build"
-	"github.com/bertrandkhe/orbit/internal/compiler"
-	"github.com/bertrandkhe/orbit/internal/config"
-	"github.com/bertrandkhe/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/build"
+	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/orbit/internal/project"
 )
 
 // parseNoArgs parses a command's flags and rejects positional arguments. It

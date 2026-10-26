@@ -16,10 +16,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bertrandkhe/orbit/internal/assets"
-	"github.com/bertrandkhe/orbit/internal/compiler"
-	"github.com/bertrandkhe/orbit/internal/dev"
-	"github.com/bertrandkhe/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/assets"
+	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/dev"
+	"github.com/orbit-z/orbit/internal/project"
 )
 
 // goEnv is appended to the go command's environment, as in the project

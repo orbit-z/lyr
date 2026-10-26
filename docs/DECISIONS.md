@@ -22,7 +22,7 @@ To override a decision, say which row and the alternative you want; the docs and
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
 | Before Orbit's first release, `orbit new` adds a `replace` to your local checkout: from `ORBIT_REPLACE=/path/to/orbit`, or found automatically when the CLI was built from a git clone (not a tagged release) | coordinator (simplest for trying Orbit from the repo) | `ORBIT_REPLACE` only | [Getting started](getting-started.md#trying-orbit-before-its-first-release) |
-| With a replace, the requirement is `github.com/bertrandkhe/orbit v0.0.0` | simplest | A zero pseudo-version | — |
+| With a replace, the requirement is `github.com/orbit-z/orbit v0.0.0` | simplest | A zero pseudo-version | — |
 | The `toolchain` line is the CLI's `runtime.Version()` when it's a release (`go1.N.P`, rc, beta), else the framework's own `go1.27.3` | simplest | Always the framework's | [CLI](reference/cli.md#orbit-new) |
 | If generating or `go mod tidy` fails, `orbit new` names the failed step and leaves the directory | simplest | Delete the directory | [Getting started](getting-started.md) |
 | A malformed `--module` path is exit 1, before anything is written | Go stdlib (`go mod init`) | Exit 2 (usage) | [CLI](reference/cli.md#orbit-new) |
@@ -40,8 +40,8 @@ To override a decision, say which row and the alternative you want; the docs and
 | `GOOS` and `GOARCH` pass through to `go build` for cross-compiling | Go stdlib | `--os`/`--arch` flags | [Deploy](deploy.md#building-for-another-os-or-architecture) |
 | The CLI prints positions as `src/…:L:C`, normalizing Go's `./src/…`; plain `go build`/`go vet` still print `./src/…` | simplest | Keep Go's `./src/…` in CLI output too | [CLI](reference/cli.md#error-output), [Components](components.md#how-it-compiles) |
 | Without a `tool` directive, a global CLI whose version differs from the runtime in `go.mod` stops with an error pointing to `orbit doctor`; skipped when `go.mod` has a local `replace` | simplest | A warning only; no check | [CLI](reference/cli.md#the-pinned-cli-orbit-and-go-tool-orbit) |
-| The mismatch check is also skipped when `go.mod` doesn't require `github.com/bertrandkhe/orbit` (the command then reports what's wrong) | simplest | Stop with "not an Orbit project" | [CLI](reference/cli.md#the-pinned-cli-orbit-and-go-tool-orbit) |
-| A CLI is "global" when its build info's main module is `github.com/bertrandkhe/orbit` (`go install …@v`, `go build`/`go run` in a clone); a binary built inside another module (`go tool orbit`) is the pinned copy and never hands over; `ORBIT_REEXEC=1` stops the hand-over too | simplest | `ORBIT_REEXEC` alone (a direct `go tool orbit` would hand over to itself once); comparing executable paths | [CLI](reference/cli.md#the-pinned-cli-orbit-and-go-tool-orbit) |
+| The mismatch check is also skipped when `go.mod` doesn't require `github.com/orbit-z/orbit` (the command then reports what's wrong) | simplest | Stop with "not an Orbit project" | [CLI](reference/cli.md#the-pinned-cli-orbit-and-go-tool-orbit) |
+| A CLI is "global" when its build info's main module is `github.com/orbit-z/orbit` (`go install …@v`, `go build`/`go run` in a clone); a binary built inside another module (`go tool orbit`) is the pinned copy and never hands over; `ORBIT_REEXEC=1` stops the hand-over too | simplest | `ORBIT_REEXEC` alone (a direct `go tool orbit` would hand over to itself once); comparing executable paths | [CLI](reference/cli.md#the-pinned-cli-orbit-and-go-tool-orbit) |
 | The hand-over runs `go tool -n orbit` (builds the pinned CLI, prints its cached path), then execs that binary (replacing the process on Unix; a child with Ctrl-C ignored on Windows), with `ORBIT_REEXEC=1` and the selected toolchain's `bin` first on `PATH` as `go tool` sets it | simplest correct option: signals and exit code are the pinned CLI's own, so Ctrl-C on `orbit dev` exits 0 (`go tool orbit dev` exits 1: its `go` wrapper forwards the terminal's SIGINT, so the tool gets two) | Run `go tool orbit <args>` as a child and forward signals | [CLI](reference/cli.md#the-pinned-cli-orbit-and-go-tool-orbit) |
 | `orbit doctor` is exempt from the hand-over and the mismatch stop, like `orbit new` | simplest (it must run when the pinned CLI doesn't build, and it reports the mismatch) | Hand it over too | [CLI](reference/cli.md#the-pinned-cli-orbit-and-go-tool-orbit) |
 | `orbit doctor` treats the module around the working directory as a project when it has a `src/` directory | simplest (the LSP's rule, PLAN.md §9) | Any `go.mod`; a `go.mod` requiring Orbit | [CLI](reference/cli.md#orbit-doctor) |
@@ -410,7 +410,7 @@ To override a decision, say which row and the alternative you want; the docs and
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
-| The VS Code extension is published to the Marketplace and Open VSX as `bertrandkhe.orbit` | coordinator | A `.vsix` on GitHub releases only; Marketplace only | [Editor setup](editor-setup.md#vs-code) |
+| The VS Code extension is published to the Marketplace and Open VSX as `orbit-z.orbit` | coordinator | A `.vsix` on GitHub releases only; Marketplace only | [Editor setup](editor-setup.md#vs-code) |
 | gopls is chosen with the `goplsPath` initialization option, set by the VS Code setting `orbit.goplsPath` | simplest | Only `PATH` | [Editor setup](editor-setup.md#how-gopls-is-found) |
 | The docs advise against a gopls `directoryFilters` entry for `orbit_gen/`, because Orbit's gopls gets the same settings | simplest | Strip `directoryFilters` from the settings Orbit forwards | [Editor setup](editor-setup.md#the-go-extensions-errors-in-orbit_gen) |
 | The LSP always generates every file in memory and uses its own source maps; it never reads maps for `orbit_gen/` files, and none are written to disk | coordinator (simplest) | Sidecar map files next to the generated code | — |
@@ -490,7 +490,7 @@ To override a decision, say which row and the alternative you want; the docs and
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
-| `examples/blog/go.mod` requires `v0.0.0` with `replace github.com/bertrandkhe/orbit => ../..`; the integration test copies the example and rewrites the replace to the repository's absolute path | simplest | An absolute path from `orbit new`; a `go.work` file | `examples/blog/README.md` |
+| `examples/blog/go.mod` requires `v0.0.0` with `replace github.com/orbit-z/orbit => ../..`; the integration test copies the example and rewrites the replace to the repository's absolute path | simplest | An absolute path from `orbit new`; a `go.work` file | `examples/blog/README.md` |
 | The integration test lives in `internal/build` (`TestExampleBlog`), next to the other end-to-end tests whose helpers it reuses | simplest | A new `internal/examples` test package with copied helpers | — |
 | `LikeButton` is a custom element whose script POSTs to `/blog/{slug}/like` and swaps in the returned fragment (`outerHTML`); no htmx | simplest (no dependency; the docs' recommended custom-element pattern) | htmx `hx-post`, as in the `server.md` snippet | `examples/blog/README.md` |
 | The `javascript:` URL filter is shown by an untrusted commenter website in the deferred comments, not a dedicated page | simplest (keeps the example realistic) | A `/security` demo page | `examples/blog/README.md` |

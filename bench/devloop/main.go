@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bertrandkhe/orbit/internal/dev"
+	"github.com/orbit-z/orbit/internal/dev"
 )
 
 // useDev is -dev.

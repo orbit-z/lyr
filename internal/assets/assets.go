@@ -10,7 +10,7 @@
 package assets
 
 import (
-	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 // URLPrefix is the URL path every bundle is served under (PLAN.md §4).

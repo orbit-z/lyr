@@ -1,13 +1,13 @@
-module github.com/bertrandkhe/orbit/bench/lsp
+module github.com/orbit-z/orbit/bench/lsp
 
 go 1.27
 
 toolchain go1.27.3
 
-require github.com/bertrandkhe/orbit/bench/devloop v0.0.0
+require github.com/orbit-z/orbit/bench/devloop v0.0.0
 
 require (
-	github.com/bertrandkhe/orbit v0.0.0 // indirect
+	github.com/orbit-z/orbit v0.0.0 // indirect
 	github.com/evanw/esbuild v0.28.2 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/tdewolff/parse/v2 v2.8.16 // indirect
@@ -15,6 +15,6 @@ require (
 )
 
 replace (
-	github.com/bertrandkhe/orbit => ../..
-	github.com/bertrandkhe/orbit/bench/devloop => ../devloop
+	github.com/orbit-z/orbit => ../..
+	github.com/orbit-z/orbit/bench/devloop => ../devloop
 )

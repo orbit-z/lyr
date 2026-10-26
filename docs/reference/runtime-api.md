@@ -1,9 +1,9 @@
 # Runtime API
 
-This page lists the API of the `orbit` package (`github.com/bertrandkhe/orbit`), the runtime your pages, components and server use, plus the `orbittest` helpers.
+This page lists the API of the `orbit` package (`github.com/orbit-z/orbit`), the runtime your pages, components and server use, plus the `orbittest` helpers.
 
 ```go
-import "github.com/bertrandkhe/orbit"
+import "github.com/orbit-z/orbit"
 ```
 
 Inside `.orbit` files you don't need this import: `orbit` is always available, and so are `ctx`, `props`, `slots` and `locals` in the frontmatter body and the template, plus `params` in pages. The runtime package depends only on the Go standard library.
@@ -256,7 +256,7 @@ A piece of HTML that writes itself. A `Renderer` (or a plain `func(*orbit.Writer
 ```go file=internal/views/stars.go
 package views
 
-import "github.com/bertrandkhe/orbit"
+import "github.com/orbit-z/orbit"
 
 // Stars renders a rating as n star characters.
 func Stars(n int) orbit.Renderer {
@@ -475,7 +475,7 @@ It returns `nil` after a graceful shutdown, and otherwise the error that stopped
 
 ## orbittest
 
-The `github.com/bertrandkhe/orbit/orbittest` package tests components and pages with `go test`. See [Testing](../testing.md) for examples.
+The `github.com/orbit-z/orbit/orbittest` package tests components and pages with `go test`. See [Testing](../testing.md) for examples.
 
 ```go
 func Render[P any](t testing.TB, render func(*orbit.Ctx, *orbit.Writer, P, orbit.Slots) error,

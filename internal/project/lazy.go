@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/bertrandkhe/orbit/internal/assets"
-	"github.com/bertrandkhe/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/assets"
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 // The static graphs of milestone 8 (PLAN.md §3.4, §5): the island table,

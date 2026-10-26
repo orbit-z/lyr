@@ -7,7 +7,7 @@ import (
 	index "example.com/blog/orbit_gen/decl/pages/index"
 	_ "example.com/blog/orbit_gen/impl/components/box"
 	_ "example.com/blog/orbit_gen/impl/pages/index"
-	"github.com/bertrandkhe/orbit"
+	"github.com/orbit-z/orbit"
 )
 
 func main() {

@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bertrandkhe/orbit/bench/devloop/synth"
+	"github.com/orbit-z/orbit/bench/devloop/synth"
 )
 
 func main() {

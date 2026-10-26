@@ -3,11 +3,11 @@
   "displayName": "Orbit",
   "description": "Orbit (.orbit) language support: syntax highlighting, and Go completion, diagnostics and rename through orbit lsp.",
   "version": "0.1.0",
-  "publisher": "bertrandkhe",
+  "publisher": "orbit-z",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/bertrandkhe/orbit",
+    "url": "https://github.com/orbit-z/orbit",
     "directory": "editors/vscode"
   },
   "engines": {

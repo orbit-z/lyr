@@ -1,13 +1,13 @@
 orbit_gen/decl/pages/blog/slug_param/decl.go (src/pages/blog/[slug].orbit)
 orbit_gen/impl/pages/blog/slug_param/render.go (src/pages/blog/[slug].orbit)
-  exact 2:8 "Layout" -> 231-237 "Layout"
-  span  2:15 "\"../../components/Layout.orbit\"" -> 238-289 "\"example.com/blog/orbit_gen/decl/components/layout\""
-  span  4:2 "Layout" -> 864-877 "Layout.Render"
-  span  4:9 "title" -> 996-1001 "Title"
-  exact 4:16 "\"Post \" + params.Slug" -> 1083-1104 "\"Post \" + params.Slug"
-  exact 6:8 "params.Slug" -> 1303-1314 "params.Slug"
-  exact 5:42 "params.Slug" -> 1626-1637 "params.Slug"
-  exact 8:43 "\"/blog/\" + params.Slug" -> 1796-1818 "\"/blog/\" + params.Slug"
+  exact 2:8 "Layout" -> 227-233 "Layout"
+  span  2:15 "\"../../components/Layout.orbit\"" -> 234-285 "\"example.com/blog/orbit_gen/decl/components/layout\""
+  span  4:2 "Layout" -> 860-873 "Layout.Render"
+  span  4:9 "title" -> 992-997 "Title"
+  exact 4:16 "\"Post \" + params.Slug" -> 1079-1100 "\"Post \" + params.Slug"
+  exact 6:8 "params.Slug" -> 1299-1310 "params.Slug"
+  exact 5:42 "params.Slug" -> 1622-1633 "params.Slug"
+  exact 8:43 "\"/blog/\" + params.Slug" -> 1792-1814 "\"/blog/\" + params.Slug"
 call sites
   content key=155 "params.Slug" call="orbit__w.Expr(\n/*line ../../../../../src/pages/blog/[slug].orbit:6:8*/params.Slug/*line render.go:28:91*/,\n\t\t\t)"
   attr content key=134 "params.Slug" call="orbit__w.Attr(\"content\",\n/*line ../../../../../src/pages/blog/[slug].orbit:5:42*/params.Slug/*line render.go:37:92*/,\n\t\t\t\t)"

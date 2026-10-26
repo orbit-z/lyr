@@ -23,8 +23,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bertrandkhe/orbit/internal/build"
-	"github.com/bertrandkhe/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/build"
+	"github.com/orbit-z/orbit/internal/project"
 )
 
 // Options configure a check.

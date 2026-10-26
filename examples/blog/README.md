@@ -1,6 +1,6 @@
 # Orbit example: a blog
 
-A small blog that uses Orbit's main features the way the [docs](../../docs/README.md) recommend. Its `go.mod` points at this repository with `replace github.com/bertrandkhe/orbit => ../..`, so it always runs the Orbit next to it.
+A small blog that uses Orbit's main features the way the [docs](../../docs/README.md) recommend. Its `go.mod` points at this repository with `replace github.com/orbit-z/orbit => ../..`, so it always runs the Orbit next to it.
 
 ## Run it
 

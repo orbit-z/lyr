@@ -23,9 +23,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bertrandkhe/orbit/internal/assets"
-	"github.com/bertrandkhe/orbit/internal/config"
-	"github.com/bertrandkhe/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/assets"
+	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/orbit/internal/project"
 )
 
 // Output paths, relative to the project root.
@@ -195,7 +195,7 @@ func CleanOutput(p *project.Project, out []byte) []byte {
 
 // runtimePkg is the import path of the Orbit runtime, whose buildKey and
 // buildID variables islandLDFlags sets.
-const runtimePkg = "github.com/bertrandkhe/orbit"
+const runtimePkg = "github.com/orbit-z/orbit"
 
 // islandLDFlags returns the -ldflags flag of a build (PLAN.md §6): the
 // -ldflags already in GOFLAGS (a -ldflags on the command line replaces the

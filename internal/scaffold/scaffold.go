@@ -18,11 +18,11 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/bertrandkhe/orbit/internal/config"
+	"github.com/orbit-z/orbit/internal/config"
 )
 
 // OrbitModule is the framework's module path.
-const OrbitModule = "github.com/bertrandkhe/orbit"
+const OrbitModule = "github.com/orbit-z/orbit"
 
 // FallbackToolchain is the toolchain line written when the CLI wasn't built
 // by a Go release (a devel toolchain): the framework's own go.mod
@@ -46,10 +46,10 @@ type Options struct {
 	// Toolchain is the go.mod toolchain line, such as go1.27.3; the
 	// Dockerfile's golang image tag is the same version.
 	Toolchain string
-	// Version is the github.com/bertrandkhe/orbit version required.
+	// Version is the github.com/orbit-z/orbit version required.
 	Version string
 	// Replace, if set, is the local directory that replaces
-	// github.com/bertrandkhe/orbit in go.mod.
+	// github.com/orbit-z/orbit in go.mod.
 	Replace string
 }
 
@@ -185,7 +185,7 @@ func toolchain(v string) string {
 	return FallbackToolchain
 }
 
-// Source is where a new project gets github.com/bertrandkhe/orbit from.
+// Source is where a new project gets github.com/orbit-z/orbit from.
 type Source struct {
 	Version string // the require version
 	Replace string // a local checkout for a replace directive, or ""

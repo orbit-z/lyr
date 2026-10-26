@@ -3,7 +3,7 @@
 package comments_impl
 
 import (
-	orbit__rt "github.com/bertrandkhe/orbit"
+	orbit__rt "github.com/orbit-z/orbit"
 	. "example.com/blog/orbit_gen/decl/components/comments"
 //line ../../../../src/components/Comments.orbit:2:8
 Counter "example.com/blog/orbit_gen/decl/components/counter"

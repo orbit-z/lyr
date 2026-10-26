@@ -1,5 +1,5 @@
 ---
-import "github.com/bertrandkhe/orbit/docs/site/internal/content"
+import "github.com/orbit-z/orbit/docs/site/internal/content"
 
 type Props struct {
     Headings []content.Heading

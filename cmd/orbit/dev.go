@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/bertrandkhe/orbit/internal/config"
-	"github.com/bertrandkhe/orbit/internal/dev"
+	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/orbit/internal/dev"
 )
 
 // runDev is orbit dev: the dev server (PLAN.md §7). It runs until Ctrl-C,

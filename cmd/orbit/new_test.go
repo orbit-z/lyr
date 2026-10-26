@@ -48,8 +48,8 @@ func TestNew(t *testing.T) {
 	dir := filepath.Join(base, "blog")
 	gomod := readFile(t, dir, "go.mod")
 	for _, s := range []string{
-		"module example.com/blog\n", "\ngo 1.27\n", "\ntoolchain go1.", "\ntool github.com/bertrandkhe/orbit/cmd/orbit\n",
-		"replace github.com/bertrandkhe/orbit => " + filepath.ToSlash(root) + "\n", "github.com/evanw/esbuild",
+		"module example.com/blog\n", "\ngo 1.27\n", "\ntoolchain go1.", "\ntool github.com/orbit-z/orbit/cmd/orbit\n",
+		"replace github.com/orbit-z/orbit => " + filepath.ToSlash(root) + "\n", "github.com/evanw/esbuild",
 	} {
 		if !strings.Contains(gomod, s) {
 			t.Errorf("go.mod lacks %q:\n%s", s, gomod)
