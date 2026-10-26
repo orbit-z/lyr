@@ -1,0 +1,20 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+
+	ws "example.com/blog/orbit_gen/decl/components/ws"
+	_ "example.com/blog/orbit_gen/impl/components/ws"
+	"github.com/orbit-z/orbit"
+)
+
+func main() {
+	for _, p := range []ws.Props{{Kind: "a", N: 1}, {Kind: "b", N: 7}} {
+		var buf bytes.Buffer
+		if err := ws.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), p, orbit.Slots{}); err != nil {
+			panic(err)
+		}
+		fmt.Printf("%q\n", buf.String())
+	}
+}

@@ -380,6 +380,12 @@ func cgTemplateCodes(n Node) []GoCode {
 		}
 	case *For:
 		codes = append(codes, n.Clause)
+	case *Switch:
+		codes = append(codes, n.Clause)
+	case *Case:
+		if !n.Default {
+			codes = append(codes, n.List)
+		}
 	}
 	if tg := TagOf(n); tg != nil {
 		for _, a := range tg.Attrs {

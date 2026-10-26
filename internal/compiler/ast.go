@@ -133,6 +133,39 @@ type For struct {
 	EndTag Span
 }
 
+// Switch is a {switch clause}…{case list}…{default}…{/switch} block,
+// compiled to a Go switch statement.
+type Switch struct {
+	Span
+	// Header is the whole {switch clause}.
+	Header Span
+	// Clause is the Go switch header, copied verbatim: a tag, an init
+	// statement and a tag, a type-switch guard, or empty for a tagless
+	// switch.
+	Clause GoCode
+	// Pre is what comes between the header and the first case. Only
+	// whitespace text and template comments are allowed there (anything else
+	// is reported, and kept for the tolerant AST); it renders nothing.
+	Pre   []Node
+	Cases []*Case
+	// EndTag is the {/switch}; empty when it is missing.
+	EndTag Span
+}
+
+// Case is one {case list} or {default} of a Switch: from its header to the
+// next case or the {/switch}.
+type Case struct {
+	Span
+	// Header is the whole {case list} or {default}.
+	Header Span
+	// Default is true for {default}, which has no list.
+	Default bool
+	// List is the Go case list: expressions, or types in a type switch.
+	// Empty for {default}.
+	List     GoCode
+	Children []Node
+}
+
 // Tag holds what every tag-shaped node has in common.
 type Tag struct {
 	// Name is the tag name as written; NameSpan is its position after "<".
@@ -255,6 +288,8 @@ func (*Comment) node()     {}
 func (*If) node()          {}
 func (*Branch) node()      {}
 func (*For) node()         {}
+func (*Switch) node()      {}
+func (*Case) node()        {}
 func (*Element) node()     {}
 func (*Component) node()   {}
 func (*Slot) node()        {}
@@ -402,7 +437,7 @@ func reservedNamespace(name string) string {
 }
 
 // ChildNodes returns the direct children of n, in source order. For an If
-// these are its branches.
+// these are its branches; for a Switch, its Pre nodes, then its cases.
 func ChildNodes(n Node) []Node {
 	switch n := n.(type) {
 	case *Template:
@@ -416,6 +451,15 @@ func ChildNodes(n Node) []Node {
 	case *Branch:
 		return n.Children
 	case *For:
+		return n.Children
+	case *Switch:
+		out := make([]Node, 0, len(n.Pre)+len(n.Cases))
+		out = append(out, n.Pre...)
+		for _, c := range n.Cases {
+			out = append(out, c)
+		}
+		return out
+	case *Case:
 		return n.Children
 	case *Element:
 		return n.Children

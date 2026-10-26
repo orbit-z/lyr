@@ -1,4 +1,4 @@
-Template @0-283
+Template @0-291
   If @0-16 end=@11-16
     Branch if @0-11 header=@0-6 cond=@4-5 "a"
       Element @6-11
@@ -44,12 +44,13 @@ Template @0-283
     Branch else-if @202-212 header=@202-211 cond=@210-210 ""
       Text @211-212 "b"
   Text @217-218 "\n"
-  Text @237-238 "\n"
-  Text @248-249 "\n"
-  Text @258-259 "\n"
-  If @259-283 end=@283-283
-    Branch if @259-283 header=@259-265 cond=@263-264 "a"
-      Text @265-268 "\n  "
-      Element @268-283
-        <p> name=@269-270 start=@268-271 end=@283-283
-        Text @271-283 "unclosed if\n"
+  Switch @218-237 header=@218-228 clause=@226-227 "x" end=@228-237
+  Text @245-246 "\n"
+  Text @256-257 "\n"
+  Text @266-267 "\n"
+  If @267-291 end=@291-291
+    Branch if @267-291 header=@267-273 cond=@271-272 "a"
+      Text @273-276 "\n  "
+      Element @276-291
+        <p> name=@277-278 start=@276-279 end=@291-291
+        Text @279-291 "unclosed if\n"

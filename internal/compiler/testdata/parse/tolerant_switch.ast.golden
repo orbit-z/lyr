@@ -1,0 +1,20 @@
+Template @0-108
+  Switch @0-108 header=@0-10 clause=@8-9 "x" end=@108-108
+    Text @10-12 "\n\t"
+    Element @12-27
+      <p> name=@13-14 start=@12-15 end=@23-27
+      Expr @15-23 code=@16-22 "before"
+    Text @27-29 "\n\t"
+    Case case @29-38 header=@29-36 list=@35-35 ""
+      Text @36-38 "\n\t"
+    Case case @38-52 header=@38-46 list=@44-45 "1"
+      Expr @46-50 code=@47-49 "v."
+      Text @50-52 "\n\t"
+    Case default @52-61 header=@52-61 list=@60-60 ""
+    Case default @61-108 header=@61-70 list=@69-69 ""
+      Text @70-71 "\n"
+      Switch @71-108 header=@71-93 clause=@79-92 "v := y.(type)" end=@108-108
+        Text @93-95 "\n\t"
+        Case case @95-108 header=@95-105 list=@101-104 "int"
+          Expr @105-107 code=@106-107 "v"
+          Text @107-108 "\n"

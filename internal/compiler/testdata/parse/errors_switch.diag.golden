@@ -1,0 +1,14 @@
+errors_switch.orbit:1:11: content before the first {case} of a {switch} is never rendered; move it into a {case} or {default}
+errors_switch.orbit:3:3: content before the first {case} of a {switch} is never rendered; move it into a {case} or {default}
+errors_switch.orbit:5:1: unexpected {case}: no {switch} is open
+errors_switch.orbit:6:1: unexpected {default}: no {switch} is open
+errors_switch.orbit:7:21: multiple {default} cases in {switch} (first at 7:11)
+errors_switch.orbit:8:19: fallthrough isn't supported in a {switch}; list the values in one {case a, b}
+errors_switch.orbit:9:11: {case} needs a value or a condition, e.g. {case "draft"}; use {default} for the rest
+errors_switch.orbit:10:11: unexpected text after {default}; write {default} or {case list}
+errors_switch.orbit:11:24: unexpected {case}: <div> opened at 11:19 isn't closed
+errors_switch.orbit:12:19: unexpected {/case}: a {case} ends at the next {case}, {default} or {/switch}
+errors_switch.orbit:13:4: blocks can't appear inside a start tag; set the attribute's value instead (false and nil omit it)
+errors_switch.orbit:14:25: unexpected {/if}: {switch} opened at 14:7 isn't closed
+errors_switch.orbit:15:1: {switch} isn't closed; add {/switch}
+errors_switch.orbit:16:11: <p> isn't closed; add </p>

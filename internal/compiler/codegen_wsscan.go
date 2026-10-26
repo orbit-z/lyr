@@ -84,6 +84,21 @@ func (c *wsCtx) scan(i, dir int, stop bool, budget *int) uint8 {
 				m |= c.scan(i+dir, dir, stop, budget)
 			}
 			return m
+		case *Switch:
+			// Each case, or what lies beyond the switch when no case
+			// matches (no {default}).
+			var m uint8
+			hasDefault := false
+			for _, cs := range n.Cases {
+				hasDefault = hasDefault || cs.Default
+				inner := c.child(i, wsBranch)
+				inner.list = wsPrep(cs.Children)
+				m |= inner.scan(inner.start(dir), dir, stop, budget)
+			}
+			if !hasDefault {
+				m |= c.scan(i+dir, dir, stop, budget)
+			}
+			return m
 		default:
 			if isBlockNode(n) {
 				return wsBlockN

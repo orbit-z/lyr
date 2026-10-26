@@ -1,0 +1,9 @@
+---
+type Props struct {
+	Status string
+}
+---
+{switch props.Status}
+	{case "a"}<p>a</p>
+	{case "b", "a"}<p>b</p>
+{/switch}

@@ -1,0 +1,27 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+
+	status "example.com/blog/orbit_gen/decl/components/status"
+	_ "example.com/blog/orbit_gen/impl/components/badge"
+	_ "example.com/blog/orbit_gen/impl/components/status"
+	"github.com/orbit-z/orbit"
+)
+
+func main() {
+	items := []any{1, "two", true, false, status.Video{Title: "v"}, []int{}, []int{1, 2}, nil, 2.5}
+	for _, p := range []status.Props{
+		{Status: "draft", N: 0},
+		{Status: "queued", N: 3, Items: items},
+		{Status: "published", N: 12},
+	} {
+		var buf bytes.Buffer
+		if err := status.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), p, orbit.Slots{}); err != nil {
+			panic(err)
+		}
+		fmt.Println(buf.String())
+		fmt.Println("--")
+	}
+}

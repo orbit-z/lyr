@@ -1,0 +1,82 @@
+Template @0-689
+  Switch @0-222 header=@0-20 clause=@8-19 "post.Status" end=@213-222
+    Text @20-22 "\n\t"
+    Comment @22-42 body=@25-39 " status badge "
+    Text @42-44 "\n\t"
+    Case case @44-95 header=@44-58 list=@50-57 "\"draft\""
+      Text @58-61 "\n\t\t"
+      Element @61-93
+        <span> name=@62-66 start=@61-81 end=@86-93
+          attr quoted @67-80 name=@67-72 "class" value=@74-79 "badge"
+        Text @81-86 "Draft"
+      Text @93-95 "\n\t"
+    Case case @95-164 header=@95-123 list=@101-122 "\"scheduled\", \"queued\""
+      Text @123-126 "\n\t\t"
+      Element @126-162
+        <span> name=@127-131 start=@126-146 end=@155-162
+          attr quoted @132-145 name=@132-137 "class" value=@139-144 "badge"
+        Text @146-155 "Scheduled"
+      Text @162-164 "\n\t"
+    Case default @164-213 header=@164-173 list=@172-172 ""
+      Text @173-176 "\n\t\t"
+      Element @176-212
+        <span> name=@177-181 start=@176-196 end=@205-212
+          attr quoted @182-195 name=@182-187 "class" value=@189-194 "badge"
+        Text @196-205 "Published"
+      Text @212-213 "\n"
+  Text @222-223 "\n"
+  Switch @223-268 header=@223-248 clause=@231-247 "s := status(); s" end=@259-268
+    Case case @248-259 header=@248-258 list=@254-257 "\"a\""
+      Text @258-259 "A"
+  Text @268-269 "\n"
+  Switch @269-324 header=@269-277 clause=@276-276 "" end=@315-324
+    Text @277-279 "\n\t"
+    Case case @279-297 header=@279-292 list=@285-291 "n > 10"
+      Text @292-297 "big\n\t"
+    Case case @297-315 header=@297-309 list=@303-308 "n > 0"
+      Text @309-315 "small\n"
+  Text @324-325 "\n"
+  Switch @325-444 header=@325-350 clause=@333-349 "v := item.(type)" end=@435-444
+    Text @350-352 "\n\t"
+    Case case @352-381 header=@352-369 list=@358-368 "int, int64"
+      Element @369-379
+        <b> name=@370-371 start=@369-372 end=@375-379
+        Expr @372-375 code=@373-374 "v"
+      Text @379-381 "\n\t"
+    Case case @381-410 header=@381-399 list=@387-398 "posts.Video"
+      Expr @399-408 code=@400-407 "v.Title"
+      Text @408-410 "\n\t"
+    Case case @410-420 header=@410-420 list=@416-419 "nil"
+    Case default @420-435 header=@420-429 list=@428-428 ""
+      Text @429-435 "other\n"
+  Text @444-445 "\n"
+  Switch @445-497 header=@445-458 clause=@455-456 "x" end=@486-497
+    Case case @458-471 header=@458-468 list=@465-466 "1"
+      Text @468-471 "one"
+    Case default @471-486 header=@471-482 list=@481-481 ""
+      Text @482-486 "rest"
+  Text @497-498 "\n"
+  For @498-592 header=@498-522 clause=@503-521 "_, p := range list" end=@586-592
+    Switch @522-586 header=@522-537 clause=@530-536 "p.Kind" end=@577-586
+      Case case @537-577 header=@537-547 list=@543-546 "\"a\""
+        If @547-565 end=@560-565
+          Branch if @547-560 header=@547-557 cond=@551-556 "p.New"
+            Text @557-560 "new"
+        Component @565-577
+          <Card> name=@566-570 start=@565-577 end=@577-577 selfclosing
+            attr shorthand @571-574 name=@572-573 "p" value=@571-574 code=@572-573 "p"
+  Text @592-593 "\n"
+  Switch @593-612 header=@593-603 clause=@601-602 "x" end=@603-612
+  Text @612-613 "\n"
+  Element @613-658 rcdata
+    <title> name=@614-619 start=@613-620 end=@650-658
+    Switch @620-650 header=@620-630 clause=@628-629 "x" end=@641-650
+      Case case @630-641 header=@630-638 list=@636-637 "1"
+        Text @638-641 "One"
+  Text @658-659 "\n"
+  Expr @659-669 code=@660-668 "switcher"
+  Text @669-670 " "
+  Expr @670-677 code=@671-676 "cases"
+  Text @677-678 " "
+  Expr @678-688 code=@679-687 "defaults"
+  Text @688-689 "\n"
