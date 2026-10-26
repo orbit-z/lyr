@@ -1507,12 +1507,12 @@ A call site: `<Cacher key={ui.CardKey(book)} ttl={6 * time.Hour} store="cards"><
 - **Which scripts are processed** (Astro's rule): a `<script>` with no attributes, or only a `src` pointing at a local relative file, is processed and bundled. Any other attribute means it's left as-is, like `is:inline`: `type="application/ld+json"`, `type="text/template"`, `async`, `src="https://…"`, and so on.
 - **Per-page graph**: a page's assets are its own scripts and styles plus those of every transitively imported component. This is static, from imports, like Astro: a component's script is included once per page, even if it's rendered conditionally or many times.
 - **esbuild**: one build call with a plugin that serves virtual modules (`orbit:script/<id>.ts`, `orbit:style/<id>.css`), each with `resolveDir` set to its `.orbit` file's directory, so relative imports and the nearest `tsconfig.json` resolve from there.
-  - One entry per page: `format=esm`, `bundle`, `minify`, hashed names under `/_orbit/`. No code splitting in the MVP (§12): each page's bundle is self-contained.
+  - One entry per page: `format=esm`, `bundle`, `minify`, hashed names under `/_orbit/`. No code splitting in the MVP (§12): each page's bundle is self-contained. Code splitting is specified in §5e (proposed).
   - A page with no scripts gets no JS entry and no `<script>` tag.
   - Bare imports resolve from `node_modules` if one exists.
   - **Implemented (milestone 6)**: block modules resolve to the `.orbit` file itself (file namespace, `?orbit-script=i` suffix) with content padded to the block's line and column, so esbuild's error positions and source maps are `.orbit` positions and `resolveDir`/tsconfig lookup come for free. `orbit generate` also bundles, in memory, so `generate` and `build` write the same `orbit_gen/` (about 8 ms on 200 components). Fonts and images imported from scripts/CSS are hashed into `/_orbit/`. An import of a `.orbit` file that isn't a block (`import { data } from "./X.orbit"` from a block script or a `.ts` file) loads one constant module, `export { data, json } from "orbit:client"`; `orbit:client` is the embedded runtime (`internal/assets/client/client.ts`, 368 B minified) and `orbit:types` is empty (§5c). The CLI binary grows by about 8 MB with esbuild; user servers don't link it.
   - **CSS imported from a script** (`import "flatpickr/dist/flatpickr.css"`) joins the page's stylesheet, unscoped, as esbuild bundles CSS imports by default (decided by coordinator: esbuild default). A lazy component's imported CSS stays in the page stylesheet too.
-- **Lazy entries (`client:*`)**: each component that has a processed `<script>` and at least one lazy call site (`client:idle`, `client:visible` or `client:media`) anywhere gets its own esbuild entry, `orbit:lazy/<id>.ts`, which imports that component's script modules. It's built with the same settings into `/_orbit/<Name>-<hash>.js`, and is self-contained because there's no code splitting (§12).
+- **Lazy entries (`client:*`)**: each component that has a processed `<script>` and at least one lazy call site (`client:idle`, `client:visible` or `client:media`) anywhere gets its own esbuild entry, `orbit:lazy/<id>.ts`, which imports that component's script modules. It's built with the same settings into `/_orbit/<Name>-<hash>.js`, and is self-contained because there's no code splitting (§12; §5e proposes shared chunks).
   - **Whole-subtree scope and eager wins, per page** (user decision: a directive covers the component's whole subtree):
     - A component is **eager on a page** if it's reachable from the page root (deferred islands included) by a path of call sites that crosses **no** lazy directive. Its scripts go in the page bundle.
     - Every other component with scripts that's reachable only through lazy call sites is **lazy on that page**: it gets no page-bundle entry, and the page lists its entry as a `lazy` asset `{ID, URL}`.
@@ -1521,7 +1521,7 @@ A call site: `<Cacher key={ui.CardKey(book)} ttl={6 * time.Hour} store="cards"><
     - A nested lazy directive inside a lazy subtree takes its own components out of the outer list. Its own strategy is observed only after the outer one has fired.
   - Scripts stay once-per-page modules: the loader `import()`s each entry at most once, when the first instance meets its strategy. With several strategies on one page, whichever fires first loads it.
   - A module that queries the DOM when it loads sees only the instances present at that moment, not those that arrive later in a deferred island. So `styles-and-scripts.md` and `lazy-loading.md` recommend custom elements (`customElements.define` with `connectedCallback`) for the scripts of lazy and deferred components.
-  - Code shared between a lazy entry and the page bundle (e.g. `src/scripts/util.ts`) is duplicated, and each copy has its own module state, until code splitting arrives (§12). Document this.
+  - Code shared between a lazy entry and the page bundle (e.g. `src/scripts/util.ts`) is duplicated, and each copy has its own module state, until code splitting arrives (§5e, proposed). Document this.
   - Styles are unaffected: a lazy component's CSS stays in the page's stylesheet.
 - **Deferred components' assets**: a `server:defer` component and everything it imports stay in the page's static graph, so their CSS and scripts load with the page, and the island fragment needs no assets of its own. Those scripts run before the fragment arrives, which is another reason for custom elements.
 - **The loader**: one small inline `<script type="module">` (TypeScript source in the framework's `loader/`, minified (islands about 1.1 KB, lazy about 1.3 KB; about 0.75 KB each gzipped) and embedded in the runtime, §4), plus `<style>orbit-island,orbit-lazy{display:contents}</style>`. Head injection adds it only to pages that need it: the islands part when `Route.Islands` is set, and the lazy part, with the page's `{id: url}` map, when the page has `lazy` assets. Both are decided statically from the page's graph, so islands nested in fragments are covered (decided by rule: consistent with the static asset graph above). The loader is inline, as Astro inlines its island scripts, which saves a request before the island fetches can start (decided by rule: Astro behavior). A strict CSP needs `'unsafe-inline'` or the script's hash; document this (CSP hashes are deferred, §12).
@@ -2159,6 +2159,154 @@ Decided by rule (to log in `docs/DECISIONS.md`):
 - Class completion, validation or sorting in Orbit's own LSP or `orbit fmt` (Tailwind's IntelliSense and Prettier plugin cover these where the user wants them).
 - Removing classes from the dev stylesheet before the next full run.
 
+## 5e. Code splitting
+**Status: Proposed, (Q) points open** (2026-10-26). Moved up from §12 by the user, prompted by porting `nyth` (an Astro site that lazy-loads Lexical, a quick-search engine and a read-aloud engine with dynamic `import()`). Written before implementation, like §5c; the prototype is in `scratchpad/codesplit/` (a patched copy of `internal/assets`, not committed).
+
+**Goal**: a dynamic `import()` in a script loads a separate file when it runs, instead of being bundled into every page that reaches it; a module shared by a page bundle and a `client:*` lazy entry exists once, with one module state; code shared between pages is a cacheable file of its own. No opt-out, no new dependency, no runtime cost on the SSR path, and the dev loop stays as fast as today or faster.
+
+**Today (verified with the prototype)**: each page is one self-contained esbuild entry. esbuild without `Splitting` turns `await import("../scripts/heavy")` into `Promise.resolve().then(() => (init_heavy(), heavy_exports))`: the "lazy" module, and the CSS it imports, are in every page bundle that can reach it. A module imported by both the page bundle and a lazy entry (`src/scripts/shared.ts` with a counter) is copied into both, and the two copies count separately.
+
+### End-to-end example
+```orbit file=src/components/QuickSearch.orbit
+<quick-search><button type="button">Search</button></quick-search>
+<script>
+  import { track } from "../scripts/analytics";
+  class QuickSearch extends HTMLElement {
+    connectedCallback(): void {
+      track("search-ready");
+      this.querySelector("button")!.addEventListener("click", async () => {
+        // A separate chunk, fetched on the first click only.
+        const { createQuickSearch } = await import("../lib/quickSearch");
+        createQuickSearch(this).open();
+      });
+    }
+  }
+  customElements.define("quick-search", QuickSearch);
+</script>
+```
+```orbit file=src/pages/index.orbit
+---
+import (
+	Base "../layouts/Base.orbit"
+	QuickSearch "../components/QuickSearch.orbit"
+	Comments "../components/Comments.orbit"
+)
+---
+<Base title="Home">
+  <QuickSearch />
+  <Comments client:visible />   <!-- its script also imports ../scripts/analytics -->
+</Base>
+```
+`orbit build --verbose` (sizes illustrative):
+```
+src/pages/index.orbit
+  /_orbit/index-L5AGVGNY.css                      1.30 kB  gzip    0.57 kB
+  /_orbit/index-BAFLXIK7.js                       0.42 kB  gzip    0.30 kB
+    /_orbit/chunk-X65WUZF2.js                     0.31 kB  gzip    0.22 kB  (preload)
+  /_orbit/Comments-3QCXUABQ.js                    0.30 kB  gzip    0.24 kB  (lazy)
+src/pages/about.orbit
+  /_orbit/about-ZYDYI6W6.css                      0.90 kB  gzip    0.45 kB
+  /_orbit/about-4GKIGORU.js                       0.42 kB  gzip    0.30 kB
+    /_orbit/chunk-X65WUZF2.js                     0.31 kB  gzip    0.22 kB  (preload)
+loaded with import()
+  /_orbit/quickSearch-PDBSW4EO.js                48.10 kB  gzip   16.02 kB
+total CSS                                         2.20 kB  gzip    1.02 kB
+total JS                                         49.55 kB  gzip   17.08 kB
+```
+The page's `<head>` gets:
+```html
+<link rel="stylesheet" href="/_orbit/index-L5AGVGNY.css">
+<script type="module" src="/_orbit/index-BAFLXIK7.js"></script>
+<link rel="modulepreload" href="/_orbit/chunk-X65WUZF2.js">
+```
+`index-BAFLXIK7.js` holds `QuickSearch`'s block (and every other eager block of the page, in graph order) and starts with `import{a as t}from"/_orbit/chunk-X65WUZF2.js"` (`analytics.ts`, shared with the lazy `Comments` entry and with `about`); its click handler calls `import("/_orbit/quickSearch-PDBSW4EO.js")`. `analytics.ts` runs once per page, whether the page bundle or `Comments` loads first.
+
+### Rules
+1. **One esbuild build, `Splitting: true`**, with every page entry and every lazy entry together (the build is already one call, §5; ESM is already the format). esbuild puts each module in a chunk per set of entries that reach it; a dynamic `import()` target is an entry of its own, so it becomes its own chunk with its static imports shared the same way.
+2. **Block scripts stay in their page's entry (per-page block modules) (Q1).** Each page imports its blocks under a page-qualified specifier (`orbit:script/<ComponentID>-<i>@<page>.ts`, resolved to the `.orbit` file with the suffix `?orbit-script=<i>&page=<page entry name>`), so esbuild sees one module per page and inlines it into that page's entry; only **imported files** (`.ts`/`.js` files, npm packages, `orbit:client`, CSS files imported from scripts) are shared across entries. This is what keeps rule 6's evaluation order and keeps a page at one request plus its shared imports (measured below). Blocks have no exports anyone can import (a `./X.orbit` import is the §5c client module, not the block), so a block copied into several pages, or into a page and a lazy entry, can't split any state: per page it still runs once, from the page bundle or from its lazy entry (eager wins, §5). Style blocks get the same page qualifier, so their CSS stubs never form empty shared JS chunks; their scoped CSS is computed once per block and reused by every copy. Lazy entries keep the unqualified specifier: they're per component already.
+3. **Dynamic `import()`** of a relative file or package becomes `import("/_orbit/<name>-<hash>.js")`, loaded when it runs. Its CSS: rule 7.
+4. **Shared modules**: a module reached from several entries (pages, lazy entries, dynamic chunks) is in exactly one chunk, evaluated once per page load. This replaces §5's "shared code is duplicated" caveat, for lazy entries and for `server:defer` components alike.
+5. **Names and URLs**: entries keep `[name]-[hash]` (`index-…`, `Comments-…`); chunks are `ChunkNames: "[name]-[hash]"`, in the same flat `/_orbit/` directory, as Astro puts entries and chunks in `/_astro/[name].[hash].js`: `/_orbit/chunk-<hash>.js` for shared code and `/_orbit/<module>-<hash>.js` for a dynamic-import target (esbuild's `[name]`, from the imported file's base name; a name equal to a page's or component's differs by its hash). Hashes are esbuild's content hashes, which include the hashes of the chunks a file imports, so a change to `analytics.ts` renames its chunk and every file importing it, and nothing else. Deterministic: two clean builds of the same input produce byte-identical files (prototype: identical names; a test asserts contents). The page qualifier is the page's entry name, not its index, so adding a page renames nothing else (it only appears in dev source comments).
+6. **Evaluation order**: a page's block scripts run in graph order, as today (rule 2). Modules they import run before the page's blocks, each after its own imports (ESM). Two shared chunks that don't import each other run in esbuild's chunk order, not in import order (esbuild's known splitting limitation, evanw/esbuild#399): with `import "./polyfill"; import "lib"` in one block, `lib` may run first if they end up in different chunks. Documented rule: **a module that needs another module's side effects imports it itself.** Without rule 2, the same reordering hits components: the prototype's page rendering `<First />` then `<Second />` ran `second` before `first` when `Second` was also used on another page.
+7. **CSS**: unchanged. The page stylesheet is still one file in §5's order; esbuild computes each entry's CSS from its whole import graph independently of JS chunking (prototype: every page stylesheet of `examples/blog` and the 200-file `bench/devloop` project is byte-identical with and without splitting). CSS imported by a module that is only reached through `import()` is in the page stylesheet of every page that can reach it, as a lazy component's CSS is today (Q3). esbuild also emits that dynamic chunk's own `<module>-<hash>.css`, which nothing links: it isn't written.
+8. **Empty chunks are removed.** A CSS file or a types-only module imported from scripts on several pages gets an empty JS chunk (esbuild has no option against it; `examples/blog` without rule 2 had one empty chunk imported by 3 pages, and a script-level `import "./lib.css"` on two pages gives one even with rule 2). After the build, `collect` drops non-entry JS outputs with no code (`isEmptyJS`) and deletes the `import"/_orbit/…";` statements that reference them, repeating until nothing changes; a page entry left empty gets no `<script>` (§5). Where a source map exists (dev, `"sourcemap": true`), the statement is replaced by the same number of spaces, so mappings stay valid; otherwise it's removed. The file names keep esbuild's hash (still a deterministic function of the input).
+9. **Head injection (Q2)**: the entry's `<script type="module">` as today, plus one `<link rel="modulepreload" href>` per chunk in the entry's static import closure (from the metafile's `imports`, `import-statement` kind, transitively; dynamic imports excluded), after the script tag. Precomputed per route in `NewSite` like the other tags: no per-request cost, no allocation change. A lazy entry's chunks and dynamic chunks aren't preloaded (they'd defeat the laziness; Q4).
+10. **Lazy entries and the loader**: unchanged. The lazy map still maps a component ID to entry URLs; an entry is now usually a few imports of chunks plus the component's blocks, and the browser fetches the chunks it doesn't have yet when the loader imports it. `<orbit-island>` fragments carry no assets (§5) and are unaffected; `loader/` doesn't change.
+11. **Cache headers**: chunks are under `/_orbit/` and hashed, so they get `Cache-Control: public, max-age=31536000, immutable` like every bundle (`static.go`, no change), and `no-cache` in dev.
+12. **Deploys (Q5)**: `orbit build` replaces `dist/client` (and `--embed` embeds only the new files). A page loaded before a deploy that later runs an `import()`, or meets a lazy strategy, asks for a chunk of the old build, which is a 404 unless something kept it. That was already true for lazy entries, but `import()` on a click makes it common. The docs (`deploy.md`) recommend keeping the previous deploy's `dist/client/_orbit/*` next to the new files (hashed names never collide; copy them into `dist/client/_orbit/` before building the image, or serve `/_orbit/` from object storage or a CDN that only adds files), and show a `window.addEventListener("unhandledrejection", …)` reload pattern for scripts that `import()`. Astro has no built-in answer either (its Vercel adapter has skew protection; Vite fires `vite:preloadError` for the same case).
+13. **No opt-out** (Q6): nothing measured costs enough to justify a switch.
+
+### Manifest and asset kinds
+- **New asset kind `"modulepreload"`** (the `rel` value): `orbit.Asset{Kind: "modulepreload", URL: "/_orbit/chunk-X65WUZF2.js"}`, one per chunk of rule 9, in the entry's closure order. `Route.Assets` order becomes css, js, lazy, modulepreload (the existing stable sort by kind); `headTags` writes the new kind; older runtimes ignore unknown kinds already.
+- **Prod**: the compiled `orbit_gen/manifest` gains those rows, nothing else: `{Kind: "modulepreload", URL: "/_orbit/chunk-X65WUZF2.js"},` after the page's `js` row. Dynamic chunks aren't in the manifest (only the bundles reference them).
+- **Dev**: `.orbit/dev/manifest.json` gains `{"kind": "modulepreload", "url": "/_orbit/…"}` entries (same shape as today, `devAsset`). `WriteDev` writes and prunes chunks like any other file.
+- **`orbit build --verbose`**: under each page, its `modulepreload` chunks indented below its `js` row with `(preload)`, its lazy entries with `(lazy)`; then a `loaded with import()` section listing every chunk that only dynamic imports reach; totals count each file once, chunks included (today's totals count `css` and `js` kinds only).
+- `assets.Result.Files` gains the chunk files (and their `.map`s); `WriteFiles`, `WriteDev`'s pruning, `newFSFiles` and `--embed` need no change.
+
+### (Q) points
+1. **(Q1) What gets shared**: (B) block scripts and styles stay per page, only imported files are split (recommended: keeps block order, measured 2.0 requests per page on the 200-file project, no empty style chunks; costs ~20 ms more `orbit generate` bundling at 200 files (18 → 37 ms median), none in the dev rebuild (18 → 13 ms either way), see Cost), vs. (A) esbuild's default with shared block modules (fewest bytes and the best cross-page caching, and the fastest build, but 21 requests per page on the same project, components' scripts run in esbuild's chunk order rather than graph order, and every style block shared by several pages adds an empty chunk that rule 8 must strip), vs. (B') only script blocks per page, style blocks shared (about 5 ms less than (B), but 38 empty style chunks per build to strip on that project). Astro/Vite (Rollup) shares at module granularity like (A), with Rollup's correct evaluation order, and since Astro 5 each component's script is rendered as its own `<script type="module">` where it's declared (deduplicated per page), so scripts run in document order; (B) is the closest esbuild gets to that order.
+2. **(Q2) `<link rel="modulepreload">` for the entry's static chunks**: emit them (recommended: removes one round trip, entry → chunks, before scripts run; the closure is flat, since esbuild's entry imports every chunk it needs directly; ~60 B of HTML per chunk, about 1 per page on the 200-file project, ~15 B gzipped), vs. none (Astro's behavior: Astro 5.8.1 writes only the script's `<script type="module">`; no `modulepreload` appears in its own code, and Vite's preload helper adds them only at `import()` time, for a dynamic chunk's dependencies; Vite's HTML mode emits them for entries). Not a minor detail by rule: it trades HTML bytes against latency on every page.
+3. **(Q3) CSS of a dynamically imported module**: in the page stylesheet of every page that can reach it (recommended: esbuild's behavior, today's behavior, the same rule as a lazy component's CSS; no flash of unstyled content and no runtime helper; nyth imports no CSS from its lazy chunks), vs. loaded with the chunk (Vite's `__vitePreload` adds the chunk's `<link rel="stylesheet">` before resolving `import()`): Orbit would have to rewrite every `import()` into a helper call with a generated CSS map (an esbuild plugin transform over every script), a larger change for a later item if a site needs it.
+4. **(Q4) Preloading a lazy entry's or dynamic chunk's dependencies when it loads**: no (recommended: one extra round trip only for chunks the page hasn't loaded yet; most shared chunks already came with the page bundle), vs. the loader adding `modulepreload` links for an entry's chunks when its strategy fires (+~100 B of loader, the lazy map lists chunks), vs. Vite-style `import()` rewriting (same cost as Q3's alternative).
+5. **(Q5) Deploy skew**: docs only (recommended, rule 12), vs. an `orbit build --keep-assets <old dist/client>` flag that copies the previous `_orbit/` files into the new output (small, but it makes `dist/` grow without bound unless it also prunes by age), vs. a runtime fallback (the server can't produce an old chunk).
+6. **(Q6) Opt-out**: none (recommended: the dev rebuild is faster with splitting, `orbit build` time is within noise (bundling +~20 ms with Q1 (B)), request count stays low with Q1 (B)), vs. `orbit.json` `"splitting": false` (a second code path to test).
+
+Decided by rule (to log in `docs/DECISIONS.md`): chunks flat in `/_orbit/` with esbuild's default `[name]` (Astro: `/_astro/[name].[hash].js` for entries and chunks alike; a `chunks/` subdirectory was the alternative); the asset kind is named `modulepreload` (simplest: the `rel` value); the unreferenced chunk CSS of rule 7 isn't written (simplest: nothing links it); empty-chunk imports blanked where a map exists, removed otherwise (simplest that keeps maps valid); `immutable` caching for chunks (simplest: the existing `/_orbit/` rule); diagnostics of a block copied into several pages are reported once (deduplicated by file, line, column and message; simplest).
+
+### Cost (prototype: `Splitting` + `ChunkNames` in `buildOptions`, page-qualified blocks in `plan.go`, the empty-chunk pass in `collect`; Ryzen 7 9700X, 16 threads, Go 1.27.3, esbuild v0.28.2. The machine was shared and heavily loaded during part of the runs; load averages per row)
+- **Dev loop** (`bench/devloop -kinds css,ts -runs 15`, 200 files, 16 threads, median (min) of the esbuild stage, the whole save-to-ready step for these edits; modes in sequence, load average 2.2): today **18 (17) ms** for both `css` and `ts`; (B) (recommended Q1) **13 (12–13) ms**; (A) 13 (12) ms. Splitting makes the incremental rebuild faster: less output to link and write (no copy of `util.ts` and `orbit:client` per page). Sessions at load 5.8–7.8 and 17.9–19.0 gave the same picture (today 18–19, (B) 13–17, (A) 13–15). `orbit dev`'s first build: 834 / 843 / 865 ms (noise).
+- **`orbit generate`/`build` bundling** (the prod `Bundle` call, in-process, timed around `esbuildBundler.Bundle`; min and median of 15 alternated runs; load average 2.0–2.3, and the same within 1 ms at 11.7): today **15.6 / 17.8 ms**; (A) 11.3 / 12.5 ms; (B') 30.4 / 31.9 ms; (B) **35.7 / 36.8 ms**. So (B) adds ~20 ms to `orbit generate` (~70 → ~90 ms) and `orbit build` (~320 ms, where it's within run-to-run noise: 313–388 ms both ways). The cause is that a block used on N pages is parsed and minified N times (about 800 block modules instead of 40 on this project); the incremental dev rebuild doesn't pay it, since esbuild re-parses only the changed file. Implementation should first try caching the scoped CSS and padded contents per block (the prototype recomputed them) before accepting the number.
+- **Bytes and requests** (`orbit build`, the 200-file `bench/devloop` project, 40 pages, every 4th component with a script importing `util.ts`): per page, today 1 request, 1,924 B raw / 323 B gzip; (A) 21.1 requests, 3,798 B / 3,333 B gzip (the sum of per-file gzip: small files compress badly); (B) 2.0 requests, 1,993 B / 410 B gzip. All JS files of the build: today 77.0 kB, (A) 38.8 kB, (B) 78.6 kB. `examples/blog`: no shared imports between its pages and its lazy entry, so (B) produces the same files as today, and (A) adds one empty chunk.
+- **SSR**: none. The `modulepreload` tags are part of the per-route tag string computed once in `NewSite`; `AllocsPerRun` tests unchanged.
+- **CLI binary**: none (esbuild is already linked).
+
+### Considered: Vite (rejected by the user, 2026-10-26)
+The user asked whether Orbit should use Vite (Rolldown) for splitting, then decided to keep esbuild: Vite needs Node or Bun at build time, while esbuild runs inside the `orbit` binary behind the one internal `Bundler` interface (a settled decision). Partial numbers from the prototype, kept for the record (Vite 8.3.4 with Rolldown 1.2.15, installed in `scratchpad/codesplit/vite/` only; the same 200-file graph dumped as real files, 40 page entries; load average 2.6–4.5):
+- **Output**: like (A): 38 shared chunks, 21.1 JS requests per page, plus **20.2 CSS files per page** (Vite's per-chunk CSS code splitting; Astro adds its own per-page CSS handling on top), 3,650 B raw / 3,328 B gzip of JS per page; Rollup's evaluation order is correct (entries import block chunks in graph order).
+- **Build**: 19–23 ms min, 22–26 ms median in a warm process (vs. 36.8 ms for (B), 17.8 ms today, in-process); **123–146 ms per cold `node` process** (103–104 ms with Bun), which Orbit would pay on every `orbit build`/`generate`, or keep a resident child process in dev.
+- **Watch rebuild** after a block `.ts` / `.css` edit (`build --watch`, file write to bundle end, so including the file watcher's latency): 20.6 / 18.8 ms median (vs. 13 ms for (B) in `bench/devloop`).
+- What it would have added: `manualChunks`-style chunk control, CSS loaded with dynamic chunks, `vite:preloadError`, and Vite plugins (`@tailwindcss/vite`).
+
+### Tests (what must exist)
+- **`internal/assets`** (table-driven over small inputs, like `assets_test.go`):
+  - a block with `import("./heavy")`: `heavy`'s code is in `heavy-*.js` (no entry point in the metafile) and in no entry; the entry contains `import("/_orbit/heavy-`; `heavy`'s CSS is in the page stylesheet and no `heavy-*.css` file is written.
+  - a module imported by a page block and by a lazy entry: its code appears in exactly one output file, imported by both.
+  - order: `<First />` then `<Second />` on page 1, `<Second />` alone on page 2: page 1's entry contains both blocks, `first` before `second`, and no chunk contains block code.
+  - empty chunks: a CSS file imported from scripts on two pages leaves no empty chunk and no import of one; a page whose only script imports types gets no JS asset; with a dev build, the blanked entry's source map still maps the block to its `.orbit` line:col.
+  - `modulepreload` assets: the closure of a two-level chunk graph, in order; none for lazy entries or dynamic chunks.
+  - stylesheets byte-identical to the expected ones of the existing tests (the CSS-order tests pass unchanged).
+  - determinism: two `Bundle`s of the same input in fresh bundlers give identical `Files`; adding a page doesn't rename another page's files in a prod build.
+  - diagnostics: a syntax error in a block used on three pages is reported once, at its `.orbit` position.
+  - `TestDevRebuild`: chunk files in `.orbit/dev/_orbit/`, stale chunks pruned, the manifest's `modulepreload` rows.
+  - source maps (`sourcemap_test.go`): page-qualified suffixes are stripped, so sources are the `.orbit` paths; chunk maps point at the imported `.ts` files.
+- **Runtime**: `headTags` emits `<link rel="modulepreload">` (escaped URL), in asset order; the dev manifest decodes the kind; site tests with a `modulepreload` asset.
+- **`cmd/orbit`**: `--verbose` golden with a preload row, a lazy row and the `import()` section; totals count each file once.
+- **End to end**: `examples/blog` gains a dynamic import (e.g. the search page's suggestions loaded with `import()` on focus) and a module shared with the lazy `ShareButtons`; `internal/build`'s e2e test asserts the chunk files, the `modulepreload` tag in the rendered HTML, that the dynamic target isn't in any entry, and that the lazy entry imports the shared chunk instead of containing it. The loader's `bun test` suite runs unchanged.
+- **`bench/devloop`**: the `css` and `ts` rows are rerun and published in `docs/performance.md`.
+
+### User-docs changes (with the implementation)
+- `styles-and-scripts.md` "Bundling and deduplication per page": replace "Each page's bundle is self-contained … not yet supported" with shared chunks, `import()` chunks, `modulepreload`, the evaluation-order rule (rule 6), and where an `import()`ed module's CSS goes; the `client:*` list: drop "Shared code is duplicated", say shared modules have one state.
+- `lazy-loading.md`: remove "Shared modules are duplicated" (and its "Code splitting is planned" line); add a short "Loading code on demand with `import()`" pointer for code that isn't a component.
+- `deploy.md`: chunks are immutable like the other `/_orbit/` files; the deploy-skew note and how to keep the previous `_orbit/` files (rule 12).
+- `reference/cli.md`: the new `--verbose` output; `reference/runtime-api.md`: the `modulepreload` asset kind.
+- `coming-from-astro.md`: dynamic `import()` works as in Astro; differences (CSS of lazy chunks loads with the page; no `vite:preloadError`).
+- `performance.md`: requests per page and the dev rebuild numbers.
+- `docs/DECISIONS.md`: the decided-by-rule items above.
+
+**Plan updates on acceptance**: §5 (esbuild entries, lazy entries, the duplication caveat, the manifest's asset kinds), §4 (`Asset` kinds, `headTags`), §7.1 (no change in behavior; the CSS/JS-only rebuild numbers), §12 (the bullet removed).
+
+### Out of scope
+- Loading a dynamic chunk's CSS with it (Q3 alternative) and preloading its dependencies (Q4).
+- Manual chunks or a minimum chunk size (esbuild has neither; Rollup's `manualChunks`/`experimentalMinChunkSize` have no equivalent).
+- `orbit build --keep-assets` and server-side skew handling (Q5).
+- Splitting for `<script is:inline>` (never bundled) and CSS code splitting between pages (each page keeps one stylesheet).
+- CSP hashes for the inline loader (§12, unchanged).
+
+### Risks
+- esbuild marks code splitting as a work in progress; the ordering limitation (rule 6) is the known one, and rule 2 confines it to imported modules. A future esbuild that changes chunking may change file names and the number of chunks, not behavior; the tests pin behavior, not names.
+- Request count grows with the number of distinct sets of pages that share an imported module: a site with many small shared `.ts` helpers gets many small chunks (no minimum chunk size in esbuild). Measure on nyth when ported; `--verbose` shows it.
+- Deploy skew (rule 12) becomes visible to users of `import()`: docs only for now.
+
 ## 6. CLI (`cmd/orbit`)
 | Command | Behavior |
 |---|---|
@@ -2765,8 +2913,8 @@ Dependencies:
 - **Tailwind CSS** (user decision, 2026-10-26, from the `nyth` port): built-in support through Tailwind's standalone CLI as an external, optional tool, detected from `@import "tailwindcss"`; specified in §5d (proposed, (Q) points open).
 - `{switch}` template blocks: implemented (§2.3): compiler, `orbit fmt`, the LSP's Go regions, the VS Code grammar and the docs' Chroma lexer; user docs `docs/reference/template-syntax.md#switch`.
 - `class:list`: implemented (§2.3): runtime (`classlist.go`), compiler, typed pass, `orbit fmt`, the LSP, the VS Code grammar; user docs `docs/reference/template-syntax.md#classlist`.
-- esbuild code splitting (shared chunks between pages, and between page bundles and `client:*` lazy entries, §5)
 - **Concurrent rendering of slow components** (user decision, 2026-10-26, from the `nyth` port: Astro 7 overlaps awaiting sibling components, Orbit renders in order): an opt-in call-site directive (working name `server:concurrent`) runs a slow component in its own goroutine and buffer, copied back in source order at the end of the render; automatic concurrency rejected (it charges every component). Specified in §3.6 (proposed, (Q) points open).
+- **esbuild code splitting** (shared chunks between pages, and between page bundles and `client:*` lazy entries; dynamic `import()` as its own chunk): moved up by the user (next), prompted by nyth's lazy-loaded Lexical, quick-search and read-aloud engines. **Specified in §5e** (proposed, (Q) points open).
 - **Cacheable server islands** (the MVP already makes island URLs deterministic and puts the build ID in the path, §3.4, so no URL format change is needed):
   - an `ETag` on island responses (a hash of the buffered body), answering `If-None-Match` with a 304;
   - docs on opting into public caching by setting `Cache-Control` from the component (`ctx.Header().Set("Cache-Control", "public, max-age=60, stale-while-revalidate=600")`), with a clear warning that an island cached as `public` must not depend on cookies, locals or the user (docs only, no checks);
