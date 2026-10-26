@@ -22,8 +22,8 @@ import (
 	"github.com/orbit-z/orbit/internal/dev"
 )
 
-// useDev is -dev.
-var useDev bool
+// useDev is -dev, useTailwind -tailwind.
+var useDev, useTailwind bool
 
 // edit is one edit kind.
 type edit struct {
@@ -47,6 +47,7 @@ func main() {
 	extra := flag.String("buildflags", "", "extra go build flags, space-separated (e.g. \"-p=8\")")
 	flag.BoolVar(&fullFront, "fullfront", false, "Load and Front the whole project on every edit instead of project.Reload (the front before per-file reloads)")
 	flag.BoolVar(&noPreload, "nopreload", false, "on a Go edit, run go list -export in the check stage instead of from the start of the step (as before Checker.Preload)")
+	flag.BoolVar(&useTailwind, "tailwind", false, "the project uses Tailwind CSS (PLAN.md §5d): a global.css root in the Base layout and 12 utilities per .orbit file; needs tailwindcss on PATH and -dev")
 	devMode := flag.Bool("dev", false, "measure internal/dev's pipeline (what orbit dev runs) instead of the prototype stages; -ldflags, -buildflags and -fresh don't apply")
 	flag.Parse()
 	buildFlags = strings.Fields(*extra)
@@ -94,6 +95,15 @@ func run(nfiles, runs int, orbitRoot, dir string, keep bool, ldflags, only, json
 	s := newShape(nfiles)
 	if err := writeProject(dir, orbitRoot, projectFiles(s, salt)); err != nil {
 		return err
+	}
+	if useTailwind {
+		if !useDev {
+			return fmt.Errorf("-tailwind needs -dev")
+		}
+		if err := tailwindSetup(dir); err != nil {
+			return err
+		}
+		fmt.Println("# -tailwind: global.css (@import \"tailwindcss\") in the Base layout, 12 utilities per .orbit file")
 	}
 	goVersion, _ := exec.Command("go", "env", "GOVERSION").Output()
 	fmt.Printf("# devloop: %d .orbit files (%d pages, %d layouts, %d components; Badge imported by %d), %d runs + 1 warm-up\n",

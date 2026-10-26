@@ -5,6 +5,7 @@ package vscode
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -41,7 +42,32 @@ func TestBunTest(t *testing.T) {
 	}
 }
 
-var versionRE = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)`)
+// TestManifest checks package.json's configurationDefaults: Orbit is the
+// default formatter of .orbit files, and Tailwind CSS IntelliSense treats
+// .orbit files as HTML (PLAN.md §5d, Q5).
+func TestManifest(t *testing.T) {
+	data, err := os.ReadFile("package.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m struct {
+		Contributes struct {
+			ConfigurationDefaults map[string]map[string]string `json:"configurationDefaults"`
+		} `json:"contributes"`
+	}
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatal(err)
+	}
+	d := m.Contributes.ConfigurationDefaults
+	if got := d["tailwindCSS.includeLanguages"]["orbit"]; got != "html" {
+		t.Errorf(`configurationDefaults["tailwindCSS.includeLanguages"].orbit = %q, want "html"`, got)
+	}
+	if got := d["[orbit]"]["editor.defaultFormatter"]; got != "orbit-z.orbit" {
+		t.Errorf(`configurationDefaults["[orbit]"]["editor.defaultFormatter"] = %q`, got)
+	}
+}
+
+var versionRE =regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)`)
 
 // atLeast reports whether version v ("1.4.4\n") is at least maj.min.patch.
 func atLeast(v string, maj, min, patch int) bool {

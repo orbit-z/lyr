@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Tailwind CSS: the extension sets `"tailwindCSS.includeLanguages": { "orbit": "html" }` by default, so the Tailwind CSS IntelliSense extension completes, previews and lints classes in `.orbit` files. A `tailwindCSS.includeLanguages` of your own replaces it: include `"orbit": "html"`.
+
 - TypeScript in `<script>` blocks: completion, hover, signature help, diagnostics, go-to-definition (into the Go behind `orbit.JSON` data), references, rename and quick fixes, through TypeScript 7's language server, which `orbit lsp` starts. `is:inline` scripts get them as JavaScript. New setting `orbit.typescriptPath`.
 
 - Formatting: "Format Document" formats `.orbit` files with `orbit fmt`'s rules (through `orbit lsp`), and the extension is the default formatter for `[orbit]`. Format on save stays off unless you turn it on.
