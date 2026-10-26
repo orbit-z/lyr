@@ -115,6 +115,10 @@ func (s *Server) tsSyncTsconfig(ws *workspace, c *Conn) {
 // its source changed, and opens, changes or closes them in the child as
 // needed. A parse without a template keeps the previous documents.
 func (s *Server) tsSyncFile(ws *workspace, p string) {
+	if s.ts.status == tsOff {
+		delete(ws.vdocs, p) // nothing routes to the child: no documents kept
+		return
+	}
 	old := ws.vdocs[p]
 	f := ws.byPath[p]
 	var docs []*vdoc

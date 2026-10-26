@@ -31,6 +31,10 @@ func TestMain(m *testing.M) {
 		runStubGopls()
 		return
 	}
+	if os.Getenv(tsStubEnv) != "" {
+		runStubTS()
+		return
+	}
 	code := m.Run()
 	if binDir != "" {
 		os.RemoveAll(binDir)
@@ -123,8 +127,10 @@ type testClient struct {
 	diagAt   map[string]time.Time        // first publish per URI
 	messages []string                    // showMessage texts, with their type
 	requests []string                    // showMessageRequest texts
-	texts    map[string]string           // open documents
-	versions map[string]int
+	// registrations are the registerCapability params received.
+	registrations []string
+	texts         map[string]string // open documents
+	versions      map[string]int
 
 	initResult jsonRaw
 }
@@ -291,6 +297,11 @@ func (c *testClient) handle(m *message) {
 		case "window/showMessageRequest":
 			c.mu.Lock()
 			c.requests = append(c.requests, decodeObj(m.Params).str("message"))
+			c.cond.Broadcast()
+			c.mu.Unlock()
+		case "client/registerCapability":
+			c.mu.Lock()
+			c.registrations = append(c.registrations, string(m.Params))
 			c.cond.Broadcast()
 			c.mu.Unlock()
 		}

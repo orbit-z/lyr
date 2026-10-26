@@ -76,7 +76,10 @@ func (s *Server) tsRoute(ctx context.Context, method string, params jsonRaw) (re
 		return ws, ws.vdocAt(p, lines.offset(pos, encUTF16))
 	}
 	s.mu.Lock()
-	_, d := at()
+	var d *vdoc
+	if s.ts.status != tsOff { // off: scripts answer as before (nothing)
+		_, d = at()
+	}
 	s.mu.Unlock()
 	if d == nil {
 		return nil, nil, false

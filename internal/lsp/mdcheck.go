@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"slices"
 	"strings"
@@ -170,7 +171,11 @@ func (s *Server) runMarkdownCheck() {
 	case err != nil:
 		s.logf("markdown typed check: %v", err)
 	default:
-		s.logf("markdown typed check: %d files, go list %v, current %v (%v)", c.checked, c.loaded, current, c.took.Round(time.Millisecond))
+		what := "markdown typed check"
+		if c.data {
+			what = "typed check (markdown " + fmt.Sprint(c.md) + ", data true)"
+		}
+		s.logf("%s: %d files, go list %v, current %v (%v)", what, c.checked, c.loaded, current, c.took.Round(time.Millisecond))
 	}
 	if hooks != nil {
 		hooks.done(current)
