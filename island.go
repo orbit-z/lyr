@@ -82,7 +82,7 @@ func Defer(c *Ctx, w *Writer, id string, props any, fallback Renderer) error {
 	b.WriteString(`" props="`)
 	// The token is base64url: nothing in it needs escaping.
 	b.Grow(len(data)*4/3 + 64)
-	b.Write(kr.sealer.AppendSeal(b.AvailableBuffer(), id, kr.buildID, data))
+	b.Write(sealerOf(kr).AppendSeal(b.AvailableBuffer(), id, kr.buildID, data))
 	b.WriteString(`">`)
 	if fallback != nil {
 		if err := fallback(w); err != nil {
@@ -151,7 +151,7 @@ func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string) 
 	} else {
 		token = queryValue(r.URL.RawQuery, "p")
 	}
-	props, err := s.keys.sealer.Open(id, build, token)
+	props, err := sealerOf(s.keys).Open(id, build, token)
 	if err != nil {
 		emptyStatus(w, http.StatusBadRequest)
 		return

@@ -416,7 +416,10 @@ To override a decision, say which row and the alternative you want; the docs and
 | The terminal gets one line per change (`orbit dev: <file>: server restarted in 250ms`, `…: CSS and JS rebuilt in 3ms`, `…: reloaded`), plus errors and warnings | simplest | Astro's per-file update lines with timestamps | [Dev server](dev-server.md#errors) |
 | `--port` must be 1–65535; anything else is a usage error (exit 2) | Go stdlib (`flag` values) | Accept 0 as "random port" | [CLI](reference/cli.md#orbit-dev) |
 | Each restarted dev app gets a new random build ID; island tokens still open, since the per-session `ORBIT_KEY` is shared and the build ID comes from the URL | simplest | A fixed per-session build ID passed with `-X`, so island URLs also stay identical across restarts | [Dev server](dev-server.md) |
-| `orbit dev` compiles the generated packages without inlining (`-gcflags=./orbit_gen/...=-l`) unless `GOFLAGS` has its own `-gcflags` | user (measured −10–14% on the slowest rebuild) | Same compile flags as `orbit build` | [Dev server](dev-server.md) |
+| `orbit dev` compiles the generated packages without inlining (`-gcflags=./orbit_gen/...=-l -dwarf=false`) unless `GOFLAGS` has its own `-gcflags` | user (measured −10–14% on the slowest rebuild) | Same compile flags as `orbit build` | [Dev server](dev-server.md) |
+| `orbit dev`'s `go build` uses `-ldflags=-s -w` (merged with a `GOFLAGS` `-ldflags`), `-gcflags=all=-dwarf=false` and `-buildvcs=false`, and runs without `GOGC`/`GOMEMLIMIT` (the server keeps them) | user (dev-loop speed-ups) | `-ldflags=-w` only; keep the user's `GOGC` | [Dev server](dev-server.md) |
+| A `-buildvcs` in `GOFLAGS` replaces Orbit's `-buildvcs=false`, as a `-gcflags` there replaces Orbit's `-gcflags` | Go stdlib (a command-line flag overrides `GOFLAGS`, so Orbit stays out of the way when you set one) | Always pass `-buildvcs=false` | [Dev server](dev-server.md) |
+| `orbit dev`'s type checker runs `go list -export` with the same `-gcflags` and `-buildvcs` as its `go build`, so both share the compiled packages in the build cache (with different flags a `.go` edit compiled the edited package twice) | simplest | Default flags for `go list` | — |
 
 ## Editor support
 

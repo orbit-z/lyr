@@ -158,13 +158,47 @@ func TestDevBuildFlags(t *testing.T) {
 		goflags string
 		want    []string
 	}{
-		{"", []string{devGCFlags}},
-		{"-mod=mod -tags=prod", []string{devGCFlags}},
-		{"-gcflags=all=-N", nil},
-		{"-mod=mod --gcflags=-m", nil},
+		{"", []string{devGCFlags[0], devGCFlags[1], devVCSFlag}},
+		{"-mod=mod -tags=prod", []string{devGCFlags[0], devGCFlags[1], devVCSFlag}},
+		{"-gcflags=all=-N", []string{devVCSFlag}},
+		{"-mod=mod --gcflags=-m", []string{devVCSFlag}},
+		{"-buildvcs=true", devGCFlags},
+		{"--buildvcs", devGCFlags},
+		{"-buildvcs=auto -gcflags=-m", nil},
+		{"-gcflagsx=1 -buildvcsx", []string{devGCFlags[0], devGCFlags[1], devVCSFlag}},
 	} {
 		if got := devBuildFlags(tc.goflags); !slices.Equal(got, tc.want) {
 			t.Errorf("devBuildFlags(%q) = %q, want %q", tc.goflags, got, tc.want)
+		}
+	}
+}
+
+func TestDevLDFlags(t *testing.T) {
+	for _, tc := range []struct{ goflags, want string }{
+		{"", "-ldflags=-s -w"},
+		{"-mod=mod", "-ldflags=-s -w"},
+		{"-ldflags=-X=main.v=1", "-ldflags=-X=main.v=1 -s -w"},
+		{`"-ldflags=-X main.v=1" -mod=mod`, "-ldflags=-X main.v=1 -s -w"},
+	} {
+		pl := newPipeline(t.TempDir(), nil, tc.goflags)
+		pl.close()
+		if got := pl.ldflags; got != tc.want {
+			t.Errorf("ldflags with GOFLAGS=%q = %q, want %q", tc.goflags, got, tc.want)
+		}
+	}
+}
+
+func TestGoBuildEnv(t *testing.T) {
+	for _, tc := range []struct{ environ, extra, want []string }{
+		{nil, nil, []string{}},
+		{
+			[]string{"HOME=/h", "GOGC=100", "GOFLAGS=-mod=mod", "GOMEMLIMIT=1GiB", "GOGCX=1"},
+			[]string{"ORBIT_DEV=1", "GOGC=off"},
+			[]string{"HOME=/h", "GOFLAGS=-mod=mod", "GOGCX=1", "ORBIT_DEV=1"},
+		},
+	} {
+		if got := goBuildEnv(tc.environ, tc.extra); !slices.Equal(got, tc.want) {
+			t.Errorf("goBuildEnv(%q, %q) = %q, want %q", tc.environ, tc.extra, got, tc.want)
 		}
 	}
 }

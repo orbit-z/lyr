@@ -39,8 +39,7 @@ type pipeline struct {
 	root    string
 	env     []string // appended to the go commands' environment
 	ldflags string   // go build's -ldflags flag
-	// buildFlags are go build's other flags: devGCFlags, unless GOFLAGS
-	// sets its own -gcflags.
+	// buildFlags are go build's other flags (devBuildFlags).
 	buildFlags []string
 	bundler    assets.Bundler
 	inc        *project.Incremental
@@ -70,13 +69,19 @@ type pipeline struct {
 }
 
 func newPipeline(root string, env []string, goflags string) *pipeline {
+	flags := devBuildFlags(goflags)
+	// The type checker's go list -export gets go build's flags, so both
+	// compile the user's and std packages with the same flags and share
+	// them in the build cache: with different ones a .go edit would compile
+	// the edited package twice.
+	loader := &compiler.GoListLoader{Dir: root, Env: env, BuildFlags: flags}
 	pl := &pipeline{
 		root:       root,
 		env:        env,
-		ldflags:    build.MergeLDFlags(goflags, "-w"),
-		buildFlags: devBuildFlags(goflags),
+		ldflags:    build.MergeLDFlags(goflags, devLDFlags),
+		buildFlags: flags,
 		bundler:    assets.New(assets.Options{Root: root, Dev: true}),
-		inc:        project.NewIncremental(compiler.NewChecker(&compiler.GoListLoader{Dir: root, Env: env})),
+		inc:        project.NewIncremental(compiler.NewChecker(loader)),
 	}
 	pl.goBuild = pl.runGoBuild
 	return pl
@@ -414,26 +419,71 @@ func (pl *pipeline) startEarly(ctx context.Context) *earlyBuild {
 	return e
 }
 
-// devGCFlags compiles the generated packages without inlining, in dev only:
-// measured 10–14% faster on the slowest edit (a Go package every Props
-// imports, which recompiles every generated package) and no change on
-// template edits (milestone 10, user decision). The relative pattern
-// matches only packages under the module's orbit_gen/.
-const devGCFlags = "-gcflags=./orbit_gen/...=-l"
+// devLDFlags is what dev builds add to go build's -ldflags: no symbol
+// table and no DWARF, which makes linking faster. Stack traces need
+// neither (they use the pclntab). orbit build doesn't use it.
+const devLDFlags = "-s -w"
 
-// devBuildFlags returns devGCFlags unless goflags (GOFLAGS) has its own
-// -gcflags: a -gcflags on the command line would replace it.
-func devBuildFlags(goflags string) []string {
-	for _, f := range strings.Fields(goflags) {
-		if strings.HasPrefix(strings.TrimLeft(f, "-"), "gcflags") {
-			return nil
-		}
-	}
-	return []string{devGCFlags}
+// devGCFlags are dev builds' compiler flags. No DWARF in any package (std,
+// the user's, the generated ones), since the linker drops it anyway: it
+// makes compiling and linking faster. The generated packages are also
+// compiled without inlining: measured 10–14% faster on the slowest edit (a
+// Go package every Props imports, which recompiles every generated package)
+// and no change on template edits (milestone 10, user decision). When
+// several -gcflags patterns match a package the last one wins, so the
+// orbit_gen one repeats -dwarf=false. The relative pattern matches only
+// packages under the module's orbit_gen/.
+var devGCFlags = []string{
+	"-gcflags=all=-dwarf=false",
+	"-gcflags=./orbit_gen/...=-l -dwarf=false",
 }
 
-// runGoBuild is go build -o out -ldflags=… [-gcflags=…] entry, run in the
-// module root.
+// devVCSFlag skips stamping VCS information into dev binaries: go build
+// otherwise runs git on every build (10–20 ms). Nothing in Orbit reads it.
+const devVCSFlag = "-buildvcs=false"
+
+// devBuildFlags returns go build's flags other than -ldflags for a dev
+// build: devGCFlags unless goflags (GOFLAGS) has its own -gcflags, and
+// devVCSFlag unless it has its own -buildvcs, since a flag on the command
+// line would replace GOFLAGS'.
+func devBuildFlags(goflags string) []string {
+	var gc, vcs bool
+	for _, f := range strings.Fields(goflags) {
+		name, _, _ := strings.Cut(strings.TrimLeft(f, "-"), "=")
+		switch name {
+		case "gcflags":
+			gc = true
+		case "buildvcs":
+			vcs = true
+		}
+	}
+	var flags []string
+	if !gc {
+		flags = append(flags, devGCFlags...)
+	}
+	if !vcs {
+		flags = append(flags, devVCSFlag)
+	}
+	return flags
+}
+
+// goBuildEnv returns the environment of the go build child: environ, then
+// extra, without GOGC and GOMEMLIMIT. cmd/compile tunes its starting heap
+// only when both are unset, and a user GOGC=100 measured ~30% slower
+// on the slowest rebuilds. The user's server keeps them.
+func goBuildEnv(environ, extra []string) []string {
+	env := make([]string, 0, len(environ)+len(extra))
+	for _, kv := range slices.Concat(environ, extra) {
+		if strings.HasPrefix(kv, "GOGC=") || strings.HasPrefix(kv, "GOMEMLIMIT=") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	return env
+}
+
+// runGoBuild is go build -o out -ldflags=… [flags] entry, run in the module
+// root.
 func (pl *pipeline) runGoBuild(ctx context.Context, out, entry string) ([]byte, error) {
 	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 		return nil, err
@@ -441,7 +491,7 @@ func (pl *pipeline) runGoBuild(ctx context.Context, out, entry string) ([]byte, 
 	args := append([]string{"build", "-o", out, pl.ldflags}, pl.buildFlags...)
 	cmd := exec.CommandContext(ctx, "go", append(args, entry)...)
 	cmd.Dir = pl.root
-	cmd.Env = append(os.Environ(), pl.env...)
+	cmd.Env = goBuildEnv(os.Environ(), pl.env)
 	var b bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &b, &b
 	err := cmd.Run()

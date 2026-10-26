@@ -9,7 +9,7 @@
 //   - watch.go: the fsnotify watcher and the 50 ms debounce;
 //   - classify.go: what each changed path asks for (§7.1);
 //   - pipeline.go: the resident pipeline (esbuild context, type checker,
-//     incremental generate, go build -ldflags=-w);
+//     incremental generate, go build with the dev flags);
 //   - app.go: starting and stopping the user's server;
 //   - server.go: the proxy, the reload injection and the event stream;
 //   - overlay.go: the error overlay page.

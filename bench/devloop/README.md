@@ -62,7 +62,9 @@ In `-dev` mode:
   (the `early build` column says `used`, or `rebuilt after` when
   regenerating wrote files and `go build` ran again).
 - `-ldflags`, `-buildflags` and `-fresh` don't apply: the pipeline uses
-  `orbit dev`'s `-ldflags=-w` (merged with any `-ldflags` in `GOFLAGS`),
+  `orbit dev`'s flags (`-ldflags=-s -w`, merged with any `-ldflags` in
+  `GOFLAGS`; `-gcflags=all=-dwarf=false`, no inlining in `orbit_gen/`,
+  `-buildvcs=false`; no `GOGC`/`GOMEMLIMIT`),
   and other go flags come from `GOFLAGS`, e.g.
   `GOFLAGS=-gcflags=-l ./devloop -dev`.
 - `compiled` and `(link)` aren't measured (no action graph), and `noop` is

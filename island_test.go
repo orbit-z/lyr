@@ -129,7 +129,7 @@ func TestDeferPlaceholder(t *testing.T) {
 	s := islandSite(t)
 	rec := do(s.Handler(), "GET", "/post")
 	body := rec.Body.String()
-	tok := testKeyring().sealer.Seal(commentsID, testBuildID, []byte(`{"PostID":42,"Mode":""}`))
+	tok := sealerOf(testKeyring()).Seal(commentsID, testBuildID, []byte(`{"PostID":42,"Mode":""}`))
 	want := `<body><orbit-island src="/_orbit/island/0000000000000000/Comments-9b1e44a2" props="` + tok + `"><p>Loading…</p></orbit-island></body>`
 	if !strings.Contains(body, want) {
 		t.Errorf("page = %s\nwant it to contain %s", body, want)
@@ -212,8 +212,8 @@ func TestIslandEndpoint(t *testing.T) {
 	flipped := base64.RawURLEncoding.EncodeToString(raw)
 	otherKey, _ := islandcrypto.New(bytes.Repeat([]byte{7}, 32))
 	foreign := otherKey.Seal(commentsID, testBuildID, []byte(`{"PostID":42}`))
-	badJSON := s.keys.sealer.Seal(commentsID, testBuildID, []byte(`{"PostID":"x"}`))
-	notJSON := s.keys.sealer.Seal(commentsID, testBuildID, []byte(`nope`))
+	badJSON := sealerOf(s.keys).Seal(commentsID, testBuildID, []byte(`{"PostID":"x"}`))
+	notJSON := sealerOf(s.keys).Seal(commentsID, testBuildID, []byte(`nope`))
 	for _, tt := range []struct {
 		name, target string
 		code         int
@@ -336,7 +336,7 @@ func TestIslandKeys(t *testing.T) {
 	// A second build: same key, another build ID.
 	t.Setenv("ORBIT_KEY", key1)
 	build2 := islandSite(t)
-	build2.keys = &keyring{sealer: build2.keys.sealer, buildID: "1111111111111111"}
+	build2.keys = &keyring{seal: build2.keys.seal, buildID: "1111111111111111"}
 	src2, tok2 := placeholder(t, build2.Handler(), "")
 	if src2 == srcA || tok2 == tokA {
 		t.Error("another build ID gives the same URL")
@@ -348,8 +348,8 @@ func TestIslandKeys(t *testing.T) {
 	// Without ORBIT_KEY, two builds have different embedded keys.
 	t.Setenv("ORBIT_KEY", "")
 	p1, p2 := islandSite(t), islandSite(t)
-	p1.keys = &keyring{sealer: mustSealer(bytes.Repeat([]byte{3}, 32)), buildID: "2222222222222222"}
-	p2.keys = &keyring{sealer: mustSealer(bytes.Repeat([]byte{4}, 32)), buildID: "3333333333333333"}
+	p1.keys = &keyring{seal: mustSealer(bytes.Repeat([]byte{3}, 32)), buildID: "2222222222222222"}
+	p2.keys = &keyring{seal: mustSealer(bytes.Repeat([]byte{4}, 32)), buildID: "3333333333333333"}
 	if opens(p1, p2) {
 		t.Error("separate builds without ORBIT_KEY opened each other's tokens")
 	}
@@ -398,7 +398,7 @@ func TestIslandTestKey(t *testing.T) {
 	html, err := testRender(httptest.NewRequest("GET", "/", nil), nil, nil, func(c, w any) error {
 		return Defer(c.(*Ctx), w.(*Writer), commentsID, commentsProps{PostID: 1}, nil)
 	})
-	tok := testKeyring().sealer.Seal(commentsID, testBuildID, []byte(`{"PostID":1,"Mode":""}`))
+	tok := sealerOf(testKeyring()).Seal(commentsID, testBuildID, []byte(`{"PostID":1,"Mode":""}`))
 	if err != nil || !strings.Contains(html, `/0000000000000000/`+commentsID+`" props="`+tok+`"`) {
 		t.Errorf("testRender = %q, %v", html, err)
 	}
@@ -536,11 +536,11 @@ func BenchmarkDefer(b *testing.B) {
 func BenchmarkIslandOpen(b *testing.B) {
 	kr := testKeyring()
 	for _, sz := range benchSizes {
-		tok := kr.sealer.Seal(commentsID, testBuildID, []byte(fmt.Sprintf(`{"Text":"%s"}`, benchPropsOf(sz.n).Text)))
+		tok := sealerOf(kr).Seal(commentsID, testBuildID, []byte(fmt.Sprintf(`{"Text":"%s"}`, benchPropsOf(sz.n).Text)))
 		b.Run(sz.name, func(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
-				if _, err := kr.sealer.Open(commentsID, testBuildID, tok); err != nil {
+				if _, err := sealerOf(kr).Open(commentsID, testBuildID, tok); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -554,7 +554,7 @@ func BenchmarkIslandEndpoint(b *testing.B) {
 	h := s.Handler()
 	for _, sz := range benchSizes {
 		data := fmt.Sprintf(`{"Text":"%s"}`, benchPropsOf(sz.n).Text)
-		target := "/_orbit/island/" + s.keys.buildID + "/" + commentsID + "?p=" + s.keys.sealer.Seal(commentsID, s.keys.buildID, []byte(data))
+		target := "/_orbit/island/" + s.keys.buildID + "/" + commentsID + "?p=" + sealerOf(s.keys).Seal(commentsID, s.keys.buildID, []byte(data))
 		req := httptest.NewRequest("GET", target, nil)
 		w := newFakeResponseWriter()
 		b.Run(sz.name, func(b *testing.B) {
