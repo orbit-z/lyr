@@ -12,6 +12,7 @@ Orbit is a server-rendered (SSR) web framework with Astro's developer experience
 ## Guides
 - [Components](components.md): frontmatter, props, templates, slots, recursion, escaping
 - [Routing](routing.md): file-based routes, dynamic routes, 404
+- [Markdown](markdown.md): `.md` pages, layouts, importing Markdown, code highlighting (planned)
 - [Rendering](rendering.md): the request lifecycle, status codes, headers, redirects, errors
 - [Server](server.md): Orbit as `net/http` middleware, custom routes, precedence
 - [Middleware and locals](middleware.md): net/http middleware, typed `Locals`

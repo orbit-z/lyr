@@ -338,6 +338,24 @@ The path must stay inside `src/` (`component path ../../X.orbit is outside src/`
 
 Components can import each other in cycles; see [Mutual recursion](#mutual-recursion).
 
+#### Importing Markdown
+
+A Markdown file is imported the same way, with an alias, and renders as a component that takes no props (planned; see [Markdown](markdown.md)):
+
+```orbit
+---
+import (
+    Intro "../content/intro.md"
+)
+---
+<section class="prose">
+  <Intro />
+</section>
+<p>{len(Intro.Headings)} sections, by {Intro.Frontmatter.Author}</p>
+```
+
+The import also gives the file's frontmatter as a typed struct (`Intro.Frontmatter`), its headings (`Intro.Headings`, for a table of contents) and, for a Markdown page, its URL (`Intro.URL`). The Markdown is converted to HTML when Orbit generates code, so `<Intro />` costs the same as static template HTML.
+
 ### No framework components
 
 Orbit has no React, Preact, Svelte, Vue or Solid components, by design. Client-side code is a vanilla `<script>` in an `.orbit` component (see [Styles and scripts](styles-and-scripts.md)). Importing a framework component is an error at the import path (won't compile):

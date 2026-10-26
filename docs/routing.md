@@ -85,6 +85,22 @@ Route errors are about a file, not a position in it, so they name the file witho
 
 The `/_orbit/` prefix is reserved for Orbit's assets and islands. No page can have a route there: `src/pages/_orbit/` starts with `_`, so the files in it are components.
 
+### Markdown pages
+
+A Markdown file in `src/pages/` is a route too, with the same rules: `src/pages/about.md` is `/about` and `src/pages/blog/index.md` is `/blog`. Its frontmatter can name an `.orbit` layout, which receives the frontmatter as props and the rendered Markdown in its slot:
+
+```md file=src/pages/about.md
+---
+title: About
+---
+
+# About this blog
+
+Written in **Markdown**, rendered to HTML when Orbit generates code.
+```
+
+An `.md` and an `.orbit` file with the same route (`about.md` and `about.orbit`) are a build error naming both, like any two pages. A Markdown page can't have route params (`[slug].md` is a build error). See [Markdown](markdown.md) (planned).
+
 ## Dynamic routes with `[param]`
 
 A path segment in square brackets is a parameter. `src/pages/blog/[slug].orbit` matches `/blog/hello` and `/blog/anything-else`. A `[param]` matches exactly one non-empty path segment, so it never matches `/blog/hello/like`.

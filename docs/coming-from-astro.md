@@ -129,7 +129,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 
 | Astro | Orbit | Notes |
 |---|---|---|
-| `src/pages/about.astro` → `/about` | `src/pages/about.orbit` → `/about` | `index.orbit` is its directory's root. Only `.orbit` files are pages, and as in Astro, a `_` prefix on a file or directory (`_parts/Byline.orbit`) keeps it out of the routes. See [Routing](routing.md#file-based-routes). |
+| `src/pages/about.astro` → `/about` | `src/pages/about.orbit` → `/about` | `index.orbit` is its directory's root. Only `.orbit` files (and, once Markdown lands, `.md` files) are pages, and as in Astro, a `_` prefix on a file or directory (`_parts/Byline.orbit`) keeps it out of the routes. See [Routing](routing.md#file-based-routes). |
 | `[slug].astro` | `[slug].orbit` | A parameter must be a whole segment: `post-[id].orbit` is a build error for now. See [Dynamic routes](routing.md#dynamic-routes-with-param). |
 | `[...path].astro` | `[...path].orbit` | Must be the last segment. With zero segments the value is `""`, not `undefined`. See [Catch-all routes](routing.md#catch-all-routes-with-rest). |
 | `Astro.params.slug` | `params.Slug` | Typed: Orbit generates a `Params` struct per page from its file path, so `params.Slg` is a compile error at its line and your editor completes `params.`. Values are percent-decoded strings. Components read `ctx.Param("slug")`. See [Route params](routing.md#route-params-params). |
@@ -152,6 +152,21 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 | `sequence(a, b)` | `a(b(mux))` | The middleware listed first runs first. |
 | Returning a `Response` from middleware | Write the response and don't call `next` | See [Short-circuit responses](middleware.md#short-circuit-responses). |
 | Endpoints: `export const GET` in `src/pages/api/posts.ts` | A handler in `cmd/server/main.go`: `mux.HandleFunc("GET /api/posts", listPosts)` | There are no endpoint files. Your `main.go` decides whether your routes or the pages win. For HTML fragments (htmx), use `orbit.RenderComponent`. Pages also receive every method, so a page can handle its own form. See [Server](server.md#choosing-precedence). |
+
+### Markdown (planned)
+
+| Astro | Orbit | Notes |
+|---|---|---|
+| `src/pages/about.md` → `/about` | The same | Rendered to HTML when Orbit generates code, so a Markdown page costs nothing extra per request. An `.md` and an `.orbit` page with the same route are a build error. See [Markdown pages](markdown.md#markdown-pages). |
+| YAML frontmatter | The same | Values are checked when Orbit generates code, with errors at their `.md` line. See [Frontmatter](markdown.md#frontmatter). |
+| `layout: ../layouts/Post.astro`, `Astro.props.frontmatter.title` | `layout: ../layouts/Post.orbit`, `props.Title` | Each frontmatter key sets the layout's `Props` field of the same name, type-checked; an unknown key is an error. The content is the default slot. See [Layouts](markdown.md#layouts). |
+| `Astro.props.headings` in a layout | A `Headings []orbit.Heading` field in the layout's `Props` | `orbit.Heading` has `Depth`, `Slug` and `Text`, like Astro's `MarkdownHeading`. |
+| `import * as post from "./post.md"`, `<post.Content />` | `Post "./post.md"` in the `import (…)` block, `<Post />` | `post.frontmatter.title` is `Post.Frontmatter.Title` (a generated struct), `post.getHeadings()` is `Post.Headings`, `post.url` is `Post.URL`. See [Importing Markdown](markdown.md#importing-markdown-into-a-component). |
+| `import.meta.glob("./posts/*.md")` | Not supported | Import each file by name. |
+| `markdown.gfm`, `markdown.smartypants` | The same keys under `markdown` in `orbit.json` | Both on by default, as in Astro. See [Options](markdown.md#options). |
+| Shiki (`markdown.shikiConfig`) | Chroma, at generate time (`markdown.syntaxHighlight`) | Class-based token colors with light and dark themes; the CSS is added to the page's stylesheet. See [Code blocks](markdown.md#code-blocks). |
+| Heading ids (github-slugger) | The same | |
+| remark/rehype plugins, MDX | Not supported | Markdown has no expressions or components; put dynamic parts in an `.orbit` page that imports it. |
 
 ### Lazy loading
 
@@ -179,7 +194,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 | `astro preview` | `orbit preview` | Runs `dist/server`. |
 | `astro check` | `orbit check` | Go through `go vet` on the generated code; TypeScript through `bun check` (Bun 1.4.4 or later). See [CLI](reference/cli.md#orbit-check). |
 | `astro add`, integrations, adapters | None | The output is a Go binary, not a Node app, so there's nothing to adapt. `orbit build --embed` makes it one self-contained file, and `orbit new` scaffolds a Dockerfile. See [Deploy](deploy.md). |
-| Content collections, Markdown pages, `astro:assets` images | Not supported yet | They're out of scope for the first release. Load content from your own Go package under `internal/`, and render trusted HTML with `orbit.HTML`. |
+| Content collections, `astro:assets` images | Not supported yet | Import Markdown files one by one (see [Markdown](markdown.md)), or load content from your own Go package under `internal/` and render trusted HTML with `orbit.HTML`. |
 | `astro.config.mjs` | `orbit.json` (optional) | Plain JSON with four keys: `site`, `server`, `embed` and `compressHTML`. No `base` or `trailingSlash` yet. See [Configuration](configuration.md). |
 | `compressHTML: true`, `'jsx'`, `false` | `"compressHTML": "html"` (or `true`), `"jsx"`, `false` | The same three behaviors, and `true` is accepted as `"html"`. Orbit's default is `"html"` (Astro's `true`), not Astro v7's `'jsx'`. See [Whitespace](reference/template-syntax.md#whitespace). |
 | The Astro VS Code extension | The Orbit extension, `orbit-z.orbit` | On the Marketplace and Open VSX. It starts `orbit lsp`, which works with gopls for Go completion, diagnostics and rename in `.orbit` files. TypeScript in `<script>` gets highlighting only; run `orbit check`. See [Editor setup](editor-setup.md). |
