@@ -22,7 +22,7 @@ type blockSite struct {
 	brace  int
 	prefix string
 	// closer is the closer of the innermost open block ("/if", "/for",
-	// "/switch"), or "".
+	// "/switch"), or "" (also with an element open inside that block).
 	closer string
 	// inIf: the innermost enclosing construct is an {if} branch other than
 	// {else}, so {else if} is offered, and {else} when hasElse is false.
@@ -145,7 +145,9 @@ descend:
 			if within(t.StartTag, b) || within(t.EndTag, b) {
 				return blockSite{}, false // an attribute or a spread
 			}
-			direct = x
+			// A closer here would close the element with an error, as
+			// would a branch.
+			innermost, direct = nil, x
 		default:
 			// Text, comments, a doctype, a script or a style.
 			return blockSite{}, false
