@@ -5,21 +5,21 @@ Every Orbit page renders on the server, on every request, into a buffer that is 
 ```orbit file=src/pages/search.orbit
 ---
 import (
-    "strings"
+	"strings"
 
-    "example.com/blog/internal/posts"
+	"example.com/blog/internal/posts"
 )
 
 q := strings.TrimSpace(ctx.URL.Query().Get("q"))
 all, err := posts.All()
 if err != nil {
-    return err
+	return err
 }
 var results []posts.Post
 for _, p := range all {
-    if q != "" && strings.Contains(strings.ToLower(p.Title), strings.ToLower(q)) {
-        results = append(results, p)
-    }
+	if q != "" && strings.Contains(strings.ToLower(p.Title), strings.ToLower(q)) {
+		results = append(results, p)
+	}
 }
 ---
 <form action="/search">
@@ -129,20 +129,20 @@ A page receives every HTTP method (see [Routing](routing.md#which-http-methods-o
 ```orbit file=src/pages/subscribe.orbit
 ---
 import (
-    "log"
-    "net/http"
-    "net/mail"
+	"log"
+	"net/http"
+	"net/mail"
 )
 
 var errMsg string
 if ctx.Request.Method == http.MethodPost {
-    addr, err := mail.ParseAddress(ctx.Request.FormValue("email"))
-    if err == nil {
-        log.Printf("new subscriber: %s", addr.Address)
-        return ctx.Redirect("/subscribe?ok=1", http.StatusSeeOther)
-    }
-    ctx.SetStatus(http.StatusUnprocessableEntity)
-    errMsg = "Please enter a valid email address."
+	addr, err := mail.ParseAddress(ctx.Request.FormValue("email"))
+	if err == nil {
+		log.Printf("new subscriber: %s", addr.Address)
+		return ctx.Redirect("/subscribe?ok=1", http.StatusSeeOther)
+	}
+	ctx.SetStatus(http.StatusUnprocessableEntity)
+	errMsg = "Please enter a valid email address."
 }
 ok := ctx.URL.Query().Get("ok") == "1"
 ---

@@ -186,7 +186,7 @@ Every page and component has an implicit `locals` of type `*locals.Locals`, the 
 ```orbit file=src/layouts/Base.orbit
 ---
 type Props struct {
-    Title string
+	Title string
 }
 ---
 <!DOCTYPE html>

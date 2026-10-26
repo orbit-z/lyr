@@ -1,20 +1,20 @@
 ---
 import (
-    "errors"
+	"errors"
 
-    "example.com/blog/internal/posts"
-    Base "../../layouts/Base.orbit"
-    Comments "../../components/Comments.orbit"
-    LikeButton "../../components/LikeButton.orbit"
-    ShareButtons "../../components/ShareButtons.orbit"
+	Comments "../../components/Comments.orbit"
+	LikeButton "../../components/LikeButton.orbit"
+	ShareButtons "../../components/ShareButtons.orbit"
+	Base "../../layouts/Base.orbit"
+	"example.com/blog/internal/posts"
 )
 
 post, err := posts.Find(params.Slug)
 if errors.Is(err, posts.ErrNotFound) {
-    return orbit.ErrNotFound
+	return orbit.ErrNotFound
 }
 if err != nil {
-    return err
+	return err
 }
 ---
 <Base title={post.Title}>
@@ -32,7 +32,9 @@ if err != nil {
   </Comments>
 </Base>
 <style>
-  h1 { margin: 0; }
+  h1 {
+    margin: 0;
+  }
   .meta {
     margin: 0 0 1.5rem;
     color: var(--muted);

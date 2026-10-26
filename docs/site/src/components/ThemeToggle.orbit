@@ -17,12 +17,22 @@
     font-size: 1rem;
     cursor: pointer;
   }
-  .moon { display: none; }
-  :root[data-theme="dark"] .sun { display: none; }
-  :root[data-theme="dark"] .moon { display: inline; }
+  .moon {
+    display: none;
+  }
+  :root[data-theme="dark"] .sun {
+    display: none;
+  }
+  :root[data-theme="dark"] .moon {
+    display: inline;
+  }
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .sun { display: none; }
-    :root:not([data-theme="light"]) .moon { display: inline; }
+    :root:not([data-theme="light"]) .sun {
+      display: none;
+    }
+    :root:not([data-theme="light"]) .moon {
+      display: inline;
+    }
   }
 </style>
 

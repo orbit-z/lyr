@@ -118,15 +118,19 @@ func Find(slug string) (Post, error) {
 ```orbit file=src/components/LikeButton.orbit
 ---
 type Props struct {
-    Slug  string
-    Likes int
+	Slug  string
+	Likes int
 }
 ---
 <button class="like" hx-post={"/blog/" + props.Slug + "/like"} hx-swap="outerHTML">
   ♥ {props.Likes}
 </button>
 <style>
-  .like { border: 0; background: none; cursor: pointer }
+  .like {
+    border: 0;
+    background: none;
+    cursor: pointer;
+  }
 </style>
 ```
 

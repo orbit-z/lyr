@@ -217,8 +217,6 @@ Rename waits until the language server has loaded the whole project (see [Startu
 
 ## Formatting
 
-> **Planned.** This section describes formatting in the language server, which comes with [`orbit fmt`](reference/cli.md#orbit-fmt) (see `PLAN.md` §6.1). It doesn't work yet.
-
 The language server formats `.orbit` files with the same rules as `orbit fmt`: the frontmatter, `{…}` expressions and control blocks with `gofmt`'s rules, and `<script>` and `<style>` content with `bun fmt` when Bun 1.4.4 or later is installed. It formats what's in the editor, saved or not. It never touches the HTML, so formatting never changes what a page renders.
 
 - It formats the **whole document** ("Format Document"). "Format Selection" isn't supported, as with gopls.

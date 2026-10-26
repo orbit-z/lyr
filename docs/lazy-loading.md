@@ -71,12 +71,12 @@ The component that renders them is an ordinary component:
 import "example.com/blog/internal/posts"
 
 type Props struct {
-    PostID string
+	PostID string
 }
 
 comments, err := posts.Comments(props.PostID)
 if err != nil {
-    return err
+	return err
 }
 ---
 <section class="comments">
@@ -97,20 +97,20 @@ The page adds `server:defer` to the tag and gives it a `fallback` slot:
 ```orbit file=src/pages/blog/[slug].orbit
 ---
 import (
-    "errors"
+	"errors"
 
-    "example.com/blog/internal/posts"
-    Base "../../layouts/Base.orbit"
-    Comments "../../components/Comments.orbit"
-    ShareButtons "../../components/ShareButtons.orbit"
+	Comments "../../components/Comments.orbit"
+	ShareButtons "../../components/ShareButtons.orbit"
+	Base "../../layouts/Base.orbit"
+	"example.com/blog/internal/posts"
 )
 
 post, err := posts.Find(params.Slug)
 if errors.Is(err, posts.ErrNotFound) {
-    return orbit.ErrNotFound
+	return orbit.ErrNotFound
 }
 if err != nil {
-    return err
+	return err
 }
 ---
 <Base title={post.Title}>
@@ -128,7 +128,7 @@ if err != nil {
 ```orbit file=src/layouts/Base.orbit
 ---
 type Props struct {
-    Title string
+	Title string
 }
 ---
 <!DOCTYPE html>
@@ -225,11 +225,11 @@ All the primitives are in Go's standard library and are FIPS-approved.
 ```orbit
 ---
 type Props struct {
-    PostID string
+	PostID string
 }
 
 if _, err := ctx.Request.Cookie("session"); err != nil {
-    return orbit.ErrNotFound
+	return orbit.ErrNotFound
 }
 ---
 ```
@@ -298,7 +298,7 @@ A deferred component renders with a fresh `ctx` for the island request, as Astro
 
   page, err := url.Parse(ctx.Request.Referer())
   if err != nil {
-      return err
+  	return err
   }
   ---
   <p>Comments on {page.Path}</p>
@@ -358,7 +358,7 @@ A component's `<script>` normally goes into the page's bundle and runs when the 
 ```orbit file=src/components/ShareButtons.orbit
 ---
 type Props struct {
-    Title string
+	Title string
 }
 ---
 <share-buttons data-title={props.Title}>
@@ -370,11 +370,17 @@ type Props struct {
     connectedCallback() {
       const title = this.dataset.title ?? document.title;
       const copy = this.querySelector<HTMLButtonElement>('[data-action="copy"]')!;
-      const share = this.querySelector<HTMLButtonElement>('[data-action="share"]')!;
-      copy.addEventListener("click", () => navigator.clipboard.writeText(location.href));
+      const share = this.querySelector<HTMLButtonElement>(
+        '[data-action="share"]',
+      )!;
+      copy.addEventListener("click", () =>
+        navigator.clipboard.writeText(location.href),
+      );
       if ("share" in navigator) {
         share.hidden = false;
-        share.addEventListener("click", () => navigator.share({ title, url: location.href }));
+        share.addEventListener("click", () =>
+          navigator.share({ title, url: location.href }),
+        );
       }
     }
   }

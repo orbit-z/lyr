@@ -35,10 +35,10 @@ The layout is an ordinary `.orbit` component. Its `Props` receive the frontmatte
 import "time"
 
 type Props struct {
-    Title    string
-    Date     time.Time
-    Tags     []string
-    Headings []orbit.Heading // filled by Orbit for Markdown pages
+	Title    string
+	Date     time.Time
+	Tags     []string
+	Headings []orbit.Heading // filled by Orbit for Markdown pages
 }
 ---
 <!DOCTYPE html>
@@ -69,9 +69,19 @@ type Props struct {
 </html>
 
 <style>
-  .prose { max-width: 40rem; margin: 2rem auto; line-height: 1.6; }
-  .prose :global(h2) { margin-top: 2.5rem; }
-  .prose :global(pre) { padding: 1rem; border-radius: 6px; overflow-x: auto; }
+  .prose {
+    max-width: 40rem;
+    margin: 2rem auto;
+    line-height: 1.6;
+  }
+  .prose :global(h2) {
+    margin-top: 2.5rem;
+  }
+  .prose :global(pre) {
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+  }
 </style>
 ```
 
@@ -195,19 +205,19 @@ Any `.orbit` file can import a Markdown file with an alias, like a component:
 ```orbit file=src/pages/blog/index.orbit
 ---
 import (
-    Base "../../layouts/Base.orbit"
-    Hello "./hello.md"
-    Routing "./routing-guide.md"
+	Base "../../layouts/Base.orbit"
+	Hello "./hello.md"
+	Routing "./routing-guide.md"
 )
 
 type entry struct {
-    Title string
-    URL   string
+	Title string
+	URL   string
 }
 
 posts := []entry{
-    {Hello.Frontmatter.Title, Hello.URL},
-    {Routing.Frontmatter.Title, Routing.URL},
+	{Hello.Frontmatter.Title, Hello.URL},
+	{Routing.Frontmatter.Title, Routing.URL},
 }
 ---
 <Base title="Blog">
@@ -233,8 +243,8 @@ A Markdown file outside `src/pages/` isn't a route; it's compiled only when some
 ```orbit
 ---
 import (
-    Base "../layouts/Base.orbit"
-    Intro "../content/intro.md"
+	Intro "../content/intro.md"
+	Base "../layouts/Base.orbit"
 )
 ---
 <Base title="Welcome">

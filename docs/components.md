@@ -75,8 +75,8 @@ func Comments(slug string) ([]Comment, error) {
 import "example.com/blog/internal/posts"
 
 type Props struct {
-    Post     posts.Post
-    Featured bool
+	Post     posts.Post
+	Featured bool
 }
 
 func href(p posts.Post) string { return "/blog/" + p.Slug }
@@ -89,7 +89,10 @@ url := href(props.Post)
   <slot />
 </article>
 <style>
-  .card { border: 1px solid #ccc; padding: 1rem }
+  .card {
+    border: 1px solid #ccc;
+    padding: 1rem;
+  }
 </style>
 ```
 
@@ -98,14 +101,14 @@ A page uses it like an HTML tag:
 ```orbit file=src/pages/index.orbit
 ---
 import (
-    "example.com/blog/internal/posts"
-    Base "../layouts/Base.orbit"
-    Card "../components/Card.orbit"
+	Card "../components/Card.orbit"
+	Base "../layouts/Base.orbit"
+	"example.com/blog/internal/posts"
 )
 
 list, err := posts.All()
 if err != nil {
-    return err
+	return err
 }
 ---
 <Base title="Home">
@@ -184,7 +187,7 @@ You can't redeclare `props`, `ctx`, `slots`, `locals` or `orbit`, or `params` in
 ```orbit file=src/components/Card.orbit expect-error
 ---
 type Props struct {
-    Title string
+	Title string
 }
 
 props := Props{Title: "Untitled"}
@@ -203,7 +206,7 @@ Shadowing them in a nested block is allowed, as in Go. Orbit's own generated cod
 import Card "../components/Card.orbit"
 
 type Props struct {
-    Variants []Card.Props
+	Variants []Card.Props
 }
 
 variants := props.Variants
@@ -226,7 +229,7 @@ A hoisted `func init()` is rejected:
 ```orbit file=src/components/Card.orbit expect-error
 ---
 func init() {
-    println("Card loaded")
+	println("Card loaded")
 }
 ---
 <article class="card"></article>
@@ -258,10 +261,10 @@ import "example.com/blog/internal/posts"
 
 list, err := posts.All()
 if err != nil {
-    return err
+	return err
 }
 if len(list) == 0 {
-    return orbit.ErrNotFound
+	return orbit.ErrNotFound
 }
 return ctx.Redirect("/blog/"+list[0].Slug, 302)
 ---
@@ -287,10 +290,10 @@ Import a component with an **alias** and a path **relative to the current file**
 ```orbit
 ---
 import (
-    "strings"
-    "example.com/blog/internal/posts"
-    Base "../layouts/Base.orbit"
-    Card "../components/Card.orbit"
+	Card "../components/Card.orbit"
+	Base "../layouts/Base.orbit"
+	"example.com/blog/internal/posts"
+	"strings"
 )
 ---
 ```
@@ -345,7 +348,7 @@ A Markdown file is imported the same way, with an alias, and renders as a compon
 ```orbit
 ---
 import (
-    Intro "../content/intro.md"
+	Intro "../content/intro.md"
 )
 ---
 <section class="prose">
@@ -393,7 +396,7 @@ Pages never receive props, so declaring `type Props` in a page is an error at th
 ```orbit file=src/pages/blog/[slug].orbit expect-error
 ---
 type Props struct {
-    Slug string
+	Slug string
 }
 ---
 ```
@@ -424,12 +427,12 @@ A field you don't set gets Go's zero value; there are no required props. For a d
 ```orbit
 ---
 type Props struct {
-    Title string
+	Title string
 }
 
 title := props.Title
 if title == "" {
-    title = "Untitled"
+	title = "Untitled"
 }
 ---
 <h2>{title}</h2>
@@ -444,8 +447,8 @@ An attribute that matches no field is an error at the attribute, in your spellin
 ```orbit file=src/pages/index.orbit expect-error
 ---
 import (
-    "example.com/blog/internal/posts"
-    Card "../components/Card.orbit"
+	Card "../components/Card.orbit"
+	"example.com/blog/internal/posts"
 )
 
 post, _ := posts.Find("hello")
@@ -464,8 +467,8 @@ A value of the wrong type is a regular Go error, also at the `.orbit` position:
 ```orbit file=src/pages/index.orbit expect-error
 ---
 import (
-    "example.com/blog/internal/posts"
-    Card "../components/Card.orbit"
+	Card "../components/Card.orbit"
+	"example.com/blog/internal/posts"
 )
 
 post, _ := posts.Find("hello")
@@ -486,14 +489,14 @@ Every `Props` field must be exported (start with an uppercase letter), because t
 import "example.com/blog/internal/posts"
 
 type Props struct {
-    post posts.Post
+	post posts.Post
 }
 ---
 <h2>{props.post.Title}</h2>
 ```
 
 ```text
-src/components/Card.orbit:5:5: Props field post must be exported, since a parent sets it (rename it to Post)
+src/components/Card.orbit:5:2: Props field post must be exported, since a parent sets it (rename it to Post)
 ```
 
 ### Types used by Props
@@ -503,11 +506,11 @@ src/components/Card.orbit:5:5: Props field post must be exported, since a parent
 ```orbit file=src/components/List.orbit
 ---
 type Item struct {
-    Name string
+	Name string
 }
 
 type Props struct {
-    Items []Item
+	Items []Item
 }
 ---
 <ul>
@@ -522,11 +525,11 @@ A parent builds the value with the alias: `<List items={[]List.Item{{Name: "Go"}
 ```orbit file=src/components/List.orbit expect-error
 ---
 type item struct {
-    Name string
+	Name string
 }
 
 type Props struct {
-    Items []item
+	Items []item
 }
 
 items := append([]item{{Name: "Go"}}, props.Items...)
@@ -549,15 +552,15 @@ For the same reason, a component import alias, a named Go import or another hois
 ```orbit file=src/components/List.orbit expect-error
 ---
 import (
-    Item "./Item.orbit"
+	Item "./Item.orbit"
 )
 
 type Item struct {
-    Name string
+	Name string
 }
 
 type Props struct {
-    Items []Item
+	Items []Item
 }
 ---
 <ul>
@@ -568,7 +571,7 @@ type Props struct {
 ```
 
 ```text
-src/components/List.orbit:3:5: Item clashes with Item in the component's declaration package (Props uses it); rename one
+src/components/List.orbit:3:2: Item clashes with Item in the component's declaration package (Props uses it); rename one
 ```
 
 The names Orbit generates there, `Props` and `Render` (and a page's `Params`), are taken the same way:
@@ -576,12 +579,12 @@ The names Orbit generates there, `Props` and `Render` (and a page's `Params`), a
 ```orbit file=src/components/List.orbit expect-error
 ---
 import (
-    "strings"
-    Props "./Item.orbit"
+	Props "./Item.orbit"
+	"strings"
 )
 
 type Item struct {
-    Name string
+	Name string
 }
 ---
 <p>{strings.ToUpper("items")}</p>
@@ -589,7 +592,7 @@ type Item struct {
 ```
 
 ```text
-src/components/List.orbit:4:5: Props clashes with the generated Props of the component's declaration package; rename it
+src/components/List.orbit:3:2: Props clashes with the generated Props of the component's declaration package; rename it
 ```
 
 Shadowing such a name inside the body (`Item := 42`) is fine.
@@ -619,7 +622,7 @@ The template is HTML plus a few constructs. The full grammar is in [Template syn
 ```orbit file=src/components/Tags.orbit
 ---
 type Props struct {
-    Tags []string
+	Tags []string
 }
 ---
 {if len(props.Tags) == 0}
@@ -653,13 +656,13 @@ The template has no statements, so you can't write `x := …` between two tags. 
 ```orbit file=src/components/TagRow.orbit
 ---
 type Props struct {
-    Tag   string
-    Count int
+	Tag   string
+	Count int
 }
 
 plural := "s"
 if props.Count == 1 {
-    plural = ""
+	plural = ""
 }
 ---
 <li>{props.Tag}: {props.Count} post{plural}</li>
@@ -668,14 +671,14 @@ if props.Count == 1 {
 ```orbit file=src/components/TagCounts.orbit
 ---
 import (
-    "maps"
-    "slices"
-    TagRow "./TagRow.orbit"
+	TagRow "./TagRow.orbit"
+	"maps"
+	"slices"
 )
 
 type Props struct {
-    Counts   map[string]int
-    Featured string
+	Counts   map[string]int
+	Featured string
 }
 ---
 {if n, ok := props.Counts[props.Featured]; ok}
@@ -699,7 +702,7 @@ This layout has a default slot and a named `footer` slot with fallback content:
 ```orbit file=src/layouts/Base.orbit
 ---
 type Props struct {
-    Title string
+	Title string
 }
 ---
 <!DOCTYPE html>
@@ -734,7 +737,7 @@ In `index.orbit` above, `<p slot="footer">` replaces the fallback text.
 ```orbit file=src/components/Panel.orbit
 ---
 type Props struct {
-    Title string
+	Title string
 }
 ---
 <section class="panel">
@@ -755,8 +758,8 @@ Whitespace alone isn't content: `<Panel title="x"> </Panel>` passes no default s
 ```orbit file=src/pages/about.orbit
 ---
 import (
-    Base "../layouts/Base.orbit"
-    Panel "../components/Panel.orbit"
+	Panel "../components/Panel.orbit"
+	Base "../layouts/Base.orbit"
 )
 ---
 <Base title="About">
@@ -783,12 +786,12 @@ Inside a component, `<Self>` renders the component itself, with the same props a
 ```orbit file=src/components/Tree.orbit
 ---
 type Node struct {
-    Name     string
-    Children []Node
+	Name     string
+	Children []Node
 }
 
 type Props struct {
-    Node Node
+	Node Node
 }
 ---
 <li>
@@ -808,16 +811,16 @@ type Props struct {
 ```orbit file=src/pages/topics.orbit
 ---
 import (
-    Base "../layouts/Base.orbit"
-    Tree "../components/Tree.orbit"
+	Tree "../components/Tree.orbit"
+	Base "../layouts/Base.orbit"
 )
 
 root := Tree.Node{
-    Name: "Topics",
-    Children: []Tree.Node{
-        {Name: "Go", Children: []Tree.Node{{Name: "Generics"}, {Name: "Iterators"}}},
-        {Name: "Web"},
-    },
+	Name: "Topics",
+	Children: []Tree.Node{
+		{Name: "Go", Children: []Tree.Node{{Name: "Generics"}, {Name: "Iterators"}}},
+		{Name: "Web"},
+	},
 }
 ---
 <Base title="Topics">
@@ -836,12 +839,12 @@ Two components can render each other. A comment thread is a list of comments, an
 ```orbit file=src/components/CommentThread.orbit
 ---
 import (
-    "example.com/blog/internal/posts"
-    Comment "./Comment.orbit"
+	Comment "./Comment.orbit"
+	"example.com/blog/internal/posts"
 )
 
 type Props struct {
-    Comments []posts.Comment
+	Comments []posts.Comment
 }
 ---
 {if len(props.Comments) > 0}
@@ -856,12 +859,12 @@ type Props struct {
 ```orbit file=src/components/Comment.orbit
 ---
 import (
-    "example.com/blog/internal/posts"
-    CommentThread "./CommentThread.orbit"
+	CommentThread "./CommentThread.orbit"
+	"example.com/blog/internal/posts"
 )
 
 type Props struct {
-    Comment posts.Comment
+	Comment posts.Comment
 }
 ---
 <article class="comment">
@@ -876,23 +879,23 @@ The two files import each other, which Go would normally reject as an import cyc
 ```orbit file=src/pages/blog/[slug].orbit
 ---
 import (
-    "errors"
+	"errors"
 
-    "example.com/blog/internal/posts"
-    Base "../../layouts/Base.orbit"
-    CommentThread "../../components/CommentThread.orbit"
+	CommentThread "../../components/CommentThread.orbit"
+	Base "../../layouts/Base.orbit"
+	"example.com/blog/internal/posts"
 )
 
 post, err := posts.Find(params.Slug)
 if errors.Is(err, posts.ErrNotFound) {
-    return orbit.ErrNotFound
+	return orbit.ErrNotFound
 }
 if err != nil {
-    return err
+	return err
 }
 comments, err := posts.Comments(post.Slug)
 if err != nil {
-    return err
+	return err
 }
 ---
 <Base title={post.Title}>
@@ -914,7 +917,7 @@ One cycle can't be compiled: two `Props` types that refer to each other's compon
 import A "./A.orbit"
 
 type Props struct {
-    Parent *A.Props
+	Parent *A.Props
 }
 ---
 ```
@@ -926,7 +929,7 @@ an `A.orbit` that uses `B.Props` in its own `Props` is reported:
 import B "./B.orbit"
 
 type Props struct {
-    Child *B.Props
+	Child *B.Props
 }
 ---
 ```
@@ -978,8 +981,8 @@ For data that belongs to one element, write it into `data-*` attributes and read
 ```orbit file=src/components/LikeButton.orbit
 ---
 type Props struct {
-    Slug  string
-    Likes int
+	Slug  string
+	Likes int
 }
 ---
 <like-button data-slug={props.Slug} data-likes={props.Likes}>
@@ -1012,17 +1015,17 @@ For structured data, use `set:json` on a `<script type="application/json">`. Orb
 import "example.com/blog/internal/posts"
 
 type entry struct {
-    Title string `json:"title"`
-    URL   string `json:"url"`
+	Title string `json:"title"`
+	URL   string `json:"url"`
 }
 
 list, err := posts.All()
 if err != nil {
-    return err
+	return err
 }
 entries := make([]entry, 0, len(list))
 for _, p := range list {
-    entries = append(entries, entry{Title: p.Title, URL: "/blog/" + p.Slug})
+	entries = append(entries, entry{Title: p.Title, URL: "/blog/" + p.Slug})
 }
 ---
 <post-filter>
@@ -1041,16 +1044,18 @@ for _, p := range list {
       const list = this.querySelector("ul")!;
       const show = () => {
         const q = input.value.toLowerCase();
-        list.replaceChildren(...entries
-          .filter((e) => e.title.toLowerCase().includes(q))
-          .map((e) => {
-            const a = document.createElement("a");
-            a.href = e.url;
-            a.textContent = e.title;
-            const li = document.createElement("li");
-            li.append(a);
-            return li;
-          }));
+        list.replaceChildren(
+          ...entries
+            .filter((e) => e.title.toLowerCase().includes(q))
+            .map((e) => {
+              const a = document.createElement("a");
+              a.href = e.url;
+              a.textContent = e.title;
+              const li = document.createElement("li");
+              li.append(a);
+              return li;
+            }),
+        );
       };
       input.addEventListener("input", show);
       show();
@@ -1108,7 +1113,7 @@ To insert trusted markup without escaping, convert it to `orbit.HTML`. Either wr
 ```orbit file=src/components/PostBody.orbit expect-error
 ---
 type Props struct {
-    Body string
+	Body string
 }
 
 body := props.Body
@@ -1131,8 +1136,8 @@ Escaping makes a value safe inside an HTML attribute, but not inside JavaScript 
 ```orbit file=src/components/Promo.orbit expect-warning
 ---
 type Props struct {
-    Handler string
-    Color   string
+	Handler string
+	Color   string
 }
 ---
 <article class="card">

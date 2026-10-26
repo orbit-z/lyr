@@ -7,7 +7,7 @@ Orbit scopes each component's `<style>` to that component, bundles its `<script>
 ```orbit file=src/components/Counter.orbit
 ---
 type Props struct {
-    Label string
+	Label string
 }
 ---
 <counter-button>
@@ -16,8 +16,14 @@ type Props struct {
 </counter-button>
 
 <style>
-  counter-button { display: flex; gap: 0.5rem; align-items: center; }
-  button { font-weight: bold; }
+  counter-button {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  button {
+    font-weight: bold;
+  }
 </style>
 
 <script>
@@ -39,8 +45,8 @@ type Props struct {
 ```orbit file=src/pages/index.orbit
 ---
 import (
-    Layout  "../layouts/Base.orbit"
-    Counter "../components/Counter.orbit"
+	Counter "../components/Counter.orbit"
+	Layout "../layouts/Base.orbit"
 )
 ---
 <Layout title="Counters">
@@ -110,8 +116,12 @@ Wrap part of a selector in `:global(…)` to leave that part unscoped:
 </div>
 
 <style>
-  .prose :global(p) { line-height: 1.6; }
-  .prose :global(a:hover) { text-decoration: underline; }
+  .prose :global(p) {
+    line-height: 1.6;
+  }
+  .prose :global(a:hover) {
+    text-decoration: underline;
+  }
 </style>
 ```
 
@@ -124,7 +134,7 @@ Add `is:global` to a `<style>` to skip scoping for the whole tag. This is typica
 ```orbit file=src/layouts/Base.orbit
 ---
 type Props struct {
-    Title string
+	Title string
 }
 ---
 <!DOCTYPE html>
@@ -140,8 +150,14 @@ type Props struct {
 </html>
 
 <style is:global>
-  body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 0 auto; }
-  a { color: #0b57d0; }
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 40rem;
+    margin: 0 auto;
+  }
+  a {
+    color: #0b57d0;
+  }
 </style>
 ```
 
@@ -219,8 +235,8 @@ By default, a component's script is part of the page bundle and runs when the pa
 ```orbit file=src/pages/about.orbit
 ---
 import (
-    Layout  "../layouts/Base.orbit"
-    Counter "../components/Counter.orbit"
+	Counter "../components/Counter.orbit"
+	Layout "../layouts/Base.orbit"
 )
 ---
 <Layout title="About">
@@ -323,8 +339,8 @@ Render the values into `data-*` attributes and read them with `el.dataset`. They
 ```orbit file=src/components/LikeButton.orbit
 ---
 type Props struct {
-    Slug  string
-    Likes int
+	Slug  string
+	Likes int
 }
 ---
 <like-button data-slug={props.Slug} data-likes={props.Likes}>
@@ -361,14 +377,14 @@ For structured data, put `set:json={expr}` on an empty `<script type="applicatio
 ```orbit file=src/components/NavMenu.orbit
 ---
 type link struct {
-    Title string `json:"title"`
-    URL   string `json:"url"`
+	Title string `json:"title"`
+	URL   string `json:"url"`
 }
 
 links := []link{
-    {Title: "Home", URL: "/"},
-    {Title: "Archive", URL: "/blog"},
-    {Title: "About", URL: "/about"},
+	{Title: "Home", URL: "/"},
+	{Title: "Archive", URL: "/blog"},
+	{Title: "About", URL: "/about"},
 }
 ---
 <nav class="nav-menu"></nav>
@@ -377,7 +393,9 @@ links := []link{
 <script>
   type Link = { title: string; url: string };
 
-  const links: Link[] = JSON.parse(document.getElementById("nav-links")!.textContent ?? "[]");
+  const links: Link[] = JSON.parse(
+    document.getElementById("nav-links")!.textContent ?? "[]",
+  );
   const nav = document.querySelector(".nav-menu")!;
   for (const link of links) {
     const a = document.createElement("a");

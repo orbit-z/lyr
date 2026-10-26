@@ -1,6 +1,6 @@
 ---
 type Props struct {
-    Title string
+	Title string
 }
 ---
 <share-buttons data-title={props.Title}>
@@ -28,14 +28,18 @@ type Props struct {
     connectedCallback(): void {
       const title = this.dataset.title ?? document.title;
       const copy = this.querySelector<HTMLButtonElement>('[data-action="copy"]')!;
-      const share = this.querySelector<HTMLButtonElement>('[data-action="share"]')!;
+      const share = this.querySelector<HTMLButtonElement>(
+        '[data-action="share"]',
+      )!;
       copy.addEventListener("click", async () => {
         await navigator.clipboard.writeText(location.href);
         copy.textContent = "Copied!";
       });
       if ("share" in navigator) {
         share.hidden = false;
-        share.addEventListener("click", () => navigator.share({ title, url: location.href }));
+        share.addEventListener("click", () =>
+          navigator.share({ title, url: location.href }),
+        );
       }
     }
   }
