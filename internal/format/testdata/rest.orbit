@@ -1,0 +1,11 @@
+---
+import Input "./Input.orbit"
+
+type Props struct {
+	Label string
+	Attrs   orbit.RestAttrs // pass-through attributes
+}
+---
+<button {...  props.Attrs } type="button" class:list={"btn","on":props.Attrs.Has( "disabled" )}><slot /></button>
+<Input label={props.Label} {...props.Attrs  } required data-n={ len(props.Label)+1 } />
+<Input {... orbit.Attrs{"name":"x"}} />

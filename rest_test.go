@@ -259,3 +259,39 @@ func BenchmarkSpreadRest(b *testing.B) {
 		}
 	})
 }
+
+// TestRestIsland: a deferred component's RestAttrs crosses the island
+// request as JSON and renders the attributes.
+func TestRestIsland(t *testing.T) {
+	t.Setenv("ORBIT_KEY", "")
+	t.Setenv("ORBIT_STATIC", "")
+	t.Setenv("ORBIT_PUBLIC", "")
+	const id = "Button-0a1b2c3d"
+	button := func(c *Ctx, w *Writer, p restProps, s Slots) error {
+		w.Raw("<button")
+		w.SpreadRest(&p.Attrs, false)
+		w.Raw(` class="btn`)
+		w.RestClass(&p.Attrs)
+		w.Raw(`">`)
+		w.String(p.Variant)
+		w.Raw("</button>")
+		return nil
+	}
+	page := func(c *Ctx, w *Writer) error {
+		shelf := "s-81"
+		return Defer(c, w, id, restProps{Variant: "quiet", Attrs: Rest("mt-2", ` required data-o-5c7d1e2f`,
+			RestString(` name="shelf"`, "data-shelf", shelf), RestURL("", "href", "javascript:x"))}, nil)
+	}
+	s := NewSite([]Route{{Pattern: "/p", File: "src/pages/p.orbit", Render: page, Islands: true}},
+		[]Island{NewIsland(id, "src/components/Button.orbit", button)}, WithStaticDir(t.TempDir()))
+	h := s.Handler()
+	m := placeholderRe.FindStringSubmatch(do(h, "GET", "/p").Body.String())
+	if m == nil {
+		t.Fatal("no placeholder")
+	}
+	rec := do(h, "GET", m[1]+"?p="+m[4])
+	want := `<button name="shelf" data-shelf="s-81" href="about:invalid#orbit" required data-o-5c7d1e2f class="btn mt-2">quiet</button>`
+	if rec.Code != 200 || rec.Body.String() != want {
+		t.Errorf("got %d\n%s\nwant\n%s", rec.Code, rec.Body, want)
+	}
+}

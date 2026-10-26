@@ -188,6 +188,12 @@ func TestIntegration(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(dir, "orbit_gen")); !os.IsNotExist(err) {
 			t.Errorf("orbit_gen/ was written: %v", err)
 		}
+		// An orbit.RestAttrs field (PLAN.md §2.5) takes any attribute: no
+		// unknown-prop diagnostic.
+		c.change("src/pages/index.orbit", strings.Replace(index, "featured />", "featured data-x={1} />", 1))
+		c.waitDiag("src/pages/index.orbit", func(ds []map[string]any) bool { return hasMessage(ds, `unknown prop "data-x"`) })
+		c.change("src/components/Card.orbit", strings.Replace(card, "Featured bool", "Featured bool\n\tAttrs    orbit.RestAttrs", 1))
+		c.waitDiag("src/pages/index.orbit", func(ds []map[string]any) bool { return len(ds) == 0 })
 	})
 
 	t.Run("startup messages", func(t *testing.T) {

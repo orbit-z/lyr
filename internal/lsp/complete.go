@@ -759,7 +759,8 @@ func (ws *workspace) componentItems(c cursor, info *compiler.ComponentInfo, fiel
 		items = append(items, c.directiveItem("slot", snippets))
 	}
 	if info != nil && !set["class:list"] {
-		if _, err := compiler.MatchProp(&info.Props, "class"); err == nil {
+		// A class prop, or pass-through attributes, which take the class.
+		if _, err := compiler.MatchProp(&info.Props, "class"); err == nil || info.Props.Rest != "" {
 			items = append(items, c.directiveItem("class:list", snippets))
 		}
 	}
