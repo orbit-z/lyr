@@ -79,8 +79,8 @@ var pageStubs = map[string]map[string]string{
 	},
 	// The Tailwind stylesheet imports a Fontsource font from node_modules.
 	"tailwind.md": {
-		"node_modules/@fontsource-variable/figtree/package.json": `{"name":"@fontsource-variable/figtree","version":"5.2.10","main":"index.css"}`,
-		"node_modules/@fontsource-variable/figtree/index.css":    "@font-face {\n  font-family: 'Figtree Variable';\n  src: url(./files/figtree-latin-wght-normal.woff2) format('woff2-variations');\n}\n",
+		"node_modules/@fontsource-variable/figtree/package.json":                          `{"name":"@fontsource-variable/figtree","version":"5.2.10","main":"index.css"}`,
+		"node_modules/@fontsource-variable/figtree/index.css":                             "@font-face {\n  font-family: 'Figtree Variable';\n  src: url(./files/figtree-latin-wght-normal.woff2) format('woff2-variations');\n}\n",
 		"node_modules/@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2": "wOF2",
 	},
 	// The error output examples pass wrong props to a Card.

@@ -26,7 +26,8 @@ import (
 //     {else}, {/if}, {for …}, {/for}, {switch …}, {case …}, {default},
 //     {/switch}, {...spread}, or a Go expression.
 //   - <script> content is TypeScript (JSON for type="application/json" and
-//     "application/ld+json"), <style> content CSS, as in the compiler.
+//     "application/ld+json"), <style> content CSS (with Tailwind's @apply,
+//     twcss.go), as in the compiler.
 //
 // Limits: a { without its } is one error token (the compiler reports it
 // too), and the rest is lexed as template; a "<" followed by a letter
@@ -56,7 +57,7 @@ var braceRe = `\{(?:(?>[^{}"'` + "`" + `/]+|"(?:[^"\\\n]|\\[^\n])*"|'(?:[^'\\\n]
 func orbitRules() chroma.Rules {
 	goLexer := lexers.Get("go")
 	ts := lexers.Get("typescript")
-	css := lexers.Get("css")
+	css := twCSS{lexers.Get("css")}
 	json := lexers.Get("json")
 	brace := chroma.EmitterFunc(func(groups []string, _ *chroma.LexerState) chroma.Iterator {
 		return chroma.Literator(braceTokens(goLexer, groups[0])...)
