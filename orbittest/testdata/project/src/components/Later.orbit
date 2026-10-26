@@ -1,0 +1,6 @@
+---
+type Props struct {
+	ID int
+}
+---
+<p>later {props.ID}</p>
