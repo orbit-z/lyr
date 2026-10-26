@@ -113,6 +113,7 @@ When independent tasks can run in parallel, launch them in **one message**. If p
   - Router matches allocate nothing.
 - **Whitespace**: `orbit.json` `compressHTML`: `"html"` (default, HTML-aware lossless; `true` is accepted as Astro's spelling of it), `"jsx"` (Astro v7 rules) or `false`. Applied at codegen time.
 - **Unused component import**: an Orbit error.
+- **`class:list`** (accepted 2026-10-26, from the `nyth` port): `class:list={"a", expr, "c": cond}`, Go composite-literal elements, static parts joined at build time, zero allocations, merged with `class` (PLAN §2.3).
 - **Bundler**: esbuild via its Go API (in-process, no runtime requirement), behind one internal interface. Bun stays optional (`bun check`, later `bun fmt`) and isn't used for bundling.
 - **Formatter (`orbit fmt`)**: comes after the MVP. Go parts are formatted by Orbit; script/style blocks go through `bun fmt --stdin-filepath`. Spec in PLAN §6.1 (fmt checkpoint): never changes rendered output; gofmt tabs in the frontmatter; `go fmt`-style CLI (in place over `src/`, `-l`/`-d` exit 1 when unformatted); first release = frontmatter + expressions/control headers + script/style; Bun formatting on when Bun ≥ 1.4.4 is found, no switch; `.md` never touched.
 - **Other settled choices**:
