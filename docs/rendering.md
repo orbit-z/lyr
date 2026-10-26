@@ -331,6 +331,81 @@ See [Lazy loading](lazy-loading.md) for the details, and [Performance](performan
 
 For true streaming (server-sent events, large downloads), write a regular handler in your [server](server.md); Orbit doesn't touch it.
 
+## Slow components
+
+A buffered page waits for its slowest part, and by default Orbit renders components in order, one after the other: two components that each wait 10 ms for their own data make the page take 20 ms. There are three ways to deal with slow parts:
+
+- **Load the data in the page** (recommended): the page's frontmatter starts its fetches at once, with Go's own concurrency (goroutines and a `sync.WaitGroup`, or an `errgroup`), and passes the results down as props. Components stay fast and simple to test, and the page owns its queries.
+- **`server:concurrent`** is for components that fetch their own data, such as code ported from Astro: it overlaps them in the same response. Each marked component renders in its own goroutine, starting when the page reaches it, while the page goes on; Orbit waits for all of them and assembles the HTML in source order. The page still waits for its slowest part, but slow parts no longer add up.
+- **`server:defer`** takes a part off the first byte: the page is sent with a fallback, and the part arrives in a second request. See [Lazy loading](lazy-loading.md#which-one-server-defer-or-server-concurrent) for which to pick.
+
+A component that fetches its own data:
+
+```orbit file=src/components/Weather.orbit
+---
+import "time"
+
+type Props struct {
+	City string
+}
+
+time.Sleep(10 * time.Millisecond) // stands in for a weather API call
+forecast := "sunny"
+---
+<p>{props.City}: {forecast}</p>
+```
+
+```orbit file=src/components/LatestPosts.orbit
+---
+import "time"
+
+type Props struct {
+	Limit int
+}
+
+time.Sleep(10 * time.Millisecond) // stands in for a database query
+titles := []string{"Hello, world", "A second post"}[:min(props.Limit, 2)]
+---
+<ul>
+  {for _, t := range titles}
+    <li>{t}</li>
+  {/for}
+</ul>
+```
+
+Mark both on the page, and it renders in about 10 ms instead of 20, with the same HTML:
+
+```orbit file=src/pages/index.orbit
+---
+import (
+	LatestPosts "../components/LatestPosts.orbit"
+	Weather "../components/Weather.orbit"
+)
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Home</title>
+  </head>
+  <body>
+    <Weather server:concurrent city="Paris" />
+    <LatestPosts server:concurrent limit={5} />
+    <footer>…</footer>
+  </body>
+</html>
+```
+
+The rules:
+
+- **Mark every slow component.** Only marked components leave the page's goroutine: in `<A server:concurrent /><B />`, A and B overlap, but in `<A /><B server:concurrent />`, B starts only after A is done.
+- **Don't mark fast ones.** A marked component costs about half a microsecond and one small allocation; that's nothing against a 10 ms fetch and a lot against a 200 ns card.
+- **A marked component's subtree** (its children, its slot content) renders in its goroutine too, and can contain marked components of its own. Marked components in different parents (one in the header, one in the body) overlap as well.
+- **Errors** come out in source order, exactly as the in-order render would report them: the first failing component in the HTML wins, whatever failed first in time. Redirects and `orbit.ErrNotFound` work as usual, and so does [`WithErrorHandler`](#answering-errors-yourself-witherrorhandler). Orbit doesn't cancel the other components when one fails, so a component after the failing one may already have run its fetch; the response waits for every marked component that started.
+- **Status and headers** set with `ctx.SetStatus` and `ctx.Header()` in a marked component are applied when the page is assembled, in source order, after the page's own: a marked component's status replaces the page's, and each header it sets replaces the page's values for that key.
+- **A limit per render**: at most 16 marked components run at once, counted across nesting. Past that, a marked component renders in order on the goroutine that reaches it, with the same output. Change it with `orbit.WithConcurrencyLimit(n)` in `app.New(…)` (0 renders every marked component in order). A marked component in a `{for}` loop is allowed, but it's usually a sign that one query in the page would do better than one per item.
+- **Your code must be safe to run concurrently.** See [Fetching data in components](components.md#fetching-data-in-components) for the data-race rules.
+
 ## Caching fragments
 
 `orbit.RenderHTML(ctx, slots.Default)` renders a slot, or any renderer, to an `orbit.HTML` string instead of into the page (see [Rendering a slot to a string](components.md#rendering-a-slot-to-a-string)). That's the building block of a fragment cache: a component that renders its children once, keeps the HTML for a while, and writes the cached copy on later requests. Orbit has no cache of its own; the pattern below is a few dozen lines of your code.
@@ -501,5 +576,6 @@ There are no HTML files: the binary renders every page. Run it with `./dist/serv
 - [Middleware and locals](middleware.md): code that runs around every page
 - [Server](server.md): the `cmd/server` entry point
 - [Lazy loading](lazy-loading.md): `server:defer` for slow parts of a page
+- [Template syntax](reference/template-syntax.md#serverconcurrent): `server:concurrent` and its compile errors
 - [Runtime API](reference/runtime-api.md): `WithErrorHandler`, `ServeError` and `RenderHTML`
 - [Deploy](deploy.md): `dist/server`, `--embed` and Docker

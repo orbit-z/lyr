@@ -1,0 +1,17 @@
+---
+import (
+	Card "../components/Card.orbit"
+	Sleepy "../components/Sleepy.orbit"
+)
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Concurrent</title>
+  </head>
+  <body>
+    <Sleepy server:concurrent name="Weather" />
+    <Sleepy server:concurrent name="Posts"><Card title={ctx.URL.Path} /></Sleepy>
+    <footer>end</footer>
+  </body>
+</html>

@@ -2,6 +2,7 @@ package compiler
 
 import (
 	gotoken "go/token"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -680,7 +681,17 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 		g.discard(code)
 	}
 	o.ind()
+	conc := n.Concurrent != nil
+	if conc && g.in.Options.Locals != "" {
+		// Resolve the request's locals before the goroutine starts, so
+		// they're shared (PLAN.md §3.6).
+		o.str(NameRuntime + ".LocalsOf[" + NameLocals + ".Locals](" + NameCtx + "); ")
+	}
 	o.str("if " + NameErr + " := ")
+	if conc {
+		o.inline(n.NameSpan, NameRuntime+".Concurrent", SegSpan)
+		o.str("(" + NameCtx + ", " + NameW + ", ")
+	}
 	switch {
 	case !g.directCall(n):
 		o.inline(n.NameSpan, qual+"Render", SegSpan)
@@ -690,7 +701,11 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 		g.directUsed[n.Name] = true
 		o.inline(n.NameSpan, NameDirect(n.Name)+"."+NameRenderImpl, SegSpan)
 	}
-	o.str("(" + NameCtx + ", " + NameW + ", " + qual + "Props{")
+	if conc {
+		o.str(", " + qual + "Props{")
+	} else {
+		o.str("(" + NameCtx + ", " + NameW + ", " + qual + "Props{")
+	}
 	g.propFields(fields)
 	o.str("}, " + NameRuntime + ".Slots{")
 	if len(slots) > 0 {
@@ -869,7 +884,7 @@ func (g *cgGen) groupSlots(children []Node) []cgSlot {
 // closure emits a slot renderer: func(orbit__w *orbit__rt.Writer) error {…}.
 func (g *cgGen) closure(nodes []Node, c *wsCtx) {
 	o := g.o
-	o.str("func(" + NameW + " *" + NameRuntime + ".Writer) error {\n")
+	o.str("func(" + NameW + " *" + NameRuntime + ".Writer) error {" + g.ctxPrologue(nodes) + "\n")
 	o.depth++
 	g.nodes(nodes, c.sub(wsInline))
 	o.flush()
@@ -887,3 +902,66 @@ func (g *cgGen) brokenComponent(n *Component, c *wsCtx, i int) {
 	}
 	g.nodes(n.Children, c.sub(wsInline))
 }
+
+// ctxPrologue is the start of a slot closure whose content uses the Ctx:
+// slot content can run in a server:concurrent component's goroutine, so it
+// takes that goroutine's Ctx from its Writer (PLAN.md §3.6). It rebinds
+// orbit__ctx when the content calls a component (or uses ctx), and ctx
+// when the content references the implicit ctx. It's on the closure's
+// first line, so no line moves.
+func (g *cgGen) ctxPrologue(nodes []Node) string {
+	comp, direct, any := false, false, false
+	for _, n := range nodes {
+		Walk(n, func(m Node) bool {
+			if _, ok := m.(*Component); ok {
+				comp = true
+			}
+			if g.refsCtx(m) {
+				any = true
+			}
+			return true
+		})
+		Walk(n, func(m Node) bool {
+			if g.refsCtx(m) {
+				direct = true
+			}
+			_, ok := m.(*Component)
+			return !ok // its children are slot closures of their own
+		})
+	}
+	if !comp && !any {
+		return ""
+	}
+	s := " " + NameCtx + " := " + NameRuntime + ".CtxOf(" + NameW + ", " + NameCtx + ")"
+	switch {
+	case any:
+		s += "; ctx := " + NameCtx
+		if !direct || g.tolerant {
+			s += "; _ = ctx"
+		}
+	case g.tolerant:
+		s += "; _ = " + NameCtx
+	}
+	return s
+}
+
+// refsCtx reports whether n's own Go code (an expression, a control header,
+// attribute values) references the implicit ctx.
+func (g *cgGen) refsCtx(n Node) bool {
+	for _, c := range cgTemplateCodes(n) {
+		if g.a.CtxUnknown {
+			if ctxWord.MatchString(c.Text) {
+				return true
+			}
+			continue
+		}
+		for _, off := range g.a.CtxRefs {
+			if c.Start <= off && off < c.End {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+var ctxWord = regexp.MustCompile(`\bctx\b`)

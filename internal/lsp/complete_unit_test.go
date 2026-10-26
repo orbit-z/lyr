@@ -178,7 +178,7 @@ import Card "../components/Card.orbit"
 		t.Errorf("isOpen doc: %v", open["documentation"])
 	}
 	// Directives: on a component, not on an element.
-	for _, d := range []string{"slot", "server:defer", "client:load", "client:idle", "client:visible", "client:media"} {
+	for _, d := range []string{"slot", "server:defer", "server:concurrent", "client:load", "client:idle", "client:visible", "client:media"} {
 		if !slices.Contains(names(items), d) {
 			t.Errorf("component directives: %v, missing %s", names(items), d)
 		}

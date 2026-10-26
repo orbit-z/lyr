@@ -1,0 +1,6 @@
+---
+type Props struct {
+	Depth int
+}
+---
+<li>{props.Depth}{if props.Depth < 3}<ul><Self server:concurrent depth={props.Depth + 1} /><Self depth={props.Depth + 2} /></ul>{/if}</li>

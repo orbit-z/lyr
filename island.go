@@ -134,7 +134,7 @@ func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string) 
 	}
 
 	buf := getBuffer()
-	defer putBuffer(buf)
+	defer func() { putBuffer(buf) }() // a join replaces buf
 	var token string
 	if r.Method == http.MethodPost {
 		if _, err := buf.ReadFrom(http.MaxBytesReader(w, r.Body, maxIslandBody)); err != nil {
@@ -162,9 +162,14 @@ func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string) 
 	wr := writerPool.Get().(*Writer)
 	wr.reset(buf)
 	c.w = wr
+	wr.ctx, wr.limit = c, s.limit
 	err = isl.render(c, wr, props)
 	if err == nil {
 		err = wr.err
+	}
+	if wr.grp != nil {
+		err = join(wr, err)
+		buf = wr.buf
 	}
 	wr.reset(nil)
 	writerPool.Put(wr)

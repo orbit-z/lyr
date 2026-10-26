@@ -862,3 +862,23 @@ With esbuild's code splitting (`PLAN.md` §5e). The bigger choices (one build wi
 | A diagnostic of a block copied into several pages is reported once (same file, line, column and message) | simplest | One per page | — |
 | `modulepreload` assets list the module's static import closure breadth-first, in import order (esbuild's entry imports every chunk it needs directly, so it's usually flat) | simplest | Depth-first | [Runtime API](reference/runtime-api.md) |
 | `orbit build --verbose`'s `loaded with import()` section lists every JS file no page lists: `import()` targets, and chunks that only lazy entries import | simplest (the loader `import()`s lazy entries too) | A separate "lazy only" section | [CLI](reference/cli.md#orbit-build) |
+
+## Concurrent rendering
+
+`server:concurrent` (`PLAN.md` §3.6). The name, the call-site placement, the configurable limit (default 16, inline past it), no cancellation and the header merge were the user's or the coordinator's (§3.6 (Q1)–(Q5)), not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| A marked component starts when the render reaches its tag, after its props and slots are evaluated; calls aren't hoisted | Astro (siblings after the first async one start when the parent reaches them) | Hoist marked calls to the start of the parent | [Rendering](rendering.md#slow-components) |
+| One join at the end of the render (page, island, `RenderComponent`, `orbittest`), not when the parent component returns | simplest that keeps Astro's overlap across parents | Join per parent | [Rendering](rendering.md#slow-components) |
+| The first error in output order wins (a child's own holes before its error, a parent's error after its holes) | Astro (its buffers flush, and so reject, in order) | First error in time | [Rendering](rendering.md#slow-components) |
+| `server:defer` with `server:concurrent` is a compile error; `client:*`, `<Self>`, `{for}` and `.md` components are allowed | simplest | Ignore one of the two | [Template syntax](reference/template-syntax.md#serverconcurrent) |
+| Inline (in order) under `NewWriter`, past the limit and inside an attribute value (`Attr` formats into a scratch buffer) | simplest, deadlock-free | Block until a slot frees | [Runtime API](reference/runtime-api.md#concurrent-rendering) |
+| `CtxOf` is emitted in every project, at the start of slot content that calls a component or uses the implicit `ctx` | simplest (a file's output doesn't depend on others) | Only in projects that use the directive | [Runtime API](reference/runtime-api.md#concurrent-rendering) |
+| Status and headers from marked components merge at the join in output order, after the page's own, on failure too (a redirect keeps them) | simplest deterministic | Stop at the failing component | [Rendering](rendering.md#slow-components) |
+| A `RenderHTML` capture joins its own marked components before returning, with its own limit count; its marked components' headers merge into the capture's `ctx` | simplest correct (the captured HTML is complete) | Share the request's group (a capture inside a marked component would wait on itself) | [Runtime API](reference/runtime-api.md#renderers-and-slots) |
+| `RenderComponent` and `orbittest` use the default limit, 16 | simplest (they have no `Site`) | An option per call | [Runtime API](reference/runtime-api.md#withconcurrencylimit) |
+| `WithConcurrencyLimit(0)` renders every marked component inline; a negative value means no limit | Go convention (`errgroup.SetLimit`) | Panic on n < 1 | [Runtime API](reference/runtime-api.md#withconcurrencylimit) |
+| The limit counts goroutines running now (a finished one frees its place) | simplest | Count every fork of the render | [Runtime API](reference/runtime-api.md#withconcurrencylimit) |
+| The runtime function is `orbit.Concurrent` (§3.6's sketch said `Parallel`), the option `WithConcurrencyLimit` | consistent with the directive's name | `Parallel`, `WithParallelLimit` | [Runtime API](reference/runtime-api.md#concurrent-rendering) |
+| A marked component's `</head>` gets the page's tags when it's the first in output order; inside a capture it's the usual capture error | simplest (the in-order result) | — | — |

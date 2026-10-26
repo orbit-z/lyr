@@ -1,4 +1,4 @@
-Template @0-871
+Template @0-1128
   Element @0-25
     <div> name=@1-4 start=@0-18 end=@19-25
       attr empty @5-17 name=@5-17 "server:defer" directive=server:defer
@@ -130,3 +130,38 @@ Template @0-871
       attr empty @833-845 name=@833-845 "server:defer" directive=server:defer
       attr quoted @846-867 name=@846-860 "client:visible" directive=client:visible value=@862-866 "10px"
   Text @870-871 "\n"
+  Element @871-901
+    <div> name=@872-875 start=@871-894 end=@895-901
+      attr empty @876-893 name=@876-893 "server:concurrent" directive=server:concurrent
+    Text @894-895 "x"
+  Text @901-902 "\n"
+  Slot @902-928 default
+    <slot> name=@903-907 start=@902-928 end=@928-928 selfclosing
+      attr empty @908-925 name=@908-925 "server:concurrent" directive=server:concurrent
+  Text @928-929 "\n"
+  Fragment @929-959
+    <Fragment> name=@930-938 start=@929-959 end=@959-959 selfclosing
+      attr empty @939-956 name=@939-956 "server:concurrent" directive=server:concurrent
+  Text @959-960 "\n"
+  Component @960-990
+    <Card> name=@961-965 start=@960-990 end=@990-990 selfclosing
+      attr quoted @966-987 name=@966-983 "server:concurrent" directive=server:concurrent value=@985-986 "x"
+  Text @990-991 "\n"
+  Component @991-1021
+    <Card> name=@992-996 start=@991-1021 end=@1021-1021 selfclosing
+      attr expr @997-1018 name=@997-1014 "server:concurrent" directive=server:concurrent value=@1015-1018 code=@1016-1017 "y"
+  Text @1021-1022 "\n"
+  Component @1022-1061 defer=@1028-1040
+    <Card> name=@1023-1027 start=@1022-1061 end=@1061-1061 selfclosing
+      attr empty @1028-1040 name=@1028-1040 "server:defer" directive=server:defer
+      attr empty @1041-1058 name=@1041-1058 "server:concurrent" directive=server:concurrent
+  Text @1061-1062 "\n"
+  Component @1062-1100 client=client:idle
+    <Card> name=@1063-1067 start=@1062-1100 end=@1100-1100 selfclosing
+      attr empty @1068-1085 name=@1068-1085 "server:concurrent" directive=server:concurrent
+      attr empty @1086-1097 name=@1086-1097 "client:idle" directive=client:idle
+  Text @1100-1101 "\n"
+  Component @1101-1127 self
+    <Self> name=@1102-1106 start=@1101-1127 end=@1127-1127 selfclosing
+      attr empty @1107-1124 name=@1107-1124 "server:concurrent" directive=server:concurrent
+  Text @1127-1128 "\n"

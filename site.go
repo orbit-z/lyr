@@ -37,6 +37,8 @@ type Site struct {
 	heads map[*Route]string
 	// onError is WithErrorHandler's handler, or nil.
 	onError errorHandler
+	// limit is the server:concurrent limit (WithConcurrencyLimit).
+	limit int32
 }
 
 // Option configures a Site. Pass options to app.New().
@@ -49,6 +51,8 @@ type siteOptions struct {
 	key       []byte // WithKey
 	onError   errorHandler
 	slash     TrailingSlash
+	concLimit int32 // WithConcurrencyLimit, when concSet
+	concSet   bool
 }
 
 // NewSite is called by the generated orbit_gen/app.New(). It compiles the
@@ -79,6 +83,7 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 		keys:   resolveKeyring(o.key),
 
 		onError: o.onError,
+		limit:   o.concurrencyLimit(),
 	}
 	s.keys.warnIfRandom(len(islands))
 	s.islands = make(map[string]*Island, len(islands))
@@ -299,9 +304,14 @@ func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *
 		wr.tags = s.heads[route]
 	}
 	c.w = wr
+	wr.ctx, wr.limit = c, s.limit
 	err := callRender(route.Render, c, wr)
 	if err == nil {
 		err = wr.err
+	}
+	if wr.grp != nil {
+		err = join(wr, err)
+		buf = wr.buf
 	}
 	if err != nil {
 		// Never send a partial page: the buffer is dropped.

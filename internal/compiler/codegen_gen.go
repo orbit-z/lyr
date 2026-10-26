@@ -274,7 +274,7 @@ func (g *cgGen) genImpl() *GenFile {
 	}
 	o.str("\n")
 	o.ln("\t. " + strconv.Quote(g.pkg.DeclImportPath(g.in.Options.Module)))
-	if g.in.Options.Locals != "" && g.declaresLocals() {
+	if g.in.Options.Locals != "" && (g.declaresLocals() || g.hasConcurrent()) {
 		o.ln("\t" + NameLocals + " " + strconv.Quote(g.in.Options.Locals))
 	}
 	g.userImports(PlaceImpl)
@@ -385,6 +385,22 @@ func (g *cgGen) directImports() []string {
 		return true
 	})
 	return slices.Sorted(maps.Keys(set))
+}
+
+// hasConcurrent reports whether the emitted template has a
+// server:concurrent call site, which resolves locals first (PLAN.md §3.6).
+func (g *cgGen) hasConcurrent() bool {
+	if g.f.Template == nil || g.a.Terminating {
+		return false
+	}
+	found := false
+	Walk(g.f.Template, func(n Node) bool {
+		if c, ok := n.(*Component); ok && c.Concurrent != nil && (c.Defer == nil || c.Client != nil) {
+			found = true
+		}
+		return !found
+	})
+	return found
 }
 
 // declaresLocals reports whether the render function declares locals: when

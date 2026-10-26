@@ -1,0 +1,5 @@
+---
+import Doc "./Doc.orbit"
+---
+<Doc server:concurrent />
+<Doc>{ctx.URL.Path}</Doc>

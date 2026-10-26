@@ -51,6 +51,29 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 /*line ../../../../src/pages/index.orbit:14:16*/post.Title/*line render.go:51:83*/,
 	)
 	_ = (/*line ../../../../src/pages/index.orbit:14:35*/post.Title/*line render.go:53:89*/)
-	orbit__w.Raw("</div>")
+	orbit__w.Raw("</div>\n")
+	if orbit__err := /*line ../../../../src/pages/index.orbit:15:2*/orbit__rt.Concurrent/*line render.go:55:111*/(orbit__ctx, orbit__w, /*line ../../../../src/pages/index.orbit:15:2*/Card.Render/*line render.go:55:217*/, Card.Props{
+		/*line ../../../../src/pages/index.orbit:15:25*/Title/*line render.go:56:80*/: /*line ../../../../src/pages/index.orbit:15:31*/"c"/*line render.go:56:158*/,
+	}, orbit__rt.Slots{
+		Default: func(orbit__w *orbit__rt.Writer) error { orbit__ctx := orbit__rt.CtxOf(orbit__w, orbit__ctx); ctx := orbit__ctx; _ = ctx
+			if orbit__err := /*line ../../../../src/pages/index.orbit:15:36*/Card.Render/*line render.go:59:105*/(orbit__ctx, orbit__w, Card.Props{
+				/*line ../../../../src/pages/index.orbit:15:41*/Title/*line render.go:60:82*/: /*line ../../../../src/pages/index.orbit:15:48*/ctx.URL.Path/*line render.go:60:169*/,
+			}, orbit__rt.Slots{}); orbit__err != nil {
+				return orbit__err
+			}
+			return orbit__w.Err()
+		},
+	}); orbit__err != nil {
+		return orbit__err
+	}
+	orbit__w.Raw("\n")
+	if orbit__err := /*line ../../../../src/pages/index.orbit:16:2*/Card.Render/*line render.go:70:102*/(orbit__ctx, orbit__w, Card.Props{}, orbit__rt.Slots{
+		Default: func(orbit__w *orbit__rt.Writer) error { orbit__ctx := orbit__rt.CtxOf(orbit__w, orbit__ctx); _ = orbit__ctx
+			return orbit__w.Err()
+		},
+	}); orbit__err != nil {
+		return orbit__err
+	}
+	orbit__w.Raw("\n")
 	return orbit__w.Err()
 }

@@ -34,9 +34,14 @@ func RenderComponent[P any](w http.ResponseWriter, r *http.Request, render func(
 	wr := writerPool.Get().(*Writer)
 	wr.reset(buf)
 	c.w = wr
+	wr.ctx, wr.limit = c, defaultConcurrencyLimit
 	err := callComponent(render, c, wr, props)
 	if err == nil {
 		err = wr.err
+	}
+	if wr.grp != nil {
+		err = join(wr, err)
+		buf = wr.buf
 	}
 	wr.reset(nil)
 	writerPool.Put(wr)

@@ -1,0 +1,8 @@
+---
+import Ping "./Ping.orbit"
+
+type Props struct {
+	N int
+}
+---
+<i>pong {props.N}</i><slot />{if props.N > 0}<Ping server:concurrent n={props.N - 1} />{/if}

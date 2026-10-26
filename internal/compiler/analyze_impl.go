@@ -560,8 +560,10 @@ func (s *anState) parseBody() {
 			}
 		}
 		s.usage(file)
+		s.ctxRefs(file, tf, tmplStart, &y)
 	}
 	s.a.UsesLocals = s.implIdent["locals"] || file == nil || len(errs) > 0
+	s.a.CtxUnknown = file == nil || len(errs) > 0
 	if bodyErr || file == nil {
 		for _, r := range scannerBody {
 			s.a.Body = append(s.a.Body, Stmt{Span: r.span})
@@ -623,6 +625,24 @@ func (s *anState) usage(file *ast.File) {
 	for _, id := range file.Unresolved {
 		if id.Name != anGlueCall {
 			s.implIdent[id.Name] = true
+		}
+	}
+}
+
+// ctxRefs records the .orbit offsets of the template's uses of the implicit
+// ctx: unresolved identifiers named ctx in the template part of the body
+// file, which starts at file offset tmplStart.
+func (s *anState) ctxRefs(file *ast.File, tf *gotoken.File, tmplStart int, y *anSynth) {
+	for _, id := range file.Unresolved {
+		if id.Name != "ctx" || tf == nil {
+			continue
+		}
+		off := tf.Offset(id.Pos()) - tmplStart
+		for _, sg := range y.segs {
+			if sg.goStart <= off && off < sg.goStart+sg.n {
+				s.a.CtxRefs = append(s.a.CtxRefs, sg.orbit+off-sg.goStart)
+				break
+			}
 		}
 	}
 }

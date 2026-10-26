@@ -3,3 +3,4 @@ parse: src/pages/index.orbit:11:1: {if} needs a condition
 parse: src/pages/index.orbit:14:28: an element with set:html can't have children; the directive sets its content
 src/pages/index.orbit:8:2: unknown component <Crad>: no .orbit import with this alias
 src/pages/index.orbit:9:7: unknown prop "psot" on <Card> (props: title, isOpen; add an orbit.RestAttrs field to pass HTML attributes through)
+src/pages/index.orbit:16:8: unknown component <Crad>: no .orbit import with this alias

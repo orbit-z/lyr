@@ -1,0 +1,11 @@
+---
+import "time"
+
+type Props struct {
+	Name string
+	Ms   int
+}
+
+time.Sleep(time.Duration(props.Ms) * time.Millisecond)
+---
+<p>{props.Name} {ctx.URL.Path}</p><slot />

@@ -1,0 +1,10 @@
+orbit_gen/decl/components/conc/decl.go (src/components/Conc.orbit)
+orbit_gen/impl/components/conc/render.go (src/components/Conc.orbit)
+  exact 2:8 "Doc" -> 255-258 "Doc"
+  span  2:12 "\"./Doc.orbit\"" -> 259-307 "\"example.com/blog/orbit_gen/decl/components/doc\""
+  span  4:2 "Doc" -> 873-893 "orbit__rt.Concurrent"
+  span  4:2 "Doc" -> 991-1001 "Doc.Render"
+  span  5:2 "Doc" -> 1192-1202 "Doc.Render"
+  exact 5:7 "ctx.URL.Path" -> 1471-1483 "ctx.URL.Path"
+call sites
+  content key=65 "ctx.URL.Path" call="orbit__w.Expr(\n/*line ../../../../src/components/Conc.orbit:5:7*/ctx.URL.Path/*line render.go:30:87*/,\n\t\t\t)"
