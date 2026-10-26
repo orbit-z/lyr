@@ -34,7 +34,7 @@ blog/
     posts/                your own Go code
   public/                 static files, served as-is at the site root
   orbit_gen/              generated Go packages and TypeScript types (gitignored)
-  .orbit/                 cache (gitignored)
+  .orbit/                 dev assets, check files and orbit build's overlay (gitignored)
   dist/                   build output (gitignored)
 ```
 
@@ -152,6 +152,8 @@ Your own Go code imports two kinds of generated packages:
 
   Code that renders components must also link the app (`cmd/server` does, through `app.New()`; tests add `import _ "example.com/blog/orbit_gen/app"`). Otherwise `Render` panics with `orbit: src/components/Card.orbit not linked; import example.com/blog/orbit_gen/app`. See [Testing](testing.md).
 
+`orbit_gen/` holds the version of the code that `orbit dev` runs, in which components call each other through their declaration package. `orbit build` doesn't change it: it compiles a version with direct calls from `.orbit/build/`, over `orbit_gen/` with `go build -overlay`. So a committed `orbit_gen/` still matches `orbit generate` after a build, and a plain `go build` from it gives a correct server, but not the production one (see [Direct calls in production builds](performance.md#direct-calls-in-production-builds)).
+
 ### Package paths
 
 A file's generated packages mirror its path under `src/`, with `src/` dropped:
@@ -181,7 +183,7 @@ The implementation package has the same path under `orbit_gen/impl/`, with an `_
 
 ## `.orbit/`: cache
 
-Files that Orbit reuses between runs: the server binaries that `orbit dev` builds and runs (`.orbit/devserver/`), the assets it bundles (`.orbit/dev/`), and the scripts `orbit check` extracts for TypeScript (`.orbit/check/`). It's gitignored and safe to delete at any time.
+Files that Orbit reuses between runs: the server binaries that `orbit dev` builds and runs (`.orbit/devserver/`), the assets it bundles (`.orbit/dev/`), the scripts `orbit check` extracts for TypeScript (`.orbit/check/`), and the production version of the generated code that `orbit build` compiles (`.orbit/build/`, with its `overlay.json`, rewritten on every build; see [Direct calls in production builds](performance.md#direct-calls-in-production-builds)). It's gitignored and safe to delete at any time.
 
 ## `dist/`: build output
 

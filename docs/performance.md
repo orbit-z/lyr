@@ -41,8 +41,8 @@ The request context (`*orbit.Ctx`) is pooled along with its writer and buffer, s
 
 ### Components are cheap to call
 
-- A component call is a plain Go function call, plus one indirect call through the component's generated package.
-- **Slots are a small struct**, not a map: a default slot plus a short list of named ones. A call with no children allocates nothing, and neither does slot content that uses no variables from the parent. Slot content that does (`<Card>{p.Title}</Card>`) allocates one small closure per slot.
+- A component call is a plain Go function call. In a binary from `orbit build`, the caller calls the component's code directly; in `orbit dev`, `go test` and a plain `go build`, the call goes through one indirect call in the component's generated package (see [Direct calls in production builds](#direct-calls-in-production-builds)).
+- **Slots are a small struct**, not a map: a default slot plus a short list of named ones. A call with no children allocates nothing, and neither does slot content that uses no variables from the parent. Slot content that does (`<Card>{p.Title}</Card>` in a loop) allocates nothing either in an `orbit build` binary: with the direct call, the Go compiler sees that the component doesn't keep the slot, so the closure stays on the stack. It allocates one small closure per slot only in `orbit dev`, `go test` and plain `go build` builds, and in production when it's passed into mutually recursive components or kept by your own Go code.
 - The recursion depth guard, which turns runaway recursion into an error instead of a crash, costs one integer increment per component render. It's always on.
 
 ### Routing and locals
@@ -57,13 +57,13 @@ For a typical page, rendering allocates nothing in Orbit's code: routing, the re
 
 A "typical page" here means:
 - its expressions are plain types, so they get typed writes
-- its slot content doesn't use variables from the parent
+- it's built with `orbit build` (in `orbit dev` and `go test`, slot content that uses parent variables allocates, see below)
 - it doesn't use locals or `server:defer`
 
 What still allocates:
 - **Go's `net/http` server itself**: about 14 allocations (1.4 KB) per request even for an empty handler, and about 19 (2.2 KB) once it writes a 1 KB page (measured on Go 1.27.3). Orbit uses the standard library server, so this floor is the same as for any Go web app.
 - **Locals**, when a page or one of its components uses them: one allocation for the struct (made by Orbit on first use, or by `EnsureLocals` in your middleware), plus the request copy that `EnsureLocals` makes.
-- **Slot content that uses parent variables**: one small closure per slot.
+- **Slot content that uses parent variables**, in dev, `go test` and plain `go build` builds: one small closure per slot. In an `orbit build` binary only when the content is passed into components that call each other in a cycle (`A` renders `B`, which renders `A`; `<Self>` is fine), or when your Go code keeps a slot's renderer beyond the call.
 - **Values without a typed write** (the `Expr` fallback) and your own `String()` or `Error()` methods.
 - **Route params with percent-escapes**, and **`server:defer` props** (encoded and encrypted per instance).
 - **`orbit.JSON` and `set:json` values**: `encoding/json`'s own allocations (below). Orbit's code around them adds none.
@@ -139,6 +139,16 @@ Lazy component scripts (`client:idle`, `client:visible`, `client:media`) cost no
 ## Build and dev-loop speed
 
 Orbit is written in Go partly so that builds stay fast: each component is its own Go package, so a rebuild only recompiles what changed. Measured rebuild times are under [Dev loop](#dev-loop-benchdevloop) below.
+
+### Direct calls in production builds
+
+`orbit dev` calls every component through a hook, an indirect call through the component's generated package, so that editing a component recompiles only that component's package and never the pages and layouts that use it. Go's compiler can't see through an indirect call, so slot content that uses a parent variable has to be allocated on the heap.
+
+`orbit build` calls components directly instead: it writes a second version of the generated code that calls each component's implementation, to `.orbit/build/`, and compiles it with `go build -overlay`, leaving `orbit_gen/` as `orbit generate` writes it. Components that render each other in a cycle keep the hook between them (a direct call would be a Go import cycle). The HTML is byte-for-byte the same; only allocations and time differ. On the [500-card page](#orbit-vs-other-go-templates-benchgo) that's 0 allocations instead of 501, and about 13% less time.
+
+The cost is at build time. On a generated project with 200 `.orbit` files (each component calling two others, six levels deep at most), with the standard library cached and every generated package new, `orbit build` took 732 ms instead of 650 ms (+13%) on 16 threads and 1,147 ms instead of 1,044 ms (+10%) on 4 cores; after editing the layout, 412 ms instead of 348 ms, since the pages that call the layout recompile. On `examples/blog` the difference is within noise (321 vs. 316 ms on 16 threads, 337 ms both on 4 cores). Writing the second version of the code takes about 4–5 ms. The binary is about 1% smaller. A deep chain of components, where each one calls the next, builds slower, because Go compiles a package only after the packages it imports: real sites are 2–3 levels deep. `orbit dev` is unaffected: it never writes or compiles the build version. (Medians of 5–7 alternating runs, Ryzen 7 9700X; the machine was shared, load average 3.7–7.5.)
+
+`go test` and a plain `go build` use the hook version in `orbit_gen/`, so their allocation counts are dev's. To measure what production runs, run `orbit build`, then `go test -overlay=.orbit/build/overlay.json ./...` (see [Testing](testing.md#allocation-counts-and-production-builds)).
 
 ## Benchmark methodology
 
@@ -251,15 +261,16 @@ Even without island requests, Astro's TTFB is mostly queueing: one thread at abo
 
 ### Orbit vs. other Go templates (`bench/go`)
 
-The same 500-card page (a layout, a header with a nav loop, and cards with attributes, escaped text and a slot), rendered into a buffer. `go test -bench . -benchmem -count 8`; spread ±1% or less.
+The same 500-card page (a layout, a header with a nav loop, and cards with attributes, escaped text and a slot), rendered into a buffer. Orbit's row is the code `orbit build` produces (`go test -overlay=.orbit/build/overlay.json -bench . -benchmem`, see `bench/go/README.md`); 6 runs, medians, spread ±1.5% or less (2026-10-26, load average 1.5–1.9).
 
 | Engine | Time per page | Memory per page | Allocations per page |
 |---|---:|---:|---:|
-| Orbit | 59.4 µs | 39 KB | 501 |
+| Orbit | 50.2 µs | 13 B | 0 |
+| Orbit in dev and `go test` (hook calls) | 57.8 µs | 39 KB | 501 |
 | templ v0.3.1070 | 245 µs | 276 KB | 8,985 |
 | `html/template` | 1.73 ms | 622 KB | 26,810 |
 
-Orbit's 501 allocations are the 500 slot closures plus the layout's (each slot that uses a loop variable costs one, see [Allocations per request](#allocations-per-request)). Serving the page through `site.Handler()` adds one allocation (`Content-Length`) and almost no time (59.8 µs). A small page with a route param is served in 0.39 µs with 3 allocations: `Content-Length`, a slot closure, and the page's own string concatenation.
+With direct calls, the 500 slot closures that use the loop variable, and the layout's, stay on the stack (see [Direct calls in production builds](#direct-calls-in-production-builds)); through the hooks, each costs one allocation. Serving the page through `site.Handler()` adds one allocation (`Content-Length`) and almost no time (50.9 µs). A small page with a route param is served in 0.34 µs with 1 allocation, `Content-Length` (3 through the hooks: also a slot closure and a string concatenation it captured). On one core (`-cpu 1`) the direct calls save 18% (49.5 vs. 60.3 µs).
 
 ### Dev loop (`bench/devloop`)
 

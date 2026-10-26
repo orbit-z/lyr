@@ -54,6 +54,29 @@ type Input struct {
 	// then uses the Expr/Attr fallback. A site missing from a non-nil map
 	// also falls back.
 	Typed TypedWrites
+	// Direct selects the build flavor of Impl (PLAN.md §3.5) when non-nil:
+	// the render function is exported as Orbit__RenderImpl (so direct
+	// callers can call it), the call sites of the components in
+	// Direct.Callees (and <Self> with Direct.Self) call the callee's
+	// Orbit__RenderImpl instead of its declaration package's hook, and
+	// directives name the .orbit file as seen from the file's overlay
+	// location under BuildDir. The file keeps the hook flavor's lines. An
+	// empty DirectCalls is the build flavor of a direct callee that calls
+	// nothing directly itself. Nil for the hook flavor (orbit generate,
+	// orbit dev, the LSP). Ignored in Tolerant mode.
+	Direct *DirectCalls
+}
+
+// DirectCalls are the direct call sites of one file's build flavor, chosen
+// by the project (PLAN.md §3.5, Cycles): the callees outside the file's
+// import cycle.
+type DirectCalls struct {
+	// Callees holds the project-relative paths of the components to call
+	// directly. A page callee always keeps the hook (its Render wrapper
+	// builds Params), and so do server:defer call sites.
+	Callees map[string]bool
+	// Self makes <Self> a direct self-call (never in a page).
+	Self bool
 }
 
 // Output is the generated code of one .orbit file.

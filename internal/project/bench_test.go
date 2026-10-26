@@ -291,6 +291,27 @@ func BenchmarkPass2(b *testing.B) {
 	}
 }
 
+// BenchmarkBuildFiles measures what orbit build adds to generate for the
+// build flavor (PLAN.md §3.5): the SCC rule, re-emitting every file with a
+// direct call site, and writing .orbit/build.
+func BenchmarkBuildFiles(b *testing.B) {
+	needGo(b)
+	p := newTestProject(b, benchFiles("buildfiles"))
+	res := benchRun(b, benchGenerator(p.Dir))
+	var n int
+	for b.Loop() {
+		files, err := res.Project.BuildFiles()
+		if err != nil {
+			b.Fatal(err)
+		}
+		if err := WriteBuildFiles(p.Dir, files); err != nil {
+			b.Fatal(err)
+		}
+		n = len(files) - 1
+	}
+	b.ReportMetric(float64(n), "files/op")
+}
+
 // BenchmarkAssets measures esbuild on the synthetic project with a scoped
 // <style> and a TypeScript <script> in every sixth component (27 of each),
 // from loaded and parsed files (Front) to the bundles in memory:

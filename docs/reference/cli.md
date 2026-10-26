@@ -105,9 +105,10 @@ Builds your server and its assets into `dist/`:
 1. Reads `orbit.json` and the module path from `go.mod`.
 2. Parses every `.orbit` file and reports all errors at once, not just the first. Checks the import graph for cycles.
 3. Scopes the CSS and bundles each page's scripts and styles with esbuild into `dist/client/_orbit/`, plus one lazy entry per component loaded with `client:*`.
-4. Generates `orbit_gen/`, with typed writes and the script types in `orbit_gen/types/`.
+4. Generates `orbit_gen/`, with typed writes and the script types in `orbit_gen/types/`, exactly as `orbit generate` does.
 5. Copies `public/` into `dist/client/`. A `public/` file whose path is under `_orbit/` is an error.
-6. Builds your server entry (`cmd/server`, or the generated default) into `dist/server`.
+6. Writes the production version of the generated code that calls components directly to `.orbit/build/`, with `.orbit/build/overlay.json` (see [Direct calls in production builds](../performance.md#direct-calls-in-production-builds)).
+7. Builds your server entry (`cmd/server`, or the generated default) into `dist/server`, with `go build -overlay=.orbit/build/overlay.json`.
 
 `orbit build` prints nothing when it succeeds (unless `--verbose`). If it fails, `dist/` is left as it was: the new client files and server are built in a staging directory and only replace the old ones once everything has succeeded, so a new `dist/client` is never paired with an old `dist/server`.
 
@@ -137,7 +138,9 @@ With `--embed`, Orbit copies the static files into `orbit_gen/static/` and build
 
 **Island key and build ID.** Each `orbit build` generates a new random island key and a new random build ID, and links them into the binary with `-ldflags=-X` (on two internal variables of the `orbit` package). The build ID appears in every `server:defer` island URL, so each build gets fresh URLs. Because the key changes with every build, set a stable [`ORBIT_KEY`](#orbit-create-key) for rolling deploys or several builds behind one load balancer; it overrides the embedded key. An `-ldflags` in your `GOFLAGS` (such as `GOFLAGS=-ldflags=-s`) is kept: Orbit appends its two `-X` flags to it. If you build your server with plain `go build` instead, the key and build ID are random per process.
 
-`orbit build` runs the `go` command, so it honors your `GOFLAGS` and other Go environment variables (for example `GOFLAGS=-mod=vendor`, or `GOFLAGS=-tags=prod` for your own build tags; with `--embed`, Orbit adds `orbit_embed` to them). It has no Go build flags of its own besides `--embed`.
+`orbit build` runs the `go` command, so it honors your `GOFLAGS` and other Go environment variables (for example `GOFLAGS=-mod=vendor`, or `GOFLAGS=-tags=prod` for your own build tags; with `--embed`, Orbit adds `orbit_embed` to them). It has no Go build flags of its own besides `--embed`. It passes `-overlay` itself, so an `-overlay` in `GOFLAGS` is an error (`orbit: -overlay in GOFLAGS isn't supported (orbit build passes its own)`).
+
+**`.orbit/build/`** is removed and rewritten on every build, and `orbit_gen/` stays exactly what `orbit generate` writes, so `orbit doctor`, your editor and a committed `orbit_gen/` see no difference after a build. A plain `go build ./cmd/server` gives a correct server too, but with dev's component calls (more allocations); `orbit build` gives the production one. To run tests against the production version, use `go test -overlay=.orbit/build/overlay.json ./...` after `orbit build` (see [Testing](../testing.md#allocation-counts-and-production-builds)).
 
 ## `orbit dev`
 

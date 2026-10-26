@@ -27,6 +27,7 @@ func TestExampleBlog(t *testing.T) {
 	if code, out := runOrbit(t, dir, "generate"); code != 0 {
 		t.Fatalf("orbit generate: exit %d\n%s", code, out)
 	}
+	gen := readTree(t, filepath.Join(dir, "orbit_gen"))
 	goRun(t, dir, "vet", "./...")
 	goRun(t, dir, "build", "./...")
 	// LikeButton's script reads its typed data (PLAN.md §5c): orbit check
@@ -53,6 +54,13 @@ func TestExampleBlog(t *testing.T) {
 	}
 	if html := htmlFiles(t, filepath.Join(dir, "dist")); len(html) > 0 {
 		t.Errorf("HTML files in dist/: %v", html)
+	}
+	// The build flavor (PLAN.md §3.5): orbit_gen/ unchanged, the same
+	// responses, and the example's tests pass on it too.
+	checkBuildFlavor(t, dir, gen, "impl/pages/blog/slug_param/render.go")
+	checkFlavors(t, dir, "example.com/blog", []string{"/", "/about", "/account", "/search?q=security", "/blog/hello", "/blog/safe-json", "/nope"})
+	if out := goRun(t, dir, "test", "-count=1", "-overlay=.orbit/build/overlay.json", "./..."); !strings.Contains(out, "ok  \texample.com/blog/internal/views_test") {
+		t.Errorf("go test -overlay ./... didn't run views_test:\n%s", out)
 	}
 
 	s := start(t, dir, filepath.Join(dir, "dist/server"))

@@ -2,6 +2,8 @@ package compiler
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -34,6 +36,8 @@ type cgGen struct {
 	// names in the file (runtimeNames), computed on first use.
 	jsonSites []JSONSite
 	rtNames   map[string]bool
+	// directUsed holds the aliases called directly in the build flavor.
+	directUsed map[string]bool
 }
 
 func cgGenerate(in *Input) (out *Output) {
@@ -54,6 +58,8 @@ func cgGenerate(in *Input) (out *Output) {
 		imports:  map[string]*OrbitImport{},
 		tagUsed:  map[string]bool{},
 		skipAttr: map[*Attr]bool{},
+
+		directUsed: map[string]bool{},
 	}
 	if g.f.Lines == nil {
 		g.f.Lines = NewLineIndex(g.src)
@@ -254,8 +260,19 @@ func (g *cgGen) genDecl() *GenFile {
 func (g *cgGen) genImpl() *GenFile {
 	gf := g.newFile(g.pkg.ImplFile(), g.pkg.ImplImportPath(g.in.Options.Module), g.pkg.ImplName())
 	o := g.o
+	direct := g.directImports()
+	if g.in.Direct != nil && !g.tolerant {
+		// The build flavor is read from its overlay location (PLAN.md §3.5).
+		o.dirFile = DirectiveFile(BuildPath(gf.Path), g.a.Info.Path)
+	}
 	o.str(GenHeader + "\n\npackage " + g.pkg.ImplName() + "\n\nimport (\n")
-	o.ln("\t" + runtimeImport)
+	// The callees' impl imports share the runtime's line, so the build
+	// flavor has the hook flavor's lines.
+	o.str("\t" + runtimeImport)
+	for _, alias := range direct {
+		o.str("; " + NameDirect(alias) + " " + strconv.Quote(g.in.Index[g.imports[alias].Resolved].Pkg.ImplImportPath(g.in.Options.Module)))
+	}
+	o.str("\n")
 	o.ln("\t. " + strconv.Quote(g.pkg.DeclImportPath(g.in.Options.Module)))
 	if g.in.Options.Locals != "" && g.declaresLocals() {
 		o.ln("\t" + NameLocals + " " + strconv.Quote(g.in.Options.Locals))
@@ -266,13 +283,17 @@ func (g *cgGen) genImpl() *GenFile {
 	}
 	o.str(")\n\n")
 	g.hoisted(PlaceImpl)
-	o.str("var _ = func() int { " + NameHook + " = " + NameRender + "; return 0 }()\n\n")
+	render := NameRender
+	if g.in.Direct != nil && !g.tolerant {
+		render = NameRenderImpl
+	}
+	o.str("var _ = func() int { " + NameHook + " = " + render + "; return 0 }()\n\n")
 
 	params, paramsArg := "", ""
 	if g.isPage() {
 		params, paramsArg = ", "+NameParams+" Params", ", "+NameParams
 	}
-	o.str("func " + NameRender + "(" + NameCtx + " *" + NameRuntime + ".Ctx, " + NameW + " *" + NameRuntime + ".Writer, " +
+	o.str("func " + render + "(" + NameCtx + " *" + NameRuntime + ".Ctx, " + NameW + " *" + NameRuntime + ".Writer, " +
 		NameProps + " Props, " + NameSlots + " " + NameRuntime + ".Slots" + params + ") error {\n")
 	o.depth = 1
 	o.ln("if " + NameErr + " := " + NameW + ".Enter(" + strconv.Quote(g.a.Info.Path) + "); " + NameErr + " != nil {")
@@ -320,7 +341,50 @@ func (g *cgGen) genImpl() *GenFile {
 	}
 	o.depth = 0
 	o.str("}\n")
+	if len(g.directUsed) != len(direct) {
+		g.errorf(Span{}, "internal error in code generation: direct calls to %v, imports of %v", g.directUsed, direct)
+	}
 	return g.finish(gf)
+}
+
+// NameDirect is the import name of the implementation package of the
+// component imported as alias, in the build flavor: "orbit__Card"
+// (PLAN.md §3.5). Aliases start with an uppercase letter, so it can't
+// clash with Orbit's own orbit__ names.
+func NameDirect(alias string) string { return "orbit__" + alias }
+
+// directCall reports whether the build flavor calls n's implementation
+// directly (PLAN.md §3.5).
+func (g *cgGen) directCall(n *Component) bool {
+	d := g.in.Direct
+	if d == nil || g.tolerant || n.Defer != nil && n.Client == nil {
+		return false
+	}
+	if n.Self {
+		return d.Self && !g.isPage()
+	}
+	imp := g.imports[n.Name]
+	if imp == nil {
+		return false
+	}
+	info := g.in.Index[imp.Resolved]
+	return info != nil && info.Role != RolePage && d.Callees[imp.Resolved]
+}
+
+// directImports returns the sorted aliases of the components the template
+// calls directly at least once: the impl packages the build flavor imports.
+func (g *cgGen) directImports() []string {
+	if g.in.Direct == nil || g.tolerant || g.f.Template == nil || g.a.Terminating {
+		return nil
+	}
+	set := map[string]bool{}
+	Walk(g.f.Template, func(n Node) bool {
+		if c, ok := n.(*Component); ok && !c.Self && g.directCall(c) {
+			set[c.Name] = true
+		}
+		return true
+	})
+	return slices.Sorted(maps.Keys(set))
 }
 
 // declaresLocals reports whether the render function declares locals: when

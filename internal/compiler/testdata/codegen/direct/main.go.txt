@@ -1,0 +1,28 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+
+	allocs "example.com/blog/orbit_gen/decl/pages/allocs"
+	index "example.com/blog/orbit_gen/decl/pages/index"
+	_ "example.com/blog/orbit_gen/impl/components/box"
+	_ "example.com/blog/orbit_gen/impl/components/card"
+	_ "example.com/blog/orbit_gen/impl/components/frame"
+	_ "example.com/blog/orbit_gen/impl/components/tree"
+	_ "example.com/blog/orbit_gen/impl/pages/about"
+	_ "example.com/blog/orbit_gen/impl/pages/allocs"
+	_ "example.com/blog/orbit_gen/impl/pages/index"
+	"github.com/orbit-z/orbit"
+)
+
+func main() {
+	var buf bytes.Buffer
+	if err := index.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), index.Props{}, orbit.Slots{}); err != nil {
+		panic(err)
+	}
+	if err := allocs.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), allocs.Props{}, orbit.Slots{}); err != nil {
+		panic(err)
+	}
+	fmt.Print(buf.String())
+}

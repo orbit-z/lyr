@@ -28,7 +28,19 @@ const (
 	// files of a component; line-directive resets name them bare.
 	DeclFileName = "decl.go"
 	ImplFileName = "render.go"
+	// BuildDir holds the build flavor's impl files (PLAN.md §3.5), at the
+	// same relative paths as in GenDir, and OverlayFile maps them for
+	// go build -overlay. Both are relative to the module root.
+	BuildDir    = ".orbit/build"
+	OverlayFile = BuildDir + "/overlay.json"
 )
+
+// BuildPath returns where the build flavor of the generated file genFile
+// ("orbit_gen/impl/pages/index/render.go") is written:
+// ".orbit/build/impl/pages/index/render.go".
+func BuildPath(genFile string) string {
+	return BuildDir + strings.TrimPrefix(genFile, GenDir)
+}
 
 // Generated identifiers. User code may not declare names with the orbit__ or
 // Orbit__ prefix (IsReservedIdent); glue code uses only these.
@@ -40,10 +52,17 @@ const (
 	NameProps   = "orbit__props"
 	NameSlots   = "orbit__slots"
 	NameParams  = "orbit__params" // pages only
-	NameRender  = "orbit__render" // the impl package's render function
-	NameErr     = "orbit__err"    // error variable in glue if-statements
-	NameSlot    = "orbit__s"      // slot renderer variable at an outlet
-	NameHook    = "Orbit__Render" // the decl package's hook variable
+	NameRender  = "orbit__render" // the impl package's render function (hook flavor)
+	// NameRenderImpl is the render function's exported name in the build
+	// flavor (PLAN.md §3.5), which direct callers call. The hook flavor
+	// keeps it unexported: an exported function puts its signature, and so
+	// the decl package's Props, into the impl package's export data, which
+	// orbit_gen/link then reads for every component (measured: link's
+	// compile went from 8 to 22 ms at 200 files, on every dev rebuild).
+	NameRenderImpl = "Orbit__RenderImpl"
+	NameErr        = "orbit__err"    // error variable in glue if-statements
+	NameSlot       = "orbit__s"      // slot renderer variable at an outlet
+	NameHook       = "Orbit__Render" // the decl package's hook variable
 )
 
 // Implicit identifiers bound at the top of render (PLAN.md §2.2). A page also

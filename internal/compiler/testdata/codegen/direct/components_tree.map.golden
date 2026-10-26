@@ -1,0 +1,10 @@
+orbit_gen/decl/components/tree/decl.go (src/components/Tree.orbit)
+  exact 2:1 "type Props struct {\n\tDepth int\n}" -> 155-187 "type Props struct {\n\tDepth int\n}"
+orbit_gen/impl/components/tree/render.go (src/components/Tree.orbit)
+  exact 6:9 "props.Depth > 0" -> 658-673 "props.Depth > 0"
+  span  6:26 "Self" -> 770-776 "Render"
+  span  6:31 "depth" -> 885-890 "Depth"
+  exact 6:38 "props.Depth - 1" -> 967-982 "props.Depth - 1"
+  exact 6:59 "props.Depth" -> 1178-1189 "props.Depth"
+call sites
+  content key=99 "props.Depth" call="orbit__w.Expr(\n/*line ../../../../src/components/Tree.orbit:6:59*/props.Depth/*line render.go:27:87*/,\n\t\t\t\t)"

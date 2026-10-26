@@ -31,8 +31,16 @@ benchmarks compare the same work.
 cd bench/go
 go generate ./...        # orbit generate, then templ generate (needs network once)
 go test ./...            # the equivalence test
-go test -run '^$' -bench . -benchmem -count 8 > new.txt
+go tool orbit build      # the production flavor in .orbit/build/ (PLAN.md §3.5)
+go test -overlay=.orbit/build/overlay.json ./...
+go test -overlay=.orbit/build/overlay.json -run '^$' -bench . -benchmem -count 8 > new.txt
 ```
+
+The published numbers (`docs/performance.md`) are the last command: the
+code `orbit build` compiles, where components are called directly, so the
+slot closures stay on the stack. Without `-overlay`, `go test` measures
+`orbit_gen/` as `orbit dev` runs it, through the components' hooks (one
+allocation per capturing slot); that's the "in dev" row.
 
 Compare runs with benchstat, without adding it to a go.mod:
 
@@ -42,7 +50,7 @@ go run golang.org/x/perf/cmd/benchstat@v0.0.0-20261009192801-be2c69fb417e old.tx
 
 Rerun `go generate` after you change `src/`, `templpage/page.templ` or
 Orbit's compiler. If you only changed `src/`, `go tool orbit generate` is
-enough.
+enough. Rerun `go tool orbit build` too before measuring with `-overlay`.
 
 ## What's measured
 
@@ -56,10 +64,11 @@ enough.
   per-request cost. `/cards` is the 500-card page, `/post/hello-world` a
   small page with a route param.
 
-Each reports ns/op, B/op and allocs/op. Orbit's remaining allocations on the
-cards page are the slot closures that capture the loop variable (one per
-card, plus the layout's slot), an accepted cost (PLAN.md §4b); the serve
-path adds the `Content-Length` value.
+Each reports ns/op, B/op and allocs/op. With `-overlay`, Orbit renders the
+cards page with no allocations, and the serve path adds only the
+`Content-Length` value. Without it (the hook flavor), each slot closure that
+captures the loop variable costs one allocation (one per card, plus the
+layout's slot).
 
 ## Caveats
 

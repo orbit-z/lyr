@@ -598,10 +598,14 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	}
 	o.ind()
 	o.str("if " + NameErr + " := ")
-	if n.Self {
-		o.inline(n.NameSpan, "Render", SegSpan)
-	} else {
+	switch {
+	case !g.directCall(n):
 		o.inline(n.NameSpan, qual+"Render", SegSpan)
+	case n.Self:
+		o.inline(n.NameSpan, NameRenderImpl, SegSpan)
+	default:
+		g.directUsed[n.Name] = true
+		o.inline(n.NameSpan, NameDirect(n.Name)+"."+NameRenderImpl, SegSpan)
 	}
 	o.str("(" + NameCtx + ", " + NameW + ", " + qual + "Props{")
 	g.propFields(fields)

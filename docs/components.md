@@ -733,7 +733,7 @@ type Props struct {
 </ul>
 ```
 
-Splitting a template into components costs almost nothing at runtime. A call is one Go function call, with `Props` passed as a struct value. There's no per-call object or context to set up, unlike Astro, where setting up each component is a large share of the render time (see [Performance](performance.md#where-the-time-goes-orbit-vs-astro)). The one cost to know: slot content that uses a variable of the caller, such as `<Row>{p.Title}</Row>` inside a loop, allocates a small closure per call. Passing the value as a prop (`<Row title={p.Title} />`) allocates nothing ([Allocations per request](performance.md#allocations-per-request)).
+Splitting a template into components costs almost nothing at runtime. A call is one Go function call, with `Props` passed as a struct value. There's no per-call object or context to set up, unlike Astro, where setting up each component is a large share of the render time (see [Performance](performance.md#where-the-time-goes-orbit-vs-astro)). Slot content that uses a variable of the caller, such as `<Row>{p.Title}</Row>` inside a loop, allocates nothing in an `orbit build` binary either: components are called directly there, so the content stays on the stack. In `orbit dev` and `go test`, which call components through a hook so an edit recompiles only that component, it allocates a small closure per call, and so does content passed into components that render each other in a cycle ([Direct calls in production builds](performance.md#direct-calls-in-production-builds)).
 
 ## Slots
 
