@@ -35,7 +35,7 @@ type Config struct {
 	Server string
 	// Embed is "embed": true.
 	Embed bool
-	// CompressHTML is "compressHTML" ("html" by default; true means "html").
+	// CompressHTML is "compressHTML" ("jsx" by default; true means "html").
 	CompressHTML compiler.Compression
 	// Sourcemap is "sourcemap": true: orbit build writes external source
 	// maps next to the bundles, not linked from them (PLAN.md §5).
@@ -142,7 +142,7 @@ func Parse(data []byte) (*Config, error) {
 		case false:
 			c.CompressHTML = compiler.CompressNone
 		default:
-			return nil, fmt.Errorf(`%s: compressHTML must be "html" (or true), "jsx" or false, not %s`, FileName, bytes.TrimSpace(raw.CompressHTML))
+			return nil, fmt.Errorf(`%s: compressHTML must be "jsx", "html" (or true) or false, not %s`, FileName, bytes.TrimSpace(raw.CompressHTML))
 		}
 	}
 	return c, nil

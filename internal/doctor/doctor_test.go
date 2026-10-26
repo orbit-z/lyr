@@ -235,7 +235,7 @@ func TestChecks(t *testing.T) {
 			f.diags = []project.Diagnostic{{File: "src/pages/index.orbit", Pos: compiler.Position{Line: 2, Col: 3}, Severity: compiler.SeverityError, Message: "unknown prop"}}
 		}, "orbit_gen", Warning, "orbit generate fails with src/pages/index.orbit:2:3: unknown prop", "orbit generate"},
 		{"bad orbit.json", func(t *testing.T, dir string, f *fakes) { write(t, dir, "orbit.json", `{"compressHTML": "none"}`) },
-			"config", Error, `orbit.json: compressHTML must be "html" (or true), "jsx" or false, not "none"`, "fix orbit.json"},
+			"config", Error, `orbit.json: compressHTML must be "jsx", "html" (or true) or false, not "none"`, "fix orbit.json"},
 		{"orbit.json syntax", func(t *testing.T, dir string, f *fakes) { write(t, dir, "orbit.json", "{\n  \"site\": 1,\n}") },
 			"config", Error, "orbit.json:", "fix orbit.json"},
 		{"server entry missing", func(t *testing.T, dir string, f *fakes) { write(t, dir, "orbit.json", `{"server": "./cmd/web"}`) },

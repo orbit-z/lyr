@@ -21,7 +21,7 @@ type Options struct {
 	Locals string
 	// CompressHTML is orbit.json's "compressHTML": how template whitespace
 	// is compressed at codegen time (DESIGN.md, settled gap 2). The zero
-	// value is the default, "html".
+	// value is the default, "jsx" (Astro v7's default).
 	CompressHTML Compression
 }
 
@@ -29,13 +29,14 @@ type Options struct {
 type Compression uint8
 
 const (
-	// CompressHTML ("html", the default) collapses whitespace runs to one
+	// CompressJSX ("jsx", the default, Astro v7's) applies JSX's whitespace
+	// rules: whitespace with a newline next to a tag boundary is removed,
+	// within a line it's kept.
+	CompressJSX Compression = iota
+	// CompressHTML ("html", or true) collapses whitespace runs to one
 	// space, or one newline if the run has one, and drops whitespace-only
 	// text between block-level tags; inline content keeps a space.
-	CompressHTML Compression = iota
-	// CompressJSX ("jsx") applies JSX's whitespace rules: whitespace with a
-	// newline next to a tag boundary is removed, within a line it's kept.
-	CompressJSX
+	CompressHTML
 	// CompressNone (false) copies template text verbatim.
 	CompressNone
 )

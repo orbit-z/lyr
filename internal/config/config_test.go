@@ -17,15 +17,15 @@ func TestParse(t *testing.T) {
 		want Config
 		err  string
 	}{
-		{`{}`, Config{}, ""},
+		{`{}`, Config{CompressHTML: compiler.CompressJSX}, ""}, // the default is "jsx", Astro v7's
 		{`{"site": "https://example.com", "server": "./cmd/web", "embed": true, "compressHTML": "jsx"}`,
 			Config{Site: "https://example.com", Server: "./cmd/web", Embed: true, CompressHTML: compiler.CompressJSX}, ""},
 		{`{"compressHTML": "html"}`, Config{CompressHTML: compiler.CompressHTML}, ""},
 		{`{"compressHTML": false}`, Config{CompressHTML: compiler.CompressNone}, ""},
-		{`{"compressHTML": null, "site": null}`, Config{}, ""},
+		{`{"compressHTML": null, "site": null}`, Config{CompressHTML: compiler.CompressJSX}, ""},
 		{`{"unknown": 1, "Site": "https://x.dev"}`, Config{Site: "https://x.dev"}, ""}, // encoding/json matches keys case-insensitively
 		{`{"compressHTML": true}`, Config{CompressHTML: compiler.CompressHTML}, ""},
-		{`{"compressHTML": "none"}`, Config{}, `orbit.json: compressHTML must be "html" (or true), "jsx" or false, not "none"`},
+		{`{"compressHTML": "none"}`, Config{}, `orbit.json: compressHTML must be "jsx", "html" (or true) or false, not "none"`},
 		{`{"site": "blog.example.com"}`, Config{}, `orbit.json: site "blog.example.com" isn't an absolute URL; include the scheme and host, such as "https://example.com"`},
 		{`{"site": "/blog"}`, Config{}, `orbit.json: site "/blog" isn't an absolute URL; include the scheme and host, such as "https://example.com"`},
 		{`{"site": 3}`, Config{}, `orbit.json: site must be a string`},
