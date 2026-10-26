@@ -685,7 +685,9 @@ func (g *cgGen) propFields(fields []cgField) {
 			// lands on the value; a quoted value's position is its quote.
 			sp := a.ValueSpan
 			if a.Kind == AttrQuoted {
-				sp = Span{sp.Start - 1, sp.End + 1}
+				// An unclosed quote (tolerant mode) ends at the end of
+				// the file: there's no closing quote to include.
+				sp = Span{sp.Start - 1, min(sp.End+1, len(g.src))}
 			}
 			o.inline(sp, strconv.Quote(a.Value), SegSpan)
 		default:
