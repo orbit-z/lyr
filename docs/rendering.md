@@ -335,9 +335,9 @@ For true streaming (server-sent events, large downloads), write a regular handle
 
 A buffered page waits for its slowest part, and by default Orbit renders components in order, one after the other: two components that each wait 10 ms for their own data make the page take 20 ms. There are three ways to deal with slow parts:
 
-- **Load the data in the page** (recommended): the page's frontmatter starts its fetches at once, with Go's own concurrency (goroutines and a `sync.WaitGroup`, or an `errgroup`), and passes the results down as props. Components stay fast and simple to test, and the page owns its queries.
+- **Load the data in the page** (recommended): the page's frontmatter runs its fetches at once with [`orbit.All`](data-loading.md) and passes the results down as props. Components stay fast and simple to test, and the page owns its queries. Data that several components need can come from a per-request [loader in `locals`](data-loading.md#share-data-without-props-drilling-a-loader-in-locals). See [Loading data](data-loading.md).
 - **`server:concurrent`** is for components that fetch their own data, such as code ported from Astro: it overlaps them in the same response. Each marked component renders in its own goroutine, starting when the page reaches it, while the page goes on; Orbit waits for all of them and assembles the HTML in source order. The page still waits for its slowest part, but slow parts no longer add up.
-- **`server:defer`** takes a part off the first byte: the page is sent with a fallback, and the part arrives in a second request. See [Lazy loading](lazy-loading.md#which-one-server-defer-or-server-concurrent) for which to pick.
+- **`server:defer`** takes a part off the first byte: the page is sent with a fallback, and the part arrives in a second request. See [Lazy loading](lazy-loading.md#which-one-serverdefer-or-serverconcurrent) for which to pick.
 
 A component that fetches its own data:
 

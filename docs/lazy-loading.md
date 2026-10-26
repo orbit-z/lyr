@@ -467,7 +467,7 @@ Lazy components are rendered on the server like any other, so their HTML is ther
 
 ## Which one: `server:defer` or `server:concurrent`
 
-Both help with slow components that fetch their own data, in different ways. (When the page can load the data itself, overlapping its fetches in the frontmatter and passing the results down as props is the recommended pattern; see [Slow components](rendering.md#slow-components).)
+Both help with slow components that fetch their own data, in different ways. (When the page can load the data itself, loading its fetches at once with `orbit.All` and passing the results down as props is the recommended pattern; see [Loading data](data-loading.md).)
 
 | | `server:defer` | [`server:concurrent`](rendering.md#slow-components) |
 |---|---|---|

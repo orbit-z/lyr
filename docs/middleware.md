@@ -207,6 +207,22 @@ Pages never see `nil`: if no middleware attached locals (a request that bypasses
 
 Inside the frontmatter, the variable `locals` shadows the package name. Hoisted helpers that need the type import `example.com/blog/src/locals` as usual. See [Components](components.md).
 
+### A per-request data loader
+
+Locals are also where data that several components need comes from, without passing it down as props through every layer: middleware gives each request a memoizing loader, created with the request's context, and components call it; the first call for a key loads it, and the others get the same result.
+
+```go
+func withCatalog(api *catalog.Client, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r, l := orbit.EnsureLocals[locals.Locals](r)
+		l.Books = catalog.NewLoader(r.Context(), api) // one per request
+		next.ServeHTTP(w, r)
+	})
+}
+```
+
+A loader shared by concurrent loads and `server:concurrent` components needs a mutex; [Loading data](data-loading.md#share-data-without-props-drilling-a-loader-in-locals) has the 20-line `Loader` and its one rule (it uses the request's context, not a load's).
+
 ## Short-circuit responses
 
 A middleware short-circuits the usual `net/http` way: it writes a response and doesn't call `next`.
