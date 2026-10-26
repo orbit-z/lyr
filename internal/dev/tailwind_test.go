@@ -151,6 +151,44 @@ func TestPipelineTailwind(t *testing.T) {
 	}
 }
 
+// TestDevTailwind runs orbit dev with the real CLI: adding a class to a
+// template reloads the page with a stylesheet that has it, with one go
+// build.
+func TestDevTailwind(t *testing.T) {
+	needE2E(t)
+	tailwindtest.Real(t)
+	dir := twFixture(t)
+	edit(t, dir, "src/components/Card.orbit", "tw-one", "italic")
+	s := startSession(t, dir)
+	defer s.stop()
+	css := func() string {
+		t.Helper()
+		_, body := s.get("/")
+		m := cssLink.FindStringSubmatch(body)
+		if m == nil {
+			t.Fatalf("no stylesheet:\n%s", body)
+		}
+		_, css := s.get(m[1])
+		return css
+	}
+	if c := css(); !strings.Contains(c, ".italic") || strings.Contains(c, ".underline") || !strings.Contains(c, "font-weight: var(--font-weight-bold") {
+		t.Fatalf("first CSS:\n%s", c)
+	}
+	events := s.events()
+	builds := s.count("gobuild")
+	edit(t, dir, "src/components/Card.orbit", "italic", "italic underline")
+	waitReload(t, events, "new class")
+	if c := css(); !strings.Contains(c, ".underline") {
+		t.Errorf("no .underline after the edit:\n%s", c)
+	}
+	if n := s.count("gobuild"); n != builds+1 {
+		t.Errorf("%d go builds, want 1", n-builds)
+	}
+	if s.count("tailwind") == 0 {
+		t.Errorf("Tailwind didn't rerun early")
+	}
+}
+
 // TestPipelineNoTailwind: a project without Tailwind never runs the CLI
 // or the gate.
 func TestPipelineNoTailwind(t *testing.T) {
