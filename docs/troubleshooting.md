@@ -649,6 +649,12 @@ import _ "example.com/blog/orbit_gen/app"
 
 **Fix:** guard the recursive call with an `{if}` (render `<Self>` only for nodes that have children), and make sure your data ends. The message shows the component stack. See [The depth limit](components.md#the-depth-limit).
 
+### `orbit: </head> can't be inside orbit.RenderHTML; keep the document head outside the captured content`
+
+**Cause:** content rendered with `orbit.RenderHTML` (a fragment cache component, say) reached a `</head>`, typically because a layout is inside the cached children. The page's `<link>` and `<script>` tags are written at the page's own `</head>`, and a cached copy must never hold one page's tags. It's a render error, returned by `orbit.RenderHTML`.
+
+**Fix:** keep the layout outside: render `<Base>` in the page and put the cached component inside its body. See [Caching fragments](rendering.md#caching-fragments).
+
 ### A URL answers 404
 
 Check which case you're in:
@@ -709,7 +715,7 @@ For `set:json`, the position is the `set:json` attribute's: `src/pages/index.orb
 orbit: GET /blog/hello: src/pages/blog/[slug].orbit:14:5: posts: connection refused
 ```
 
-**Fix:** find the line in your server's stderr (your platform's logs) and fix the error at that position: the frontmatter `return` that returned it, or the line that panicked. `orbit dev` shows the same error in an overlay. Because responses are buffered, a failed render never sends half a page. In a stack trace from a binary built with `-trimpath`, frames from `.orbit` files keep their absolute paths. A custom `src/pages/500.orbit` is planned after the first release. See [Status codes and errors](rendering.md#status-codes-and-errors) and [Stack traces and `-trimpath`](reference/cli.md#stack-traces-and--trimpath).
+**Fix:** find the line in your server's stderr (your platform's logs) and fix the error at that position: the frontmatter `return` that returned it, or the line that panicked. `orbit dev` shows the same error in an overlay. Because responses are buffered, a failed render never sends half a page. In a stack trace from a binary built with `-trimpath`, frames from `.orbit` files keep their absolute paths. For errors your app expects (a reader who must sign in, a backend that's down), answer them yourself with [`orbit.WithErrorHandler`](rendering.md#answering-errors-yourself-witherrorhandler); a handler that returns `false` leaves the error to this 500. A custom `src/pages/500.orbit` is planned after the first release. See [Status codes and errors](rendering.md#status-codes-and-errors) and [Stack traces and `-trimpath`](reference/cli.md#stack-traces-and--trimpath).
 
 ### A `server:defer` component only shows its fallback
 

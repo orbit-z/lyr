@@ -743,3 +743,33 @@ With the `class:list` directive (`PLAN.md` §2.3). The syntax (Go composite-lite
 | `orbit fmt` formats the list as composite-literal elements (gofmt spacing); a multi-line list keeps its lines and trailing comma, a one-line list loses a trailing comma | Go stdlib (gofmt) | Leave lists as written | `PLAN.md` §6.1 |
 | The language server offers `class:list` on HTML elements and on components whose `Props` has a `Class` field; an unparsable list (while typing) is still completed by gopls | simplest | Offer it on every component | [Editor setup](editor-setup.md) |
 | The VS Code grammar scopes `class:list` like the other directives, its value as Go | simplest | — | `editors/vscode/CHANGELOG.md` |
+
+## Error hook
+
+`orbit.WithErrorHandler` and `site.ServeError` (`PLAN.md` §4c). The shape (a `Site` option returning `bool`), what reaches it (only 500-bound errors, panics included) and `ServeError` were the user's, not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| With several `WithErrorHandler` options, the last one wins | Go stdlib (functional options, like `WithKey`) | Chain them | [Runtime API](reference/runtime-api.md#witherrorhandler) |
+| A recovered panic's error unwraps to the panic value when it's an `error` | simplest (so `errors.As` sees `panic(err)`) | Wrap only errors that Orbit created | [Runtime API](reference/runtime-api.md#errors-and-control-flow) |
+| The handler's `err` keeps the `.orbit` position as its text prefix; there's no separate position API | simplest | An `orbit.ErrorPos(err)` accessor | [Rendering](rendering.md#answering-errors-yourself-witherrorhandler) |
+| The page's `ctx.Header()` headers are dropped before the handler runs, as for the 500; middleware's headers on `w` stay | Astro (a thrown error discards the page's response) | Pass them to the handler | [Rendering](rendering.md#answering-errors-yourself-witherrorhandler) |
+| For an island request, `Cache-Control: private, no-store` and `X-Robots-Tag: noindex` are set on `w` before the handler runs (only when a handler is set), and the handler may replace them | simplest (an error answer isn't cached either) | Leave the headers to the handler | [Lazy loading](lazy-loading.md#status-codes-and-errors) |
+| A handled error isn't logged; the handler decides | Go stdlib (`httputil.ReverseProxy.ErrorHandler`) | Always log | [Rendering](rendering.md#answering-errors-yourself-witherrorhandler) |
+| A panic in the handler isn't recovered by Orbit (it goes to `net/http`) | Go stdlib | Recover and send the 500 | [Rendering](rendering.md#answering-errors-yourself-witherrorhandler) |
+| The handler runs in `orbit dev` too; only errors it declines show the dev error page | simplest (dev and prod behave the same) | Skip it in dev | [Rendering](rendering.md#answering-errors-yourself-witherrorhandler) |
+| `site.ServeError` with a `nil` error writes nothing | simplest | Panic, or send a 500 | [Runtime API](reference/runtime-api.md#site) |
+| `site.ServeError` treats the request as a page request (a not-found renders `404.orbit`, no island headers), whatever its path | simplest | Detect island paths | [Runtime API](reference/runtime-api.md#site) |
+
+## Slot to string
+
+`orbit.RenderHTML` (`PLAN.md` §4d). The name and signature, the `</head>` render error and having no per-user guard helper (a documented pattern instead) were the user's, not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| The render's error is returned, not set as the page's sticky error, and the partial output is dropped | simplest (the caller decides) | Set the page's error | [Runtime API](reference/runtime-api.md#renderers-and-slots) |
+| Panics aren't recovered in `RenderHTML`; the request's recovery handles them, and the `ctx`'s writer pointer is restored on the way out | simplest | Recover into an error | [Runtime API](reference/runtime-api.md#renderers-and-slots) |
+| A nil renderer (no slot content) returns `""` and no error | simplest | An error | [Components](components.md#rendering-a-slot-to-a-string) |
+| The capture's writer starts with a copy of the request writer's component stack; a `ctx` with no writer (or `nil`) starts at depth 0 | simplest | Share one stack | [Runtime API](reference/runtime-api.md#renderers-and-slots) |
+| The current writer is an unexported `Ctx` field, set where the runtime pairs a `Ctx` with a `Writer` (pages, islands, `RenderComponent`, `orbittest`) | simplest (no exported API) | A `Writer` argument | `PLAN.md` §4d |
+| The docs' cache example caps its size by clearing the map when full | simplest (an example, not a library) | An LRU | [Rendering](rendering.md#caching-fragments) |

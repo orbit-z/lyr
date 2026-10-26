@@ -1162,6 +1162,7 @@ type Slots struct {               // passed by value; the zero value means "no c
 }
 func (s Slots) Get(name string) Renderer   // "default" → Default; otherwise a linear scan of Named
 func (s Slots) Has(name string) bool
+func RenderHTML(ctx *Ctx, r Renderer) (HTML, error)  // render r to a string, e.g. a slot for a fragment cache (§4d)
 
 type Asset struct { Kind string; URL string; ID string }  // Kind: "css" | "js" | "lazy" (ID: the component ID whose marker loads it, §5)
 type Route struct {
@@ -1184,10 +1185,12 @@ func WithStaticDir(dir string) Option               // precedence (decided by ru
 func WithStaticFS(fsys fs.FS) Option                // used automatically by --embed builds (§6 step 6)
 func WithKey(key []byte) Option                     // 32-byte island key; overrides $ORBIT_KEY and the build key
 func WithSite(rawURL string) Option                 // absolute site URL for ctx.Site; app.New() passes orbit.json's "site" first, so a caller's option wins; panics if not absolute
+func WithErrorHandler(h func(w http.ResponseWriter, r *http.Request, err error) bool) Option // answers 500-bound render errors first (§4c)
 
 func (s *Site) Middleware(next http.Handler) http.Handler  // THE integration point (§5b)
 func (s *Site) Handler() http.Handler                      // = Middleware(NotFound())
 func (s *Site) NotFound() http.Handler                     // renders 404.orbit
+func (s *Site) ServeError(w http.ResponseWriter, r *http.Request, err error) // answers err as a page's would be (§4c)
 func RenderComponent[P any](w http.ResponseWriter, r *http.Request,
     render func(*Ctx, *Writer, P, Slots) error, props P) error   // HTML fragment, e.g. for htmx: buffered; on success
                                                                   // 200, text/html; charset=utf-8, Content-Length; on
@@ -1263,7 +1266,7 @@ func Snapshot(t testing.TB, name, html string)              // compares with tes
 - **Trailing slashes: none** (user decision; one fixed behavior, the `trailingSlash` modes are deferred, §12). A page's canonical URL has no trailing slash: `/blog/hello`, and `blog/index.orbit` is `/blog`. `/` stays `/`. The router answers `/blog/hello/` with a **308 to `/blog/hello`**, keeping the query string (`/search/?q=go` → `/search?q=go`), as `net/http`'s `ServeMux` does for its redirects. Same in dev and prod. Paths for files (`/_orbit/…`, `public/` files) are never redirected.
   - The redirect is issued only when the path without its trailing slash matches a page route; otherwise the request falls through to `next` untouched, so a user route such as `/api/items/` keeps working in Orbit-first setups. *Decided by rule* (simplest option that never steals the user's routes; log it in `docs/DECISIONS.md`).
 - **Errors**: panics are recovered per request.
-  - Prod (user decision): a minimal built-in page (`500 Internal Server Error`), never showing the error. The error and its `.orbit` position are logged to stderr with the `log` package (`orbit: GET /blog/hello: src/pages/blog/[slug].orbit:14:5: …`): for a returned error, the position of its frontmatter `return` (§2.2, `orbit.ErrorAt`); for a panic, the innermost `.orbit` line on the stack. A custom `src/pages/500.orbit` comes after the MVP (§12). Proposed: an app-supplied error handler answers first (§4c).
+  - Prod (user decision): a minimal built-in page (`500 Internal Server Error`), never showing the error. The error and its `.orbit` position are logged to stderr with the `log` package (`orbit: GET /blog/hello: src/pages/blog/[slug].orbit:14:5: …`): for a returned error, the position of its frontmatter `return` (§2.2, `orbit.ErrorAt`); for a panic, the innermost `.orbit` line on the stack. A custom `src/pages/500.orbit` comes after the MVP (§12). An app-supplied error handler (`WithErrorHandler`) answers first (§4c, implemented).
   - Dev: error overlay with file:line.
 - **Locals helpers**: `EnsureLocals` is what middleware uses. It returns the attached `*L` (and `r` unchanged), or attaches a `new(L)` with `WithLocals` and returns the new request, so every middleware in the chain can call it and they all share one value. `LocalsFromRequest` returns `nil` when nothing is attached, rather than a detached zero value whose writes would be silently lost (decided by rule: Go stdlib convention; context accessors such as `httptrace.ContextClientTrace` return nil when absent). Pages never see nil: `LocalsOf` allocates. `WithLocals` on a request that already carries locals shadows them for handlers further down only, like `context.WithValue`; middleware that ran earlier keeps its pointer (decided by rule: Go stdlib).
 - **Island key** (resolved once, in `NewSite`), in this order:
@@ -1307,7 +1310,9 @@ The SSR hot path is built for speed. There's no fixed target number; the results
 - **Micro-benchmarks** for the `Writer` and the escaper (`b.Loop()`, `b.ReportAllocs()`) live next to the runtime as dev tools.
 
 ## 4c. Error → response hook
-**Status: Accepted** (2026-10-26). User answers, as recommended: (Q1) a `Site` option, `orbit.WithErrorHandler(func(w, r, err) bool)`; (Q2) only errors that would become the built-in 500 reach it, recovered panics included; (Q3) `site.ServeError(w, r, err)` for custom handlers.
+**Status: Implemented** (2026-10-26; accepted the same day). User answers, as recommended: (Q1) a `Site` option, `orbit.WithErrorHandler(func(w, r, err) bool)`; (Q2) only errors that would become the built-in 500 reach it, recovered panics included; (Q3) `site.ServeError(w, r, err)` for custom handlers.
+
+**Implementation notes**: the handler is called from `renderFailed`'s default case (pages, the 404 page, `ServeError`) and from `islandFailed`'s (islands, after setting the two island headers on `w`; only when a handler is set, so island 500s without one are unchanged). `panicError` gained `Unwrap`. `ServeError(w, r, nil)` writes nothing, and treats any request as a page request (decided by rule: simplest; `DECISIONS.md` "Error hook"). The success path is untouched: one nil check on the failure path. Tests: `errorhandler_test.go` (pages, nested components, `errors.Join`, panics, control flow, the 404 page's own failure, HEAD, dev, last option wins, islands with the 400/413 and undecodable props, `ServeError` with `RenderComponent`), `orbittest.Get` through a site with the option, and the orbittest integration project (`app.New(orbit.WithErrorHandler(…))`). No deviations.
 
 **Why**: in `nyth`, every catalogue or reader call (16 `catalog` and 19 `reader` uses in templates, plus layouts) can fail with one of three typed errors, from the page or from any component: `AccessRefused` becomes a 303 to `/signin/?next=…` or `/waiting/`, `CatalogUnavailable` a 503 with `Retry-After: 60` (and a log line), `ReaderBlocked` a 403 with a short text body. Astro lets middleware catch what the page threw (`try { return await next() } catch (e) { … }`, `nyth`'s `handleRequest`). In Orbit, a returned error that isn't `ErrNotFound` or a `*RedirectError` becomes the built-in 500 inside `site.Middleware` (§4), and middleware around it can't intercept, since the 500 has been written. Only the redirect has a workaround today (an error that `Unwrap`s to a `*orbit.RedirectError`).
 
@@ -1408,7 +1413,9 @@ if err != nil {
 - `ErrorAt`-style positions as a separate API.
 
 ## 4d. Rendering a slot to a string
-**Status: Accepted** (2026-10-26). User answers: (Q1) `orbit.RenderHTML(ctx, r Renderer) (orbit.HTML, error)`; (Q2) a `</head>` inside a capture is a render error; (Q3) decided by the coordinator with the recommendation (rule: simplest): no Orbit helper for the per-user guard, a documented caching pattern.
+**Status: Implemented** (2026-10-26; accepted the same day). User answers: (Q1) `orbit.RenderHTML(ctx, r Renderer) (orbit.HTML, error)`; (Q2) a `</head>` inside a capture is a render error; (Q3) decided by the coordinator with the recommendation (rule: simplest): no Orbit helper for the per-user guard, a documented caching pattern.
+
+**Implementation notes** (`render_html.go`): `Ctx` has an unexported `w *Writer`, set by `servePage`, `serveIsland`, `RenderComponent` and the `orbittest` hook (one pointer store per request); `Writer` has a `capture` flag that makes `HeadEnd` set the render error. The capture writer and buffer are pooled; its stack is a copy of the request writer's (pooled capacity, so no allocation after warm-up); `ctx.w` is restored by a `defer`, so after a panic too. A `nil` `ctx` works like a hand-built one (depth 0). Measured (`BenchmarkRenderHTML`, 2 KB of static markup): 166–200 ns, 1 alloc / 2 KB per miss; a hit (`w.HTML` of a cached value) 0 allocs (`TestRenderHTMLAllocs`). `TestRenderAllocs`/`TestServeAllocs` unchanged. Tests: `render_html_test.go` (in place vs captured with `class:list`, a `client:*` marker and a `server:defer` placeholder; depth through captures; nesting; writer restored after success, error and panic; `</head>`; allocations), `orbittest.Render` of a capturing component, and real `.orbit` files in the orbittest integration project (`Cacher`/`Rich`/`Recurse`: captured HTML equals in-place HTML; recursion through captures stops at 1000 with the stack error). No deviations.
 
 **Why**: `nyth`'s `<Cacher key ttl store>` (34 uses) renders its default slot to an HTML string (`Astro.slots.render("default")`), keeps it in an in-memory fragment cache (cards 6 h, lists 1 h) and writes it with `set:html`. Today this works with `var b bytes.Buffer; slots.Default(orbit.NewWriter(&b))`, but a fresh `Writer` has an empty component stack (so the depth guard restarts at 0: runaway recursion through a captured slot overflows the Go stack), and what `</head>` or `server:defer` do inside it is undocumented.
 

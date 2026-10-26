@@ -77,7 +77,7 @@ func (e *RedirectError) Error() string
 ```
 The error returned by `ctx.Redirect`. Orbit answers with status `Code` and a `Location` header. The island loader doesn't follow redirects, so in a deferred component a redirect leaves the fallback in place.
 
-Any other non-nil error is a server error: a 500 page in production, the error overlay in `orbit dev`. Panics are recovered per request and handled the same way.
+Any other non-nil error is a server error: a 500 page in production, the error overlay in `orbit dev`, unless the site's [error handler](#witherrorhandler) answers it. Panics are recovered per request and handled the same way. A recovered panic is an error whose text names the innermost `.orbit` line (`src/pages/x.orbit:7: panic: …`) and whose `Unwrap` returns the panic value when it's an `error`, so `errors.As` finds a `panic(err)`.
 
 ## Values
 
@@ -346,6 +346,18 @@ func (s Slots) Has(name string) bool
 ```
 Reports whether the slot was passed, e.g. `{if slots.Has("footer")}`.
 
+```go
+func RenderHTML(ctx *Ctx, r Renderer) (HTML, error)
+```
+Renders `r` (a slot such as `slots.Default` or `slots.Get("x")`, or any `Renderer`) and returns its output, for example to keep it in a fragment cache and write it later with `set:html`. The output is exactly what `r` writes in place; a nil `r` returns `""`. It renders into a pooled buffer and allocates one string, the result.
+
+- The render's error is returned, not kept by the page, and the partial output is dropped. A panic isn't recovered here; the request's recovery handles it.
+- The capture continues the component stack of the request's writer, so the depth limit of 1000 counts through captures, and captures can nest. A `ctx` that no request renders with (built by hand) starts at depth 0.
+- A `</head>` inside the capture is a render error, `orbit: </head> can't be inside orbit.RenderHTML; keep the document head outside the captured content`: the page's asset tags go at the page's own `</head>`.
+- `ctx.SetStatus`, `ctx.Header()` and `locals` writes inside the captured content happen when it renders, so not when a cached copy is served.
+
+See [Rendering a slot to a string](../components.md#rendering-a-slot-to-a-string) and [Caching fragments](../rendering.md#caching-fragments).
+
 ## Generated component packages
 
 Each `.orbit` file has a generated declaration package under `orbit_gen/decl/`, which is how Go code (handlers, tests) refers to a component. For `src/components/Card.orbit`:
@@ -399,6 +411,11 @@ func (s *Site) NotFound() http.Handler
 ```
 Renders `404.orbit` with a 404 status (a status the page sets with `ctx.SetStatus` wins), or answers an empty 404 if there is no `404.orbit`. Use it as the catch-all of your own mux when Orbit comes first.
 
+```go
+func (s *Site) ServeError(w http.ResponseWriter, r *http.Request, err error)
+```
+Answers `err` the way a page's render error is answered: a `*RedirectError` (found with `errors.As`) redirects, `ErrNotFound` renders `404.orbit`, and any other error goes to the [error handler](#witherrorhandler), then to the built-in 500 with its log line. For custom handlers: `if err := orbit.RenderComponent(w, r, card.Render, props); err != nil { site.ServeError(w, r, err) }`. A nil `err` writes nothing.
+
 ### Options
 
 ```go
@@ -434,6 +451,21 @@ Sets the 32-byte island key that encrypts `server:defer` props. Without it, the 
 Under `go test`, the fixed test key replaces steps 3 and 4, and the build ID is `0000000000000000`. A key that isn't 32 bytes long makes `WithKey` panic.
 
 All instances of one build share its embedded key. For rolling deploys, or several builds behind one load balancer, set the same `ORBIT_KEY` everywhere. See [Deploy](../deploy.md).
+
+#### WithErrorHandler
+
+```go
+func WithErrorHandler(h func(w http.ResponseWriter, r *http.Request, err error) bool) Option
+```
+Sets `h` to answer the render errors that would otherwise get the built-in 500: errors returned by a page or any component it renders (the `404.orbit` page and deferred islands included) and recovered panics. `h` returns `true` when it wrote the response, `false` to let Orbit send the 500 and log the error. With several `WithErrorHandler` options, the last one wins.
+
+- `ErrNotFound` and `*RedirectError` never reach it, and neither do the island endpoint's own 400 and 413 (a bad token, props that don't decode, a body over 1 MiB).
+- `err` unwraps to your error through `ErrorAt`'s position, nested components and `errors.Join`, for `errors.Is` and `errors.As`; its text starts with the `.orbit` position of the `return`.
+- Nothing has been written when `h` runs. The page's output and the headers it set with `ctx.Header()` are dropped; headers set on `w` by middleware before Orbit stay.
+- For an island request, `r` is the island request (the page is `r.Referer()`), and `Cache-Control: private, no-store` and `X-Robots-Tag: noindex` are already set on `w`.
+- Orbit doesn't log an error `h` answers, doesn't recover a panic in `h`, and runs `h` the same way in `orbit dev`.
+
+See [Answering errors yourself](../rendering.md#answering-errors-yourself-witherrorhandler).
 
 ### Generated wiring
 
@@ -500,7 +532,7 @@ func like(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-The fragment is buffered like a page: on success it's written once, with the status from `ctx.SetStatus` (200 by default), the headers set through `ctx.Header()`, `Content-Type: text/html; charset=utf-8` (unless the component set one) and a `Content-Length`. If rendering fails, nothing has been written yet and the error is returned, so you can send your own error response. A panic in the component is returned as an error naming the `.orbit` line, and `ctx.Redirect` and `ErrNotFound` are returned as they are (only pages act on them). `ctx.Site` is nil in a fragment.
+The fragment is buffered like a page: on success it's written once, with the status from `ctx.SetStatus` (200 by default), the headers set through `ctx.Header()`, `Content-Type: text/html; charset=utf-8` (unless the component set one) and a `Content-Length`. If rendering fails, nothing has been written yet and the error is returned, so you can send your own error response, or answer it as a page would with [`site.ServeError`](#site). A panic in the component is returned as an error naming the `.orbit` line, and `ctx.Redirect` and `ErrNotFound` are returned as they are (only pages act on them). `ctx.Site` is nil in a fragment.
 
 A fragment may contain `server:defer` placeholders; they're sealed with the same key as the site's (without `WithKey`). They load only if the page the fragment lands in already has the islands loader.
 
