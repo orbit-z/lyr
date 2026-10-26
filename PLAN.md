@@ -2160,7 +2160,7 @@ Decided by rule (to log in `docs/DECISIONS.md`):
 - Removing classes from the dev stylesheet before the next full run.
 
 ## 5e. Code splitting
-**Status: Proposed, (Q) points open** (2026-10-26). Moved up from §12 by the user, prompted by porting `nyth` (an Astro site that lazy-loads Lexical, a quick-search engine and a read-aloud engine with dynamic `import()`). Written before implementation, like §5c; the prototype is in `scratchpad/codesplit/` (a patched copy of `internal/assets`, not committed).
+**Status: Accepted** (2026-10-26). User answers, all as recommended: (Q1) (B) a page's own script and style blocks stay in its entry, only imported files become shared chunks; (Q2) `<link rel="modulepreload">` for the entry's static chunks; (Q3) CSS of `import()`ed modules stays in the page stylesheet; (Q5) deploy skew is docs only. (Q4) no preloading of lazy/dynamic chunks' dependencies and (Q6) no opt-out: decided by the coordinator with the recommendations (rule: simplest). No Vite (user decision). Moved up from §12 by the user, prompted by porting `nyth` (an Astro site that lazy-loads Lexical, a quick-search engine and a read-aloud engine with dynamic `import()`). Written before implementation, like §5c; the prototype is in `scratchpad/codesplit/` (a patched copy of `internal/assets`, not committed).
 
 **Goal**: a dynamic `import()` in a script loads a separate file when it runs, instead of being bundled into every page that reaches it; a module shared by a page bundle and a `client:*` lazy entry exists once, with one module state; code shared between pages is a cacheable file of its own. No opt-out, no new dependency, no runtime cost on the SSR path, and the dev loop stays as fast as today or faster.
 
