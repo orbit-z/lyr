@@ -176,6 +176,138 @@ title := strings.ToUpper(props.Title)
   - When the fields can't be listed (the embed/alias fallback above), Orbit skips the pre-check and Go's `unknown field` error is reported at the attribute name through its field-key directive (§3.3). The Go compiler always checks the value types.
 - **Scripts and styles**: non-inline `<script>`/`<style>` tags anywhere in a template are extracted from the HTML (§5).
 
+### 2.4 Markdown files
+**Status: Proposed** (docs first: `docs/markdown.md`; not implemented). The open questions for the user are marked **(Q)**; the text below assumes the recommended answer.
+
+**What a `.md` is.** A Markdown file is a component with no Go code: frontmatter (YAML) plus a Markdown body, compiled at generate time. Extensions (Astro's list): `.md`, `.markdown`, `.mdown`, `.mkdn`, `.mkd`, `.mdwn`.
+- Under `src/pages/` (and not `_`-prefixed) it's a **page**, with the route rules of §4: `blog/hello.md` → `/blog/hello`, `index.md`, `404.md`. A route collision with an `.orbit` page is the existing duplicate-route error (`route /about is already defined by src/pages/about.md; …`). A bracket in a `.md` page path is a build error at the file: `a Markdown page can't have route params; rename it, or write a [slug].orbit page`.
+- Elsewhere under `src/` it's compiled **only when imported** (Astro behavior), so a stray `README.md` never breaks generate.
+- Imported from an `.orbit` frontmatter as `Post "./post.md"`: the same alias, relative-path, inside-`src/` and unused-import rules as `.orbit` imports (§2.2). The relative-import error becomes `only .orbit and .md files can be imported by relative path; …` (update `components.md`/`troubleshooting.md` with the implementation, since docstest asserts the current wording). A `.md` can't import anything; `layout` is its only dependency.
+
+**Frontmatter (Q: format).** YAML between `---` lines, parsed with `go.yaml.in/yaml/v3` (the YAML organization's maintained continuation of `gopkg.in/yaml.v3`; CLI-only dependency, to be approved), using `yaml.Node` so every key and value has a line:col. Positions are offset by the opening fence, so errors read `src/pages/blog/hello.md:L:C`. Anchors/aliases, tags and multi-document streams are errors (simplest). `layout` is consumed by Orbit: a path relative to the `.md`, ending in `.orbit`, inside `src/` (`layout ../layouts/Post.orbit: no such file` at the value). A key with no value is an error. Keys become Go field names with the route-param rules (§2.2: PascalCase plus initialisms, `[A-Za-z][A-Za-z0-9_-]*`, collisions are errors at the second key).
+
+**Generated packages.** A `.md` gets the usual decl/impl pair (§3.1), with an `_md` suffix on the last segment so it never collides with a sibling `.orbit`: `src/pages/blog/hello.md` → `orbit_gen/{decl,impl}/pages/blog/hello_md` (packages `hello_md`, `hello_md_impl`); `404.md` → `p_404_md`. Component ID `<Name>-<hash8>` as usual (§3.4).
+
+Declaration package (what importers see; Q: what an import exposes):
+```go
+package hello_md
+
+import (
+	orbit__rt "github.com/orbit-z/orbit"
+	"time"
+)
+
+type Props struct{}
+type Params struct{} // pages only, like any page
+
+// Generated from the YAML values (types inferred: string, bool, int, float64,
+// time.Time for YAML dates/timestamps, []T for homogeneous lists, nested
+// anonymous structs for maps; mixed lists are an error at the list).
+var Frontmatter = struct {
+	Title string
+	Date  time.Time
+	Tags  []string
+}{
+	Title: "Hello, Orbit",
+	Date:  time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC),
+	Tags:  []string{"news", "go"},
+}
+
+var Headings = []orbit__rt.Heading{{Depth: 2, Slug: "why-markdown", Text: "Why Markdown"}}
+
+const URL = "/blog/hello" // pages only
+
+var Orbit__Render func(*orbit__rt.Ctx, *orbit__rt.Writer, Props, orbit__rt.Slots, Params) error
+func Render(…) error { … } // the uniform wrapper of §3.2
+```
+`Frontmatter` is an anonymous struct, so two files with the same keys and types share a type (struct identity) and fit in one slice. It's a package var, so every importer reads the same values: read-only by convention. The HTML is **not** in decl, so a body edit recompiles only the impl package; frontmatter and heading edits change decl and recompile importers.
+
+Implementation package, for a page with a layout:
+```go
+package hello_md_impl
+
+import (
+	orbit__rt "github.com/orbit-z/orbit"
+	. "example.com/blog/orbit_gen/decl/pages/blog/hello_md"
+	Layout "example.com/blog/orbit_gen/decl/layouts/post"
+	"time"
+)
+
+// The layout's props, built once at package initialization (zero per-request
+// allocations). Each assignment carries a //line directive to its YAML key.
+var orbit__lprops = func() (p Layout.Props) {
+//line ../../../../src/pages/blog/hello.md:2:1
+	p.Title = "Hello, Orbit"
+//line ../../../../src/pages/blog/hello.md:3:1
+	p.Date = time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+//line ../../../../src/pages/blog/hello.md:4:1
+	p.Tags = []string{"news", "go"}
+//line render.go:20:1
+	p.Headings = Headings
+	return p
+}()
+
+const orbit__html = "<p>Orbit compiles …</p>\n<h2 id=\"why-markdown\">Why Markdown</h2>\n…"
+
+func orbit__content(orbit__w *orbit__rt.Writer) error { orbit__w.Raw(orbit__html); return orbit__w.Err() }
+
+var _ = func() int { Orbit__Render = orbit__render; return 0 }()
+
+func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, _ Props, _ orbit__rt.Slots, _ Params) error {
+	if orbit__err := orbit__w.Enter("src/pages/blog/hello.md"); orbit__err != nil {
+		return orbit__err
+	}
+	defer orbit__w.Leave()
+	return Layout.Render(orbit__ctx, orbit__w, orbit__lprops, orbit__rt.Slots{Default: orbit__content})
+}
+```
+- `orbit__content` is a package-level func (no captures), so the `Slots` value allocates nothing; the page is `Raw` writes plus the layout's own render. Without a layout, `orbit__render` is the single `Raw` write (the page is the bare HTML, as in Astro).
+- `<Post />` in an `.orbit` compiles to the ordinary call `Post.Render(orbit__ctx, orbit__w, Post.Props{}, orbit__rt.Slots{})`. Attributes are rejected by the unknown-prop pre-check (`unknown prop "x" on <Post> (Post takes no props)`); children are ignored as for any component without a `<slot>`. `server:defer`/`client:*` on it aren't special-cased (simplest; `client:*` matters when its layout has scripts).
+- Island and route tables, `orbittest.Render` and `RenderComponent` treat `.md` packages like any other: the uniform `Render` signature is kept.
+
+**Frontmatter → layout props (Q: how a layout receives frontmatter).** Each key is matched to a field of the layout's `Props` with the attribute rules (§2.3: ignoring case, `-`, `_`). An unmatched key is an Orbit error at the key, in the unknown-prop form: `unknown frontmatter key "tilte" for layout Post (props: title, date, tags, headings)`. Values are converted **using the layout's `Props` field types from go/types** in the typed pass (§3.3 pass 2: the layout's decl package is checked before any impl package, so the type is available):
+
+| Field type | From |
+|---|---|
+| string kinds | any scalar, verbatim source text |
+| `bool`; int/uint/float kinds | YAML bool; numbers, range-checked |
+| `time.Time` | YAML date (UTC midnight) or timestamp |
+| `orbit.HTML` | a string (author-written, like a string constant in `set:html`) |
+| `[]T`, `map[string]T`, structs | sequences, maps, maps matched to exported fields (recursively) |
+
+Other types (`any`, pointers, interfaces, funcs, chans) are errors at the key. Mismatches are Orbit errors at the YAML value: `frontmatter draft: "yes" isn't a bool (Post.Props.Draft is bool)`. A field `Headings []orbit.Heading` is filled with the headings (a `headings` key is then an error). A layout `Props` edit re-emits the impl of every `.md` that uses it (an extra edge in the incremental dependency graph: md impl → layout decl **types**, not just the import).
+- **Fallback** (a layout decl package with type errors, unreadable export data): emit the assignments with untyped constants and composite literals guessed from the YAML (as for `Frontmatter`), so Go reports any mismatch at the `.md` line through the `//line` directives, and the build fails on the layout's own error anyway.
+
+**The Markdown pipeline** (`internal/markdown`, CLI only; goldmark v1.8.x, already used by `docs/site`):
+- goldmark with CommonMark plus, by default, `extension.GFM` (tables, strikethrough, linkify, task lists) and `extension.Footnote` (Astro's remark-gfm includes footnotes), and `extension.Typographer` for `smartypants` (Astro default on). `orbit.json` `markdown.gfm` / `markdown.smartypants` turn them off (§8).
+- **Raw HTML** passes through (`html.WithUnsafe()`, Astro behavior; Q). Link destinations aren't URL-filtered: they're static author content, like static template attributes (§4). A raw `<script>`/`<style>` is left as written (not extracted or bundled, §5), like `is:inline`.
+- **Heading IDs**: an AST transformer assigns github-slugger IDs (Astro's `rehypeHeadingIds`; the same algorithm as `docs/site`'s `slugify` + `uniqueID`) to every Markdown heading h1–h6 and collects `orbit.Heading{Depth, Slug, Text}` (plain text, markup stripped). No self-link anchors, no `{#id}` syntax (Astro defaults). Raw-HTML headings aren't touched.
+- **Links**: an AST transformer rewrites a relative destination whose path ends in a Markdown extension and resolves to a `.md` **page** to that page's route (fragment kept): `./routing-guide.md#x` → `/blog/routing-guide#x` (Q: on by default). A missing target or a non-page `.md` is an error at the link; an unknown fragment (no such heading id in the target) is a warning, since the id may come from a layout or raw HTML. Checked after every file is parsed (one project-wide pass, cheap: a map lookup per link). Absolute, external and non-Markdown links, and image destinations, are left as written (no image pipeline, §12).
+- **Code blocks (Q: theme/CSS; and goldmark-highlighting vs. a direct Chroma renderer, see Cost)**: a fenced block with a language Chroma knows renders as `<pre class="chroma" tabindex="0" data-language="go"><code>` with class-based token spans (`chromahtml.WithClasses(true)`); unknown or no language gives the same wrapper with escaped text. The info string after the language is ignored (Astro behavior). Lexer lookup is **memoized per language name**.
+- **Theme CSS**: a virtual stylesheet `orbit:style/markdown-highlight.css`, generated from the two configured Chroma styles (default `github` / `github-dark`), merging each token rule into `color: light-dark(<light>, <dark>)` (and `background-color`; non-color properties from the light style). It's added once to the stylesheet of every page whose static graph (§5) contains a `.md` with at least one highlighted block, **first** in the stylesheet so user styles override it. About 4.3 KB per Chroma style unminified (measured for `github`). `"css": false` omits it; `"syntaxHighlight": false` disables Chroma (plain `<pre><code class="language-go">`).
+- `compressHTML` (§3.3) doesn't touch Markdown HTML (goldmark's output has one newline between blocks; simplest). The HTML is one `Raw` constant per file, emitted as a Go string literal.
+
+**Styling Markdown content.** The `.md` has no `<style>`, so its elements carry no scope attribute (§5), and a layout's scoped rules don't match them, exactly like slot content (§3.2) and like Astro. The documented answer is Astro's: `:global(…)` under a layout element (`.prose :global(h2)`) or `<style is:global>`. Considered and not proposed: stamping the layout's scope attribute onto the Markdown elements (possible for pages, since the layout is static, but not for `<Post />` rendered by arbitrary parents, and it differs from Astro).
+
+**Source positions.** goldmark segments are byte offsets into the body; Orbit keeps the body's start offset and line so that link errors and warnings map to `src/…md:L:C` (columns in bytes, as in §3.3). YAML positions come from `yaml.Node`. Generated Go for a `.md` contains no user Go code, so the only Go errors possible are frontmatter assignments in the fallback path, which carry `//line` directives to the key. The generated `Frontmatter` literal and `Headings` get no directives (always valid Go).
+
+**Assets.** A `.md` has no scripts or styles of its own; its graph node has one edge, to its layout, so the layout's (and its imports') CSS/JS join the page as for an `.orbit` import (§5), plus the highlight stylesheet when needed. The layout must contain `</head>` for head injection, as for any page.
+
+**Dev loop (§7).** `.md` files under `src/` are already watched. A body-only edit (same frontmatter, same headings) regenerates the impl package only, like a template edit (~0.22 s, dominated by `go build`); a frontmatter or heading edit regenerates decl too and recompiles importers. Link checking reruns project-wide on any `.md` change (cheap). `markdown` options in `orbit.json` regenerate every `.md`. Markdown that the user's own code reads at runtime from outside `src/` (e.g. `docs/site`) uses the `watch` globs of `orbit.json` (dogfood follow-up, below).
+
+**LSP (§9).** Nothing for `.md` files in this release: editors' Markdown support handles them, and errors show in `orbit check` and the dev overlay (simplest; diagnostics for `.md` could come later). The LSP's in-memory generate must include `.md` decl packages so gopls completes `Post.Frontmatter.` and `Post.Headings` in `.orbit` files; native completion offers `.md` paths in imports and `<Post` tags.
+
+**Runtime.** One addition, still stdlib-only: `type Heading struct { Depth int; Slug, Text string }` (named after Astro's `MarkdownHeading`; document it in `reference/runtime-api.md`).
+
+**Cost** (measured 2026-10-26, Ryzen 7 9700X, one thread, Orbit's own `docs/`: 22 files, 523 KB, 269 fenced blocks; scratch benchmark, not in the repo):
+- goldmark + GFM + auto heading IDs: **7.5 ms** for all 22 files (~14 µs/KB). A typical 25 KB page: ~0.4 ms.
+- Chroma tokenize + HTML format of all 269 blocks, lexer looked up once per language: **~30 ms** (Go blocks are 20 ms of it). Lexers compile lazily on first use (~30 ms once per process; the dev process keeps them).
+- **goldmark-highlighting as is: 420 ms**: it calls `lexers.Get` per block, and for a language Chroma doesn't know (`orbit`, `mermaid`, `astro`, …) `Get` falls back to matching the name against every lexer's filename globs (~1.5 ms per block, 86% of the profile). So Orbit must memoize the lookup, which goldmark-highlighting (last commit 2023, pseudo-version only) has no hook for: either a ~100-line node renderer calling Chroma directly (recommended; one dependency fewer) or an AST transform that strips unknown languages before goldmark-highlighting sees them.
+- CLI binary: goldmark ~1.5 MB, Chroma (with its 279 embedded XML lexers, 2.5 MB) and regexp2 ~6 MB more. User server binaries gain only their HTML constants.
+- Net: a `.md` edit adds ~1–2 ms to a ~220 ms rebuild; a full generate of a docs-sized site adds ~40 ms, parallel per file.
+
+**Out of scope here**: content collections and glob imports (§12), MDX (expressions/components in Markdown), remark/rehype-style plugins, image processing, an `orbit` Chroma lexer (the docs' ```` ```orbit ```` blocks stay plain until one exists), code-block titles/captions (`file=`), and heading self-links.
+
 ## 3. Compilation
 
 ### 3.1 Generated package layout
@@ -905,6 +1037,7 @@ On a compile error, the old app keeps running and the proxy serves an overlay pa
 - `server`: the server entry package; default `./cmd/server` if it exists, else the generated one (§5b).
 - `embed`: like `orbit build --embed`; the flag turns embedding on even when this is `false`.
 - `sourcemap` (user request, milestone 6): `true` makes `orbit build` also write external source maps next to the bundles under `/_orbit/`, **not linked** from them (no `sourceMappingURL`), with sources mapped to the `.orbit` files. Default `false`. `orbit dev` always writes linked source maps that point at the `.orbit` line and column (user request).
+- `markdown` (Proposed, §2.4): `gfm` (default `true`), `smartypants` (default `true`), `syntaxHighlight` (`false`, or `{"themes": {"light": "github", "dark": "github-dark"}, "css": true}`; `"dark": null` for one theme). An unknown Chroma style name is an error listing the available ones.
 - Plain JSON, no comments. Unknown keys are ignored, as `encoding/json` ignores unknown fields (decided by rule: Go stdlib).
 - `null` means unset (decided by rule: Go stdlib). `server` must be non-empty and relative; `orbit generate` doesn't check that it exists (`orbit doctor` does). Any other `compressHTML` value is an error: `orbit.json: compressHTML must be "html" (or true), "jsx" or false, not "none"`. JSON syntax errors carry `orbit.json:L:C` (decided by rule: simplest).
 
@@ -1069,7 +1202,7 @@ Dependencies:
 
 **Deferred past MVP** (planned, but not in the first release):
 - **Order after the MVP** (user decision, after milestone 13): dogfood Orbit on a real site first, then `orbit fmt`, the typed server→client bridge, and cacheable server islands; the rest after.
-- **Markdown** (user decision, after milestone 13; designed after the dogfood report): `src/pages/*.md` pages with frontmatter (`title`, `layout` pointing at an `.orbit` layout that receives it), and `.md` imports into `.orbit` files (`Post "./post.md"`, rendered with `<Post />`). Rendered by goldmark **at generate time** into precomputed HTML constants: no runtime cost, the runtime stays stdlib-only, goldmark becomes a CLI dependency. Docs first, then implementation. Code blocks are highlighted at generate time with Chroma (`goldmark-highlighting`, CLI dependency; user decision at the dogfood checkpoint).
+- **Markdown** (user decision, after milestone 13; designed after the dogfood report): `src/pages/*.md` pages with frontmatter (`title`, `layout` pointing at an `.orbit` layout that receives it), and `.md` imports into `.orbit` files (`Post "./post.md"`, rendered with `<Post />`). Rendered by goldmark **at generate time** into precomputed HTML constants: no runtime cost, the runtime stays stdlib-only, goldmark becomes a CLI dependency. Docs first, then implementation. Code blocks are highlighted at generate time with Chroma (`goldmark-highlighting`, CLI dependency; user decision at the dogfood checkpoint). **Design: §2.4 (Proposed)**, user docs `docs/markdown.md`.
 - **Dogfood follow-ups** (user decisions, docs site): scoped CSS switches from `:where([data-o-…])` to attribute selectors (`[data-o-…]`, +1 specificity, Astro's default `scopedStyleStrategy: "attribute"`), so a component's scoped rules beat global element rules whatever the bundle order; `orbit.json` `"watch"` globs (relative to the project) make `orbit dev` restart the app and reload on changes outside `src/`.
 - **`orbit fmt`** (also LSP `textDocument/formatting`): gofmt-style flags `-l -w -d`.
   - **Phase 1** (Go parts only, which can never change rendered output): format frontmatter chunks with `go/format`. Declarations are formatted as file-level code; body statements are wrapped in a dummy func and dedented. Comments are kept, and imports are sorted.

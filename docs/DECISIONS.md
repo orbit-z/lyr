@@ -497,3 +497,38 @@ To override a decision, say which row and the alternative you want; the docs and
 | The JSON-LD `<script>` goes into the layout's `<head>` through a named `head` slot | Astro (named slot in a layout's `<head>`) | Put it in `<body>` | `examples/blog/README.md` |
 | The `theme` cookie sets `Theme` to `dark` only for the value `dark`, `light` otherwise | simplest (as in [Middleware and locals](middleware.md)) | Copy any cookie value | [Middleware and locals](middleware.md) |
 | The simulated slow comment query is a package variable, `posts.CommentDelay` (200 ms), which `views_test` sets to 0 | simplest | A build tag; an environment variable | — |
+
+## Markdown
+
+Proposed with the Markdown spec (`PLAN.md` §2.4); the choices that shape the public API (frontmatter format, how layouts receive it, what an import exposes, raw HTML, highlighting themes, link rewriting) are open questions for the user, not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| `.md`, `.markdown`, `.mdown`, `.mkdn`, `.mkd` and `.mdwn` are all Markdown | Astro | `.md` only | [Markdown](markdown.md#markdown-pages) |
+| A `_` prefix keeps a Markdown file out of the routes; `404.md` is the not-found page | Astro | — | [Markdown](markdown.md#markdown-pages) |
+| A bracket in a Markdown page's path (`[slug].md`) is a build error at the file | simplest (a Markdown page has no code to read `params`) | Treat it as a literal name | [Markdown](markdown.md#markdown-pages) |
+| A Markdown file outside `src/pages/` is compiled only when something imports it | Astro | Compile every `.md` under `src/`, like `.orbit` files | [Markdown](markdown.md#importing-markdown-into-a-component) |
+| Generated packages of a `.md` get an `_md` suffix (`pages/blog/hello_md`) | simplest (never collides with a sibling `.orbit`) | The `.orbit` naming, reporting a collision | `PLAN.md` §2.4 |
+| A Markdown page without a layout renders only the Markdown's HTML | Astro | Wrap it in a minimal document | [Markdown](markdown.md#markdown-pages) |
+| `layout` is relative to the `.md` file, must be an `.orbit` file inside `src/`, and isn't passed to the layout or included in `Frontmatter` | Astro (relative path) / simplest | Pass it through like other keys | [Markdown](markdown.md#frontmatter) |
+| Frontmatter keys become field names with the route-param rules; two keys giving one field are an error | simplest (one naming rule) | Keep keys as written, in a map | [Markdown](markdown.md#frontmatter) |
+| A frontmatter key with no value is an error | simplest | A zero or `nil` value | [Markdown](markdown.md#frontmatter) |
+| YAML anchors, aliases, tags and multiple documents in frontmatter are errors | simplest | Support them | `PLAN.md` §2.4 |
+| YAML dates and timestamps are `time.Time` (UTC for a bare date); a `string` field gets the text as written | Astro (YAML dates are `Date` objects) | Always strings | [Markdown](markdown.md#layouts) |
+| A list mixing value types is an error in an imported file's `Frontmatter` | simplest (concrete Go types) | `[]any` | [Markdown](markdown.md#postfrontmatter) |
+| A layout's `Headings []orbit.Heading` field is filled by Orbit, and `orbit.Heading` has `Depth`, `Slug`, `Text`, for h1–h6 | Astro (`headings` prop, `MarkdownHeading`) | `Level`/`ID` names; h2–h3 only | [Markdown](markdown.md#layouts) |
+| Frontmatter props are built once at startup and shared by every request (read-only) | simplest (zero allocations per request) | Build them per request | [Markdown](markdown.md#layouts) |
+| The Markdown content is the layout's default slot | Astro | A `Content` prop | [Markdown](markdown.md#layouts) |
+| GFM (with footnotes) and smart punctuation are on by default, with goldmark's Typographer rules for dashes | Astro (`gfm`, `smartypants` default `true`) | Off by default | [Markdown](markdown.md#what-you-can-write) |
+| No `#` self-links next to headings and no `{#id}` syntax | Astro | Add anchors (as `docs/site` does) | [Markdown](markdown.md#heading-ids) |
+| Markdown link destinations aren't URL-filtered | simplest (static author content, like static template attributes, which aren't filtered either) | Apply the `javascript:` filter | [Markdown](markdown.md#raw-html) |
+| A raw `<script>` or `<style>` in Markdown is left as written (not bundled or scoped) | Astro | Process it like a template's | [Markdown](markdown.md#raw-html) |
+| Image paths are left as written; images go in `public/` | simplest (no image pipeline yet) | Hash relative images into `/_orbit/` | [Markdown](markdown.md#links-between-markdown-files) |
+| `compressHTML` doesn't alter Markdown HTML | simplest (goldmark's output is already compact) | Apply the `"html"` rules | `PLAN.md` §2.4 |
+| The code fence's info string after the language is ignored | Astro | Render `title=`/`file=` as a caption | [Markdown](markdown.md#code-blocks) |
+| A block in a language Chroma doesn't know is escaped plain text in the same `<pre class="chroma">`, keeping `data-language` | simplest | Guess the language | [Markdown](markdown.md#code-blocks) |
+| Highlighted `<pre>` gets `tabindex="0"` and `data-language` | Astro (Shiki output) | — | [Markdown](markdown.md#code-blocks) |
+| The highlight CSS comes first in the page stylesheet, so user styles override it | simplest | Last | [Markdown](markdown.md#code-blocks) |
+| `<Post />` takes no attributes (unknown-prop error) and ignores children | Astro (`<Content />` takes no props) | Pass attributes to its layout | [Markdown](markdown.md#importing-markdown-into-a-component) |
+| `server:defer` and `client:*` on a Markdown component aren't special-cased | simplest | Reject them | `PLAN.md` §2.4 |
+| The Orbit language server does nothing for `.md` files | simplest | Frontmatter and link diagnostics | [Markdown](markdown.md#in-the-dev-server) |
