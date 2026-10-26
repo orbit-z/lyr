@@ -504,25 +504,21 @@ For `set:json`, the message reads `set:json: the value has type func(), which en
 
 A value `encoding/json` can't encode (a NaN float, a cyclic structure) fails at render time, at the `set:json` position. For data that belongs to one element, use `orbit.JSON` in a `data-*` attribute instead. See [Template syntax: `set:json`](reference/template-syntax.md#setjson).
 
-### `class:list isn't supported; build the class string in the frontmatter (e.g. strings.Join)`
+### `class:list` errors
 
-**Cause:** `class:list` is an Astro directive. Orbit reports it instead of writing it out as a plain attribute.
+| Message | Fix |
+|---|---|
+| `class:list items must be a string or []string, not int` | Convert the item to a string (`strconv.Itoa(n)`), or make it a condition: `"wide": n > 2`. |
+| `class={…} next to class:list must be a string or []string, not int` | The `class` value is merged into the list, so it follows the same rule. |
+| `class:list sets the class prop, which <Card> doesn't have (props: title)` | Add a `Class string` field to the component's `Props`, and write `class={props.Class}` (or a `class:list` with `props.Class`) where it belongs in the component's template. |
+| `class:list takes a list in braces, e.g. class:list={"card", "active": active}` | Write the list in braces. For one static string, use `class="…"`. |
+| `class:list items can't be nested lists; list the classes directly, or use a []string` | Flatten Astro's nested array or object: `{"a", {"b": on}}` becomes `{"a", "b": on}`. |
+| `a class:list condition must be a bool expression, e.g. class:list={"card", "active": active}` | Write `"class": cond`, with a `bool` on the right. |
+| `syntax error in class:list: …` | Write the items as Go composite-literal elements: separated by commas, conditions as `"class": cond`. |
+| `only one class:list is allowed per tag` | Merge them into one list. |
+| `class:list only works on HTML elements and components` | Put the classes on an element: `<slot>`, `<Fragment>`, `<script>` and `<style>` take no `class:list`. |
 
-**Fix:** build the class string in the frontmatter and pass it to `class`:
-
-```orbit
----
-import "strings"
-
-classes := []string{"card"}
-if props.Featured {
-	classes = append(classes, "featured")
-}
----
-<article class={strings.Join(classes, " ")}>…</article>
-```
-
-See [Combining and reserved namespaces](reference/template-syntax.md#combining-and-reserved-namespaces) and [Coming from Astro](coming-from-astro.md#templates).
+A condition that isn't a `bool` is Go's own error at the condition: `non-boolean condition in if statement` on an HTML element, `cannot use n (variable of type int) as bool value in class:list condition` on a component. See [Template syntax: `class:list`](reference/template-syntax.md#classlist).
 
 ### `define:vars isn't supported; pass data with orbit.JSON on a data-* attribute, or set:json`
 

@@ -629,6 +629,7 @@ The template is HTML plus a few constructs. The full grammar is in [Template syn
 
 - `{expr}` is any Go expression. Its value is escaped and written; how each type prints (numbers, `nil`, errors, `fmt.Stringer`, …) is in [How values render](reference/template-syntax.md#how-values-render).
 - An attribute is static (`class="title"`) or an expression (`href={url}`). There's no interpolation inside quotes: `class="card {extra}"` is the literal text `card {extra}`.
+- To build a `class` from parts and conditions, use `class:list`, as in Astro: `class:list={"card", extra, "featured": props.Featured}` writes `card`, the classes in `extra`, and `featured` when `props.Featured` is true. Static classes are joined at build time, so it costs no more than writing the attribute by hand. On a component tag, it sets the `class` prop. See [`class:list`](reference/template-syntax.md#classlist).
 - `true` writes a bare attribute and `false` or `nil` omits it, so `data-featured={props.Featured}` renders `data-featured` or nothing.
 - Every element must be closed (`<p>…</p>`, `<li>…</li>`), or self-closed (`<div />`); void elements such as `<br>` and `<img>` take no closing tag. Orbit doesn't auto-close tags.
 - A `<` starts a tag only when a letter, `/` or `!` follows it; otherwise it's text, so `{a} < {b}` works. To write a literal `{`, use `{"{"}`.

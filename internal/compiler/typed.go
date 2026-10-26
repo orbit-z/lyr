@@ -53,7 +53,8 @@ type TypedUnit struct {
 	// Diagnostics are the typed pass's errors at .orbit positions: the
 	// server:defer Props that aren't JSON-serializable (PLAN.md §3.4).
 	// Only a checked unit has them, plus the orbit.JSON arguments and
-	// set:json values that encoding/json can never encode (PLAN.md §5c).
+	// set:json values that encoding/json can never encode (PLAN.md §5c),
+	// and the class:list items that aren't a string or []string (§2.3).
 	Diagnostics []Diagnostic
 	// Types is the data contract of the component's client module
 	// (PLAN.md §5c), nil when it has no keys. An unchecked unit gets its

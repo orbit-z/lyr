@@ -374,7 +374,7 @@ An expression value may contain `>`, quotes and braces; the scanner finds the cl
 | `orbit.URL` | The escaped value in quotes, without URL filtering. |
 | `orbit.HTML` | Escaped like any string; attribute values are never raw. |
 | `orbit.JSON(v)` (an `orbit.JSONValue`) | `v` encoded as JSON, always written (`false` and `null` too), single-quoted: `data-post='{"id":42}'`. See [JSON attributes](#json-attributes). |
-| any other value | Formatted exactly as in [How values render](#how-values-render), then escaped and quoted. A slice concatenates its elements with no separator, so build lists such as class names yourself (`strings.Join(classes, " ")`). |
+| any other value | Formatted exactly as in [How values render](#how-values-render), then escaped and quoted. A slice concatenates its elements with no separator, so build lists such as class names with [`class:list`](#classlist) or `strings.Join(classes, " ")`. |
 
 Because `false` omits the attribute, ARIA attributes that need the literal text `"false"` take a string: `aria-expanded={strconv.FormatBool(open)}`.
 
@@ -411,13 +411,14 @@ Attributes are written in source order, with a spread's entries at the spread's 
 
 ## Directives
 
-A directive is an attribute with a namespace (`set:`, `is:`, `server:`, `client:`) or the `slot` attribute. Orbit acts on it and doesn't write it to the output.
+A directive is an attribute with a namespace (`set:`, `is:`, `server:`, `client:`), `class:list` or the `slot` attribute. Orbit acts on it and doesn't write it to the output.
 
 | Directive | Where | Effect |
 |---|---|---|
 | `set:html={expr}` | HTML element, `<Fragment>` | Sets the content to raw HTML. `expr` must have type `orbit.HTML`; a string constant written in the template is also accepted. A `string` variable is a compile error at the `.orbit` position. |
 | `set:text={expr}` | HTML element, `<Fragment>` | Sets the content to the escaped text of `expr`. |
 | `set:json={expr}` | `<script type="application/json">` only | Sets the content to `expr` encoded as JSON, escaped for a script element. See [`set:json`](#setjson). |
+| `class:list={…}` | HTML element, component tag | Builds the `class` attribute (on a component, its `class` prop) from a list of classes and conditions. See [`class:list`](#classlist). |
 | `slot="name"` | A child of a component | Sends that child to the named slot instead of the default slot. |
 | `is:inline` | `<script>`, `<style>` | Leaves the tag untouched: no extraction, bundling or scoping. |
 | `is:global` | `<style>` | Skips CSS scoping. |
@@ -427,6 +428,43 @@ A directive is an attribute with a namespace (`set:`, `is:`, `server:`, `client:
 An element with a `set:` directive takes no children (whitespace aside); the directive replaces its content. `set:` directives on a component are a compile error.
 
 The compiler **warns** (without failing) on `on*={expr}` attributes such as `onclick={…}` and on `style={expr}`: escaping makes a value safe in HTML, not in JavaScript or CSS. See [Escaping and security](../components.md#escaping-and-security).
+
+### `class:list`
+
+`class:list` builds the `class` attribute from a list, as in Astro. Its value is a comma-separated list of items, written like the elements of a Go composite literal:
+
+```orbit
+---
+type Props struct {
+	Class  string
+	Hidden bool
+	Pairs  bool
+}
+
+base := []string{"grid", "gap-2"}
+---
+<input class:list={"appearance-none", "rounded-input border", "hidden": props.Hidden} />
+<div class:list={"block", props.Class}>…</div>
+<ul class:list={base, "grid-cols-2": props.Pairs, "flex": !props.Pairs}>…</ul>
+```
+
+With `Hidden` true, `Class` set to `"mt-4"` and `Pairs` false, this renders `<input class="appearance-none rounded-input border hidden">`, `<div class="block mt-4">` and `<ul class="grid gap-2 flex">`.
+
+| Item | Adds |
+|---|---|
+| `"a b"` | The classes in the string. |
+| An expression of a string type (`props.Class`) | The classes in its value. |
+| An expression of type `[]string` (`base`) | The classes of each element, as Astro's nested arrays do. |
+| `"c": cond` | The classes of `"c"` when `cond`, a `bool`, is true: Astro's object form `{ c: cond }`. The key is usually a string literal; any string expression works. |
+
+- **Order and whitespace**: classes are written in list order, separated by single spaces, whatever whitespace the items hold. Empty items are dropped; duplicates are kept, as in Astro.
+- **An empty list writes no `class` attribute** (`class:list={"active": false}` renders `<div>`).
+- **Escaping**: classes are escaped like any attribute value.
+- **A `class` attribute on the same element is merged in**, first, wherever it's written: `<p class="card" class:list={"featured": on}>` renders `<p class="card featured">`, at the position of `class:list`. A spread's `class` isn't merged: both are written, and browsers use the first.
+- **On a component tag**, the classes are joined into its `class` prop, so the component's `Props` needs a `Class string` field. Without one, it's an error at `class:list`: `class:list sets the class prop, which <Card> doesn't have (props: title)`.
+- **Types**: an item of any other type is a build error at the item, `class:list items must be a string or []string, not int`. A condition that isn't a `bool` is Go's error at the condition.
+- **Syntax**: a nested list (`{"a", {"b": on}}`) is an error, `class:list items can't be nested lists; list the classes directly, or use a []string`; so is a value that isn't in braces, `class:list takes a list in braces, e.g. class:list={"card", "active": active}`. A tag takes one `class:list`; `<slot>`, `<Fragment>`, `<script>` and `<style>` take none.
+- **Cost**: static classes are joined into the surrounding HTML at build time and each condition becomes an `if`, so a `class:list` renders as fast as hand-written markup and, on an HTML element, allocates nothing. On a component, joining items that aren't all static allocates the prop's string (nothing when a single item is already clean).
 
 ### `set:json`
 
@@ -516,7 +554,7 @@ src/pages/index.orbit:4:7: unknown directive "client:hover" (client directives: 
 src/pages/index.orbit:5:7: unknown directive "server:lazy" (server directives: server:defer)
 ```
 
-Astro's `class:list` and `define:vars` aren't supported, and using them is a compile error with a hint, rather than being written out as plain attributes:
+Astro's `define:vars` isn't supported, and using it is a compile error with a hint, rather than being written out as a plain attribute:
 
 ```orbit file=src/components/Card.orbit expect-error
 ---
@@ -524,7 +562,7 @@ type Props struct {
 	Featured bool
 }
 ---
-<article class:list={[]string{"card"}}>
+<article class:list={"card", "featured": props.Featured}>
   <h2>Hello</h2>
 </article>
 <script define:vars={props}>
@@ -533,7 +571,6 @@ type Props struct {
 ```
 
 ```text
-src/components/Card.orbit:6:10: class:list isn't supported; build the class string in the frontmatter (e.g. strings.Join)
 src/components/Card.orbit:9:9: define:vars isn't supported; pass data with orbit.JSON on a data-* attribute, or set:json
 ```
 
