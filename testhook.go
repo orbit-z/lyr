@@ -26,7 +26,12 @@ func testRender(r *http.Request, names, vals []string, render func(ctx, w any) e
 	wr := writerPool.Get().(*Writer)
 	wr.reset(buf)
 	c.w = wr
+	wr.ctx, wr.limit = c, defaultConcurrencyLimit
 	defer func() {
+		if wr.grp != nil { // a panic: the children still read c
+			groupOf(wr).wg.Wait()
+			releaseHoles(wr)
+		}
 		wr.reset(nil)
 		writerPool.Put(wr)
 		putBuffer(buf)
@@ -35,6 +40,10 @@ func testRender(r *http.Request, names, vals []string, render func(ctx, w any) e
 	err = render(c, wr)
 	if err == nil {
 		err = wr.err
+	}
+	if wr.grp != nil {
+		err = join(wr, err)
+		buf = wr.buf
 	}
 	if err != nil {
 		return "", err

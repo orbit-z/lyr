@@ -43,6 +43,15 @@ type Writer struct {
 	// capture is set on the Writer of an orbit.RenderHTML capture, where
 	// a </head> marker is a render error.
 	capture bool
+	// Concurrent rendering (concurrent.go, PLAN.md §3.6). ctx is the Ctx
+	// of the goroutine rendering into w (CtxOf), nil for NewWriter. limit
+	// is the concurrency limit, 0 to render marked components inline
+	// (NewWriter, attribute values). grp is the render's goroutine group,
+	// nil until the first fork; holes are the children forked from w.
+	ctx   *Ctx
+	limit int32
+	grp   any // *group (concurrent.go)
+	holes []hole
 }
 
 // NewWriter returns a Writer that writes into buf.
@@ -59,6 +68,10 @@ func (w *Writer) reset(buf *bytes.Buffer) {
 	w.tags = ""
 	w.clsPending = false
 	w.capture = false
+	w.ctx = nil
+	w.limit = 0
+	w.grp = nil
+	w.holes = w.holes[:0]
 }
 
 // finishHead inserts the head tags after a leading doctype (or at the
@@ -193,7 +206,9 @@ func (w *Writer) HeadEnd() {
 		return
 	}
 	w.head = w.buf.Len()
-	if w.tags != "" {
+	// With holes before it, an earlier </head> in output order may be in a
+	// marked component: the join inserts the tags (concurrent.go).
+	if w.tags != "" && len(w.holes) == 0 {
 		if w.err == nil {
 			w.buf.WriteString(w.tags)
 		}
@@ -450,11 +465,13 @@ func (w *Writer) attr(name string, v any, urlAttr bool) {
 		}
 		// Format into a scratch buffer, then filter and escape the result
 		// as one value.
+		// A marked component in the value renders inline: its hole
+		// would be in the scratch buffer.
 		scratch := getBuffer()
-		orig := w.buf
-		w.buf = scratch
+		orig, limit := w.buf, w.limit
+		w.buf, w.limit = scratch, 0
 		w.value(v, false)
-		w.buf = orig
+		w.buf, w.limit = orig, limit
 		if w.err == nil {
 			s := scratch.Bytes()
 			if urlAttr && isUnsafeURL(s) {
