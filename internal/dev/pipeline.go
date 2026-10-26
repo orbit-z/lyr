@@ -79,7 +79,9 @@ func newPipeline(root string, env []string, goflags string) *pipeline {
 	// compile the user's and std packages with the same flags and share
 	// them in the build cache: with different ones a .go edit would compile
 	// the edited package twice.
-	loader := &compiler.GoListLoader{Dir: root, Env: env, BuildFlags: flags}
+	// Like go build, go list compiles without the user's GOGC/GOMEMLIMIT:
+	// cmd/compile tunes its heap only when both are empty (goBuildEnv).
+	loader := &compiler.GoListLoader{Dir: root, Env: slices.Concat(env, []string{"GOGC=", "GOMEMLIMIT="}), BuildFlags: flags}
 	pl := &pipeline{
 		root:       root,
 		env:        env,
