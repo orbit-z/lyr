@@ -13,6 +13,7 @@ import (
 	"github.com/orbit-z/orbit/internal/compiler"
 	"github.com/orbit-z/orbit/internal/pin"
 	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/tsengine"
 )
 
 const healthyGoMod = `module example.com/blog
@@ -89,6 +90,16 @@ func (f *fakes) env(dir string) Env {
 	}
 }
 
+// fakeTSC is a native tsc binary whose --version prints version.
+func fakeTSC(t *testing.T, f *fakes, version string) string {
+	p := filepath.Join(t.TempDir(), "tsc")
+	if err := os.WriteFile(p, []byte("\x7fELF"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f.out[p+" --version"] = "Version " + version + "\n"
+	return p
+}
+
 // newProject writes a healthy project and returns its root.
 func newProject(t *testing.T) string {
 	t.Helper()
@@ -120,7 +131,7 @@ func write(t *testing.T, dir, rel, content string) {
 	}
 }
 
-var projectChecks = []string{"go", "cli", "gopls", "bun", "orbit_gen", "gitignore", "config", "tsconfig"}
+var projectChecks = []string{"go", "cli", "gopls", "bun", "typescript", "orbit_gen", "gitignore", "config", "tsconfig"}
 
 func TestHealthy(t *testing.T) {
 	dir := newProject(t)
@@ -144,6 +155,7 @@ func TestHealthy(t *testing.T) {
 		"✓ cli: orbit v0.1.0 hands commands to the pinned go tool orbit (v0.1.0)\n" +
 		"✓ gopls: v0.24.0, built with go1.27.3\n" +
 		"✓ bun: 1.4.4\n" +
+		"✓ typescript: TypeScript 7.0.2 through bun x (fetched into Bun's cache on first use)\n" +
 		"✓ orbit_gen: up to date\n" +
 		"✓ gitignore: covers orbit_gen/, .orbit/ and dist/\n" +
 		"✓ config: no orbit.json (defaults); server ./cmd/server\n" +
@@ -170,10 +182,23 @@ func TestChecks(t *testing.T) {
 		}, "gopls", Warning, "gopls v0.23.1 is older than the recommended v0.24.0", "go install golang.org/x/tools/gopls@latest"},
 		{"gopls missing", func(t *testing.T, _ string, f *fakes) { delete(f.path, "gopls") },
 			"gopls", Error, "not found on PATH", "go install golang.org/x/tools/gopls@latest"},
-		{"bun missing", func(t *testing.T, _ string, f *fakes) { delete(f.path, "bun") },
+		{"bun missing", func(t *testing.T, _ string, f *fakes) { delete(f.path, "bun"); f.path["tsc"] = fakeTSC(t, f, "7.0.2") },
 			"bun", Warning, "not found (1.4.4 or later needed); orbit check will skip TypeScript type checking", "curl -fsSL https://bun.sh/install | bash"},
 		{"bun old", func(t *testing.T, _ string, f *fakes) { f.out["/bin/bun --version"] = "1.3.2" },
 			"bun", Warning, "1.3.2 is older than 1.4.4", "bun upgrade"},
+		{"typescript on PATH", func(t *testing.T, _ string, f *fakes) { f.path["tsc"] = fakeTSC(t, f, "7.1.0") },
+			"typescript", OK, "tsc 7.1.0 (", ""},
+		{"typescript missing, not needed", func(t *testing.T, _ string, f *fakes) { delete(f.path, "bun") },
+			"typescript", OK, "not needed (no <script> blocks in .orbit files)", ""},
+		{"typescript missing, needed", func(t *testing.T, dir string, f *fakes) {
+			write(t, dir, "src/components/Card.orbit", "<p>card</p>\n<script>\n  console.log(1);\n</script>\n")
+			delete(f.path, "bun")
+		}, "typescript", Warning, "not found (7.0.2 or later needed); TypeScript features in <script> blocks are off in the editor", tsengine.Install},
+		{"typescript too old, is:inline counts", func(t *testing.T, dir string, f *fakes) {
+			write(t, dir, "src/components/Card.orbit", "<p>card</p>\n<script is:inline>var x = 1;</script>\n")
+			delete(f.path, "bun")
+			f.path["tsc"] = fakeTSC(t, f, "6.0.3")
+		}, "typescript", Warning, "is TypeScript 6.0.3, which has no language server (7.0.2 or later needed)", tsengine.Install},
 		{"go missing", func(t *testing.T, _ string, f *fakes) { delete(f.path, "go") },
 			"go", Error, "go command not found", installGo},
 		{"go.mod go too old", func(t *testing.T, dir string, f *fakes) {
@@ -260,7 +285,7 @@ func TestChecks(t *testing.T) {
 				c := &r.Checks[i]
 				if c.Name == tt.check {
 					got = c
-				} else if c.Status != OK {
+				} else if c.Status != OK && !(c.Name == "bun" && tt.check == "typescript") { // without Bun, no bun x
 					t.Errorf("other check %s: %s %q", c.Name, c.Status, c.Message)
 				}
 			}
@@ -283,6 +308,7 @@ func TestOutsideProject(t *testing.T) {
 		{Name: "go", Status: OK, Message: "go1.23.4 (switches to the Go 1.27 toolchain in projects, GOTOOLCHAIN=auto)"},
 		{Name: "gopls", Status: Error, Message: "gopls v0.21.0 was built with go1.26.0, older than go 1.27, the oldest Go Orbit supports", Fix: installGopls},
 		{Name: "bun", Status: OK, Message: "1.4.4"},
+		{Name: "typescript", Status: OK, Message: "TypeScript 7.0.2 through bun x (fetched into Bun's cache on first use)"},
 	}
 	if len(r.Checks) != len(want) {
 		t.Fatalf("checks: %+v", r.Checks)
@@ -296,7 +322,7 @@ func TestOutsideProject(t *testing.T) {
 	// A module without src/ isn't a project either.
 	dir := t.TempDir()
 	write(t, dir, "go.mod", "module example.com/x\n\ngo 1.27\n")
-	if r := Run(context.Background(), healthy().env(dir)); len(r.Checks) != 3 {
+	if r := Run(context.Background(), healthy().env(dir)); len(r.Checks) != 4 {
 		t.Errorf("module without src/: %+v", r.Checks)
 	}
 
