@@ -9,7 +9,10 @@ over stdio as a client would. It measures:
 - how long startup takes, up to the readiness barrier;
 - the latency of completion, hover, definition and references (and
   rename, once the server offers it);
-- the memory of `orbit lsp` and of its gopls child.
+- the memory of `orbit lsp` and of its gopls child;
+- the TypeScript child that serves `<script>` blocks (PLAN.md §9b): its
+  first answer, edit → diagnostics, completion, hover and references
+  (the first of which opens every script's document), and its memory.
 
 It is a separate module (`github.com/orbit-z/orbit/bench/lsp`), so it
 adds nothing to the root module. The project generator lives in
@@ -38,6 +41,7 @@ golang.org/x/tools/gopls@latest`), and Linux, because memory is read from
 | `-json out.json` | also write every sample (durations in nanoseconds) |
 | `-keep -dir d` | create the project in `d` and keep it |
 | `-v` | print `orbit lsp`'s log (and gopls's stderr) after each session |
+| `-typescript path` | the TypeScript 7 engine, passed as the `typescriptPath` option (default: `$ORBIT_BENCH_TYPESCRIPT`, else orbit lsp's own lookup, which may use `bun x`) |
 | `-trace prefix` | run gopls with `-rpc.trace`, one log per session (`prefix.<mode>.<n>.log`), to see the traffic between Orbit and gopls |
 
 The header prints the load average at the start and at the end. If it's
@@ -113,9 +117,24 @@ warning.
 | references, `Props` field | `Title`, used by the component and by the attributes of the two components that render it |
 | prepareRename, rename | on `upper`, only if `initialize` advertises `renameProvider`; otherwise the rows say so |
 
+### TypeScript rows
+
+The probe component has a `<script>` (every fourth component does), so
+opening it starts the TypeScript child. With no TypeScript 7 found, the
+rows are empty and the Go rows run without the child.
+
+| Row | Request |
+|---|---|
+| first `<script>` completion (startup) | a completion after `document.` in the script, sent with the startup requests: the child's lazy start plus its first answer |
+| `<script>`: `didChange` + completion | each run inserts `document.` on a new line of the script and completes after it |
+| `<script>`: `didChange` → diagnostic | each run inserts a call to an undefined name and waits for its TypeScript diagnostic on the `.orbit` file (includes Orbit's 50 ms debounce of the diagnostic pull) |
+| `<script>`: hover | on `twice` |
+| `<script>`: first references | on `twice`: the first one opens every `.orbit` file's script documents (one sample) |
+| `<script>`: references | the same, afterwards |
+
 ### Memory rows
 
-`VmRSS` of `orbit lsp` and of its gopls child (found through
+`VmRSS` of `orbit lsp`, of its gopls child and of its TypeScript child (`tsc`) (found through
 `/proc/<pid>/task/*/children`), right after the barrier and again after
 the request runs, plus each one's peak (`VmHWM`).
 
