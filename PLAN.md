@@ -1307,7 +1307,7 @@ The SSR hot path is built for speed. There's no fixed target number; the results
 - **Micro-benchmarks** for the `Writer` and the escaper (`b.Loop()`, `b.ReportAllocs()`) live next to the runtime as dev tools.
 
 ## 4c. Error → response hook
-**Status: Proposed, (Q) points open** (user decision 2026-10-26 to add the feature, from the `nyth` assessment).
+**Status: Accepted** (2026-10-26). User answers, as recommended: (Q1) a `Site` option, `orbit.WithErrorHandler(func(w, r, err) bool)`; (Q2) only errors that would become the built-in 500 reach it, recovered panics included; (Q3) `site.ServeError(w, r, err)` for custom handlers.
 
 **Why**: in `nyth`, every catalogue or reader call (16 `catalog` and 19 `reader` uses in templates, plus layouts) can fail with one of three typed errors, from the page or from any component: `AccessRefused` becomes a 303 to `/signin/?next=…` or `/waiting/`, `CatalogUnavailable` a 503 with `Retry-After: 60` (and a log line), `ReaderBlocked` a 403 with a short text body. Astro lets middleware catch what the page threw (`try { return await next() } catch (e) { … }`, `nyth`'s `handleRequest`). In Orbit, a returned error that isn't `ErrNotFound` or a `*RedirectError` becomes the built-in 500 inside `site.Middleware` (§4), and middleware around it can't intercept, since the 500 has been written. Only the redirect has a workaround today (an error that `Unwrap`s to a `*orbit.RedirectError`).
 
@@ -1408,7 +1408,7 @@ if err != nil {
 - `ErrorAt`-style positions as a separate API.
 
 ## 4d. Rendering a slot to a string
-**Status: Proposed, (Q) points open** (user decision 2026-10-26 to add the feature, from the `nyth` assessment).
+**Status: Accepted** (2026-10-26). User answers: (Q1) `orbit.RenderHTML(ctx, r Renderer) (orbit.HTML, error)`; (Q2) a `</head>` inside a capture is a render error; (Q3) decided by the coordinator with the recommendation (rule: simplest): no Orbit helper for the per-user guard, a documented caching pattern.
 
 **Why**: `nyth`'s `<Cacher key ttl store>` (34 uses) renders its default slot to an HTML string (`Astro.slots.render("default")`), keeps it in an in-memory fragment cache (cards 6 h, lists 1 h) and writes it with `set:html`. Today this works with `var b bytes.Buffer; slots.Default(orbit.NewWriter(&b))`, but a fresh `Writer` has an empty component stack (so the depth guard restarts at 0: runaway recursion through a captured slot overflows the Go stack), and what `</head>` or `server:defer` do inside it is undocumented.
 
