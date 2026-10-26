@@ -245,7 +245,8 @@ func TestStickyError(t *testing.T) {
 		w.Error(errors.New("x"))
 		w.Stringer(time.Second)
 		w.Expr("x")
-		w.JSON("x")
+		w.JSON("", "x")
+		w.JSONAttr("", JSON("x"))
 		w.Attr("a", "x")
 		w.AttrString("a", "x")
 		w.AttrURL("a", "x")
@@ -281,7 +282,7 @@ func TestJSON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := render(func(w *Writer) { w.JSON(tt.v) })
+			got, err := render(func(w *Writer) { w.JSON("", tt.v) })
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -294,7 +295,7 @@ func TestJSON(t *testing.T) {
 		})
 	}
 
-	got, err := render(func(w *Writer) { w.Raw("a"); w.JSON(make(chan int)); w.Raw("b") })
+	got, err := render(func(w *Writer) { w.Raw("a"); w.JSON("", make(chan int)); w.Raw("b") })
 	var ute *json.UnsupportedTypeError
 	if !errors.As(err, &ute) || !strings.HasPrefix(err.Error(), "orbit: set:json: ") {
 		t.Errorf("JSON(chan) error = %v", err)
