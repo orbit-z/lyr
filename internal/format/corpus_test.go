@@ -246,7 +246,10 @@ func goRegions(f *compiler.File) []string {
 		}
 		if t := compiler.TagOf(n); t != nil {
 			for _, a := range t.Attrs {
-				if a.Kind == compiler.AttrExpr || a.Kind == compiler.AttrSpread || a.Kind == compiler.AttrShorthand {
+				switch {
+				case a.Directive == compiler.ClassList && strings.TrimSpace(a.Code.Text) != "":
+					out = append(out, dumpExpr("_{"+lf(a.Code.Text)+"}"))
+				case a.Kind == compiler.AttrExpr || a.Kind == compiler.AttrSpread || a.Kind == compiler.AttrShorthand:
 					out = append(out, dumpExpr(a.Code.Text))
 				}
 			}

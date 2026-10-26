@@ -1,0 +1,10 @@
+<div class:list={"appearance-none", "rounded-input border", "hidden": hidden}>a</div>
+<div class="x" class:list={"block", props.Class}>b</div>
+<div class:list={
+	`raw  lit`,
+	"grid": pairs, // a comment
+	baseClasses, /* another */
+	"flex": !pairs,
+}>c</div>
+<div class:list={}>d</div>
+<Card class:list={"a", x: y} />

@@ -1,0 +1,11 @@
+<div class:list="a b">a</div>
+<div class:list>b</div>
+<div class:list={"a" "b"}>c</div>
+<div class:list={"a", {"b": c}}>d</div>
+<div class:list={"a": {c}}>e</div>
+<div class:list={"a"} class:list={"b"}>f</div>
+<slot class:list={"a"} />
+<Fragment class:list={"a"}>g</Fragment>
+<style class:list={"a"}>p{}</style>
+<div class:list={"a"}, {"b"}>h</div>
+<div class:list={a} {...rest}>i</div>

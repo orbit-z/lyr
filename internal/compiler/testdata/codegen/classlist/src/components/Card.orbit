@@ -1,0 +1,7 @@
+---
+type Props struct {
+	Class string
+	Title string
+}
+---
+<article class={props.Class}>{props.Title}</article>

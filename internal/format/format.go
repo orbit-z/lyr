@@ -159,6 +159,7 @@ const (
 	rFrontmatter regionKind = iota
 	rExpr                   // {expr} in content
 	rAttrExpr               // a={expr}
+	rClassList              // class:list={items}
 	rShorthand              // {a}
 	rSpread                 // {...attrs}
 	rIf                     // {if c}
@@ -222,6 +223,13 @@ func (fx *fileFmt) collect() {
 		for _, a := range t.Attrs {
 			switch a.Kind {
 			case compiler.AttrExpr:
+				if a.Directive == compiler.ClassList {
+					// The whole inside of the braces: a multi-line list
+					// keeps its line breaks.
+					vs := a.ValueSpan
+					add(&region{kind: rClassList, span: vs, code: compiler.Span{Start: vs.Start + 1, End: vs.End - 1}})
+					continue
+				}
 				add(&region{kind: rAttrExpr, span: a.ValueSpan, code: a.Code.Span})
 			case compiler.AttrShorthand:
 				add(&region{kind: rShorthand, span: a.Span, code: a.Code.Span})

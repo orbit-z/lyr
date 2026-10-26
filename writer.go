@@ -37,6 +37,9 @@ type Writer struct {
 	// through jsink; created on first use and kept with the pooled Writer.
 	jenc  *json.Encoder
 	jsink jsonSink
+	// clsPending is set between ClassStart and the first class written
+	// (classlist.go).
+	clsPending bool
 }
 
 // NewWriter returns a Writer that writes into buf.
@@ -51,6 +54,7 @@ func (w *Writer) reset(buf *bytes.Buffer) {
 	w.head = -1
 	w.stack = w.stack[:0]
 	w.tags = ""
+	w.clsPending = false
 }
 
 // finishHead inserts the head tags after a leading doctype (or at the

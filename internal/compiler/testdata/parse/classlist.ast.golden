@@ -1,0 +1,37 @@
+Template @0-317
+  Element @0-85
+    <div> name=@1-4 start=@0-78 end=@79-85
+      attr expr @5-77 name=@5-15 "class:list" directive=class:list value=@16-77 code=@17-76 "\"appearance-none\", \"rounded-input border\", \"hidden\": hidden"
+        class @17-34 code=@17-34 "\"appearance-none\"" static="appearance-none"
+        class @36-58 code=@36-58 "\"rounded-input border\"" static="rounded-input border"
+        class @60-76 code=@60-68 "\"hidden\"" static="hidden" cond=@70-76 "hidden"
+    Text @78-79 "a"
+  Text @85-86 "\n"
+  Element @86-142
+    <div> name=@87-90 start=@86-135 end=@136-142
+      attr quoted @91-100 name=@91-96 "class" value=@98-99 "x"
+      attr expr @101-134 name=@101-111 "class:list" directive=class:list value=@112-134 code=@113-133 "\"block\", props.Class"
+        class @113-120 code=@113-120 "\"block\"" static="block"
+        class @122-133 code=@122-133 "props.Class"
+    Text @135-136 "b"
+  Text @142-143 "\n"
+  Element @143-257
+    <div> name=@144-147 start=@143-250 end=@251-257
+      attr expr @148-249 name=@148-158 "class:list" directive=class:list value=@159-249 code=@162-247 "`raw  lit`,\n\t\"grid\": pairs, // a comment\n\tbaseClasses, /* an…"
+        class @162-172 code=@162-172 "`raw  lit`" static="raw  lit"
+        class @175-188 code=@175-181 "\"grid\"" static="grid" cond=@183-188 "pairs"
+        class @204-215 code=@204-215 "baseClasses"
+        class @232-246 code=@232-238 "\"flex\"" static="flex" cond=@240-246 "!pairs"
+    Text @250-251 "c"
+  Text @257-258 "\n"
+  Element @258-284
+    <div> name=@259-262 start=@258-277 end=@278-284
+      attr expr @263-276 name=@263-273 "class:list" directive=class:list value=@274-276 code=@275-275 ""
+    Text @277-278 "d"
+  Text @284-285 "\n"
+  Component @285-316
+    <Card> name=@286-290 start=@285-316 end=@316-316 selfclosing
+      attr expr @291-313 name=@291-301 "class:list" directive=class:list value=@302-313 code=@303-312 "\"a\", x: y"
+        class @303-306 code=@303-306 "\"a\"" static="a"
+        class @308-312 code=@308-309 "x" cond=@311-312 "y"
+  Text @316-317 "\n"

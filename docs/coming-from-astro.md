@@ -50,12 +50,8 @@ type Props struct {
 }
 
 heading := strings.ToUpper(props.Title)
-classes := "card"
-if props.Featured {
-	classes += " featured"
-}
 ---
-<article class={classes}>
+<article class:list={"card", "featured": props.Featured}>
   <h2>{heading}</h2>
   {if len(props.Tags) > 0}
     <ul>
@@ -88,7 +84,7 @@ What changed:
 
 - `interface Props` became `type Props struct`, with exported (capitalized) fields, and `Astro.props` became `props`. There are no optional props: a field the parent doesn't set is Go's zero value, so `Featured` is simply `false`.
 - `&&` and `.map()` became `{if}` and `{for}` blocks.
-- `class:list` became a string built in the frontmatter.
+- `class:list`'s array and object became one list: `"featured": props.Featured` is the object's `{ featured }`.
 - The template, the slots and the `<style>` are unchanged. The style is scoped exactly as in Astro.
 
 Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]string{"go", "web"}} featured>` instead of `tags={["go", "web"]}`. Attribute names match the fields ignoring case, so `title` sets `Title`.
@@ -118,7 +114,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 | A chain of conditions on one value, or `switch` in the frontmatter | `{switch post.Status}{case "draft"}…{default}…{/switch}` | A Go `switch`: with a tag, an init statement, no tag, or a type switch. No fall-through. See [`{switch}`](reference/template-syntax.md#switch). |
 | `{list.map((x) => <li>{x}</li>)}` | `{for _, x := range list}<li>{x}</li>{/for}` | Any Go `for` clause: `range`, three-clause, condition only. |
 | `` class={`card ${extra}`} `` | `class={"card " + extra}` | A quoted value is literal text, with no interpolation. |
-| `class:list={[…]}` | Not supported (a compile error with a hint) | Build the string in the frontmatter, as in the card above, or with `strings.Join(classes, " ")`. |
+| `class:list={["a", extra, { b: on }]}` | `class:list={"a", extra, "b": on}` | One flat list, without the `[…]`: strings, `[]string` values (Astro's nested arrays) and `"class": condition` pairs (Astro's object form). Duplicates are kept, as in Astro, and whitespace is normalized; static classes are joined at build time. On a component, it sets the `class` prop, so `Props` needs a `Class string` field. See [`class:list`](reference/template-syntax.md#classlist). |
 | `set:html={str}` | `set:html={orbit.HTML(str)}` | Only an `orbit.HTML` value (or a string constant) is accepted, so a plain `string` variable is a compile error: raw HTML is always an explicit choice. `set:text` is the same as in Astro. See [Raw HTML](components.md#raw-html-with-orbithtml). |
 | No equivalent | `set:json={value}` on `<script type="application/json">` | New in Orbit: encodes a Go value with `encoding/json`, escaped so it can't break out of the script. Read it with `json(id)` from the component's module, typed from the Go value. See [JSON blocks](components.md#json-blocks-with-setjson). |
 | `define:vars={{ … }}` | `data-post={orbit.JSON(post)}` (or plain `data-*` attributes, or `set:json`) | `define:vars` isn't supported (a compile error with a hint). Write the values into `data-*` attributes with `orbit.JSON`, and read them in a custom element with `data(this, "post")` from `import { data } from "./X.orbit"`: the script gets them with their Go types, checked by `orbit check`. See [Typed data with `orbit.JSON`](components.md#typed-data-with-orbitjson). |

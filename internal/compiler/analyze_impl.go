@@ -487,6 +487,13 @@ func (y *anSynth) nodes(ns []Node, tags map[string]bool) {
 			}
 			if t := TagOf(n); t != nil {
 				for _, at := range t.Attrs {
+					if at.Directive == ClassList && at.Kind == AttrExpr && strings.TrimSpace(at.Code.Text) != "" {
+						// The items are the elements of a composite literal.
+						y.glue(anGlueCall + "(_{")
+						y.copy(at.Code)
+						y.glue("},\n)\n")
+						continue
+					}
 					if at.Kind == AttrExpr || at.Kind == AttrShorthand || at.Kind == AttrSpread {
 						y.expr(at.Code)
 					}

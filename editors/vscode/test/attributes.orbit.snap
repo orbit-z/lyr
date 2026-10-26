@@ -70,6 +70,30 @@
 #                    ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
 #                      ^ source.orbit meta.tag.html entity.name.tag.html
 #                       ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+>  <p class:list={"a b", props.Class, "hidden": hidden}>x</p>
+#^^ source.orbit
+#  ^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#   ^ source.orbit meta.tag.html entity.name.tag.html
+#    ^ source.orbit meta.tag.html
+#     ^^^^^ source.orbit meta.tag.html entity.other.attribute-name.directive.orbit entity.other.attribute-name.namespace.orbit
+#          ^ source.orbit meta.tag.html entity.other.attribute-name.directive.orbit punctuation.separator.namespace.orbit
+#           ^^^^ source.orbit meta.tag.html entity.other.attribute-name.directive.orbit entity.other.attribute-name.localname.orbit
+#               ^ source.orbit meta.tag.html punctuation.separator.key-value.html
+#                ^ source.orbit meta.tag.html meta.expression.orbit punctuation.section.embedded.begin.orbit
+#                 ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.begin.go
+#                  ^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.quoted.double.go
+#                     ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.end.go
+#                      ^^^^^^^^^^^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go
+#                                     ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.begin.go
+#                                      ^^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.quoted.double.go
+#                                            ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.end.go
+#                                             ^^^^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go
+#                                                     ^ source.orbit meta.tag.html meta.expression.orbit punctuation.section.embedded.end.orbit
+#                                                      ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#                                                       ^ source.orbit
+#                                                        ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                                                          ^ source.orbit meta.tag.html entity.name.tag.html
+#                                                           ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
 >  <Card client:visible="200px" {post} />
 #^^ source.orbit
 #  ^ source.orbit meta.tag.component.orbit punctuation.definition.tag.begin.html

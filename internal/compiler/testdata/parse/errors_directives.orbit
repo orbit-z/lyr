@@ -25,7 +25,7 @@
 <Card server:lazy />
 <Card server:defer client:idle />
 <Card client:visible server:defer />
-<div class:list={classes} define:vars={vars}>x</div>
+<div define:vars={vars}>x</div>
 <div set:foo={x} is:raw>x</div>
 <p xlink:href="#a" xml:lang="en">plain</p>
 <Self server:defer client:visible="10px" />

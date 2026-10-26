@@ -2,6 +2,7 @@ package compiler
 
 import (
 	gotoken "go/token"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -278,11 +279,17 @@ func (g *cgGen) discardHeader(kw string, code GoCode) {
 // returns its set: directive, if any.
 func (g *cgGen) htmlAttrs(t *Tag, node Node) (set *Attr) {
 	o := g.o
+	cl, merged := classAttrs(t)
 	for _, a := range t.Attrs {
 		if g.skipAttr[a] {
 			continue
 		}
 		switch {
+		case cl != nil && (a == cl || slices.Contains(merged, a)):
+			if a == cl {
+				g.classList(node, cl, merged)
+			}
+			continue
 		case a.Kind == AttrSpread:
 			g.write("Spread", a.Code)
 			continue
@@ -290,11 +297,11 @@ func (g *cgGen) htmlAttrs(t *Tag, node Node) (set *Attr) {
 			if set == nil {
 				set = a
 			} else {
-				g.discard(a.Code)
+				g.discardAttr(a)
 			}
 			continue
 		case a.Directive != NotDirective && a.Directive != SlotDirective:
-			g.discard(a.Code) // is:*, server:*, client:*, Astro-only: parse errors or dropped
+			g.discardAttr(a) // is:*, server:*, client:*, Astro-only: parse errors or dropped
 			continue
 		}
 		if a.IsExpr() {
@@ -387,7 +394,7 @@ func (g *cgGen) discardAll(n Node) {
 		}
 		if t := TagOf(n); t != nil {
 			for _, a := range t.Attrs {
-				g.discard(a.Code)
+				g.discardAttr(a)
 			}
 		}
 		return true
@@ -454,7 +461,7 @@ func (g *cgGen) fragment(n *Fragment, c *wsCtx, i int) {
 			}
 		case a.Directive == SlotDirective && a.IsStatic():
 		default:
-			g.discard(a.Code) // the parser rejects other attributes
+			g.discardAttr(a) // the parser rejects other attributes
 		}
 	}
 	if set != nil {
@@ -520,6 +527,10 @@ func wsBlank(nodes []Node) bool {
 type cgField struct {
 	key  string
 	attr *Attr
+	// merged are the class attributes merged into a class:list attr, and
+	// node is its component.
+	merged []*Attr
+	node   Node
 }
 
 type cgSlot struct {
@@ -555,9 +566,16 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	}
 	var fields []cgField
 	var pre []GoCode // Go code of broken attributes, for Tolerant mode
+	cl, merged := classAttrs(&n.Tag)
 	for _, a := range n.Attrs {
 		if a.Kind == AttrSpread {
 			pre = append(pre, a.Code)
+			continue
+		}
+		if cl != nil && (a == cl || slices.Contains(merged, a)) {
+			if a == cl {
+				fields, pre = g.classField(n, props, cl, merged, fields, pre)
+			}
 			continue
 		}
 		if a.Directive != NotDirective {
@@ -575,7 +593,7 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 			pre = append(pre, a.Code)
 			continue
 		}
-		fields = append(fields, cgField{key, a})
+		fields = append(fields, cgField{key: key, attr: a})
 	}
 	slots := g.groupSlots(n.Children)
 
@@ -658,6 +676,8 @@ func (g *cgGen) propFields(fields []cgField) {
 		o.inline(a.NameSpan, f.key, SegSpan)
 		o.str(": ")
 		switch {
+		case a.Directive == ClassList:
+			g.classProp(f.node, a, f.merged)
 		case a.IsExpr():
 			o.exact(a.Code.Span)
 		case a.IsStatic():
@@ -790,7 +810,7 @@ func (g *cgGen) closure(nodes []Node, c *wsCtx) {
 // its attribute code as "_ = (x)" lines (Tolerant) and its children inline.
 func (g *cgGen) brokenComponent(n *Component, c *wsCtx, i int) {
 	for _, a := range n.Attrs {
-		g.discard(a.Code)
+		g.discardAttr(a)
 	}
 	g.nodes(n.Children, c.sub(wsInline))
 }

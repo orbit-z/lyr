@@ -1,0 +1,9 @@
+---
+type Props struct {
+	Class string
+	Depth int
+}
+
+n := props.Depth
+---
+{if n > 5}<Self class:list={"b", "c": n} depth={0} />{/if}

@@ -59,7 +59,7 @@ func isRelativePath(v string) bool {
 // server:defer and (first) client:* attributes.
 func (p *parser) checkTag(t *Tag, k tagKind, children []Node, raw *RawText) (deferAttr, client *Attr) {
 	var set *Attr
-	nClient := 0
+	nClient, nClassList := 0, 0
 	for _, a := range t.Attrs {
 		if a.Kind == AttrSpread {
 			switch k {
@@ -72,7 +72,17 @@ func (p *parser) checkTag(t *Tag, k tagKind, children []Node, raw *RawText) (def
 		}
 		switch d := a.Directive; {
 		case d == ClassList:
-			p.errorf(a.Span, "class:list isn't supported; build the class string in the frontmatter (e.g. strings.Join)")
+			switch {
+			case k != tkElement && k != tkComponent:
+				p.errorf(a.Span, "class:list only works on HTML elements and components")
+			case a.Kind != AttrExpr:
+				p.errorf(a.Span, "class:list takes a list in braces, %s", classListExample)
+			case nClassList > 0:
+				p.errorf(a.Span, "only one class:list is allowed per tag")
+			default:
+				a.Classes = p.parseClassList(a)
+			}
+			nClassList++
 		case d == DefineVars:
 			p.errorf(a.Span, "define:vars isn't supported; pass data with orbit.JSON on a data-* attribute, or set:json")
 		case d == UnknownDirective:

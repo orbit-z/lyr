@@ -1,4 +1,4 @@
-Template @0-892
+Template @0-871
   Element @0-25
     <div> name=@1-4 start=@0-18 end=@19-25
       attr empty @5-17 name=@5-17 "server:defer" directive=server:defer
@@ -108,26 +108,25 @@ Template @0-892
       attr empty @689-703 name=@689-703 "client:visible" directive=client:visible
       attr empty @704-716 name=@704-716 "server:defer" directive=server:defer
   Text @719-720 "\n"
-  Element @720-772
-    <div> name=@721-724 start=@720-765 end=@766-772
-      attr expr @725-745 name=@725-735 "class:list" directive=class:list value=@736-745 code=@737-744 "classes"
-      attr expr @746-764 name=@746-757 "define:vars" directive=define:vars value=@758-764 code=@759-763 "vars"
-    Text @765-766 "x"
-  Text @772-773 "\n"
-  Element @773-804
-    <div> name=@774-777 start=@773-797 end=@798-804
-      attr expr @778-789 name=@778-785 "set:foo" directive=unknown value=@786-789 code=@787-788 "x"
-      attr empty @790-796 name=@790-796 "is:raw" directive=unknown
-    Text @797-798 "x"
-  Text @804-805 "\n"
-  Element @805-847
-    <p> name=@806-807 start=@805-838 end=@843-847
-      attr quoted @808-823 name=@808-818 "xlink:href" value=@820-822 "#a"
-      attr quoted @824-837 name=@824-832 "xml:lang" value=@834-836 "en"
-    Text @838-843 "plain"
-  Text @847-848 "\n"
-  Component @848-891 self defer=@854-866 client=client:visible
-    <Self> name=@849-853 start=@848-891 end=@891-891 selfclosing
-      attr empty @854-866 name=@854-866 "server:defer" directive=server:defer
-      attr quoted @867-888 name=@867-881 "client:visible" directive=client:visible value=@883-887 "10px"
-  Text @891-892 "\n"
+  Element @720-751
+    <div> name=@721-724 start=@720-744 end=@745-751
+      attr expr @725-743 name=@725-736 "define:vars" directive=define:vars value=@737-743 code=@738-742 "vars"
+    Text @744-745 "x"
+  Text @751-752 "\n"
+  Element @752-783
+    <div> name=@753-756 start=@752-776 end=@777-783
+      attr expr @757-768 name=@757-764 "set:foo" directive=unknown value=@765-768 code=@766-767 "x"
+      attr empty @769-775 name=@769-775 "is:raw" directive=unknown
+    Text @776-777 "x"
+  Text @783-784 "\n"
+  Element @784-826
+    <p> name=@785-786 start=@784-817 end=@822-826
+      attr quoted @787-802 name=@787-797 "xlink:href" value=@799-801 "#a"
+      attr quoted @803-816 name=@803-811 "xml:lang" value=@813-815 "en"
+    Text @817-822 "plain"
+  Text @826-827 "\n"
+  Component @827-870 self defer=@833-845 client=client:visible
+    <Self> name=@828-832 start=@827-870 end=@870-870 selfclosing
+      attr empty @833-845 name=@833-845 "server:defer" directive=server:defer
+      attr quoted @846-867 name=@846-860 "client:visible" directive=client:visible value=@862-866 "10px"
+  Text @870-871 "\n"

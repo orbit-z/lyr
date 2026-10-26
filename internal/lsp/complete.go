@@ -601,6 +601,7 @@ var directiveDocs = map[string]string{
 	"client:idle":    "Loads this component's scripts once the browser is idle.",
 	"client:visible": "Loads this component's scripts when the component scrolls into view.",
 	"client:media":   "Loads this component's scripts when a media query matches.",
+	"class:list":     "Builds the `class` from a list: `{\"card\", props.Class, \"active\": active}` (strings, `[]string` values, and `\"class\": condition` pairs).",
 }
 
 // attrItem is an attribute completion. value is the attribute's value
@@ -633,7 +634,7 @@ func (c cursor) attrItem(name string, kind int, group, value, detail, doc string
 func (c cursor) directiveItem(name string, snippets bool) map[string]any {
 	value := ""
 	switch name {
-	case "set:html", "set:text", "set:json":
+	case "set:html", "set:text", "set:json", "class:list":
 		value = "{"
 	case "slot", "client:media":
 		value = `"`
@@ -698,7 +699,7 @@ func (ws *workspace) attrItems(c cursor, snippets bool) []any {
 		directive("slot", "set:html", "set:text")
 	case *compiler.Element:
 		attrs(strings.ToLower(n.Name))
-		directive("slot")
+		directive("slot", "class:list")
 		if !n.Void {
 			directive("set:html", "set:text")
 		}
@@ -756,6 +757,11 @@ func (ws *workspace) componentItems(c cursor, info *compiler.ComponentInfo, fiel
 	set := setAttrs(&comp.Tag, c.reg.attr)
 	if !set["slot"] {
 		items = append(items, c.directiveItem("slot", snippets))
+	}
+	if info != nil && !set["class:list"] {
+		if _, err := compiler.MatchProp(&info.Props, "class"); err == nil {
+			items = append(items, c.directiveItem("class:list", snippets))
+		}
 	}
 	if comp.Defer == nil || comp.Defer == c.reg.attr {
 		items = append(items, c.directiveItem("server:defer", snippets))

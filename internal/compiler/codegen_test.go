@@ -172,6 +172,12 @@ func dumpMap(r *cgResult) string {
 	b.WriteString("call sites\n")
 	for _, cs := range r.out.CallSites {
 		kind := "content"
+		switch cs.Kind {
+		case SiteClass:
+			kind = "class"
+		case SiteClassProp:
+			kind = "class prop"
+		}
 		if cs.Kind == SiteAttr {
 			kind = "attr " + cs.AttrName
 			if cs.URLAttr {

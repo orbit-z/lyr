@@ -261,3 +261,47 @@ func attrNumber(b *types.Basic) TypedWrite {
 	}
 	return w
 }
+
+// classifyClass picks the write of a class:list item (PLAN.md §2.3): a
+// string kind is a Class write, []string (or a named slice of string) a
+// Classes write. ok is false for any other type, an error at the item.
+func classifyClass(tv types.TypeAndValue) (w TypedWrite, ok bool) {
+	t, nilv, valid := tyStatic(tv)
+	switch {
+	case !valid:
+		return TypedWrite{}, true // a type error, reported by Go
+	case nilv:
+		return TypedWrite{}, false
+	}
+	switch u := t.Underlying().(type) {
+	case *types.Basic:
+		if u.Info()&types.IsString != 0 {
+			if types.Identical(t, types.Typ[types.String]) {
+				return TypedWrite{Kind: WriteClass}, true
+			}
+			return TypedWrite{Kind: WriteClass, Conv: "string"}, true
+		}
+	case *types.Slice:
+		if types.Identical(u.Elem(), types.Typ[types.String]) {
+			if _, named := t.(*types.Named); named {
+				return TypedWrite{Kind: WriteClasses, Conv: "[]string"}, true
+			}
+			return TypedWrite{Kind: WriteClasses}, true
+		}
+	}
+	return TypedWrite{}, false
+}
+
+// classTypeError is the error for a class:list item of type t (nil for
+// untyped nil); merged is set for the value of a class attribute merged
+// into the list.
+func classTypeError(t types.Type, merged bool) string {
+	name := "untyped nil"
+	if t != nil {
+		name = types.TypeString(t, func(p *types.Package) string { return p.Name() })
+	}
+	if merged {
+		return "class={…} next to class:list must be a string or []string, not " + name
+	}
+	return "class:list items must be a string or []string, not " + name
+}

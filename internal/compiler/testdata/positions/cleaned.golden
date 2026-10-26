@@ -2,6 +2,8 @@
 src/components/E1.orbit:9:19: cannot use "x" (untyped string constant) as int value in argument to strconv.Itoa
 src/components/E10.orbit:8:13: duplicate case "a" (constant of type string) in expression switch
 	src/components/E10.orbit:7:8: previous case
+src/components/E11.orbit:9:39: cannot use n (variable of type int) as bool value in class:list condition
+src/components/E12.orbit:4:21: non-boolean condition in if statement
 src/components/E2.orbit:4:67: cannot use "n" (untyped string constant) as int value in argument to strconv.Itoa
 src/components/E3.orbit:4:8: undefined: intt
 src/components/E4.orbit:5:7: undefined: titel
@@ -16,6 +18,8 @@ src/pages/index.orbit:5:8: unknown field Nmae in struct literal of type Emb.Prop
 -- go vet --
 src/components/E1.orbit:9:19: cannot use "x" (untyped string constant) as int value in argument to strconv.Itoa
 src/components/E10.orbit:8:13: duplicate case "a" (constant of type string) in expression switch
+src/components/E11.orbit:9:39: cannot use n (variable of type int) as bool value in class:list condition
+src/components/E12.orbit:4:21: non-boolean condition in if statement
 src/components/E2.orbit:4:67: cannot use "n" (untyped string constant) as int value in argument to strconv.Itoa
 src/components/E3.orbit:4:8: undefined: intt
 src/components/E4.orbit:5:7: undefined: titel

@@ -285,6 +285,19 @@ func (w *Writer) Leave()
 ```
 Track the component stack around each render. `Enter` returns an error naming the component stack when the depth passes 1000, which stops runaway recursion before it overflows the stack. This guard is always on.
 
+```go
+func (w *Writer) Class(s string)      // the classes in s, each after a space
+func (w *Writer) Classes(ss []string) // Class for each string
+func (w *Writer) ClassAny(v any)      // a string kind or a slice of one, when the type isn't known
+func (w *Writer) ClassStart()
+func (w *Writer) ClassEnd()
+
+func JoinClasses(parts ...string) string
+func ClassIf(cond bool, s string) string
+func ClassString(v any) string
+```
+The writes behind [`class:list`](template-syntax.md#classlist). On an HTML element, the static classes are part of the precomputed HTML and the dynamic items are written with `Class` or `Classes`: whitespace is normalized and each class is escaped, with no allocation. When codegen can't tell whether a class comes first, `ClassStart` makes the first class open the attribute with ` class="`, and `ClassEnd` closes it, or writes nothing when there was no class. On a component tag, the class prop is `JoinClasses` of the items (`ClassIf` for `"c": cond`), which returns a single clean part as is and otherwise allocates the joined string. `ClassAny` and `ClassString` are the fallbacks for an item whose type the build didn't check; any other type is a render error (a panic for `ClassString`).
+
 ## Renderers and slots
 
 ```go

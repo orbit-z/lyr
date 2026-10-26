@@ -422,8 +422,17 @@
     },
 
     "directive": {
-      "comment": "Orbit directives: set:html, set:text, set:json, client:*, server:*, is:inline, is:global, slot.",
+      "comment": "Orbit directives: set:html, set:text, set:json, client:*, server:*, is:inline, is:global, class:list, slot.",
       "patterns": [
+        {
+          "name": "entity.other.attribute-name.directive.orbit",
+          "match": "(?<![^\\s])(class)(:)(list)(?=[\\s=/>]|$)",
+          "captures": {
+            "1": { "name": "entity.other.attribute-name.namespace.orbit" },
+            "2": { "name": "punctuation.separator.namespace.orbit" },
+            "3": { "name": "entity.other.attribute-name.localname.orbit" }
+          }
+        },
         {
           "name": "entity.other.attribute-name.directive.orbit",
           "match": "(?<![^\\s])(set|client|server|is)(:)([A-Za-z][\\w-]*)(?=[\\s=/>]|$)",

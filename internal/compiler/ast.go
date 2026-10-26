@@ -340,6 +340,25 @@ type Attr struct {
 	Code GoCode
 	// Directive classifies the name; NotDirective for plain attributes.
 	Directive Directive
+	// Classes are the items of a class:list={…} value, in source order;
+	// nil for other attributes, and when the value doesn't parse
+	// (reported).
+	Classes []ClassItem
+}
+
+// ClassItem is one item of a class:list value (PLAN.md §2.3), parsed as an
+// element of a Go composite literal: "a b", expr, or "c": cond.
+type ClassItem struct {
+	// Span covers the item as written, a keyed item's condition included.
+	Span
+	// Code is the class expression: the item, or a keyed item's key.
+	Code GoCode
+	// Cond is a keyed item's condition; Cond.Text is "" for an unkeyed
+	// item.
+	Cond GoCode
+	// Static is set when Code is a Go string literal; Value is its value.
+	Static bool
+	Value  string
 }
 
 // IsStatic reports whether the attribute has a static (quoted or unquoted)
@@ -366,7 +385,7 @@ const (
 	ClientIdle              // client:idle
 	ClientVisible           // client:visible
 	ClientMedia             // client:media
-	ClassList               // class:list (Astro-only, an error)
+	ClassList               // class:list
 	DefineVars              // define:vars (Astro-only, an error)
 	// UnknownDirective is an unknown name in a reserved namespace (set:, is:,
 	// server:, client:), client:only included. It is always an error.
