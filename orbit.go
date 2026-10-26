@@ -55,8 +55,10 @@ func (s Slots) Get(name string) Renderer {
 func (s Slots) Has(name string) bool { return s.Get(name) != nil }
 
 // Asset is a stylesheet or script that a page needs, injected into <head>.
-// Kind is "css", "js" or "lazy"; for "lazy", ID is the component ID whose
-// marker loads it.
+// Kind is "css", "js", "lazy" or "modulepreload"; for "lazy", ID is the
+// component ID whose marker loads it. A "modulepreload" asset is a shared
+// chunk that the page's "js" module imports (PLAN.md §5e): it gets a
+// <link rel="modulepreload"> after the module's <script>.
 type Asset struct {
 	Kind string
 	URL  string

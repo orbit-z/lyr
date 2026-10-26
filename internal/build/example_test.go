@@ -153,6 +153,8 @@ func goRun(t *testing.T, dir string, args ...string) string {
 var (
 	blogCSS    = regexp.MustCompile(`<link rel="stylesheet" href="(/_orbit/blog-slug-[A-Z0-9]{8}\.css)">`)
 	blogJS     = regexp.MustCompile(`<script type="module" src="(/_orbit/blog-slug-[A-Z0-9]{8}\.js)"></script>`)
+	preload    = regexp.MustCompile(`<link rel="modulepreload" href="(/_orbit/chunk-[A-Z0-9]{8}\.js)">`)
+	dynImport  = regexp.MustCompile(`import\("(/_orbit/suggestions-[A-Z0-9]{8}\.js)"\)`)
 	searchJS   = regexp.MustCompile(`<script type="module" src="(/_orbit/search-[A-Z0-9]{8}\.js)"></script>`)
 	blogIsland = regexp.MustCompile(`<orbit-island src="(/_orbit/island/[0-9a-f]{16}/Comments-[0-9a-f]{8})" props="([A-Za-z0-9_-]+)"><p class="loading"[^>]*>Loading comments…</p></orbit-island>`)
 	blogLazy   = regexp.MustCompile(`"lazy":\{"(ShareButtons-[0-9a-f]{8})":\["(/_orbit/ShareButtons-[A-Z0-9]{8}\.js)"\]\}`)
@@ -220,8 +222,15 @@ func checkBlogPages(t *testing.T, s *server) {
 	// The page script reads it: TypeScript, stripped of its types.
 	if js := searchJS.FindStringSubmatch(search); js == nil {
 		t.Errorf("GET /search: no page module:\n%s", search)
-	} else if _, b := s.get(js[1]); !strings.Contains(b, "post-titles-data") || strings.Contains(b, "string[]") {
+	} else if _, b := s.get(js[1]); !strings.Contains(b, "post-titles-data") || strings.Contains(b, "HTMLInputElement") {
 		t.Errorf("GET %s: not the stripped search script:\n%s", js[1], b)
+	} else if m := dynImport.FindStringSubmatch(b); m == nil || strings.Contains(b, "createElement") {
+		// The suggestions code is loaded with import() (PLAN.md §5e): a
+		// chunk of its own, not in the page module, and not preloaded.
+		t.Errorf("GET %s: no import() of the suggestions chunk, or its code inlined:\n%s", js[1], b)
+	} else if resp, c := s.get(m[1]); resp.StatusCode != 200 || resp.Header.Get("Cache-Control") != "public, max-age=31536000, immutable" ||
+		!strings.Contains(c, "createElement") || strings.Contains(c, "string[]") || strings.Contains(search, `rel="modulepreload"`) {
+		t.Errorf("GET %s: %d, Cache-Control %q\n%s", m[1], resp.StatusCode, resp.Header.Get("Cache-Control"), c)
 	}
 
 	// Locals from the net/http middleware, read by the page.
@@ -301,12 +310,13 @@ func checkBlogPost(t *testing.T, s *server) {
 		t.Errorf("GET /blog/hello: data-like isn't JSON: %v", m)
 	}
 
-	// The hashed stylesheet and module, in <head>, after the doctype.
-	css, js := blogCSS.FindStringSubmatch(post), blogJS.FindStringSubmatch(post)
-	if css == nil || js == nil || !strings.HasPrefix(post, "<!DOCTYPE html>") || !strings.Contains(post, css[0]+js[0]+"</head>") {
-		t.Fatalf("GET /blog/hello: no hashed assets at the end of <head>:\n%s", post)
+	// The hashed stylesheet and module, in <head>, after the doctype, then
+	// the shared chunk the module imports (util.ts, PLAN.md §5e).
+	css, js, pre := blogCSS.FindStringSubmatch(post), blogJS.FindStringSubmatch(post), preload.FindStringSubmatch(post)
+	if css == nil || js == nil || pre == nil || !strings.HasPrefix(post, "<!DOCTYPE html>") || !strings.Contains(post, css[0]+js[0]+pre[0]+"</head>") {
+		t.Fatalf("GET /blog/hello: no hashed assets and preload at the end of <head>:\n%s", post)
 	}
-	for _, url := range []string{css[1], js[1]} {
+	for _, url := range []string{css[1], js[1], pre[1]} {
 		resp, _ := s.get(url)
 		if resp.StatusCode != 200 || resp.Header.Get("Cache-Control") != "public, max-age=31536000, immutable" {
 			t.Errorf("GET %s: %d, Cache-Control %q", url, resp.StatusCode, resp.Header.Get("Cache-Control"))
@@ -318,10 +328,14 @@ func checkBlogPost(t *testing.T, s *server) {
 	if _, b := s.get(css[1]); !strings.Contains(b, "[data-o-") {
 		t.Errorf("GET %s: no scoped selectors:\n%s", css[1], b)
 	}
-	// LikeButton's script, with util.ts bundled in and its types stripped.
+	// LikeButton's script, its types stripped, importing util.ts's chunk.
 	if _, b := s.get(js[1]); !strings.Contains(b, "like-button") || !strings.Contains(b, `"like"`) ||
-		strings.Contains(b, ": number") || strings.Contains(b, ": string") || strings.Contains(b, "Promise<void>") || strings.Contains(b, "import ") {
-		t.Errorf("GET %s: not the bundled, stripped LikeButton script:\n%s", js[1], b)
+		strings.Contains(b, ": number") || strings.Contains(b, ": string") || strings.Contains(b, "Promise<void>") ||
+		!strings.HasPrefix(b, "import{") || !strings.Contains(b, `from"`+pre[1]+`"`) || strings.Contains(b, "setTimeout") {
+		t.Errorf("GET %s: not the stripped LikeButton script importing %s:\n%s", js[1], pre[1], b)
+	}
+	if _, b := s.get(pre[1]); !strings.Contains(b, "setTimeout") || strings.Contains(b, ": string") {
+		t.Errorf("GET %s: not util.ts:\n%s", pre[1], b)
 	}
 
 	// ShareButtons is lazy: in its own entry, not in the page module.
@@ -329,8 +343,11 @@ func checkBlogPost(t *testing.T, s *server) {
 	if lazy == nil || !strings.Contains(post, `<orbit-lazy component="`+lazy[1]+`" client="visible" opts="200px"><share-buttons`) {
 		t.Errorf("GET /blog/hello: no lazy ShareButtons:\n%s", post)
 	} else {
-		if _, b := s.get(lazy[2]); !strings.Contains(b, "share-buttons") || strings.Contains(b, "HTMLButtonElement>") {
-			t.Errorf("GET %s: not the stripped ShareButtons script:\n%s", lazy[2], b)
+		// It imports util.ts's chunk, shared with the page module, instead
+		// of a copy of it.
+		if _, b := s.get(lazy[2]); !strings.Contains(b, "share-buttons") || strings.Contains(b, "HTMLButtonElement>") ||
+			!strings.Contains(b, `from"`+pre[1]+`"`) || strings.Contains(b, "setTimeout") {
+			t.Errorf("GET %s: not the stripped ShareButtons script importing %s:\n%s", lazy[2], pre[1], b)
 		}
 		if _, b := s.get(js[1]); strings.Contains(b, "share-buttons") {
 			t.Errorf("GET %s: the page module has the lazy ShareButtons script", js[1])

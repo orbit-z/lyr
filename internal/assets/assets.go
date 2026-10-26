@@ -1,6 +1,7 @@
 // Package assets bundles the processed <script> and <style> blocks of a
 // project's .orbit files into one stylesheet and one ES module per page
-// (PLAN.md §5). The default bundler is esbuild, through its Go API, in the
+// (PLAN.md §5), with the modules that several entries import, and the
+// targets of dynamic import(), split into shared chunks (§5e). The default bundler is esbuild, through its Go API, in the
 // orbit process; the rest of Orbit only sees the Bundler interface.
 //
 // The package doesn't know about projects: internal/project builds the
@@ -115,10 +116,13 @@ type Lazy struct {
 // Result is the outcome of a Bundle.
 type Result struct {
 	// Pages maps a page file to its assets, in <head> order: the
-	// stylesheet, then the module. Pages without assets aren't listed.
+	// stylesheets, then the module, then the lazy entries, then the chunks
+	// the module imports (modulepreload). Pages without assets aren't
+	// listed.
 	Pages map[string][]Asset
-	// Files are the output files (bundles, source maps, files referenced
-	// from CSS), sorted by Name. Nil when there are errors.
+	// Files are the output files (entries, shared and dynamic import()
+	// chunks, source maps, files referenced from CSS), sorted by Name.
+	// Nil when there are errors.
 	Files []File
 	// Diagnostics are esbuild's and the CSS scoper's errors and warnings,
 	// at positions in the user's files.
@@ -145,12 +149,15 @@ func (r *Result) File(url string) *File {
 	return nil
 }
 
-// Asset is a page asset, as in orbit.Asset: Kind "css", "js" or "lazy",
-// URL under /_orbit/. A "lazy" asset is one entry of a lazy marker's list:
-// ID is the tagged component's ID, URL the entry of one component in that
-// list. A marker that loads several entries has several "lazy" assets with
-// the same ID, and an entry can be listed under several IDs. The CSS that
-// a lazy entry's scripts import is a "css" asset of the page.
+// Asset is a page asset, as in orbit.Asset: Kind "css", "js", "lazy" or
+// "modulepreload", URL under /_orbit/. A "lazy" asset is one entry of a
+// lazy marker's list: ID is the tagged component's ID, URL the entry of one
+// component in that list. A marker that loads several entries has several
+// "lazy" assets with the same ID, and an entry can be listed under several
+// IDs. The CSS that a lazy entry's scripts import is a "css" asset of the
+// page. A "modulepreload" asset is a chunk in the static import closure of
+// the page's "js" module (PLAN.md §5e), in breadth-first import order;
+// lazy entries' and dynamic import() chunks aren't listed.
 type Asset struct {
 	Kind string
 	URL  string

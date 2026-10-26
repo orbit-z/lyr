@@ -117,20 +117,35 @@ No page is rendered at build time: `dist/server` renders every page on request. 
 | Flag | Default | Meaning |
 |---|---|---|
 | `--embed` | `false` (or `"embed"` in `orbit.json`) | Embeds `dist/client` into `dist/server`, for a single-binary deploy. |
-| `--verbose` | `false` | Lists each page's CSS and JS bundles with their sizes. |
+| `--verbose` | `false` | Lists each page's CSS and JS files with their sizes. |
 
-With `--verbose`, a successful build prints each page and its bundles to stdout, with their size and gzipped size (in kB of 1000 bytes, gzip at its default level, as Vite and Astro report them), then the totals. A bundle is counted once in the totals:
+With `--verbose`, a successful build prints each page and its files to stdout, with their size and gzipped size (in kB of 1000 bytes, gzip at its default level, as Vite and Astro report them): its stylesheet, its module, the [shared chunks](../styles-and-scripts.md#shared-chunks-and-import) the module imports (indented, `(preload)`: the page links them with `<link rel="modulepreload">`) and its [lazy entries](../lazy-loading.md) (`(lazy)`). Then `loaded with import()` lists the chunks no page preloads: the targets of dynamic `import()`, and chunks that only lazy entries import. The totals count every CSS and JS file once, however many pages list it. This is `examples/blog`:
 
 ```text
-src/pages/404.orbit: no CSS or JS
+src/pages/404.orbit
+  /_orbit/404-X3S6MRMN.css             0.81 kB  gzip    0.44 kB
+src/pages/about.md
+  /_orbit/about-T5WON2JX.css           3.52 kB  gzip    0.95 kB
+src/pages/account.orbit
+  /_orbit/account-WUPF6IZ7.css         0.86 kB  gzip    0.46 kB
+  /_orbit/account-ZVPT2ZNZ.js          0.29 kB  gzip    0.25 kB
 src/pages/blog/[slug].orbit
-  /_orbit/blog-slug-JWGBBLFA.css     0.12 kB  gzip    0.14 kB
+  /_orbit/blog-slug-A7YHTO2V.css       1.64 kB  gzip    0.67 kB
+  /_orbit/blog-slug-D5CBDCRB.js        0.58 kB  gzip    0.43 kB
+    /_orbit/chunk-ANEWWFSU.js          0.16 kB  gzip    0.14 kB  (preload)
+  /_orbit/ShareButtons-QRWP56BT.js     0.49 kB  gzip    0.33 kB  (lazy)
 src/pages/index.orbit
-  /_orbit/index-WLVNB6WB.css         0.12 kB  gzip    0.14 kB
-  /_orbit/index-GFXPG6T5.js          0.14 kB  gzip    0.16 kB
-total CSS                            0.23 kB  gzip    0.28 kB
-total JS                             0.14 kB  gzip    0.16 kB
+  /_orbit/index-DFCY47X5.css           1.30 kB  gzip    0.57 kB
+src/pages/search.orbit
+  /_orbit/search-DDKLSPIY.css          1.36 kB  gzip    0.59 kB
+  /_orbit/search-FS5ZIDKX.js           0.21 kB  gzip    0.19 kB
+loaded with import()
+  /_orbit/suggestions-GF7I45PT.js      0.24 kB  gzip    0.19 kB
+total CSS                              9.48 kB  gzip    3.68 kB
+total JS                               1.97 kB  gzip    1.54 kB
 ```
+
+A page with neither prints `src/pages/x.orbit: no CSS or JS`.
 
 To get source maps for the bundles, set [`"sourcemap": true`](../configuration.md#sourcemap) in `orbit.json`.
 

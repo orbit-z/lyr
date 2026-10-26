@@ -283,7 +283,7 @@ The time from a saved edit to a new server running, measured on `orbit dev`'s ow
 | Frontmatter statement | 168 ms | 171 ms | 222 / 227 ms |
 | Add a `Props` field (component imported by 10 others) | 187 ms | 196 ms | 242 / 270 ms |
 | Add a page | 218 ms | 230 ms | 260 / 272 ms |
-| Only a `<style>` or `<script>` (no Go rebuild) | 23 ms | 26 ms | same |
+| Only a `<style>` or `<script>` (no Go rebuild; before code splitting, see [below](#code-splitting)) | 23 ms | 26 ms | same |
 | A Go package every `Props` imports, function body only | 602 ms | 995 ms | 740 ms / 1.28 s |
 | The same package, new exported name | 609 ms | 997 ms | 770 ms / 1.30 s |
 
@@ -312,6 +312,20 @@ The same benchmark with `-tailwind` (PLAN.md §5d): the project gets a `global.c
 On template and frontmatter edits Tailwind is hidden behind `go build`; what remains (5–20 ms) is CPU contention, worse on 4 cores. A style or script edit has no Go rebuild to hide behind, so it waits for the run, then esbuild. A project without Tailwind runs none of this: no lookup, no process, no word set (measured the same as before, 173 and 17 ms).
 
 `orbit build` on the same project, everything else cached: 0.30 s without Tailwind, 0.40 s with it (5 runs each, three rounds, load average 8.5). A project without Tailwind builds in the same time as before (0.30–0.31 s).
+
+#### Code splitting
+
+Since [shared chunks and `import()`](styles-and-scripts.md#shared-chunks-and-import) (PLAN.md §5e), a component's script block is copied into the bundle of each page that uses it, so that blocks run in import order, while imported files become shared chunks. esbuild processes each copy: on the same 200-file project (every 4th component has a script importing a shared `util.ts`; about 800 block copies instead of 40 blocks), measured against the code before, alternated:
+
+| | Before | With code splitting |
+|---|---:|---:|
+| Only a `<style>` or `<script>` (`bench/devloop -dev -kinds css,ts`, median (min) of 15, two rounds, load average 9–10) | 16 (15) ms | 26–31 (25–27) ms |
+| esbuild in `orbit generate`/`orbit build` (median (min) of 15 separate processes, load average 1.4) | 15 (14) ms | 31 (28) ms |
+| `orbit generate` (median (min) of 15, load average 11) | 67 (64) ms | 78 (75) ms |
+| JS requests per page (the module and its preloaded chunks) | 1 | 2.0 |
+| JS per page, raw / gzip (sum of per-file gzip) | 1,914 / 320 B | 1,976 / 406 B |
+
+A style or script edit stays far inside the ~1 s budget, but it is about 11–14 ms slower than before, most of it esbuild linking and printing the copies. A scoped style block is scoped once and a Tailwind block runs Tailwind once per build, however many pages copy it. A page with no shared imports gets the same single module as before.
 
 ### Editor (`orbit lsp`)
 

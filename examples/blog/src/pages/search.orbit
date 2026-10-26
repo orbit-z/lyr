@@ -53,15 +53,15 @@ for i, p := range all {
   }
 </style>
 <script>
-  // Fill the search box's suggestions from the set:json block above.
-  const data = document.getElementById("post-titles-data");
-  const list = document.getElementById("post-titles");
-  if (data && list) {
-    const titles: string[] = JSON.parse(data.textContent ?? "[]");
-    for (const title of titles) {
-      const option = document.createElement("option");
-      option.value = title;
-      list.append(option);
-    }
-  }
+  // The suggestions code loads on the first focus of the search box only:
+  // a dynamic import() is a chunk of its own (PLAN.md §5e).
+  const input = document.querySelector<HTMLInputElement>('input[name="q"]');
+  input?.addEventListener(
+    "focus",
+    async () => {
+      const { fillSuggestions } = await import("../scripts/suggestions");
+      fillSuggestions("post-titles-data", "post-titles");
+    },
+    { once: true },
+  );
 </script>

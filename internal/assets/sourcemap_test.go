@@ -117,13 +117,27 @@ func TestSourceMaps(t *testing.T) {
 			if src != "/src/components/Card.orbit" || line != 11 || col != 3 {
 				t.Errorf("console.log maps to %s:%d:%d, want /src/components/Card.orbit:11:3", src, line, col)
 			}
-			// util.ts line 2: "  return `hi ${name}`;"
-			if src, line, _ := lookup(t, gen, sm, "`hi "); src != "/src/scripts/util.ts" || line != 2 {
+			// util.ts, shared with blog/[slug], is a chunk (PLAN.md §5e)
+			// whose map points at the .ts file. Line 2: "  return `hi ${name}`;"
+			if len(idx) != 3 || idx[2].Kind != "modulepreload" {
+				t.Fatalf("index assets = %+v", idx)
+			}
+			chunk := idx[2].URL
+			if got := strings.Contains(string(res.File(chunk).Contents), "sourceMappingURL="+chunk+".map"); got != tt.linked {
+				t.Errorf("%s linked = %v, want %v", chunk, got, tt.linked)
+			}
+			if src, line, _ := lookup(t, string(res.File(chunk).Contents), readMap(t, res, chunk), "`hi "); src != "/src/scripts/util.ts" || line != 2 {
 				t.Errorf("template literal maps to %s:%d", src, line)
+			}
+			if strings.Contains(gen, "`hi ") {
+				t.Errorf("shared util.ts is in the page entry:\n%s", gen)
 			}
 			for i, s := range sm.Sources {
 				if s == "/src/components/Card.orbit" && (i >= len(sm.SourcesContent) || *sm.SourcesContent[i] != basicFiles["src/components/Card.orbit"]) {
 					t.Errorf("sourcesContent of Card.orbit isn't the file")
+				}
+				if strings.Contains(s, "?") || strings.Contains(s, "@") {
+					t.Errorf("source %q keeps a block suffix or page qualifier", s)
 				}
 				if strings.Contains(s, dir) || strings.HasPrefix(s, "..") {
 					t.Errorf("source %q depends on the build directory", s)

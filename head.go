@@ -38,9 +38,11 @@ func putBuffer(buf *bytes.Buffer) {
 
 // headTags returns the tags a page gets before its </head>: loader (the
 // loader tags, or "") and then the <link> and <script> tags for assets, in
-// asset order. Only "css" and "js" assets produce tags. "lazy" assets are
-// loaded by the client loader (whose map is in loader), and other kinds are
-// ignored. In production it runs once per route, in NewSite.
+// asset order. "css", "js" and "modulepreload" assets produce tags (a
+// <link rel="modulepreload"> for each chunk the page's module imports,
+// PLAN.md §5e). "lazy" assets are loaded by the client loader (whose map is
+// in loader), and other kinds are ignored. In production it runs once per
+// route, in NewSite.
 func headTags(loader string, assets []Asset) string {
 	var tags strings.Builder
 	tags.WriteString(loader)
@@ -54,6 +56,10 @@ func headTags(loader string, assets []Asset) string {
 			tags.WriteString(`<script type="module" src="`)
 			tags.WriteString(attrEscape(a.URL))
 			tags.WriteString(`"></script>`)
+		case "modulepreload":
+			tags.WriteString(`<link rel="modulepreload" href="`)
+			tags.WriteString(attrEscape(a.URL))
+			tags.WriteString(`">`)
 		}
 	}
 	return tags.String()

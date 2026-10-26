@@ -131,6 +131,62 @@ func TestDeterministic(t *testing.T) {
 	}
 }
 
+// TestDevRebuildChunks: shared chunks (PLAN.md §5e) are written to
+// .orbit/dev/_orbit/ and listed as modulepreload rows; an edit of the
+// shared file renames the chunk, and the old one is pruned.
+func TestDevRebuildChunks(t *testing.T) {
+	dir := project(t, basicFiles)
+	devDir := filepath.Join(dir, ".orbit", "dev")
+	b := New(Options{Root: dir, Dev: true}).(*esbuildBundler)
+	defer b.Close()
+	preload := func() string {
+		t.Helper()
+		res, err := b.Bundle(basicInput(t, dir))
+		if err != nil {
+			t.Fatal(err)
+		}
+		noErrors(t, res)
+		if err := WriteDev(devDir, res); err != nil {
+			t.Fatal(err)
+		}
+		m := readDevManifest(t, devDir)
+		var urls []string
+		for _, page := range []string{"src/pages/index.orbit", "src/pages/blog/[slug].orbit"} {
+			as := m.Pages[page]
+			if len(as) != 3 || as[2].Kind != "modulepreload" {
+				t.Fatalf("%s manifest rows %+v", page, as)
+			}
+			urls = append(urls, as[2].URL)
+		}
+		if urls[0] != urls[1] || !strings.HasPrefix(urls[0], "/_orbit/chunk-") {
+			t.Fatalf("preloads %v", urls)
+		}
+		if got, want := len(devFiles(t, devDir)), len(res.Files); got != want {
+			t.Errorf("_orbit has %d files, want %d: %v", got, want, devFiles(t, devDir))
+		}
+		return urls[0]
+	}
+	chunk1 := preload()
+	data, err := os.ReadFile(filepath.Join(devDir, filepath.FromSlash(strings.TrimPrefix(chunk1, "/"))))
+	if err != nil || !strings.Contains(string(data), "hi ") {
+		t.Fatalf("chunk %s: %v\n%s", chunk1, err, data)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "src/scripts/util.ts"), []byte("export function greet(name: string): string {\n  return `hello ${name}`;\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	chunk2 := preload()
+	if chunk2 == chunk1 {
+		t.Errorf("chunk not renamed after an edit: %s", chunk2)
+	}
+	if b.contexts != 1 {
+		t.Errorf("contexts = %d, want 1", b.contexts)
+	}
+	if _, err := os.Stat(filepath.Join(devDir, filepath.FromSlash(strings.TrimPrefix(chunk1, "/")))); !os.IsNotExist(err) {
+		t.Errorf("stale chunk %s not removed: %v", chunk1, err)
+	}
+}
+
 func TestBundleImports(t *testing.T) {
 	dir := project(t, map[string]string{
 		"tsconfig.json":                   `{"compilerOptions": {"baseUrl": ".", "paths": {"@lib/*": ["src/lib/*"]}}}`,
