@@ -1,6 +1,6 @@
 # Editor setup
 
-Orbit's language server, `orbit lsp`, gives your editor Go completion, diagnostics, go-to-definition and rename inside `.orbit` files, by working together with gopls.
+Orbit's language server, `orbit lsp`, gives your editor Go completion, diagnostics, go-to-definition and rename inside `.orbit` files, by working together with gopls, and reports Orbit's errors in your Markdown pages as you type.
 
 ## Check your setup with `orbit doctor`
 
@@ -49,6 +49,7 @@ The extension:
 - highlights them: the frontmatter and `{…}` expressions as Go, `<style>` as CSS, `<script>` as TypeScript (`<script type="application/json">` as JSON), and the rest as HTML, with components and directives set apart;
 - adds bracket matching, comment toggling and auto-closing;
 - starts `orbit lsp` for completion, diagnostics and the rest;
+- sends the Markdown files under `src/` to `orbit lsp` too, for their diagnostics only (see [Markdown files](#markdown-files)): their highlighting and every other Markdown feature stay VS Code's;
 - adds three commands to the Command Palette:
   - **Orbit: Restart Language Server**, for example after installing a new gopls;
   - **Orbit: Run orbit generate**;
@@ -90,7 +91,7 @@ vim.lsp.config('orbit', {
 vim.lsp.enable('orbit')
 ```
 
-The first line makes Neovim detect `.orbit` files; the rest starts `orbit lsp` for them. The language server finds the project root itself (the directory with `go.mod` and `src/`).
+The first line makes Neovim detect `.orbit` files; the rest starts `orbit lsp` for them. For [diagnostics in Markdown files](#markdown-files) too, use `filetypes = { 'orbit', 'markdown' }`: the language server ignores Markdown files Orbit doesn't compile, and answers other requests on Markdown files with nothing. The language server finds the project root itself (the directory with `go.mod` and `src/`).
 
 Orbit doesn't ship syntax highlighting for Neovim: its grammar is a TextMate grammar, which only VS Code uses. Completion, diagnostics and the other language-server features work without it.
 
@@ -162,11 +163,25 @@ With an up-to-date `orbit_gen/`, gopls reads the generated code of every file yo
 
 **Diagnostics** appear at their position in the `.orbit` file as you type, with no save needed: Orbit's own (template syntax errors, unknown props, misused directives) and gopls's Go type errors. Changes are visible across files before you save: add a field to `Card`'s `Props`, and the new attribute is accepted in a page right away.
 
+**Import paths**: inside the quotes of a frontmatter import, once you type `./` or `../`, completion offers the project's `.orbit` files and the Markdown files under `src/`, as paths relative to the file you're in (the file itself and those you've already imported aren't offered). In an import with no alias, `import "./`, accepting one also adds the alias: `import Post "./post.md"`.
+
 **TypeScript** in `<script>` gets syntax highlighting only, with no completion or diagnostics. Run [`orbit check`](styles-and-scripts.md#type-checking-with-orbit-check) (which uses `bun check`, Bun 1.4.4 or later) to type-check your scripts.
 
-**Markdown files** (`.md`) are left to your editor's own Markdown support: the Orbit extension doesn't claim them, and the language server reports no diagnostics in them (`orbit check` and the `orbit dev` overlay do). It does follow their changes on disk, so in an `.orbit` file that imports `Post "./post.md"`, `Post.Frontmatter.` completes the frontmatter's fields. See [Markdown](markdown.md#in-the-dev-server).
-
 Formatting `.orbit` files and semantic highlighting are not yet supported.
+
+## Markdown files
+
+The language server reports Orbit's errors and warnings in the Markdown files it compiles: the pages under `src/pages/`, and the `.md` files an `.orbit` file imports (see [Markdown](markdown.md)). They update as you type, with no save needed:
+
+- frontmatter errors: YAML syntax, anchors and tags, a key with no value, a missing or misplaced `layout`, a key the layout's `Props` doesn't have;
+- links to other Markdown files: a missing target is an error, a `#fragment` with no matching heading a warning;
+- route errors: brackets in a page's path, a route another page already has.
+
+A frontmatter value of the wrong type for its layout field (`draft: "yes"` for a `bool` field) is found by Go's type checker, which the language server runs in the background when the editor starts and again after `orbit dev` or `orbit generate` rewrites `orbit_gen/`. That error stays on its key while you edit the rest of the file; once you edit the key itself, it's hidden until the next check. `orbit dev` and `orbit check` always show it.
+
+Other Markdown files, such as a `README.md` that nothing imports, are ignored. Everything else about Markdown files (highlighting, preview, their own completion) stays with your editor's Markdown support: the VS Code extension sends `.md` files under `src/` to the language server for diagnostics only.
+
+The language server also follows `.md` changes on disk, so in an `.orbit` file that imports `Post "./post.md"`, `Post.Frontmatter.` completes the frontmatter's fields.
 
 ## Rename
 
@@ -194,6 +209,7 @@ Orbit refuses a rename, with a message:
 
 - of a name the generated code declares rather than your file: `props`, `ctx`, `slots`, `locals`, `params`, and the `Props` type itself;
 - of a `params` field, such as `params.Slug`: it comes from the file path (`[slug].orbit`), so rename the file instead;
+- of a layout's `Props` field that a Markdown file's frontmatter sets: the language server doesn't edit Markdown files, so rename the field and the frontmatter key yourself (the message names the file and line);
 - when it would have to change generated code that doesn't correspond to anything in your files;
 - of a `Props` field to an unexported name (`article`): a parent couldn't set it.
 

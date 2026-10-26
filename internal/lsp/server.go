@@ -315,7 +315,7 @@ func (s *Server) initialize(params jsonRaw) (any, *rpcError) {
 			// No resolveProvider: gopls's items are complete (docs inline,
 			// no data) and so are Orbit's.
 			"completionProvider": map[string]any{
-				"triggerCharacters": []string{".", "<", " ", ":", `"`, "'", "{"},
+				"triggerCharacters": []string{".", "<", " ", ":", `"`, "'", "{", "/"},
 			},
 			"signatureHelpProvider": map[string]any{"triggerCharacters": []string{"(", ","}},
 		},
@@ -427,12 +427,18 @@ func (s *Server) didOpen(params jsonRaw) {
 	if ws == nil {
 		return
 	}
-	path := ws.orbitPath(p.TextDocument.URI)
+	path := ws.docPath(p.TextDocument.URI)
 	if path == "" {
-		return
+		return // not part of the project: outside src/, or another file type
 	}
-	ws.docs[path] = &document{uri: p.TextDocument.URI, version: p.TextDocument.Version}
-	ws.setSource(path, p.TextDocument.Text)
+	doc := &document{uri: p.TextDocument.URI, version: p.TextDocument.Version}
+	ws.docs[path] = doc
+	if isMarkdownSource(path) {
+		doc.md, doc.text = true, p.TextDocument.Text
+		ws.setMarkdown(path, doc.text, false)
+	} else {
+		ws.setSource(path, p.TextDocument.Text)
+	}
 	s.publishAll(ws)
 }
 
@@ -453,10 +459,22 @@ func (s *Server) didChange(params jsonRaw) {
 	if ws == nil {
 		return
 	}
-	path := ws.orbitPath(p.TextDocument.URI)
-	f := ws.byPath[path]
+	path := ws.docPath(p.TextDocument.URI)
 	doc := ws.docs[path]
-	if f == nil || doc == nil {
+	if doc == nil {
+		return
+	}
+	if doc.md {
+		// A Markdown file is in the project whether or not it's compiled
+		// (an import may compile it later), so the buffer is kept here.
+		doc.version = p.TextDocument.Version
+		doc.text = applyChanges(doc.text, p.ContentChanges)
+		ws.setMarkdown(path, doc.text, false)
+		s.publishAll(ws)
+		return
+	}
+	f := ws.byPath[path]
+	if f == nil {
 		return
 	}
 	doc.version = p.TextDocument.Version
@@ -499,12 +517,19 @@ func (s *Server) didClose(params jsonRaw) {
 	if ws == nil {
 		return
 	}
-	path := ws.orbitPath(p.TextDocument.URI)
-	if ws.docs[path] == nil {
+	path := ws.docPath(p.TextDocument.URI)
+	doc := ws.docs[path]
+	if doc == nil {
 		return
 	}
 	delete(ws.docs, path)
-	ws.reloadFromDisk(path)
+	// As for .orbit files, the diagnostics stay: they're about the disk
+	// content now.
+	if doc.md {
+		ws.reloadMarkdown(path)
+	} else {
+		ws.reloadFromDisk(path)
+	}
 	decl, impl := ws.genOf(path)
 	for _, g := range []*genFile{decl, impl} {
 		if g != nil {
@@ -547,11 +572,11 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 			}
 			continue
 		case isMarkdownSource(rel):
-			// Markdown files have no editor support here (PLAN.md §9), but
-			// their decl packages are what gopls completes Post.Frontmatter.
-			// from, so they follow the disk.
-			ws.reloadMarkdown(rel)
-			orbitChanged = true
+			// Like .orbit files: the editor's buffer wins over the disk.
+			if ws.docs[rel] == nil {
+				ws.reloadMarkdown(rel)
+				orbitChanged = true
+			}
 			continue
 		case isGenPath(rel):
 			if g := ws.gen[rel]; g != nil {

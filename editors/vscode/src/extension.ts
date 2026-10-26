@@ -1,4 +1,5 @@
-// The Orbit VS Code extension: starts `orbit lsp` for .orbit files and adds
+// The Orbit VS Code extension: starts `orbit lsp` for .orbit files (and
+// Markdown files under src/, for their diagnostics) and adds
 // the Restart Language Server, Run orbit generate and Run orbit doctor
 // commands. Syntax highlighting and the language configuration are
 // declarative (package.json, syntaxes/, language-configuration.json).
@@ -16,6 +17,16 @@ import {
 
 const installURL = "https://github.com/orbit-z/orbit/blob/main/docs/editor-setup.md";
 const installCommand = "go install github.com/orbit-z/orbit/cmd/orbit@latest";
+
+// markdownPattern matches the Markdown files Orbit compiles (PLAN.md §2.4:
+// Astro's extensions), which are all under src/.
+const markdownPattern = "**/src/**/*.{md,markdown,mdown,mkdn,mkd,mdwn}";
+
+// isOrbit reports whether a document is an .orbit file: the server's
+// features other than diagnostics are for those only.
+function isOrbit(doc: vscode.TextDocument): boolean {
+  return doc.languageId === "orbit";
+}
 
 let client: LanguageClient | undefined;
 let output: vscode.OutputChannel;
@@ -60,8 +71,23 @@ async function start(): Promise<void> {
     options: cwd ? { cwd } : {},
   };
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [{ scheme: "file", language: "orbit" }],
+    documentSelector: [
+      { scheme: "file", language: "orbit" },
+      // Markdown pages and imports, for Orbit's diagnostics only: the
+      // server ignores .md files that aren't compiled, and the middleware
+      // below keeps every other request for VS Code's Markdown support.
+      { scheme: "file", pattern: markdownPattern },
+    ],
     initializationOptions: goplsPath ? { goplsPath } : {},
+    middleware: {
+      provideHover: (doc, pos, token, next) => (isOrbit(doc) ? next(doc, pos, token) : undefined),
+      provideCompletionItem: (doc, pos, ctx, token, next) => (isOrbit(doc) ? next(doc, pos, ctx, token) : undefined),
+      provideDefinition: (doc, pos, token, next) => (isOrbit(doc) ? next(doc, pos, token) : undefined),
+      provideReferences: (doc, pos, opts, token, next) => (isOrbit(doc) ? next(doc, pos, opts, token) : undefined),
+      provideSignatureHelp: (doc, pos, ctx, token, next) => (isOrbit(doc) ? next(doc, pos, ctx, token) : undefined),
+      prepareRename: (doc, pos, token, next) => (isOrbit(doc) ? next(doc, pos, token) : undefined),
+      provideRenameEdits: (doc, pos, name, token, next) => (isOrbit(doc) ? next(doc, pos, name, token) : undefined),
+    },
   };
   client = new LanguageClient("orbit", "Orbit Language Server", serverOptions, clientOptions);
   try {

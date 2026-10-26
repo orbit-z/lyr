@@ -133,18 +133,23 @@ func inSpans(spans []compiler.Span, off int) bool {
 // publish sends the merged diagnostics of the .orbit file at p, if they
 // changed since the last publish.
 func (s *Server) publish(ws *workspace, p string) {
-	if compiler.IsMarkdown(p) {
-		return // the editor's Markdown support has .md files (PLAN.md §9)
-	}
 	lines := ws.lines[p]
+	md := compiler.IsMarkdown(p)
 	var items []jsonRaw
 	if lines != nil {
 		own, spans := ws.orbitDiagnostics(p, lines)
+		if md {
+			// A Markdown file's generated Go holds no user code: gopls's
+			// diagnostics there have no place in it (and its untyped
+			// fallback assignments aren't what orbit generate checks), so
+			// the typed check's diagnostics stand in for them.
+			own = append(own, ws.mdTypedDiagnostics(p, lines, spans)...)
+		}
 		for _, d := range own {
 			b, _ := json.Marshal(d)
 			items = append(items, b)
 		}
-		if s.goEnabled {
+		if s.goEnabled && !md {
 			decl, impl := ws.genOf(p)
 			for _, g := range []*genFile{decl, impl} {
 				if g != nil {

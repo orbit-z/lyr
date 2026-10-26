@@ -358,7 +358,7 @@ An unknown theme name is an error that lists the available ones. Changing an opt
 
 `orbit dev` watches `.md` files under `src/` like `.orbit` files. Saving one regenerates just that file's Go package and rebuilds your server, so it shows up in about the time of a template edit (about 0.2 s, see [Dev server](dev-server.md#how-long-a-rebuild-takes)). Changing a page's frontmatter or headings also rebuilds the components that import it. Errors (bad frontmatter, a missing layout, a broken link) show in the error overlay with their `.md` position.
 
-Your editor's own Markdown support handles `.md` files; the Orbit language server doesn't (see [Editor setup](editor-setup.md)). In `.orbit` files, completion works on imports: `Hello.Frontmatter.` completes the frontmatter's fields.
+In your editor, the Orbit language server reports the same errors and warnings in `.md` files as you type: frontmatter problems, a missing layout, broken links, route errors. A frontmatter value of the wrong type for its layout field (`draft: "yes"` for a `bool`) needs your Go types, so it appears once the language server's type check has run: when the editor starts, and after `orbit dev` or `orbit generate` rewrites `orbit_gen/`; editing that key hides it until then, and `orbit dev` shows it right away. Everything else about `.md` files (highlighting, preview) is your editor's own Markdown support. In `.orbit` files, completion works on imports: `import Hello "./` completes `.md` paths, and `Hello.Frontmatter.` completes the frontmatter's fields. See [Editor setup](editor-setup.md#markdown-files).
 
 ## Performance
 

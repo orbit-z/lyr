@@ -222,3 +222,31 @@ import Card "../components/Card.orbit"
 		}
 	}
 }
+
+func TestImportPathAt(t *testing.T) {
+	for _, tc := range []struct {
+		fm     string // frontmatter code; | is the cursor
+		ok     bool
+		alias  bool
+		closed bool
+	}{
+		{`import Card "./|"`, true, true, true},
+		{`import "../c|`, true, false, false},
+		{"import (\n\t\"strings\"\n\tX \"./|\"\n)", true, true, true},
+		{"import (\n\t\"./x|\"\n)", true, false, true},
+		{`import "str|"`, false, false, false},          // a Go import: gopls
+		{`x := "./|"`, false, false, false},             // not an import
+		{"import (\n)\nx \"./|\"", false, false, false}, // after the block
+		{`import A B "./|"`, false, false, false},       // not a spec
+		{"x := `\nimport \"./|\"", true, false, true},   // line-based: a raw string isn't seen
+		{`import Card "./a.orbit" // "./|`, false, false, false},
+	} {
+		at := strings.Index(tc.fm, "|")
+		src := "---\n" + strings.Replace(tc.fm, "|", "", 1) + "\n---\n<p>x</p>\n"
+		ws := memWorkspace(t, map[string]string{"src/pages/index.orbit": src})
+		ip, ok := importPathAt(ws.byPath["src/pages/index.orbit"], len("---\n")+at)
+		if ok != tc.ok || ok && (ip.alias != tc.alias || ip.closed != tc.closed) {
+			t.Errorf("%q: %+v %v, want ok %v alias %v closed %v", tc.fm, ip, ok, tc.ok, tc.alias, tc.closed)
+		}
+	}
+}

@@ -51,12 +51,19 @@ type workspace struct {
 	// rev counts changes to the generated files: a rename maps gopls's
 	// edits only if no file changed since it asked (rename.go).
 	rev int
+	// mdTyped are the latest typed check's diagnostics of Markdown files
+	// (mdtyped.go), by project path.
+	mdTyped map[string][]mdTypedDiag
 }
 
-// document is an .orbit file open in the editor.
+// document is an .orbit or Markdown file open in the editor.
 type document struct {
 	uri     string
 	version int
+	// md is set for a Markdown document, and text is its buffer (an
+	// .orbit file's is its File.Src).
+	md   bool
+	text string
 }
 
 // genFile is one generated file: its content as gopls sees it (from the
@@ -121,7 +128,7 @@ func loadWorkspace(root string) (*workspace, error) {
 	p.Front()
 	ws := &workspace{root: p.Root, module: p.Module, proj: p, lines: map[string]*lineIndex{},
 		docs: map[string]*document{}, gen: map[string]*genFile{}, goplsDiags: map[string]goplsDiags{},
-		published: map[string]string{}, scratch: map[string]*scratchFile{}}
+		published: map[string]string{}, scratch: map[string]*scratchFile{}, mdTyped: map[string][]mdTypedDiag{}}
 	if mod, err := config.ReadGoMod(p.Root); err == nil {
 		ws.goVersion = mod.Go
 	}
@@ -158,6 +165,16 @@ func (ws *workspace) orbitPath(uri string) string {
 		return ""
 	}
 	return r
+}
+
+// docPath returns the project path of an .orbit or Markdown file URI
+// under src/, or "": the documents the server follows (PLAN.md §9).
+func (ws *workspace) docPath(uri string) string {
+	r := ws.rel(uriToPath(uri))
+	if isOrbitSource(r) || isMarkdownSource(r) {
+		return r
+	}
+	return ""
 }
 
 // orbitURI is the URI to report an .orbit file under: the editor's own
@@ -383,15 +400,31 @@ func isMarkdownSource(rel string) bool {
 }
 
 // reloadMarkdown makes the disk content of the Markdown file at p its
-// source, or drops it if it's gone, and regenerates everything.
+// source, or drops it if it's gone.
 func (ws *workspace) reloadMarkdown(p string) {
 	src, err := os.ReadFile(filepath.Join(ws.root, filepath.FromSlash(p)))
-	if !ws.proj.SetMarkdown(p, string(src), err != nil) {
+	ws.setMarkdown(p, string(src), err != nil)
+}
+
+// setMarkdown replaces the source of the Markdown file at p (an editor
+// buffer or the disk content), adding it when new, or removes it, and
+// regenerates what depends on it: the Markdown front of that file, in
+// memory (project.UpdateMarkdown; no gopls involved).
+func (ws *workspace) setMarkdown(p, src string, removed bool) {
+	files, ok := ws.proj.UpdateMarkdown(p, src, removed)
+	if !ok {
 		return
 	}
-	ws.proj.Front()
+	same := len(ws.proj.Files) == len(ws.byPath)
+	for _, f := range ws.proj.Files {
+		same = same && ws.byPath[f.Path] != nil
+	}
 	ws.reindex()
-	ws.syncAll()
+	if same {
+		ws.sync(files)
+	} else {
+		ws.syncAll()
+	}
 }
 
 // isOrbitSource reports whether a module-relative path is an .orbit file
