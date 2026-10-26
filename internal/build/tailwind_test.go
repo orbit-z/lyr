@@ -20,8 +20,8 @@ var tailwindSite = map[string]string{
 		"@theme {\n  --color-ember: #d1703f;\n  --font-ui: \"Figtree Variable\", system-ui, sans-serif;\n}\n\n" +
 		"@utility card-row {\n  @apply flex items-baseline gap-2 border-b border-zinc-700 py-4;\n}\n\n" +
 		"@custom-variant hocus (&:hover, &:focus-visible);\n",
-	"node_modules/@fontsource-variable/figtree/package.json": `{"name":"@fontsource-variable/figtree","version":"5.2.10","main":"index.css","exports":{".":{"sass":"./index.scss","default":"./index.css"},"./*":"./*"}}`,
-	"node_modules/@fontsource-variable/figtree/index.css":    "/* figtree-latin-wght-normal */\n@font-face {\n  font-family: 'Figtree Variable';\n  font-style: normal;\n  font-display: swap;\n  font-weight: 300 900;\n  src: url(./files/figtree-latin-wght-normal.woff2) format('woff2-variations');\n}\n",
+	"node_modules/@fontsource-variable/figtree/package.json":                          `{"name":"@fontsource-variable/figtree","version":"5.2.10","main":"index.css","exports":{".":{"sass":"./index.scss","default":"./index.css"},"./*":"./*"}}`,
+	"node_modules/@fontsource-variable/figtree/index.css":                             "/* figtree-latin-wght-normal */\n@font-face {\n  font-family: 'Figtree Variable';\n  font-style: normal;\n  font-display: swap;\n  font-weight: 300 900;\n  src: url(./files/figtree-latin-wght-normal.woff2) format('woff2-variations');\n}\n",
 	"node_modules/@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2": "wOF2 test font",
 	"src/layouts/Base.orbit": "---\ntype Props struct{ Title string }\n---\n<html lang=\"en\">\n  <head><title>{props.Title}</title></head>\n  <body class=\"bg-zinc-900 font-ui text-zinc-100\"><slot /></body>\n</html>\n\n" +
 		"<style is:global>\n  @import \"../styles/global.css\";\n</style>\n",
