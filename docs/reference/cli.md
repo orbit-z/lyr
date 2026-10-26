@@ -523,7 +523,7 @@ p, _ := posts.Find("hello")
 `orbit check` prints:
 
 ```text
-src/pages/index.orbit:9:7: unknown prop "psot" on <Card> (props: post, featured)
+src/pages/index.orbit:9:7: unknown prop "psot" on <Card> (props: post, featured; add an orbit.RestAttrs field to pass HTML attributes through)
 ```
 
 Errors in Markdown files point at the `.md` file the same way, at a frontmatter key or value, the `layout` value or a link: `src/pages/blog/hello.md:4:8: frontmatter draft: "yes" isn't a bool (Post.Props.Draft is bool)`. A link to a missing heading is a warning (`src/pages/blog/hello.md:21:10: warning: link ./routing-guide.md#setup: src/pages/blog/routing-guide.md has no heading #setup`), which doesn't fail the build. See [Troubleshooting: Markdown files](../troubleshooting.md#markdown-files).

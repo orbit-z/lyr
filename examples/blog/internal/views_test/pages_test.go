@@ -39,6 +39,11 @@ func TestSearchPage(t *testing.T) {
 	if !strings.Contains(html, `href="/blog/safe-json"`) || strings.Contains(html, `href="/blog/hello"`) {
 		t.Errorf("unexpected results:\n%s", html)
 	}
+	// <Button>'s pass-through attributes: aria-label and the page's scope
+	// attribute on the <button>, the passed class merged into its own.
+	if !regexp.MustCompile(`<button aria-label="Run the search" data-o-[0-9a-f]+ type="submit" class="btn btn-primary search-button" data-o-[0-9a-f]+>Search</button>`).MatchString(html) {
+		t.Errorf("search button:\n%s", html)
+	}
 }
 
 func TestAccountPage(t *testing.T) {

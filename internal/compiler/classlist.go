@@ -107,6 +107,9 @@ type clItem struct {
 	code, cond GoCode
 	// span is the item's position, for a static item's type error.
 	span Span
+	// rest is the operand of a rest spread on the element ("props.Attrs"),
+	// whose class is written here (orbit__w.RestClass).
+	rest string
 }
 
 // htmlText is a static item's classes as they go in the HTML, joined by
@@ -165,6 +168,9 @@ func classItems(cl *Attr, merged []*Attr) []clItem {
 			items = append(items, clItem{code: a.Code, span: a.Code.Span})
 		}
 	}
+	if cl == nil {
+		return items
+	}
 	for _, it := range cl.Classes {
 		ci := clItem{cond: it.Cond, span: it.Code.Span}
 		if it.Static {
@@ -178,16 +184,21 @@ func classItems(cl *Attr, merged []*Attr) []clItem {
 }
 
 // classList emits an HTML element's class attribute from cl and the class
-// attributes merged into it. Static classes join the surrounding Raw
+// attributes merged into it (cl is nil for class attributes merged with a
+// rest spread's class alone; at is cl or the first of them), then the
+// class of each rest spread. Static classes join the surrounding Raw
 // constants; when codegen can't tell whether a class comes first, the
 // writes go through ClassStart/ClassEnd, which write no attribute for an
 // empty list.
-func (g *cgGen) classList(node Node, cl *Attr, merged []*Attr) {
+func (g *cgGen) classList(node Node, at, cl *Attr, merged []*Attr, rest []string) {
 	o := g.o
-	if cl.Classes == nil {
+	if cl != nil && cl.Classes == nil {
 		g.discardClassList(cl)
 	}
 	items := classItems(cl, merged)
+	for _, op := range rest {
+		items = append(items, clItem{rest: op})
+	}
 	known := false // a class has certainly been written
 	first := -1    // the item folded into the opening Raw
 	writes := false
@@ -224,6 +235,9 @@ func (g *cgGen) classList(node Node, cl *Attr, merged []*Attr) {
 			o.depth++
 		}
 		switch {
+		case it.rest != "":
+			o.flush()
+			o.ln(NameW + ".RestClass(&" + it.rest + ")")
 		case it.static && it.htmlText() == "":
 		case it.static && known:
 			o.html(" " + it.htmlText())
@@ -232,7 +246,7 @@ func (g *cgGen) classList(node Node, cl *Attr, merged []*Attr) {
 			o.ln(NameW + ".Class(" + strconv.Quote(it.plain()) + ")")
 			known = known || it.cond.Text == ""
 		default:
-			g.classSite(SiteClass, node, cl, it.code)
+			g.classSite(SiteClass, node, at, it.code)
 		}
 		if it.cond.Text != "" {
 			o.flush()

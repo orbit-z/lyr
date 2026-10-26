@@ -82,6 +82,9 @@ func dumpAnalysis(f *File, a *Analysis) string {
 	for _, fl := range p.Fields {
 		fmt.Fprintf(&b, "  field %s type=%q doc=%q\n", spanText(src, fl.NameSpan), fl.Type, fl.Doc)
 	}
+	if p.Rest != "" {
+		fmt.Fprintf(&b, "  rest %s\n", p.Rest)
+	}
 	for _, pf := range a.Params {
 		fmt.Fprintf(&b, "param %s [%s] rest=%v\n", pf.Field, pf.Param, pf.Rest)
 	}

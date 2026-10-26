@@ -65,7 +65,7 @@ func (p *parser) checkTag(t *Tag, k tagKind, children []Node, raw *RawText) (def
 			switch k {
 			case tkFragment:
 				p.errorf(a.Span, "{...} spread isn't allowed on <Fragment>; it takes only slot, set:html and set:text")
-			case tkComponent, tkSlot:
+			case tkSlot:
 				p.errorf(a.Span, "{...} spread only works on HTML elements")
 			}
 			continue

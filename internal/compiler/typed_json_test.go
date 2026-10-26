@@ -65,7 +65,7 @@ import Good "../components/Good.orbit"
 ---
 <main>
   <Comments server:defer postID={1}><p slot="fallback">Loading…</p></Comments>
-  <Good server:defer />
+  <Good server:defer name="x" data-n={1} />
   <Good />
 </main>
 `
@@ -78,9 +78,11 @@ type Props struct {
 	N    int
 	Skip func() ` + "`json:\"-\"`" + `
 	M    map[int]float64
+	// PLAN.md §2.5: RestAttrs's JSON methods pass the check.
+	Attrs orbit.RestAttrs
 }
 ---
-<p>{props.N}</p>
+<p {...props.Attrs}>{props.N}</p>
 `
 
 func TestDeferPropsJSONCheck(t *testing.T) {

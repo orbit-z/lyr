@@ -187,6 +187,14 @@ import Card "../components/Card.orbit"
 	if slices.Contains(names(items), "class:list") {
 		t.Errorf("class:list offered on a component without a Class prop: %v", names(items))
 	}
+	// Pass-through attributes (PLAN.md §2.5): the RestAttrs field is
+	// listed as a prop, and class:list is offered.
+	rest := *info
+	rest.Props.Fields = append(slices.Clone(info.Props.Fields), compiler.PropField{Name: "Attrs", Type: "orbit.RestAttrs"})
+	rest.Props.Rest = "Attrs"
+	if got := names(ws.componentItems(c, &rest, nil, false, true)); !slices.Contains(got, "attrs") || !slices.Contains(got, "class:list") {
+		t.Errorf("rest component items: %v", got)
+	}
 	info.Props.Fields = append(info.Props.Fields, compiler.PropField{Name: "Class", Type: "string"})
 	if got := names(ws.componentItems(c, info, nil, false, true)); !slices.Contains(got, "class:list") {
 		t.Errorf("class:list not offered with a Class prop: %v", got)

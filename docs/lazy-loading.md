@@ -204,7 +204,7 @@ src/pages/blog/[slug].orbit:25:13: <Comments server:defer>: Props.OnLoad has typ
 
 Each offending top-level field gets one error, with the first problem found under it. A nested field is named with dots (`Props.Author.OnClick`), and an element of a slice, array or map with `[]` (`Props.Handlers[] has type func()`); for a bad map key, the error names the map type.
 
-Types that implement both `json.Marshaler` and `json.Unmarshaler`, or both `encoding.TextMarshaler` and `encoding.TextUnmarshaler`, are fine as they are; `time.Time` is one. Fields tagged `json:"-"` and unexported fields of nested structs are skipped, as `encoding/json` skips them, so they arrive as zero values.
+Types that implement both `json.Marshaler` and `json.Unmarshaler`, or both `encoding.TextMarshaler` and `encoding.TextUnmarshaler`, are fine as they are; `time.Time` is one, and so is `orbit.RestAttrs`: a deferred component takes [pass-through attributes](components.md#passing-html-attributes-through) like any other (`<Comments server:defer postID={post.ID} aria-label="Comments" />`). They're sent as a JSON object of name → value, as written; an `orbit.URL` value loses its trust on the way, so its URL attribute is filtered when the island renders. Fields tagged `json:"-"` and unexported fields of nested structs are skipped, as `encoding/json` skips them, so they arrive as zero values.
 
 Prefer small props, such as an ID, and load the data in the component: the props are part of the page's HTML and of the island URL.
 

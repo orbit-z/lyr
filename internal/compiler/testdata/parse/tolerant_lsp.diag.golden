@@ -7,7 +7,6 @@ tolerant_lsp.orbit:7:6: { has no matching }
 tolerant_lsp.orbit:8:1: start tag <Card isn't closed; expected >
 tolerant_lsp.orbit:8:1: <Card> isn't closed; add </Card>
 tolerant_lsp.orbit:8:7: { has no matching }
-tolerant_lsp.orbit:8:7: {...} spread only works on HTML elements
 tolerant_lsp.orbit:9:1: start tag <slot isn't closed; expected >
 tolerant_lsp.orbit:9:1: <slot> isn't closed; add </slot>
 tolerant_lsp.orbit:9:12: attribute value isn't closed; add "

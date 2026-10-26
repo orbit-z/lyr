@@ -1,0 +1,7 @@
+---
+type Props struct {
+	Attrs orbit.RestAttrs
+	Extra orbit . RestAttrs
+}
+---
+<p />

@@ -1,0 +1,32 @@
+---
+type Props struct {
+	// Variant is "" for the default style, or "primary".
+	Variant string
+	// Type is the button's type; "button" when empty. It's a prop because
+	// the component sets the attribute itself.
+	Type string
+	// Attrs holds every other attribute of the call site (name, value,
+	// disabled, aria-*, data-*, class, …): they're written on the <button>.
+	Attrs orbit.RestAttrs
+}
+
+typ := props.Type
+if typ == "" {
+	typ = "button"
+}
+---
+<button {...props.Attrs} type={typ} class:list={"btn", "btn-primary": props.Variant == "primary"}><slot /></button>
+<style>
+  .btn {
+    padding: 0.3rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+  }
+  .btn-primary {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+</style>
