@@ -20,6 +20,9 @@ type cgGen struct {
 	o     *cgOut // the file being written (impl, while the template is emitted)
 	diags []Diagnostic
 	sites []CallSite
+	// ifRef is set once a lowered orbit.If site has kept a reference to
+	// its callee (ifSite).
+	ifRef bool
 	// defers are the server:defer call sites, in order.
 	defers []DeferSite
 

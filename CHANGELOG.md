@@ -9,6 +9,7 @@ The first release of Orbit: Astro's developer experience, with Go on the server 
 **Components and pages**
 - `.orbit` single-file components: Go frontmatter between `---` lines, then an HTML template with `{…}` Go expressions, `{if}`, `{for}` and `{switch}` blocks, slots, `class:list`, pass-through attributes and recursive components.
 - Compiled to type-checked Go: errors point at the `.orbit` line, and each expression is written by its type, with no reflection.
+- `orbit.If(cond, v)` and `orbit.Cond(cond, a, b)` for conditional attribute values and text (compiled to an `if`, no allocation), and a `bool` writes `"true"`/`"false"` on `aria-*` and the other true/false attributes.
 - File-based routing under `src/pages`, with dynamic and catch-all routes, typed route params (`params.Slug`), a custom `404.orbit` and no trailing slash by default (`"trailingSlash": "always"` mirrors it).
 - Markdown pages and imports (`.md`), with typed frontmatter checked against the layout's props and code blocks highlighted at build time.
 

@@ -416,6 +416,9 @@ func nilPanic(v any, r any) string {
 //
 //   - true: the bare attribute ( name)
 //   - false, nil: nothing
+//   - a bool on an attribute whose values are the keywords true and false
+//     (every aria-* attribute, contenteditable, draggable, spellcheck and
+//     writingsuggestions, in any case): name="true" or name="false"
 //   - JSONValue: always written, single-quoted ( name='json'), with ', &, <
 //     and > as character references (JSONAttr)
 //   - anything else: formatted as Expr does, then attribute-escaped and
@@ -437,7 +440,7 @@ func (w *Writer) attr(name string, v any, urlAttr bool) {
 	case JSONValue:
 		w.attrJSON(name, v)
 	case bool:
-		w.AttrBool(name, v)
+		w.attrBool(name, v)
 	case string:
 		w.attrValue(name, v, urlAttr)
 	case URL:
@@ -460,7 +463,7 @@ func (w *Writer) attr(name string, v any, urlAttr bool) {
 		// A named bool (type Flag bool) behaves like bool, so the generic
 		// path matches the AttrBool that codegen emits for it.
 		if rv := reflect.ValueOf(v); rv.Kind() == reflect.Bool {
-			w.AttrBool(name, rv.Bool())
+			w.attrBool(name, rv.Bool())
 			return
 		}
 		// Format into a scratch buffer, then filter and escape the result
@@ -517,8 +520,42 @@ func (w *Writer) URL(s string) {
 	escapeString(w.buf, s)
 }
 
+// attrBool writes a bool attribute by Attr's rules: name="true" or
+// name="false" on a true/false attribute (isTrueFalseAttr), else AttrBool.
+func (w *Writer) attrBool(name string, b bool) {
+	if !isTrueFalseAttr(name) {
+		w.AttrBool(name, b)
+		return
+	}
+	w.attrOpen(name)
+	w.buf.WriteString(strconv.FormatBool(b))
+	w.buf.WriteByte('"')
+}
+
+// trueFalseAttrs are the HTML attributes whose keywords are "true" and
+// "false" (the WHATWG HTML attribute index); every aria-* attribute is one
+// too. A bool is written there as name="true" or name="false", since the
+// bare attribute (the empty string) means something else.
+var trueFalseAttrs = [...]string{"contenteditable", "draggable", "spellcheck", "writingsuggestions"}
+
+// isTrueFalseAttr reports whether name (in any case) is an attribute whose
+// values are the keywords true and false: aria-* or one of trueFalseAttrs.
+func isTrueFalseAttr(name string) bool {
+	if len(name) > len("aria-") && strings.EqualFold(name[:len("aria-")], "aria-") {
+		return true
+	}
+	for _, a := range trueFalseAttrs {
+		if len(a) == len(name) && strings.EqualFold(a, name) {
+			return true
+		}
+	}
+	return false
+}
+
 // AttrBool writes the bare attribute name if b is true, and nothing
-// otherwise.
+// otherwise, whatever the attribute. Attr and the typed writes generated
+// for a bool write name="true"/"false" on the attributes whose values are
+// those keywords (aria-*, draggable, …) instead.
 func (w *Writer) AttrBool(name string, b bool) {
 	if w.err != nil || !b {
 		return

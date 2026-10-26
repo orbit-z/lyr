@@ -190,12 +190,17 @@ func basicWrite(b *types.Basic) (TypedWrite, bool) {
 // named bools (Attr tests the reflect kind) as AttrBool, numbers (and named
 // numbers without error/String/Format methods, which fmt prints as their
 // value) as Raw pieces around Int, Uint, Float or Float32, untyped nil as
-// nothing; everything else keeps Attr.
-func (e *tyEnv) classifyAttr(tv types.TypeAndValue, urlAttr bool) TypedWrite {
+// nothing; everything else keeps Attr. On a true/false attribute (tfAttr,
+// IsTrueFalseAttr), a bool is Bool pieces instead (name="true"/"false").
+func (e *tyEnv) classifyAttr(tv types.TypeAndValue, urlAttr, tfAttr bool) TypedWrite {
 	t, nilv, ok := tyStatic(tv)
 	text := WriteAttrString
 	if urlAttr {
 		text = WriteAttrURL
+	}
+	boolKind := WriteAttrBool
+	if tfAttr {
+		boolKind = WriteAttrBoolText
 	}
 	switch {
 	case !ok:
@@ -211,7 +216,7 @@ func (e *tyEnv) classifyAttr(tv types.TypeAndValue, urlAttr bool) TypedWrite {
 	case identical(t, e.url):
 		return TypedWrite{Kind: WriteAttrString, Conv: "string"}
 	case types.Identical(t, types.Typ[types.Bool]):
-		return TypedWrite{Kind: WriteAttrBool}
+		return TypedWrite{Kind: boolKind}
 	}
 	if b, isB := t.(*types.Basic); isB { // an exact predeclared type
 		w := attrNumber(b)
@@ -228,7 +233,7 @@ func (e *tyEnv) classifyAttr(tv types.TypeAndValue, urlAttr bool) TypedWrite {
 		return TypedWrite{}
 	}
 	if b.Info()&types.IsBoolean != 0 {
-		return TypedWrite{Kind: WriteAttrBool, Conv: "bool"}
+		return TypedWrite{Kind: boolKind, Conv: "bool"}
 	}
 	if types.Implements(t, e.errorIface) || types.Implements(t, e.stringer) || hasFormat(t) {
 		return TypedWrite{}
@@ -319,7 +324,8 @@ func (e *tyEnv) classifyRest(tv types.TypeAndValue, urlAttr bool) TypedWrite {
 	if t, nilv, ok := tyStatic(tv); ok && !nilv && identical(t, e.url) {
 		return TypedWrite{Kind: WriteRestURL}
 	}
-	w := e.classifyAttr(tv, urlAttr)
+	// RestBool applies the true/false rule itself (it knows the name).
+	w := e.classifyAttr(tv, urlAttr, false)
 	k, ok := restWrites[w.Kind]
 	if !ok {
 		return TypedWrite{}

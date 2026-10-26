@@ -355,3 +355,56 @@ func IsURLAttr(name string) bool {
 	}
 	return false
 }
+
+// trueFalseAttrs mirrors the runtime's list (writer.go trueFalseAttrs): the
+// HTML attributes whose keywords are "true" and "false" (PLAN.md §2.6
+// (Q3)); a test checks the two agree through the runtime's behavior.
+var trueFalseAttrs = [...]string{"contenteditable", "draggable", "spellcheck", "writingsuggestions"}
+
+// IsTrueFalseAttr reports whether the attribute name (in any case) takes
+// the keywords true and false, every aria-* attribute included: a bool is
+// written there as name="true" or name="false", not bare or omitted.
+func IsTrueFalseAttr(name string) bool {
+	if len(name) > len("aria-") && strings.EqualFold(name[:len("aria-")], "aria-") {
+		return true
+	}
+	for _, a := range trueFalseAttrs {
+		if strings.EqualFold(a, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// isUnsafeURL mirrors the runtime's URL filter (writer.go isUnsafeURL), for
+// constants folded at build time: a javascript: or vbscript: scheme,
+// ignoring case, leading whitespace and control characters, and tabs and
+// newlines anywhere in the scheme.
+func isUnsafeURL(u string) bool {
+	i := 0
+	for i < len(u) && (u[i] <= ' ' || u[i] == 0x7f) {
+		i++
+	}
+	return hasSchemeFold(u[i:], "javascript:") || hasSchemeFold(u[i:], "vbscript:")
+}
+
+func hasSchemeFold(u, scheme string) bool {
+	j := 0
+	for i := 0; i < len(u) && j < len(scheme); i++ {
+		c := u[i]
+		if c == '\t' || c == '\n' || c == '\r' {
+			continue
+		}
+		if 'A' <= c && c <= 'Z' {
+			c += 'a' - 'A'
+		}
+		if c != scheme[j] {
+			return false
+		}
+		j++
+	}
+	return j == len(scheme)
+}
+
+// invalidURL is the runtime's replacement for a filtered URL (writer.go).
+const invalidURL = "about:invalid#orbit"

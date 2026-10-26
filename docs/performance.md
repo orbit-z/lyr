@@ -30,6 +30,12 @@ When Orbit compiles a template, it type-checks each `{…}` expression with `go/
 
 Only values whose static type is an interface (such as `any` or `fmt.Stringer`), and a few unusual types, go through the generic path. That path is still a type switch over the common types; reflection is only its last resort (`fmt.Sprint`). Both paths produce identical bytes. The full table is in the [Runtime API](reference/runtime-api.md#typed-writes).
 
+### Conditional values
+
+[`orbit.If(cond, v)`](reference/template-syntax.md#conditional-values-orbitif-and-orbitcond), written as the whole value of an HTML element attribute or of a `{…}` in content, is compiled to an `if` around the typed write of `v`: `aria-current={orbit.If(cur, "page")}` becomes "if `cur`, write the constant ` aria-current="page"`", and `rel={orbit.If(ext, link.Rel)}` writes ` rel="`, the string and `"` when `ext` is true. Both arguments are still evaluated first, as for the call, and the output is the same bytes. Measured on a Ryzen 7 9700X at `GOMAXPROCS=1`, Go 1.27.3, for a dynamic string: about 9 ns and no allocation (0.6 ns when the condition is false), where the plain call through the generic attribute path takes about 35 ns and one allocation (13 ns, none, when false).
+
+Elsewhere (inside a larger expression, in an `orbit.Attrs` value, as a component prop or a [pass-through attribute](components.md#passing-html-attributes-through)) it stays an ordinary call: no allocation for a constant or a false condition, and one for a dynamic value that's written. `orbit.Cond(c, a, b)` needs nothing special: its result has the type of `a` and `b`, so it gets the usual typed write. A `bool` on a [true/false attribute](reference/template-syntax.md#attribute-values-on-html-elements) such as `aria-pressed` is decided at build time from the attribute's name, so it costs nothing either.
+
 ### Escaping allocates nothing when there's nothing to escape
 
 The escaper first scans a string for characters that need escaping. Most strings have none, and are copied into the buffer as they are, with no intermediate string and no allocation.

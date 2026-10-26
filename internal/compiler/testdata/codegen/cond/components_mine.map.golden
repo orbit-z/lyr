@@ -1,0 +1,15 @@
+orbit_gen/decl/components/mine/decl.go (src/components/Mine.orbit)
+orbit_gen/impl/components/mine/render.go (src/components/Mine.orbit)
+  exact 2:1 "func If(c bool, v string) string {\n\tif c {\n\t\treturn \"mine:\" + v\n\t}\n\treturn \"mine-off\"\n}" -> 213-300 "func If(c bool, v string) string {\n\tif c {\n\t\treturn \"mine:\" + v\n\t}\n\treturn \"mine-off\"\n}"
+  exact 9:1 "type fake struct{}" -> 373-391 "type fake struct{}"
+  exact 11:1 "func (fake) If(c bool, v string) string { return \"fake:\" + v }" -> 465-527 "func (fake) If(c bool, v string) string { return \"fake:\" + v }"
+  exact 13:11 "If(true, \"x\")" -> 1065-1078 "If(true, \"x\")"
+  exact 13:27 "If(false, \"y\")" -> 1194-1208 "If(false, \"y\")"
+  exact 14:6 "_, orbit := range []fake{{}}" -> 1317-1345 "_, orbit := range []fake{{}}"
+  exact 15:13 "orbit.If(true, \"z\")" -> 1471-1490 "orbit.If(true, \"z\")"
+  exact 15:35 "orbit.If(false, \"w\")" -> 1609-1629 "orbit.If(false, \"w\")"
+call sites
+  attr title key=190 "If(true, \"x\")" call="orbit__w.Attr(\"title\",\n/*line ../../../../src/components/Mine.orbit:13:11*/If(true, \"x\")/*line render.go:38:90*/,\n\t)"
+  content key=206 "If(false, \"y\")" call="orbit__w.Expr(\n/*line ../../../../src/components/Mine.orbit:13:27*/If(false, \"y\")/*line render.go:42:91*/,\n\t)"
+  attr title key=273 "orbit.If(true, \"z\")" call="orbit__w.Attr(\"title\",\n/*line ../../../../src/components/Mine.orbit:15:13*/orbit.If(true, \"z\")/*line render.go:48:96*/,\n\t\t)"
+  content key=295 "orbit.If(false, \"w\")" call="orbit__w.Expr(\n/*line ../../../../src/components/Mine.orbit:15:35*/orbit.If(false, \"w\")/*line render.go:52:97*/,\n\t\t)"

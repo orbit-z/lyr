@@ -8,22 +8,13 @@ type Props struct {
 	// Label is the name of the nav landmark.
 	Label string
 }
-
-// current is the aria-current value of a link: "page" for the current
-// page, nil (no attribute) for the others.
-current := func(url string) any {
-	if url == props.Current {
-		return "page"
-	}
-	return nil
-}
 ---
 <nav class="sidebar" aria-label={props.Label}>
   {for _, g := range props.Nav}
     <h2>{g.Title}</h2>
     <ul>
       {for _, it := range g.Items}
-        <li><a href={it.URL} aria-current={current(it.URL)}>{it.Title}{if it.External}<span class="ext" aria-hidden="true"> ↗</span>{/if}</a></li>
+        <li><a href={it.URL} aria-current={orbit.If(it.URL == props.Current, "page")}>{it.Title}{if it.External}<span class="ext" aria-hidden="true"> ↗</span>{/if}</a></li>
       {/for}
     </ul>
   {/for}

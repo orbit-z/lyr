@@ -697,9 +697,41 @@ The template is HTML plus a few constructs. The full grammar is in [Template syn
 - `{expr}` is any Go expression. Its value is escaped and written; how each type prints (numbers, `nil`, errors, `fmt.Stringer`, …) is in [How values render](reference/template-syntax.md#how-values-render).
 - An attribute is static (`class="title"`) or an expression (`href={url}`). There's no interpolation inside quotes: `class="card {extra}"` is the literal text `card {extra}`.
 - To build a `class` from parts and conditions, use `class:list`, as in Astro: `class:list={"card", extra, "featured": props.Featured}` writes `card`, the classes in `extra`, and `featured` when `props.Featured` is true. Static classes are joined at build time, so it costs no more than writing the attribute by hand. On a component tag, it sets the `class` prop. See [`class:list`](reference/template-syntax.md#classlist).
-- `true` writes a bare attribute and `false` or `nil` omits it, so `data-featured={props.Featured}` renders `data-featured` or nothing.
+- `true` writes a bare attribute and `false` or `nil` omits it, so `data-featured={props.Featured}` renders `data-featured` or nothing. On `aria-*` attributes and the few HTML attributes whose values are the words `true` and `false` (`contenteditable`, `draggable`, `spellcheck`, `writingsuggestions`), a `bool` is written as text instead: `aria-pressed={props.Saved}` renders `aria-pressed="false"`, which is what ARIA expects.
 - Every element must be closed (`<p>…</p>`, `<li>…</li>`), or self-closed (`<div />`); void elements such as `<br>` and `<img>` take no closing tag. Orbit doesn't auto-close tags.
 - A `<` starts a tag only when a letter, `/` or `!` follows it; otherwise it's text, so `{a} < {b}` works. To write a literal `{`, use `{"{"}`.
+
+### Conditional attributes
+
+Go has no `?:`, so Orbit has two helpers for values that depend on a condition: `orbit.If(cond, v)` is `v` or `nil` (and `nil` omits the attribute), and `orbit.Cond(cond, a, b)` is `a` or `b`:
+
+```orbit file=src/components/TopBar.orbit
+---
+type Item struct {
+	Section, Href, Label string
+}
+
+type Props struct {
+	Items   []Item
+	Current string
+	Saved   bool
+}
+---
+<nav>
+  {for _, item := range props.Items}
+    <a href={item.Href} aria-current={orbit.If(item.Section == props.Current, "page")}>{item.Label}</a>
+  {/for}
+  <button aria-pressed={props.Saved} title={orbit.Cond(props.Saved, "Remove from library", "Add to library")}>
+    {orbit.Cond(props.Saved, "Saved", "Save")}
+  </button>
+</nav>
+```
+
+With `current="fiction"` and two items, this renders `<a href="/fiction" aria-current="page">Fiction</a><a href="/news">News</a>`, then `<button aria-pressed="false" title="Add to library">Save</button>`.
+
+- Both arguments are evaluated, as for any Go call: `orbit.If(user != nil, user.Name)` panics when `user` is nil. Guard it in the frontmatter, or use `{if}`.
+- For a default value, Astro's `x ?? "fallback"`, use the standard library's `cmp.Or(x, "fallback")`.
+- `orbit.If` as the whole value of an attribute or a `{…}` costs no allocation: Orbit compiles it to an `if`. The details are in [Conditional values](reference/template-syntax.md#conditional-values-orbitif-and-orbitcond).
 
 ### Control flow
 
