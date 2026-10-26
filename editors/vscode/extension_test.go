@@ -67,7 +67,7 @@ func TestManifest(t *testing.T) {
 	}
 }
 
-var versionRE =regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)`)
+var versionRE = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)`)
 
 // atLeast reports whether version v ("1.4.4\n") is at least maj.min.patch.
 func atLeast(v string, maj, min, patch int) bool {
