@@ -47,6 +47,7 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, opts Options) error {
 	case <-ctx.Done():
 	}
 	s.stopGopls()
+	s.stopTS()
 	s.client.Close()
 	return err
 }
@@ -101,6 +102,9 @@ type Server struct {
 	mdChecker            *project.MarkdownChecker
 	mdCheckerWS          *workspace
 	mdInvalid            bool
+
+	// ts is the TypeScript child and what it sees (PLAN.md §9b).
+	ts tsState
 
 	exited   chan struct{}
 	exitOnce sync.Once
@@ -157,6 +161,7 @@ func (s *Server) handle(m *message) {
 		s.mu.Unlock()
 		go func() {
 			s.stopGopls()
+			s.stopTS()
 			s.client.Reply(m.ID, nil, nil)
 		}()
 		return
@@ -197,6 +202,11 @@ func (s *Server) request(ctx context.Context, method string, params jsonRaw) (an
 	if method == "textDocument/formatting" {
 		return s.formatting(ctx, params) // syntax-only: no gopls, no barrier
 	}
+	// A cursor in a <script> goes to the TypeScript child, which waits for
+	// neither gopls nor the typed check.
+	if res, err, ok := s.tsRoute(ctx, method, params); ok {
+		return res, err
+	}
 	// Every request below may map positions through the generated files,
 	// which the startup typed check can still switch to orbit_gen/'s typed
 	// content.
@@ -216,6 +226,8 @@ func (s *Server) request(ctx context.Context, method string, params jsonRaw) (an
 		return s.prepareRename(ctx, params)
 	case "textDocument/rename":
 		return s.rename(ctx, params)
+	case "textDocument/typeDefinition", "textDocument/documentHighlight", "textDocument/codeAction":
+		return nil, nil // served in scripts only (tsRoute)
 	}
 	return nil, &rpcError{Code: codeMethodNotFound, Message: "method not supported: " + method}
 }
@@ -242,7 +254,26 @@ func (s *Server) notification(method string, params jsonRaw) {
 		if c := s.goplsConn(); c != nil {
 			c.Notify(method, params)
 		}
+		s.mu.Lock()
+		c := s.tsRunningConn()
+		s.mu.Unlock()
+		if c != nil {
+			c.Notify(method, params)
+		}
 	case "window/workDoneProgress/cancel":
+		var p struct {
+			Token string `json:"token"`
+		}
+		json.Unmarshal(params, &p)
+		if tok, ok := strings.CutPrefix(p.Token, "ts:"); ok {
+			s.mu.Lock()
+			c := s.tsRunningConn()
+			s.mu.Unlock()
+			if c != nil {
+				c.Notify(method, map[string]any{"token": tok})
+			}
+			return
+		}
 		if c := s.goplsConn(); c != nil {
 			c.Notify(method, params)
 		}
@@ -274,7 +305,8 @@ func (s *Server) initialize(params jsonRaw) (any, *rpcError) {
 			URI string `json:"uri"`
 		} `json:"workspaceFolders"`
 		InitializationOptions struct {
-			GoplsPath string `json:"goplsPath"`
+			GoplsPath      string `json:"goplsPath"`
+			TypescriptPath string `json:"typescriptPath"`
 		} `json:"initializationOptions"`
 	}
 	if err := json.Unmarshal(params, &p); err != nil {
@@ -285,6 +317,7 @@ func (s *Server) initialize(params jsonRaw) (any, *rpcError) {
 	s.initialized = true
 	s.rawCaps = p.Capabilities
 	s.goplsPath = p.InitializationOptions.GoplsPath
+	s.ts.path = p.InitializationOptions.TypescriptPath
 	s.caps = clientCaps{
 		progress:        capBool(p.Capabilities, "window", "workDoneProgress"),
 		configuration:   capBool(p.Capabilities, "workspace", "configuration"),
@@ -328,12 +361,20 @@ func (s *Server) initialize(params jsonRaw) (any, *rpcError) {
 			"hoverProvider":              true,
 			"definitionProvider":         true,
 			"referencesProvider":         true,
-			// No resolveProvider: gopls's items are complete (docs inline,
-			// no data) and so are Orbit's.
+			// Scripts only (PLAN.md §9b).
+			"typeDefinitionProvider":    true,
+			"documentHighlightProvider": true,
+			"codeActionProvider":        map[string]any{"codeActionKinds": []string{"quickfix"}},
+			// resolveProvider for the TypeScript child's items (their
+			// documentation and auto-import edits come on resolve);
+			// gopls's and Orbit's items resolve to themselves. The trigger
+			// characters are Orbit's and TypeScript's; each region ignores
+			// the others' (PLAN.md §9b).
 			"completionProvider": map[string]any{
-				"triggerCharacters": []string{".", "<", " ", ":", `"`, "'", "{", "/"},
+				"triggerCharacters": []string{".", "<", " ", ":", `"`, "'", "{", "/", "`", "@", "#", "*"},
+				"resolveProvider":   true,
 			},
-			"signatureHelpProvider": map[string]any{"triggerCharacters": []string{"(", ","}},
+			"signatureHelpProvider": map[string]any{"triggerCharacters": []string{"(", ",", "<"}},
 		},
 		"serverInfo": map[string]any{"name": "orbit", "version": s.opts.Version},
 	}, nil
@@ -455,7 +496,24 @@ func (s *Server) didOpen(params jsonRaw) {
 			s.markdownChanged(ws) // an unsaved buffer
 		}
 	} else {
+		had := hasData(ws.byPath[path])
+		src := ""
+		if f := ws.byPath[path]; f != nil {
+			src = f.Src
+		}
 		ws.setSource(path, p.TextDocument.Text)
+		if f := ws.byPath[path]; f != nil && f.Src != src && (had || hasData(f)) {
+			s.dataChanged(ws) // an unsaved buffer
+		}
+		s.tsSyncFile(ws, path)
+		for _, d := range ws.vdocs[path] {
+			if d.open {
+				s.tsDirty(d) // opened already (references, rename): diagnose it now
+			}
+		}
+		if ws.hasScripts(path) {
+			s.tsEnsure(ws)
+		}
 	}
 	s.publishAll(ws)
 }
@@ -506,10 +564,15 @@ func (s *Server) didChange(params jsonRaw) {
 	if layout && f.Pass1 != nil && f.Pass1.Decl != nil {
 		decl = f.Pass1.Decl.Content
 	}
+	had := hasData(f)
 	ws.setSource(path, applyChanges(f.Src, p.ContentChanges))
 	if f := ws.byPath[path]; layout && (f == nil || f.Pass1 == nil || f.Pass1.Decl == nil || !bytes.Equal(decl, f.Pass1.Decl.Content)) {
 		s.markdownChanged(ws)
 	}
+	if had || hasData(ws.byPath[path]) {
+		s.dataChanged(ws)
+	}
+	s.tsSyncFile(ws, path)
 	s.publishAll(ws)
 }
 
@@ -561,7 +624,12 @@ func (s *Server) didClose(params jsonRaw) {
 			s.markdownChanged(ws) // closed without saving
 		}
 	} else {
+		had := hasData(ws.byPath[path])
 		ws.reloadFromDisk(path)
+		if had || hasData(ws.byPath[path]) {
+			s.dataChanged(ws) // closed without saving, maybe
+		}
+		s.tsSyncFile(ws, path)
 	}
 	decl, impl := ws.genOf(path)
 	for _, g := range []*genFile{decl, impl} {
@@ -590,18 +658,25 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 	ws := s.ws
 	var forward []any
 	var gens []*genFile
-	orbitChanged, mdChanged := false, false
-	for _, c := range p.Changes {
+	orbitChanged, mdChanged, dataChanged := false, false, false
+	all := make([]any, len(p.Changes))
+	rels := make([]string, len(p.Changes))
+	for i, c := range p.Changes {
+		all[i] = c
 		if ws == nil {
 			forward = append(forward, c)
 			continue
 		}
 		rel := ws.rel(uriToPath(c.URI))
+		rels[i] = rel
 		switch {
 		case isOrbitSource(rel):
 			if ws.docs[rel] == nil {
+				had := hasData(ws.byPath[rel])
 				ws.reloadFromDisk(rel)
 				orbitChanged = true
+				dataChanged = dataChanged || had || hasData(ws.byPath[rel])
+				s.tsSyncFile(ws, rel)
 			}
 			continue
 		case isMarkdownSource(rel):
@@ -616,9 +691,17 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 			}
 			s.mdInvalid = true // orbit dev rewrites it after .go edits too
 		case invalidatesExports(rel):
-			s.mdInvalid, mdChanged = true, true
+			s.mdInvalid, mdChanged, dataChanged = true, true, true
+		case isTSWatched(rel):
+			continue // Orbit's TypeScript watcher's: the child's (tsWatched), not gopls's
 		}
 		forward = append(forward, c)
+	}
+	if ws != nil {
+		s.tsWatched(ws, all, rels)
+	}
+	if dataChanged && ws != nil {
+		s.dataChanged(ws)
 	}
 	if len(forward) > 0 && ws != nil && ws.gopls != nil {
 		ws.gopls.Notify("workspace/didChangeWatchedFiles", map[string]any{"changes": forward})

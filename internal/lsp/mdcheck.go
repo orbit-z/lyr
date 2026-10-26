@@ -25,6 +25,12 @@ import (
 // latest such change is dropped (the next check, already scheduled,
 // replaces it). It never blocks requests or the readiness barrier, and it
 // doesn't touch gopls or the generated files.
+//
+// While the TypeScript child runs, the same check also keeps the emitted
+// .d.ts files fresh (PLAN.md §9b Q5): it type-checks the .orbit files with
+// orbit.JSON or set:json sites too, after an edit of one that has or had
+// sites or a Go file change, and its contracts (dataChanged, ws.tsEdit)
+// are re-emitted in memory and sent to the child.
 
 // mdCheckDelay debounces the Markdown typed check after edits.
 var mdCheckDelay = 300 * time.Millisecond
@@ -32,9 +38,16 @@ var mdCheckDelay = 300 * time.Millisecond
 // markdownCheck is one Markdown typed check: a strict copy of the
 // project's current sources, taken at ws.mdEdit edit.
 type markdownCheck struct {
-	proj    *project.Project
-	edit    uint64
-	mdTyped map[string][]mdTypedDiag
+	proj *project.Project
+	edit uint64
+	// md and data are the scope: Markdown files with a layout, .orbit
+	// files with JSON sites (at tsEdit).
+	md, data bool
+	tsEdit   uint64
+	mdTyped  map[string][]mdTypedDiag
+	// known and units are the data contracts (data; typesOf).
+	known   map[string]bool
+	units   map[string]*compiler.UnitTypes
 	checked int  // files type-checked
 	loaded  bool // go list -export ran
 	took    time.Duration
@@ -51,12 +64,17 @@ func (c *markdownCheck) run(ctx context.Context, mc *project.MarkdownChecker) er
 	p := c.proj
 	p.Front()
 	front := slices.Clone(p.Diagnostics)
-	n, loaded, err := mc.Typecheck(ctx, p)
+	n, loaded, err := mc.TypecheckScope(ctx, p, c.md, c.data)
 	c.checked, c.loaded = n, loaded
 	if err != nil {
 		return err
 	}
-	c.mdTyped = typedMarkdownDiags(p, front)
+	if c.md {
+		c.mdTyped = typedMarkdownDiags(p, front)
+	}
+	if c.data {
+		c.known, c.units = typesOf(p)
+	}
 	return nil
 }
 
@@ -68,6 +86,24 @@ func (s *Server) markdownChanged(ws *workspace) {
 	if !s.started || s.shutdown || !ws.hasMarkdownLayouts() {
 		return
 	}
+	s.scheduleTypedCheck()
+}
+
+// dataChanged records a change that the data contracts may depend on (an
+// edit of an .orbit file that has or had JSON sites, a Go file change),
+// and schedules the typed check while the TypeScript child runs (with
+// s.mu held).
+func (s *Server) dataChanged(ws *workspace) {
+	ws.tsEdit++
+	if !s.started || s.shutdown || !s.tsActive() {
+		return
+	}
+	s.scheduleTypedCheck()
+}
+
+// scheduleTypedCheck (re)starts the debounce of the typed check while
+// typing.
+func (s *Server) scheduleTypedCheck() {
 	if s.mdTimer != nil {
 		s.mdTimer.Stop()
 	}
@@ -97,7 +133,13 @@ func (s *Server) runMarkdownCheck() {
 	}
 	s.mdInvalid = false
 	mc := s.mdChecker
-	c := &markdownCheck{proj: ws.proj.Clone(compiler.Strict), edit: ws.mdEdit}
+	c := &markdownCheck{edit: ws.mdEdit, tsEdit: ws.tsEdit, md: ws.hasMarkdownLayouts(), data: s.tsActive()}
+	if !c.md && !c.data {
+		s.mdRunning = false
+		s.mu.Unlock()
+		return
+	}
+	c.proj = ws.proj.Clone(compiler.Strict)
 	s.mu.Unlock()
 
 	hooks := mdHooks.Load()
@@ -110,13 +152,16 @@ func (s *Server) runMarkdownCheck() {
 
 	s.mu.Lock()
 	s.mdRunning = false
-	current := err == nil && s.ws == ws && c.edit == ws.mdEdit
+	current := err == nil && s.ws == ws && c.md && c.edit == ws.mdEdit
 	if current {
 		had := len(ws.mdTyped) > 0
 		ws.mdTyped = c.mdTyped
 		if had || len(c.mdTyped) > 0 {
 			s.publishAll(ws)
 		}
+	}
+	if err == nil && s.ws == ws && c.data && c.tsEdit == ws.tsEdit {
+		s.adoptTypes(ws, c.known, c.units)
 	}
 	again := s.mdPending
 	s.mdPending = false
