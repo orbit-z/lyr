@@ -696,7 +696,9 @@ func RenderComponent[P any](w http.ResponseWriter, r *http.Request,
                                                                   // error nothing is written; locals come from r
 
 func Addr() string                         // $ORBIT_ADDR, else ":"+$PORT, else ":4321"
-func ListenAndServe(h http.Handler) error  // listens on Addr(); graceful shutdown on SIGINT/SIGTERM, then returns nil
+func ListenAndServe(h http.Handler) error  // listens on Addr(); logs "orbit: listening on http://localhost:4321" (bound address;
+                                           // no host → localhost) via log, except under ORBIT_DEV=1;
+                                           // graceful shutdown on SIGINT/SIGTERM, then returns nil
                                            // (call it as `if err := orbit.ListenAndServe(h); err != nil { log.Fatal(err) }`:
                                            // log.Fatal exits 1 even for nil).
                                            // ReadHeaderTimeout 10s, IdleTimeout 120s, no Read/WriteTimeout,
@@ -807,10 +809,10 @@ The SSR hot path is built for speed. There's no fixed target number; the results
 
 ## 5. Assets (scripts and styles)
 - **Scope ID**: `o-` + the first 8 hex chars of sha256 of the file's project-relative path with `/` separators (`src/components/Card.orbit`), so IDs are the same on every OS. It's added as an attribute to every HTML element in the template, but only when the component has a scoped `<style>`.
-- **Scoped CSS**: parse with `tdewolff/parse/v2/css`. Append `:where([data-o-xxxx])` to the last compound of each selector, which preserves specificity.
+- **Scoped CSS**: parse with `tdewolff/parse/v2/css`. Add the attribute selector `[data-o-xxxx]` to the last compound of each selector (Astro's default `scopedStyleStrategy: "attribute"`, user decision at the dogfood checkpoint): +1 attribute specificity, so scoped rules beat global rules with the same selector whatever the bundle order. Within the compound it goes before the first pseudo-class or pseudo-element (`a:hover` → `a[data-o-…]:hover`), as in Astro.
   - Recurse into `@media`, `@supports` and `@layer`.
   - Skip the bodies of `@keyframes` and `@font-face`.
-  - `:global(sel)` opts out locally; the scope then goes on the nearest compound outside the `:global(…)` (`.prose :global(p)` → `.prose:where([data-o-…]) p`), and a fully `:global` selector isn't scoped. A `::pseudo-element` keeps the scope before it (`p::first-line` → `p:where([data-o-…])::first-line`), as in Astro.
+  - `:global(sel)` opts out locally; the scope then goes on the nearest compound outside the `:global(…)` (`.prose :global(p)` → `.prose[data-o-…] p`), and a fully `:global` selector isn't scoped. Pseudo-classes and pseudo-elements come after the scope (`p::first-line` → `p[data-o-…]::first-line`), as in Astro.
   - **Order in the page stylesheet**: the import graph in module-evaluation order: a component's imports first, in import order, then its own styles; each component once.
 - **`is:inline`** is stripped from the emitted tag; every other attribute stays as written (Astro behavior).
 - **Which scripts are processed** (Astro's rule): a `<script>` with no attributes, or only a `src` pointing at a local relative file, is processed and bundled. Any other attribute means it's left as-is, like `is:inline`: `type="application/ld+json"`, `type="text/template"`, `async`, `src="https://…"`, and so on.
@@ -1007,7 +1009,7 @@ Alternative: commit `orbit_gen/` (replace the `orbit_gen/` line in `.gitignore` 
 - Everything else, including `/_orbit/*` and `public/` files, is proxied to the **user's server entry**, which runs with `ORBIT_DEV=1` on a random localhost port and serves assets from `ORBIT_STATIC` and `ORBIT_PUBLIC` (§5b). So auth, logging and custom routes (e.g. a handler for `/robots.txt`) behave exactly as in prod.
 - **Reload injection**: the proxy strips `Accept-Encoding` from forwarded requests, so responses come back uncompressed even under a user gzip middleware. `text/html` responses get the reload script before `</body>`, and `Content-Length` is recomputed. Responses without `</body>`, such as `/_orbit/island/*` fragments, are left alone. A response that is still `Content-Encoding`-compressed is passed through without injection, with a one-time warning.
 - Pages render per request in dev exactly as in prod; only the asset source (`ORBIT_STATIC`, `ORBIT_PUBLIC`) and the error overlay differ (§5b).
-- `fsnotify` watches `src/`, `public/`, `*.go` in the module, and `orbit.json`, `go.mod`/`go.sum`, `tsconfig.json` and `package.json` (excluding `orbit_gen`, `dist`, `.orbit`, `node_modules`, `testdata/`, `_`- and dot-directories, and `_test.go` files), with a 50 ms trailing debounce; events during a build join the next batch, and a file created and removed within one batch (atomic saves) is dropped. Requests wait from the first file event until the rebuild and swap are done; a request whose dial is refused mid-swap is retried once against the new app. (Implemented, milestone 10.)
+- `fsnotify` watches `src/`, `public/`, `*.go` in the module, and `orbit.json`, `go.mod`/`go.sum`, `tsconfig.json` and `package.json` (excluding `orbit_gen`, `dist`, `.orbit`, `node_modules`, `testdata/`, `_`- and dot-directories, and `_test.go` files), with a 50 ms trailing debounce; events during a build join the next batch, and a file created and removed within one batch (atomic saves) is dropped. Requests wait from the first file event until the rebuild and swap are done; a request whose dial is refused mid-swap is retried once against the new app. (Implemented, milestone 10.) It also watches the files matching `orbit.json` `"watch"` globs (§8), inside or outside the module: each pattern's leading literal directory, recursively when the pattern can match deeper. A change made only of watched (and `public/`) files restarts the running binary without regenerating or `go build`, then reloads; mixed with other changes, the app is restarted even when no Go rebuild was needed.
 
 ### 7.1 Live reload
 Every change ends with a **full page reload**; there's no HMR. What the server does depends on the change:
@@ -1030,7 +1032,7 @@ On a compile error, the old app keeps running and the proxy serves an overlay pa
 
 ## 8. Config (`orbit.json`, all optional)
 ```json
-{ "site": "https://example.com", "server": "./cmd/server", "embed": false, "compressHTML": "html", "sourcemap": false }
+{ "site": "https://example.com", "server": "./cmd/server", "embed": false, "compressHTML": "html", "sourcemap": false, "watch": [] }
 ```
 - `compressHTML` (user decision; like Astro's option): `"html"` (default; HTML-aware lossless whitespace collapsing, Astro's `true`; `true` is accepted and means `"html"`, user decision), `"jsx"` (Astro v7's default JSX whitespace rules; `{" "}` forces a space) or `false` (verbatim). Applied at codegen time, so it costs nothing at runtime. `<pre>`, `<textarea>`, `<script>`, `<style>`, HTML comments and `{expr}` output are never altered. Rules in `internal/compiler/DESIGN.md`.
 - `site`: the absolute site URL, exposed as `ctx.Site`. Unset gives a nil `ctx.Site` (like `Astro.site` being `undefined`); a value that isn't absolute (no scheme or host) is an error when `orbit.json` is loaded.
@@ -1038,6 +1040,7 @@ On a compile error, the old app keeps running and the proxy serves an overlay pa
 - `embed`: like `orbit build --embed`; the flag turns embedding on even when this is `false`.
 - `sourcemap` (user request, milestone 6): `true` makes `orbit build` also write external source maps next to the bundles under `/_orbit/`, **not linked** from them (no `sourceMappingURL`), with sources mapped to the `.orbit` files. Default `false`. `orbit dev` always writes linked source maps that point at the `.orbit` line and column (user request).
 - `markdown` (Proposed, §2.4): `gfm` (default `true`), `smartypants` (default `true`), `syntaxHighlight` (`false`, or `{"themes": {"light": "github", "dark": "github-dark"}, "css": true}`; `"dark": null` for one theme). An unknown Chroma style name is an error listing the available ones.
+- `watch` (user decision, dogfood checkpoint): globs relative to the project root (`../` allowed) whose changes restart the app in `orbit dev` (§7); each `/` part is a `path.Match` pattern, a `**` part matches zero or more directories; patterns match files only. Invalid patterns are errors when `orbit.json` loads (`orbit.json: watch[0] "…": …`); a missing base directory is a warning in `orbit dev`.
 - Plain JSON, no comments. Unknown keys are ignored, as `encoding/json` ignores unknown fields (decided by rule: Go stdlib).
 - `null` means unset (decided by rule: Go stdlib). `server` must be non-empty and relative; `orbit generate` doesn't check that it exists (`orbit doctor` does). Any other `compressHTML` value is an error: `orbit.json: compressHTML must be "html" (or true), "jsx" or false, not "none"`. JSON syntax errors carry `orbit.json:L:C` (decided by rule: simplest).
 
@@ -1203,7 +1206,7 @@ Dependencies:
 **Deferred past MVP** (planned, but not in the first release):
 - **Order after the MVP** (user decision, after milestone 13): dogfood Orbit on a real site first, then `orbit fmt`, the typed server→client bridge, and cacheable server islands; the rest after.
 - **Markdown** (user decision, after milestone 13; designed after the dogfood report): `src/pages/*.md` pages with frontmatter (`title`, `layout` pointing at an `.orbit` layout that receives it), and `.md` imports into `.orbit` files (`Post "./post.md"`, rendered with `<Post />`). Rendered by goldmark **at generate time** into precomputed HTML constants: no runtime cost, the runtime stays stdlib-only, goldmark becomes a CLI dependency. Docs first, then implementation. Code blocks are highlighted at generate time with Chroma (`goldmark-highlighting`, CLI dependency; user decision at the dogfood checkpoint). **Design: §2.4 (Proposed)**, user docs `docs/markdown.md`.
-- **Dogfood follow-ups** (user decisions, docs site): scoped CSS switches from `:where([data-o-…])` to attribute selectors (`[data-o-…]`, +1 specificity, Astro's default `scopedStyleStrategy: "attribute"`), so a component's scoped rules beat global element rules whatever the bundle order; `orbit.json` `"watch"` globs (relative to the project) make `orbit dev` restart the app and reload on changes outside `src/`.
+- **Dogfood follow-ups — implemented** (user decisions, docs site): scoped CSS switches from `:where([data-o-…])` to attribute selectors (`[data-o-…]`, +1 specificity, Astro's default `scopedStyleStrategy: "attribute"`), so a component's scoped rules beat global element rules whatever the bundle order; `orbit.json` `"watch"` globs (relative to the project) make `orbit dev` restart the app and reload on changes outside `src/`.
 - **`orbit fmt`** (also LSP `textDocument/formatting`): gofmt-style flags `-l -w -d`.
   - **Phase 1** (Go parts only, which can never change rendered output): format frontmatter chunks with `go/format`. Declarations are formatted as file-level code; body statements are wrapped in a dummy func and dedented. Comments are kept, and imports are sorted.
   - **Then** template expressions and control headers, via Go's expression printer.
@@ -1251,7 +1254,7 @@ Dependencies:
 - `cd examples/blog && go run ../../cmd/orbit build`:
   - `dist/server` and `dist/client/_orbit/` exist, `public/` files are in `dist/client/`, and no page is rendered to an `.html` file
   - a rendered page's `<head>` links the hashed `/_orbit/*.css` and `*.js`, after the doctype
-  - the CSS contains `:where([data-o-…])`
+  - the CSS contains `[data-o-…]` scoped selectors
   - elements carry the scope attribute
 - `dist/server &` then `curl localhost:4321/search?q=go`: the SSR page shows `go`, with `Content-Length` and `text/html; charset=utf-8`. `curl /blog/hello` renders the post, `curl /blog/nope` returns 404 (`ErrNotFound`), `curl -i /blog/hello/` returns 308 to `/blog/hello`, `curl -i '/search/?q=go'` returns 308 to `/search?q=go`, `curl -i /` returns 200 (no redirect), a `public/` or `/_orbit/*` path with a trailing slash is not redirected, `/_orbit/*` responses carry the immutable cache header, and `curl /nope` returns 404 rendered from `404.orbit`.
 - Recursion: `/blog/hello`'s deferred `Comments` island (fetched from its placeholder's URL) renders a nested `CommentThread` three levels deep. A unit test checks that infinite recursion produces a depth error naming the component stack, with the guard on in prod mode.
