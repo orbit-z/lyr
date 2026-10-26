@@ -1,0 +1,6 @@
+---
+type Props struct {
+	Depth int
+}
+---
+<ul>{if props.Depth > 0}<Self depth={props.Depth - 1}><i>{props.Depth}</i></Self>{/if}<slot /></ul>

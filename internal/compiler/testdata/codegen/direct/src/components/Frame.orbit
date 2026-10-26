@@ -1,0 +1,8 @@
+---
+import Card "./Card.orbit"
+
+type Props struct {
+	Title string
+}
+---
+<div class="frame"><Card title={props.Title}><slot /></Card></div>

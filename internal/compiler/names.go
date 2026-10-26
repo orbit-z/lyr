@@ -28,7 +28,19 @@ const (
 	// files of a component; line-directive resets name them bare.
 	DeclFileName = "decl.go"
 	ImplFileName = "render.go"
+	// BuildDir holds the build flavor's impl files (PLAN.md §3.5), at the
+	// same relative paths as in GenDir, and OverlayFile maps them for
+	// go build -overlay. Both are relative to the module root.
+	BuildDir    = ".orbit/build"
+	OverlayFile = BuildDir + "/overlay.json"
 )
+
+// BuildPath returns where the build flavor of the generated file genFile
+// ("orbit_gen/impl/pages/index/render.go") is written:
+// ".orbit/build/impl/pages/index/render.go".
+func BuildPath(genFile string) string {
+	return BuildDir + strings.TrimPrefix(genFile, GenDir)
+}
 
 // Generated identifiers. User code may not declare names with the orbit__ or
 // Orbit__ prefix (IsReservedIdent); glue code uses only these.

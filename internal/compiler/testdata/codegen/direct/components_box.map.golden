@@ -1,0 +1,6 @@
+orbit_gen/decl/components/box/decl.go (src/components/Box.orbit)
+  exact 2:1 "type Props struct {\n\tN int\n}" -> 153-181 "type Props struct {\n\tN int\n}"
+orbit_gen/impl/components/box/render.go (src/components/Box.orbit)
+  exact 6:9 "props.N" -> 677-684 "props.N"
+call sites
+  content key=45 "props.N" call="orbit__w.Expr(\n/*line ../../../../src/components/Box.orbit:6:9*/props.N/*line render.go:21:81*/,\n\t)"

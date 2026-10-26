@@ -1,0 +1,6 @@
+---
+type Props struct {
+	N int
+}
+---
+<p>box {props.N}</p>
