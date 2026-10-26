@@ -67,6 +67,7 @@ What still allocates:
 - **Slot content that uses parent variables**, in dev, `go test` and plain `go build` builds: one small closure per slot. Likewise, a component call site passing [pass-through attributes](components.md#passing-html-attributes-through) with expression values: one allocation per call site. In an `orbit build` binary only when the content is passed into components that call each other in a cycle (`A` renders `B`, which renders `A`; `<Self>` is fine), or when your Go code keeps a slot's renderer beyond the call.
 - **Values without a typed write** (the `Expr` fallback) and your own `String()` or `Error()` methods.
 - **Route params with percent-escapes**, and **`server:defer` props** (encoded and encrypted per instance).
+- **`server:concurrent` components**: one small allocation each (the goroutine's arguments; see [below](#slow-components-in-the-same-response-serverconcurrent)).
 - **`orbit.JSON` and `set:json` values**: `encoding/json`'s own allocations (below). Orbit's code around them adds none.
 - **Your frontmatter code**: database queries and the like. This is usually the biggest part.
 
