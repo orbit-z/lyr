@@ -166,7 +166,7 @@ func runConcurrent[P any](w *Writer, render func(*Ctx, *Writer, P, Slots) error,
 				g.aborted.Store(true)
 				w.setErr(errAborted)
 			} else {
-				w.setErr(&panicError{value: p, pos: orbitFrame()})
+				w.setErr(recoveredPanic(p))
 			}
 		}
 		if w.limit > 0 {

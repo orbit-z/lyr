@@ -385,18 +385,30 @@ func (e *panicError) Error() string {
 	return fmt.Sprintf("panic: %v", e.value)
 }
 
-// callRender calls render, turning a panic into a *panicError. A panic with
-// http.ErrAbortHandler is re-panicked, as net/http expects.
+// callRender calls render, turning a panic into a *panicError (see
+// recoveredPanic). A panic with http.ErrAbortHandler is re-panicked, as
+// net/http expects.
 func callRender(render func(*Ctx, *Writer) error, c *Ctx, w *Writer) (err error) {
 	defer func() {
 		if p := recover(); p != nil {
 			if p == http.ErrAbortHandler {
 				panic(p)
 			}
-			err = &panicError{value: p, pos: orbitFrame()}
+			err = recoveredPanic(p)
 		}
 	}()
 	return render(c, w)
+}
+
+// recoveredPanic returns the *panicError for a recovered panic value p,
+// with the innermost .orbit frame of the panicking goroutine. It's called
+// from a deferred recover. A *panicError is kept as is: All re-panics a
+// load's panic with the load's own position (PLAN.md §4f).
+func recoveredPanic(p any) *panicError {
+	if pe, ok := p.(*panicError); ok {
+		return pe
+	}
+	return &panicError{value: p, pos: orbitFrame()}
 }
 
 // orbitFrame returns "file:line" of the innermost stack frame in a .orbit

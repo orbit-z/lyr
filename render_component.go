@@ -75,7 +75,7 @@ func callComponent[P any](render func(*Ctx, *Writer, P, Slots) error, c *Ctx, w 
 			if p == http.ErrAbortHandler {
 				panic(p)
 			}
-			err = &panicError{value: p, pos: orbitFrame()}
+			err = recoveredPanic(p)
 		}
 	}()
 	return render(c, w, props, Slots{})
