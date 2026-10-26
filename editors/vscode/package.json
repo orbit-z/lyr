@@ -24,7 +24,7 @@
     "template"
   ],
   "main": "./dist/extension.js",
-  "activationEvents": [],
+  "activationEvents": ["workspaceContains:**/*.orbit"],
   "contributes": {
     "languages": [
       {
