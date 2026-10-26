@@ -78,10 +78,7 @@ Orbit then does two things:
 So the `Counter` above renders as:
 
 ```html
-<counter-button data-o-8a161775>
-  <button type="button" data-o-8a161775>Apples</button>
-  <output data-o-8a161775>0</output>
-</counter-button>
+<counter-button data-o-8a161775><button type="button" data-o-8a161775>Apples</button><output data-o-8a161775>0</output></counter-button>
 ```
 
 and its CSS becomes (before minification):

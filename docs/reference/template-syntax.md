@@ -21,7 +21,7 @@ type Props struct {
 <header class="meta" {...props.Attrs}>
   <h2><a href={props.URL}>{props.Title}</a></h2>
   {if props.Draft}
-    <span class="badge">Draft</span>
+    <span class="badge">Draft</span>{" "}
   {/if}
   <time datetime={props.Date.Format(time.RFC3339)}>{props.Date.Format("2 Jan 2006")}</time>
   <ul class="tags" hidden={len(props.Tags) == 0}>
@@ -104,7 +104,29 @@ Orbit compresses template whitespace when it generates the Go code, following th
 - attribute values;
 - the output of `{expr}`: it's runtime data, so `{" "}` always writes one space.
 
-**`"html"`** (the default, Astro's `compressHTML: true`; `true` is accepted as a synonym) is lossless for rendering:
+**`"jsx"`** (the default, as in Astro v7) applies JSX's rule (Babel's) to each text between two tags, expressions or blocks:
+
+- every line is trimmed of spaces and tabs, except at the start of the first line and the end of the last;
+- lines that are then empty are dropped;
+- the remaining lines are joined with one space.
+
+So whitespace that contains a newline disappears next to a tag or an expression, and whitespace within a line is kept. This template:
+
+```orbit
+<ul>
+  <li>Posts by <b>{name}</b>
+      and friends</li>
+</ul>
+```
+
+renders `<ul><li>Posts by <b>Ana</b>and friends</li></ul>`: the words join. Write `{" "}` where a space must survive a line break:
+
+```orbit
+<li>Posts by <b>{name}</b>{" "}
+    and friends</li>
+```
+
+**`"html"`** (Astro's `compressHTML: true`; `true` is accepted as a synonym) is lossless for rendering:
 
 - Each run of whitespace becomes one space, or one newline if the run contains a newline.
 - A text that is only whitespace is dropped when what can render on each side of it is a block-level boundary: the tag of a block-level element, a doctype, a `<script>` or `<style>`, or the start or end of the template. It's also dropped when the whitespace on one side is kept anyway.
@@ -114,27 +136,7 @@ Orbit compresses template whitespace when it generates the Go code, following th
 
 The block-level elements are `html`, `head`, `body`, `title`, `meta`, `link`, `base`, `style`, `script`, `noscript`, `template`, `address`, `article`, `aside`, `blockquote`, `details`, `dialog`, `dd`, `div`, `dl`, `dt`, `fieldset`, `figcaption`, `figure`, `footer`, `form`, `h1`–`h6`, `header`, `hgroup`, `hr`, `li`, `main`, `nav`, `ol`, `p`, `pre`, `section`, `summary`, `menu`, `ul`, `br`, `table`, `caption`, `colgroup`, `col`, `thead`, `tbody`, `tfoot`, `tr`, `td`, `th`, `legend`, `optgroup` and `option`.
 
-```orbit
-<ul>
-  <li>Posts by <b>{name}</b>
-      and friends</li>
-</ul>
-```
-
-renders `<ul><li>Posts by <b>Ana</b>⏎and friends</li></ul>` (⏎ is one newline).
-
-**`"jsx"`** (Astro v7's default) applies JSX's rule (Babel's) to each text between two tags, expressions or blocks:
-
-- every line is trimmed of spaces and tabs, except at the start of the first line and the end of the last;
-- lines that are then empty are dropped;
-- the remaining lines are joined with one space.
-
-So whitespace that contains a newline disappears next to a tag or an expression, and whitespace within a line is kept. The example above renders `<ul><li>Posts by <b>Ana</b>and friends</li></ul>`: the words join. Write `{" "}` where a space must survive a line break:
-
-```orbit
-<li>Posts by <b>{name}</b>{" "}
-    and friends</li>
-```
+With `"html"`, the template above renders `<ul><li>Posts by <b>Ana</b>⏎and friends</li></ul>` (⏎ is one newline).
 
 **`false`** writes template text exactly as it appears.
 
@@ -337,7 +339,7 @@ In the frontmatter and in expressions, `slots.Has("footer")` reports whether a s
 ```orbit
 <Panel title="Contact">
   <Fragment slot="actions">
-    <a href="/rss.xml">RSS</a>
+    <a href="/rss.xml">RSS</a>{" "}
     <a href="/about">About</a>
   </Fragment>
 </Panel>

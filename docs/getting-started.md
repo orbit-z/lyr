@@ -203,7 +203,7 @@ type Props struct {
   <h2>
     {props.Title}
     {if props.Tag != ""}
-      <span class="tag">{props.Tag}</span>
+      {" "}<span class="tag">{props.Tag}</span>
     {/if}
   </h2>
   <slot />
@@ -235,6 +235,7 @@ type Props struct {
 
 - The `<style>` is scoped: it applies only to this component's elements, so `.card` and `.tag` can't clash with other components.
 - `<slot />` is where the children passed to `<Card>` go.
+- `{" "}` writes a space. Like Astro, Orbit removes whitespace that contains a line break next to a tag, so the title and the tag would touch without it. See [Whitespace](reference/template-syntax.md#whitespace).
 - The `<script>` is TypeScript. Orbit bundles it into a file under `/_orbit/` and links it from the `<head>` of every page that uses `Card`.
 
 Now use it from the page. Import it with an alias, and pass its props as attributes:
