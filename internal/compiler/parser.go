@@ -41,6 +41,12 @@ func Parse(src string, mode Mode) *File {
 	}
 	p.lx = lexer{src: src, pos: tmpl.Start, diags: &p.diags}
 	f.Template = p.parseTemplate(tmpl)
+	for _, d := range p.diags {
+		if d.Severity == SeverityError {
+			f.syntax = append(f.syntax, d)
+		}
+	}
+	sortDiagnostics(f.syntax)
 	validate(f.Template, p)
 	sortDiagnostics(p.diags)
 	f.Diagnostics = p.diags

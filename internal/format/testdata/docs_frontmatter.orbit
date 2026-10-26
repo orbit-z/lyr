@@ -1,0 +1,13 @@
+---
+import (
+    "strings"
+    "example.com/blog/internal/posts"
+    Card "../components/Card.orbit"
+)
+type Props struct { Title string;   Count int }
+
+list,err:=posts.All()
+if err != nil { return err }
+title := strings.ToUpper( props.Title )   // shown in the header
+---
+<Card title={title} count={len(list)} />

@@ -1,0 +1,8 @@
+---
+x:=1
+---
+<p>{x+1}</p>
+<script>
+  const a = 1
+  const b =
+</script>

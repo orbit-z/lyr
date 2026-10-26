@@ -1,0 +1,3 @@
+-- errors --
+err_fm_go.orbit:4:25: expected ';', found err
+err_fm_go.orbit:6:2: expected '}', found 'EOF'

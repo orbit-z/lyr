@@ -1,0 +1,6 @@
+<button id="like">Like</button>
+<script>
+  const btn=document.querySelector<HTMLButtonElement>("#like")!
+  btn.addEventListener("click",async ()=>{ const r=await fetch("/api/like",{method:"POST"}); btn.textContent=String((await r.json()).count) })
+</script>
+<style> button{padding:.5rem 1rem;border-radius:4px} </style>

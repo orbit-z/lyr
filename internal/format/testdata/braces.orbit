@@ -1,0 +1,14 @@
+---
+title := "x"
+---
+<p>{ title }</p>
+<p>{ }</p>
+<p>{  /* kept */  }</p>
+<a href={ "/x/"+title } title='a' data-x=bare { title } {... attrs} disabled>{f( x )}</a>
+<Card {title} {...props.Rest} n={1+ 2} />
+<textarea>{ title+"!" }</textarea>
+<!-- {not code} -->
+<p>{x /* inline */ +1}</p>
+<p>{x // a line comment
+}</p>
+<p>{0X1F+1E3}</p>

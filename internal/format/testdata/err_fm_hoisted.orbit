@@ -1,0 +1,6 @@
+---
+type Props struct {
+	A int
+	B string,
+}
+---

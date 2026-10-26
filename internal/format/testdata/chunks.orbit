@@ -1,0 +1,23 @@
+---
+
+
+// A comment before everything.
+
+import "fmt"
+// Props doc comment.
+type Props struct{ Name string }
+x:=1 // line comment of x
+// a floating comment, owned by x's chunk
+
+// Helper's doc.
+func helper(a,b int) int { return a+b }
+const  limit=10
+y := helper( x, limit )
+z := func() int { return y }()
+_ = fmt.Sprint(z)
+
+// trailing comment
+
+
+---
+<p>{y}</p>

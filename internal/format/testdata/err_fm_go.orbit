@@ -1,0 +1,7 @@
+---
+import "fmt"
+
+list,err:=fmt.Sprint(1) err
+x := 1
+---
+<p>{ x }</p>

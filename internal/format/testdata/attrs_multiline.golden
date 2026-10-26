@@ -1,0 +1,5 @@
+<div
+   class="a"
+   data-x={1 + 1}
+   {...rest}>
+</div>
