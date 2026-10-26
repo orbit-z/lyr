@@ -447,9 +447,13 @@ To observe a component, Orbit wraps its output in an element (a component can re
 - The wrapper is written even on pages where the script ends up eager. `client:load` writes no wrapper.
 - The wrapper is static HTML, merged with the surrounding markup when Orbit compiles the template, so it costs nothing at render time. Styles aren't affected: a lazy component's CSS is in the page's stylesheet.
 
-### Shared modules are duplicated
+### Shared modules
 
-A lazy script is bundled on its own, without code splitting. A module that both a lazy script and the page bundle import (say `src/scripts/util.ts`) is included in both, and each copy has its own module state. Keep shared state out of such modules, or put it on the DOM. Code splitting is planned after the first release.
+A module that both a lazy script and the page bundle import (say `src/scripts/util.ts`) is a shared chunk that both import: it's downloaded once and runs once per page, with one module state, whichever loads first (see [Shared chunks and `import()`](styles-and-scripts.md#shared-chunks-and-import)). In `examples/blog`, `LikeButton` (in the post page's bundle) and the lazy `ShareButtons` share `util.ts` this way.
+
+### Loading code on demand with `import()`
+
+`client:*` loads a *component's* scripts later. For code that isn't tied to a component, or that only one interaction needs, use a dynamic `import()` in any script: `await import("../lib/editor")` fetches `/_orbit/editor-<hash>.js` when that line runs, and nothing before. Its CSS is in the page stylesheet already. See [Shared chunks and `import()`](styles-and-scripts.md#shared-chunks-and-import).
 
 ### Write scripts as custom elements
 

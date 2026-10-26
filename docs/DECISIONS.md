@@ -803,3 +803,19 @@ With Tailwind CSS v4 support (`PLAN.md` §5d). The bigger choices (the standalon
 | The dev loop's word set is seeded, after the first bundle with a Tailwind input, from the module's files with the watcher's skip rules (no CSS, lock or binary files); a changed directory, or a file over 4 MB, counts as new | simplest | Seed from Tailwind's own file list | `PLAN.md` §5d |
 | A failed Tailwind run's error is kept until the next batch, which reruns it | simplest (so one batch doesn't run a failing input twice) | Rerun at once | [Using Tailwind](tailwind.md#in-orbit-dev) |
 | The output cache keeps only the inputs the last successful bundle used | simplest (memory stays bounded in long dev sessions) | Keep everything | — |
+
+## Code splitting
+
+With esbuild's code splitting (`PLAN.md` §5e). The bigger choices (one build with `Splitting`; a page's own blocks stay in its bundle and only imported files are shared; `<link rel="modulepreload">` for the module's static chunks; CSS of `import()`ed modules in the page stylesheet; no preloading for lazy and dynamic chunks; deploy skew documented only; no opt-out; no Vite) were the user's, not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| Chunks are flat in `/_orbit/`, named by esbuild's `[name]-[hash]` (`chunk-<hash>.js`, `<module>-<hash>.js` for an `import()` target) | Astro (`/_astro/[name].[hash].js` for entries and chunks alike) | A `chunks/` subdirectory | [Styles and scripts](styles-and-scripts.md#shared-chunks-and-import) |
+| The new asset kind is `modulepreload` | simplest (the `rel` value) | `chunk`, `preload` | [Runtime API](reference/runtime-api.md) |
+| The stylesheet esbuild emits for an `import()` target isn't written (its CSS is in the page stylesheets) | simplest (nothing links it) | Write it unused | [Styles and scripts](styles-and-scripts.md#shared-chunks-and-import) |
+| Empty shared chunks are removed, and their `import"…";` statements replaced by spaces where a source map exists, deleted otherwise | simplest that keeps maps valid | Keep the empty chunks | `PLAN.md` §5e |
+| An empty `import()` target is kept, even with no code | simplest (an `import()` of a removed file would fail) | Remove it and rewrite the `import()` | — |
+| Chunks get `Cache-Control: public, max-age=31536000, immutable` | simplest (the existing `/_orbit/` rule) | A shorter max-age | [Deploy](deploy.md#how-static-files-are-served) |
+| A diagnostic of a block copied into several pages is reported once (same file, line, column and message) | simplest | One per page | — |
+| `modulepreload` assets list the module's static import closure breadth-first, in import order (esbuild's entry imports every chunk it needs directly, so it's usually flat) | simplest | Depth-first | [Runtime API](reference/runtime-api.md) |
+| `orbit build --verbose`'s `loaded with import()` section lists every JS file no page lists: `import()` targets, and chunks that only lazy entries import | simplest (the loader `import()`s lazy entries too) | A separate "lazy only" section | [CLI](reference/cli.md#orbit-build) |

@@ -215,7 +215,7 @@ A component's script and style are included **once per page**, however many time
 The bundle is built by esbuild, which runs inside the `orbit` CLI (no Node.js needed). For each page you get:
 
 - one minified CSS file and one minified ES module, with content-hashed names under `/_orbit/`;
-- a `<link rel="stylesheet">` and a `<script type="module">` inserted just before the page's first `</head>` (usually in your layout). Without a `</head>`, they go right after `<!DOCTYPE …>`, or at the very start.
+- a `<link rel="stylesheet">` and a `<script type="module">` inserted just before the page's first `</head>` (usually in your layout), followed by a `<link rel="modulepreload">` for each [shared chunk](#shared-chunks-and-import) the module imports. Without a `</head>`, they go right after `<!DOCTYPE …>`, or at the very start.
 
 A page whose bundle has no scripts gets no JS file and no `<script>` tag. A page that uses `server:defer` or `client:*` also gets a small inline loader script in its `<head>`; see [Lazy loading](lazy-loading.md).
 
@@ -223,7 +223,27 @@ Files that your CSS or scripts reference by URL, such as fonts and images in `ur
 
 Files under `/_orbit/` are served with `Cache-Control: public, max-age=31536000, immutable`, since a change produces a new name.
 
-Each page's bundle is self-contained: code shared by several pages is repeated in each bundle. Splitting shared code into common chunks is not yet supported.
+### Shared chunks and `import()`
+
+The page bundles, the [lazy entries](#loading-a-components-scripts-lazily-client) and the targets of dynamic `import()` are built together, with esbuild's code splitting:
+
+- **The blocks stay in their page's bundle.** A page's module holds the `<script>` blocks of the page and of every component it imports (not lazily), in import order, as before. A component used on ten pages has its block copied into ten bundles: blocks are small, and this keeps each page at one module plus its shared chunks.
+- **Imported files are shared.** A `.ts`/`.js` file, an npm package or `orbit:client` that several bundles import (pages, lazy entries, `import()` chunks) is in one file of its own, `/_orbit/chunk-<hash>.js`, which each of them imports. It's downloaded and cached once, and evaluated **once per page**, with one module state: a counter in `src/scripts/util.ts` imported by the page bundle and by a lazy component is the same counter.
+- **`import()` loads code on demand.** `await import("../lib/quickSearch")` in a script becomes a request for `/_orbit/quickSearch-<hash>.js`, made when that line runs. Its code isn't in any page bundle. Use it for heavy code that only some interactions need (an editor, a search engine):
+
+  ```ts
+  button.addEventListener("click", async () => {
+    // Fetched on the first click only.
+    const { createQuickSearch } = await import("../lib/quickSearch");
+    createQuickSearch(this).open();
+  });
+  ```
+
+- **Preloading.** The page gets a `<link rel="modulepreload">` for each chunk its module imports, after the `<script type="module">`, so the browser fetches them in parallel with the module instead of after it. Chunks that only a lazy entry or an `import()` reaches aren't preloaded: that would defeat the laziness.
+- **CSS stays in the page stylesheet.** CSS that a dynamically imported module imports (`import "./quickSearch.css"` in `quickSearch.ts`) is in the stylesheet of every page that can reach that `import()`, like a lazy component's CSS: it's there before the code runs, with no flash of unstyled content. Each page still has exactly one stylesheet.
+- **Evaluation order.** A page's blocks run in import order, after the modules they import (each module after its own imports, as in any ES module graph). Two shared chunks that don't import each other run in the order esbuild puts them, which may differ from the order of the `import` lines: with `import "./polyfill"; import "lib"` in one script, `lib` may run before `polyfill` if they end up in different chunks. **A module that needs another module's side effects should import it itself.**
+
+Chunk names are esbuild's: `chunk-<hash>.js` for shared code, `<module>-<hash>.js` for an `import()` target (named after the imported file). Hashes are content hashes, so editing a shared file renames its chunk and the files that import it, and nothing else. `orbit build --verbose` lists each page's chunks (see [CLI](reference/cli.md#orbit-build)).
 
 ## Loading a component's scripts lazily: `client:*`
 
@@ -250,7 +270,7 @@ How it affects bundling:
 - **The whole subtree.** The directive covers the component's own scripts and those of every component it renders, transitively.
 - **Eager wins, per page.** If any call site of a component on the page loads it eagerly (no directive, or `client:load`), its scripts stay in the page bundle, and its lazy call sites on that page load nothing extra.
 - **Styles are unaffected.** A lazy component's CSS stays in the page's stylesheet.
-- **Shared code is duplicated.** A module imported both by a lazy entry and by the page bundle (for example `src/scripts/util.ts`) is included in both, and each copy has its own module state. Don't use module-level variables to share state between them.
+- **Shared code is shared.** A module imported both by a lazy entry and by the page bundle (for example `src/scripts/util.ts`) is a [shared chunk](#shared-chunks-and-import) that both import: it runs once per page, with one module state, whichever loads first.
 - **The wrapper element.** A lazy call site is wrapped in an `<orbit-lazy>` element styled `display: contents`, so it doesn't affect layout, but it is in the DOM: a child selector such as `.list > .item` doesn't match across it.
 
 ## Custom elements: the recommended pattern

@@ -476,17 +476,17 @@ type Route struct {
     Pattern string                    // "/blog/[slug]"
     File    string                    // the .orbit file
     Render  func(*Ctx, *Writer) error // calls the page's Render with its empty Props
-    Assets  []Asset                   // CSS and JS for the page's <head>, plus lazy entries
+    Assets  []Asset                   // CSS, JS and modulepreload tags for the page's <head>, plus lazy entries
     Islands bool                      // the page can contain server:defer placeholders
 }
 
 type Asset struct {
-    Kind string // "css", "js" or "lazy"
+    Kind string // "css", "js", "lazy" or "modulepreload"
     URL  string
     ID   string // for "lazy": the component ID whose <orbit-lazy> markers load it
 }
 ```
-Used by the generated `app.New()`. You don't build routes by hand. A route with `Islands` set, or with `lazy` assets, also gets the inline loader in its `<head>`.
+Used by the generated `app.New()`. You don't build routes by hand. A route's assets are in `<head>` order: its stylesheets, its module, its `lazy` entries, then one `modulepreload` asset per [shared chunk](../styles-and-scripts.md#shared-chunks-and-import) the module imports. `css` gives a `<link rel="stylesheet">`, `js` a `<script type="module">`, `modulepreload` a `<link rel="modulepreload">` after the script; the tags are computed once per route, when the site is created. A route with `Islands` set, or with `lazy` assets, also gets the inline loader in its `<head>`. Unknown kinds are ignored.
 
 ```go
 func ErrorAt(pos string, err error) error

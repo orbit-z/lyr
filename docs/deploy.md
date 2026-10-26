@@ -38,7 +38,7 @@ To deploy, copy the binary and the directory together:
 rsync -a dist/server dist/client deploy@example.com:/srv/blog/
 ```
 
-Files under `/_orbit/` have content hashes in their names and are served with `Cache-Control: public, max-age=31536000, immutable`, so a CDN in front of the server can cache them indefinitely. You can also upload `dist/client/` to a CDN directly. With [`"sourcemap": true`](configuration.md#sourcemap), `dist/client/_orbit/` also holds a `.map` file per bundle; nothing links to them, but they're served like the bundles if someone asks for their URL, so delete them before deploying if your sources are private. Pages and [`server:defer`](lazy-loading.md) island responses are rendered per request; islands default to `Cache-Control: private, no-store`, so shared caches don't store them.
+Files under `/_orbit/` (page bundles, [shared chunks and `import()` chunks](styles-and-scripts.md#shared-chunks-and-import), lazy entries, fonts and images) have content hashes in their names and are served with `Cache-Control: public, max-age=31536000, immutable`, so a CDN in front of the server can cache them indefinitely. You can also upload `dist/client/` to a CDN directly. With [`"sourcemap": true`](configuration.md#sourcemap), `dist/client/_orbit/` also holds a `.map` file per bundle; nothing links to them, but they're served like the bundles if someone asks for their URL, so delete them before deploying if your sources are private. Pages and [`server:defer`](lazy-loading.md) island responses are rendered per request; islands default to `Cache-Control: private, no-store`, so shared caches don't store them.
 
 ### How static files are served
 
@@ -54,6 +54,29 @@ Files under `/_orbit/` have content hashes in their names and are served with `C
   ```
 
 Orbit doesn't compress responses. Add a gzip middleware in `cmd/server/main.go`, or let your reverse proxy or CDN compress.
+
+### Keeping the previous build's assets
+
+`orbit build` replaces `dist/client`, and `--embed` embeds only the new files. A visitor who loaded a page before a deploy still runs that page's scripts afterwards. When one of them later fetches a file of the old build, which happens when a [lazy component](lazy-loading.md) meets its strategy or when a script runs a dynamic `import()` (on a click, say), the old file is gone and the request is a 404, so the `import()` fails. Astro has the same problem; its Vercel adapter calls the fix "skew protection".
+
+Hashed names never collide, so the simplest fix is to keep the previous deploy's `/_orbit/` files next to the new ones:
+
+- **Copy them in before packaging**: after `orbit build`, copy the old `dist/client/_orbit/*` (from the previous image or an artifact store) into the new `dist/client/_orbit/` without overwriting (`cp -n`), then build the image or upload. This doesn't work with `--embed`, which embeds the build's own files only; serve `/_orbit/` from a CDN or a directory (`ORBIT_STATIC`) instead.
+- **Or serve `/_orbit/` from object storage or a CDN that only adds files**: upload each build's `dist/client/_orbit/` to the same bucket and never delete (or prune files older than your longest session).
+
+For scripts that use `import()`, you can also reload the page when a chunk is missing, so the visitor gets the new build:
+
+```ts
+window.addEventListener("unhandledrejection", (event) => {
+  // A failed dynamic import() after a deploy: load the new version of the page.
+  const message = event.reason instanceof TypeError ? event.reason.message : "";
+  if (/dynamically imported module|Importing a module script failed/.test(message)) {
+    location.reload();
+  }
+});
+```
+
+The messages are the browsers' (`Failed to fetch dynamically imported module` in Chromium, `error loading dynamically imported module` in Firefox, `Importing a module script failed.` in Safari). Guard against reload loops (for example with a flag in `sessionStorage`) if a file can be missing for another reason.
 
 ### Building for another OS or architecture
 
