@@ -99,20 +99,32 @@ func (p GenPackage) ImplImportPath(module string) string { return module + "/" +
 //	src/pages/docs/[...rest].orbit → pages/docs/rest_rest
 //	src/pages/404.orbit           → pages/p_404
 //
+// A Markdown file (IsMarkdown) gets an _md suffix on its last segment, so
+// it never collides with a sibling .orbit file: src/pages/blog/hello.md →
+// pages/blog/hello_md, src/pages/404.md → pages/p_404_md (PLAN.md §2.4).
+//
 // Collisions between files (my-card.orbit and my_card.orbit) are the
 // caller's to report (milestone 5).
 func PackageFor(orbitPath string) (GenPackage, error) {
 	rest, ok := strings.CutPrefix(orbitPath, "src/")
-	if !ok || !strings.HasSuffix(rest, ".orbit") || path.Clean(orbitPath) != orbitPath {
+	md := IsMarkdown(rest)
+	if !ok || !strings.HasSuffix(rest, ".orbit") && !md || path.Clean(orbitPath) != orbitPath {
 		return GenPackage{}, fmt.Errorf("%s: not a clean .orbit path under src/", orbitPath)
 	}
-	rest = strings.TrimSuffix(rest, ".orbit")
+	if md {
+		rest = strings.TrimSuffix(rest, path.Ext(rest))
+	} else {
+		rest = strings.TrimSuffix(rest, ".orbit")
+	}
 	segs := strings.Split(rest, "/")
 	for i, s := range segs {
 		if s == "" {
 			return GenPackage{}, fmt.Errorf("%s: empty path segment", orbitPath)
 		}
 		segs[i] = sanitizeRouteSegment(s)
+	}
+	if md {
+		segs[len(segs)-1] += "_md"
 	}
 	return GenPackage{Rel: strings.Join(segs, "/"), Name: segs[len(segs)-1]}, nil
 }
@@ -179,8 +191,11 @@ func ScopeHash(orbitPath string) string {
 // ComponentID returns the component ID of the .orbit file at orbitPath: its
 // base name without .orbit, "-", and its ScopeHash (PLAN.md §3.4), e.g.
 // "src/components/Comments.orbit" → "Comments-<hash8>".
+//
+// A Markdown file's extension is dropped the same way
+// ("src/content/intro.md" → "intro-<hash8>").
 func ComponentID(orbitPath string) string {
-	return strings.TrimSuffix(path.Base(orbitPath), ".orbit") + "-" + ScopeHash(orbitPath)
+	return TrimSourceExt(orbitPath) + "-" + ScopeHash(orbitPath)
 }
 
 // initialisms is golint's common-initialisms table, as listed in

@@ -98,6 +98,7 @@ What follows from this:
 - **Child components aren't affected.** A parent's scoped styles don't match the elements inside a child component's template, because those carry the child's scope attribute (or none).
 - **Slot content belongs to the parent.** Markup you pass into a component's slot is compiled in the file where you write it, so it carries *that* file's scope attribute. Style it from the parent, not from the child. The same goes for the `fallback` of a [`server:defer`](lazy-loading.md) component.
 - **No scoped style, no attributes.** A component without a scoped `<style>` gets no `data-o-…` attributes at all.
+- **Markdown has no scope.** A Markdown file has no `<style>`, so its elements carry no scope attribute, like slot content from a file without styles: a layout's plain `h2 { … }` doesn't reach the Markdown's `<h2>`. Use `:global(…)` under an element of the layout (below), or an `is:global` style. See [Styling Markdown content](markdown.md#styling-markdown-content).
 
 ## Escaping the scope: `:global(…)`
 
@@ -147,6 +148,8 @@ type Props struct {
 An `is:global` style is still taken out of the template, bundled and minified with the rest of the page's CSS; it just isn't rewritten. A component can have both a scoped `<style>` and an `is:global` one.
 
 **Order in the page's stylesheet**: styles follow the import graph, the way modules are evaluated: a component's imports come first, in import order, then the component's own styles. So a page that imports `Base.orbit` and then `Card.orbit` gets the layout's styles, then the card's, then the page's own. Each component's styles appear once. Scoped rules carry one extra attribute of specificity, so they beat global rules with the same selector whatever the order; between rules of equal specificity, this order decides.
+
+A page that renders highlighted Markdown code blocks (its own, or an imported Markdown file's) gets the code-highlighting CSS **first** in its stylesheet, before every component's styles, so your rules for `.chroma` and its token classes win. See [Markdown: Code blocks](markdown.md#code-blocks).
 
 ## Which scripts Orbit processes
 

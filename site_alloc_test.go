@@ -79,9 +79,74 @@ func allocPostPage(c *Ctx, w *Writer) error {
 	return nil
 }
 
+// A Markdown page as orbit generate compiles it (PLAN.md §2.4): the HTML is
+// a constant, the layout's props (frontmatter and headings) are built once
+// at package initialization, and the content is a package-level slot func.
+type allocLayoutProps struct {
+	Title    string
+	Tags     []string
+	Headings []Heading
+}
+
+var allocLayoutHook = allocLayout
+
+func allocLayout(c *Ctx, w *Writer, p allocLayoutProps, s Slots) error {
+	if err := w.Enter("src/layouts/Post.orbit"); err != nil {
+		return err
+	}
+	defer w.Leave()
+	w.Raw(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>`)
+	w.String(p.Title)
+	w.Raw(`</title>`)
+	w.HeadEnd()
+	w.Raw(`</head><body><nav><ul>`)
+	for _, h := range p.Headings {
+		w.Raw(`<li><a href="#`)
+		w.URL(h.Slug)
+		w.Raw(`">`)
+		w.String(h.Text)
+		w.Raw(`</a></li>`)
+	}
+	w.Raw(`</ul></nav><article>`)
+	if s.Default != nil {
+		if err := s.Default(w); err != nil {
+			return err
+		}
+	}
+	w.Raw(`</article></body></html>`)
+	return nil
+}
+
+var allocMDHeadings = []Heading{{Depth: 2, Slug: "why-markdown", Text: "Why Markdown"}, {Depth: 2, Slug: "whats-next", Text: "What’s next"}}
+
+var allocMDProps = func() (p allocLayoutProps) {
+	p.Title = "Hello, Orbit"
+	p.Tags = []string{"news", "go"}
+	p.Headings = allocMDHeadings
+	return p
+}()
+
+const allocMDHTML = "<p>Orbit compiles this file to Go.</p>\n<h2 id=\"why-markdown\">Why Markdown</h2>\n" +
+	"<pre class=\"chroma\" tabindex=\"0\" data-language=\"go\"><code><span class=\"nx\">fmt</span></code></pre>\n" +
+	"<h2 id=\"whats-next\">What&rsquo;s next</h2>\n"
+
+func allocMDContent(w *Writer) error {
+	w.Raw(allocMDHTML)
+	return w.Err()
+}
+
+func allocMDPage(c *Ctx, w *Writer) error {
+	if err := w.Enter("src/pages/blog/hello.md"); err != nil {
+		return err
+	}
+	defer w.Leave()
+	return allocLayoutHook(c, w, allocMDProps, Slots{Default: allocMDContent})
+}
+
 var allocRoutes = []Route{
 	{Pattern: "/", File: "src/pages/index.orbit", Render: allocPage},
 	{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].orbit", Render: allocPostPage},
+	{Pattern: "/hello", File: "src/pages/blog/hello.md", Render: allocMDPage},
 	{Pattern: "/assets", File: "src/pages/assets.orbit", Render: allocPage, Assets: benchAssets},
 }
 
@@ -127,6 +192,16 @@ func TestRenderAllocs(t *testing.T) {
 	if allocs != 0 {
 		t.Errorf("rendering a typical page: %v allocs, want 0", allocs)
 	}
+	allocs = testing.AllocsPerRun(1000, func() {
+		buf.Reset()
+		w.reset(buf)
+		if err := allocMDPage(c, w); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if allocs != 0 {
+		t.Errorf("rendering a Markdown page: %v allocs, want 0", allocs)
+	}
 }
 
 func TestServeAllocs(t *testing.T) {
@@ -141,6 +216,7 @@ func TestServeAllocs(t *testing.T) {
 	}{
 		{"/", "<!DOCTYPE html>"},
 		{"/blog/hello-world", "<!DOCTYPE html><html><head><title>hello-world"},
+		{"/hello", `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Hello, Orbit</title></head><body><nav><ul><li><a href="#why-markdown">Why Markdown</a></li>`},
 		{"/assets", `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Orbit &amp; friends</title>` +
 			`<link rel="stylesheet" href="/_orbit/index-3f9a2c1d.css"><script type="module" src="/_orbit/index-9b1e44a2.js"></script></head>`},
 	}

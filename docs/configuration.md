@@ -39,6 +39,7 @@ orbit: orbit.json:3:1: invalid character '}' looking for beginning of object key
 | [`compressHTML`](#compresshtml) | `"html"` (or `true`), `"jsx"` or `false` | `"html"` | How template whitespace is compressed. |
 | [`sourcemap`](#sourcemap) | bool | `false` | Write source maps for the production CSS and JS bundles. |
 | [`watch`](#watch) | array of strings | `[]` | Extra files whose changes restart your server in `orbit dev`. |
+| [`markdown`](#markdown) | object | GFM and smart punctuation on, `github` / `github-dark` highlighting | How Markdown files are converted. |
 
 ## `site`
 
@@ -174,6 +175,31 @@ With `"jsx"`, every whitespace run with a newline is gone, so `Anaand` and `OneT
 ```
 
 With `false`, the output is the template as written.
+
+## `markdown`
+
+How Orbit converts Markdown files, with Astro's option names. Every field is optional; these are the defaults:
+
+```json
+{
+  "markdown": {
+    "gfm": true,
+    "smartypants": true,
+    "syntaxHighlight": {
+      "themes": { "light": "github", "dark": "github-dark" },
+      "css": true
+    }
+  }
+}
+```
+
+| Field | Effect |
+|---|---|
+| `gfm` | GitHub Flavored Markdown: tables, task lists, strikethrough, footnotes, bare URLs. |
+| `smartypants` | Smart punctuation: curly quotes, dashes, ellipses. |
+| `syntaxHighlight` | `false` leaves code blocks as `<pre><code class="language-go">`, for a client-side highlighter. `themes` names Chroma themes (`"dark": null` uses the light theme everywhere), and `"css": false` keeps the token classes but adds no stylesheet. |
+
+An unknown theme name is an error that lists the available themes, such as `orbit.json: markdown.syntaxHighlight.themes.dark: unknown theme "githbu"; the themes are abap, algol, …`. A field of the wrong type is an error too: `orbit.json: markdown.gfm must be true or false`. Changing an option regenerates every Markdown file. See [Markdown: Options](markdown.md#options).
 
 ## Settings that aren't in `orbit.json`
 

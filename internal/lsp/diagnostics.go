@@ -133,6 +133,9 @@ func inSpans(spans []compiler.Span, off int) bool {
 // publish sends the merged diagnostics of the .orbit file at p, if they
 // changed since the last publish.
 func (s *Server) publish(ws *workspace, p string) {
+	if compiler.IsMarkdown(p) {
+		return // the editor's Markdown support has .md files (PLAN.md §9)
+	}
 	lines := ws.lines[p]
 	var items []jsonRaw
 	if lines != nil {

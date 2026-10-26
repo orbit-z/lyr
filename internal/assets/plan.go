@@ -2,6 +2,7 @@ package assets
 
 import (
 	"fmt"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -67,9 +68,18 @@ type plan struct {
 	byKey map[string]*block
 	// orbitSrc holds the text of every .orbit file with a block, for
 	// source maps.
-	orbitSrc    map[string]string
+	orbitSrc map[string]string
+	// highlight is the contents of highlightSpec.
+	highlight   string
 	diagnostics []Diagnostic
 }
+
+// highlightSpec is the virtual stylesheet of Markdown code highlighting
+// (Input.HighlightCSS), served from highlightNamespace.
+const (
+	highlightSpec      = stylePrefix + "markdown-highlight.css"
+	highlightNamespace = "orbit-highlight"
+)
 
 // block is one script or style module.
 type block struct {
@@ -85,14 +95,15 @@ func (p *plan) key() string { return strings.Join(p.entries, "\n") }
 
 func newPlan(in *Input) *plan {
 	p := &plan{
-		pageOf:   map[string]string{},
-		pageSrc:  map[string]string{},
-		lazyOf:   map[string]string{},
-		lazySrc:  map[string]string{},
-		outName:  map[string]string{},
-		blocks:   map[string]*block{},
-		byKey:    map[string]*block{},
-		orbitSrc: map[string]string{},
+		pageOf:    map[string]string{},
+		pageSrc:   map[string]string{},
+		lazyOf:    map[string]string{},
+		lazySrc:   map[string]string{},
+		outName:   map[string]string{},
+		blocks:    map[string]*block{},
+		byKey:     map[string]*block{},
+		orbitSrc:  map[string]string{},
+		highlight: in.HighlightCSS,
 	}
 	names := map[string]bool{}
 	pages := slices.Clone(in.Pages)
@@ -101,6 +112,9 @@ func newPlan(in *Input) *plan {
 	lazyFiles := map[string]bool{} // files lazy on some page
 	for _, pg := range pages {
 		var imports []string
+		if pg.Highlight && p.highlight != "" {
+			imports = append(imports, highlightSpec) // first, so user styles win
+		}
 		hasScript := false
 		lazy := map[string]bool{}
 		for _, l := range pg.Lazy {
@@ -181,7 +195,7 @@ func newPlan(in *Input) *plan {
 // entryBase is the bundle name of a lazy entry: the component's base name,
 // with only letters, digits, "-" and "_" kept.
 func entryBase(file string) string {
-	s := strings.TrimSuffix(file[strings.LastIndexByte(file, '/')+1:], ".orbit")
+	s := compiler.TrimSourceExt(file)
 	var b strings.Builder
 	for _, r := range s {
 		if r == '-' || r == '_' || r >= '0' && r <= '9' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' {
@@ -264,7 +278,8 @@ func pad(pos compiler.Position) string {
 // .orbit, "/" turned into "-", and only letters, digits, "-" and "_" kept
 // ("src/pages/blog/[slug].orbit" → "blog-slug").
 func entryName(file string) string {
-	s := strings.TrimSuffix(strings.TrimPrefix(file, "src/pages/"), ".orbit")
+	s := strings.TrimPrefix(file, "src/pages/")
+	s = strings.TrimSuffix(s, path.Base(s)) + compiler.TrimSourceExt(s)
 	var b strings.Builder
 	for _, r := range s {
 		switch {

@@ -8,15 +8,26 @@ import (
 	"time"
 
 	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/markdown"
 )
 
 // Units returns the typed-pass units of every file, from its pass-1 output.
 func (p *Project) Units() []compiler.Unit {
 	units := make([]compiler.Unit, len(p.Files))
 	for i, f := range p.Files {
-		units[i] = compiler.Unit{Input: f.Input, Pass1: f.Pass1}
+		units[i] = p.unit(f)
 	}
 	return units
+}
+
+// unit is f's typed-pass unit: a Markdown file converts its frontmatter to
+// its layout's Props types instead (PLAN.md §2.4).
+func (p *Project) unit(f *File) compiler.Unit {
+	u := compiler.Unit{Input: f.Input, Pass1: f.Pass1}
+	if f.MD != nil {
+		u.Retype = markdown.Retype(f.MD, p.mdGenInput(f), f.Pass1)
+	}
+	return u
 }
 
 // Typecheck runs the typed-write pass (PLAN.md §3.3 Engine) with checker

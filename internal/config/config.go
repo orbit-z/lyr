@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/markdown"
 )
 
 // FileName is the config file's name, at the project root.
@@ -42,6 +43,9 @@ type Config struct {
 	// Watch are the "watch" globs: extra files whose changes restart the
 	// app in orbit dev (PLAN.md §7), relative to the project root.
 	Watch []string
+	// Markdown is the "markdown" key (PLAN.md §2.4, §8); the zero value is
+	// the default.
+	Markdown markdown.Options
 }
 
 // Load reads dir/orbit.json. A missing file gives the defaults.
@@ -67,6 +71,7 @@ func Parse(data []byte) (*Config, error) {
 		CompressHTML json.RawMessage `json:"compressHTML"`
 		Sourcemap    json.RawMessage `json:"sourcemap"`
 		Watch        json.RawMessage `json:"watch"`
+		Markdown     json.RawMessage `json:"markdown"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		var syn *json.SyntaxError
@@ -118,6 +123,12 @@ func Parse(data []byte) (*Config, error) {
 			if err := CheckWatch(p); err != nil {
 				return nil, fmt.Errorf("%s: watch[%d] %q: %v", FileName, i, p, err)
 			}
+		}
+	}
+	if isSet(raw.Markdown) {
+		var err error
+		if c.Markdown, err = parseMarkdown(raw.Markdown); err != nil {
+			return nil, err
 		}
 	}
 	if isSet(raw.CompressHTML) {

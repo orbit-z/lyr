@@ -146,6 +146,8 @@ func TestCompletion(t *testing.T) {
 		"src/pages/index.orbit":       indexOrbit,
 		"src/pages/blog/[slug].orbit": slugOrbit,
 		"src/locals/locals.go":        localsGo,
+		"src/pages/blog/post.md":      "---\ntitle: Hi\ntags: [a, b]\n---\n# Hi\n",
+		"src/pages/md.orbit":          "---\nimport Post \"./blog/post.md\"\n---\n<p>{Post.Frontmatter.Title}</p>\n<Post />\n",
 	})
 	c := startClient(t, dir, nil)
 	const page = "src/pages/complete.orbit"
@@ -233,6 +235,30 @@ func TestCompletion(t *testing.T) {
 		if item(items, "Slug") == nil {
 			t.Errorf("params.: %v, want Slug", labels(items))
 		}
+	})
+
+	// A Markdown import (PLAN.md §2.4, §9): gopls completes its
+	// frontmatter through the generated decl package.
+	t.Run("Post.Frontmatter.", func(t *testing.T) {
+		const md = "src/pages/md.orbit"
+		src := c.open(md)
+		edited := strings.Replace(src, "Post.Frontmatter.Title", "Post.Frontmatter.", 1)
+		c.change(md, edited)
+		items := c.complete(md, at(t, edited, "Post.Frontmatter.", 0, len("Post.Frontmatter.")))
+		for _, want := range []string{"Title", "Tags"} {
+			if item(items, want) == nil {
+				t.Errorf("Post.Frontmatter.: %v, want %s", labels(items), want)
+			}
+		}
+		edited = strings.Replace(src, "Post.Frontmatter.Title", "Post.", 1)
+		c.change(md, edited)
+		items = c.complete(md, at(t, edited, "Post.}", 0, len("Post.")))
+		for _, want := range []string{"Frontmatter", "Headings", "URL"} {
+			if item(items, want) == nil {
+				t.Errorf("Post.: %v, want %s", labels(items), want)
+			}
+		}
+		c.change(md, src)
 	})
 
 	t.Run("locals.", func(t *testing.T) {

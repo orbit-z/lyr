@@ -3,6 +3,7 @@ import (
     "example.com/blog/internal/posts"
     Base "../layouts/Base.orbit"
     Card "../components/Card.orbit"
+    Intro "../content/intro.md"
 )
 
 all, err := posts.All()
@@ -13,6 +14,8 @@ if err != nil {
 <Base title="Posts">
   <script type="application/ld+json" slot="head">{"@context":"https://schema.org","@type":"Blog","name":"Orbit blog"}</script>
   <h1>Posts</h1>
+  <p class="tagline">{Intro.Frontmatter.Tagline}</p>
+  <div class="intro"><Intro /></div>
   {for _, post := range all}
     <Card post={post}>
       <p>{post.Summary}</p>

@@ -90,7 +90,14 @@ func (b *esbuildBundler) plugin() api.Plugin {
 			pb.OnResolve(api.OnResolveOptions{Filter: "^" + pageNamespace + ":"}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
 				return api.OnResolveResult{Path: strings.TrimPrefix(a.Path, pageNamespace+":"), Namespace: pageNamespace}, nil
 			})
+			pb.OnLoad(api.OnLoadOptions{Filter: ".*", Namespace: highlightNamespace}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
+				css := b.current().highlight
+				return api.OnLoadResult{Contents: &css, Loader: api.LoaderCSS, ResolveDir: b.opts.Root}, nil
+			})
 			pb.OnResolve(api.OnResolveOptions{Filter: "^orbit:(script|style)/"}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
+				if a.Path == highlightSpec {
+					return api.OnResolveResult{Path: strings.TrimPrefix(a.Path, stylePrefix), Namespace: highlightNamespace}, nil
+				}
 				blk := b.current().blocks[a.Path]
 				if blk == nil {
 					return api.OnResolveResult{}, fmt.Errorf("unknown Orbit module %s", a.Path)

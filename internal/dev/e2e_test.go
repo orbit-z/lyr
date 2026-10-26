@@ -380,6 +380,34 @@ func TestDevServer(t *testing.T) {
 		t.Errorf("new public file: %q", body)
 	}
 
+	// A Markdown page (PLAN.md §2.4): a body edit regenerates only its impl
+	// package; a frontmatter edit changes its layout's props.
+	if _, body := s.get("/about"); !strings.Contains(body, "<title>About</title>") || !strings.Contains(body, `<h2 id="first-version">First version</h2>`) {
+		t.Errorf("GET /about:\n%s", body)
+	}
+	decl := filepath.Join(dir, "orbit_gen/decl/pages/about_md/decl.go")
+	before, err := os.Stat(decl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	builds = s.count("gobuild")
+	edit(t, dir, "src/pages/about.md", "The about page, in Markdown.", "The about page, *edited*.")
+	waitReload(t, events, ".md body edit")
+	if _, body := s.get("/about"); !strings.Contains(body, "<p>The about page, <em>edited</em>.</p>") {
+		t.Errorf("after the .md body edit:\n%s", body)
+	}
+	if n := s.count("gobuild"); n != builds+1 {
+		t.Errorf("%d go builds for a .md edit, want 1", n-builds)
+	}
+	if after, err := os.Stat(decl); err != nil || !after.ModTime().Equal(before.ModTime()) {
+		t.Errorf("a .md body edit rewrote its decl.go (%v)", err)
+	}
+	edit(t, dir, "src/pages/about.md", "title: About", "title: About us")
+	waitReload(t, events, ".md frontmatter edit")
+	if _, body := s.get("/about"); !strings.Contains(body, "<title>About us</title>") {
+		t.Errorf("after the .md frontmatter edit:\n%s", body)
+	}
+
 	// A file matching orbit.json's "watch": the same binary is restarted
 	// (no pipeline stage runs), then a reload.
 	_, pid = s.get("/pid")

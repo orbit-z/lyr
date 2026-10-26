@@ -198,12 +198,12 @@ func (s *anState) parseImports() {
 		ext := strings.ToLower(path.Ext(p))
 		relative := strings.HasPrefix(p, "./") || strings.HasPrefix(p, "../") || p == "." || p == ".."
 		switch {
-		case ext == ".orbit":
+		case ext == ".orbit" || IsMarkdown(ext):
 			s.orbitImport(name, nameSpan, p, pathSpan, full)
 		case ext == ".tsx" || ext == ".jsx" || ext == ".svelte" || ext == ".vue":
 			s.errorf(pathSpan, "framework components aren't supported; use a .orbit component with a <script>")
 		case relative:
-			s.errorf(pathSpan, "only .orbit components can be imported by relative path; import client modules from a <script>")
+			s.errorf(pathSpan, "only .orbit and .md files can be imported by relative path; import client modules from a <script>")
 		default:
 			if name == "." {
 				s.errorf(nameSpan, "dot imports aren't supported in a component; import the package by name")

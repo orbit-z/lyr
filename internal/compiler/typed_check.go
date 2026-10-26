@@ -413,6 +413,13 @@ func (s *tyState) checkUnit(u *tyUnit, generate func(*Input) *Output) TypedUnit 
 	if _, err := si.Import(u.declPath); err != nil {
 		return fallback
 	}
+	if u.unit.Retype != nil {
+		out, ds, ok := u.unit.Retype(si)
+		if !ok || out == nil {
+			return fallback
+		}
+		return TypedUnit{Output: out, Checked: true, Diagnostics: ds}
+	}
 	env := s.getEnv()
 	if env == nil {
 		return fallback

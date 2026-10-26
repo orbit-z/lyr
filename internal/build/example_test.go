@@ -48,6 +48,7 @@ func TestExampleBlog(t *testing.T) {
 	s := start(t, dir, filepath.Join(dir, "dist/server"))
 	checkBlogPages(t, s)
 	checkBlogPost(t, s)
+	checkBlogMarkdown(t, s)
 	checkBlogRoutes(t, s)
 	if code := s.stop(); code != 0 {
 		t.Errorf("dist/server: exit %d after SIGINT", code)
@@ -214,6 +215,52 @@ func checkBlogPages(t *testing.T, s *server) {
 	}
 	if _, light := s.get("/account"); !strings.Contains(light, ">light</strong>") {
 		t.Errorf("GET /account: no light theme:\n%s", light)
+	}
+}
+
+var aboutCSS = regexp.MustCompile(`<link rel="stylesheet" href="(/_orbit/about-[A-Z0-9]{8}\.css)">`)
+
+// checkBlogMarkdown checks the Markdown page /about (PLAN.md §2.4): its
+// layout and frontmatter props, heading IDs, highlighted code and the
+// highlight stylesheet first in its CSS; and src/content/intro.md imported
+// by the index, with its frontmatter and its link rewritten.
+func checkBlogMarkdown(t *testing.T, s *server) {
+	t.Helper()
+	resp, about := s.get("/about")
+	for _, want := range []string{
+		"<!DOCTYPE html>",
+		"<title>About this blog · Orbit blog</title>",
+		`<h2 id="how-its-built">How it&rsquo;s built</h2>`,
+		`<pre class="chroma" tabindex="0" data-language="go"><code><span class="nx">all</span><span class="p">,</span>`,
+		`<a href="#colophon">colophon</a>`,
+		"Rendered by Orbit, request <code",
+	} {
+		if resp.StatusCode != 200 || !strings.Contains(about, want) {
+			t.Fatalf("GET /about: %d, no %q in:\n%s", resp.StatusCode, want, about)
+		}
+	}
+	css := aboutCSS.FindStringSubmatch(about)
+	if css == nil {
+		t.Fatalf("GET /about: no stylesheet:\n%s", about)
+	}
+	_, sheet := s.get(css[1])
+	if !strings.HasPrefix(sheet, ".chroma{") || !strings.Contains(sheet, "light-dark(") || !strings.Contains(sheet, "--accent") {
+		t.Errorf("GET %s: not the highlight CSS then the layout's:\n%s", css[1], sheet)
+	}
+	_, index := s.get("/")
+	for _, want := range []string{
+		`<p class="tagline"`,
+		">Notes on Go, templates and the web</p>",
+		`<div class="intro" data-o-`,
+		`<p>Short posts about building <strong>Orbit</strong>`,
+		`<a href="/about#how-its-built">about this blog</a>`,
+	} {
+		if !strings.Contains(index, want) {
+			t.Errorf("GET /: no %q in:\n%s", want, index)
+		}
+	}
+	if strings.Contains(index, "chroma") {
+		t.Errorf("GET /: highlight CSS on a page without highlighted code:\n%s", index)
 	}
 }
 

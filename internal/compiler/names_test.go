@@ -30,6 +30,9 @@ func TestPackageFor(t *testing.T) {
 		{"src/components/_private.orbit", "components/p__private", "p__private"},
 		{"src/components/Café.orbit", "components/caf_", "caf_"},
 		{"src/layouts/Base.orbit", "layouts/base", "base"},
+		{"src/pages/blog/hello.md", "pages/blog/hello_md", "hello_md"},
+		{"src/pages/404.md", "pages/p_404_md", "p_404_md"},
+		{"src/content/intro.markdown", "content/intro_md", "intro_md"},
 	}
 	for _, tt := range tests {
 		got, err := PackageFor(tt.in)
@@ -75,6 +78,9 @@ func TestComponentID(t *testing.T) {
 	name, hash, ok := strings.Cut(id, "-")
 	if !ok || name != "Comments" || len(hash) != 8 || hash != ScopeHash("src/components/Comments.orbit") {
 		t.Errorf("ComponentID = %q", id)
+	}
+	if id := ComponentID("src/content/intro.md"); !strings.HasPrefix(id, "intro-") || len(id) != len("intro-")+8 {
+		t.Errorf("ComponentID of a .md = %q", id)
 	}
 	if ScopeHash("src/a.orbit") == ScopeHash("src/b.orbit") {
 		t.Error("ScopeHash doesn't depend on the path")

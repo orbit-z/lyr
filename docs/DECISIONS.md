@@ -512,7 +512,7 @@ To override a decision, say which row and the alternative you want; the docs and
 
 ## Markdown
 
-Proposed with the Markdown spec (`PLAN.md` §2.4); the choices that shape the public API (frontmatter format, how layouts receive it, what an import exposes, raw HTML, highlighting themes, link rewriting) are open questions for the user, not rows here.
+Decided with the Markdown spec (`PLAN.md` §2.4); the choices that shape the public API (frontmatter format, how layouts receive it, what an import exposes, raw HTML, highlighting themes, link rewriting) were the user's, recorded in `PLAN.md`, not rows here. The rows after `The Orbit language server…` were decided during the implementation.
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
@@ -544,3 +544,15 @@ Proposed with the Markdown spec (`PLAN.md` §2.4); the choices that shape the pu
 | `<Post />` takes no attributes (unknown-prop error) and ignores children | Astro (`<Content />` takes no props) | Pass attributes to its layout | [Markdown](markdown.md#importing-markdown-into-a-component) |
 | `server:defer` and `client:*` on a Markdown component aren't special-cased | simplest | Reject them | `PLAN.md` §2.4 |
 | The Orbit language server does nothing for `.md` files | simplest | Frontmatter and link diagnostics | [Markdown](markdown.md#in-the-dev-server) |
+| An empty list (`tags: []`) is a `[]string` in `Frontmatter` | simplest | `[]any`, or an error | [Markdown](markdown.md#postfrontmatter) |
+| The keys of nested maps follow the field-name rules, also when the layout field is a `map[string]T` | simplest (one parse for `Frontmatter` and the props) | Map keys as written | [Markdown](markdown.md#frontmatter) |
+| A YAML number with a fraction can't set an integer field (`1.5` for `uint8`); an integer can set a float field | Go (constant conversion rules) | Truncate | [Markdown](markdown.md#layouts) |
+| Integer ranges assume a 64-bit `int` and `uint` | simplest (Orbit targets 64-bit servers) | The target's size | `internal/markdown` |
+| A nested map sets a struct's direct exported fields; a top-level key also sets a field promoted from an embedded struct | Go (composite literals can't name promoted fields; `p.X = …` can) | Promoted fields everywhere | [Markdown](markdown.md#layouts) |
+| A frontmatter whose closing `---` is missing is an error at the first line | simplest | Treat the file as Markdown with a thematic break | [Markdown](markdown.md#frontmatter) |
+| A code block without a language is `data-language="plaintext"`, and indented code blocks render like fenced ones | Astro (Shiki's `plaintext`) | No attribute; goldmark's `<pre><code>` | [Markdown](markdown.md#code-blocks) |
+| Whitespace tokens get no `<span class="w">`, and token text escapes only `&`, `<` and `>` | simplest (smaller HTML; no theme colors whitespace) | Chroma's HTML formatter's output | [Markdown](markdown.md#code-blocks) |
+| A theme with no text or background color of its own uses `CanvasText` / `Canvas` in the generated CSS | simplest (`light-dark()` needs two colors) | Inherit (impossible inside `light-dark()`) | [Markdown](markdown.md#code-blocks) |
+| `<<` and `>>` aren't turned into guillemets | Astro (smartypants has no such rule) | goldmark Typographer's default | [Markdown](markdown.md#what-you-can-write) |
+| Link errors and warnings point at the link's `[`; a `?query` and the `#fragment` are kept when a link is rewritten | simplest | The destination's position | [Markdown](markdown.md#links-between-markdown-files) |
+| `orbit lsp` regenerates on `.md` changes on disk (its file watcher), so gopls completes `Post.Frontmatter.`, and publishes no diagnostics for `.md` files | simplest (`PLAN.md` §9: nothing for `.md` in this release) | Diagnostics in `.md` files | [Markdown](markdown.md#in-the-dev-server) |

@@ -129,7 +129,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 
 | Astro | Orbit | Notes |
 |---|---|---|
-| `src/pages/about.astro` → `/about` | `src/pages/about.orbit` → `/about` | `index.orbit` is its directory's root. Only `.orbit` files (and, once Markdown lands, `.md` files) are pages, and as in Astro, a `_` prefix on a file or directory (`_parts/Byline.orbit`) keeps it out of the routes. See [Routing](routing.md#file-based-routes). |
+| `src/pages/about.astro` → `/about` | `src/pages/about.orbit` → `/about` | `index.orbit` is its directory's root. Only `.orbit` and `.md` files are pages, and as in Astro, a `_` prefix on a file or directory (`_parts/Byline.orbit`) keeps it out of the routes. See [Routing](routing.md#file-based-routes). |
 | `[slug].astro` | `[slug].orbit` | A parameter must be a whole segment: `post-[id].orbit` is a build error for now. See [Dynamic routes](routing.md#dynamic-routes-with-param). |
 | `[...path].astro` | `[...path].orbit` | Must be the last segment. With zero segments the value is `""`, not `undefined`. See [Catch-all routes](routing.md#catch-all-routes-with-rest). |
 | `Astro.params.slug` | `params.Slug` | Typed: Orbit generates a `Params` struct per page from its file path, so `params.Slg` is a compile error at its line and your editor completes `params.`. Values are percent-decoded strings. Components read `ctx.Param("slug")`. See [Route params](routing.md#route-params-params). |
@@ -153,7 +153,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 | Returning a `Response` from middleware | Write the response and don't call `next` | See [Short-circuit responses](middleware.md#short-circuit-responses). |
 | Endpoints: `export const GET` in `src/pages/api/posts.ts` | A handler in `cmd/server/main.go`: `mux.HandleFunc("GET /api/posts", listPosts)` | There are no endpoint files. Your `main.go` decides whether your routes or the pages win. For HTML fragments (htmx), use `orbit.RenderComponent`. Pages also receive every method, so a page can handle its own form. See [Server](server.md#choosing-precedence). |
 
-### Markdown (planned)
+### Markdown
 
 | Astro | Orbit | Notes |
 |---|---|---|

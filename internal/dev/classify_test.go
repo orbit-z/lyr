@@ -19,6 +19,9 @@ func TestClassify(t *testing.T) {
 		// .orbit files: the pipeline decides between esbuild and Go.
 		{"src/components/Card.orbit", false, KindOrbit},
 		{"src/pages/_partials/Note.orbit", false, KindOrbit},
+		{"src/pages/about.md", false, KindOrbit},
+		{"src/content/post.markdown", false, KindOrbit},
+		{"README.md", false, KindIgnore},
 		{"src/pages/blog", true, KindOrbit},
 		{"src/pages/blog", false, KindOrbit}, // removed: maybe a directory
 		{"other/Card.orbit", false, KindIgnore},
