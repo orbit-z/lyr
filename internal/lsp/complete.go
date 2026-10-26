@@ -58,6 +58,16 @@ func (s *Server) completion(ctx context.Context, params jsonRaw) (any, *rpcError
 		s.mu.Unlock()
 		return completionList(false, items), nil
 	}
+	// Control block keywords (blocks.go): alone after "{/" or outside a Go
+	// region, else before gopls's items.
+	var blockKw []any
+	if site, ok := blockSiteAt(c.f, c.off); ok && (trigger == "" || trigger == "{" || trigger == "/") {
+		blockKw = c.blockItems(site, snippets)
+		if len(blockKw) > 0 && (strings.HasPrefix(site.prefix, "/") || c.reg.kind != regionGo) {
+			s.mu.Unlock()
+			return completionList(false, blockKw), nil
+		}
+	}
 	switch c.reg.kind {
 	case regionGo:
 		if !goTrigger(c.reg, trigger) {
@@ -71,6 +81,9 @@ func (s *Server) completion(ctx context.Context, params jsonRaw) (any, *rpcError
 		s.mu.Unlock()
 		raw, err := s.callGopls(ctx, "textDocument/completion", fwd, false)
 		if err != nil || isNull(raw) {
+			if err == nil && blockKw != nil {
+				return completionList(false, blockKw), nil
+			}
 			return nil, err
 		}
 		s.mu.Lock()
@@ -80,7 +93,11 @@ func (s *Server) completion(ctx context.Context, params jsonRaw) (any, *rpcError
 		if s.ws.genAt(g.abs) != g || !bytes.Equal(g.content, content) {
 			return completionList(true, nil), nil // the file changed meanwhile
 		}
-		return s.mapper().mapCompletion(g, raw), nil
+		mapped := s.mapper().mapCompletion(g, raw)
+		if blockKw != nil {
+			return mergeBlockItems(blockKw, mapped), nil
+		}
+		return mapped, nil
 	case regionTag, regionTagName:
 		if trigger != "" && trigger != "<" {
 			break
@@ -117,6 +134,9 @@ func (s *Server) completion(ctx context.Context, params jsonRaw) (any, *rpcError
 		return completionList(false, items), nil
 	}
 	s.mu.Unlock()
+	if blockKw != nil {
+		return completionList(false, blockKw), nil
+	}
 	return nil, nil
 }
 
