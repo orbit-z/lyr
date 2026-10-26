@@ -1260,7 +1260,7 @@ func Snapshot(t testing.TB, name, html string)              // compares with tes
   - **Unsupported route shapes are build errors** at the file (user decision for the MVP): a segment that mixes text and a parameter (`post-[id].orbit`, `[lang]-[version].orbit`), and a rest param that isn't the last segment (`[...path]/edit.orbit`). Both messages suggest a whole-segment `[param]`: `src/pages/blog/post-[id].orbit: route segment "post-[id]" mixes text and a parameter; use a whole-segment parameter such as [id].orbit and parse it in the page`.
   - Two files with the same route (`blog.orbit` and `blog/index.orbit`, or `[slug].orbit` and `[id].orbit` in one directory) are a build error naming both files.
   - Without a `404.orbit`, not-found responses are a 404 with an empty body.
-- **Trailing slashes: none** (user decision; one fixed behavior, the `trailingSlash` modes are deferred, §12). A page's canonical URL has no trailing slash: `/blog/hello`, and `blog/index.orbit` is `/blog`. `/` stays `/`. The router answers `/blog/hello/` with a **308 to `/blog/hello`**, keeping the query string (`/search/?q=go` → `/search?q=go`), as `net/http`'s `ServeMux` does for its redirects. Same in dev and prod. Paths for files (`/_orbit/…`, `public/` files) are never redirected.
+- **Trailing slashes: none** by default (user decision; `orbit.json` `"trailingSlash": "always"` is the mirror image, specified in §4e, proposed). A page's canonical URL has no trailing slash: `/blog/hello`, and `blog/index.orbit` is `/blog`. `/` stays `/`. The router answers `/blog/hello/` with a **308 to `/blog/hello`**, keeping the query string (`/search/?q=go` → `/search?q=go`), as `net/http`'s `ServeMux` does for its redirects. Same in dev and prod. Paths for files (`/_orbit/…`, `public/` files) are never redirected.
   - The redirect is issued only when the path without its trailing slash matches a page route; otherwise the request falls through to `next` untouched, so a user route such as `/api/items/` keeps working in Orbit-first setups. *Decided by rule* (simplest option that never steals the user's routes; log it in `docs/DECISIONS.md`).
 - **Errors**: panics are recovered per request.
   - Prod (user decision): a minimal built-in page (`500 Internal Server Error`), never showing the error. The error and its `.orbit` position are logged to stderr with the `log` package (`orbit: GET /blog/hello: src/pages/blog/[slug].orbit:14:5: …`): for a returned error, the position of its frontmatter `return` (§2.2, `orbit.ErrorAt`); for a panic, the innermost `.orbit` line on the stack. A custom `src/pages/500.orbit` comes after the MVP (§12). Proposed: an app-supplied error handler answers first (§4c).
@@ -1495,6 +1495,95 @@ A call site: `<Cacher key={ui.CardKey(book)} ttl={6 * time.Hour} store="cards"><
 - A fragment cache in Orbit (SSR caching stays deferred, §12); this is the primitive an app's cache uses.
 - Slots as functions with arguments (Astro's `slots.render(name, args)`).
 - Streaming or partial flushes (responses stay buffered).
+
+## 4e. Trailing slashes
+**Status: Proposed, (Q) points open** (2026-10-26). The user decided the option (§12 "`trailingSlash` option", prompted by porting `nyth`, an Astro site with `trailingSlash: "always"`); this section specifies it.
+
+**Goal**: `orbit.json` `"trailingSlash": "never"` (default, today's behavior, §4) or `"always"`. Each page has exactly one canonical URL, and the other form gets a permanent redirect to it. There's no `"ignore"` mode (two URLs per page, user decision), so Astro's own default has no equivalent: an Astro site on `"ignore"` picks one of the two when it moves.
+
+### Astro 7's behavior (verified in `astro@7.3.0`'s `dist/`)
+- **Production / on-demand** (`core/routing/trailing-slash-handler.js`, `handleTrailingSlash`, called first in `core/routing/handler.js` `handleRequest`, before the route check):
+  - `"never"`: a path ending in `/` is redirected without it; `"always"`: a path not ending in `/` and **without a file extension** is redirected with one. `/` is never redirected.
+  - **Unconditional**: it fires before route matching, so `/nope/` (`never`) redirects to `/nope`, which then 404s.
+  - **Status**: `request.method === "GET" ? 301 : 308`, so **HEAD gets 308** too. The body is an HTML redirect page (`core/routing/3xx.js`).
+  - **Query**: `Location` is the new path plus `url.search` (an empty `?` is dropped by the URL parser).
+  - Paths are checked on `new URL(request.url).pathname`, still percent-encoded, so `/a%2F` doesn't end in `/`.
+  - **Internal paths** are never redirected: `isInternalPath` (`@astrojs/internal-helpers/path`): prefixes `/_`, `/@`, `/.`, `//` (so `/_server-islands/…` and `/_astro/…` aren't). Several trailing slashes (`/x//`) are first collapsed (to `/x/` in `always`, `/x` in `never`) with the same 301/308.
+  - **File extension**: `hasFileExtension` = `/\/[^/]+\.\w+$/`: the last segment has a dot with at least one character before it, and only ASCII word characters (`[A-Za-z0-9_]`, one or more) after its last dot, at the end of the path.
+- **Matching** (`core/routing/pattern.js` `getPattern`; `core/routing/create-manifest.js` `trailingSlashForPath`): in `always`, page patterns end with `\/$`, so `/blog/hello` matches nothing and `/blog/hello/` renders; the root pattern is `^\/$`. **Endpoints whose route has a file extension** (`rss.xml.ts`) use `never` (`/rss.xml` only; `/rss.xml/` is a 404). A *page* named `rss.xml.astro` in `always` gets the `\/$` pattern but is never redirected (it has an extension): a quirk.
+- **Dev** (`vite-plugin-astro-server/trailing-slash.js`): a mismatch isn't redirected; it gets a **404 with a hint page** ("Your site is configured with `trailingSlash` set to `always`. Do you want to go to /x/ instead?", `template/4xx.js`). Duplicate trailing slashes get a 301. So Astro's dev and prod differ.
+- **404 page**: in `always`, the custom 404 is looked up as `/404/` (`core/routing/dev.js`, `getErrorRoutePath`); it renders at the requested path either way.
+
+### Rules
+1. **Config**: `"trailingSlash": "never" | "always"`; unset or `null` means `"never"`. Anything else is an error when `orbit.json` loads (§8): `orbit.json: trailingSlash must be "never" or "always", not "ignore"`, quoting the raw JSON value (`not true`). For `"ignore"` the message adds `; Orbit has no "ignore" mode: each page has one URL` (decided by rule: simplest; Astro's default is the likeliest wrong value). `orbit doctor` needs no new check: its config check already reports load errors.
+2. **Canonical URL** of a page route:
+   - `never`: the pattern itself (`/blog/hello`; `blog/index.orbit` → `/blog`).
+   - `always`: the pattern plus `/` (`/blog/hello/`, `/blog/`), except `/`, and except an **extension route**: one whose last segment is static and has a file extension (rule 4). `src/pages/rss.xml.orbit` (route `/rss.xml`, which routing allows today) is `/rss.xml` in both modes (decided by rule: Astro's endpoint rule; an Orbit page that sets its own `Content-Type` plays the role of an Astro endpoint, so it gets that rule rather than Astro's page quirk).
+   - `Route.Pattern` stays slash-less in both modes; the mode is site-wide (decided by rule: simplest; patterns, collision checks and the route-param rules don't change).
+3. **Matching** (the router's `find`, prod and dev):
+   - `never`: unchanged. A path with an empty segment, a trailing `/` included, never matches.
+   - `always`: a path ending in `/` (other than `/`) is matched with that one slash cut off (a substring, no allocation), and the match counts only if the route isn't an extension route. A path not ending in `/` matches only extension routes (and `/` matches the root). So `/blog/hello/` renders, `/blog/hello` doesn't match, and `/rss.xml/` doesn't match (decided by rule: Astro, where it's a 404). Params come from the cut path: `[slug]` at `/blog/hello/` is `"hello"`; `[...path]` at `/docs/a/b/` is `"a/b"`, at `/docs/` it's `""`.
+   - A dynamic segment with a dotted value follows the same rule: `/blog/v1.2/` renders `[slug]` with `"v1.2"`; `/blog/v1.2` doesn't match and isn't redirected (it has an extension, rule 5), so it reaches `next` (decided by rule: Astro, where it's a 404).
+4. **File extension** (decided by rule: Astro's `hasFileExtension`): the escaped path's last segment (after its last `/`) contains a `.` that isn't its first byte, and the bytes after its last `.` are one or more of `[A-Za-z0-9_]`. So `/rss.xml`, `/a/b.min.js` and `/v1.2` have one; `/x.`, `/.env`, `/a.b/` and `/a.%41` don't. A byte loop, no regexp. Routes use the same predicate on the pattern's last segment, computed once in `NewSite`.
+5. **Redirect** (`redirectTarget`, now per mode), tried only when nothing matched:
+   - `never`: a path ending in `/` whose slash-less form matches a page route (today).
+   - `always`: a path other than `/` that doesn't end in `/`, has no file extension (rule 4), and whose form with `/` appended matches a non-extension page route. The trie is slash-less, so the check is a lookup of the path itself that ignores the extension filter; no string is built for it.
+   - **Only when the other form matches a page route**; otherwise the request goes to `next` untouched (§4, decided by rule). This differs from Astro's unconditional redirect so that Orbit-first setups keep user routes like `/api/items` and `/api/items/`. To document: in `always` with Orbit first, a mux route `/api/items` is redirected only if `/api/items/` is a page (e.g. under a root `[...rest]` page), as `/api/items/` is in `never` today.
+   - **Never redirected**: `/`; paths under `/_orbit/` (assets and island URLs, which §5b's steps 1–2 handle before the router anyway); `public/` files (step 2, GET/HEAD); paths starting with `//` (never a protocol-relative `Location`). These are Orbit's counterparts of Astro's internal paths: Orbit has no Vite `/@…` paths, and `_` files aren't routes (§4), so Astro's `/_`, `/@` and `/.` prefixes would only change today's behavior for param routes (decided by rule: Astro, mapped to Orbit's internal prefix).
+   - `Location` is the new escaped path, plus `?` + `RawQuery` when there is a query (`/search?q=go` → `/search/?q=go`); the fragment never reaches the server. Empty body, as today.
+   - **Status: (Q1).**
+   - Same in dev and prod (the §4 user decision). Astro's dev 404 hint page isn't copied: one behavior, and the redirect is what production does.
+   - Duplicate trailing slashes (`/x//`) aren't collapsed: no form of them matches, so they reach `next` (a 404), as today (decided by rule: simplest; Astro collapses them only within its unconditional redirect, which Orbit doesn't have).
+6. **Where the mode reaches**:
+   - **Runtime**: `NewSite` takes the mode as an option (**(Q2)**); the router keeps it plus an `ext` flag per compiled route.
+   - **Generated `app.New()`**: passes the mode from `orbit.json`, only for `"always"` (so today's generated code is unchanged), before the caller's options, like `WithSite`.
+   - **Markdown** (§2.4): `Post.URL` and rewritten relative `.md` links use the canonical URL (rule 2): `/blog/hello/` in `always`, with query and fragment after it (`/blog/hello/#setup`). The `Resolver` returns the canonical URL instead of the pattern. Changing the mode regenerates them (`orbit.json` is watched, §7).
+   - **`ctx.URL`**: the request URL as received (`/blog/hello/` in `always`); nothing is rewritten. `ctx.Param` per rule 3.
+   - **`orbittest.Get`**: it doesn't follow redirects (§4), so in `always`, `Get(t, h, "/blog/hello")` returns the redirect; tests use `/blog/hello/`. Documented; no API change.
+   - **`site.NotFound()` / `404.orbit`**: unchanged; it renders at whatever path didn't match (its reserved pattern `404` isn't a URL).
+   - **Islands**: `/_orbit/island/<buildID>/<id>` is never redirected (rule 5). A component reading the page URL from `Referer` sees the canonical form.
+   - **User links**: Orbit doesn't rewrite `href`s in templates; in `always`, `<a href="/blog/{slug}">` costs a redirect per click. Documented ("write `/blog/{slug}/`"), as in Astro.
+   - **`orbit new`**: doesn't write the option (default `never`).
+
+### (Q) points
+- **(Q1) Redirect status.** Orbit sends 308 for every method today; Astro sends 301 for GET and 308 for everything else, HEAD included; `net/http`'s `ServeMux` sends 301 for its own slash redirects.
+  - **(A, recommended) 301 for GET and HEAD, 308 for other methods.** Matches Astro for every browser navigation, so a ported site's CDN logs, crawlers and redirect checks see the same status. HEAD mirrors GET (`curl -I` shows what a browser gets; Go's convention), deviating from Astro's HEAD → 308 quirk. Other methods keep their method and body. Applies to both modes, so `never`'s GET redirect changes from 308 to 301 (docs, DECISIONS and the §13 curl checks change with it).
+  - (B) Astro exactly: 301 for GET, 308 for the rest, HEAD included. Exact parity; `curl -I` disagrees with the browser.
+  - (C) 308 for every method (today). One code, method-safe; search engines treat 308 like 301; differs from Astro on every GET.
+- **(Q2) How the mode reaches the runtime.** It must agree with the generated `.md` URLs, which `orbit.json` decides.
+  - **(A, recommended) An exported option**: `type TrailingSlash uint8` with `TrailingSlashNever` (the zero value) and `TrailingSlashAlways`, and `func WithTrailingSlash(TrailingSlash) Option`, passed by `app.New()` before the caller's options (like `WithSite`). Usable from runtime tests and hand-built `NewSite` calls. Its doc comment says to set it in `orbit.json`: passing another value to `app.New()` makes `Post.URL` and rewritten `.md` links redirect once.
+  - (B) The same option, but `app.New()` appends it after the caller's options, so `orbit.json` always wins. URLs always agree, but it's the one option a caller can't override (surprising).
+  - (C) No option: `NewSite` grows a settings argument filled from the generated route table. No public knob, but `NewSite`'s signature changes for one bit.
+
+### Cost
+- Per request in `never`: unchanged. In `always`: a check of the path's last byte, a substring for the match and one `bool` on the matched route; no allocation. `AllocsPerRun` asserts 0 allocations in Orbit's render path and +1 for serving (`Content-Length`), as today (§4b), in **both modes**: `/blog/hello` (`never`) and `/blog/hello/` (`always`).
+- Unmatched paths in `always`: the redirect check is one more trie lookup (rule 5), no allocation; the redirect allocates its `Location`, as today.
+- Build and dev loop: none (one config field; `.md` URLs are computed as before).
+
+### Tests (what must exist)
+- `internal/config`: table cases for `"never"`, `"always"`, `null` and missing; errors for `"ignore"` (with the hint), `"Always"`, `true` and `1`.
+- `router_test.go` (table-driven, both modes): matching of `/`, `/blog/`, `/blog/hello/`, `/blog/hello`, `/docs/` and `/docs/a/b/` (rest route), `/rss.xml`, `/rss.xml/`, `/blog/v1.2`, `/blog/v1.2/`, `//`, `/blog//`; params from the cut path; redirect targets with and without a query (`/search?q=go` → `/search/?q=go`); no redirect for `/`, `/_orbit/x`, `//evil.example`, extension paths, `/x//` and paths whose other form isn't a page; the file-extension predicate on rule 4's examples.
+- `site_test.go`: status per method (Q1) for GET, HEAD and POST in both modes; `Location`; empty body; static files, `public/` files and island URLs never redirected in `always`; Orbit first with a mux route `/api/items` (`always`) or `/api/items/` (`never`) reaching `next`.
+- `site_alloc_test.go`: the `AllocsPerRun` cases above for `always`.
+- `internal/markdown` and `internal/project` goldens: `Post.URL` and rewritten links in `always` (`/blog/hello/#setup`, `/`, an extension page unchanged); the generated `app.New()` with and without the option.
+- `orbittest`: `Get` of the slash-less path in `always` returns the redirect.
+- Integration (a small testdata project with `"trailingSlash": "always"`, built like `examples/blog`): `/blog/hello` → redirect to `/blog/hello/`, `/blog/hello/` → 200, `/` → 200, an extension page → 200 at `/rss.xml`. Add these to §13 milestone 5's checks.
+
+### User-docs changes (with the implementation)
+- `configuration.md`: the `trailingSlash` option (values, default, the error, no `"ignore"`).
+- `routing.md`: the trailing-slash section per mode: canonical URLs, extension routes (`rss.xml.orbit`), dotted param values, what's never redirected, status codes (Q1), the Orbit-first note (rule 5).
+- `markdown.md`: `Post.URL` and rewritten links follow the mode.
+- `testing.md`: `orbittest.Get` with the canonical path in `always`.
+- `middleware.md`, `server.md`: Orbit-first setups and the redirect (rule 5).
+- `coming-from-astro.md`: the `trailingSlash` mapping (`"ignore"` has no equivalent; Orbit redirects only paths whose other form is a page; same behavior in dev and prod, where Astro's dev shows a 404 hint page; extension pages; status codes).
+- `deploy.md`, `troubleshooting.md`, `dev-server.md`, `rendering.md`, `project-structure.md`: wherever they state "`/x/` gets a 308 to `/x`", point at `routing.md` and follow Q1.
+- `DECISIONS.md`: the decided-by-rule items above (error wording, the extension predicate, extension routes, dotted params, the internal prefixes, no collapsing, `Route.Pattern` unchanged).
+
+### Out of scope
+- `"ignore"` (user decision) and `base` (a path prefix, §12).
+- Collapsing duplicate slashes (`/x//`), and Astro's unconditional redirect of paths that match nothing.
+- Rewriting or checking `href`s in templates. A later `orbit check` warning for literal internal links that don't follow the mode is a possible addition.
+- A per-route override.
 
 ## 5. Assets (scripts and styles)
 - **Scope ID**: `o-` + the first 8 hex chars of sha256 of the file's project-relative path with `/` separators (`src/components/Card.orbit`), so IDs are the same on every OS. It's added as an attribute to every HTML element in the template, but only when the component has a scoped `<style>`.
@@ -2472,7 +2561,9 @@ On a compile error, the old app keeps running and the proxy serves an overlay pa
 - Plain JSON, no comments. Unknown keys are ignored, as `encoding/json` ignores unknown fields (decided by rule: Go stdlib).
 - `null` means unset (decided by rule: Go stdlib). `server` must be non-empty and relative; `orbit generate` doesn't check that it exists (`orbit doctor` does). Any other `compressHTML` value is an error: `orbit.json: compressHTML must be "jsx", "html" (or true) or false, not "none"`. JSON syntax errors carry `orbit.json:L:C` (decided by rule: simplest).
 
-There is no `base` or `trailingSlash` option in the MVP (§12); trailing-slash behavior is fixed (§4).
+- `trailingSlash` (§4e, proposed): `"never"` (default, §4) or `"always"`; any other value is an error: `orbit.json: trailingSlash must be "never" or "always", not "ignore"`.
+
+There is no `base` option (§12).
 
 ## 9. Language server (`orbit lsp`, `internal/lsp`)
 - **Transport**: a minimal hand-written JSON-RPC 2.0 over stdio (`Content-Length` framing, a few hundred lines, `internal/lsp/jsonrpc.go`). Messages are proxied as `json.RawMessage`: only the fields Orbit must inspect or rewrite (URIs, positions, ranges, text edits) are decoded, generically along known paths (`map[string]json.RawMessage`), patched and re-encoded. Everything else (`data`, `labelDetails`, `documentation`, unknown fields) passes through untouched. No typed protocol structs, which go stale and drop fields.
@@ -2928,7 +3019,7 @@ Dependencies:
 - Astro's other route shapes: segments that mix text and a parameter (`post-[id]`) and rest params before other segments (`[...path]/edit`); a build error in the MVP (§4)
 - Tests of embedding in chi/Gin
 - The `base` config option
-- **`trailingSlash` option** (user decision, 2026-10-26, prompted by porting `nyth`, an Astro site with `trailingSlash: "always"`): `orbit.json` `"trailingSlash": "never"` (default, today's behavior, §4) or `"always"` (`/x` gets a 308 to `/x/`, query kept; `/` unchanged; files and paths with a file extension never redirected); no `"ignore"` mode (two URLs per page). Reaches the router, generated URLs (`.md` `Post.URL`, rewritten `.md` links), dev and docs. Next after direct calls (§3.5); spec first.
+- **`trailingSlash` option** (user decision, 2026-10-26, prompted by porting `nyth`, an Astro site with `trailingSlash: "always"`): `orbit.json` `"trailingSlash": "never"` (default, today's behavior, §4) or `"always"` (`/x` gets a 308 to `/x/`, query kept; `/` unchanged; files and paths with a file extension never redirected); no `"ignore"` mode (two URLs per page). Reaches the router, generated URLs (`.md` `Post.URL`, rewritten `.md` links), dev and docs. Next after direct calls (§3.5). Spec: §4e (proposed).
 - **From the `nyth` assessment** (user decisions 2026-10-26; specs first, (Q) points open): pass-through attributes (§2.5, an `orbit.RestAttrs` field collects a call site's undeclared attributes, spread with `{...props.Attrs}`), an error → response hook (§4c, `orbit.WithErrorHandler`, before the built-in 500), and rendering a slot to a string (§4d, `orbit.RenderHTML(ctx, slots.Default)`, for fragment caches).
 - SSR response caching
 - The docs dogfood site (`docs/site/`, docs built with Orbit)
