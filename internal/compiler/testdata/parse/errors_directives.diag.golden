@@ -17,10 +17,16 @@ errors_directives.orbit:21:7: client:media needs a media query, e.g. client:medi
 errors_directives.orbit:22:19: only one client:* directive is allowed per component
 errors_directives.orbit:23:7: client:only is for framework components, which Orbit doesn't support; use client:load, client:idle, client:visible or client:media
 errors_directives.orbit:24:7: unknown directive "client:hover" (client directives: client:load, client:idle, client:visible, client:media)
-errors_directives.orbit:25:7: unknown directive "server:lazy" (server directives: server:defer)
+errors_directives.orbit:25:7: unknown directive "server:lazy" (server directives: server:defer, server:concurrent)
 errors_directives.orbit:26:7: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
 errors_directives.orbit:27:7: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
 errors_directives.orbit:28:6: define:vars isn't supported; pass data with orbit.JSON on a data-* attribute, or set:json
 errors_directives.orbit:29:6: unknown directive "set:foo" (set directives: set:html, set:text, set:json)
 errors_directives.orbit:29:18: unknown directive "is:raw" (is directives: is:inline, is:global)
 errors_directives.orbit:31:7: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
+errors_directives.orbit:32:6: server:concurrent only works on .orbit components
+errors_directives.orbit:33:7: server:concurrent only works on .orbit components
+errors_directives.orbit:34:11: server:concurrent only works on .orbit components
+errors_directives.orbit:35:7: server:concurrent takes no value
+errors_directives.orbit:36:7: server:concurrent takes no value
+errors_directives.orbit:37:7: server:defer and server:concurrent can't be combined; a deferred component already renders in its own request

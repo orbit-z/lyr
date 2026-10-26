@@ -213,6 +213,8 @@ type Component struct {
 	Self bool
 	// Defer is the server:defer attribute, nil without one.
 	Defer *Attr
+	// Concurrent is the server:concurrent attribute, nil without one.
+	Concurrent *Attr
 	// Client is the client:* attribute (the first one if several were
 	// written, which is an error), nil without one.
 	Client *Attr
@@ -373,27 +375,28 @@ type Directive uint8
 
 const (
 	// NotDirective is a plain attribute (or a prop, on a component).
-	NotDirective  Directive = iota
-	SetHTML                 // set:html
-	SetText                 // set:text
-	SetJSON                 // set:json
-	SlotDirective           // slot="name"
-	IsInline                // is:inline
-	IsGlobal                // is:global
-	ServerDefer             // server:defer
-	ClientLoad              // client:load
-	ClientIdle              // client:idle
-	ClientVisible           // client:visible
-	ClientMedia             // client:media
-	ClassList               // class:list
-	DefineVars              // define:vars (Astro-only, an error)
+	NotDirective     Directive = iota
+	SetHTML                    // set:html
+	SetText                    // set:text
+	SetJSON                    // set:json
+	SlotDirective              // slot="name"
+	IsInline                   // is:inline
+	IsGlobal                   // is:global
+	ServerDefer                // server:defer
+	ServerConcurrent           // server:concurrent
+	ClientLoad                 // client:load
+	ClientIdle                 // client:idle
+	ClientVisible              // client:visible
+	ClientMedia                // client:media
+	ClassList                  // class:list
+	DefineVars                 // define:vars (Astro-only, an error)
 	// UnknownDirective is an unknown name in a reserved namespace (set:, is:,
 	// server:, client:), client:only included. It is always an error.
 	UnknownDirective
 )
 
 var directiveNames = [...]string{"", "set:html", "set:text", "set:json", "slot", "is:inline", "is:global",
-	"server:defer", "client:load", "client:idle", "client:visible", "client:media", "class:list",
+	"server:defer", "server:concurrent", "client:load", "client:idle", "client:visible", "client:media", "class:list",
 	"define:vars", "unknown"}
 
 func (d Directive) String() string { return directiveNames[d] }
@@ -425,6 +428,8 @@ func classifyDirective(name string) Directive {
 		return IsGlobal
 	case "server:defer":
 		return ServerDefer
+	case "server:concurrent":
+		return ServerConcurrent
 	case "client:load":
 		return ClientLoad
 	case "client:idle":

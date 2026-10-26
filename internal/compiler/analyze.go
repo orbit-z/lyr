@@ -206,6 +206,13 @@ type Analysis struct {
 	// also true when that code doesn't parse, to stay on the safe side.
 	// Strict codegen declares locals (LocalsOf) only then.
 	UsesLocals bool
+	// CtxRefs are the .orbit offsets of the template's references to the
+	// implicit ctx (not a variable the user declared with that name), in
+	// no particular order: slot content that uses it rebinds it with
+	// CtxOf (PLAN.md §3.6). CtxUnknown is true when the code doesn't
+	// parse; codegen then looks for the word ctx instead.
+	CtxRefs    []int
+	CtxUnknown bool
 	// Diagnostics are analysis errors and warnings, sorted by position.
 	Diagnostics []Diagnostic
 }

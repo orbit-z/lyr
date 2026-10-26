@@ -36,6 +36,7 @@ func validate(t *Template, p *parser) {
 			n.Processed = !n.Inline
 		case *Component:
 			n.Defer, n.Client = p.checkTag(&n.Tag, tkComponent, n.Children, nil)
+			n.Concurrent = n.Attr("server:concurrent")
 			if n.Defer != nil {
 				p.checkDeferChildren(n)
 			}
@@ -58,7 +59,7 @@ func isRelativePath(v string) bool {
 // checkTag checks the attributes of one tag. For a component it returns its
 // server:defer and (first) client:* attributes.
 func (p *parser) checkTag(t *Tag, k tagKind, children []Node, raw *RawText) (deferAttr, client *Attr) {
-	var set *Attr
+	var set, conc *Attr
 	nClient, nClassList := 0, 0
 	for _, a := range t.Attrs {
 		if a.Kind == AttrSpread {
@@ -87,6 +88,17 @@ func (p *parser) checkTag(t *Tag, k tagKind, children []Node, raw *RawText) (def
 			p.errorf(a.Span, "define:vars isn't supported; pass data with orbit.JSON on a data-* attribute, or set:json")
 		case d == UnknownDirective:
 			p.unknownDirective(a)
+		case d == ServerConcurrent:
+			if k != tkComponent {
+				p.errorf(a.Span, "server:concurrent only works on .orbit components")
+				continue
+			}
+			if a.Kind != AttrEmpty {
+				p.errorf(a.Span, "server:concurrent takes no value")
+			}
+			if conc == nil {
+				conc = a
+			}
 		case d == ServerDefer:
 			if k != tkComponent {
 				p.errorf(a.Span, "server:defer only works on .orbit components")
@@ -162,6 +174,13 @@ func (p *parser) checkTag(t *Tag, k tagKind, children []Node, raw *RawText) (def
 		}
 		p.errorf(first.Span, "server:defer and client:* can't be combined; put client:* on a component inside the deferred one")
 	}
+	if deferAttr != nil && conc != nil {
+		first := deferAttr
+		if conc.Start < first.Start {
+			first = conc
+		}
+		p.errorf(first.Span, "server:defer and server:concurrent can't be combined; a deferred component already renders in its own request")
+	}
 	if set != nil {
 		for _, c := range children {
 			if !isBlank(c) {
@@ -206,7 +225,7 @@ func (p *parser) unknownDirective(a *Attr) {
 	case "client":
 		valid = "client:load, client:idle, client:visible, client:media"
 	case "server":
-		valid = "server:defer"
+		valid = "server:defer, server:concurrent"
 	case "set":
 		valid = "set:html, set:text, set:json"
 	case "is":

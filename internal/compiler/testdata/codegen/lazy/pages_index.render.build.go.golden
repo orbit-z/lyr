@@ -65,7 +65,7 @@ func Orbit__RenderImpl(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, or
 	}
 	orbit__w.Raw("</orbit-lazy>\n<orbit-lazy component=\"Wrap-25165a87\" client=\"visible\">")
 	if orbit__err := /*line ../../../../../src/pages/index.orbit:15:4*/orbit__Wrap.Orbit__RenderImpl/*line render.go:67:123*/(orbit__ctx, orbit__w, Wrap.Props{}, orbit__rt.Slots{
-		Default: func(orbit__w *orbit__rt.Writer) error {
+		Default: func(orbit__w *orbit__rt.Writer) error { orbit__ctx := orbit__rt.CtxOf(orbit__w, orbit__ctx)
 			orbit__w.Raw("<orbit-lazy component=\"Counter-8a161775\" client=\"idle\">")
 			if orbit__err := /*line ../../../../../src/pages/index.orbit:15:25*/orbit__Counter.Orbit__RenderImpl/*line render.go:70:129*/(orbit__ctx, orbit__w, Counter.Props{
 				/*line ../../../../../src/pages/index.orbit:15:45*/Start/*line render.go:71:85*/: /*line ../../../../../src/pages/index.orbit:15:52*/3/*line render.go:71:164*/,

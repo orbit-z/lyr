@@ -29,3 +29,11 @@
 <div set:foo={x} is:raw>x</div>
 <p xlink:href="#a" xml:lang="en">plain</p>
 <Self server:defer client:visible="10px" />
+<div server:concurrent>x</div>
+<slot server:concurrent />
+<Fragment server:concurrent />
+<Card server:concurrent="x" />
+<Card server:concurrent={y} />
+<Card server:defer server:concurrent />
+<Card server:concurrent client:idle />
+<Self server:concurrent />

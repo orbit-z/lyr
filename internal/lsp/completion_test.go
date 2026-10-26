@@ -222,7 +222,7 @@ func TestCompletion(t *testing.T) {
 		c.change(page, src)
 		items := c.complete(page, at(t, src, "<Card \n", 0, len("<Card ")))
 		got := labels(items)
-		for _, want := range []string{"post", "featured", "server:defer", "client:load", "client:idle", "client:visible", "client:media", "slot"} {
+		for _, want := range []string{"post", "featured", "server:defer", "server:concurrent", "client:load", "client:idle", "client:visible", "client:media", "slot"} {
 			if !slices.Contains(got, want) {
 				t.Errorf("<Card : %v, missing %s", got, want)
 			}
@@ -249,7 +249,7 @@ func TestCompletion(t *testing.T) {
 				t.Errorf("<div : %v, missing %s", got, want)
 			}
 		}
-		for _, bad := range []string{"class", "server:defer", "client:load", "client:idle", "client:visible", "client:media"} {
+		for _, bad := range []string{"class", "server:defer", "server:concurrent", "client:load", "client:idle", "client:visible", "client:media"} {
 			if slices.Contains(got, bad) {
 				t.Errorf("<div : offers %s", bad)
 			}

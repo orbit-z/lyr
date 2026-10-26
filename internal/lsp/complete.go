@@ -590,18 +590,19 @@ func relImport(from, to string) string {
 
 // directiveDocs describe the directives offered as attributes.
 var directiveDocs = map[string]string{
-	"set:html":       "Sets the element's content to raw HTML (an `orbit.HTML` value).",
-	"set:text":       "Sets the element's content to escaped text.",
-	"set:json":       "Writes a value as JSON into this `<script type=\"application/json\">`.",
-	"slot":           "Passes this content to the named slot of the component it's in.",
-	"is:inline":      "Leaves this tag as written: not processed or bundled.",
-	"is:global":      "Applies this style globally instead of scoping it to the component.",
-	"server:defer":   "Renders this component in a separate request (a server island), showing its `fallback` slot until then.",
-	"client:load":    "Loads this component's scripts as soon as the page loads.",
-	"client:idle":    "Loads this component's scripts once the browser is idle.",
-	"client:visible": "Loads this component's scripts when the component scrolls into view.",
-	"client:media":   "Loads this component's scripts when a media query matches.",
-	"class:list":     "Builds the `class` from a list: `{\"card\", props.Class, \"active\": active}` (strings, `[]string` values, and `\"class\": condition` pairs).",
+	"set:html":          "Sets the element's content to raw HTML (an `orbit.HTML` value).",
+	"set:text":          "Sets the element's content to escaped text.",
+	"set:json":          "Writes a value as JSON into this `<script type=\"application/json\">`.",
+	"slot":              "Passes this content to the named slot of the component it's in.",
+	"is:inline":         "Leaves this tag as written: not processed or bundled.",
+	"is:global":         "Applies this style globally instead of scoping it to the component.",
+	"server:defer":      "Renders this component in a separate request (a server island), showing its `fallback` slot until then.",
+	"server:concurrent": "Renders this component in its own goroutine, so slow components overlap; the HTML stays in source order.",
+	"client:load":       "Loads this component's scripts as soon as the page loads.",
+	"client:idle":       "Loads this component's scripts once the browser is idle.",
+	"client:visible":    "Loads this component's scripts when the component scrolls into view.",
+	"client:media":      "Loads this component's scripts when a media query matches.",
+	"class:list":        "Builds the `class` from a list: `{\"card\", props.Class, \"active\": active}` (strings, `[]string` values, and `\"class\": condition` pairs).",
 }
 
 // attrItem is an attribute completion. value is the attribute's value
@@ -766,6 +767,9 @@ func (ws *workspace) componentItems(c cursor, info *compiler.ComponentInfo, fiel
 	}
 	if comp.Defer == nil || comp.Defer == c.reg.attr {
 		items = append(items, c.directiveItem("server:defer", snippets))
+	}
+	if comp.Concurrent == nil || comp.Concurrent == c.reg.attr {
+		items = append(items, c.directiveItem("server:concurrent", snippets))
 	}
 	if comp.Client == nil || comp.Client == c.reg.attr {
 		for _, d := range []string{"client:load", "client:idle", "client:visible", "client:media"} {

@@ -1,0 +1,10 @@
+orbit_gen/decl/components/slow/decl.go (src/components/Slow.orbit)
+  exact 4:1 "type Props struct {\n\tName string\n\tMs   int\n}" -> 155-199 "type Props struct {\n\tName string\n\tMs   int\n}"
+orbit_gen/impl/components/slow/render.go (src/components/Slow.orbit)
+  exact 2:8 "\"time\"" -> 210-216 "\"time\""
+  exact 9:1 "time.Sleep(time.Duration(props.Ms) * time.Millisecond)" -> 710-764 "time.Sleep(time.Duration(props.Ms) * time.Millisecond)"
+  exact 11:5 "props.Name" -> 878-888 "props.Name"
+  exact 11:18 "ctx.URL.Path" -> 1004-1016 "ctx.URL.Path"
+call sites
+  content key=128 "props.Name" call="orbit__w.Expr(\n/*line ../../../../src/components/Slow.orbit:11:5*/props.Name/*line render.go:25:86*/,\n\t)"
+  content key=141 "ctx.URL.Path" call="orbit__w.Expr(\n/*line ../../../../src/components/Slow.orbit:11:18*/ctx.URL.Path/*line render.go:29:89*/,\n\t)"

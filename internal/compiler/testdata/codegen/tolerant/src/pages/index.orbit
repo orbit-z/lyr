@@ -12,3 +12,5 @@ post := struct{ Title string }{"t"}
   <b>empty header</b>
 {/if}
 <div set:html={post.Title}>child {post.Title}</div>
+<Card server:concurrent title="c"><Card title={ctx.URL.Path} /></Card>
+<Card><Crad /></Card>
