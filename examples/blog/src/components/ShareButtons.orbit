@@ -24,6 +24,10 @@ type Props struct {
 </style>
 <script>
   // Loaded lazily: the post page renders <ShareButtons client:visible="200px" />.
+  // util.ts is also imported by LikeButton, in the page's bundle: both
+  // import the same chunk.
+  import { flash } from "../scripts/util";
+
   class ShareButtons extends HTMLElement {
     connectedCallback(): void {
       const title = this.dataset.title ?? document.title;
@@ -33,7 +37,7 @@ type Props struct {
       )!;
       copy.addEventListener("click", async () => {
         await navigator.clipboard.writeText(location.href);
-        copy.textContent = "Copied!";
+        flash(copy, "Copied!");
       });
       if ("share" in navigator) {
         share.hidden = false;
