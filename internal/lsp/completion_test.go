@@ -196,6 +196,27 @@ func TestCompletion(t *testing.T) {
 		c.change("src/components/Card.orbit", card)
 	})
 
+	// class:list items are Go regions: an item, a condition, and a list
+	// that doesn't parse while typing.
+	t.Run("class:list items", func(t *testing.T) {
+		card := c.open("src/components/Card.orbit")
+		for _, tc := range []struct{ tmpl, marker string }{
+			{`<p class:list={"a", props.}>x</p>`, "props."},
+			{`<p class:list={"a": props.}>x</p>`, "props."},
+			{`<p class:list={"a", props.Post, "b": props.}>x</p>`, `"b": props.`},
+		} {
+			src := strings.Replace(card, "{props.Post}", tc.tmpl, 1)
+			c.change("src/components/Card.orbit", src)
+			items := c.complete("src/components/Card.orbit", at(t, src, tc.marker, 0, len(tc.marker)))
+			for _, want := range []string{"Post", "Featured"} {
+				if item(items, want) == nil {
+					t.Errorf("%s: completion %v, want %s", tc.tmpl, labels(items), want)
+				}
+			}
+		}
+		c.change("src/components/Card.orbit", card)
+	})
+
 	t.Run("component attributes", func(t *testing.T) {
 		src := strings.Replace(text, "<Card post={greeting} />", "<Card \n", 1)
 		c.change(page, src)
@@ -223,7 +244,7 @@ func TestCompletion(t *testing.T) {
 		c.change(page, src)
 		items := c.complete(page, at(t, src, `<div class="x" >`, 0, len(`<div class="x" `)))
 		got := labels(items)
-		for _, want := range []string{"id", "hidden", "set:html", "set:text", "slot"} {
+		for _, want := range []string{"id", "hidden", "set:html", "set:text", "slot", "class:list"} {
 			if !slices.Contains(got, want) {
 				t.Errorf("<div : %v, missing %s", got, want)
 			}

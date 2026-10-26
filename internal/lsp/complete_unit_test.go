@@ -183,6 +183,14 @@ import Card "../components/Card.orbit"
 			t.Errorf("component directives: %v, missing %s", names(items), d)
 		}
 	}
+	// class:list only for a component with a class prop.
+	if slices.Contains(names(items), "class:list") {
+		t.Errorf("class:list offered on a component without a Class prop: %v", names(items))
+	}
+	info.Props.Fields = append(info.Props.Fields, compiler.PropField{Name: "Class", Type: "string"})
+	if got := names(ws.componentItems(c, info, nil, false, true)); !slices.Contains(got, "class:list") {
+		t.Errorf("class:list not offered with a Class prop: %v", got)
+	}
 }
 
 func TestClassifyCompletion(t *testing.T) {
