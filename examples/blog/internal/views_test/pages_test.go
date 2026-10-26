@@ -23,7 +23,7 @@ func TestPostPage(t *testing.T) {
 	for _, want := range []string{
 		"<title>Hello, Orbit · Orbit blog</title>",
 		"<h1", ">Hello, Orbit</h1>",
-		`<like-button data-slug="hello"`,
+		`<like-button data-like='{"slug":"hello","likes":`,
 		`<orbit-lazy component="ShareButtons-`,
 		"Loading comments…",
 	} {

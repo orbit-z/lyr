@@ -2,6 +2,7 @@ package build
 
 import (
 	"encoding/json"
+	"html"
 	"net/http"
 	"os"
 	"os/exec"
@@ -28,6 +29,15 @@ func TestExampleBlog(t *testing.T) {
 	}
 	goRun(t, dir, "vet", "./...")
 	goRun(t, dir, "build", "./...")
+	// LikeButton's script reads its typed data (PLAN.md §5c): orbit check
+	// type-checks it against the generated module (or skips the TypeScript
+	// half without Bun, with a notice).
+	if !exists(filepath.Join(dir, "orbit_gen/types/src/components/LikeButton.orbit.d.ts")) {
+		t.Error("orbit generate wrote no client module for LikeButton")
+	}
+	if code, out := runOrbit(t, dir, "check"); code != 0 {
+		t.Errorf("orbit check: exit %d\n%s", code, out)
+	}
 	// The example's own orbittest tests (internal/views_test).
 	if out := goRun(t, dir, "test", "-count=1", "./..."); !strings.Contains(out, "ok  \texample.com/blog/internal/views_test") {
 		t.Errorf("go test ./... didn't run views_test:\n%s", out)
@@ -266,11 +276,21 @@ func checkBlogMarkdown(t *testing.T, s *server) {
 
 // checkBlogPost checks /blog/hello: its assets, the lazy ShareButtons, the
 // deferred Comments island and its endpoint.
+// likeAttr is LikeButton's orbit.JSON attribute.
+var likeAttr = regexp.MustCompile(`<like-button data-like='([^']*)'`)
+
 func checkBlogPost(t *testing.T, s *server) {
 	t.Helper()
 	resp, post := s.get("/blog/hello")
-	if resp.StatusCode != 200 || !strings.Contains(post, ">Hello, Orbit</h1>") || !strings.Contains(post, `<like-button data-slug="hello"`) {
+	if resp.StatusCode != 200 || !strings.Contains(post, ">Hello, Orbit</h1>") || !strings.Contains(post, `<like-button data-like='{"slug":"hello","likes":`) {
 		t.Fatalf("GET /blog/hello: %d\n%s", resp.StatusCode, post)
+	}
+	// The orbit.JSON attribute parses as JSON.
+	if m := likeAttr.FindStringSubmatch(post); m == nil || json.Unmarshal([]byte(html.UnescapeString(m[1])), new(struct {
+		Slug  string `json:"slug"`
+		Likes int    `json:"likes"`
+	})) != nil {
+		t.Errorf("GET /blog/hello: data-like isn't JSON: %v", m)
 	}
 
 	// The hashed stylesheet and module, in <head>, after the doctype.
@@ -359,11 +379,11 @@ func checkBlogRoutes(t *testing.T, s *server) {
 	for _, n := range []string{"1", "2"} {
 		resp, body := s.do("POST", "/blog/hello/like", "")
 		if resp.StatusCode != 200 || resp.Header.Get("Content-Type") != "text/html; charset=utf-8" ||
-			!strings.HasPrefix(body, `<like-button data-slug="hello" data-likes="`+n+`"`) || strings.Contains(body, "<html") {
+			!strings.HasPrefix(body, `<like-button data-like='{"slug":"hello","likes":`+n+`}'`) || strings.Contains(body, "<html") {
 			t.Errorf("POST /blog/hello/like: %d\n%s", resp.StatusCode, body)
 		}
 	}
-	if _, post := s.get("/blog/hello"); !strings.Contains(post, `data-likes="2"`) {
+	if _, post := s.get("/blog/hello"); !strings.Contains(post, `"likes":2}'`) {
 		t.Errorf("GET /blog/hello: the likes aren't counted")
 	}
 	if resp, _ := s.do("POST", "/blog/nope/like", ""); resp.StatusCode != http.StatusNotFound {

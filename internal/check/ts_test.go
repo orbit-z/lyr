@@ -154,19 +154,19 @@ func TestTsconfig(t *testing.T) {
 		not  []string
 	}{
 		{"user, default include", &UserTsconfig{}, []string{
-			`"extends": "../../tsconfig.json"`, `"rootDirs": ["../..", "."]`,
-			`"include": ["../../src/**/*.ts", "src/**/*.ts"]`,
+			`"extends": "../../tsconfig.json"`, `"rootDirs": ["../..", ".", "../../orbit_gen/types"]`,
+			`"include": ["../../src/**/*.ts", "src/**/*.ts", "../../orbit_gen/types/*.d.ts"]`,
 		}, []string{"exclude", "allowImportingTsExtensions"}},
 		{"user include and exclude", &UserTsconfig{
 			Include: []string{"./src/**/*.ts", "types/*.d.ts", "/abs/x.ts"},
 			Exclude: []string{"src/**/*.test.ts"},
 		}, []string{
-			`"include": ["../../src/**/*.ts", "../../types/*.d.ts", "/abs/x.ts", "src/**/*.ts"]`,
+			`"include": ["../../src/**/*.ts", "../../types/*.d.ts", "/abs/x.ts", "src/**/*.ts", "../../orbit_gen/types/*.d.ts"]`,
 			`"exclude": ["../../src/**/*.test.ts"]`,
 		}, nil},
 		{"no user tsconfig", nil, []string{
 			`"strict": true`, `"moduleResolution": "Bundler"`, `"isolatedModules": true`, `"noEmit": true`,
-			`"allowImportingTsExtensions": true`, `"rootDirs"`, `"include": ["../../src/**/*.ts", "src/**/*.ts"]`,
+			`"allowImportingTsExtensions": true`, `"rootDirs"`, `"include": ["../../src/**/*.ts", "src/**/*.ts", "../../orbit_gen/types/*.d.ts"]`,
 		}, []string{"extends", "exclude"}},
 	}
 	for _, tt := range tests {

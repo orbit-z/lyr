@@ -10,7 +10,8 @@
     "resolveJsonModule": true,
     "allowJs": true,
     "allowImportingTsExtensions": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "rootDirs": [".", "orbit_gen/types"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "orbit_gen/types/*.d.ts"]
 }

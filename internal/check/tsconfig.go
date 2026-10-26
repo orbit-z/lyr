@@ -16,6 +16,12 @@ type UserTsconfig struct {
 	// Include and Exclude are the user's globs, relative to the project
 	// root; nil when the file doesn't set them.
 	Include, Exclude []string
+	// CompilerOptions holds the options orbit doctor looks at.
+	CompilerOptions struct {
+		// RootDirs is the user's rootDirs (orbit_gen/types belongs there,
+		// PLAN.md §5c).
+		RootDirs []string
+	}
 }
 
 // ReadUserTsconfig reads root/tsconfig.json (JSON with comments and
@@ -92,6 +98,9 @@ func fromCheckDir(glob string) string {
 	return path.Join("../..", filepath.ToSlash(glob))
 }
 
+// typesDir holds the generated .d.ts files (PLAN.md §5c).
+const typesDir = "orbit_gen/types"
+
 // defaultOptions are the compilerOptions orbit new scaffolds, plus
 // allowImportingTsExtensions (as in Astro's base tsconfig), used when the
 // project has no tsconfig.json.
@@ -128,12 +137,15 @@ func Tsconfig(u *UserTsconfig) string {
 	} else {
 		b.WriteString("  \"compilerOptions\": {\n" + defaultOptions)
 	}
-	b.WriteString("    \"rootDirs\": [\"../..\", \".\"]\n  },\n")
+	// orbit_gen/types overlays the components' client modules
+	// (X.orbit.d.ts) onto src/, and declares orbit:types and orbit:client
+	// (PLAN.md §5c), whether or not the user's tsconfig.json says so.
+	b.WriteString("    \"rootDirs\": [\"../..\", \".\", \"../../" + typesDir + "\"]\n  },\n")
 	globs := make([]string, 0, len(include)+1)
 	for _, g := range include {
 		globs = append(globs, fromCheckDir(g))
 	}
-	globs = append(globs, "src/**/*.ts")
+	globs = append(globs, "src/**/*.ts", "../../"+typesDir+"/*.d.ts")
 	b.WriteString("  \"include\": " + jsonList(globs))
 	if exclude != nil {
 		globs = make([]string, 0, len(exclude))

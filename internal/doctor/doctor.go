@@ -161,7 +161,7 @@ func Run(ctx context.Context, env Env) *Report {
 	}
 	r.Checks = append(r.Checks, d.goplsCheck(), d.bunCheck())
 	if d.root != "" {
-		r.Checks = append(r.Checks, d.genCheck(), d.gitignoreCheck(), d.configCheck())
+		r.Checks = append(r.Checks, d.genCheck(), d.gitignoreCheck(), d.configCheck(), d.tsconfigCheck())
 	}
 	return r
 }
