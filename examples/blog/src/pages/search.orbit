@@ -1,5 +1,6 @@
 ---
 import (
+	Button "../components/Button.orbit"
 	Card "../components/Card.orbit"
 	Base "../layouts/Base.orbit"
 	"example.com/blog/internal/posts"
@@ -23,7 +24,7 @@ for i, p := range all {
   <form action="/search" role="search">
     <input type="search" name="q" value={q} list="post-titles" placeholder="go, security, …" aria-label="Search posts">
     <datalist id="post-titles"></datalist>
-    <button type="submit">Search</button>
+    <Button variant="primary" type="submit" aria-label="Run the search" class="search-button">Search</Button>
   </form>
   {if q == ""}
     <p>Type something to search.</p>
@@ -42,6 +43,10 @@ for i, p := range all {
     display: flex;
     gap: 0.5rem;
     margin-bottom: 1.5rem;
+  }
+  /* Passed to <Button> with class, so this page's scoped rule matches it. */
+  .search-button {
+    white-space: nowrap;
   }
   input {
     flex: 1;
