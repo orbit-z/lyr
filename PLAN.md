@@ -314,7 +314,7 @@ Other types (`any`, pointers, interfaces, funcs, chans) are errors at the key. M
 **Out of scope here**: content collections and glob imports (§12), MDX (expressions/components in Markdown), remark/rehype-style plugins, image processing, code-block titles/captions (`file=`), and heading self-links.
 
 ### 2.5 Pass-through attributes
-**Status: Proposed, (Q) points open** (user decision 2026-10-26 to add the feature, from the `nyth` assessment; this spec settles the shape).
+**Status: Accepted** (2026-10-26; user decision to add the feature, from the `nyth` assessment). User answers, all as recommended: (Q1) a new `orbit.RestAttrs` field type; (Q2) a passed `class` is merged with the element's own `class`/`class:list`; (Q3) no typo guard, like Astro; (Q4) `{...x}` on a component tag merges into its rest.
 
 **Why**: Astro components pass undeclared attributes through with `const { variant, size, ...rest } = Astro.props` and `<button {...rest}>`. In `nyth`, the seven form components (`Button`, `Input`, `Textarea`, `Select`, `Switch`, `Choice`, `ChoiceGroup`) do this, and 114 of their 138 call sites pass HTML attributes they don't declare: `name`, `form`, `value`, `required`, `autocomplete`, `data-*`, `aria-*`, `disabled`, `formaction`, … (`<Button>` alone has 106 call sites). Counted over the 157 tags of these components: 426 static attribute values, 72 bare booleans, 107 expressions, no `class:list` and no spread on the tag. Today an unknown attribute is an Orbit error (§2.3), so every call site would have to write `attrs={orbit.Attrs{"name": "shelf", "data-shelf": id}}`.
 
