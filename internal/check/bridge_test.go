@@ -6,7 +6,7 @@ import (
 )
 
 // likeCard is a component with typed data (PLAN.md §5c): its <script>
-// starts on line 11.
+// starts on line 12.
 func likeCard(script string) string {
 	return "---\ntype Post struct {\n\tSlug string   `json:\"slug\"`\n\tTags []string `json:\"tags\"`\n}\n\ntype Props struct {\n\tPost Post\n}\n---\n" +
 		"<like-card data-post={orbit.JSON(props.Post)} data-n={orbit.JSON(3)}></like-card>\n" +
@@ -29,16 +29,16 @@ console.log(post.slug, post.tags.length, n, data(el, "psot"));`),
 	})
 	res, out := output(t, dir)
 	for _, want := range []string{
-		"src/components/Like.orbit:15:7: error TS2322: Type 'number' is not assignable to type 'string'.",
-		"src/components/Like.orbit:16:25: error TS18047: 'post.tags' is possibly 'null'.",
-		`src/components/Like.orbit:16:56: error TS2345: Argument of type '"psot"' is not assignable to parameter of type '"n" | "post"'.`,
+		"src/components/Like.orbit:16:7: error TS2322: Type 'number' is not assignable to type 'string'.",
+		"src/components/Like.orbit:17:24: error TS18047: 'post.tags' is possibly 'null'.",
+		`src/components/Like.orbit:17:54: error TS2345: Argument of type '"psot"' is not assignable to parameter of type '"n" | "post"'.`,
 		"src/scripts/use.ts:2:14: error TS2322: Type 'string' is not assignable to type 'number'.",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %s", want)
 		}
 	}
-	if !res.Failed() || strings.Count(out, "error TS") != 4 || strings.Contains(out, "orbit_gen/") {
+	if !res.Failed() || strings.Count(out, "error TS") != 4 || strings.Contains(out, "orbit_gen/") || t.Failed() {
 		t.Errorf("failed=%v, output:\n%s", res.Failed(), out)
 	}
 }
