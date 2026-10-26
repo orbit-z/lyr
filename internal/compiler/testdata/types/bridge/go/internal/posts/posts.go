@@ -25,7 +25,7 @@ type Summary struct {
 
 // Page is a generic page of items.
 type Page[T any] struct {
-	Items []T   `json:"items"`
+	Items []T      `json:"items"`
 	Next  *Page[T] `json:"next,omitempty"`
 }
 

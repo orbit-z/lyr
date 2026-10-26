@@ -78,7 +78,7 @@ func (p *Project) Typecheck(ctx context.Context, checker *compiler.Checker) ([]s
 	var ds []Diagnostic
 	for i, u := range res.Units {
 		f := p.Files[i]
-		f.Output, f.Typed, f.Writes = u.Output, u.Checked, u.Writes
+		f.Output, f.Typed, f.Writes, f.Types = u.Output, u.Checked, u.Writes, u.Types
 		for _, d := range u.Diagnostics {
 			ds = append(ds, fromCompiler(f, d))
 		}

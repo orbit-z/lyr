@@ -39,7 +39,9 @@ const (
 // GenFiles returns every generated file: each .orbit file's decl.go and
 // render.go (its final Output), then orbit_gen/app (app.go and the
 // orbit_embed-tagged embed.go), orbit_gen/link, orbit_gen/manifest and,
-// when the project has no server entry, orbit_gen/cmd/server.
+// when the project has no server entry, orbit_gen/cmd/server, then the
+// TypeScript declarations of the client modules under orbit_gen/types
+// (PLAN.md §5c).
 func (p *Project) GenFiles() []GenFile {
 	files := make([]GenFile, 0, 2*len(p.Files)+6)
 	for _, f := range p.Files {
@@ -55,6 +57,24 @@ func (p *Project) GenFiles() []GenFile {
 		GenFile{Path: StaticDocFile, Content: staticDocGo})
 	if p.GeneratedServer {
 		files = append(files, GenFile{Path: ServerFile, Content: p.serverGo()})
+	}
+	files = append(files, p.typesFiles()...)
+	return files
+}
+
+// typesFiles returns the .d.ts files under orbit_gen/types (PLAN.md §5c):
+// go.d.ts and client.d.ts, and one module per .orbit file with keys, from
+// every File's Types.
+func (p *Project) typesFiles() []GenFile {
+	var units []*compiler.UnitTypes
+	for _, f := range p.Files {
+		if f.Types != nil {
+			units = append(units, f.Types)
+		}
+	}
+	var files []GenFile
+	for _, tf := range compiler.EmitTypes(units) {
+		files = append(files, GenFile{Path: tf.Path, Content: tf.Content})
 	}
 	return files
 }

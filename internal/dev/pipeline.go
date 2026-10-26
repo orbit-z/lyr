@@ -282,7 +282,9 @@ func (pl *pipeline) run(ctx context.Context, c Change, appRunning bool) (out out
 	var gerr error
 	if e := early; e != nil {
 		<-e.done
-		if t.Written == 0 {
+		// The .d.ts files under orbit_gen/types aren't Go: writing only
+		// them keeps the early build.
+		if !goWritten(wr) {
 			t.EarlyUsed = true
 			bin, gout, gerr = e.bin, e.out, e.err
 		}
@@ -512,4 +514,17 @@ func (pl *pipeline) runGoBuild(ctx context.Context, out, entry string) ([]byte, 
 	cmd.Stdout, cmd.Stderr = &b, &b
 	err := cmd.Run()
 	return b.Bytes(), err
+}
+
+// goWritten reports whether wr wrote or removed a file that go build reads:
+// anything but the .d.ts files of orbit_gen/types (PLAN.md §5c).
+func goWritten(wr *project.WriteResult) bool {
+	for _, list := range [][]string{wr.Written, wr.Removed} {
+		for _, p := range list {
+			if !strings.HasSuffix(p, ".d.ts") {
+				return true
+			}
+		}
+	}
+	return false
 }
