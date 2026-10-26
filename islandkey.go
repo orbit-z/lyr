@@ -31,10 +31,20 @@ const testBuildID = "0000000000000000"
 
 // keyring is the island key and build ID a Site seals placeholders with.
 type keyring struct {
-	sealer  *islandcrypto.Sealer
+	// seal is the *islandcrypto.Sealer, held as any so the Sealer's type
+	// (and its sync.Pool's generic atomic.Pointer instantiations) stays out
+	// of Ctx's and Site's type graph: otherwise every generated package
+	// that mentions *orbit.Ctx compiles those instantiations and their type
+	// descriptors again (dev-loop compile time and object size). Use
+	// sealerOf, a function rather than a method for the same reason: a
+	// method's signature is loaded with its receiver type.
+	seal    any
 	buildID string
 	random  bool // the key is the per-process random one
 }
+
+// sealerOf returns kr's Sealer.
+func sealerOf(kr *keyring) *islandcrypto.Sealer { return kr.seal.(*islandcrypto.Sealer) }
 
 // WithKey sets the 32-byte island key that seals server:defer props,
 // overriding $ORBIT_KEY and the key embedded by orbit build. A key of
@@ -53,7 +63,7 @@ func resolveKeyring(key []byte) *keyring {
 	if key == nil {
 		return defaultKeyring()
 	}
-	return &keyring{sealer: mustSealer(key), buildID: processBuildID()}
+	return &keyring{seal: mustSealer(key), buildID: processBuildID()}
 }
 
 // envKeyring caches the keyring for one $ORBIT_KEY value, so RenderComponent
@@ -90,7 +100,7 @@ func defaultKeyring() *keyring {
 	case len(key) != islandcrypto.KeySize:
 		panic("orbit: ORBIT_KEY decodes to " + strconv.Itoa(len(key)) + " bytes; it must be a 32-byte key as printed by \"orbit create-key\"")
 	}
-	kr := &keyring{sealer: mustSealer(key), buildID: processBuildID()}
+	kr := &keyring{seal: mustSealer(key), buildID: processBuildID()}
 	envCache.Store(&envKeyring{env: env, kr: kr})
 	return kr
 }
@@ -101,7 +111,7 @@ func defaultKeyring() *keyring {
 var testKeyring = sync.OnceValue(func() *keyring {
 	var key [islandcrypto.KeySize]byte
 	copy(key[:], "orbit fixed test island key 0000")
-	return &keyring{sealer: mustSealer(key[:]), buildID: testBuildID}
+	return &keyring{seal: mustSealer(key[:]), buildID: testBuildID}
 })
 
 var embeddedKeyring = sync.OnceValue(func() *keyring {
@@ -109,13 +119,13 @@ var embeddedKeyring = sync.OnceValue(func() *keyring {
 	if err != nil || len(key) != islandcrypto.KeySize {
 		panic("orbit: the island key embedded by orbit build (orbit.buildKey) isn't standard base64 of 32 bytes; rebuild with orbit build")
 	}
-	return &keyring{sealer: mustSealer(key), buildID: processBuildID()}
+	return &keyring{seal: mustSealer(key), buildID: processBuildID()}
 })
 
 var randomKeyring = sync.OnceValue(func() *keyring {
 	key := make([]byte, islandcrypto.KeySize)
 	rand.Read(key)
-	return &keyring{sealer: mustSealer(key), buildID: processBuildID(), random: true}
+	return &keyring{seal: mustSealer(key), buildID: processBuildID(), random: true}
 })
 
 var warnRandomKey sync.Once

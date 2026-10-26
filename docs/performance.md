@@ -248,19 +248,26 @@ Orbit's 501 allocations are the 500 slot closures plus the layout's (each slot t
 
 ### Dev loop (`bench/devloop`)
 
-The time from a saved edit to a new server running, measured on `orbit dev`'s own rebuild pipeline (`bench/devloop -dev`) with a generated project of 200 `.orbit` files (40 pages, 158 components, scoped styles and scripts on a quarter of them, two user Go packages, typed locals). It covers generating, the type check, esbuild when needed, `go build -ldflags=-w -gcflags=./orbit_gen/...=-l` (no inlining in the generated packages, dev only) and restarting the server, but not the watcher's 50 ms debounce or the browser's reload. Median of the runs, on a quiet machine.
+The time from a saved edit to a new server running, measured on `orbit dev`'s own rebuild pipeline (`bench/devloop -dev`) with a generated project of 200 `.orbit` files (40 pages, 158 components, scoped styles and scripts on a quarter of them, two user Go packages, typed locals). It covers generating, the type check, esbuild when needed, `go build` with the dev flags (see [Dev server](dev-server.md#what-a-change-rebuilds): no DWARF or symbol table, no inlining in the generated packages, no VCS stamping, no `GOGC`) and restarting the server, but not the watcher's 50 ms debounce or the browser's reload. Median of 7 runs. The "before" column is the same benchmark before the dev-loop speed-ups listed below, run alternately with the new code on the same machine (load average 3–7: another build was running).
 
-| Edit | 16 threads | 4 cores |
-|---|---:|---:|
-| Template text | 222 ms | 219 ms |
-| Frontmatter statement | 222 ms | 220 ms |
-| Add a `Props` field (component imported by 10 others) | 241 ms | 259 ms |
-| Add a page | 261 ms | 265 ms |
-| Only a `<style>` or `<script>` (no Go rebuild) | 30 ms | 38 ms |
-| A Go package every `Props` imports, function body only | 726 ms | 1.26 s |
-| The same package, new exported name | 743 ms | 1.29 s |
+| Edit | 16 threads | 4 cores | Before (16 threads / 4 cores) |
+|---|---:|---:|---:|
+| Template text | 197 ms | 197 ms | 226 / 230 ms |
+| Frontmatter statement | 194 ms | 195 ms | 222 / 227 ms |
+| Add a `Props` field (component imported by 10 others) | 211 ms | 230 ms | 242 / 270 ms |
+| Add a page | 226 ms | 239 ms | 260 / 272 ms |
+| Only a `<style>` or `<script>` (no Go rebuild) | 30 ms | 38 ms | same |
+| A Go package every `Props` imports, function body only | 590 ms | 1.04 s | 740 ms / 1.28 s |
+| The same package, new exported name | 610 ms | 1.06 s | 770 ms / 1.30 s |
 
-Most of a template edit is `go build`, and most of that is the link, about 135 ms, a fixed cost for any Go binary of this size. Template, frontmatter and `Props` edits skip esbuild, and a `.go` edit starts `go build` at once, while Orbit regenerates. The slow rows are a Go package that every component imports: `go build` then recompiles all the generated packages, even when only a function body changed, because Go recompiles a package's importers whenever it changes. Keep frequently edited Go code out of packages that every `Props` imports.
+The speed-ups, all dev only (`orbit build` is unchanged):
+
+- **No symbol table and no DWARF** (`-ldflags=-s -w`, `-gcflags=all=-dwarf=false`): a faster link on every rebuild, and smaller objects to write. The first `orbit dev` after a Go toolchain change compiles the standard library once with these flags (about 3–4 s), and dev's compiled packages aren't shared with your own `go build` or `go test`.
+- **`-buildvcs=false`**: `go build` no longer runs the version-control tool on every build (10–20 ms in a repository).
+- **A lighter `orbit.Ctx` type**: the runtime keeps its island sealer, and the `sync.Pool` inside it, out of `Ctx`'s type graph, so each generated package no longer compiles generic `sync/atomic` code of its own. A package that only mentions `*orbit.Ctx` went from 196 symbols to 6. It matters most when every generated package recompiles.
+- **No `GOGC` or `GOMEMLIMIT` for `go build`**: the Go compiler tunes its own memory use only when both are unset. With `GOGC=100` set in the shell, the slowest row on 4 cores went from 2.1 s to 1.09 s. Your server still gets them.
+
+Most of a template edit is `go build`, and most of that is the link, about 105 ms (130 ms before), a fixed cost for any Go binary of this size. Template, frontmatter and `Props` edits skip esbuild, and a `.go` edit starts `go build` at once, while Orbit regenerates. The slow rows are a Go package that every component imports: `go build` then recompiles all the generated packages, even when only a function body changed, because Go recompiles a package's importers whenever it changes. Keep frequently edited Go code out of packages that every `Props` imports.
 
 ### Editor (`orbit lsp`)
 

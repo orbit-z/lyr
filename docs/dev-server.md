@@ -142,7 +142,14 @@ For a Go rebuild, Orbit:
 
 The old server is stopped *before* the new one starts, so a server that binds a fixed port of its own or holds a file lock keeps working. Anything your server keeps in memory is lost on each restart. `orbit.ListenAndServe` handles `SIGINT` with a graceful shutdown; if you run your own `http.Server`, handle `SIGINT` too, or your server is killed after 5 seconds.
 
-Dev builds are linked without DWARF debug information (`-ldflags=-w`), which makes linking faster, and Orbit's generated packages are compiled without inlining (`-gcflags=./orbit_gen/...=-l`), which makes the slowest rebuilds 10–14% faster. Pages render a little slower in dev because of it; `orbit build` uses neither flag. A `-gcflags` in your `GOFLAGS` replaces Orbit's. To step through your server with a debugger such as Delve, run it yourself next to `orbit dev`, with the same environment variables, for example `ORBIT_DEV=1 ORBIT_STATIC=.orbit/dev ORBIT_PUBLIC=public dlv debug ./cmd/server`. It then listens on `:4321` (or `ORBIT_ADDR`), so start `orbit dev` on another port; pages still get their dev assets, but no live reload.
+Dev builds use `go build` flags that make rebuilds faster; `orbit build` uses none of them:
+
+- No DWARF debug information and no symbol table (`-ldflags=-s -w`, and `-gcflags=all=-dwarf=false`), which makes compiling and linking faster. Stack traces still show your `.orbit` and `.go` lines.
+- Orbit's generated packages are compiled without inlining (`-gcflags=./orbit_gen/...=-l -dwarf=false`), which makes the slowest rebuilds 10–14% faster. Pages render a little slower in dev because of it.
+- No version-control stamping (`-buildvcs=false`), which saves running `git` on every build.
+- `go build` runs without `GOGC` and `GOMEMLIMIT`, even if you set them: the Go compiler tunes its own memory use only when both are unset. Your server still gets them.
+
+A `-gcflags` or `-buildvcs` in your `GOFLAGS` replaces Orbit's, and a `-ldflags` in `GOFLAGS` is kept, with `-s -w` added. Because of `-dwarf=false`, `orbit dev` compiles the standard library once more the first time it runs after you install or switch Go toolchains (about 3–4 s), and the packages it compiles aren't shared with your own `go build` and `go test` runs (Orbit's type checker uses the same flags, so it shares them with `orbit dev`'s builds). To step through your server with a debugger such as Delve, run it yourself next to `orbit dev`, with the same environment variables, for example `ORBIT_DEV=1 ORBIT_STATIC=.orbit/dev ORBIT_PUBLIC=public dlv debug ./cmd/server`. It then listens on `:4321` (or `ORBIT_ADDR`), so start `orbit dev` on another port; pages still get their dev assets, but no live reload.
 
 ### How long a rebuild takes
 
@@ -150,8 +157,8 @@ These numbers come from Orbit's dev-loop benchmark (`bench/devloop`) on a genera
 
 | Change | 16 threads | 4 cores |
 |---|---:|---:|
-| a component's frontmatter or template | about 0.22 s | about 0.22 s |
-| a `.go` file that every component's `Props` depends on, such as `internal/posts` (even a function body) | about 0.73 s | about 1.3 s |
+| a component's frontmatter or template | about 0.2 s | about 0.2 s |
+| a `.go` file that every component's `Props` depends on, such as `internal/posts` (even a function body) | about 0.6 s | about 1.05 s |
 | only `<style>` or `<script>` contents (no Go rebuild) | about 30 ms | about 40 ms |
 
 The goal is for a save to show up in the browser in about a second.

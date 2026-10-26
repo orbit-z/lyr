@@ -106,7 +106,7 @@ func run(nfiles, runs int, orbitRoot, dir string, keep bool, ldflags, only, json
 		if err != nil {
 			return err
 		}
-		fmt.Println("# -dev: internal/dev's pipeline (orbit dev's -ldflags=-w, esbuild skip, early go build on .go-only edits)")
+		fmt.Println("# -dev: internal/dev's pipeline (orbit dev's go build flags, esbuild skip, early go build on .go-only edits)")
 	}
 
 	// Initial build: with a warm GOCACHE for std and the runtime, this is
