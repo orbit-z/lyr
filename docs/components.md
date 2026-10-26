@@ -250,8 +250,26 @@ The render body is the inside of a function that returns `error`, so it can retu
 | `return err` | A 500 response. In `orbit dev`, an error overlay with the `.orbit` position. |
 | `return orbit.ErrNotFound` | A 404, rendered with `src/pages/404.orbit`. |
 | `return ctx.Redirect("/login", 302)` | A redirect to `/login` with status 302. |
+| `return nil` | The component stops here and renders nothing more; the rest of the page renders as usual. |
 
 An error returned by a component stops the whole page, exactly as if the page itself had returned it. Status codes, headers and errors are covered in [Rendering](rendering.md).
+
+`return nil` is how a component renders nothing. This one shows a notice only when it has text:
+
+```orbit file=src/components/Notice.orbit
+---
+type Props struct {
+	Text string
+}
+
+if props.Text == "" {
+	return nil
+}
+---
+<p class="notice">{props.Text}</p>
+```
+
+The value returned must be an `error` (or `nil`); a component can't return HTML or a string. To render text, put it in the template.
 
 When the body ends in a statement that always returns, the template must be empty. This page only redirects:
 
