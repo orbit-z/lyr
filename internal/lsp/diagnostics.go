@@ -157,6 +157,9 @@ func (s *Server) publish(ws *workspace, p string) {
 				}
 			}
 		}
+		if !md {
+			items = append(items, ws.tsDiagnostics(p)...)
+		}
 	}
 	if items == nil {
 		items = []jsonRaw{}

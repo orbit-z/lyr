@@ -11,6 +11,7 @@ import (
 	"go/types"
 	"maps"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 )
@@ -18,6 +19,7 @@ import (
 // bridgeKey accumulates one key's types and sites.
 type bridgeKey struct {
 	types, sites []string
+	spans        []Span
 }
 
 // bridgeUnit builds a UnitTypes from sites.
@@ -53,6 +55,7 @@ func (b *bridgeUnit) add(s *JSONSite, ts string, lines *LineIndex) {
 		site += fmt.Sprintf(" (%s:%d:%d)", path.Base(b.path), p.Line, p.Col)
 	}
 	k.sites = append(k.sites, site)
+	k.spans = append(k.spans, Span{Start: s.Pos, End: s.Pos + len(s.Attr)})
 }
 
 func (b *bridgeUnit) result(decls []TSDecl) *UnitTypes {
@@ -60,7 +63,7 @@ func (b *bridgeUnit) result(decls []TSDecl) *UnitTypes {
 		var out []TSKey
 		for _, name := range slices.Sorted(maps.Keys(m)) {
 			k := m[name]
-			out = append(out, TSKey{Name: name, Types: k.types, Sites: k.sites})
+			out = append(out, TSKey{Name: name, Types: k.types, Sites: k.sites, Spans: k.spans})
 		}
 		return out
 	}
@@ -105,6 +108,7 @@ func (s *tyState) bridgeTypes(u *tyUnit, info *types.Info, env *tyEnv) (*UnitTyp
 	names := runtimeNames(u.unit.Input.Analysis)
 	tf := s.fset.File(u.implFile.Pos())
 	m := newTSMapper(s.nsOf)
+	m.src = s.sourceOf
 	var ds []Diagnostic
 	smap := pass1.Impl.Map
 	report := func(e ast.Expr, what string, p *jsonProblem) {
@@ -220,6 +224,44 @@ func jsonProblemMessage(what string, p *jsonProblem) string {
 		return fmt.Sprintf("%s: the value has type %s, which encoding/json can't encode", what, t)
 	}
 	return fmt.Sprintf("%s: %s has type %s, which encoding/json can't encode", what, p.path, t)
+}
+
+// sourceOf locates the Go declaration of name at pos for the .d.ts side
+// table (PLAN.md §9b): a declaration in a unit's generated code maps
+// through that unit's pass-1 source map into its .orbit file; one in
+// another package keeps the file name and line the FileSet (or the export
+// data) recorded. Generated code with no .orbit source gives the zero
+// TSSource.
+func (s *tyState) sourceOf(pos gotoken.Pos, name string) TSSource {
+	n := len(name)
+	p := s.fset.PositionFor(pos, false) // the generated file, not its line directives
+	if p.Filename == "" {
+		return TSSource{}
+	}
+	if g, ok := s.genSources[p.Filename]; ok {
+		if g.smap == nil {
+			return TSSource{}
+		}
+		start, ok := g.smap.OrbitOffset(p.Offset)
+		if !ok {
+			return TSSource{}
+		}
+		end, ok := g.smap.OrbitOffset(p.Offset + n)
+		if !ok || end < start {
+			end = start
+		}
+		return TSSource{File: g.orbit, Orbit: true, Start: start, End: end}
+	}
+	if strings.HasPrefix(filepath.ToSlash(p.Filename), GenDir+"/") {
+		return TSSource{}
+	}
+	return TSSource{File: p.Filename, Line: p.Line, Col: p.Column, Name: name}
+}
+
+// tyGenSource is a generated file's .orbit path and pass-1 source map.
+type tyGenSource struct {
+	orbit string
+	smap  *SourceMap
 }
 
 // nsOf is the TS namespace of a package's types: a generated package's

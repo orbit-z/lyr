@@ -32,6 +32,13 @@ var jsTypes = map[string]bool{
 	"text/x-ecmascript": true, "text/x-javascript": true,
 }
 
+// BlockLang returns what a <script> or <style> block holds, as an
+// extension: "ts" for a processed script, "js" for any other script with
+// no type or a JavaScript one, "css" for a style, "" for the rest (JSON,
+// other types). orbit fmt formats by it, and the language server's
+// TypeScript documents follow it (PLAN.md §6.1 "Which", §9b).
+func BlockLang(n compiler.Node) string { return blockExt(n) }
+
 // blockExt returns the extension a block is formatted as ("ts", "js",
 // "css"), or "" to leave it as it is.
 func blockExt(n compiler.Node) string {

@@ -21,6 +21,7 @@ func report(cfg config, results []*modeResult) {
 		{"Orbit's diagnostic on an opened page (unknown prop)", func(s startSample) time.Duration { return s.OrbitDiag }},
 		{"first hover answered", func(s startSample) time.Duration { return s.FirstHover }},
 		{"first completion answered (`{props.`)", func(s startSample) time.Duration { return s.FirstCompletion }},
+		{"first `<script>` completion answered (TypeScript child)", func(s startSample) time.Duration { return s.FirstTSCompletion }},
 		{"gopls's diagnostic on that page (undefined name)", func(s startSample) time.Duration { return s.GoplsDiag }},
 		{"barrier progress ended", func(s startSample) time.Duration { return s.BarrierProgress }},
 		{"**references answered** (held for the barrier)", func(s startSample) time.Duration { return s.References }},
@@ -42,13 +43,14 @@ func report(cfg config, results []*modeResult) {
 	}
 	fmt.Println()
 	for _, r := range results {
-		var refs, items []string
+		var refs, items, tsItems []string
 		for _, s := range r.Starts {
 			refs = append(refs, fmt.Sprint(s.RefCount))
 			items = append(items, fmt.Sprint(s.CompletionItems))
+			tsItems = append(tsItems, fmt.Sprint(s.TSItems))
 		}
-		fmt.Printf("%s: references found %s locations, the first completion had %s items.\n",
-			modeTitle[r.Mode], strings.Join(refs, "/"), strings.Join(items, "/"))
+		fmt.Printf("%s: references found %s locations, the first completion had %s items, the first `<script>` completion %s.\n",
+			modeTitle[r.Mode], strings.Join(refs, "/"), strings.Join(items, "/"), strings.Join(tsItems, "/"))
 	}
 	fmt.Println()
 
@@ -89,6 +91,8 @@ func report(cfg config, results []*modeResult) {
 		{"gopls, after the request runs", func(r *modeResult) int64 { return r.MemAfter.Gopls.RSS }},
 		{"orbit lsp, peak", func(r *modeResult) int64 { return r.MemAfter.Orbit.HWM }},
 		{"gopls, peak", func(r *modeResult) int64 { return r.MemAfter.Gopls.HWM }},
+		{"TypeScript child, after the request runs", func(r *modeResult) int64 { return r.MemAfter.TS.RSS }},
+		{"TypeScript child, after opening every script", func(r *modeResult) int64 { return r.MemTSAll.RSS }},
 	}
 	for _, row := range memRows {
 		cells := []string{row.label}

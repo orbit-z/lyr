@@ -39,7 +39,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand("orbit.generate", () => runCommand("generate")),
     vscode.commands.registerCommand("orbit.doctor", () => runCommand("doctor")),
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("orbit.path") || e.affectsConfiguration("orbit.goplsPath")) {
+      if (
+        e.affectsConfiguration("orbit.path") ||
+        e.affectsConfiguration("orbit.goplsPath") ||
+        e.affectsConfiguration("orbit.typescriptPath")
+      ) {
         void restart();
       }
     }),
@@ -63,6 +67,14 @@ async function start(): Promise<void> {
   }
   const config = vscode.workspace.getConfiguration("orbit");
   const goplsPath = expandHome(config.get<string>("goplsPath", "").trim());
+  const typescriptPath = expandHome(config.get<string>("typescriptPath", "").trim());
+  const initializationOptions: Record<string, string> = {};
+  if (goplsPath) {
+    initializationOptions.goplsPath = goplsPath;
+  }
+  if (typescriptPath) {
+    initializationOptions.typescriptPath = typescriptPath;
+  }
   const serverOptions: ServerOptions = {
     command: orbit.command,
     args: [...orbit.args, "lsp"],
@@ -78,7 +90,7 @@ async function start(): Promise<void> {
       // below keeps every other request for VS Code's Markdown support.
       { scheme: "file", pattern: markdownPattern },
     ],
-    initializationOptions: goplsPath ? { goplsPath } : {},
+    initializationOptions,
     middleware: {
       provideHover: (doc, pos, token, next) => (isOrbit(doc) ? next(doc, pos, token) : undefined),
       provideCompletionItem: (doc, pos, ctx, token, next) => (isOrbit(doc) ? next(doc, pos, ctx, token) : undefined),
@@ -87,6 +99,10 @@ async function start(): Promise<void> {
       provideSignatureHelp: (doc, pos, ctx, token, next) => (isOrbit(doc) ? next(doc, pos, ctx, token) : undefined),
       prepareRename: (doc, pos, token, next) => (isOrbit(doc) ? next(doc, pos, token) : undefined),
       provideRenameEdits: (doc, pos, name, token, next) => (isOrbit(doc) ? next(doc, pos, name, token) : undefined),
+      // TypeScript features in <script> blocks.
+      provideTypeDefinition: (doc, pos, token, next) => (isOrbit(doc) ? next(doc, pos, token) : undefined),
+      provideDocumentHighlights: (doc, pos, token, next) => (isOrbit(doc) ? next(doc, pos, token) : undefined),
+      provideCodeActions: (doc, range, ctx, token, next) => (isOrbit(doc) ? next(doc, range, ctx, token) : undefined),
     },
   };
   client = new LanguageClient("orbit", "Orbit Language Server", serverOptions, clientOptions);

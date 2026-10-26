@@ -841,17 +841,27 @@ Go through these in order:
 3. **Neovim**: add the `vim.filetype.add({ extension = { orbit = 'orbit' } })` line and `vim.lsp.enable('orbit')` from [Editor setup](editor-setup.md#neovim).
 4. Open the project at its root: the language server looks for the directory with `go.mod` and `src/`.
 
-TypeScript inside `<script>` gets syntax highlighting only, with no completion or diagnostics; run `orbit check` to type-check it, or move the logic into a `.ts` file, which your editor checks. See [TypeScript](editor-setup.md#typescript).
+For TypeScript features inside `<script>` (completion, diagnostics, …), see [No TypeScript completion in `<script>`](#no-typescript-completion-in-script) below.
+
+### No TypeScript completion in `<script>`
+
+**Cause:** the TypeScript features of `<script>` blocks come from TypeScript 7's language server, which `orbit lsp` starts when you open an `.orbit` file with a script. Without it, scripts get highlighting only, and the language server says so once: "TypeScript features in `<script>` blocks need TypeScript 7.0.2 or later". The usual reasons:
+
+- No TypeScript 7 is installed, and Bun isn't either (with Bun, Orbit runs `bun x --package typescript@7.0.2` itself).
+- The `tsc` found is TypeScript 5 or 6, which has no language server (`tsc --version` prints `Version 5.9.3` or `6.0.3`). Your editor's own TypeScript is usually one of those: it serves `.ts` files, not `.orbit` scripts.
+- The cursor is in a script Orbit doesn't treat as code: a JSON block (`type="application/json"`, `set:json`, `application/ld+json`) or a script with a `src` attribute (its `.ts` file has the features instead).
+
+**Fix:** run `orbit doctor` and look at the `typescript` line. Install TypeScript 7 (`bun add -g typescript@7.0.2` or `npm i -g typescript@7.0.2`), or point the `typescriptPath` option at one (`orbit.typescriptPath` in VS Code), then restart the language server (**Orbit: Restart Language Server**). `is:inline` scripts get JavaScript features, without the data types or imports: they run as written. See [TypeScript in `<script>` blocks](editor-setup.md#typescript-in-script-blocks).
 
 ### `Cannot find module './LikeButton.orbit' or its corresponding type declarations`
 
 **Cause:** TypeScript (`orbit check`, as `error TS2307`, or your editor) can't find the generated types of `import { data } from "./LikeButton.orbit"`. There are three reasons:
 
-- `orbit_gen/types/` hasn't been written yet, as in a fresh clone.
-- Your `tsconfig.json` lacks the `rootDirs` entry that points TypeScript at `orbit_gen/types/` (editor only: `orbit check` adds it itself). `orbit doctor` reports it.
+- `orbit_gen/types/` hasn't been written yet, as in a fresh clone. In a `<script>` block in the editor, the language server serves the types from memory instead, a moment after it starts (it type-checks the project first); in a `.ts` file, the editor's own TypeScript needs them on disk.
+- Your `tsconfig.json` lacks the `rootDirs` entry that points TypeScript at `orbit_gen/types/` (only for `.ts` files in the editor: `orbit check` and the TypeScript in `<script>` blocks add it themselves). `orbit doctor` reports it.
 - The component has no typed data: no `data-*` attribute set with a direct `orbit.JSON(…)` call, and no `set:json` block with a static `id`. Such a component has no module. This is also what you see after renaming the file: the import must use the new name.
 
-**Fix:** run `orbit generate` (or keep `orbit dev` running); add `"rootDirs": [".", "orbit_gen/types"]` to `compilerOptions` and `"orbit_gen/types/*.d.ts"` to `include` in `tsconfig.json`; or check that the template writes the data with `orbit.JSON`. See [Client modules](reference/client-modules.md#components-without-data).
+**Fix:** in a `<script>` block, wait a second, or check the component for Go errors (a component whose frontmatter doesn't compile has untyped data); otherwise run `orbit generate` (or keep `orbit dev` running); add `"rootDirs": [".", "orbit_gen/types"]` to `compilerOptions` and `"orbit_gen/types/*.d.ts"` to `include` in `tsconfig.json`; or check that the template writes the data with `orbit.JSON`. See [Client modules](reference/client-modules.md#components-without-data).
 
 ### The Go extension reports errors in `orbit_gen/`
 

@@ -1045,7 +1045,7 @@ type Author struct {
 }
 ```
 
-The component's script imports **its own `.orbit` file** to read the data back. `data(el, key)` parses the attribute and returns it with the TypeScript type of the Go value:
+The component's script imports **its own `.orbit` file** to read the data back. `data(el, key)` parses the attribute and returns it with the TypeScript type of the Go value. In the editor, completion inside `data(this, "…")` offers the keys the template writes, and go-to-definition on a key or a field jumps to the attribute or the Go field (see [TypeScript in `<script>` blocks](editor-setup.md#typescript-in-script-blocks)):
 
 ```orbit file=src/components/LikeButton.orbit
 ---

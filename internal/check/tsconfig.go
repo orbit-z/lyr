@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -145,7 +146,13 @@ func Tsconfig(u *UserTsconfig) string {
 	for _, g := range include {
 		globs = append(globs, fromCheckDir(g))
 	}
-	globs = append(globs, "src/**/*.ts", "../../"+typesDir+"/*.d.ts")
+	// The user's tsconfig may list orbit_gen/types already (orbit new's
+	// does): each glob once.
+	for _, g := range []string{"src/**/*.ts", "../../" + typesDir + "/*.d.ts"} {
+		if !slices.Contains(globs, g) {
+			globs = append(globs, g)
+		}
+	}
 	b.WriteString("  \"include\": " + jsonList(globs))
 	if exclude != nil {
 		globs = make([]string, 0, len(exclude))

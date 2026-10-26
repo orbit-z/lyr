@@ -1,5 +1,5 @@
 // Package doctor implements orbit doctor (PLAN.md §6): it checks the
-// environment (Go, gopls, Bun) and, inside a project, go.mod, the pinned
+// environment (Go, gopls, Bun, TypeScript) and, inside a project, go.mod, the pinned
 // CLI, the generated code, .gitignore and the config, and reports each as
 // ok, warning or error with the command that fixes it.
 //
@@ -159,7 +159,7 @@ func Run(ctx context.Context, env Env) *Report {
 	if d.root != "" {
 		r.Checks = append(r.Checks, d.cliCheck())
 	}
-	r.Checks = append(r.Checks, d.goplsCheck(), d.bunCheck())
+	r.Checks = append(r.Checks, d.goplsCheck(), d.bunCheck(), d.typescriptCheck())
 	if d.root != "" {
 		r.Checks = append(r.Checks, d.genCheck(), d.gitignoreCheck(), d.configCheck(), d.tsconfigCheck())
 	}

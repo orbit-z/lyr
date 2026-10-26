@@ -1,6 +1,6 @@
 # Editor setup
 
-Orbit's language server, `orbit lsp`, gives your editor Go completion, diagnostics, go-to-definition and rename inside `.orbit` files, by working together with gopls, and reports Orbit's errors in your Markdown pages as you type.
+Orbit's language server, `orbit lsp`, gives your editor Go completion, diagnostics, go-to-definition and rename inside `.orbit` files, by working together with gopls, TypeScript features inside their `<script>` blocks, by working together with TypeScript 7, and reports Orbit's errors in your Markdown pages as you type.
 
 ## Check your setup with `orbit doctor`
 
@@ -10,7 +10,7 @@ Before you configure an editor, run this in your project:
 orbit doctor
 ```
 
-Among other things, it checks the gopls that `orbit lsp` will use. Its output looks like this:
+Among other things, it checks the gopls and the TypeScript that `orbit lsp` will use. Its output looks like this:
 
 ```
 ✓ go: go1.27.3 (go.mod: go 1.27, toolchain go1.27.3)
@@ -18,6 +18,8 @@ Among other things, it checks the gopls that `orbit lsp` will use. Its output lo
 ✓ gopls: v0.24.0, built with go1.27.3
 ⚠ bun: not found (1.4.4 or later needed); orbit check will skip TypeScript type checking
     fix: curl -fsSL https://bun.sh/install | bash
+⚠ typescript: not found (7.0.2 or later needed); TypeScript features in <script> blocks are off in the editor
+    fix: bun add -g typescript@7.0.2 (or npm i -g typescript@7.0.2), or set typescriptPath
 ✓ orbit_gen: up to date
 ✓ gitignore: covers orbit_gen/, .orbit/ and dist/
 ✓ config: no orbit.json (defaults); server ./cmd/server
@@ -35,6 +37,8 @@ Each ⚠ and ✗ comes with the command that fixes it. For gopls, that's:
 ```sh
 go install golang.org/x/tools/gopls@latest
 ```
+
+TypeScript is optional, like Bun: without it, `<script>` blocks keep their highlighting and everything else works. The check is a ⚠ only when a `.orbit` file has a script; see [TypeScript in `<script>` blocks](#typescript-in-script-blocks).
 
 ## VS Code
 
@@ -60,14 +64,23 @@ The extension:
 
 One language server runs per window. In a multi-root workspace with several Orbit projects, it serves the first one it finds: the project of the `.orbit` file that's active when it starts, else that of the first workspace folder in one.
 
-It runs the `orbit` on your `PATH`. Inside a project that pins the CLI in `go.mod`, that `orbit` hands over to the pinned version (the binary `go tool orbit lsp` would run), so the language server always matches your project's Orbit version. Without an `orbit` on your `PATH`, it runs `go tool orbit` instead when the project pins the CLI, as projects made by `orbit new` do. To use a different binary, set `orbit.path`; to choose the gopls that Orbit starts, set `orbit.goplsPath` (see [How gopls is found](#how-gopls-is-found)):
+It runs the `orbit` on your `PATH`. Inside a project that pins the CLI in `go.mod`, that `orbit` hands over to the pinned version (the binary `go tool orbit lsp` would run), so the language server always matches your project's Orbit version. Without an `orbit` on your `PATH`, it runs `go tool orbit` instead when the project pins the CLI, as projects made by `orbit new` do. To use a different binary, set `orbit.path`; to choose the gopls that Orbit starts, set `orbit.goplsPath` (see [How gopls is found](#how-gopls-is-found)); to choose the TypeScript 7 it starts for `<script>` blocks, set `orbit.typescriptPath` (see [How TypeScript is found](#how-typescript-is-found)):
 
 ```json file=.vscode/settings.json
 {
   "orbit.path": "/home/me/go/bin/orbit",
-  "orbit.goplsPath": "/home/me/go/bin/gopls"
+  "orbit.goplsPath": "/home/me/go/bin/gopls",
+  "orbit.typescriptPath": "/home/me/.bun/install/global/node_modules/typescript"
 }
 ```
+
+| Setting | Default | What it does |
+|---|---|---|
+| `orbit.path` | `orbit` | The `orbit` binary the extension runs. |
+| `orbit.goplsPath` | (empty) | The gopls `orbit lsp` starts (the `goplsPath` initialization option). |
+| `orbit.typescriptPath` | (empty) | The TypeScript 7 `orbit lsp` starts for `<script>` blocks (the `typescriptPath` initialization option): a native `tsc` binary or a `typescript` package directory. |
+
+Changing any of them restarts the language server.
 
 ### The Go extension's errors in `orbit_gen/`
 
@@ -92,7 +105,7 @@ vim.lsp.config('orbit', {
 vim.lsp.enable('orbit')
 ```
 
-The first line makes Neovim detect `.orbit` files; the rest starts `orbit lsp` for them. For [diagnostics in Markdown files](#markdown-files) too, use `filetypes = { 'orbit', 'markdown' }`: the language server ignores Markdown files Orbit doesn't compile, and answers other requests on Markdown files with nothing. The language server finds the project root itself (the directory with `go.mod` and `src/`).
+The first line makes Neovim detect `.orbit` files; the rest starts `orbit lsp` for them. To choose the gopls or the TypeScript 7 that it starts, add `init_options = { goplsPath = '…', typescriptPath = '…' }` (both optional; see [How gopls is found](#how-gopls-is-found) and [How TypeScript is found](#how-typescript-is-found)). For [diagnostics in Markdown files](#markdown-files) too, use `filetypes = { 'orbit', 'markdown' }`: the language server ignores Markdown files Orbit doesn't compile, and answers other requests on Markdown files with nothing. The language server finds the project root itself (the directory with `go.mod` and `src/`).
 
 Orbit doesn't ship syntax highlighting for Neovim: its grammar is a TextMate grammar, which only VS Code uses. Completion, diagnostics and the other language-server features work without it.
 
@@ -166,17 +179,52 @@ With an up-to-date `orbit_gen/`, gopls reads the generated code of every file yo
 
 **Import paths**: inside the quotes of a frontmatter import, once you type `./` or `../`, completion offers the project's `.orbit` files and the Markdown files under `src/`, as paths relative to the file you're in (the file itself and those you've already imported aren't offered). In an import with no alias, `import "./`, accepting one also adds the alias: `import Post "./post.md"`.
 
-**TypeScript** in `<script>` gets syntax highlighting only, with no completion or diagnostics; see [TypeScript](#typescript).
+**TypeScript** in `<script>` blocks, through TypeScript 7: see [TypeScript in `<script>` blocks](#typescript-in-script-blocks).
 
-Formatting `.orbit` files and semantic highlighting are not yet supported.
+Semantic highlighting is not supported: your editor colors `.orbit` files with the grammar.
 
-## TypeScript
+## TypeScript in `<script>` blocks
+
+With TypeScript 7 on your machine, `orbit lsp` gives the `<script>` blocks of your `.orbit` files the TypeScript features of a `.ts` file:
+
+- completion, including auto-imports (accepting `plural` adds `import { plural } from "../scripts/util"` at the top of the script);
+- hover and signature help;
+- diagnostics as you type, at their place in the `.orbit` file (an unused import is faded, as in a `.ts` file);
+- go-to-definition and type definition, references, document highlights and rename;
+- quick fixes ("Add missing import", "Change spelling to …").
+
+The data components pass to scripts is typed too, from the Go types: in `LikeButton.orbit`, `import { data } from "./LikeButton.orbit"` resolves, completion inside `data(this, "` offers the `data-*` keys written with `orbit.JSON`, and `data(this, "like").likes` has the TypeScript type of the Go field. These types follow your **unsaved** Go edits: rename a `json` tag or change a field's type in the frontmatter, and the script's completion and diagnostics update within about half a second, with nothing written to disk. Go-to-definition on a key goes to its `data-like={orbit.JSON(…)}` attribute, and on a field (`likes`) to the Go field that declares it, in the frontmatter or in your `.go` file. Renaming such a field from the script is refused: it's declared in Go, so rename the Go field or its `json` tag there.
+
+References and rename cover every `.orbit` file's scripts, closed ones included: the first such request loads all of them once (about 35 ms for the 40 scripts of a 200-component project).
+
+`<script is:inline>` blocks, and other scripts that run as they are (no `type`, or a JavaScript `type` such as `module`), are plain JavaScript: they get the same features as JavaScript, the way a `.js` file does, with the DOM's types but without the data types or module imports (the browser runs them as written). A file's classic inline scripts share the page's global scope, so a function one of them declares is known in the others. JSON scripts (`type="application/json"`, `set:json`, `application/ld+json`) get nothing.
+
+Formatting a script is [`orbit fmt`](#formatting)'s job, not TypeScript's.
+
+### How TypeScript is found
+
+TypeScript 7 is the first TypeScript whose compiler is a native binary (no Node), with a language server built in (`tsc --lsp`). `orbit lsp` starts it the first time you open an `.orbit` file with a script, and looks for it in this order:
+
+1. the `typescriptPath` initialization option, if your editor sets it (VS Code: the `orbit.typescriptPath` setting): a native `tsc` binary, or a `typescript` package directory;
+2. your project's `node_modules/typescript`, if it's version 7 or later;
+3. `tsc` on your `PATH` (an npm or Bun global install: `bun add -g typescript@7.0.2` or `npm i -g typescript@7.0.2`);
+4. with [Bun](https://bun.sh) installed, `bun x --package typescript@7.0.2 tsc`: Bun downloads TypeScript 7.0.2 into its cache the first time (about 10 MB), and nothing else is needed.
+
+Node is never run: for an npm install, Orbit starts the native binary that the `typescript` package ships in its platform package (`@typescript/typescript-linux-x64` and so on). A `tsc` older than 7.0.2, such as TypeScript 5 or 6, has no language server: it's skipped, and if nothing else is found, the language server shows a notice once, when you open an `.orbit` file with a script. `orbit doctor` reports which TypeScript it found.
+
+### What TypeScript sees
+
+The language server writes nothing: each script is handed to TypeScript from memory, as a TypeScript document under `.orbit/lsp/` (the `.orbit` file with everything outside the script blanked out, so positions line up), next to an in-memory copy of the `tsconfig.json` that [`orbit check`](styles-and-scripts.md#type-checking-with-orbit-check) generates. That config extends your `tsconfig.json` (your compiler options apply) and adds what scripts need: relative imports such as `../scripts/util`, `import { data } from "./X.orbit"` and the `orbit:client` and `orbit:types` modules resolve the same way as in `orbit check`, even if your `tsconfig.json` has no `rootDirs` entry for `orbit_gen/types`. The data types come from memory too, so they work on a fresh clone with no `orbit_gen/`.
+
+TypeScript sees the `.ts` files under `src/` as they are on disk: an unsaved edit in a `.ts` file reaches your scripts once you save it.
+
+### `.ts` files
 
 Your editor's own TypeScript support (VS Code's built-in TypeScript server, or `typescript-language-server` in Neovim) covers the **`.ts` files** under `src/`, through your `tsconfig.json`. That includes the generated types of the data components pass to scripts: in `src/scripts/like-button.ts`, `import { data } from "../components/LikeButton.orbit"` is typed: completion offers the keys, and the result has the TypeScript type of the Go value. This needs the starter `tsconfig.json`'s `rootDirs` and `include` entries for `orbit_gen/types` (see [`tsconfig.json`](styles-and-scripts.md#tsconfigjson); `orbit doctor` warns when they're missing), and an `orbit_gen/types/` that `orbit dev` or `orbit generate` has written. Before that, on a fresh clone, the editor reports `Cannot find module '../components/LikeButton.orbit'`.
 
-**`<script>` blocks inside `.orbit` files** get no TypeScript features yet: no completion, hovers or diagnostics. To have your editor check a script, move its logic into a `.ts` file and import it (or point `<script src="../scripts/like-button.ts">` at it); see [Importing TypeScript files](styles-and-scripts.md#importing-typescript-files). [`orbit check`](styles-and-scripts.md#type-checking-with-orbit-check) (which uses `bun check`, Bun 1.4.4 or later) type-checks both kinds, block scripts at their `.orbit` positions.
+Orbit's language server leaves `.ts` files alone, as Astro's does. One consequence: "find references" on a function in a `.ts` file doesn't list its uses inside `.orbit` scripts (from a script, it lists both).
 
-The language server doesn't write `orbit_gen/types/`; `orbit dev` keeps it current as you edit, and `orbit generate` writes it once.
+The language server doesn't write `orbit_gen/types/`; `orbit dev` keeps it current as you edit, and `orbit generate` writes it once. [`orbit check`](styles-and-scripts.md#type-checking-with-orbit-check) stays the check to run in CI: it type-checks every script and `.ts` file of the project, open in an editor or not, while the editor reports TypeScript diagnostics for the `.orbit` files you have open.
 
 ## Markdown files
 

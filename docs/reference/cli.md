@@ -450,12 +450,13 @@ Checks your environment and project. Each check prints ✓ (passed), ⚠ (warnin
 | CLI version (`cli`) | With the `tool` directive: that the `go` command can load the pinned CLI (✗ otherwise, fixed by `go mod tidy`), so the hand-over works. Without it: the global `orbit` version against the `github.com/orbit-z/orbit` requirement (✗ on a mismatch, unless a local `replace`). |
 | gopls (`gopls`) | The gopls on your `PATH`: its version, and that it was built with a Go at least as new as your `go` directive (✗ otherwise, the same rule `orbit lsp` uses to refuse a gopls, fixed by `go install golang.org/x/tools/gopls@latest`). ✗ if there's none. ⚠ if it's older than the recommended v0.24.0. |
 | Bun (`bun`) | That Bun 1.4.4 or later is installed, for `orbit check`'s TypeScript half. ⚠ only, with the install or upgrade command (`bun upgrade`). |
+| TypeScript (`typescript`) | The TypeScript 7 (7.0.2 or later) that `orbit lsp` would start for `<script>` blocks, found as the language server finds it (the project's `node_modules/typescript`, `tsc` on your `PATH`, then `bun x` with Bun; see [How TypeScript is found](../editor-setup.md#how-typescript-is-found)): `tsc 7.0.2 (/path)`, or `TypeScript 7.0.2 through bun x`. ⚠ only, never ✗ (it's optional): when none is found, or the `tsc` found is older (TypeScript 5 or 6 has no language server), with the install command. Inside a project with no script in any `.orbit` file, a missing TypeScript passes ("not needed"). |
 | Generated code (`orbit_gen`) | That `orbit_gen/` exists and matches your sources (⚠, fixed by `orbit generate`). The generated files carry no source hash, so `orbit doctor` regenerates the project in memory, as `orbit generate` would, and compares; it writes nothing. `orbit_gen/manifest/manifest.go` isn't compared: it only lists asset URLs, `orbit dev` writes it empty and `orbit build` rewrites it. If your `.orbit` files have errors, it's a ⚠ naming the first one. |
 | `.gitignore` (`gitignore`) | That it covers `orbit_gen/` (or `orbit_gen/static/`, when you [commit `orbit_gen/`](../project-structure.md#committing-orbit_gen-optional)), `.orbit/` and `dist/` (⚠, with a `printf … >> .gitignore` fix). Plain patterns only (`dist`, `/dist/`, `dist/**`); a later `!dist` re-includes. |
 | Config (`config`) | That `orbit.json` is valid, the server entry exists, and `src/locals` doesn't import `orbit_gen/app` (✗ for each). |
-| `tsconfig.json` (`tsconfig`) | When a `.orbit` file passes typed data to scripts (it contains `.JSON(` or `set:json`): that `tsconfig.json`'s `rootDirs` includes `orbit_gen/types`, so your editor can type `import "./X.orbit"` (⚠ otherwise, with the fix: add `"rootDirs": [".", "orbit_gen/types"]` to `compilerOptions` and `"orbit_gen/types/*.d.ts"` to `include`). ⚠ when there's no `tsconfig.json`. `orbit check` doesn't need it. |
+| `tsconfig.json` (`tsconfig`) | When a `.orbit` file passes typed data to scripts (it contains `.JSON(` or `set:json`): that `tsconfig.json`'s `rootDirs` includes `orbit_gen/types`, so your editor's TypeScript can type `import "./X.orbit"` in `.ts` files (⚠ otherwise, with the fix: add `"rootDirs": [".", "orbit_gen/types"]` to `compilerOptions` and `"orbit_gen/types/*.d.ts"` to `include`). ⚠ when there's no `tsconfig.json`. `orbit check` and the TypeScript features in `<script>` blocks don't need it. |
 
-Outside a project (no `go.mod` with a `src/` directory around the working directory), only `go`, `gopls` and `bun` run.
+Outside a project (no `go.mod` with a `src/` directory around the working directory), only `go`, `gopls`, `bun` and `typescript` run.
 
 | Flag | Meaning |
 |---|---|
@@ -493,9 +494,9 @@ You need it when instances of **different builds** must open each other's island
 orbit lsp
 ```
 
-Runs the Orbit language server over stdin/stdout. Your editor starts it; you don't run it by hand. It proxies Go features to gopls and adds template features of its own. It never writes files, and works without `orbit_gen/` too.
+Runs the Orbit language server over stdin/stdout. Your editor starts it; you don't run it by hand. It proxies Go features to gopls, proxies TypeScript features in `<script>` blocks to TypeScript 7's language server (`tsc --lsp --stdio`, started the first time you open an `.orbit` file with a script, when one is found), and adds template features of its own. It never writes files: the generated Go code, the scripts' TypeScript documents, their `tsconfig.json` and the data types all stay in memory. It works without `orbit_gen/` too.
 
-It accepts the `goplsPath` initialization option to choose the gopls binary. A `--stdio` flag, which many editors pass, is accepted and ignored: stdio is the only transport. See [Editor setup](../editor-setup.md).
+It accepts two initialization options: `goplsPath` to choose the gopls binary, and `typescriptPath` to choose the TypeScript 7 one (a native `tsc` binary or a `typescript` package directory; see [How TypeScript is found](../editor-setup.md#how-typescript-is-found)). A `--stdio` flag, which many editors pass, is accepted and ignored: stdio is the only transport. See [Editor setup](../editor-setup.md).
 
 ## Error output
 

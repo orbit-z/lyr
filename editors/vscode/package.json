@@ -1,7 +1,7 @@
 {
   "name": "orbit",
   "displayName": "Orbit",
-  "description": "Orbit (.orbit) language support: syntax highlighting, and Go completion, diagnostics and rename through orbit lsp.",
+  "description": "Orbit (.orbit) language support: syntax highlighting, and Go and TypeScript completion, diagnostics and rename through orbit lsp.",
   "version": "0.1.0",
   "publisher": "orbit-z",
   "license": "MIT",
@@ -76,6 +76,12 @@
           "default": "",
           "scope": "machine-overridable",
           "markdownDescription": "The gopls that `orbit lsp` starts, passed as its `goplsPath` initialization option. Empty: `gopls` on `PATH`, then `go tool gopls` if your `go.mod` pins it."
+        },
+        "orbit.typescriptPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "The TypeScript 7 (7.0.2 or later) that `orbit lsp` starts for `<script>` blocks, passed as its `typescriptPath` initialization option: a native `tsc` binary or a `typescript` package directory. Empty: the project's `node_modules/typescript`, then `tsc` on `PATH`, then `bun x --package typescript@7.0.2` when Bun is installed."
         }
       }
     },

@@ -9,6 +9,7 @@ package compiler
 import (
 	"cmp"
 	"fmt"
+	gotoken "go/token"
 	"go/types"
 	"reflect"
 	"slices"
@@ -53,6 +54,28 @@ type TSDecl struct {
 	Alias string
 	// Interface is true for a struct (Fields, possibly empty).
 	Interface bool
+	// Source is where the Go type is declared (the language server's
+	// side table, PLAN.md §9b); zero when unknown.
+	Source TSSource
+}
+
+// TSSource is the Go declaration a .d.ts line stands for: in an .orbit
+// file (a frontmatter type, or a data-* attribute), as byte offsets of the
+// .orbit source the typed pass saw; or in a Go file, as the compiler's
+// file name and 1-based line and byte column.
+type TSSource struct {
+	// File is the project-relative .orbit path when Orbit is set, else the
+	// Go file name as recorded in the export data or FileSet (absolute,
+	// or module-path-relative under -trimpath); "" when unknown.
+	File  string
+	Orbit bool
+	// Start and End are byte offsets in the .orbit file (Orbit).
+	Start, End int
+	// Line and Col are 1-based, Col in bytes (export data may record only
+	// the line: Col is then 1), and Name is the declared name (a Go
+	// file).
+	Line, Col int
+	Name      string
 }
 
 // TSField is one property of a TSDecl interface (or an inline object type).
@@ -63,6 +86,8 @@ type TSField struct {
 	Optional bool
 	// Type is TS text with refs.
 	Type string
+	// Source is the Go field's declaration; zero when unknown.
+	Source TSSource
 }
 
 // tsType is a mapped type before rendering.
@@ -125,7 +150,10 @@ type tsProbEntry struct{ p *jsonProblem }
 // tsMapper maps static Go types to TypeScript with encoding/json v1
 // semantics. One per unit; not concurrent.
 type tsMapper struct {
-	nsOf    func(*types.Package) tsNS
+	nsOf func(*types.Package) tsNS
+	// src locates a declaration (name position and length) for the side
+	// table; nil leaves Source zero.
+	src     func(pos gotoken.Pos, name string) TSSource
 	decls   map[string]*TSDecl
 	refs    map[*types.Named]string // origin → Ref
 	named   map[*types.Named]tsType // instance → mapped type
@@ -387,7 +415,7 @@ func (m *tsMapper) declare(n *types.Named) string {
 		ref += "\x01" + s
 	}
 	m.refs[n] = ref
-	d := &TSDecl{Ref: ref, NS: ns, Name: obj.Name(), GoPath: pkg.Path() + "." + obj.Name()}
+	d := &TSDecl{Ref: ref, NS: ns, Name: obj.Name(), GoPath: pkg.Path() + "." + obj.Name(), Source: m.source(obj.Pos(), obj.Name())}
 	m.decls[ref] = d
 	if tps := n.TypeParams(); tps.Len() > 0 {
 		d.TypeParams = make([]string, tps.Len())
@@ -402,6 +430,14 @@ func (m *tsMapper) declare(n *types.Named) string {
 		d.Alias = m.typ(n.Underlying()).String()
 	}
 	return ref
+}
+
+// source locates a declaration for the side table.
+func (m *tsMapper) source(pos gotoken.Pos, name string) TSSource {
+	if m.src == nil || !pos.IsValid() {
+		return TSSource{}
+	}
+	return m.src(pos, name)
 }
 
 // tsLocalSuffix returns "" for a package-level type, and a deterministic
@@ -497,7 +533,7 @@ func (m *tsMapper) field(f *jsonField) TSField {
 			t.text = "NonNullable<" + t.text + ">"
 		}
 	}
-	return TSField{Name: f.name, Optional: opt, Type: t.String()}
+	return TSField{Name: f.name, Optional: opt, Type: t.String(), Source: m.source(f.pos, f.goName)}
 }
 
 // quoted returns the type of a field with the ",string" option when the
@@ -563,7 +599,8 @@ type jsonField struct {
 	omitEmpty bool
 	omitZero  bool
 	quoted    bool
-	viaPtr    bool // promoted through an embedded pointer
+	viaPtr    bool        // promoted through an embedded pointer
+	pos       gotoken.Pos // the Go field's name
 }
 
 // tsTypeCount counts types by identity (a small linear map).
@@ -668,6 +705,7 @@ func jsonTypeFields(t types.Type) []jsonField {
 						omitZero:  jsonOption(opts, "omitzero"),
 						quoted:    quoted,
 						viaPtr:    f.viaPtr,
+						pos:       sf.Pos(),
 					})
 					if count.get(f.t) > 1 {
 						// Several instances: add a second, so that the

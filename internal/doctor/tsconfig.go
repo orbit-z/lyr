@@ -16,8 +16,9 @@ const tsconfigFix = `in tsconfig.json, add "rootDirs": [".", "orbit_gen/types"] 
 
 // tsconfigCheck: when the project passes typed data to scripts (orbit.JSON
 // or set:json), tsconfig.json overlays orbit_gen/types onto the project
-// with rootDirs, so the editor resolves import "./X.orbit". orbit check
-// doesn't need it.
+// with rootDirs, so the editor's TypeScript resolves import "./X.orbit" in
+// .ts files. orbit check and orbit lsp's TypeScript (for <script> blocks)
+// don't need it: they use a generated tsconfig.
 func (d *doctor) tsconfigCheck() Check {
 	const name = "tsconfig"
 	if !usesTypedData(filepath.Join(d.root, "src")) {
@@ -29,14 +30,14 @@ func (d *doctor) tsconfigCheck() Check {
 	}
 	if u == nil {
 		return warn(name, "create tsconfig.json (orbit new writes one) with \"rootDirs\": [\".\", \"orbit_gen/types\"]",
-			"no tsconfig.json, so the editor can't type import \"./X.orbit\" in scripts")
+			"no tsconfig.json, so the editor's TypeScript can't type import \"./X.orbit\" in .ts files")
 	}
 	for _, dir := range u.CompilerOptions.RootDirs {
 		if path.Clean(filepath.ToSlash(dir)) == "orbit_gen/types" {
 			return ok(name, "rootDirs includes orbit_gen/types")
 		}
 	}
-	return warn(name, tsconfigFix, "tsconfig.json's rootDirs lacks orbit_gen/types, so the editor can't type import \"./X.orbit\" in scripts")
+	return warn(name, tsconfigFix, "tsconfig.json's rootDirs lacks orbit_gen/types, so the editor's TypeScript can't type import \"./X.orbit\" in .ts files")
 }
 
 // usesTypedData reports whether a .orbit file under src calls JSON (as

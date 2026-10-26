@@ -205,7 +205,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 | Content collections, `astro:assets` images | Not supported yet | Import Markdown files one by one (see [Markdown](markdown.md)), or load content from your own Go package under `internal/` and render trusted HTML with `orbit.HTML`. |
 | `astro.config.mjs` | `orbit.json` (optional) | Plain JSON with four keys: `site`, `server`, `embed` and `compressHTML`. No `base` or `trailingSlash` yet. See [Configuration](configuration.md). |
 | `compressHTML: true`, `'jsx'`, `false` | `"compressHTML": "html"` (or `true`), `"jsx"`, `false` | The same three behaviors, and `true` is accepted as `"html"`. Orbit's default is `"html"` (Astro's `true`), not Astro v7's `'jsx'`. See [Whitespace](reference/template-syntax.md#whitespace). |
-| The Astro VS Code extension | The Orbit extension, `orbit-z.orbit` | On the Marketplace and Open VSX. It starts `orbit lsp`, which works with gopls for Go completion, diagnostics and rename in `.orbit` files. TypeScript in `<script>` gets highlighting only; run `orbit check`. See [Editor setup](editor-setup.md). |
+| The Astro VS Code extension | The Orbit extension, `orbit-z.orbit` | On the Marketplace and Open VSX. It starts `orbit lsp`, which works with gopls for Go completion, diagnostics and rename in `.orbit` files (the frontmatter is Go), and with TypeScript 7 for TypeScript in `<script>` blocks, as Astro's does; `is:inline` scripts get JavaScript features, as in Astro. See [Editor setup](editor-setup.md). |
 
 ## Things that work differently
 

@@ -323,7 +323,7 @@ class LiveClock extends HTMLElement {
 customElements.define("live-clock", LiveClock);
 ```
 
-A script or a `.ts` file can also import a **component's `.orbit` file**, by relative path, to read the data that component writes with `orbit.JSON` and `set:json`, typed from its Go values: `import { data } from "../components/LikeButton.orbit"`. It never imports the component itself, only a tiny reader; see [Typed data with `orbit.JSON`](#typed-data-with-orbitjson) below. Moving a script's logic into a `.ts` file this way also gets you your editor's TypeScript checking, which `<script>` blocks inside `.orbit` files don't have yet (see [Editor setup](editor-setup.md#typescript)).
+A script or a `.ts` file can also import a **component's `.orbit` file**, by relative path, to read the data that component writes with `orbit.JSON` and `set:json`, typed from its Go values: `import { data } from "../components/LikeButton.orbit"`. It never imports the component itself, only a tiny reader; see [Typed data with `orbit.JSON`](#typed-data-with-orbitjson) below.
 
 Scripts may import `.tsx` files too (esbuild applies your `tsconfig.json`'s `jsx` settings). That's different from a framework component: Orbit has no framework islands, and importing a `.tsx`, `.jsx`, `.svelte` or `.vue` file from a component's *frontmatter* is a compile error.
 
@@ -382,7 +382,7 @@ class LikeButton extends HTMLElement {
 customElements.define("like-button", LikeButton);
 ```
 
-This renders `<like-button data-like='{"slug":"hello","likes":7}'>`. The types come from `orbit_gen/types/`, which `orbit generate` (and `build`, `dev`, `check`) writes; [`orbit check`](#type-checking-with-orbit-check) uses them, and so does your editor in `.ts` files. The mapping from Go types to TypeScript is in [Client modules](reference/client-modules.md).
+This renders `<like-button data-like='{"slug":"hello","likes":7}'>`. The types come from `orbit_gen/types/`, which `orbit generate` (and `build`, `dev`, `check`) writes; [`orbit check`](#type-checking-with-orbit-check) uses them, and so does your editor, in `<script>` blocks (where the language server keeps them in step with your unsaved Go edits) and in `.ts` files. The mapping from Go types to TypeScript is in [Client modules](reference/client-modules.md).
 
 ### `data-*` attributes and custom elements
 
@@ -554,11 +554,11 @@ The scaffolded `tsconfig.json`:
 }
 ```
 
-It's yours to change. The `rootDirs` and `include` entries let TypeScript find the generated types of `import … from "./X.orbit"` in `orbit_gen/types/` (see [Typed data with `orbit.JSON`](#typed-data-with-orbitjson)). A project created before they existed needs them only for editor support: `orbit check` adds them itself, and `orbit doctor` warns when a project uses typed data without them.
+It's yours to change. The `rootDirs` and `include` entries let TypeScript find the generated types of `import … from "./X.orbit"` in `orbit_gen/types/` (see [Typed data with `orbit.JSON`](#typed-data-with-orbitjson)). A project created before they existed needs them only for your editor's TypeScript in `.ts` files: `orbit check` and the TypeScript features in `<script>` blocks add them themselves, and `orbit doctor` warns when a project uses typed data without them.
 
 ### Type checking with `orbit check`
 
-esbuild only **strips** types; it never checks them. So `orbit build` and `orbit dev` accept a script with a type error. To find type errors, run:
+esbuild only **strips** types; it never checks them. So `orbit build` and `orbit dev` accept a script with a type error. Your editor shows type errors as you type, in `<script>` blocks too, with TypeScript 7 installed (see [Editor setup](editor-setup.md#typescript-in-script-blocks)), but only for the files you have open. To check the whole project, as in CI, run:
 
 ```sh
 orbit check

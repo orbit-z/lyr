@@ -307,6 +307,23 @@ Most of a template edit is `go build`, and most of that is the link, about 105 m
 
 Orbit answers `initialize` and publishes its own diagnostics (such as an unknown prop) in about 25 ms. With `orbit_gen/` on disk, gopls reads the generated files that are up to date from disk, and only the files you edit go to it in memory. That's why references of a `Props` field take longer there: gopls keeps only the packages it holds in memory fully loaded, and reloads the others for a cross-component search. `orbit lsp`'s peak on disk is a one-time check at startup that compares `orbit_gen/` with the sources (about 70 ms). Plain gopls on the same generated code uses about 300 MB.
 
+#### TypeScript in `<script>` blocks
+
+On the same project, with TypeScript 7.0.2: every fourth component has a `<script>`, so opening the probe component starts the TypeScript child next to gopls. The Go and template rows above don't change with it running (measured back to back with and without it, at a load average of 2–4: first hover, completion and references within the run-to-run noise, `orbit lsp` 45–56 MB either way).
+
+| | No `orbit_gen/` | `orbit_gen/` on disk |
+|---|---:|---:|
+| Start → first completion in a `<script>` (the child starts lazily on the `didOpen`) | 55 ms | 85 ms |
+| Edit + completion in a script (`document.`) | 2.77 ms | 2.82 ms |
+| Edit → TypeScript diagnostic published (includes the 50 ms debounce) | 52.8 ms | 52.6 ms |
+| Hover in a script | 0.12 ms | 0.13 ms |
+| First references in a script (opens every script's document, 40 here) | 35 ms | 37 ms |
+| References in a script, after that | 1.13 ms | 1.02 ms |
+| Memory: the TypeScript child | 78 MB | 78 MB |
+| Memory: the TypeScript child, every script open | 108 MB | 109 MB |
+
+With `orbit_gen/` on disk, the first script completion waits a little longer because the startup typed check runs at the same time. A Go edit that changes a script's data types reaches the script's completion and diagnostics after the 300 ms debounce of the typed check plus a few milliseconds.
+
 ## See also
 
 - [Rendering](rendering.md): the request lifecycle and buffered responses

@@ -69,8 +69,12 @@ type tyState struct {
 	// genFiles maps the import path of each unit's decl and impl package
 	// to its .orbit path (TS namespaces, nsOf); set before each check.
 	genFiles map[string]string
-	decls    map[string]*tyDecl // by decl import path
-	stats    tyStats
+	// genSources maps each unit's generated file names (as parsed into
+	// fset) to its .orbit path and pass-1 source map (sourceOf); set with
+	// genFiles.
+	genSources map[string]tyGenSource
+	decls      map[string]*tyDecl // by decl import path
+	stats      tyStats
 }
 
 // tyExtImporter wraps the loader's importer, recording failures for the
@@ -489,9 +493,14 @@ func (s *tyState) getEnv() *tyEnv {
 // demand), picks the typed writes and re-emits.
 func (s *tyState) checkUnits(ctx context.Context, units []*tyUnit, generate func(*Input) *Output) error {
 	s.genFiles = make(map[string]string, 2*len(s.units))
+	s.genSources = make(map[string]tyGenSource, 2*len(s.units))
 	for _, u := range s.units {
 		if u.declPath != "" {
 			s.genFiles[u.declPath], s.genFiles[u.implPath] = u.path, u.path
+		}
+		if p1 := u.unit.Pass1; p1 != nil && p1.Decl != nil && p1.Impl != nil {
+			s.genSources[p1.Decl.Path] = tyGenSource{u.path, p1.Decl.Map}
+			s.genSources[p1.Impl.Path] = tyGenSource{u.path, p1.Impl.Map}
 		}
 	}
 	sem := make(chan struct{}, runtime.GOMAXPROCS(0))

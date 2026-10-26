@@ -58,6 +58,17 @@ type workspace struct {
 	// files depend on (mdcheck.go): a typed check's Markdown result is
 	// adopted only when none happened since its snapshot.
 	mdEdit uint64
+
+	// The TypeScript side (PLAN.md §9b): the virtual documents by .orbit
+	// path (tsdocs.go), the data contracts and the .d.ts files emitted
+	// from them in memory with their side tables (nil until a typed check
+	// ran), the ones open in the child as overlays by URI, and a counter of
+	// the changes they depend on (dataChanged).
+	vdocs      map[string][]*vdoc
+	tsUnits    map[string]*compiler.UnitTypes
+	tsTypes    []compiler.TSFile
+	tsOverlays map[string]*tsOverlay
+	tsEdit     uint64
 }
 
 // document is an .orbit or Markdown file open in the editor.
@@ -132,7 +143,8 @@ func loadWorkspace(root string) (*workspace, error) {
 	p.Front()
 	ws := &workspace{root: p.Root, module: p.Module, proj: p, lines: map[string]*lineIndex{},
 		docs: map[string]*document{}, gen: map[string]*genFile{}, goplsDiags: map[string]goplsDiags{},
-		published: map[string]string{}, scratch: map[string]*scratchFile{}, mdTyped: map[string][]mdTypedDiag{}}
+		published: map[string]string{}, scratch: map[string]*scratchFile{}, mdTyped: map[string][]mdTypedDiag{},
+		vdocs: map[string][]*vdoc{}, tsUnits: map[string]*compiler.UnitTypes{}, tsOverlays: map[string]*tsOverlay{}}
 	if mod, err := config.ReadGoMod(p.Root); err == nil {
 		ws.goVersion = mod.Go
 	}

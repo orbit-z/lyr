@@ -48,15 +48,21 @@ type diskCheck struct {
 	mdTyped map[string][]mdTypedDiag
 	// edit is ws.mdEdit at the snapshot: mdTyped is adopted only if no
 	// Markdown-relevant change happened since (mdcheck.go).
-	edit  uint64
-	files int // generated files compared
-	took  time.Duration
+	edit uint64
+	// tsEdit is ws.tsEdit at the snapshot, and known and units the data
+	// contracts (typesOf): adopted for the TypeScript child only if no
+	// data-relevant change happened since (PLAN.md §9b Q5).
+	tsEdit uint64
+	known  map[string]bool
+	units  map[string]*compiler.UnitTypes
+	files  int // generated files compared
+	took   time.Duration
 }
 
 // newDiskCheck snapshots ws for a typed check (with s.mu held).
 func (ws *workspace) newDiskCheck() *diskCheck {
 	c := &diskCheck{proj: ws.proj.Clone(compiler.Strict), pass1: make(map[string]*compiler.Output, len(ws.proj.Files)),
-		edit: ws.mdEdit}
+		edit: ws.mdEdit, tsEdit: ws.tsEdit}
 	for _, f := range ws.proj.Files {
 		c.pass1[f.Path] = f.Pass1
 	}
@@ -79,6 +85,7 @@ func (c *diskCheck) run(ctx context.Context) error {
 		return err
 	}
 	c.mdTyped = typedMarkdownDiags(p, front)
+	c.known, c.units = typesOf(p, false)
 	c.typed = map[string]*compiler.GenFile{}
 	for _, f := range p.Files {
 		if f.Output == nil {
@@ -184,6 +191,9 @@ func (s *Server) startupCheck(ws *workspace) {
 		if late && n > 0 || md && len(c.mdTyped) > 0 {
 			s.publishAll(ws)
 		}
+		if c.tsEdit == ws.tsEdit {
+			s.adoptTypes(ws, c.known, c.units)
+		}
 	}
 	s.mu.Unlock()
 	s.markMapped()
@@ -268,6 +278,9 @@ func (s *Server) runDiskCheck() {
 		}
 		if n > 0 || md {
 			s.publishAll(ws)
+		}
+		if c.tsEdit == ws.tsEdit {
+			s.adoptTypes(ws, c.known, c.units)
 		}
 	}
 	again := s.diskPending
