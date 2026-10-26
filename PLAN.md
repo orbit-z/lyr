@@ -2035,7 +2035,7 @@ Dependencies:
 - Astro's other route shapes: segments that mix text and a parameter (`post-[id]`) and rest params before other segments (`[...path]/edit`); a build error in the MVP (§4)
 - Tests of embedding in chi/Gin
 - The `base` config option
-- The `trailingSlash` modes (`ignore`/`always`/`never`); the MVP always uses URLs without a trailing slash, redirecting `/x/` to `/x` with a 308 (§4)
+- **`trailingSlash` option** (user decision, 2026-10-26, prompted by porting `nyth`, an Astro site with `trailingSlash: "always"`): `orbit.json` `"trailingSlash": "never"` (default, today's behavior, §4) or `"always"` (`/x` gets a 308 to `/x/`, query kept; `/` unchanged; files and paths with a file extension never redirected); no `"ignore"` mode (two URLs per page). Reaches the router, generated URLs (`.md` `Post.URL`, rewritten `.md` links), dev and docs. Next after direct calls (§3.5); spec first.
 - SSR response caching
 - The docs dogfood site (`docs/site/`, docs built with Orbit)
 - **Typed form actions** (user idea, like Astro Actions): a typed, validated handler for a form or `fetch` call, declared next to the page or in `src/actions`, with an input struct decoded and validated (a Zod-like Go validator such as Zog, or struct tags, chosen then; ask before adding a dependency), errors returned to the page, and progressive enhancement without JS. Until then, users write a plain handler in `cmd/server` and render the response with `orbit.RenderComponent`.
