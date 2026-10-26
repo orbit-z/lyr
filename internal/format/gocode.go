@@ -269,6 +269,28 @@ func (fx *fileFmt) goRegion(r *region) {
 		out = "{/for}"
 	case rElse:
 		out = "{else}"
+	case rEndSwitch:
+		out = "{/switch}"
+	case rDefault:
+		out = "{default}"
+	case rSwitch:
+		if code == "" {
+			out = "{switch}"
+			break
+		}
+		f, ok := fx.header(r.kind, code, r.code.Start, base)
+		if !ok {
+			return
+		}
+		formatted = f
+		out = "{switch " + f + "}"
+	case rCase:
+		f, ok := fx.caseList(code, lf(fx.src[r.clause.Start:r.clause.End]), r.code.Start, base)
+		if !ok {
+			return
+		}
+		formatted = f
+		out = "{case " + f + "}"
 	case rShorthand:
 		out, formatted = "{"+code+"}", code
 	case rExpr, rAttrExpr, rSpread:
@@ -302,7 +324,7 @@ func (fx *fileFmt) goRegion(r *region) {
 			out = "{for " + f + "}"
 		}
 	}
-	header := r.kind == rIf || r.kind == rElseIf || r.kind == rFor
+	header := r.kind == rIf || r.kind == rElseIf || r.kind == rFor || r.kind == rSwitch
 	if formatted != "" && !sameGo(code, formatted, false) && !(header && sameGo(stripParens(code), stripParens(formatted), false)) {
 		fx.warns = append(fx.warns, warning(r.span, "formatting this "+regionName(r.kind)+" would change its code; left as is (please report this)"))
 		return
@@ -318,6 +340,10 @@ func regionName(k regionKind) string {
 		return "{else if}"
 	case rFor:
 		return "{for}"
+	case rSwitch:
+		return "{switch}"
+	case rCase:
+		return "{case}"
 	case rScript:
 		return "<script>"
 	case rStyle:
@@ -348,11 +374,15 @@ func (fx *fileFmt) expr(code string, off int, base string) (string, bool) {
 }
 
 // header formats the condition of {if}/{else if} or the clause of {for}
-// inside a statement, and takes it back from the formatted statement.
+// or {switch} inside a statement, and takes it back from the formatted
+// statement.
 func (fx *fileFmt) header(k regionKind, code string, off int, base string) (string, bool) {
 	kw := "if"
-	if k == rFor {
+	switch k {
+	case rFor:
 		kw = "for"
+	case rSwitch:
+		kw = "switch"
 	}
 	if endsInLineComment(code) {
 		fx.errs = append(fx.errs, errorAt(off+strings.LastIndex(code, "//"), "a // comment can't end a {"+kw+"} header; use /* … */"))
@@ -384,6 +414,10 @@ func (fx *fileFmt) header(k regionKind, code string, off int, base string) (stri
 		start, end = st.For+3, st.Body.Lbrace
 	case *goast.RangeStmt:
 		start, end = st.For+3, st.Body.Lbrace
+	case *goast.SwitchStmt:
+		start, end = st.Switch+6, st.Body.Lbrace
+	case *goast.TypeSwitchStmt:
+		start, end = st.Switch+6, st.Body.Lbrace
 	}
 	if !start.IsValid() {
 		fx.errs = append(fx.errs, errorAt(off, "can't format this "+kw+" header (please report this)"))
@@ -391,6 +425,61 @@ func (fx *fileFmt) header(k regionKind, code string, off int, base string) (stri
 	}
 	tf := fset.File(start)
 	s := strings.TrimSpace(string(out[tf.Offset(start):tf.Offset(end)]))
+	s = reindent(s, 1, base, fx.unit)
+	if endsInLineComment(s) {
+		s += "\n" + base
+	}
+	return s, true
+}
+
+// caseList formats the list of a {case} inside its switch (clause is the
+// switch's clause as written), and takes it back from the formatted
+// statement.
+func (fx *fileFmt) caseList(code, clause string, off int, base string) (string, bool) {
+	if endsInLineComment(code) {
+		fx.errs = append(fx.errs, errorAt(off+strings.LastIndex(code, "//"), "a // comment can't end a {case} list; use /* … */"))
+		return "", false
+	}
+	if endsInLineComment(clause) {
+		return "", false // reported at the {switch}
+	}
+	head := "\tswitch " + clause + " {\n"
+	const prefix = "package p\n\nfunc _() {\n"
+	src := prefix + head + "\tcase " + code + ":\n\t}\n}\n"
+	out, err := goformat.Source([]byte(src))
+	if err != nil {
+		fx.goErr(err, off, 4+strings.Count(clause, "\n"), len("\tcase "))
+		return "", false
+	}
+	fail := func() (string, bool) {
+		fx.errs = append(fx.errs, errorAt(off, "can't format this case list (please report this)"))
+		return "", false
+	}
+	fset := gotoken.NewFileSet()
+	file, err := goparser.ParseFile(fset, "", out, goparser.ParseComments)
+	if err != nil || len(file.Decls) != 1 {
+		return fail()
+	}
+	fn, _ := file.Decls[0].(*goast.FuncDecl)
+	if fn == nil || fn.Body == nil || len(fn.Body.List) != 1 {
+		return fail()
+	}
+	var body *goast.BlockStmt
+	switch st := fn.Body.List[0].(type) {
+	case *goast.SwitchStmt:
+		body = st.Body
+	case *goast.TypeSwitchStmt:
+		body = st.Body
+	}
+	if body == nil || len(body.List) != 1 {
+		return fail()
+	}
+	cc, _ := body.List[0].(*goast.CaseClause)
+	if cc == nil || cc.List == nil {
+		return fail()
+	}
+	tf := fset.File(cc.Case)
+	s := strings.TrimSpace(string(out[tf.Offset(cc.Case+4):tf.Offset(cc.Colon)]))
 	s = reindent(s, 1, base, fx.unit)
 	if endsInLineComment(s) {
 		s += "\n" + base

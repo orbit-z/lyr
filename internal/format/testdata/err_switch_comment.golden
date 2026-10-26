@@ -1,0 +1,2 @@
+-- errors --
+err_switch_comment.orbit:2:11: a // comment can't end a {case} list; use /* … */

@@ -1,0 +1,23 @@
+---
+m := map[string]int{}
+var item any
+---
+{ switch  m["k"]+1 }
+  {/* first */}
+  { case 1,2 }
+    <p>small</p>
+  {case 3}<p>three</p>
+  { default }
+    <p>big</p>
+{ /switch }
+{switch s:=f();s}{case "a","b"}ab{/switch}
+{switch }{case len(m)>3 && len(m)<10}mid{case (len(m)==0)}none{/switch}
+{switch v:=item.(type)}
+  {case int,int64}{v+1}
+  {case []string,map[string]int}{len(v)}
+  {case nil}nil
+{/switch}
+{switch x}{case a, /* why */ b}c{/switch}
+{switch x}{case
+  "a",
+  "b"}c{/switch}

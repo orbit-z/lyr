@@ -167,6 +167,10 @@ const (
 	rEndIf                  // {/if}
 	rFor                    // {for clause}
 	rEndFor                 // {/for}
+	rSwitch                 // {switch clause}
+	rCase                   // {case list}
+	rDefault                // {default}
+	rEndSwitch              // {/switch}
 	rScript
 	rStyle
 )
@@ -178,6 +182,9 @@ type region struct {
 	// code is the Go code (expressions and headers) or the raw content
 	// (scripts and styles), as written.
 	code compiler.Span
+	// clause is the {switch} clause of a {case} list, as written: the case
+	// list is formatted inside that switch, since a type switch lists types.
+	clause compiler.Span
 	// node is the Script or Style.
 	node compiler.Node
 	// index is a block's index among the file's scripts (or styles).
@@ -226,7 +233,8 @@ func (fx *fileFmt) collect() {
 	compiler.Walk(fx.f.Template, fx.walker(add, attrs, &scripts, &styles))
 }
 
-// walker returns the Walk callback that collect uses below an If or For.
+// walker returns the Walk callback that collect uses below an If, For or
+// Switch.
 func (fx *fileFmt) walker(add func(*region), attrs func(*compiler.Tag), scripts, styles *int) func(compiler.Node) bool {
 	var w func(compiler.Node) bool
 	w = func(n compiler.Node) bool {
@@ -259,6 +267,25 @@ func (fx *fileFmt) walker(add func(*region), attrs func(*compiler.Tag), scripts,
 			}
 			if n.EndTag.Len() > 0 {
 				add(&region{kind: rEndFor, span: n.EndTag})
+			}
+			return false
+		case *compiler.Switch:
+			add(&region{kind: rSwitch, span: n.Header, code: n.Clause.Span})
+			for _, c := range n.Pre {
+				compiler.Walk(c, w)
+			}
+			for _, cs := range n.Cases {
+				if cs.Default {
+					add(&region{kind: rDefault, span: cs.Header})
+				} else {
+					add(&region{kind: rCase, span: cs.Header, code: cs.List.Span, clause: n.Clause.Span})
+				}
+				for _, c := range cs.Children {
+					compiler.Walk(c, w)
+				}
+			}
+			if n.EndTag.Len() > 0 {
+				add(&region{kind: rEndSwitch, span: n.EndTag})
 			}
 			return false
 		}
