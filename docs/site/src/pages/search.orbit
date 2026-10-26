@@ -1,0 +1,77 @@
+---
+import (
+    "strings"
+
+    "github.com/bertrandkhe/orbit/docs/site/internal/content"
+    Base "../layouts/Base.orbit"
+)
+
+q := strings.TrimSpace(ctx.Request.URL.Query().Get("q"))
+docs, err := content.Get()
+if err != nil {
+    return err
+}
+results := docs.Search(q)
+title := "Search"
+if q != "" {
+    title = "Search: " + q
+}
+---
+<Base title={title} query={q}>
+  <h1>Search</h1>
+  <form class="big" action="/search" method="get" role="search">
+    <input type="search" name="q" value={q} placeholder="routing, server:defer, orbit build…" aria-label="Search the docs" autofocus>
+    <button type="submit">Search</button>
+  </form>
+  {if q == ""}
+    <p class="hint">Type a word or two. Every word must appear in a section for it to match.</p>
+  {else if len(results) == 0}
+    <p class="hint">No results for <strong>{q}</strong>.</p>
+  {else}
+    <p class="hint">
+      {len(results)}{if len(results) == content.MaxResults}+{/if} results for <strong>{q}</strong>
+    </p>
+    <ol class="results">
+      {for _, r := range results}
+        <li>
+          <a href={r.URL}>
+            <span class="page">{r.Page.Title}</span>
+            {if r.Heading != ""}<span class="sep">›</span> {r.Heading}{/if}
+          </a>
+          <p>{r.Snippet.Before}<mark>{r.Snippet.Match}</mark>{r.Snippet.After}</p>
+        </li>
+      {/for}
+    </ol>
+  {/if}
+</Base>
+
+<style>
+  .big { display: flex; gap: 0.5rem; margin: 1rem 0 1.5rem; }
+  .big input {
+    flex: 1;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-soft);
+    color: var(--fg);
+    font: inherit;
+  }
+  .big button {
+    padding: 0.55rem 1rem;
+    border: 0;
+    border-radius: 6px;
+    background: var(--accent);
+    color: var(--bg);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .hint { color: var(--muted); }
+  .results { list-style: none; padding: 0; }
+  .results li { padding: 0.85rem 0; border-bottom: 1px solid var(--border); }
+  .results a { font-weight: 600; text-decoration: none; }
+  .results a:hover { text-decoration: underline; }
+  .page { color: var(--fg); }
+  .sep { color: var(--muted); }
+  .results p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.92rem; }
+</style>

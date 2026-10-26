@@ -1,0 +1,46 @@
+<theme-toggle>
+  <button type="button" title="Toggle dark mode" aria-label="Toggle dark mode">
+    <span class="sun" aria-hidden="true">☀</span><span class="moon" aria-hidden="true">☾</span>
+  </button>
+</theme-toggle>
+
+<style>
+  button {
+    display: grid;
+    place-items: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-soft);
+    color: var(--fg);
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  .moon { display: none; }
+  :root[data-theme="dark"] .sun { display: none; }
+  :root[data-theme="dark"] .moon { display: inline; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .sun { display: none; }
+    :root:not([data-theme="light"]) .moon { display: inline; }
+  }
+</style>
+
+<script>
+  // The server reads the "theme" cookie into locals.Theme and renders it as
+  // <html data-theme>, so the choice survives reloads without a flash.
+  class ThemeToggle extends HTMLElement {
+    connectedCallback() {
+      this.querySelector("button")!.addEventListener("click", () => {
+        const root = document.documentElement;
+        const dark = root.dataset.theme
+          ? root.dataset.theme === "dark"
+          : matchMedia("(prefers-color-scheme: dark)").matches;
+        const next = dark ? "light" : "dark";
+        root.dataset.theme = next;
+        document.cookie = `theme=${next}; path=/; max-age=31536000; samesite=lax`;
+      });
+    }
+  }
+  customElements.define("theme-toggle", ThemeToggle);
+</script>

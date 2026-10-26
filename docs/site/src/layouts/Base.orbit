@@ -1,0 +1,140 @@
+---
+import (
+    "github.com/bertrandkhe/orbit/docs/site/internal/content"
+    // Imported first, so the global styles come before every component's
+    // scoped styles in the page's stylesheet, and lose to them on ties.
+    GlobalStyles "../components/GlobalStyles.orbit"
+    Sidebar "../components/Sidebar.orbit"
+    ThemeToggle "../components/ThemeToggle.orbit"
+)
+
+type Props struct {
+    Title       string
+    Description string
+    // Query fills the header's search box (on the search page).
+    Query string
+}
+
+docs, err := content.Get()
+if err != nil {
+    return err
+}
+
+title := "Orbit docs"
+if props.Title != "" {
+    title = props.Title + " · Orbit docs"
+}
+// No data-theme attribute means "follow the system setting".
+var theme any
+if locals.Theme != "" {
+    theme = locals.Theme
+}
+---
+<!DOCTYPE html>
+<html lang="en" data-theme={theme}>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="/favicon.svg">
+    <title>{title}</title>
+    <GlobalStyles />
+    {if props.Description != ""}
+      <meta name="description" content={props.Description}>
+    {/if}
+  </head>
+  <body>
+    <a class="skip" href="#content">Skip to content</a>
+    <header class="top">
+      <a class="brand" href="/"><img src="/favicon.svg" alt="" width="24" height="24"> Orbit</a>
+      <form class="search" action="/search" method="get" role="search">
+        <input type="search" name="q" value={props.Query} placeholder="Search the docs" aria-label="Search the docs">
+      </form>
+      <ThemeToggle />
+    </header>
+    <div class="shell">
+      <details class="nav-wrap" open>
+        <summary>Menu</summary>
+        <Sidebar nav={docs.Nav} current={ctx.URL.Path} label="Documentation pages" />
+      </details>
+      <main id="content">
+        <slot />
+      </main>
+      {if slots.Has("aside")}
+        <aside class="aside"><slot name="aside" /></aside>
+      {/if}
+    </div>
+  </body>
+</html>
+
+
+<style>
+  .skip { position: absolute; left: -999px; }
+  .skip:focus { left: 1rem; top: 0.5rem; z-index: 10; }
+  .top {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6rem 1.25rem;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .search { flex: 1; max-width: 28rem; margin-left: auto; }
+  .search input {
+    width: 100%;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-soft);
+    color: var(--fg);
+    font: inherit;
+  }
+  .shell {
+    display: grid;
+    grid-template-columns: 16rem minmax(0, 1fr) 14rem;
+    gap: 2rem;
+    max-width: 90rem;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+  }
+  .nav-wrap > summary { display: none; }
+  .nav-wrap {
+    position: sticky;
+    top: 3.5rem;
+    align-self: start;
+    max-height: calc(100vh - 3.5rem);
+    overflow-y: auto;
+    padding: 1.5rem 0;
+  }
+  main { min-width: 0; padding: 1.5rem 0 4rem; }
+  .aside {
+    position: sticky;
+    top: 3.5rem;
+    align-self: start;
+    max-height: calc(100vh - 3.5rem);
+    overflow-y: auto;
+    padding: 1.5rem 0;
+    font-size: 0.875rem;
+  }
+  @media (max-width: 70rem) {
+    .shell { grid-template-columns: 15rem minmax(0, 1fr); }
+    .aside { display: none; }
+  }
+  @media (max-width: 48rem) {
+    .shell { display: block; }
+    .nav-wrap { position: static; max-height: none; padding: 0.75rem 0 0; }
+    .nav-wrap > summary { display: list-item; cursor: pointer; font-weight: 600; }
+    .search { max-width: none; }
+  }
+</style>

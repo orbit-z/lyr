@@ -1,0 +1,8 @@
+orbit_gen/
+.orbit/
+dist/
+node_modules/
+
+# The copy of docs/*.md that go generate ./internal/content writes for embedding.
+internal/content/md/*
+!internal/content/md/.gitkeep

@@ -1,0 +1,32 @@
+---
+import "github.com/bertrandkhe/orbit/docs/site/internal/content"
+
+type Props struct {
+    Headings []content.Heading
+}
+---
+{if len(props.Headings) > 0}
+  <nav class="toc" aria-label="On this page">
+    <h2>On this page</h2>
+    <ul>
+      {for _, h := range props.Headings}
+        <li data-level={h.Level}><a href={"#" + h.ID}>{h.Text}</a></li>
+      {/for}
+    </ul>
+  </nav>
+{/if}
+
+<style>
+  h2 {
+    margin: 0 0 0.5rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { margin: 0.2rem 0; }
+  li[data-level="3"] { padding-left: 0.85rem; }
+  a { color: var(--muted); text-decoration: none; }
+  a:hover { color: var(--accent); }
+</style>
