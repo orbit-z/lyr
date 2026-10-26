@@ -35,6 +35,9 @@ type TSKey struct {
 	// Sites are the doc comment text per site, e.g.
 	// "data-post (LikeButton.orbit:9:14)".
 	Sites []string
+	// Spans are the attribute names of the sites in the .orbit file
+	// (byte offsets), in Sites order.
+	Spans []Span
 }
 
 // TSFile is one emitted declaration file.
@@ -42,6 +45,10 @@ type TSFile struct {
 	// Path is module-relative, under orbit_gen/types/.
 	Path    string
 	Content []byte
+	// Sources is the side table of the language server (PLAN.md §9b):
+	// the Go declaration or attribute each declaration line stands for,
+	// by 0-based line. Only lines with a known source are listed.
+	Sources map[int]TSSource
 }
 
 // tsTypesDir is where the declaration files go, relative to the module root.
@@ -70,15 +77,17 @@ func EmitTypes(units []*UnitTypes) []TSFile {
 		}
 	}
 	names := newTSNames(decls)
+	goDTS, goSrc := names.goDTS()
 	files := []TSFile{
 		{Path: tsTypesDir + "/client.d.ts", Content: []byte(clientDTS)},
-		{Path: tsTypesDir + "/go.d.ts", Content: names.goDTS()},
+		{Path: tsTypesDir + "/go.d.ts", Content: goDTS, Sources: goSrc},
 	}
 	for _, u := range units {
 		if len(u.Data) == 0 && len(u.JSON) == 0 {
 			continue
 		}
-		files = append(files, TSFile{Path: tsTypesDir + "/" + u.Path + ".d.ts", Content: names.unitDTS(u)})
+		content, src := names.unitDTS(u)
+		files = append(files, TSFile{Path: tsTypesDir + "/" + u.Path + ".d.ts", Content: content, Sources: src})
 	}
 	slices.SortFunc(files, func(a, b TSFile) int { return strings.Compare(a.Path, b.Path) })
 	return files
@@ -273,13 +282,43 @@ func (n *tsNames) render(text, from string, used map[string]bool) string {
 	}
 }
 
-// goDTS returns go.d.ts.
-func (n *tsNames) goDTS() []byte {
-	var b strings.Builder
+// dtsBuilder writes a .d.ts file and its side table.
+type dtsBuilder struct {
+	strings.Builder
+	line int // 0-based line of the next byte
+	src  map[int]TSSource
+}
+
+func (b *dtsBuilder) WriteString(s string) {
+	b.line += strings.Count(s, "\n")
+	b.Builder.WriteString(s)
+}
+
+func (b *dtsBuilder) WriteByte(c byte) error {
+	if c == '\n' {
+		b.line++
+	}
+	return b.Builder.WriteByte(c)
+}
+
+// mark records that the current line stands for src.
+func (b *dtsBuilder) mark(src TSSource) {
+	if src.File == "" {
+		return
+	}
+	if b.src == nil {
+		b.src = map[int]TSSource{}
+	}
+	b.src[b.line] = src
+}
+
+// goDTS returns go.d.ts and its side table.
+func (n *tsNames) goDTS() ([]byte, map[int]TSSource) {
+	var b dtsBuilder
 	b.WriteString(GenHeader + "\n")
 	if len(n.order) == 0 {
 		b.WriteString("declare module \"orbit:types\" {}\n")
-		return []byte(b.String())
+		return []byte(b.String()), nil
 	}
 	b.WriteString("declare module \"orbit:types\" {\n")
 	for i, t := range n.order {
@@ -300,6 +339,7 @@ func (n *tsNames) goDTS() []byte {
 			}
 			params = "<" + strings.Join(ps, ", ") + ">"
 		}
+		b.mark(d.Source)
 		if !d.Interface {
 			b.WriteString("    export type " + t.name + params + " = " + n.render(d.Alias, from, nil) + ";\n")
 			continue
@@ -310,6 +350,7 @@ func (n *tsNames) goDTS() []byte {
 		}
 		b.WriteString("    export interface " + t.name + params + " {\n")
 		for _, f := range d.Fields {
+			b.mark(f.Source)
 			b.WriteString("      " + tsPropName(f.Name))
 			if f.Optional {
 				b.WriteByte('?')
@@ -319,21 +360,35 @@ func (n *tsNames) goDTS() []byte {
 		b.WriteString("    }\n")
 	}
 	b.WriteString("  }\n}\n")
-	return []byte(b.String())
+	return []byte(b.String()), b.src
 }
 
-// unitDTS returns the per-unit module of u.
-func (n *tsNames) unitDTS(u *UnitTypes) []byte {
+// unitDTS returns the per-unit module of u and its side table: a key's
+// line stands for its first site's attribute, and the interface and
+// function lines for the first key's.
+func (n *tsNames) unitDTS(u *UnitTypes) ([]byte, map[int]TSSource) {
 	used := map[string]bool{}
-	var body strings.Builder
+	var body dtsBuilder
+	site := func(k TSKey) TSSource {
+		if len(k.Spans) == 0 {
+			return TSSource{}
+		}
+		return TSSource{File: u.Path, Orbit: true, Start: k.Spans[0].Start, End: k.Spans[0].End}
+	}
 	section := func(iface, doc, fn, sig string, keys []TSKey) {
 		body.WriteString("\n/** " + tsComment(doc) + " */\n")
+		first := TSSource{}
+		if len(keys) > 0 {
+			first = site(keys[0])
+		}
+		body.mark(first)
 		if len(keys) == 0 {
 			body.WriteString("export interface " + iface + " {}\n")
 		} else {
 			body.WriteString("export interface " + iface + " {\n")
 			for _, k := range keys {
 				body.WriteString("  /** " + tsComment(strings.Join(k.Sites, ", ")) + " */\n")
+				body.mark(site(k))
 				body.WriteString("  " + tsPropName(k.Name) + ": " + n.keyType(k, used) + ";\n")
 			}
 			body.WriteString("}\n")
@@ -346,12 +401,14 @@ func (n *tsNames) unitDTS(u *UnitTypes) []byte {
 			}
 			lits = strings.Join(ls, " | ")
 		}
+		body.mark(first)
 		body.WriteString("export declare function " + fn + "<K extends " + lits + ">(" + sig + "): " + iface + "[K];\n")
 	}
 	section("Data", "The orbit.JSON data-* attributes written by "+u.Path+", by dataset name.", "data", "el: Element, key: K", u.Data)
 	section("JSONBlocks", "The set:json blocks written by "+u.Path+", by id.", "json", "id: K", u.JSON)
 	var b strings.Builder
 	b.WriteString(GenHeader + "\n")
+	shift := 1 + strings.Count(GenHeader, "\n")
 	if len(used) > 0 {
 		ns := make([]string, 0, len(used))
 		for s := range used {
@@ -359,9 +416,17 @@ func (n *tsNames) unitDTS(u *UnitTypes) []byte {
 		}
 		slices.Sort(ns)
 		b.WriteString("import type { " + strings.Join(ns, ", ") + " } from \"orbit:types\";\n")
+		shift++
 	}
 	b.WriteString(body.String())
-	return []byte(b.String())
+	var src map[int]TSSource
+	if body.src != nil {
+		src = make(map[int]TSSource, len(body.src))
+		for l, s := range body.src {
+			src[l+shift] = s
+		}
+	}
+	return []byte(b.String()), src
 }
 
 // keyType returns the union of a key's types; unknown absorbs the rest.

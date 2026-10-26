@@ -10,10 +10,12 @@ import (
 	"github.com/orbit-z/orbit/internal/compiler"
 )
 
-// MarkdownChecker is the language server's typed pass for Markdown
-// frontmatter while the user types (PLAN.md §9): it type-checks only the
-// Markdown files that have a layout, plus the files whose generated decl
-// packages they import (their layouts, transitively), and keeps its
+// MarkdownChecker is the language server's typed pass while the user types
+// (PLAN.md §9, §9b): it type-checks only the Markdown files that have a
+// layout and, with TypecheckScope's data set, the .orbit files with
+// orbit.JSON or set:json sites (whose Types the editor's TypeScript reads),
+// plus the files whose generated decl packages they import (transitively),
+// and keeps its
 // compiler.Checker between runs, so the go list -export of the first run
 // is reused until Invalidate. It is not safe for concurrent use.
 type MarkdownChecker struct {
@@ -46,7 +48,14 @@ func (m *MarkdownChecker) Invalidate() { m.checker = nil }
 // only for ctx cancellation; after one, or after load warnings, the next
 // run starts afresh.
 func (m *MarkdownChecker) Typecheck(ctx context.Context, p *Project) (checked int, loaded bool, err error) {
-	files := markdownUnits(p)
+	return m.TypecheckScope(ctx, p, true, false)
+}
+
+// TypecheckScope is Typecheck over the Markdown files with a layout (md)
+// and the files with JSON sites (data), and their dependencies. The files
+// checked get their Types set too.
+func (m *MarkdownChecker) TypecheckScope(ctx context.Context, p *Project, md, data bool) (checked int, loaded bool, err error) {
+	files := markdownUnits(p, md, data)
 	if len(files) == 0 {
 		return 0, false, nil
 	}
@@ -89,7 +98,7 @@ func (m *MarkdownChecker) Typecheck(ctx context.Context, p *Project) (checked in
 		if !ok {
 			continue
 		}
-		f.Output, f.Typed, f.Writes = u.Output, u.Checked, u.Writes
+		f.Output, f.Typed, f.Writes, f.Types = u.Output, u.Checked, u.Writes, u.Types
 		for _, d := range u.Diagnostics {
 			ds = append(ds, fromCompiler(f, d))
 		}
@@ -102,9 +111,10 @@ func (m *MarkdownChecker) Typecheck(ctx context.Context, p *Project) (checked in
 }
 
 // markdownUnits returns, in p.Files order, the Markdown files with a layout
-// and every file whose generated decl package they import, directly or
-// through other decl packages: what their Retype needs.
-func markdownUnits(p *Project) []*File {
+// (md), the .orbit files with JSON sites (data), and every file whose
+// generated decl package they import, directly or through other decl
+// packages: what their Retype or impl check needs.
+func markdownUnits(p *Project, md, data bool) []*File {
 	byDecl := map[string]*File{}
 	for _, f := range p.Files {
 		if f.Pass1 != nil && f.Pass1.Decl != nil && f.Pass1.Impl != nil {
@@ -120,7 +130,10 @@ func markdownUnits(p *Project) []*File {
 		}
 	}
 	for _, f := range p.Files {
-		if f.MD != nil && f.MD.Layout != "" && f.Pass1 != nil && f.Pass1.Decl != nil && byDecl[f.Pass1.Decl.ImportPath] == f {
+		if f.Pass1 == nil || f.Pass1.Decl == nil || byDecl[f.Pass1.Decl.ImportPath] != f {
+			continue
+		}
+		if md && f.MD != nil && f.MD.Layout != "" || data && f.MD == nil && len(f.Pass1.JSONSites) > 0 {
 			add(f)
 		}
 	}
@@ -140,8 +153,8 @@ func markdownUnits(p *Project) []*File {
 		f := queue[0]
 		queue = queue[1:]
 		imports(f.Pass1.Decl)
-		if f.MD != nil {
-			imports(f.Pass1.Impl) // the layout's decl package
+		if f.MD != nil || len(f.Pass1.JSONSites) > 0 {
+			imports(f.Pass1.Impl) // the layout's (or the components') decl packages
 		}
 	}
 	var out []*File

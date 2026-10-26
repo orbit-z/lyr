@@ -66,17 +66,23 @@ func (p *Project) GenFiles() []GenFile {
 // go.d.ts and client.d.ts, and one module per .orbit file with keys, from
 // every File's Types.
 func (p *Project) typesFiles() []GenFile {
+	var files []GenFile
+	for _, tf := range p.TypeFiles() {
+		files = append(files, GenFile{Path: tf.Path, Content: tf.Content})
+	}
+	return files
+}
+
+// TypeFiles returns the emitted .d.ts files of every File's Types, with
+// their side tables (compiler.TSFile.Sources), for the language server.
+func (p *Project) TypeFiles() []compiler.TSFile {
 	var units []*compiler.UnitTypes
 	for _, f := range p.Files {
 		if f.Types != nil {
 			units = append(units, f.Types)
 		}
 	}
-	var files []GenFile
-	for _, tf := range compiler.EmitTypes(units) {
-		files = append(files, GenFile{Path: tf.Path, Content: tf.Content})
-	}
-	return files
+	return compiler.EmitTypes(units)
 }
 
 // pageAlias is the import name of a page's decl package in app.go: its Rel
