@@ -600,6 +600,184 @@ and `Defer` (§4) writes:
 - `client:visible` observes the wrapper's element children, as Astro does, because a `display:contents` element has no box of its own.
 - The wrapper is always emitted for a lazy directive, even on a page where the component's scripts end up eager (eager wins, §5). The loader ignores IDs that aren't in the page's lazy map.
 
+### 3.5 Direct calls in production builds
+**Status: Proposed, (Q) points open** (user decision 2026-10-26: `orbit build` calls components directly where the import graph allows it, `orbit dev` keeps the hooks; this section is the spec, with a throwaway prototype's numbers).
+
+**Why**: every component call goes through the callee's declaration-package hook (§3.1). Go's escape analysis can't see through an indirect call, so slot content that captures parent variables (`<Card>{p.Title}</Card>` in a loop) heap-allocates one closure per slot, which is almost all of a typical page's allocations (§4b). A direct call to the callee's implementation lets the compiler use the callee's escape summary (exported in its export data), and the closures stay on the stack. In dev, direct calls would make a component body edit recompile every component that imports it (a layout edit: every page; cmd/go recompiles direct importers of a changed package, §7), so `orbit dev` keeps the hooks and its ~0.2 s save loop.
+
+**In short**:
+- Every implementation package exports its render function as **`Orbit__RenderImpl`** (renamed from `orbit__render`, in **both** flavors, so a callee's file is the same in dev and build).
+- **Hook flavor** (today's shape, written to `orbit_gen/` by `generate`, `dev`, `build`, `check`, and the only shape `doctor`, the LSP and `go test` ever see).
+- **Build flavor**: for each call site whose edge isn't inside an import cycle, the caller imports the callee's **implementation** package as `orbit__<Alias>` and calls `orbit__<Alias>.Orbit__RenderImpl(…)`. `orbit build` writes only the impl files that change (those with at least one direct call site) to **`.orbit/build/`**, with `.orbit/build/overlay.json`, and runs `go build -overlay=.orbit/build/overlay.json` (Q1). `orbit_gen/` on disk stays byte-identical to `orbit generate`'s output.
+
+#### Both shapes
+`src/pages/index.orbit` loops over posts and passes a capturing slot to `Card`. Hook flavor, `orbit_gen/impl/pages/index/render.go`:
+```go
+import (
+	orbit__rt "github.com/orbit-z/orbit"
+	. "example.com/blog/orbit_gen/decl/pages/index"
+//line ../../../../src/pages/index.orbit:3:2
+Card "example.com/blog/orbit_gen/decl/components/card"
+//line render.go:9:1
+)
+
+var _ = func() int { Orbit__Render = Orbit__RenderImpl; return 0 }()
+
+func Orbit__RenderImpl(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit__props Props, orbit__slots orbit__rt.Slots, orbit__params Params) error {
+	…
+		if orbit__err := /*line ../../../../src/pages/index.orbit:9:4*/Card.Render/*line render.go:20:104*/(orbit__ctx, orbit__w, Card.Props{…}, orbit__rt.Slots{
+			Default: func(orbit__w *orbit__rt.Writer) error { … p.Title … }, // escapes: 1 alloc per iteration
+		}); orbit__err != nil {
+```
+Build flavor, `.orbit/build/impl/pages/index/render.go` (same number of lines):
+```go
+import (
+	orbit__rt "github.com/orbit-z/orbit"; orbit__Card "example.com/blog/orbit_gen/impl/components/card"
+	. "example.com/blog/orbit_gen/decl/pages/index"
+//line ../../../../../src/pages/index.orbit:3:2
+Card "example.com/blog/orbit_gen/decl/components/card"
+//line render.go:9:1
+)
+…
+		if orbit__err := /*line ../../../../../src/pages/index.orbit:9:4*/orbit__Card.Orbit__RenderImpl/*line render.go:20:131*/(orbit__ctx, orbit__w, Card.Props{…}, orbit__rt.Slots{
+			Default: func(orbit__w *orbit__rt.Writer) error { … p.Title … }, // does not escape
+		}); orbit__err != nil {
+```
+and `.orbit/build/overlay.json`: `{"Replace": {"orbit_gen/impl/pages/index/render.go": ".orbit/build/impl/pages/index/render.go", …}}` (paths relative to the project root, where `go build` runs, so the file is the same in every checkout). `Card`'s own impl file has no direct call site, so it isn't overlaid.
+
+#### Codegen rules
+- **Exported name**: `Orbit__RenderImpl`, in the reserved `Orbit__` namespace (§2.2), so no user name can clash. It can't be `Orbit__Render`: the impl dot-imports its decl package, which declares the hook under that name. Same signature as the hook (a page's has the fifth `Params` argument). The link initializer becomes `Orbit__Render = Orbit__RenderImpl`. Renaming it in both flavors changes every impl golden file once, and stack traces show `card_impl.Orbit__RenderImpl` (decided by rule: simplest; one shape per callee keeps overlays to the callers).
+- **Import of the callee's impl package**: alias `orbit__` + the `.orbit` import alias (`orbit__Card`). Import aliases always start with an uppercase letter (§2.2) and Orbit's own `orbit__*` names are all lowercase after the prefix (`orbit__rt`, `orbit__ctx`, `orbit__locals`, …), and aliases are unique per file, so it can't clash. The decl import stays (the call still builds `Card.Props{…}`). The impl import is added only when the file has at least one direct call site to that callee, so a callee used only with `server:defer` doesn't leave an unused import.
+- **Line alignment**: the impl imports go on the `orbit__rt` import's line, separated by `;` (generated code is never gofmt'ed, §3.3), so a build-flavor file has exactly the hook-flavor file's lines; only columns differ on call lines. cmd/go records an overlaid file under its original path (`orbit_gen/impl/…/render.go`, verified, with and without `-trimpath`), so a production stack frame in glue points at the right line of the on-disk file.
+- **Directive file names** in build-flavor files are computed for their real location, `.orbit/build/impl/…` (one more `../`: `../../../../../src/pages/index.orbit`). cmd/compile resolves a relative `//line` name against the directory of the file it reads, which for an overlay is the replacement file (verified: with `orbit_gen`'s names, errors printed `./.orbit/src/pages/index.orbit:21:10`; with recomputed names, `./src/pages/index.orbit:21:10`, as the hook build). The bare-basename resets (`/*line render.go:…*/`) need no change: they resolve to the overlay file, which cmd/go's own path rewriting maps back to `orbit_gen/…`.
+- **`<Self>`**: a direct self-call `Orbit__RenderImpl(…)` in the build flavor (no import; a call within one package is never an import cycle). Verified: Go's escape analysis analyzes a recursive function together with itself, so a recursive `<Self>` with capturing slot content stays on the stack (`func literal does not escape`); through the hook it escapes. Dev keeps `Render(…)` (the dot-imported wrapper).
+- **Pages as callees** (a `.orbit` file under `src/pages/` imported as a component, rare): keep the hook, through the decl `Render` wrapper, which builds `Params` (decided by rule: simplest; a direct call would have to build `Params` at the call site).
+- **`.md` components** (§2.4): an `.orbit` → `.md` call is a normal call site, so it's direct like any other. A `.md` file's call to its layout keeps the hook: its slot is the static `orbit__content` func, so there's nothing to keep on the stack, and a layout that imports a `.md` using it as layout would otherwise need the SCC rule in `internal/markdown` too (decided by rule: simplest). `.md` impls get the `Orbit__RenderImpl` rename.
+- **`server:defer` call sites**: unchanged (`orbit__rt.Defer`, no render call, no impl import). The island table keeps `NewIsland(…, comments.Render)`.
+- **`client:*` call sites**: a normal call inside the marker, so direct.
+- **Unchanged and still hook-based**: the decl `Render` wrapper and the hook (set as today), used by `orbittest`, `RenderComponent`, user Go code, the island table and the **route table** (`app.go` keeps calling `<page>.Render` with zero `Props` and `Slots`: no slot content, so nothing to gain from a direct call, and `app` keeps importing only decl packages; decided by rule: simplest). Tolerant/LSP output, source maps and the segments of the hook flavor are unchanged.
+- **Typed writes**: the build flavor reuses the hook flavor's typed writes (`Input.Typed`): call-site keys don't depend on the call shape (§3.3, "only their Go spans move"), so pass 2 emits a second file per overlaid unit, with no second type check.
+
+#### Cycles: which edges stay on the hook
+- **Graph**: one node per component; an edge X → Y for each component Y that X's template calls with a render call site (not `server:defer`, not `<Self>`, not a page callee). Only these edges can become impl → impl imports.
+- **Rule**: compute the strongly connected components (Tarjan, as `internal/project/cycles.go` already does for decl cycles). An edge X → Y is **direct iff SCC(X) ≠ SCC(Y)**; edges inside an SCC (mutual recursion A ↔ B, longer cycles) keep the hook. The direct edges then form a subgraph of the SCC condensation, which is acyclic, so the impl → impl imports can't form a cycle. SCCs are computed over the whole project and sorted, so the output is deterministic (`orbit build` always loads the whole project; dev never needs this).
+- **No other cycle is possible**: declaration packages import only user packages, the runtime and other decl packages (Props cycles are already an error, §3.1), never an impl package; `src/locals` and user packages don't import impl packages (and `src/locals` must not import `orbit_gen/app`, a `doctor` check); `orbit_gen/link` and `orbit_gen/app` are imported by nothing generated. So the only new edges in the package graph are impl → impl, and they're acyclic. A user package that imports `orbit_gen/app` and is imported by a frontmatter is already a cycle today, in both flavors.
+- **Partial breaking of cycles** (hooks on a feedback edge set only, the rest direct) gains nothing: measured on A ↔ B, a member called through the hook leaks its slots, and a leaked `orbit__slots` makes every closure that captures it leak too, around the whole cycle. Out of scope.
+
+#### When escape analysis actually wins
+The caller's closure stays on the stack only if every callee on its path doesn't leak `orbit__slots`. Verified with `-gcflags=-m` on build-flavor code from a fixture project (one component per case; `examples/esc` in the prototype):
+
+| Case in the callee | Result (build flavor) |
+|---|---|
+| `<slot />` outlet, named outlets, `slots.Get`/`slots.Has`, `{slots.Default}` (`orbit__w.Render`) | no escape |
+| Forwarding its own slot to a **direct** callee (`<Inner><slot /></Inner>`, named too) | no escape: the gain is transitive along direct calls |
+| A slot renderer passed as a prop to a direct callee that renders it (`<Prop r={slots.Default} />`) | no escape |
+| `server:defer` fallback containing `<slot />` | no escape (`Defer` doesn't retain the fallback) |
+| `client:*` call site | no escape |
+| `<Self>` recursion with capturing content | no escape |
+| User Go code that only reads the renderer (`h.Peek(slots.Default)`) | no escape (its escape summary comes from export data) |
+| User Go code that stores it (`h.Keep(slots.Default)` into a package var) | **escapes** (correct: it outlives the call) |
+| Forwarding into a component in a cycle (`ToA` → `A`, with `A` ↔ `B` on the hook) | **escapes**, and so does the page's closure passed to `ToA` |
+| Members of a cycle (`A` ↔ `B`) | **escape**, as in dev |
+| `Enter`/`Leave` depth guard | no effect (doesn't touch slots) |
+
+On real projects, every slot closure the compiler reported as escaping in the hook flavor stays on the stack in the build flavor: `examples/blog` 7 → 0, `bench/orbit-site` 5 → 0, `docs/site` 5 → 0, `bench/go` 4 → 0, the synthetic 200-file project 703 → 0 (chain shape) and 547 → 0 (layered shape). Cycles and stored renderers are rare (tree menus; user code keeping a renderer), so the spec does nothing more for them: it's documented as "slot content passed into mutually recursive components still allocates".
+
+A knock-on effect: values that only flow into a closure also stay on the stack, e.g. `bench/go`'s `/post/hello-world` page went from 3 allocations to 1 (the slot closure **and** a small string concatenation it captured).
+
+#### Which flavor each command uses
+| Command / tool | Sees | Notes |
+|---|---|---|
+| `orbit generate` | hook, written to `orbit_gen/` | unchanged; the canonical, committable output |
+| `orbit dev` | hook | unchanged |
+| `orbit build` | hook in `orbit_gen/` **plus** build flavor in `.orbit/build/`, compiled with `-overlay` | `.orbit/build/` is removed and rewritten on every build (simplest; `.orbit/` is gitignored and dockerignored); with `--embed`, `orbit_gen/static/` as today |
+| `orbit check` | hook (`go vet ./orbit_gen/...`) | the flavors differ only in generated glue, covered by codegen tests (decided by rule: simplest) |
+| `orbit doctor` freshness check | hook | unchanged: `orbit_gen/` always equals `orbit generate`'s output, even right after `orbit build` |
+| LSP startup typed check | hook | unchanged: no new overlays after an `orbit build` |
+| `go test` with `orbittest` | hook (whatever is on disk) | same bytes; allocation counts are dev's (Q3) |
+| CI from a fresh clone (§6) | `generate`, `vet`, `build` | unchanged steps |
+| Committed `orbit_gen/` | hook | `orbit generate && git diff --exit-code orbit_gen` still works; plain `go build ./...` gives a correct but hook-flavor binary; `orbit build` gives the production one |
+
+- `-overlay` in the user's `GOFLAGS`: `orbit build` stops with `orbit build: -overlay in GOFLAGS isn't supported (orbit build passes its own)`, because the command-line flag would silently replace the user's (decided by rule: simplest).
+
+#### (Q) points
+1. **(Q1) How the build flavor reaches `go build`**:
+   - (a) **`go build -overlay`** with the build-flavor files in `.orbit/build/` (recommended): `orbit_gen/` never changes flavor, so the LSP, `doctor`, committed `orbit_gen/`, `go test` and a concurrently running `orbit dev` are untouched; measured at the same build time as writing the files into `orbit_gen/` (below); the build cache works (a repeated build is a 32 ms no-op). Costs: directive names computed for the overlay location, `-overlay` reserved.
+   - (b) `orbit build` writes the build flavor into `orbit_gen/`: no overlay, but after a build the disk differs from `orbit generate`, so `doctor` reports stale code, the LSP's typed check falls back to overlays for ~160 of 200 impl files until the next `generate`/`dev`, `git diff --exit-code` fails when `orbit_gen/` is committed, and a running `orbit dev` (which rewrites only files it changes) could keep build-flavor files on disk and lose the hook isolation. Switching itself is cheap thanks to the content-addressed cache (below).
+   - (c) Build tags: both files in `orbit_gen/` (`render.go` with `//go:build !orbit_direct`, `render_direct.go` with `//go:build orbit_direct`), `orbit build` adds the tag. Generate time is not doubled (one type check, pass 2 emits a second file per caller: about 4.6 ms to re-emit all 200 units sequentially, `BenchmarkPass2`, plus ~160 more files written), and `go build -tags orbit_direct ./...` would give production code without the CLI. But it changes `orbit_gen/`'s layout (`project-structure.md`), doubles the impl files gopls, `doctor`, the LSP's comparison and `git diff` see, and gopls shows "excluded by build tags" for the direct files.
+   - (d) Direct calls everywhere and only `orbit dev` uses hooks: `orbit_gen/` would then flip flavor whenever `dev` runs, with (b)'s problems during the main editing time.
+2. **(Q2) `<Self>`**: direct self-call in the build flavor (recommended: verified to keep recursive slot closures on the stack, no import, no cycle) vs. always the hook (simpler codegen, but recursive components such as trees allocate per level).
+3. **(Q3) Measuring the build flavor in tests and benchmarks**: `orbit build` leaves `.orbit/build/overlay.json`, and `go test -overlay=.orbit/build/overlay.json ./...` runs tests against the build flavor (recommended: no new CLI surface; `bench/go` uses it to publish production numbers, its README gets the two commands) vs. `orbit generate --build-flavor` writing the overlay without building (one more flag) vs. nothing (`bench/go` and user allocation tests keep measuring the hook flavor, which isn't what production runs).
+4. **(Q4) Deep component graphs**: direct imports serialize compilation along the longest impl → impl chain (measured ~13 ms per extra level). No cap (recommended: real projects are 2–3 levels deep, `examples/blog`, `bench/orbit-site`, `docs/site` all ≤ 3, where the measured cost is +2–17% on a full rebuild of the generated code and about +50 ms on a layout edit) vs. a cap (edges beyond a depth such as 16 keep the hook: bounded build time, more complex rule, runtime cost appears silently on deep graphs) vs. an `orbit.json` switch to turn direct calls off.
+
+Decided by rule (to log in `docs/DECISIONS.md`): the `Orbit__RenderImpl` name in both flavors (simplest); pages as callees and `.md` → layout calls keep the hook (simplest); route and island tables unchanged (simplest); `.orbit/build/` rewritten per build (simplest); `orbit check` vets the hook flavor only (simplest); `-overlay` in `GOFLAGS` is an error (simplest).
+
+#### Cost (measured with a prototype: a script rewriting `orbit generate`'s output into the build flavor, `scratchpad/directcalls/`; Ryzen 7 9700X, 16 threads, Go 1.27.3; the machine was shared, load average given per row)
+**Runtime** (`bench/go`, `go test -bench`, 6 runs, benchstat):
+
+| Benchmark | Hook | Build flavor | Load |
+|---|---|---|---|
+| Render, 500 cards, 16 threads | 57.2 µs, 40,063 B, 501 allocs | **51.4 µs (−10%), 13 B, 0 allocs** | 0.6–1.4 |
+| Serve `/cards`, 16 threads | 57.6 µs, 40,240 B, 502 allocs | **52.7 µs (−9%), 59 B, 1 alloc** (`Content-Length`) | 0.6–1.4 |
+| Serve `/post/hello-world`, 16 threads | 372 ns, 104 B, 3 allocs | **338 ns (−9%), 48 B, 1 alloc** | 0.6–1.4 |
+| Render, 500 cards, `-cpu 1` | 59.1 µs | **49.5 µs (−16%)** | 1.2–6.3 |
+| Serve `/cards`, `-cpu 1` | 60.3 µs | **51.1 µs (−15%)** | 1.2–6.3 |
+
+templ and `html/template` are unchanged (within noise). The output is byte-identical (`bench/go`'s `TestEquivalent` passes on the build flavor; the fixture project's page hashes match).
+
+**Build time**, `go build` of the server at 200 files (`bench/devloop`'s project). Two shapes: the **layered** one (each component calls two components 40 positions further, `SYNTH_STRIDE=40`: impl → impl depth 6, median 3, closer to real sites) and devloop's default **chain** (each component calls the next two: depth 157, a worst case no real site has). "Warm std" = std and user packages cached, every generated package new; "edit" = one body edit of the `Base` layout, then a rebuild.
+
+| Scenario | Hook | Build flavor | Load |
+|---|---|---|---|
+| layered, warm std, 16 threads | 617 ms | 691 ms (+12%); with `-overlay` 722 ms (+17%; an earlier run: 650 / 711 / 700 ms) | 2.0–4.2 |
+| layered, warm std, `GOMAXPROCS=4 taskset -c 0-3` | 1,161 ms | 1,245 ms; with `-overlay` 1,253 ms (+8%) | 4.2–8.6 |
+| layered, cold cache, 16 threads | 3,783 ms | 3,870 ms (+2%) | 5.8–7.0 |
+| layered, cold cache, 4 cores | 6,142 ms | 6,332 ms (+3%) | 8.4–8.9 |
+| layered, layout body edit, 16 threads | 237 ms | 284 ms (+47 ms: the pages that import it recompile) | 9.0–9.6 |
+| layered, layout body edit, 4 cores | 269 ms | 317 ms | 6.5–6.8 |
+| chain, warm std, 16 threads | 707 ms | 2,645 ms (3.7×) | 9.6–11.6 |
+| chain, warm std, 4 cores | 1,182 ms | 2,754 ms | 6.8–8.5 |
+| chain, cold cache, 16 threads | 3,774 ms | 5,778 ms | 7.0–9.8 |
+
+**Binary size**: −150 KB on the layered project (12,063,887 → 11,913,603 bytes, −1.2%), −200 KB on the chain (−1.6%): fewer closure allocation paths.
+
+**Generate**: under (Q1 a), `orbit build` emits a second file for each impl unit with a direct call site, reusing the typed writes (≤ 4.6 ms sequential for all 200 units, `BenchmarkPass2`), and writes them to `.orbit/build/` (~10 ms for 200 files): about 1–2% of a warm `orbit build`. `orbit generate`, `dev`, `check` and the LSP: no change.
+
+**Switching** between `orbit dev` and `orbit build` on one checkout (layered project, load 2.4): under (Q1 a) `orbit_gen/` never changes flavor, so there is nothing to switch. Under (Q1 b), measured by alternating dev-flag hook builds and prod-flag direct builds with the files rewritten each time: first dev build 613 ms, first prod build 837 ms (each would be paid anyway: dev and prod builds use different `-gcflags`, so they never share compiled packages), every later switch 50 ms (rewriting 400 files: 11 ms) because both flavors stay in Go's content-addressed cache. The hook-only baseline is the same (523 / 933 / ~52 ms). The real costs of (b) are the LSP and `doctor` effects in (Q1), not compile time.
+
+**Dev loop**: none (dev keeps the hooks; the `Orbit__RenderImpl` rename changes no package structure).
+
+#### Tests (what must exist)
+- **Codegen goldens** (`internal/compiler/testdata/`, `-update`): build-flavor output next to the hook flavor for a direct call, named and default slots, `<Self>`, a page callee (hook), an `.md` callee (direct) and an `.md` page (layout on the hook), `server:defer` (no impl import), `client:*`, and a callee used only with `server:defer` (no unused import). Each build-flavor file has the hook file's line count.
+- **Cycles** (`internal/project`): A ↔ B (both edges hook), `<Self>` (direct), a three-component cycle A → B → C → A, and a cycle plus an outside caller (`ToA` → `A` direct); each builds with `-overlay` and passes `go vet -overlay=…`. A table test of the SCC rule, and that edges are emitted in sorted order.
+- **Byte-identical output**: an integration test builds `examples/blog` and the fixture project in both flavors and compares every route's response body (via `orbittest.Get` under `go test` with and without `-overlay`).
+- **Allocations**: a generated fixture page with capturing default and named slots, forwarding and `<Self>` renders with **0 allocations** under `-overlay` (`AllocsPerRun`), and with the expected count on the hook flavor (so the test notices if the hook flavor ever stops allocating, which would mean the test lost its point). The existing runtime alloc tests (`site_alloc_test.go`, static slots, hand-written hooks) are unchanged.
+- **Positions**: the §3.3 error golden project, built through `orbit build` (overlay), reports the same cleaned-up `src/…orbit:L:C` as the hook build; a panic in a build-flavor binary logs the same `.orbit` position (§4, Errors).
+- **Disk stays canonical**: after `orbit build`, `orbit_gen/` equals `orbit generate`'s output (so `doctor` is ✓ and the LSP's typed check opens no overlays); two `orbit build` runs produce identical `.orbit/build/` trees and `overlay.json`.
+- **Flags**: `-overlay` in `GOFLAGS` is an error; `--embed` and `GOFLAGS=-tags=…` still combine with the overlay.
+- `go build ./... && go vet ./... && go test ./...` as always.
+
+#### User-docs changes (with the implementation)
+- `performance.md`: the slots bullet ("allocates one small closure per slot" → only in dev, `go test` and plain `go build` builds, and for content passed into mutually recursive components or stored by user code), "What still allocates", the `bench/go` table (Orbit's row: ~51 µs, 0 allocs) and its 501-allocations paragraph, the small param page (1 allocation), and a short "dev and `go test` use indirect calls" note with the build-time cost.
+- `components.md` (the "costs almost nothing" paragraph about capturing slot content), `reference/template-syntax.md#slots` (the allocation sentence) and `reference/runtime-api.md` (`Slots`).
+- `dev-server.md`: dev renders through hooks so a component edit recompiles only that component; allocation counts and timings in dev differ from production; profile with `orbit build && orbit preview`.
+- `testing.md`: `orbittest` renders the hook flavor (same HTML); `go test -overlay=.orbit/build/overlay.json` after `orbit build` for production allocation counts (if Q3 is accepted).
+- `reference/cli.md` (`orbit build`: `.orbit/build/`, the overlay, `-overlay` in `GOFLAGS`), `project-structure.md` (`.orbit/build/`; `orbit_gen/` contents unchanged; plain `go build` from a committed `orbit_gen/` is correct but not the production flavor), `deploy.md` (build with `orbit build`).
+- `docs/DECISIONS.md`: the "decided by rule" items above. `bench/go/README.md`: how the published numbers are produced.
+- In this file, with the implementation: §3.1 (Calls, No cycles, Self, Cost), §4b's slots bullet, §6's build pipeline (steps 4 and 6), §7 (dev keeps the hooks), and the "Slots" bullet in `CLAUDE.md`.
+
+#### Out of scope
+- Direct calls in `orbit dev` (the user decision this spec implements), or an opt-in for it.
+- Direct calls inside import cycles (it would need merging an SCC's components into one package).
+- Direct calls from the route table, the island table, `RenderComponent` and `orbittest` (no slot content to keep on the stack).
+- Removing the hook or the decl `Render` wrapper.
+- PGO-driven devirtualization and inlining of component bodies (`Orbit__RenderImpl` has a `defer`, and dev builds disable inlining in `orbit_gen/` anyway).
+
+#### Risks
+- **Deep graphs** build slower (chain shape: 3.7× at warm std), see (Q4).
+- **Two flavors to keep correct**: a codegen bug that only shows in the build flavor isn't caught by `orbit dev`, `orbit check` or the LSP. The byte-identical, cycle and golden tests above are the guard; `orbit build` errors from generated glue would be Orbit bugs, not user errors.
+- **`-overlay`** is a stable `go build` flag (since Go 1.16) but less used; its interaction with relative `//line` names (resolved against the replacement file) is why the directive names are recomputed, and a test pins it.
+
 ## 4. Runtime package (`github.com/orbit-z/orbit`, repo root)
 The runtime package depends only on the standard library (plus the framework's own stdlib-only `internal/islandcrypto`, §3.4, §10).
 ```go
@@ -790,7 +968,7 @@ The SSR hot path is built for speed. There's no fixed target number; the results
 - **Zero-alloc escaping**: the escaper scans for characters that need escaping and, if there are none, writes the original string directly.
 - **No bufio layering**: the `Writer` writes straight into the pooled `bytes.Buffer` (§4).
 - **No reflection on the hot path**: typed writes (§3.3) cover expressions; `Expr`'s type switch handles the common types, and reflection appears only in its last-resort `fmt.Sprint` and generic-slice cases.
-- **Slots are a value struct**, not a map: `Default` plus a small `Named` slice. A call with no children allocates nothing, and neither does slot content that uses no parent variables (a static func value). Slot content that captures parent variables (`<Card>{p.Title}</Card>`) allocates one closure per such slot, because the call goes through the decl package's hook and escapes. **Revised (user decision, 2026-10-26)**: `orbit build` will use direct calls for acyclic imports, keeping the closures on the stack, while `orbit dev` keeps the hooks so a component body edit doesn't recompile its parents; spec in §3.5 (being written). Measured (500 capturing slots, `GOMAXPROCS=1`): hook 13.0 µs, 500 allocs, 24 KB; direct 7.6 µs, 0 allocs.
+- **Slots are a value struct**, not a map: `Default` plus a small `Named` slice. A call with no children allocates nothing, and neither does slot content that uses no parent variables (a static func value). Slot content that captures parent variables (`<Card>{p.Title}</Card>`) allocates one closure per such slot, because the call goes through the decl package's hook and escapes. **Revised (user decision, 2026-10-26)**: `orbit build` will use direct calls for acyclic imports, keeping the closures on the stack, while `orbit dev` keeps the hooks so a component body edit doesn't recompile its parents; spec in §3.5 (build flavor through `go build -overlay`, hooks kept inside import cycles; Proposed, (Q) points open). Measured (500 capturing slots, `GOMAXPROCS=1`): hook 13.0 µs, 500 allocs, 24 KB; direct 7.6 µs, 0 allocs.
 - **Zero allocations in Orbit's own render path** is a tested rule (like the router's 0-alloc match): from milestone 5, `testing.AllocsPerRun` tests assert that a typical page (typed writes, static or no slot content, no locals, no `server:defer`) renders with 0 allocations in Orbit's code, and is served with exactly 1: the `Content-Length` value (string and `[]string` in one 48-byte object), which can't be pooled because `net/http` may read header values after the handler returns. Measured (milestone 5): render 0 allocs, serve 1 alloc / 48 B, about 200 ns for a small param page. The floor that remains is `net/http`'s own: measured on Go 1.27.3 at about 14 allocs (1.4 KB) per request for an empty handler and about 19 (2.2 KB) for a 1 KB page; a test measures Orbit's handler on top of that with a reused `ResponseWriter`. What may still allocate: locals (`new(L)`, and `EnsureLocals`' context copy; not pooled, since a retained `locals` would then be silently reused), slot closures that capture, the `Expr` fallback and user `String()`/`Error()` methods, percent-decoded params, `server:defer` props, `orbit.JSON` values (encoding/json's own allocations only: boxing a non-pointer value, and its internal copy of a non-addressable one; Orbit's reused per-Writer encoder adds 0, asserted by `TestJSONAttrAllocs`, §5c), and user code.
 - **Response headers** use shared, read-only `[]string` values for constant headers (`Content-Type: text/html; charset=utf-8`) instead of `Header().Set`, saving one allocation per request (measured 20.7 → 18.9 allocs/request).
 - **Route matching** walks a precompiled segment trie, with no regexp. Matched params go into the pooled `Ctx`'s storage, not a map, so a param match is **0 allocations** (it was 2 allocs / 336 B with `map[string]string`); a page's typed `Params` is a stack value built from `ctx.Param` calls (§3.2).
