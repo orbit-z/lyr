@@ -3,6 +3,7 @@ package assets
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -158,9 +159,14 @@ func (b *esbuildBundler) plugin() api.Plugin {
 				return api.OnLoadResult{Contents: &src, Loader: loader, ResolveDir: b.opts.Root}, nil
 			})
 			pb.OnLoad(api.OnLoadOptions{Filter: `\.orbit$`, Namespace: "file"}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
-				rel, err := filepath.Rel(b.opts.Root, a.Path)
-				if err != nil {
-					return api.OnLoadResult{}, err
+				// Called once per block copy: a prefix cut, not filepath.Rel
+				// (its Clean calls showed in profiles).
+				rel, ok := strings.CutPrefix(a.Path, b.opts.Root+string(filepath.Separator))
+				if !ok {
+					var err error
+					if rel, err = filepath.Rel(b.opts.Root, a.Path); err != nil {
+						return api.OnLoadResult{}, err
+					}
 				}
 				blk := b.current().byKey[filepath.ToSlash(rel)+a.Suffix]
 				if blk == nil {
@@ -389,17 +395,24 @@ func (b *esbuildBundler) collect(p *plan, r api.BuildResult, res *Result) error 
 		}
 	}
 	for n, data := range files {
-		if strings.HasSuffix(n, ".map") {
-			fixed, err := b.fixSourceMap(n, data, p)
-			if err != nil {
-				return err
-			}
-			data = fixed
-		}
 		res.Files = append(res.Files, File{Name: n, Contents: data})
 	}
 	slices.SortFunc(res.Files, func(x, y File) int { return strings.Compare(x.Name, y.Name) })
-	return nil
+	// The source maps are rewritten in parallel: decoding and encoding
+	// them is most of collect's time in a dev rebuild.
+	var wg sync.WaitGroup
+	errs := make([]error, len(res.Files))
+	for i := range res.Files {
+		f := &res.Files[i]
+		if !strings.HasSuffix(f.Name, ".map") {
+			continue
+		}
+		wg.Go(func() {
+			f.Contents, errs[i] = b.fixSourceMap(f.Name, f.Contents, p)
+		})
+	}
+	wg.Wait()
+	return errors.Join(errs...)
 }
 
 // dropEmptyChunks removes the shared chunks with no code (PLAN.md §5e rule
