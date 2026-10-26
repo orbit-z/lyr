@@ -525,6 +525,17 @@ So editing a stylesheet or a script, which changes its hashed file name, doesn't
 
 Snapshots are stable across machines: the scope attributes (`data-o-…`) depend only on each component's path in the project, asset hashes and build IDs are normalized as above, and under `go test` `server:defer` placeholders are sealed with a fixed test key and build ID, through `Render` and `Get` alike.
 
+## Allocation counts and production builds
+
+`orbittest` renders the code in `orbit_gen/`, the version `orbit dev` runs, in which components call each other through a hook. The HTML is the same as production's, but the allocation counts aren't: `orbit build` compiles a version that calls components directly, so slot content that uses parent variables isn't allocated. To run your tests, benchmarks or `testing.AllocsPerRun` checks against what production runs, build first and pass its overlay to `go test`:
+
+```sh
+go tool orbit build
+go test -overlay=.orbit/build/overlay.json ./...
+```
+
+Run `orbit build` again after changing your `.orbit` files: the overlay is only as fresh as the last build. See [Direct calls in production builds](performance.md#direct-calls-in-production-builds).
+
 ## See also
 
 - [Components](components.md): props, slots and `locals` in templates

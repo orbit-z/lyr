@@ -699,3 +699,20 @@ With TypeScript features in `<script>` blocks (`PLAN.md` §9b). The bigger choic
 | On a definition that lands in a `.d.ts` side-table line, the declaration's range is used for both the target and selection ranges | simplest (the side table maps lines to declarations) | Keep the selection range in the `.d.ts` | `PLAN.md` §9b |
 | The child's `didChangeConfiguration` registration is forwarded with its id prefixed `ts:`, and its work-done tokens likewise, so they can't collide with gopls's | simplest | Forward as is | `PLAN.md` §9b |
 | The child's `window/logMessage` goes to Orbit's log only for errors and warnings | simplest (TypeScript 7 logs every snapshot at info level) | Log everything; forward to the editor | — |
+
+## Direct calls
+
+With direct calls in production builds (`PLAN.md` §3.5). That `orbit build` calls components directly and `orbit dev` keeps the hooks, the `-overlay` from `.orbit/build/`, the direct `<Self>`, measuring with `go test -overlay` and no depth cap were the user's, not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| The impl render function is exported as `Orbit__RenderImpl` only in the build flavor; `orbit_gen/` keeps the unexported `orbit__render`, so a direct callee's impl file is overlaid too | simplest that keeps `orbit dev` no slower (user principle): exporting it in `orbit_gen/` put each impl's signature, and so its decl `Props`, in the export data `orbit_gen/link` reads, and link's compile went from 8 to 22 ms at 200 files (+15–30 ms per dev rebuild) | The spec's `Orbit__RenderImpl` in both flavors | `PLAN.md` §3.5 |
+| Pages called as components keep the hook (their `Render` wrapper builds `Params`), and so does `<Self>` in a page | simplest | Build `Params` at the call site | `PLAN.md` §3.5 |
+| Calls to an imported `.md` file keep the hook, and so does a Markdown file's call to its layout; `.md` impls are never overlaid | simplest: a Markdown render ignores props and slots, so a direct call keeps nothing on the stack | The spec's direct `.orbit` → `.md` calls (a build flavor in `internal/markdown`) | `PLAN.md` §3.5 |
+| The route and island tables, `RenderComponent` and `orbittest` keep calling `Render` through the hook | simplest | Direct calls there too | `PLAN.md` §3.5 |
+| `.orbit/build/` is removed and rewritten on every build; `overlay.json` is always written, with an empty `Replace` when nothing is overlaid, and `-overlay` is always passed | simplest | Write only changed files; skip the flag when empty | [CLI](reference/cli.md#orbit-build) |
+| Overlay paths are relative to the project root (where `go build` runs) | simplest (the same file in every checkout) | Absolute paths | `PLAN.md` §3.5 |
+| `orbit check` vets the hook flavor only | simplest | Vet both | `PLAN.md` §3.5 |
+| An `-overlay` in `GOFLAGS` stops `orbit build` with `orbit: -overlay in GOFLAGS isn't supported (orbit build passes its own)`, checked before anything is generated | simplest (the CLI's usual `orbit:` prefix) | Merge the user's overlay into Orbit's | [CLI](reference/cli.md#orbit-build) |
+| A build-flavor codegen error (a direct call site the import list missed) is an internal error that fails `orbit build` | simplest | Fall back to the hook flavor | — |
+| `orbit build` runs `go env GOFLAGS` once, before generating (it ran up to twice, after) | simplest | — | — |

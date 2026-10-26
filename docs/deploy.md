@@ -57,6 +57,8 @@ Orbit doesn't compress responses. Add a gzip middleware in `cmd/server/main.go`,
 
 ### Building for another OS or architecture
 
+Build the server you deploy with `orbit build`, not a plain `go build`: `orbit build` compiles a version of the generated code in which components call each other directly, which allocates less and renders faster (see [Direct calls in production builds](performance.md#direct-calls-in-production-builds)). A plain `go build` works, with dev's component calls.
+
 `orbit build` runs `go build` with your environment, so `GOOS` and `GOARCH` choose the target of `dist/server`:
 
 ```sh

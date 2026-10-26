@@ -321,7 +321,7 @@ type Slots struct {
     Named   []NamedSlot
 }
 ```
-The children passed to a component, available as `slots`. It's passed by value; the zero `Slots{}` means "no children" and costs no allocation.
+The children passed to a component, available as `slots`. It's passed by value; the zero `Slots{}` means "no children" and costs no allocation. Slot content is compiled to closures; one that uses a variable of the caller stays on the stack when `orbit build` calls the component directly, and is allocated when the call goes through the component's hook (`orbit dev`, `go test`, calling `Render` from Go, components that render each other in a cycle). See [Direct calls in production builds](../performance.md#direct-calls-in-production-builds).
 
 ```go
 func (s Slots) Get(name string) Renderer
