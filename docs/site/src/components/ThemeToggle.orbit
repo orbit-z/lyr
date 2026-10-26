@@ -1,5 +1,5 @@
 <theme-toggle>
-  <button type="button" title="Toggle dark mode" aria-label="Toggle dark mode">
+  <button type="button" title="Dark mode" aria-label="Dark mode">
     <span class="sun" aria-hidden="true">☀</span><span class="moon" aria-hidden="true">☾</span>
   </button>
 </theme-toggle>
@@ -41,13 +41,18 @@
   // <html data-theme>, so the choice survives reloads without a flash.
   class ThemeToggle extends HTMLElement {
     connectedCallback() {
-      this.querySelector("button")!.addEventListener("click", () => {
-        const root = document.documentElement;
-        const dark = root.dataset.theme
+      const button = this.querySelector("button")!;
+      const root = document.documentElement;
+      const isDark = () =>
+        root.dataset.theme
           ? root.dataset.theme === "dark"
           : matchMedia("(prefers-color-scheme: dark)").matches;
-        const next = dark ? "light" : "dark";
+      // aria-pressed: whether dark mode is on.
+      button.setAttribute("aria-pressed", String(isDark()));
+      button.addEventListener("click", () => {
+        const next = isDark() ? "light" : "dark";
         root.dataset.theme = next;
+        button.setAttribute("aria-pressed", String(next === "dark"));
         document.cookie = `theme=${next}; path=/; max-age=31536000; samesite=lax`;
       });
     }

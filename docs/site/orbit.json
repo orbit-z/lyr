@@ -1,3 +1,4 @@
 {
-  "watch": ["../*.md", "../reference/*.md"]
+  "site": "https://orbit.example",
+  "watch": ["../*.md", "../reference/*.md", "../../CHANGELOG.md"]
 }

@@ -1,13 +1,15 @@
 ---
 import Base "../layouts/Base.orbit"
 ---
-<Base title="Page not found">
+<Base title="Page not found" noIndex>
   <h1>Page not found</h1>
-  <p>Nothing lives at <code>{ctx.URL.Path}</code>.</p>
-  <form action="/search" method="get" role="search">
-    <p>
-      <label>Search the docs instead: <input type="search" name="q" aria-label="Search the docs"></label>
-    </p>
-  </form>
-  <p><a href="/">Back to the docs home</a></p>
+  <p>Nothing lives at <code>{ctx.URL.Path}</code>. Try the search box above, or one of these pages:</p>
+  <ul>
+    <li><a href="/getting-started">Getting started</a></li>
+    <li><a href="/components">Components</a></li>
+    <li><a href="/routing">Routing</a></li>
+    <li><a href="/coming-from-astro">Coming from Astro</a></li>
+    <li><a href="/reference/template-syntax">Template syntax</a></li>
+  </ul>
+  <p><a href="/">Back to the home page</a></p>
 </Base>

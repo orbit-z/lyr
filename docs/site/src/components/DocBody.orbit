@@ -107,6 +107,19 @@ type Props struct {
   .prose :global(.copy:focus) {
     opacity: 1;
   }
+  /* Touch screens have no hover: always show the button. */
+  @media (hover: none) {
+    .prose :global(.copy) {
+      opacity: 1;
+    }
+  }
+  .prose :global(pre.chroma) {
+    background: transparent;
+  }
+  .prose :global(pre:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
   .prose :global(table) {
     display: block;
     overflow-x: auto;

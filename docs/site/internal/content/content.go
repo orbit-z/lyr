@@ -51,14 +51,17 @@ type Section struct {
 
 // Page is one rendered Markdown file.
 type Page struct {
-	Slug     string // "" for README.md, "getting-started", "reference/cli"
-	URL      string // "/", "/getting-started", "/reference/cli"
-	File     string // the file under docs/: "reference/cli.md"
-	Title    string // the first h1
-	Summary  string // the first paragraph, as text
-	HTML     orbit.HTML
-	TOC      []Heading // h2 and h3
-	Sections []Section
+	Slug    string // "" for README.md, "getting-started", "reference/cli"
+	URL     string // "/", "/getting-started", "/reference/cli"
+	File    string // the file under docs/: "reference/cli.md"
+	Title   string // the first h1
+	Summary string // the first paragraph, as text
+	// Description is Summary cut to about 160 characters, for the page's
+	// meta description.
+	Description string
+	HTML        orbit.HTML
+	TOC         []Heading // h2 and h3
+	Sections    []Section
 
 	ids map[string]bool
 }
@@ -68,6 +71,8 @@ type NavItem struct {
 	Title string
 	URL   string
 	Desc  string
+	// External is a link out of the site (a file on GitHub).
+	External bool
 }
 
 // NavGroup is a titled group of sidebar links.
@@ -85,9 +90,13 @@ type Docs struct {
 	Problems []string
 	// Source says where the Markdown came from: a directory or "embedded".
 	Source string
+	// Version is the Orbit release the docs describe, from CHANGELOG.md's
+	// first version heading ("v0.1.0"); "" without a changelog.
+	Version string
 
 	bySlug map[string]*Page
-	order  []*Page // pages in sidebar order, for previous/next links
+	words  []string // every distinct word, for Suggest
+	order  []*Page  // pages in sidebar order, for previous/next links
 }
 
 // Page returns the page with the given slug, or nil.
@@ -109,9 +118,15 @@ func (d *Docs) Neighbors(p *Page) (prev, next *Page) {
 	return prev, next
 }
 
+// hidden lists the files of docs/ that aren't pages of the site.
+// DECISIONS.md is the project's own decisions log, for its maintainers; it
+// stays readable on GitHub.
+var hidden = map[string]bool{"DECISIONS.md": true, ChangelogFile: true}
+
 // Load reads and renders every docs page from fsys, which holds the
-// contents of docs/.
-func Load(fsys fs.FS) (*Docs, error) {
+// contents of docs/, plus the repository's CHANGELOG.md (changelog) as
+// the /changelog page when it isn't nil.
+func Load(fsys fs.FS, changelog []byte) (*Docs, error) {
 	files, err := fs.Glob(fsys, "*.md")
 	if err != nil {
 		return nil, err
@@ -120,28 +135,67 @@ func Load(fsys fs.FS) (*Docs, error) {
 	if err != nil {
 		return nil, err
 	}
-	files = append(files, more...)
+	files = slices.DeleteFunc(append(files, more...), func(f string) bool { return hidden[f] })
 	if len(files) == 0 {
 		return nil, errors.New("content: no .md files found")
 	}
 	d := &Docs{bySlug: map[string]*Page{}}
 	r := newRenderer(d)
+	add := func(f string, src []byte) error {
+		p, err := r.render(f, src)
+		if err != nil {
+			return fmt.Errorf("content: %s: %w", f, err)
+		}
+		d.Pages = append(d.Pages, p)
+		d.bySlug[p.Slug] = p
+		return nil
+	}
 	for _, f := range files {
 		src, err := fs.ReadFile(fsys, f)
 		if err != nil {
 			return nil, err
 		}
-		p, err := r.render(f, src)
-		if err != nil {
-			return nil, fmt.Errorf("content: %s: %w", f, err)
+		if err := add(f, src); err != nil {
+			return nil, err
 		}
-		d.Pages = append(d.Pages, p)
-		d.bySlug[p.Slug] = p
+	}
+	if changelog != nil {
+		if err := add("../"+ChangelogFile, changelog); err != nil {
+			return nil, err
+		}
+		d.Version = latestVersion(d.bySlug["changelog"])
 	}
 	r.checkLinks()
 	d.buildNav(r.navLinks)
+	d.indexWords()
 	return d, nil
 }
+
+// latestVersion is the first version heading of the changelog ("v0.1.0"
+// from "## v0.1.0 (2026-10-27)"), skipping "Unreleased": the version the
+// docs describe.
+func latestVersion(p *Page) string {
+	if p == nil {
+		return ""
+	}
+	for _, h := range p.TOC {
+		if h.Level != 2 {
+			continue
+		}
+		v, _, _ := strings.Cut(h.Text, " ")
+		if len(v) > 1 && v[0] == 'v' && v[1] >= '0' && v[1] <= '9' {
+			return v
+		}
+	}
+	return ""
+}
+
+// EditURL returns the GitHub URL that edits the page's source.
+func (p *Page) EditURL() string { return EditURL + path.Join("docs", p.File) }
+
+// SourcePath is the page's file in the repository: "docs/routing.md",
+// "CHANGELOG.md".
+func (p *Page) SourcePath() string { return path.Join("docs", p.File) }
 
 // SlugOf maps a file under docs/ to its page slug: "reference/cli.md" is
 // "reference/cli", "README.md" is "" and "DECISIONS.md" is "decisions".
@@ -163,14 +217,18 @@ func (d *Docs) buildNav(links []navLink) {
 	}
 	for _, l := range links {
 		p := d.bySlug[l.slug]
-		if p == nil || seen[p] {
+		if l.url == "" && (p == nil || seen[p]) {
 			continue
 		}
-		seen[p] = true
 		if len(d.Nav) == 0 || d.Nav[len(d.Nav)-1].Title != l.group {
 			d.Nav = append(d.Nav, NavGroup{Title: l.group})
 		}
 		g := &d.Nav[len(d.Nav)-1]
+		if l.url != "" {
+			g.Items = append(g.Items, NavItem{Title: l.title, URL: l.url, Desc: l.desc, External: true})
+			continue
+		}
+		seen[p] = true
 		g.Items = append(g.Items, NavItem{Title: l.title, URL: p.URL, Desc: l.desc})
 		d.order = append(d.order, p)
 	}
@@ -207,8 +265,7 @@ func Get() (*Docs, error) {
 	}
 	if dir != "" {
 		if t := newest(dir); t.After(stamp) {
-			if d, err := Load(os.DirFS(dir)); err == nil {
-				d.Source = dir
+			if d, err := loadDir(dir); err == nil {
 				current, stamp = d, t
 			}
 		}
@@ -221,7 +278,8 @@ func loadDefault() (*Docs, error) {
 	if !useDisk {
 		if sub, err := fs.Sub(embedded, "md"); err == nil {
 			if names, _ := fs.Glob(sub, "*.md"); len(names) > 0 {
-				d, err := Load(sub)
+				changelog, _ := fs.ReadFile(sub, ChangelogFile)
+				d, err := Load(sub, changelog)
 				if d != nil {
 					d.Source = "embedded"
 				}
@@ -235,7 +293,14 @@ func loadDefault() (*Docs, error) {
 	}
 	dir = found
 	stamp = newest(dir)
-	d, err := Load(os.DirFS(dir))
+	return loadDir(dir)
+}
+
+// loadDir loads the docs from a docs/ directory on disk, and the changelog
+// next to it (../CHANGELOG.md) when there's one.
+func loadDir(dir string) (*Docs, error) {
+	changelog, _ := os.ReadFile(filepath.Join(dir, "..", ChangelogFile))
+	d, err := Load(os.DirFS(dir), changelog)
 	if d != nil {
 		d.Source = dir
 	}
@@ -276,7 +341,7 @@ func newest(dir string) time.Time {
 	var t time.Time
 	for _, pattern := range []string{"*.md", "reference/*.md"} {
 		files, _ := filepath.Glob(filepath.Join(dir, filepath.FromSlash(pattern)))
-		for _, f := range files {
+		for _, f := range append(files, filepath.Join(dir, "..", ChangelogFile)) {
 			if fi, err := os.Stat(f); err == nil && fi.ModTime().After(t) {
 				t = fi.ModTime()
 			}

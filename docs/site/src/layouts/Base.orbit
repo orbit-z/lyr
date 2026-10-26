@@ -9,10 +9,16 @@ import (
 )
 
 type Props struct {
-	Title       string
-	Description string
+	// Title is the page's own title; the <title> adds " · Orbit docs".
+	// FullTitle replaces the whole <title> (the home page).
+	Title, FullTitle string
+	Description      string
 	// Query fills the header's search box (on the search page).
 	Query string
+	// Home lays the page out without the sidebar, full width.
+	Home bool
+	// NoIndex keeps the page out of search engines (search results, 404).
+	NoIndex bool
 }
 
 docs, err := content.Get()
@@ -20,8 +26,15 @@ if err != nil {
 	return err
 }
 
+// The docs change only with a deploy, but HTML isn't cached by a CDN or
+// the browser without asking: the theme is rendered from a cookie.
+ctx.Header().Set("Cache-Control", "private, no-cache")
+
 title := "Orbit docs"
-if props.Title != "" {
+switch {
+case props.FullTitle != "":
+	title = props.FullTitle
+case props.Title != "":
 	title = props.Title + " · Orbit docs"
 }
 // No data-theme attribute means "follow the system setting".
@@ -29,30 +42,66 @@ var theme any
 if locals.Theme != "" {
 	theme = locals.Theme
 }
+// ctx.Site is orbit.json's "site", or $SITE_URL (cmd/server).
+canonical, ogImage := "", ""
+if ctx.Site != nil && !props.NoIndex {
+	canonical = ctx.Site.JoinPath(ctx.URL.Path).String()
+	ogImage = ctx.Site.JoinPath("/og.png").String()
+}
 ---
 <!DOCTYPE html>
 <html lang="en" data-theme={theme}>
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" href="/favicon.svg">
     <title>{title}</title>
-    <GlobalStyles />
     {if props.Description != ""}
       <meta name="description" content={props.Description}>
     {/if}
+    {if props.NoIndex}
+      <meta name="robots" content="noindex">
+    {/if}
+    {if canonical != ""}
+      <link rel="canonical" href={canonical}>
+      <meta property="og:type" content="website">
+      <meta property="og:site_name" content="Orbit">
+      <meta property="og:title" content={title}>
+      {if props.Description != ""}
+        <meta property="og:description" content={props.Description}>
+      {/if}
+      <meta property="og:url" content={canonical}>
+      <meta property="og:image" content={ogImage}>
+      <meta property="og:image:width" content="1200">
+      <meta property="og:image:height" content="630">
+      <meta name="twitter:card" content="summary_large_image">
+    {/if}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <GlobalStyles />
   </head>
   <body>
     <a class="skip" href="#content">Skip to content</a>
     <header class="top">
       <a class="brand" href="/"><img src="/favicon.svg" alt="" width="24" height="24"> Orbit</a>
+      {if docs.Version != ""}
+        <a class="version" href="/changelog" title="Changelog">{docs.Version}</a>
+      {/if}
       <form class="search" action="/search" method="get" role="search">
-        <input type="search" name="q" value={props.Query} placeholder="Search the docs" aria-label="Search the docs">
+        <input type="search" name="q" value={props.Query} placeholder="Search the docs" aria-label="Search the docs" aria-keyshortcuts="/">
       </form>
+      <a class="icon" href={content.GitHubURL} title="Orbit on GitHub" aria-label="Orbit on GitHub">
+        <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+      </a>
       <ThemeToggle />
     </header>
-    <div class="shell">
-      <details class="nav-wrap" open>
+    <div class:list={"shell", "home": props.Home}>
+      {/* The sidebar twice: open beside the page on wide screens, and in a
+          closed "Menu" disclosure on narrow ones (CSS shows one). */}
+      <div class="nav-side">
+        <Sidebar nav={docs.Nav} current={ctx.URL.Path} label="Documentation pages" />
+      </div>
+      <details class="nav-menu">
         <summary>Menu</summary>
         <Sidebar nav={docs.Nav} current={ctx.URL.Path} label="Documentation pages" />
       </details>
@@ -63,9 +112,34 @@ if locals.Theme != "" {
         <aside class="aside"><slot name="aside" /></aside>
       {/if}
     </div>
+    <footer class="foot">
+      <div class="foot-in">
+        <p>
+          <a href={content.GitHubURL}>GitHub</a>{" "}
+          · <a href="/changelog">Changelog</a>{" "}
+          · <a href="/editor-setup#vs-code">VS Code extension</a>{" "}
+          · <a href={content.RepoURL + "LICENSE"}>MIT License</a>
+        </p>
+        <p class="fine">© 2026 Bertrand KHE. Orbit is an independent project, not affiliated with or endorsed by Astro.</p>
+      </div>
+    </footer>
   </body>
 </html>
 
+<script>
+  // "/" focuses the search box, as on most docs sites.
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target as HTMLElement | null;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))
+      return;
+    const input = document.querySelector<HTMLInputElement>(".search input");
+    if (!input) return;
+    e.preventDefault();
+    input.focus();
+    input.select();
+  });
+</script>
 
 <style>
   .skip {
@@ -83,7 +157,7 @@ if locals.Theme != "" {
     z-index: 5;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.75rem;
     padding: 0.6rem 1.25rem;
     background: var(--bg);
     border-bottom: 1px solid var(--border);
@@ -96,6 +170,18 @@ if locals.Theme != "" {
     font-size: 1.1rem;
     color: var(--fg);
     text-decoration: none;
+  }
+  .version {
+    padding: 0.05rem 0.45rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    text-decoration: none;
+  }
+  .version:hover {
+    color: var(--accent);
+    border-color: var(--accent);
   }
   .search {
     flex: 1;
@@ -111,6 +197,17 @@ if locals.Theme != "" {
     color: var(--fg);
     font: inherit;
   }
+  .icon {
+    display: grid;
+    place-items: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 6px;
+    color: var(--fg);
+  }
+  .icon:hover {
+    background: var(--bg-soft);
+  }
   .shell {
     display: grid;
     grid-template-columns: 16rem minmax(0, 1fr) 14rem;
@@ -119,10 +216,18 @@ if locals.Theme != "" {
     margin: 0 auto;
     padding: 0 1.25rem;
   }
-  .nav-wrap > summary {
+  .shell.home {
+    display: block;
+    max-width: 72rem;
+  }
+  .home .nav-side,
+  .home .nav-menu {
     display: none;
   }
-  .nav-wrap {
+  .nav-menu {
+    display: none;
+  }
+  .nav-side {
     position: sticky;
     top: 3.5rem;
     align-self: start;
@@ -143,6 +248,26 @@ if locals.Theme != "" {
     padding: 1.5rem 0;
     font-size: 0.875rem;
   }
+  .foot {
+    border-top: 1px solid var(--border);
+    background: var(--bg-soft);
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+  .foot-in {
+    max-width: 90rem;
+    margin: 0 auto;
+    padding: 1.25rem;
+  }
+  .foot p {
+    margin: 0.25rem 0;
+  }
+  .foot a {
+    color: var(--fg);
+  }
+  .fine {
+    font-size: 0.8rem;
+  }
   @media (max-width: 70rem) {
     .shell {
       grid-template-columns: 15rem minmax(0, 1fr);
@@ -155,18 +280,35 @@ if locals.Theme != "" {
     .shell {
       display: block;
     }
-    .nav-wrap {
-      position: static;
-      max-height: none;
+    .top {
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+    }
+    .shell {
+      padding: 0 1rem;
+    }
+    .nav-side {
+      display: none;
+    }
+    .nav-menu {
+      display: block;
       padding: 0.75rem 0 0;
     }
-    .nav-wrap > summary {
-      display: list-item;
+    .nav-menu > summary {
       cursor: pointer;
       font-weight: 600;
     }
+    .nav-menu[open] {
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
     .search {
       max-width: none;
+    }
+  }
+  @media (max-width: 30rem) {
+    .version {
+      display: none;
     }
   }
 </style>

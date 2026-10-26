@@ -12,12 +12,21 @@ if err != nil {
 	return err
 }
 results := docs.Search(q)
+// No match: try the query with its typos fixed ("Tailwnd").
+shown := q
+if len(results) == 0 {
+	if fixed := docs.Suggest(q); fixed != "" {
+		if rs := docs.Search(fixed); len(rs) > 0 {
+			results, shown = rs, fixed
+		}
+	}
+}
 title := "Search"
 if q != "" {
 	title = "Search: " + q
 }
 ---
-<Base title={title} query={q}>
+<Base title={title} query={q} noIndex>
   <h1>Search</h1>
   <form class="big" action="/search" method="get" role="search">
     <input type="search" name="q" value={q} placeholder="routing, server:defer, orbit build…" aria-label="Search the docs" autofocus>
@@ -29,7 +38,8 @@ if q != "" {
     <p class="hint">No results for <strong>{q}</strong>.</p>
   {else}
     <p class="hint">
-      {len(results)}{if len(results) == content.MaxResults}+{/if} results for <strong>{q}</strong>
+      {len(results)}{if len(results) == content.MaxResults}+{/if} results for <strong>{shown}</strong>
+      {if shown != q}(no results for <strong>{q}</strong>){/if}
     </p>
     <ol class="results">
       {for _, r := range results}

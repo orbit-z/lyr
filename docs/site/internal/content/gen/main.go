@@ -1,4 +1,5 @@
-// Command gen copies Orbit's docs (docs/*.md and docs/reference/*.md) into
+// Command gen copies Orbit's docs (docs/*.md and docs/reference/*.md,
+// except DECISIONS.md) and the repository's CHANGELOG.md into
 // internal/content/md, so the server can embed them. go generate runs it in
 // internal/content, three levels below docs/.
 package main
@@ -27,6 +28,9 @@ func main() {
 	}
 	for _, f := range files {
 		rel := strings.TrimPrefix(filepath.ToSlash(f), "../../../")
+		if rel == "DECISIONS.md" {
+			continue // the maintainers' log isn't on the site
+		}
 		b, err := os.ReadFile(f)
 		if err != nil {
 			log.Fatal(err)
@@ -39,5 +43,13 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-	log.Printf("gen: copied %d files into %s", len(files), dst)
+	// The repository's changelog, the /changelog page, as md/CHANGELOG.md.
+	b, err := os.ReadFile(filepath.Join(src, "..", "CHANGELOG.md"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dst, "CHANGELOG.md"), b, 0o644); err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("gen: copied %d files and CHANGELOG.md into %s", len(files), dst)
 }

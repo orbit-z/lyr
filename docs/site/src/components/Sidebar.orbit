@@ -23,7 +23,7 @@ current := func(url string) any {
     <h2>{g.Title}</h2>
     <ul>
       {for _, it := range g.Items}
-        <li><a href={it.URL} aria-current={current(it.URL)}>{it.Title}</a></li>
+        <li><a href={it.URL} aria-current={current(it.URL)}>{it.Title}{if it.External}<span class="ext" aria-hidden="true"> ↗</span>{/if}</a></li>
       {/for}
     </ul>
   {/for}
@@ -57,6 +57,9 @@ current := func(url string) any {
   }
   a:hover {
     background: var(--bg-soft);
+  }
+  .ext {
+    color: var(--muted);
   }
   a[aria-current="page"] {
     background: var(--accent-soft);
