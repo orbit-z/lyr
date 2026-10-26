@@ -200,7 +200,7 @@ orbit: GET /blog/hello: src/pages/blog/[slug].orbit:14: panic: runtime error: in
 
 The headers a page set with `ctx.Header()` are dropped from a 500, and from the 404 that `orbit.ErrNotFound` sends; only a redirect keeps them.
 
-In `orbit dev`, you get an error overlay with the `.orbit` file and line instead (see [Dev server](dev-server.md)). A custom `src/pages/500.orbit` error page is planned after the first release.
+In `orbit dev`, you get an error overlay with the `.orbit` file and line instead (see [Dev server](dev-server.md)). A custom `src/pages/500.orbit` error page is planned for a later release.
 
 Because responses are buffered, a failed render never sends half a page: the visitor gets a clean error response.
 

@@ -1,9 +1,15 @@
 // Command server serves the Orbit documentation site.
+//
+// Environment: PORT or ORBIT_ADDR (where to listen, see orbit.ListenAndServe),
+// SITE_URL (the site's public URL, overriding orbit.json's "site"; used for
+// canonical URLs, Open Graph tags, the sitemap and robots.txt) and DOCS_DIR
+// (read the Markdown from that directory instead of the embedded copy).
 package main
 
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/orbit-z/orbit"
 
@@ -24,13 +30,24 @@ func main() {
 		log.Printf("docs: %s", p)
 	}
 
-	site := app.New() // generated from src/: routes, pages and assets
+	var opts []orbit.Option
+	if u := os.Getenv("SITE_URL"); u != "" {
+		opts = append(opts, orbit.WithSite(u))
+	}
+	site := app.New(opts...) // generated from src/: routes, pages and assets
 
 	mux := http.NewServeMux()
-	// Everything goes to Orbit: pages, /_orbit/* assets and public/ files.
+	// For load balancers and platform probes: the distroless image has no
+	// shell for a Docker HEALTHCHECK.
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write([]byte("ok\n"))
+	})
+	// Everything else goes to Orbit: pages, /_orbit/* assets and public/ files.
 	mux.Handle("/", site.Handler())
 
-	if err := orbit.ListenAndServe(theme(mux)); err != nil {
+	if err := orbit.ListenAndServe(gzipped(theme(mux))); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -4,6 +4,69 @@ A component is a `.orbit` file: Go frontmatter that prepares data, followed by a
 
 ## A first component
 
+A `Card` that shows one blog post:
+
+```orbit file=src/components/Card.orbit
+---
+import "example.com/blog/internal/posts"
+
+type Props struct {
+	Post     posts.Post
+	Featured bool
+}
+
+func href(p posts.Post) string { return "/blog/" + p.Slug }
+
+url := href(props.Post)
+---
+<article class="card" data-featured={props.Featured}>
+  <h2><a href={url}>{props.Post.Title}</a></h2>
+  <time>{props.Post.Date.Format("2 Jan 2006")}</time>
+  <slot />
+</article>
+<style>
+  .card {
+    border: 1px solid #ccc;
+    padding: 1rem;
+  }
+</style>
+```
+
+A page uses it like an HTML tag:
+
+```orbit file=src/pages/index.orbit
+---
+import (
+	Card "../components/Card.orbit"
+	Base "../layouts/Base.orbit"
+	"example.com/blog/internal/posts"
+)
+
+list, err := posts.All()
+if err != nil {
+	return err
+}
+---
+<Base title="Home">
+  <h1>Latest posts</h1>
+  {if len(list) == 0}
+    <p>No posts yet.</p>
+  {else}
+    {for i, p := range list}
+      <Card post={p} featured={i == 0}>
+        <p>{p.Summary}</p>
+      </Card>
+    {/for}
+  {/if}
+  <p slot="footer">Subscribe to the RSS feed.</p>
+</Base>
+```
+
+The `posts` package is plain Go in your module:
+
+<details>
+<summary><code>internal/posts/posts.go</code>, the tiny post store used by the examples on this page</summary>
+
 ```go file=internal/posts/posts.go
 // Package posts holds the blog's content.
 package posts
@@ -70,63 +133,9 @@ func Comments(slug string) ([]Comment, error) {
 }
 ```
 
-```orbit file=src/components/Card.orbit
----
-import "example.com/blog/internal/posts"
+</details>
 
-type Props struct {
-	Post     posts.Post
-	Featured bool
-}
-
-func href(p posts.Post) string { return "/blog/" + p.Slug }
-
-url := href(props.Post)
----
-<article class="card" data-featured={props.Featured}>
-  <h2><a href={url}>{props.Post.Title}</a></h2>
-  <time>{props.Post.Date.Format("2 Jan 2006")}</time>
-  <slot />
-</article>
-<style>
-  .card {
-    border: 1px solid #ccc;
-    padding: 1rem;
-  }
-</style>
-```
-
-A page uses it like an HTML tag:
-
-```orbit file=src/pages/index.orbit
----
-import (
-	Card "../components/Card.orbit"
-	Base "../layouts/Base.orbit"
-	"example.com/blog/internal/posts"
-)
-
-list, err := posts.All()
-if err != nil {
-	return err
-}
----
-<Base title="Home">
-  <h1>Latest posts</h1>
-  {if len(list) == 0}
-    <p>No posts yet.</p>
-  {else}
-    {for i, p := range list}
-      <Card post={p} featured={i == 0}>
-        <p>{p.Summary}</p>
-      </Card>
-    {/for}
-  {/if}
-  <p slot="footer">Subscribe to the RSS feed.</p>
-</Base>
-```
-
-The file has three parts:
+A `.orbit` file has three parts:
 
 - **Frontmatter**, between the `---` lines: ordinary Go. It declares the component's `Props`, imports other packages and components, and computes values for the template.
 - **Template**: HTML with `{expressions}`, control blocks such as `{if}` and `{for}`, and other components as tags.

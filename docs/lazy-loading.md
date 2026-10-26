@@ -331,7 +331,7 @@ Island responses carry:
 - `Cache-Control: private, no-store`. A component can set its own through `ctx.Header()`.
 - `X-Robots-Tag: noindex`, so search engines don't index the fragments.
 
-The island URLs are already deterministic, with the build ID in the path. HTTP caching of islands (`ETag` and `304` responses, and guidance on caching them publicly) is planned after the first release.
+The island URLs are already deterministic, with the build ID in the path. HTTP caching of islands (`ETag` and `304` responses, and guidance on caching them publicly) is planned for a later release.
 
 ### Large props: GET and POST
 
@@ -499,7 +499,7 @@ To lazy-load scripts inside deferred HTML, put the `client:*` directive on a com
 
 Pages that need it get small inline `<script type="module">`s (one for deferred components and one for lazy ones, each about 1 KB, under 0.8 KB gzipped), a JSON `<script type="application/json">` with their settings, and a one-line `<style>` that gives `<orbit-island>` and `<orbit-lazy>` `display: contents`, both in `<head>`. Orbit decides this when it builds, from the components a page can render: pages without deferred or lazy components get neither.
 
-The loader is inline, as Astro's island script is, which saves a request before the island fetches can start. A strict Content Security Policy must allow it, with `'unsafe-inline'` or the script's hash. Generated CSP hashes are planned after the first release.
+The loader is inline, as Astro's island script is, which saves a request before the island fetches can start. A strict Content Security Policy must allow it, with `'unsafe-inline'` or the script's hash. Generated CSP hashes are planned for a later release.
 
 ## Coming from Astro
 

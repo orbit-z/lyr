@@ -2,7 +2,10 @@
 
 Orbit's server rendering is designed to do as little work per request as possible; this page explains that design and how Orbit is benchmarked against Astro.
 
-Orbit has no target number. Instead, it measures and publishes: see [Results](#results).
+Orbit has no target number; it measures and publishes. In short (full numbers and setup in [Results](#results)):
+
+- **Render-heavy page** (500 cards from nested components): Orbit serves about 14.6× as many pages as Astro per CPU, and about 57× at all cores against Astro's single Node process. Rendering it allocates nothing.
+- **Page with a 10 ms data fetch**: similar throughput, since both servers mostly wait, but Orbit has lower tail latency and uses far less memory.
 
 ## Why Orbit's SSR is fast
 
@@ -183,7 +186,7 @@ Orbit is written in Go partly so that builds stay fast: each component is its ow
 
 `orbit build` calls components directly instead: it writes a second version of the generated code that calls each component's implementation, to `.orbit/build/`, and compiles it with `go build -overlay`, leaving `orbit_gen/` as `orbit generate` writes it. Components that render each other in a cycle keep the hook between them (a direct call would be a Go import cycle). The HTML is byte-for-byte the same; only allocations and time differ. On the [500-card page](#orbit-vs-other-go-templates-benchgo) that's 0 allocations instead of 501, and about 13% less time.
 
-The cost is at build time. On a generated project with 200 `.orbit` files (each component calling two others, six levels deep at most), with the standard library cached and every generated package new, `orbit build` took 732 ms instead of 650 ms (+13%) on 16 threads and 1,147 ms instead of 1,044 ms (+10%) on 4 cores; after editing the layout, 412 ms instead of 348 ms, since the pages that call the layout recompile. On `examples/blog` the difference is within noise (321 vs. 316 ms on 16 threads, 337 ms both on 4 cores). Writing the second version of the code takes about 4–5 ms. The binary is about 1% smaller. A deep chain of components, where each one calls the next, builds slower, because Go compiles a package only after the packages it imports: real sites are 2–3 levels deep. `orbit dev` is unaffected: it never writes or compiles the build version. (Medians of 5–7 alternating runs, Ryzen 7 9700X; the machine was shared, load average 3.7–7.5.)
+The cost is at build time. On a generated project with 200 `.orbit` files (each component calling two others, six levels deep at most), with the standard library cached and every generated package new, `orbit build` took 732 ms with direct calls instead of 650 ms with hooks (+13%) on 16 threads and 1,147 ms instead of 1,044 ms (+10%) on 4 cores; after editing the layout, 412 ms instead of 348 ms, since the pages that call the layout recompile. On `examples/blog` the difference is within noise (321 vs. 316 ms on 16 threads, 337 ms both on 4 cores). Writing the second version of the code takes about 4–5 ms. The binary is about 1% smaller. A deep chain of components, where each one calls the next, builds slower, because Go compiles a package only after the packages it imports: real sites are 2–3 levels deep. `orbit dev` is unaffected: it never writes or compiles the build version. (Medians of 5–7 alternating runs on a shared Ryzen 7 9700X.)
 
 `go test` and a plain `go build` use the hook version in `orbit_gen/`, so their allocation counts are dev's. To measure what production runs, run `orbit build`, then `go test -overlay=.orbit/build/overlay.json ./...` (see [Testing](testing.md#allocation-counts-and-production-builds)).
 
@@ -224,7 +227,7 @@ The runtime's writer and escaper have their own Go micro-benchmarks, which repor
 
 ## Results
 
-Measured on 2026-10-26 (Orbit at commit 65cfe93, with direct calls in `orbit build`) on an AMD Ryzen 7 9700X (8 cores, 16 threads), 46 GB RAM, Linux 7.2.11, with Go 1.27.3, Node 25.6.1, Astro 7.3.8 and `@astrojs/node` 11.1.7 (standalone, one process). Every run uses 64 keep-alive connections, a 5 s warm-up and 20 s of measurement. The server runs on cores 0–3 (both threads of each) and the load generator on cores 4–7; Orbit at `GOMAXPROCS=1` and "Astro, one CPU" are pinned to one CPU; "Astro" gets the same 8 CPUs as Orbit at all cores. No run had an error; the load average stayed under 1.5. Reproduce with `bench/run.sh` (about 7 minutes).
+Measured on 2026-10-26 (Orbit at commit 65cfe93) on an AMD Ryzen 7 9700X (8 cores, 16 threads), 46 GB RAM, Linux 7.2.11, with Go 1.27.3, Node 25.6.1, Astro 7.3.8 and `@astrojs/node` 11.1.7 (standalone, one process). Every run uses 64 keep-alive connections, a 5 s warm-up and 20 s of measurement. The server runs on cores 0–3 (both threads of each) and the load generator on cores 4–7; Orbit at `GOMAXPROCS=1` and "Astro, one CPU" are pinned to one CPU; "Astro" gets the same 8 CPUs as Orbit at all cores. No run had an error, and the machine was otherwise idle. Reproduce with `bench/run.sh` (about 7 minutes).
 
 ### Render-heavy page (`/cards`, 500 cards from nested components)
 
@@ -235,7 +238,7 @@ Measured on 2026-10-26 (Orbit at commit 65cfe93, with direct calls in `orbit bui
 | Astro, one CPU | 669 | 92.5 ms | 155 ms | 475 MB | 1.47 ms |
 | Astro | 698 | 89.8 ms | 125 ms | 510 MB | 1.55 ms |
 
-On one CPU each, Orbit serves about 14.6× as many pages as Astro (12.5× before direct calls, measured 2026-10-25). With all cores, about 57× as many as Astro's single Node process. Part of that second number is Go using every core while Node runs JavaScript on one thread: giving Astro 8 CPUs instead of one helps it by only 4% here.
+On one CPU each, Orbit serves about 14.6× as many pages as Astro. With all cores, about 57× as many as Astro's single Node process. Part of that second number is Go using every core while Node runs JavaScript on one thread: giving Astro 8 CPUs instead of one helps it by only 4% here.
 
 ### Where the time goes (Orbit vs. Astro)
 
@@ -249,7 +252,7 @@ To see where that gap comes from, both servers were CPU-profiled while serving `
 | Allocation and garbage collection | 4% | 11% |
 | Converting the HTML to bytes and sending it (UTF-8 encoding, streams, socket writes) | 17% | 18% |
 | Request handling (HTTP parsing, routing, middleware) | 3% | 3% |
-| **CPU per page** (2026-10-25, before direct calls) | **1.55 ms** | **0.11 ms** |
+| **CPU per page** while profiled (an earlier build of Orbit) | **1.55 ms** | **0.11 ms** |
 
 In Orbit a component is a plain function call, so its cost is in the other rows. Astro's GC row counts only the main thread's pauses; V8's helper threads used about 5% more CPU, mostly for concurrent GC.
 
@@ -298,7 +301,7 @@ Even without island requests, Astro's TTFB is mostly queueing: one thread at abo
 
 ### Orbit vs. other Go templates (`bench/go`)
 
-The same 500-card page (a layout, a header with a nav loop, and cards with attributes, escaped text and a slot), rendered into a buffer. Orbit's row is the code `orbit build` produces (`go test -overlay=.orbit/build/overlay.json -bench . -benchmem`, see `bench/go/README.md`); 6 runs, medians (2026-10-26, commit 65cfe93, load average 0.7–0.9).
+The same 500-card page (a layout, a header with a nav loop, and cards with attributes, escaped text and a slot), rendered into a buffer. Orbit's row is the code `orbit build` produces (`go test -overlay=.orbit/build/overlay.json -bench . -benchmem`, see `bench/go/README.md`); 6 runs, medians (2026-10-26, commit 65cfe93, quiet machine).
 
 | Engine | Time per page | Memory per page | Allocations per page |
 |---|---:|---:|---:|
@@ -309,34 +312,36 @@ The same 500-card page (a layout, a header with a nav loop, and cards with attri
 
 With direct calls, the 500 slot closures that use the loop variable, and the layout's, stay on the stack (see [Direct calls in production builds](#direct-calls-in-production-builds)); through the hooks, each costs one allocation. Serving the page through `site.Handler()` adds one allocation (`Content-Length`) and almost no time (49.3 µs). A small page with a route param is served in 0.34 µs with 1 allocation, `Content-Length` (3 through the hooks: also a slot closure and a string concatenation it captured). On one core (`-cpu 1`) the direct calls save 18% (49.5 vs. 60.3 µs).
 
+Differences under about 3% between two builds can come from code alignment alone (how the linker lays out functions), as measured on this page, so treat them as noise.
+
 ### Dev loop (`bench/devloop`)
 
-The time from a saved edit to a new server running, measured on `orbit dev`'s own rebuild pipeline (`bench/devloop -dev`) with a generated project of 200 `.orbit` files (40 pages, 158 components, scoped styles and scripts on a quarter of them, two user Go packages, typed locals). It covers generating, the type check, esbuild when needed, `go build` with the dev flags (see [Dev server](dev-server.md#what-a-change-rebuilds): no DWARF or symbol table, no inlining in the generated packages, no VCS stamping, no `GOGC`) and restarting the server, but not the watcher's 50 ms debounce or the browser's reload. Median of 7 runs on a quiet machine (load average 0.4 before the first run; the 4-core runs started at 3.2–3.4, left by the benchmark's own previous run), Ryzen 7 9700X. The "before" column is the same benchmark before the dev-loop speed-ups listed below, run alternately with the newer code on the same machine (load average 3–7: another build was running).
+The time from a saved edit to a new server running, measured on `orbit dev`'s own rebuild pipeline (`bench/devloop -dev`) with a generated project of 200 `.orbit` files (40 pages, 158 components, scoped styles and scripts on a quarter of them, two user Go packages, typed locals). It covers generating, the type check, esbuild when needed, `go build` with the dev flags (see [Dev server](dev-server.md#what-a-change-rebuilds): no DWARF or symbol table, no inlining in the generated packages, no VCS stamping, no `GOGC`) and restarting the server, but not the watcher's 50 ms debounce or the browser's reload. Median of 7 runs on a quiet Ryzen 7 9700X.
 
-| Edit | 16 threads | 4 cores | Before (16 threads / 4 cores) |
-|---|---:|---:|---:|
-| Template text | 176 ms | 177 ms | 226 / 230 ms |
-| Frontmatter statement | 168 ms | 171 ms | 222 / 227 ms |
-| Add a `Props` field (component imported by 10 others) | 187 ms | 196 ms | 242 / 270 ms |
-| Add a page | 218 ms | 230 ms | 260 / 272 ms |
-| Only a `<style>` or `<script>` (no Go rebuild; before code splitting, see [below](#code-splitting)) | 23 ms | 26 ms | same |
-| A Go package every `Props` imports, function body only | 602 ms | 995 ms | 740 ms / 1.28 s |
-| The same package, new exported name | 609 ms | 997 ms | 770 ms / 1.30 s |
+| Edit | 16 threads | 4 cores |
+|---|---:|---:|
+| Template text | 176 ms | 177 ms |
+| Frontmatter statement | 168 ms | 171 ms |
+| Add a `Props` field (component imported by 10 others) | 187 ms | 196 ms |
+| Add a page | 218 ms | 230 ms |
+| Only a `<style>` or `<script>` (no Go rebuild; without per-page script copies, see [Code splitting](#code-splitting) for their cost) | 23 ms | 26 ms |
+| A Go package every `Props` imports, function body only | 602 ms | 995 ms |
+| The same package, new exported name | 609 ms | 997 ms |
 
-The speed-ups, all dev only (`orbit build` is unchanged):
+How `orbit dev` keeps rebuilds fast (dev only; `orbit build` doesn't do these):
 
 - **No symbol table and no DWARF** (`-ldflags=-s -w`, `-gcflags=all=-dwarf=false`): a faster link on every rebuild, and smaller objects to write. The first `orbit dev` after a Go toolchain change compiles the standard library once with these flags (about 3–4 s), and dev's compiled packages aren't shared with your own `go build` or `go test`.
-- **`-buildvcs=false`**: `go build` no longer runs the version-control tool on every build (10–20 ms in a repository).
-- **A lighter `orbit.Ctx` type**: the runtime keeps its island sealer, and the `sync.Pool` inside it, out of `Ctx`'s type graph, so each generated package no longer compiles generic `sync/atomic` code of its own. A package that only mentions `*orbit.Ctx` went from 196 symbols to 6. It matters most when every generated package recompiles.
-- **No `GOGC` or `GOMEMLIMIT` for `go build`**: the Go compiler tunes its own memory use only when both are unset. With `GOGC=100` set in the shell, the slowest row on 4 cores went from 2.1 s to 1.09 s. Your server still gets them.
-- **Only the edited component and one small package recompile**: the generated `app` package (the route table, which imports every page) no longer imports the component implementations itself; a small `orbit_gen/link` package does. A template edit recompiles the component and `link` (8–12 ms) instead of the component and `app` (21–38 ms).
-- **Only the edited file is re-parsed**: `orbit dev` re-reads and re-analyzes just the files that changed (0.6 ms instead of about 10 ms at 200 files), and starts loading Go type information for the type check while it parses.
+- **`-buildvcs=false`**: `go build` doesn't run the version-control tool on every build (10–20 ms in a repository).
+- **A lighter `orbit.Ctx` type**: the runtime keeps its island sealer, and the `sync.Pool` inside it, out of `Ctx`'s type graph, so a generated package doesn't compile generic `sync/atomic` code of its own: one that only mentions `*orbit.Ctx` has 6 symbols instead of 196. It matters most when every generated package recompiles.
+- **No `GOGC` or `GOMEMLIMIT` for `go build`**: the Go compiler tunes its own memory use only when both are unset. Passing `GOGC=100` through to `go build` made the slowest row on 4 cores take 2.1 s instead of 1.09 s. Your server still gets them.
+- **Only the edited component and one small package recompile**: the generated `app` package (the route table, which imports every page) doesn't import the component implementations itself; a small `orbit_gen/link` package does. A template edit recompiles the component and `link` (8–12 ms) instead of the component and `app` (21–38 ms).
+- **Only the edited file is re-parsed**: `orbit dev` re-reads and re-analyzes just the files that changed (0.6 ms, against about 10 ms to re-read all 200 files), and starts loading Go type information for the type check while it parses.
 
-Most of a template edit is `go build`, and most of that is the link, about 105 ms (130 ms before), a fixed cost for any Go binary of this size. Template, frontmatter and `Props` edits skip esbuild, and a `.go` edit starts `go build` at once, while Orbit regenerates. The slow rows are a Go package that every component imports: `go build` then recompiles all the generated packages, even when only a function body changed, because Go recompiles a package's importers whenever it changes. Keep frequently edited Go code out of packages that every `Props` imports.
+Most of a template edit is `go build`, and most of that is the link, about 105 ms, a fixed cost for any Go binary of this size. Template, frontmatter and `Props` edits skip esbuild, and a `.go` edit starts `go build` at once, while Orbit regenerates. The slow rows are a Go package that every component imports: `go build` then recompiles all the generated packages, even when only a function body changed, because Go recompiles a package's importers whenever it changes. Keep frequently edited Go code out of packages that every `Props` imports.
 
 #### Tailwind CSS
 
-The same benchmark with `-tailwind` (PLAN.md §5d): the project gets a `global.css` with `@import "tailwindcss"` in its layout and 12 utilities in every `.orbit` file, and `orbit dev` runs the Tailwind CSS 4.3.3 standalone CLI. A Tailwind run takes 0.07–0.1 s here; for a template, frontmatter or `.go` edit that brings a new word it starts with the batch, in parallel with regenerating and `go build`, and esbuild runs after it only when the CSS changed. Every edit below brings a new word, so Tailwind runs on each one. Median of 7 runs, the two configurations run back to back; the machine was shared with other builds (load average 13–21 during these runs), so treat the differences of a few ms as noise.
+The same benchmark with `-tailwind`: the project gets a `global.css` with `@import "tailwindcss"` in its layout and 12 utilities in every `.orbit` file, and `orbit dev` runs the Tailwind CSS 4.3.3 standalone CLI. A Tailwind run takes 0.07–0.1 s here; for a template, frontmatter or `.go` edit that brings a new word it starts with the batch, in parallel with regenerating and `go build`, and esbuild runs after it only when the CSS changed. Every edit below brings a new word, so Tailwind runs on each one. Median of 7 runs, the two configurations run back to back on a busy machine, so treat differences of a few ms as noise.
 
 | Edit | 16 threads, without → with Tailwind | 4 cores, without → with Tailwind |
 |---|---:|---:|
@@ -345,48 +350,48 @@ The same benchmark with `-tailwind` (PLAN.md §5d): the project gets a `global.c
 | A Go package every `Props` imports, function body only | 594 → 642 ms | 1.10 → 1.04 s |
 | Only a `<style>` or `<script>` (no Go rebuild) | 18 → 90 ms | 23–27 → 91–92 ms |
 
-On template and frontmatter edits Tailwind is hidden behind `go build`; what remains (5–20 ms) is CPU contention, worse on 4 cores. A style or script edit has no Go rebuild to hide behind, so it waits for the run, then esbuild. A project without Tailwind runs none of this: no lookup, no process, no word set (measured the same as before, 173 and 17 ms).
+On template and frontmatter edits Tailwind is hidden behind `go build`; what remains (5–20 ms) is CPU contention, worse on 4 cores. A style or script edit has no Go rebuild to hide behind, so it waits for the run, then esbuild. A project without Tailwind runs none of this: no lookup, no process, no word set.
 
-`orbit build` on the same project, everything else cached: 0.30 s without Tailwind, 0.40 s with it (5 runs each, three rounds, load average 8.5). A project without Tailwind builds in the same time as before (0.30–0.31 s).
+`orbit build` on the same project, everything else cached: 0.30 s without Tailwind, 0.40 s with it (5 runs each, three rounds).
 
 #### Code splitting
 
-Since [shared chunks and `import()`](styles-and-scripts.md#shared-chunks-and-import) (PLAN.md §5e), a component's script block is copied into the bundle of each page that uses it, so that blocks run in import order, while imported files become shared chunks. esbuild processes each copy: on the same 200-file project (every 4th component has a script importing a shared `util.ts`; about 800 block copies instead of 40 blocks), measured against the code before, alternated:
+With [shared chunks and `import()`](styles-and-scripts.md#shared-chunks-and-import), a component's script block is copied into the bundle of each page that uses it, so that blocks run in import order, while imported files become shared chunks. esbuild processes each copy. On the same 200-file project, with every 4th component's script importing a shared `util.ts` (about 800 block copies of 40 blocks):
 
-| | Before | With code splitting |
-|---|---:|---:|
-| Only a `<style>` or `<script>` (`bench/devloop -dev -kinds css,ts`, median (min) of 15, two rounds, load average 9–10) | 16 (15) ms | 26–31 (25–27) ms |
-| esbuild in `orbit generate`/`orbit build` (median (min) of 15 separate processes, load average 1.4) | 15 (14) ms | 31 (28) ms |
-| `orbit generate` (median (min) of 15, load average 11) | 67 (64) ms | 78 (75) ms |
-| JS requests per page (the module and its preloaded chunks) | 1 | 2.0 |
-| JS per page, raw / gzip (sum of per-file gzip) | 1,914 / 320 B | 1,976 / 406 B |
+| | Cost |
+|---|---:|
+| Only a `<style>` or `<script>` edit (`bench/devloop -dev -kinds css,ts`, median (min) of 15, two rounds) | 26–31 (25–27) ms |
+| esbuild in `orbit generate`/`orbit build` (median (min) of 15 separate processes) | 31 (28) ms |
+| `orbit generate` (median (min) of 15) | 78 (75) ms |
+| JS requests per page (the module and its preloaded chunks) | 2.0 |
+| JS per page, raw / gzip (sum of per-file gzip) | 1,976 / 406 B |
 
-A style or script edit stays far inside the ~1 s budget, but it is about 11–14 ms slower than before, most of it esbuild linking and printing the copies. A scoped style block is scoped once and a Tailwind block runs Tailwind once per build, however many pages copy it. A page with no shared imports gets the same single module as before.
+A style or script edit stays far inside the ~1 s budget; most of its time is esbuild linking and printing the copies. A scoped style block is scoped once and a Tailwind block runs Tailwind once per build, however many pages copy it. A page with no shared imports gets a single module.
 
 ### Editor (`orbit lsp`)
 
-`bench/lsp` starts `orbit lsp` on the same 200-file project as the dev-loop benchmark and drives it as an editor would, with gopls v0.24.0 and a warm Go build cache. It runs in two modes: without `orbit_gen/` on disk, where every generated file reaches gopls in memory, and after `orbit generate`. Startup times are the median of 3 starts, measured from process start. Request times are the median of 20 runs after the readiness barrier, and a completion includes the edit before it. Measured on a quiet machine (load average 1.5 at the start, 1.4 at the end). The last column is from the milestone 0 spike, which drove gopls directly with hand-written generated code, at a smaller size.
+`bench/lsp` starts `orbit lsp` on the same 200-file project as the dev-loop benchmark and drives it as an editor would, with gopls v0.24.0 and a warm Go build cache. It runs in two modes: without `orbit_gen/` on disk, where every generated file reaches gopls in memory, and after `orbit generate`. Startup times are the median of 3 starts, measured from process start. Request times are the median of 20 runs after the readiness barrier, and a completion includes the edit before it. Measured on a quiet machine.
 
-| | No `orbit_gen/` | `orbit_gen/` on disk | Spike |
-|---|---:|---:|---:|
-| Start → first hover or completion | 340 ms | 290 ms | 386 ms cold, 132 ms warm (102 files) |
-| Start → gopls's diagnostics on an open page | 342 ms | 234 ms | – |
-| Start → references answered (references and rename wait until every package is loaded) | 342 ms | 274 ms | 2.4–2.5 s in memory, 0.8 s on disk (102 files) |
-| Edit + completion, `{props.` | 2.07 ms | 2.54 ms | 1.6–3 ms |
-| Edit + completion, a bare identifier | 7.88 ms | 9.18 ms | – |
-| Edit + completion, `<Card ` props | 1.38 ms | 1.22 ms | – |
-| Hover, definition, references of a local | 0.07–0.10 ms | 0.08–0.11 ms | – |
-| Rename of a local | 0.18 ms | 0.18 ms | – |
-| References of a `Props` field (used by other components) | 0.15 ms | 13.2 ms | – |
-| Memory: `orbit lsp` (peak) | 38 MB | 47 MB (109 MB) | – |
-| Memory: gopls, after startup | 182 MB | 180 MB | 260 MB warm / 650 MB cold (50 components) |
-| Memory: gopls, after the requests | 282 MB | 300 MB | – |
+| | No `orbit_gen/` | `orbit_gen/` on disk |
+|---|---:|---:|
+| Start → first hover or completion | 340 ms | 290 ms |
+| Start → gopls's diagnostics on an open page | 342 ms | 234 ms |
+| Start → references answered (references and rename wait until every package is loaded) | 342 ms | 274 ms |
+| Edit + completion, `{props.` | 2.07 ms | 2.54 ms |
+| Edit + completion, a bare identifier | 7.88 ms | 9.18 ms |
+| Edit + completion, `<Card ` props | 1.38 ms | 1.22 ms |
+| Hover, definition, references of a local | 0.07–0.10 ms | 0.08–0.11 ms |
+| Rename of a local | 0.18 ms | 0.18 ms |
+| References of a `Props` field (used by other components) | 0.15 ms | 13.2 ms |
+| Memory: `orbit lsp` (peak) | 38 MB | 47 MB (109 MB) |
+| Memory: gopls, after startup | 182 MB | 180 MB |
+| Memory: gopls, after the requests | 282 MB | 300 MB |
 
 Orbit answers `initialize` and publishes its own diagnostics (such as an unknown prop) in about 25 ms. With `orbit_gen/` on disk, gopls reads the generated files that are up to date from disk, and only the files you edit go to it in memory. That's why references of a `Props` field take longer there: gopls keeps only the packages it holds in memory fully loaded, and reloads the others for a cross-component search. `orbit lsp`'s peak on disk is a one-time check at startup that compares `orbit_gen/` with the sources (about 70 ms). Plain gopls on the same generated code uses about 300 MB.
 
 #### TypeScript in `<script>` blocks
 
-On the same project, with TypeScript 7.0.2: every fourth component has a `<script>`, so opening the probe component starts the TypeScript child next to gopls. The Go and template rows above don't change with it running (measured back to back with and without it, at a load average of 2–4: first hover, completion and references within the run-to-run noise, `orbit lsp` 45–56 MB either way).
+On the same project, with TypeScript 7.0.2: every fourth component has a `<script>`, so opening the probe component starts the TypeScript child next to gopls. The Go and template rows above don't change with it running (measured back to back with and without it: first hover, completion and references within the run-to-run noise, `orbit lsp` 45–56 MB either way).
 
 | | No `orbit_gen/` | `orbit_gen/` on disk |
 |---|---:|---:|
@@ -400,6 +405,22 @@ On the same project, with TypeScript 7.0.2: every fourth component has a `<scrip
 | Memory: the TypeScript child, every script open | 108 MB | 109 MB |
 
 With `orbit_gen/` on disk, the first script completion waits a little longer because the startup typed check runs at the same time. A Go edit that changes a script's data types reaches the script's completion and diagnostics after the 300 ms debounce of the typed check plus a few milliseconds.
+
+## Your own code
+
+### Struct layout
+
+Go doesn't reorder struct fields, so the padding between them costs memory, and Go's allocator rounds each allocation up to a size class: a 136-byte struct is allocated as 144 bytes, while the same fields reordered to 128 bytes fit exactly, 11% less heap per value. Putting the fields that hold pointers first also lets the garbage collector stop scanning a struct earlier. This pays off for types you hold in bulk (large slices, in-memory caches, indexes, maps of sessions). It doesn't for component `Props`, which are passed by value and usually stay on the stack in an `orbit build` binary, or for structs with one instance per request.
+
+The `fieldalignment` analyzer finds these structs. Build it with Go 1.27, or it refuses Go 1.27 code ("package requires newer Go version go1.27"); pin a release, and `go install` adds nothing to your `go.mod`:
+
+```sh
+GOTOOLCHAIN=go1.27.3 go install golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@v0.52.0
+orbit generate
+go vet -vettool=$(which fieldalignment) ./...
+```
+
+Findings in `.orbit` frontmatter types point at the `.orbit` line, such as `src/components/Card.orbit:4:12: Props has size 136 (allocator size class 144) but the optimal size is 128`. `fieldalignment -fix ./...` rewrites your `.go` files; it leaves `.orbit` files and `orbit_gen/` alone, so reorder `.orbit` types by hand. `-fix` drops the comments of the fields it moves, so commit first.
 
 ## See also
 

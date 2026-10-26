@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/orbit-z/orbit"
 	"github.com/yuin/goldmark"
@@ -21,11 +22,21 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
+// GitHubURL is Orbit's repository.
+const GitHubURL = "https://github.com/orbit-z/orbit"
+
 // RepoURL is where links to files outside docs/ point.
-const RepoURL = "https://github.com/orbit-z/orbit/blob/main/"
+const RepoURL = GitHubURL + "/blob/main/"
+
+// EditURL is the prefix of a page's "Edit this page" link.
+const EditURL = GitHubURL + "/edit/main/"
+
+// ChangelogFile is the repository's changelog, shown as the /changelog page.
+const ChangelogFile = "CHANGELOG.md"
 
 type navLink struct {
 	group, title, desc, slug string
+	url                      string // for a link outside the site
 }
 
 // pendingLink is an internal link to check once every page is loaded.
@@ -51,8 +62,13 @@ func newRenderer(d *Docs) *mdRenderer {
 	return &mdRenderer{docs: d, md: md}
 }
 
+// render renders a file of docs/ ("reference/cli.md"), or the repository's
+// changelog ("../CHANGELOG.md").
 func (r *mdRenderer) render(file string, src []byte) (*Page, error) {
 	slug := SlugOf(file)
+	if file == "../"+ChangelogFile {
+		slug = "changelog"
+	}
 	p := &Page{Slug: slug, URL: "/" + slug, File: file, ids: map[string]bool{}}
 	doc := r.md.Parser().Parse(text.NewReader(src))
 
@@ -81,11 +97,14 @@ func (r *mdRenderer) render(file string, src []byte) (*Page, error) {
 			t := plainText(n, src)
 			id := p.uniqueID(slugify(t))
 			n.SetAttributeString("id", []byte(id))
-			// A self-link, so readers can copy a heading's URL.
+			// A self-link, so readers can copy a heading's URL. It's
+			// out of the tab order and hidden from assistive tech: the
+			// table of contents already links every h2 and h3.
 			a := ast.NewLink()
 			a.Destination = []byte("#" + id)
 			a.SetAttributeString("class", []byte("anchor"))
 			a.SetAttributeString("aria-hidden", []byte("true"))
+			a.SetAttributeString("tabindex", []byte("-1"))
 			a.AppendChild(a, ast.NewString([]byte("#")))
 			n.AppendChild(n, a)
 			switch {
@@ -154,28 +173,53 @@ func (r *mdRenderer) render(file string, src []byte) (*Page, error) {
 	if p.Title == "" {
 		p.Title = slug
 	}
+	p.Description = description(p.Summary)
 	return p, nil
+}
+
+// description shortens a page's first paragraph for its meta description:
+// at most about 160 characters, cut at the end of a sentence when one ends
+// early enough, or else at a word, with "…".
+func description(s string) string {
+	const max = 160
+	if utf8.RuneCountInString(s) <= max {
+		return s
+	}
+	rs := []rune(s)
+	cut := string(rs[:max])
+	if i := strings.LastIndex(cut, ". "); i >= 60 {
+		return cut[:i+1]
+	}
+	if i := strings.LastIndexByte(cut[:len(cut)-1], ' '); i > 0 {
+		cut = cut[:i]
+	}
+	return strings.TrimRight(cut, ",;:") + "…"
 }
 
 // addNavLink records a README.md list entry "[Title](page.md): description".
 func (r *mdRenderer) addNavLink(group string, n *ast.Link, src []byte) {
 	dest := string(n.Destination)
-	if !strings.HasPrefix(dest, "/") || strings.Contains(dest, "#") {
-		return // external, or an anchor into a page
+	if strings.Contains(dest, "#") {
+		return // an anchor into a page
+	}
+	l := navLink{group: group, title: plainText(n, src)}
+	switch {
+	case strings.HasPrefix(dest, "/"):
+		l.slug = strings.TrimPrefix(dest, "/")
+	case strings.HasPrefix(dest, RepoURL):
+		l.url = dest // another file of the repository: ../examples/blog/README.md
+	default:
+		return
 	}
 	desc := strings.TrimSpace(plainText(n.Parent(), src))
 	desc = strings.TrimPrefix(desc, plainText(n, src))
-	desc = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(desc), ":"))
-	r.navLinks = append(r.navLinks, navLink{
-		group: group,
-		title: plainText(n, src),
-		desc:  desc,
-		slug:  strings.TrimPrefix(dest, "/"),
-	})
+	l.desc = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(desc), ":"))
+	r.navLinks = append(r.navLinks, l)
 }
 
-// rewriteLink turns a relative link to a .md file into a site URL, and a
-// relative link to anything else in the repository into a GitHub URL.
+// rewriteLink turns a relative link to a .md file of docs/ (or to the
+// changelog) into a site URL, and a relative link to anything else in the
+// repository into a GitHub URL.
 func (r *mdRenderer) rewriteLink(p *Page, n *ast.Link) {
 	dest := string(n.Destination)
 	if dest == "" {
@@ -189,13 +233,19 @@ func (r *mdRenderer) rewriteLink(p *Page, n *ast.Link) {
 	if err != nil || u.Scheme != "" || u.Host != "" || strings.HasPrefix(u.Path, "/") {
 		return
 	}
-	target := path.Join(pageDir(p.File), u.Path)
-	if strings.HasPrefix(target, "../") || !strings.HasSuffix(target, ".md") {
+	// The target's path in the repository: docs/routing.md, CHANGELOG.md.
+	repo := path.Join("docs", pageDir(p.File), u.Path)
+	var slug string
+	switch {
+	case repo == ChangelogFile:
+		slug = "changelog"
+	case strings.HasPrefix(repo, "docs/") && strings.HasSuffix(repo, ".md"):
+		slug = SlugOf(strings.TrimPrefix(repo, "docs/"))
+	default:
 		// Outside docs/ (../examples/blog/README.md), or not a page.
-		n.Destination = []byte(RepoURL + path.Clean("docs/"+target) + fragmentOf(u))
+		n.Destination = []byte(RepoURL + repo + fragmentOf(u))
 		return
 	}
-	slug := SlugOf(target)
 	n.Destination = []byte("/" + slug + fragmentOf(u))
 	r.links = append(r.links, pendingLink{from: p.File, slug: slug, fragment: u.Fragment, dest: dest})
 }
@@ -324,15 +374,23 @@ func renderFenced(w util.BufWriter, src []byte, node ast.Node, entering bool) (a
 		}
 		w.WriteString(`</figcaption>`)
 	}
-	w.WriteString(`<pre><code`)
+	var code strings.Builder
+	lines := n.Lines()
+	for i := range lines.Len() {
+		seg := lines.At(i)
+		code.Write(seg.Value(src))
+	}
+	// Highlighted with Orbit's own Chroma renderer (the orbit lexer
+	// included), styled by src/styles/highlight.css.
+	w.WriteString(`<pre class="chroma" tabindex="0"><code`)
 	if lang != "" {
 		w.WriteString(` class="language-` + html.EscapeString(lang) + `"`)
 	}
 	w.WriteString(`>`)
-	lines := n.Lines()
-	for i := range lines.Len() {
-		seg := lines.At(i)
-		w.WriteString(html.EscapeString(string(seg.Value(src))))
+	if h, ok := highlight(lang, code.String()); ok {
+		w.WriteString(h)
+	} else {
+		w.WriteString(html.EscapeString(code.String()))
 	}
 	w.WriteString("</code></pre></figure>\n")
 	return ast.WalkSkipChildren, nil

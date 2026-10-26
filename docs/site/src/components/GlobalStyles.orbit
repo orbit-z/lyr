@@ -5,6 +5,11 @@
   come first in each page's stylesheet.
 */}
 <style is:global>
+  /* Code highlighting: light-dark() colors, written by internal/content's
+     TestHighlightCSS from Orbit's own Chroma themes. */
+  @import "../styles/highlight.css";
+</style>
+<style is:global>
   :root {
     color-scheme: light;
     --bg: #ffffff;

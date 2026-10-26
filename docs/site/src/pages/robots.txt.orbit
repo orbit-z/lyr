@@ -1,0 +1,10 @@
+---
+ctx.Header().Set("Content-Type", "text/plain; charset=utf-8")
+ctx.Header().Set("Cache-Control", "public, max-age=3600")
+sitemap := ""
+if ctx.Site != nil {
+	sitemap = ctx.Site.JoinPath("/sitemap.xml").String()
+}
+---
+{"User-agent: *\nDisallow: /search\n"}
+{if sitemap != ""}{"\nSitemap: " + sitemap + "\n"}{/if}

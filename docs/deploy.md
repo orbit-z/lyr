@@ -166,8 +166,6 @@ RUN chmod +x /usr/local/bin/tailwindcss
 
 On an arm64 builder, use `tailwindcss-linux-arm64`, whose sha256 is `55fd0b241214eff3de1e8ee4f22796662f2d2e7a49bcfca7477cfd0bac398195`. The final image doesn't change: Tailwind's output is a stylesheet inside the binary like any other. Plugins from npm (such as daisyUI) load from `node_modules`, which is in the build context; if you'd rather install them in the image, copy `package.json` and your lockfile and run the install (for example `RUN npm ci` in a `node` stage, or Bun's `oven/bun` image) before the build.
 
-A project created before Orbit's first release has a `replace` directive in `go.mod` pointing at a local clone of Orbit (see [Getting started](getting-started.md#trying-orbit-before-its-first-release)). The build stage can't see that directory, so `go mod download` fails. To build the image anyway (in a copy of the project, since local builds need the original `replace`), point the `replace` at a path inside the image, such as `replace github.com/orbit-z/orbit => /orbit`, add `COPY --from=orbit . /orbit` after `WORKDIR /src`, and pass the clone as a named build context: `docker build --build-context orbit=/path/to/orbit -t blog .`.
-
 ### Projects that need files outside their directory
 
 The scaffolded `Dockerfile` assumes the project is self-contained: the build context is the project directory, so the image can't see anything outside it. If your project needs files from a parent directory, such as a local `replace` for a module next to it, or content kept higher up in a monorepo, build from that parent directory instead and point Docker at the `Dockerfile`:
@@ -180,7 +178,7 @@ In the `Dockerfile`, paths are then relative to the parent: copy `site/go.mod` a
 
 A `.dockerignore` only applies at the root of the build context, so the project's own one is no longer used. With BuildKit (the default builder in current Docker), put the ignore rules next to the `Dockerfile` as `site/Dockerfile.dockerignore`; it's used for builds with that `Dockerfile`, whatever the context. Write its paths relative to the context, with `**/` to match at any depth (`**/dist`, `**/orbit_gen`, `**/.orbit`).
 
-Orbit's own docs site is built this way: see [`docs/site/Dockerfile`](https://github.com/orbit-z/orbit/blob/main/docs/site/Dockerfile) and its `Dockerfile.dockerignore`.
+Orbit's own docs site is built this way: see [`docs/site/Dockerfile`](https://github.com/orbit-z/orbit/blob/main/docs/site/Dockerfile), its `Dockerfile.dockerignore`, and the deploy notes in [`docs/site/README.md`](https://github.com/orbit-z/orbit/blob/main/docs/site/README.md).
 
 ## Island key: `ORBIT_KEY`
 

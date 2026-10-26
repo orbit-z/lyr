@@ -14,16 +14,72 @@ home := docs.Page("")
 if home == nil {
 	return errors.New("docs: no README.md for the home page")
 }
+const install = "go install github.com/orbit-z/orbit/cmd/orbit@latest"
+// Highlighted once per process, like the docs pages.
+example := content.HomeExample()
 ---
-<Base description={home.Summary}>
+<Base fullTitle="Orbit: Astro's developer experience, with much faster SSR" description={home.Description} home>
   <section class="hero">
-    <h1>Orbit</h1>
-    <p class="lead">{home.Summary}</p>
-    <p class="cta">
-      <a class="primary" href="/getting-started">Get started</a>{" "}
-      <a href="/coming-from-astro">Coming from Astro</a>
-    </p>
+    <div class="pitch">
+      <h1>Astro's developer experience, with much faster SSR</h1>
+      <p class="lead">
+        Orbit is a web framework with Go on the server. You write <code>.orbit</code> components,
+        Go frontmatter plus an HTML template, and Orbit compiles them to fast, type-checked Go that
+        renders every page per request.
+      </p>
+      <copy-line class="install">
+        <code>{install}</code>
+        <button type="button">Copy</button>
+      </copy-line>
+      <p class="cta">
+        <a class="primary" href="/getting-started">Get started</a>{" "}
+        <a href="/coming-from-astro">Coming from Astro</a>{" "}
+        <a href={content.GitHubURL}>GitHub</a>
+      </p>
+    </div>
+    <figure class="sample">
+      <figcaption>src/components/Card.orbit</figcaption>
+      <pre class="chroma" tabindex="0"><code set:html={example}></code></pre>
+    </figure>
   </section>
+
+  <section class="stats" aria-labelledby="stats-title">
+    <h2 id="stats-title" class="visually-hidden">Benchmarks</h2>
+    <a class="stat" href="/performance#results">
+      <strong>14.6×</strong>
+      <span>Astro's pages per CPU, on a page of 500 nested components</span>
+    </a>
+    <a class="stat" href="/performance#results">
+      <strong>57×</strong>
+      <span>at all cores, against Astro's single Node process</span>
+    </a>
+    <a class="stat" href="/performance#allocations-per-request">
+      <strong>0</strong>
+      <span>allocations in Orbit's code to render a typical page</span>
+    </a>
+  </section>
+
+  <section class="facts">
+    <div>
+      <h2>What Orbit is</h2>
+      <ul>
+        <li><strong>Astro-like components</strong>: frontmatter, props, slots, scoped styles, file-based routing, Markdown pages.</li>
+        <li><strong>Go on the server</strong>: your data access and logic are plain Go, checked by the compiler, with errors that point at your <code>.orbit</code> line.</li>
+        <li><strong>Server rendering only</strong>: every page renders per request. Orbit is <code>net/http</code> middleware, so it fits in any Go server.</li>
+        <li><strong>Vanilla TypeScript scripts</strong>, bundled by esbuild inside the CLI. No Node required.</li>
+        <li><strong>Editor support</strong>: <a href="/editor-setup">a language server</a> and a VS Code extension (<code>orbit-z.orbit</code>), with completion, diagnostics and rename.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>What it isn't</h2>
+      <ul>
+        <li><strong>No framework islands</strong>: no React, Svelte or Vue components. Scripts are plain <code>&lt;script&gt;</code> tags, loaded lazily with <code>client:*</code> if you like.</li>
+        <li><strong>No static site generation</strong>. For a static site, Astro is the better choice.</li>
+        <li><strong>Not affiliated with Astro</strong>: an independent project that borrows its ideas.</li>
+      </ul>
+    </div>
+  </section>
+
   {for _, g := range docs.Nav}
     <section class="group">
       <h2>{g.Title}</h2>
@@ -31,7 +87,7 @@ if home == nil {
         {for _, it := range g.Items}
           <li>
             <a href={it.URL}>
-              <strong>{it.Title}</strong>{" "}
+              <strong>{it.Title}{if it.External}<span class="ext" aria-hidden="true"> ↗</span>{/if}</strong>{" "}
               {if it.Desc != ""}<span>{it.Desc}</span>{/if}
             </a>
           </li>
@@ -41,23 +97,80 @@ if home == nil {
   {/for}
 </Base>
 
+<script>
+  // The install line's Copy button.
+  class CopyLine extends HTMLElement {
+    connectedCallback() {
+      const button = this.querySelector("button")!;
+      const code = this.querySelector("code")!;
+      button.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(code.textContent ?? "");
+          button.textContent = "Copied";
+        } catch {
+          button.textContent = "Failed";
+        }
+        setTimeout(() => (button.textContent = "Copy"), 1500);
+      });
+    }
+  }
+  customElements.define("copy-line", CopyLine);
+</script>
+
 <style>
   .hero {
-    padding: 2rem 0 1rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: center;
+    padding: 2.5rem 0 1.5rem;
   }
   h1 {
-    font-size: 2.6rem;
-    margin: 0;
+    font-size: clamp(2rem, 4.5vw, 3rem);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    margin: 0 0 1rem;
   }
   .lead {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     color: var(--muted);
-    max-width: 42rem;
+    margin: 0 0 1.25rem;
+  }
+  .install {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.5rem 0.5rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--code-bg);
+  }
+  .install code {
+    flex: 1;
+    overflow-x: auto;
+    white-space: nowrap;
+    font-size: 0.85rem;
+  }
+  .install code::before {
+    content: "$ ";
+    color: var(--muted);
+  }
+  .install button {
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--bg);
+    color: var(--muted);
+    font:
+      0.8rem system-ui,
+      sans-serif;
+    cursor: pointer;
   }
   .cta {
     display: flex;
     gap: 0.75rem;
     flex-wrap: wrap;
+    margin: 1.25rem 0 0;
   }
   .cta a {
     padding: 0.55rem 1.1rem;
@@ -66,10 +179,87 @@ if home == nil {
     font-weight: 600;
     text-decoration: none;
   }
+  .cta a:hover {
+    border-color: var(--accent);
+  }
   .cta .primary {
     background: var(--accent);
     border-color: var(--accent);
     color: var(--bg);
+  }
+  .sample {
+    margin: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--code-bg);
+    overflow: hidden;
+  }
+  .sample figcaption {
+    padding: 0.4rem 0.9rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font:
+      0.8rem ui-monospace,
+      monospace;
+  }
+  .sample pre {
+    margin: 0;
+    padding: 0.9rem 1rem;
+    overflow-x: auto;
+    background: transparent;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    tab-size: 4;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1.5rem 0;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-soft);
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .stat:hover {
+    border-color: var(--accent);
+  }
+  .stat strong {
+    color: var(--accent);
+    font-size: 2rem;
+    line-height: 1.1;
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2rem;
+    margin: 2rem 0 1rem;
+  }
+  .facts h2 {
+    font-size: 1.15rem;
+    margin: 0 0 0.5rem;
+  }
+  .facts ul {
+    margin: 0;
+    padding-left: 1.2rem;
+  }
+  .facts li {
+    margin: 0.35rem 0;
   }
   .group h2 {
     font-size: 1.1rem;
@@ -100,5 +290,23 @@ if home == nil {
   .cards span {
     color: var(--muted);
     font-size: 0.88rem;
+  }
+  .ext {
+    color: var(--muted);
+    font-weight: 400;
+  }
+  @media (max-width: 56rem) {
+    .hero,
+    .facts {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .hero {
+      padding-top: 1.5rem;
+    }
+  }
+  @media (max-width: 36rem) {
+    .stats {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 </style>

@@ -2,6 +2,15 @@
 
 This page takes you from an empty machine to a running Orbit site: you install the CLI, create a project, edit it with live reload, build the server, and get it ready to deploy.
 
+## What you need
+
+- **Go 1.27 or later** (required). See [Go version](#go-version) below.
+- **gopls v0.24.0 or later** (recommended), for completion and diagnostics in `.orbit` files. See [Editor setup](editor-setup.md).
+- **Bun** (optional), only for TypeScript type checking in `orbit check`.
+- **Docker** (optional), to build the scaffolded container image.
+
+You don't need Node.js: Orbit bundles your client scripts with esbuild, which runs inside the `orbit` CLI.
+
 ## Install Orbit and run `orbit doctor`
 
 Install the CLI with Go, then let `orbit doctor` check your setup:
@@ -13,75 +22,7 @@ orbit doctor
 
 `go install` puts the `orbit` binary in `$(go env GOBIN)`, or `$(go env GOPATH)/bin` if `GOBIN` is unset. Make sure that directory is on your `PATH`.
 
-`orbit doctor` prints one line per check: ✓ means it passed, ⚠ is a warning, and ✗ is a problem that blocks you. Every ⚠ and ✗ comes with the command that fixes it:
-
-```
-✓ go: go1.27.3
-✓ gopls: v0.24.0, built with go1.27.3
-⚠ bun: not found (1.4.4 or later needed); orbit check will skip TypeScript type checking
-    fix: curl -fsSL https://bun.sh/install | bash
-```
-
-Outside a project, `orbit doctor` checks your environment only: the `go` command and its toolchain, gopls (for [editor support](editor-setup.md)), and Bun (for TypeScript type checking in `orbit check`). Inside a project it also checks `go.mod`, the pinned CLI version, the generated code, `.gitignore` and `orbit.json`. It exits with code 1 if any check fails; `orbit doctor --json` prints the same results as JSON.
-
-Run `orbit doctor` again whenever something looks wrong. Orbit's own error messages point to it when the cause is in your environment, such as an old gopls or a CLI version mismatch.
-
-### What you need
-
-- **Go 1.27 or later** (required). See [Go version](#go-version) below.
-- **gopls v0.24.0 or later** (recommended), for completion and diagnostics in `.orbit` files. See [Editor setup](editor-setup.md).
-- **Bun** (optional), only for TypeScript type checking in `orbit check`.
-- **Docker** (optional), to build the scaffolded container image.
-
-You don't need Node.js: Orbit bundles your client scripts with esbuild, which runs inside the `orbit` CLI.
-
-## Go version
-
-Orbit needs **Go 1.27 or later**. This is a hard minimum, not a recommendation: Orbit reports errors at their position in your `.orbit` files (`src/pages/index.orbit:17:9`), and that relies on a Go 1.27 compiler feature. Older Go versions print the positions with unresolved paths.
-
-You don't have to upgrade your installed Go by hand. Since Go 1.21, the `go` command can switch toolchains on its own: with the default `GOTOOLCHAIN=auto`, when a module asks for a newer Go than the one installed, `go` downloads that version once (into the module cache) and runs it. This covers `go install …@latest` above and every `go` command inside an Orbit project. Check your setting with:
-
-```sh
-go env GOTOOLCHAIN
-```
-
-If it prints `local` (some Linux distributions set this), either run `go env -w GOTOOLCHAIN=auto` or install Go 1.27 from [go.dev/dl](https://go.dev/dl/). If your Go is older than 1.21, install Go 1.27 directly.
-
-### Why `go.mod` has a `toolchain` line
-
-Every project created by `orbit new` has two version lines in `go.mod`:
-
-```
-go 1.27
-toolchain go1.27.3
-```
-
-- `go 1.27` is the minimum language version. Generated code may use Go 1.27 features.
-- `toolchain go1.27.3` names the exact Go release to use: the one the `orbit` CLI was built with. Without it, `GOTOOLCHAIN=auto` would pick `go1.27.0`, the first release that satisfies `go 1.27`, instead of the current patch release.
-
-To move to a newer Go release later, update the line with `go get toolchain@go1.27.4` (or edit it by hand).
-
-## Projects pin their CLI version
-
-The `orbit` CLI generates Go code that runs against the `github.com/orbit-z/orbit` runtime package, so the two must come from the same version. Each project pins the CLI in `go.mod` with a `tool` directive:
-
-```
-tool github.com/orbit-z/orbit/cmd/orbit
-```
-
-Inside a project, run the pinned CLI as `go tool orbit`:
-
-```sh
-go tool orbit build
-```
-
-You can keep typing plain `orbit`, too: inside a project with this directive, the globally installed `orbit` hands over to `go tool orbit` with the same arguments, so you always run the project's version. Scripts and CI should call `go tool orbit` directly, so they don't need a global install. The first `go tool orbit` in a project compiles the CLI, which takes a moment; later runs come from Go's build cache.
-
-To upgrade a project, update the module. The CLI and the runtime move together, because they're the same module:
-
-```sh
-go get -tool github.com/orbit-z/orbit/cmd/orbit@latest
-```
+`orbit doctor` checks Go, gopls and Bun, and prints the command that fixes each problem it finds. See [Checking your setup](#checking-your-setup-with-orbit-doctor) for what it reports.
 
 ## Create a project
 
@@ -106,34 +47,6 @@ Next steps:
 ```
 
 If generating the code or `go mod tidy` fails, `orbit new` says which step failed and leaves the directory as it is, so you can look at it; delete it before running `orbit new` again.
-
-### Trying Orbit before its first release
-
-Orbit has no published release yet, so `go install …@latest` and the `require github.com/orbit-z/orbit` line that `orbit new` writes can't be downloaded. Build the CLI from a clone of the repository instead, and `orbit new` points the new project at that clone:
-
-```sh
-git clone https://github.com/orbit-z/orbit
-cd orbit
-go install ./cmd/orbit
-cd ..
-orbit new blog --module example.com/blog
-```
-
-A CLI built from a checkout (with `go install ./cmd/orbit`, `go build` or `go run`: any version that isn't a tagged release) looks for the checkout it was built from. When the directory is still there, `orbit new` adds a `replace` directive to `go.mod`:
-
-```
-require github.com/orbit-z/orbit v0.0.0
-
-replace github.com/orbit-z/orbit => /home/you/orbit
-```
-
-`go tool orbit` then builds the CLI from your clone too, so a `git pull` there updates both the CLI and the runtime of every project that uses it. To use another checkout, or when the CLI can't find its sources (a binary built with `-trimpath`), set `ORBIT_REPLACE`:
-
-```sh
-ORBIT_REPLACE=/path/to/orbit orbit new blog
-```
-
-The `replace` names a directory on your machine, so the scaffolded `Dockerfile` can't build such a project as it is; see [Deploy](deploy.md#docker). Remove the `replace` line, and set the `require` line to a release, once Orbit is published.
 
 ## Start the dev server
 
@@ -313,6 +226,69 @@ You have three options, all covered in [Deploy](deploy.md):
 - Build the scaffolded `Dockerfile` into a small image: `docker build -t blog .`, then `docker run -p 8080:8080 blog`.
 
 If you run several instances from different builds at once, as in a rolling deploy, give them a shared island key: create one with `orbit create-key` and set it as `ORBIT_KEY`. See [Deploy](deploy.md#island-key-orbit_key).
+
+## Checking your setup with `orbit doctor`
+
+`orbit doctor` prints one line per check: ✓ means it passed, ⚠ is a warning, and ✗ is a problem that blocks you. Every ⚠ and ✗ comes with the command that fixes it:
+
+```
+✓ go: go1.27.3
+✓ gopls: v0.24.0, built with go1.27.3
+⚠ bun: not found (1.4.4 or later needed); orbit check will skip TypeScript type checking
+    fix: curl -fsSL https://bun.sh/install | bash
+```
+
+Outside a project, `orbit doctor` checks your environment only: the `go` command and its toolchain, gopls (for [editor support](editor-setup.md)), and Bun (for TypeScript type checking in `orbit check`). Inside a project it also checks `go.mod`, the pinned CLI version, the generated code, `.gitignore` and `orbit.json`. It exits with code 1 if any check fails; `orbit doctor --json` prints the same results as JSON.
+
+Run `orbit doctor` again whenever something looks wrong. Orbit's own error messages point to it when the cause is in your environment, such as an old gopls or a CLI version mismatch.
+
+## Go version
+
+Orbit needs **Go 1.27 or later**. This is a hard minimum, not a recommendation: Orbit reports errors at their position in your `.orbit` files (`src/pages/index.orbit:17:9`), and that relies on a Go 1.27 compiler feature. Older Go versions print the positions with unresolved paths.
+
+You don't have to upgrade your installed Go by hand. Since Go 1.21, the `go` command can switch toolchains on its own: with the default `GOTOOLCHAIN=auto`, when a module asks for a newer Go than the one installed, `go` downloads that version once (into the module cache) and runs it. This covers `go install …@latest` above and every `go` command inside an Orbit project. Check your setting with:
+
+```sh
+go env GOTOOLCHAIN
+```
+
+If it prints `local` (some Linux distributions set this), either run `go env -w GOTOOLCHAIN=auto` or install Go 1.27 from [go.dev/dl](https://go.dev/dl/). If your Go is older than 1.21, install Go 1.27 directly.
+
+### Why `go.mod` has a `toolchain` line
+
+Every project created by `orbit new` has two version lines in `go.mod`:
+
+```
+go 1.27
+toolchain go1.27.3
+```
+
+- `go 1.27` is the minimum language version. Generated code may use Go 1.27 features.
+- `toolchain go1.27.3` names the exact Go release to use: the one the `orbit` CLI was built with. Without it, `GOTOOLCHAIN=auto` would pick `go1.27.0`, the first release that satisfies `go 1.27`, instead of the current patch release.
+
+To move to a newer Go release later, update the line with `go get toolchain@go1.27.4` (or edit it by hand).
+
+## Projects pin their CLI version
+
+The `orbit` CLI generates Go code that runs against the `github.com/orbit-z/orbit` runtime package, so the two must come from the same version. Each project pins the CLI in `go.mod` with a `tool` directive:
+
+```
+tool github.com/orbit-z/orbit/cmd/orbit
+```
+
+Inside a project, run the pinned CLI as `go tool orbit`:
+
+```sh
+go tool orbit build
+```
+
+You can keep typing plain `orbit`, too: inside a project with this directive, the globally installed `orbit` hands over to `go tool orbit` with the same arguments, so you always run the project's version. Scripts and CI should call `go tool orbit` directly, so they don't need a global install. The first `go tool orbit` in a project compiles the CLI, which takes a moment; later runs come from Go's build cache.
+
+To upgrade a project, update the module. The CLI and the runtime move together, because they're the same module:
+
+```sh
+go get -tool github.com/orbit-z/orbit/cmd/orbit@latest
+```
 
 ## A tour of the starter
 

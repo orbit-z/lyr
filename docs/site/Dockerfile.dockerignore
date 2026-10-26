@@ -1,9 +1,15 @@
 .git
+.claude
 **/.orbit
 **/dist
 **/orbit_gen
 **/node_modules
-bench/results
+# Not needed to build the docs site: it needs the Orbit module (the repository
+# root's Go packages and internal/, cmd/, loader/, orbittest/), docs/ and
+# CHANGELOG.md.
+bench
 spike
+editors
+examples
 docs/site/internal/content/md/*.md
 docs/site/internal/content/md/reference

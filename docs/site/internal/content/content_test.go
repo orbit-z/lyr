@@ -1,7 +1,6 @@
 package content
 
 import (
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -11,11 +10,11 @@ import (
 
 func load(t *testing.T) *Docs {
 	t.Helper()
-	dir, err := filepath.Abs("../../..")
+	dir, err := filepath.Abs("../../..") // docs/
 	if err != nil {
 		t.Fatal(err)
 	}
-	d, err := Load(os.DirFS(dir))
+	d, err := loadDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +35,7 @@ func TestBrokenLinks(t *testing.T) {
 		"README.md":      {Data: []byte("# Docs\n\n## Guides\n- [A](a.md): the A page\n")},
 		"a.md":           {Data: []byte("# A\n\n## Two words\n\n[ok](#two-words) [bad](#nope) [gone](b.md) [x](reference/c.md#two-words)\n")},
 		"reference/c.md": {Data: []byte("# C\n\n## Two words\n\n[up](../a.md#two-words) [repo](../../go.mod)\n")},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +73,7 @@ func TestSlugify(t *testing.T) {
 
 func TestPages(t *testing.T) {
 	d := load(t)
-	for _, slug := range []string{"", "getting-started", "reference/cli", "decisions"} {
+	for _, slug := range []string{"", "getting-started", "reference/cli", "changelog"} {
 		p := d.Page(slug)
 		if p == nil {
 			t.Fatalf("no page %q", slug)
