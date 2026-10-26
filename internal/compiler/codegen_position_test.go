@@ -13,9 +13,10 @@ import (
 // real pipeline (Analyze, Generate, TypedPass with go list, pass 2): a
 // project with deliberate errors in the frontmatter body, a hoisted helper,
 // a continuation line of a multi-line declaration, an {expr}, a control
-// header, a wrapped frontmatter return (an error inside its multi-line
-// result, and a result that isn't an error), a redeclared helper (a related position), a type error naming
-// another component's Props, and an unknown prop with the pre-check skipped
+// header, a {switch} header and a duplicate {case} value, a wrapped
+// frontmatter return (an error inside its multi-line result, and a result
+// that isn't an error), a redeclared helper (a related position), a type
+// error naming another component's Props, and an unknown prop with the pre-check skipped
 // (an embedded Props). go build and go vet must both report each at its
 // .orbit L:C, and CleanGoOutput must turn both into the same
 // src/…orbit:L:C: msg lines in the user's names (testdata/positions/
@@ -48,6 +49,8 @@ func TestLineDirectivePositions(t *testing.T) {
 		{"src/components/E6.orbit", "dup() int { return 2", "dup redeclared in this block"},
 		{"src/components/E7.orbit", `"r"`, `cannot use "r" (untyped string constant) as int value in argument to strconv.Itoa`},
 		{"src/components/E8.orbit", `"oops"`, `cannot use "oops" (constant of type string) as error value in return statement: string does not implement error (missing method Error)`},
+		{"src/components/E9.orbit", "stauts", "undefined: stauts"},
+		{"src/components/E10.orbit", `"a"}<p>b`, `duplicate case "a" (constant of type string) in expression switch`},
 		{"src/pages/alias.orbit", "Emb.Props{}", "cannot use Emb.Props{} (value of struct type Emb.Props) as int value in variable declaration"},
 		{"src/pages/index.orbit", "nmae", "unknown field Nmae in struct literal of type Emb.Props"},
 	}

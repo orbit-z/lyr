@@ -468,6 +468,33 @@ func fzUserGoValid(file *File, a *Analysis) bool {
 			ok = ok && (n.Else || header("if ", n.Cond))
 		case *For:
 			ok = ok && header("for ", n.Clause)
+		case *Switch:
+			// The header with each case list makes one switch statement
+			// with one clause holding the statement after it.
+			lists := []string{"default"}
+			for _, cs := range n.Cases {
+				if !cs.Default {
+					lists = append(lists, "case "+cs.List.Text)
+				}
+			}
+			for _, l := range lists {
+				f, err := goparser.ParseFile(gotoken.NewFileSet(), "", "package p\nfunc _() {\nswitch "+n.Clause.Text+" {\n"+l+":\nx()\n}\n}", goparser.SkipObjectResolution)
+				if err != nil || len(f.Decls) != 1 || len(f.Decls[0].(*ast.FuncDecl).Body.List) != 1 {
+					ok = false
+					break
+				}
+				var body *ast.BlockStmt
+				switch st := f.Decls[0].(*ast.FuncDecl).Body.List[0].(type) {
+				case *ast.SwitchStmt:
+					body = st.Body
+				case *ast.TypeSwitchStmt:
+					body = st.Body
+				}
+				if body == nil || len(body.List) != 1 || len(body.List[0].(*ast.CaseClause).Body) != 1 {
+					ok = false
+					break
+				}
+			}
 		}
 		if tg := TagOf(n); tg != nil {
 			for _, at := range tg.Attrs {

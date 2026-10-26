@@ -176,6 +176,26 @@ func TestCompletion(t *testing.T) {
 		}
 	})
 
+	// {switch} headers and case lists are Go regions completed by gopls.
+	t.Run("switch header and case list", func(t *testing.T) {
+		card := c.open("src/components/Card.orbit")
+		for _, tc := range []struct{ tmpl, marker string }{
+			{"{switch props.}{case \"a\"}a{/switch}", "{switch props."},
+			{"{switch props.Post}{case props.}a{/switch}", "{case props."},
+			{"{switch}{case props.}a{default}b{/switch}", "{case props."},
+		} {
+			src := strings.Replace(card, "{props.Post}", tc.tmpl, 1)
+			c.change("src/components/Card.orbit", src)
+			items := c.complete("src/components/Card.orbit", at(t, src, tc.marker, 0, len(tc.marker)))
+			for _, want := range []string{"Post", "Featured"} {
+				if item(items, want) == nil {
+					t.Errorf("%s: completion %v, want %s", tc.tmpl, labels(items), want)
+				}
+			}
+		}
+		c.change("src/components/Card.orbit", card)
+	})
+
 	t.Run("component attributes", func(t *testing.T) {
 		src := strings.Replace(text, "<Card post={greeting} />", "<Card \n", 1)
 		c.change(page, src)

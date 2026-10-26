@@ -6,6 +6,7 @@
 - Markdown files under `src/` are sent to `orbit lsp` for Orbit's diagnostics (frontmatter, layout, links, routes) as you type. Every other Markdown feature stays VS Code's.
 - The extension activates in any workspace that contains an `.orbit` file, so Markdown diagnostics work before an `.orbit` file is opened.
 - Import path completion offers `.orbit` and Markdown files (`/` is a new completion trigger character).
+- Highlighting for `{switch}` blocks: `{switch …}`, `{case …}`, `{default}` and `{/switch}`, with the header and case lists as Go.
 
 ## 0.1.0
 

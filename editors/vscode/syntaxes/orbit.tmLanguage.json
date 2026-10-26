@@ -114,9 +114,45 @@
           "patterns": [{ "include": "#go" }]
         },
         {
-          "comment": "{/if} and {/for}",
+          "comment": "{switch clause}, also a tagless {switch}",
+          "name": "meta.control.switch.orbit",
+          "begin": "(\\{)\\s*(switch)\\b",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": { "name": "punctuation.section.embedded.begin.orbit" },
+            "2": { "name": "keyword.control.conditional.orbit" }
+          },
+          "endCaptures": { "0": { "name": "punctuation.section.embedded.end.orbit" } },
+          "contentName": "meta.embedded.expression.go",
+          "patterns": [{ "include": "#go" }]
+        },
+        {
+          "comment": "{case list}",
+          "name": "meta.control.case.orbit",
+          "begin": "(\\{)\\s*(case)\\b",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": { "name": "punctuation.section.embedded.begin.orbit" },
+            "2": { "name": "keyword.control.conditional.orbit" }
+          },
+          "endCaptures": { "0": { "name": "punctuation.section.embedded.end.orbit" } },
+          "contentName": "meta.embedded.expression.go",
+          "patterns": [{ "include": "#go" }]
+        },
+        {
+          "comment": "{default}",
+          "name": "meta.control.default.orbit",
+          "match": "(\\{)\\s*(default)\\s*(\\})",
+          "captures": {
+            "1": { "name": "punctuation.section.embedded.begin.orbit" },
+            "2": { "name": "keyword.control.conditional.orbit" },
+            "3": { "name": "punctuation.section.embedded.end.orbit" }
+          }
+        },
+        {
+          "comment": "{/if}, {/switch} and {/for}",
           "name": "meta.control.end.orbit",
-          "match": "(\\{)\\s*(/)\\s*(?:(if)|(for))\\s*(\\})",
+          "match": "(\\{)\\s*(/)\\s*(?:(if|switch)|(for))\\s*(\\})",
           "captures": {
             "1": { "name": "punctuation.section.embedded.begin.orbit" },
             "2": { "name": "keyword.control.orbit" },

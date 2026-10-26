@@ -8,7 +8,7 @@
 {if}empty{/if}
 {for}forever{/for}
 {if a}{else if}b{/if}
-{switch x}{/switch}
+{switch x}{/switch}{/while}
 {else foo}
 {...rest}
 {if a}

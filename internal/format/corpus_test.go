@@ -230,6 +230,19 @@ func goRegions(f *compiler.File) []string {
 			}
 		case *compiler.For:
 			out = append(out, dumpFile("package p\n\nfunc _() {\nfor "+lf(n.Clause.Text)+" {}\n}\n", false))
+		case *compiler.Switch:
+			// The whole switch: a type switch's case lists are types.
+			var b strings.Builder
+			b.WriteString("package p\n\nfunc _() {\nswitch " + lf(n.Clause.Text) + " {\n")
+			for _, cs := range n.Cases {
+				if cs.Default {
+					b.WriteString("default:\n")
+				} else {
+					b.WriteString("case " + lf(cs.List.Text) + ":\n")
+				}
+			}
+			b.WriteString("}\n}\n")
+			out = append(out, dumpFile(b.String(), false))
 		}
 		if t := compiler.TagOf(n); t != nil {
 			for _, a := range t.Attrs {

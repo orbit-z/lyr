@@ -10,8 +10,7 @@ errors_blocks.orbit:7:41: unexpected {/for}: no {for} is open
 errors_blocks.orbit:8:1: {if} needs a condition
 errors_blocks.orbit:9:1: {for} needs a clause, e.g. {for _, x := range list}
 errors_blocks.orbit:10:7: {else if} needs a condition
-errors_blocks.orbit:11:1: {switch} blocks aren't supported yet; use {if} and {else if}
-errors_blocks.orbit:11:11: unknown block end {/switch}; blocks end with {/if} or {/for}
+errors_blocks.orbit:11:20: unknown block end {/while}; blocks end with {/if}, {/for} or {/switch}
 errors_blocks.orbit:12:1: unexpected text after {else}; write {else} or {else if condition}
 errors_blocks.orbit:12:1: unexpected {else}: no {if} is open
 errors_blocks.orbit:13:1: a spread {...} only works inside a start tag

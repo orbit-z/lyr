@@ -39,6 +39,8 @@ func (g *cgGen) node(n Node, c *wsCtx, i int) {
 		o.html(g.src[n.Start:n.End])
 	case *If:
 		g.ifNode(n, c, i)
+	case *Switch:
+		g.switchNode(n, c, i)
 	case *For:
 		o.flush()
 		o.ind()
@@ -99,6 +101,42 @@ func (g *cgGen) ifNode(n *If, c *wsCtx, i int) {
 		}
 		o.depth++
 		g.nodes(br.Children, c.child(i, wsBranch))
+		o.flush()
+		o.depth--
+	}
+	o.ln("}")
+}
+
+// switchNode emits a {switch} as a Go switch statement, each case's
+// template as its body. What comes before the first case renders nothing
+// (it is an error, or whitespace and comments).
+func (g *cgGen) switchNode(n *Switch, c *wsCtx, i int) {
+	o := g.o
+	for _, pre := range n.Pre {
+		g.discardAll(pre)
+	}
+	o.flush()
+	o.ind()
+	o.str("switch ")
+	o.exact(n.Clause.Span)
+	o.str(" {\n")
+	seenDefault := false
+	for _, cs := range n.Cases {
+		switch {
+		case cs.Default && seenDefault:
+			// A second {default} (reported, Tolerant): its body joins the
+			// clause before it.
+		case cs.Default:
+			seenDefault = true
+			o.ln("default:")
+		default:
+			o.ind()
+			o.str("case ")
+			o.exact(cs.List.Span)
+			o.str(":\n")
+		}
+		o.depth++
+		g.nodes(cs.Children, c.child(i, wsBranch))
 		o.flush()
 		o.depth--
 	}
@@ -343,6 +381,9 @@ func (g *cgGen) discardAll(n Node) {
 			g.discardHeader("if ", n.Cond)
 		case *For:
 			g.discardHeader("for ", n.Clause)
+		case *Switch:
+			g.discardSwitch(n)
+			return false
 		}
 		if t := TagOf(n); t != nil {
 			for _, a := range t.Attrs {
@@ -351,6 +392,41 @@ func (g *cgGen) discardAll(n Node) {
 		}
 		return true
 	})
+}
+
+// discardSwitch emits the Go code of a {switch} that isn't rendered
+// (Tolerant only): the switch with its case labels, and each case's
+// discarded code in its body.
+func (g *cgGen) discardSwitch(n *Switch) {
+	o := g.o
+	for _, pre := range n.Pre {
+		g.discardAll(pre)
+	}
+	o.flush()
+	o.ind()
+	o.str("switch ")
+	o.exact(n.Clause.Span)
+	o.str(" {\n")
+	seenDefault := false
+	for _, cs := range n.Cases {
+		switch {
+		case cs.Default && seenDefault:
+		case cs.Default:
+			seenDefault = true
+			o.ln("default:")
+		default:
+			o.ind()
+			o.str("case ")
+			o.exact(cs.List.Span)
+			o.str(":\n")
+		}
+		o.depth++
+		for _, k := range cs.Children {
+			g.discardAll(k)
+		}
+		o.depth--
+	}
+	o.ln("}")
 }
 
 // rawElement emits a script or style that isn't processed: copied as

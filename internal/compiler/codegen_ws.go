@@ -6,8 +6,9 @@ import "strings"
 //
 // "html": every whitespace run in template text becomes one space, or one
 // newline if it has one. A whitespace-only text is dropped when everything
-// that can render on both sides of it, looking through {if} and {for}
-// (each branch, zero or more iterations), is a block-level boundary: a
+// that can render on both sides of it, looking through {if}, {switch} and
+// {for} (each branch or case, zero or more iterations), is a block-level
+// boundary: a
 // block element's tag, a doctype, a script or style, or the template's
 // start or end. Anything else (text, inline elements, expressions,
 // components, slots, HTML comments, a slot's own boundaries) counts as
@@ -27,7 +28,7 @@ const (
 	wsBlock  wsKind = iota // a block element or the template: block on both ends
 	wsInline               // an inline element, a slot closure, a fallback, a fragment
 	wsLoop                 // a {for} body: the ends wrap to the next iteration and the outside
-	wsBranch               // an {if} branch: the ends are the outside of the {if}
+	wsBranch               // an {if} branch or {switch} case: the ends are the outside of the block
 )
 
 // wsCtx is a sibling list being emitted, with what surrounds it.

@@ -1,0 +1,58 @@
+Template @0-422
+  Switch @0-40 header=@0-10 clause=@8-9 "x" end=@31-40
+    Element @10-22
+      <p> name=@11-12 start=@10-13 end=@18-22
+      Text @13-18 "never"
+    Case case @22-31 header=@22-30 list=@28-29 "1"
+      Text @30-31 "a"
+  Text @40-41 "\n"
+  Switch @41-83 header=@41-51 clause=@49-50 "x" end=@74-83
+    Text @51-59 "\n  text "
+    Expr @59-65 code=@60-64 "expr"
+    Text @65-66 "\n"
+    Case case @66-74 header=@66-74 list=@72-73 "1"
+  Text @83-84 "\n"
+  Text @92-93 "\n"
+  Text @102-103 "\n"
+  Switch @103-151 header=@103-113 clause=@111-112 "x" end=@142-151
+    Case default @113-123 header=@113-122 list=@121-121 ""
+      Text @122-123 "a"
+    Case default @123-133 header=@123-132 list=@131-131 ""
+      Text @132-133 "b"
+    Case case @133-142 header=@133-141 list=@139-140 "2"
+      Text @141-142 "c"
+  Text @151-152 "\n"
+  Switch @152-200 header=@152-162 clause=@160-161 "x" end=@191-200
+    Case case @162-183 header=@162-170 list=@168-169 "1"
+    Case case @183-191 header=@183-191 list=@189-190 "2"
+  Text @200-201 "\n"
+  Switch @201-226 header=@201-211 clause=@209-210 "x" end=@217-226
+    Case case @211-217 header=@211-217 list=@216-216 ""
+  Text @226-227 "\n"
+  Switch @227-257 header=@227-237 clause=@235-236 "x" end=@248-257
+    Case default @237-248 header=@237-248 list=@246-246 ""
+  Text @257-258 "\n"
+  Switch @258-298 header=@258-268 clause=@266-267 "x" end=@289-298
+    Case case @268-281 header=@268-276 list=@274-275 "1"
+      Element @276-281
+        <div> name=@277-280 start=@276-281 end=@281-281
+    Case case @281-289 header=@281-289 list=@287-288 "2"
+  Text @298-299 "\n"
+  Switch @299-333 header=@299-309 clause=@307-308 "x" end=@324-333
+    Case case @309-324 header=@309-317 list=@315-316 "1"
+  Text @333-334 "\n"
+  Element @334-351
+    <p> name=@335-336 start=@334-346 end=@347-351
+    Text @346-347 "x"
+  Text @351-352 "\n"
+  If @352-381 end=@376-381
+    Branch if @352-376 header=@352-358 cond=@356-357 "a"
+      Switch @358-376 header=@358-368 clause=@366-367 "x" end=@376-376
+        Case case @368-376 header=@368-376 list=@374-375 "1"
+  Text @381-382 "\n"
+  Switch @382-422 header=@382-392 clause=@390-391 "y" end=@422-422
+    Text @392-395 "\n  "
+    Case case @395-422 header=@395-403 list=@401-402 "1"
+      Element @403-422
+        <p> name=@404-405 start=@403-406 end=@422-422
+        Text @406-422 "unclosed switch\n"

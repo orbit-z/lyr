@@ -21,6 +21,10 @@ const (
 	tokEndIf
 	tokFor
 	tokEndFor
+	tokSwitch
+	tokCase
+	tokDefault
+	tokEndSwitch
 	tokStartTag
 	tokEndTag
 	tokDoctype
@@ -217,18 +221,43 @@ func (l *lexer) lexBrace() token {
 		tok.code = GoCode{Span{rest, rest}, ""}
 		return tok
 	case "switch":
-		l.errorf(tok.span, "{switch} blocks aren't supported yet; use {if} and {else if}")
+		tok.kind = tokSwitch
+		tok.code = l.trimCode(lead+6, innerEnd)
+		return tok
+	case "case":
+		tok.kind = tokCase
+		tok.code = l.trimCode(lead+4, innerEnd)
+		if tok.code.Text == "" {
+			l.errorf(tok.span, `{case} needs a value or a condition, e.g. {case "draft"}; use {default} for the rest`)
+		}
+		return tok
+	case "default":
+		rest := lead + 7
+		rest += leadingSpace(l.src[rest:innerEnd])
+		if rest != innerEnd {
+			l.errorf(tok.span, "unexpected text after {default}; write {default} or {case list}")
+		}
+		tok.kind = tokDefault
+		tok.code = GoCode{Span{rest, rest}, ""}
+		return tok
+	case "fallthrough":
+		l.errorf(tok.span, "fallthrough isn't supported in a {switch}; list the values in one {case a, b}")
 		tok.kind = tokBad
 		return tok
 	}
 	if strings.HasPrefix(t, "/") {
-		switch strings.TrimSpace(t[1:]) {
+		switch end := strings.TrimSpace(t[1:]); end {
 		case "if":
 			tok.kind = tokEndIf
 		case "for":
 			tok.kind = tokEndFor
+		case "switch":
+			tok.kind = tokEndSwitch
+		case "case", "default":
+			l.errorf(tok.span, "unexpected {/%s}: a {%s} ends at the next {case}, {default} or {/switch}", end, end)
+			tok.kind = tokBad
 		default:
-			l.errorf(tok.span, "unknown block end {%s}; blocks end with {/if} or {/for}", strings.TrimSpace(t))
+			l.errorf(tok.span, "unknown block end {%s}; blocks end with {/if}, {/for} or {/switch}", strings.TrimSpace(t))
 			tok.kind = tokBad
 		}
 		return tok
@@ -442,7 +471,7 @@ func (l *lexer) lexBraceAttr() *Attr {
 	switch w := identPrefix(t); {
 	case !closed && !isIdent(code.Text):
 		// Already reported as unterminated.
-	case w == "if" || w == "else" || w == "for" || strings.HasPrefix(t, "/if") || strings.HasPrefix(t, "/for"):
+	case blockKeywords[w] || strings.HasPrefix(t, "/") && blockKeywords[identPrefix(strings.TrimSpace(t[1:]))]:
 		l.errorf(whole, "blocks can't appear inside a start tag; set the attribute's value instead (false and nil omit it)")
 	case isIdent(code.Text):
 		return &Attr{Span: whole, Kind: AttrShorthand, Name: code.Text, NameSpan: code.Span,
@@ -451,6 +480,11 @@ func (l *lexer) lexBraceAttr() *Attr {
 		l.errorf(whole, "{…} in a start tag must be a name, as in {title}, or a spread, as in {...attrs}")
 	}
 	return nil
+}
+
+// blockKeywords are the words that start a control block tag.
+var blockKeywords = map[string]bool{
+	"if": true, "else": true, "for": true, "switch": true, "case": true, "default": true, "fallthrough": true,
 }
 
 func isSpace(c byte) bool {

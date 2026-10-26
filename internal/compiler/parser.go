@@ -60,6 +60,7 @@ const (
 	frameTag
 	frameIf
 	frameFor
+	frameSwitch
 )
 
 // frame is an open tag or block on the parser's stack.
@@ -69,8 +70,10 @@ type frame struct {
 	open Span   // start tag or block header
 	node Node
 	kids *[]Node
-	// For an If: the {else} header once seen.
+	// For an If: the {else} header once seen; for a Switch, the {default}.
 	elseAt Span
+	// For a Switch: content before the first case was reported.
+	preCase bool
 }
 
 func (f *frame) label() string {
@@ -79,6 +82,8 @@ func (f *frame) label() string {
 		return "{if}"
 	case frameFor:
 		return "{for}"
+	case frameSwitch:
+		return "{switch}"
 	}
 	return "<" + f.name + ">"
 }
@@ -89,6 +94,8 @@ func (f *frame) closer() string {
 		return "{/if}"
 	case frameFor:
 		return "{/for}"
+	case frameSwitch:
+		return "{/switch}"
 	}
 	return "</" + f.name + ">"
 }
@@ -114,8 +121,30 @@ func (p *parser) at(off int) Position { return p.lines.Position(off) }
 func (p *parser) top() *frame { return p.stack[len(p.stack)-1] }
 
 func (p *parser) add(n Node) {
-	k := p.top().kids
-	*k = append(*k, n)
+	f := p.top()
+	if sw, ok := f.node.(*Switch); ok && len(sw.Cases) == 0 && !f.preCase {
+		f.preCase = p.checkPreCase(n)
+	}
+	*f.kids = append(*f.kids, n)
+}
+
+// checkPreCase reports content between {switch} and its first case, which
+// can never render, and reports whether it did. Whitespace and template
+// comments are allowed.
+func (p *parser) checkPreCase(n Node) bool {
+	at := n.Bounds().Start
+	switch n := n.(type) {
+	case *Comment:
+		return false
+	case *Text:
+		k := leadingSpace(n.Value)
+		if k == len(n.Value) {
+			return false
+		}
+		at += k
+	}
+	p.errorf(Span{at, n.Bounds().End}, "content before the first {case} of a {switch} is never rendered; move it into a {case} or {default}")
+	return true
 }
 
 func (p *parser) parseTemplate(s Span) *Template {
@@ -157,6 +186,14 @@ func (p *parser) token(tok token) {
 		n := &For{Span: tok.span, Header: tok.span, Clause: tok.code}
 		p.add(n)
 		p.stack = append(p.stack, &frame{kind: frameFor, open: tok.span, node: n, kids: &n.Children})
+	case tokSwitch:
+		n := &Switch{Span: tok.span, Header: tok.span, Clause: tok.code}
+		p.add(n)
+		p.stack = append(p.stack, &frame{kind: frameSwitch, open: tok.span, node: n, kids: &n.Pre})
+	case tokCase, tokDefault:
+		p.caseBranch(tok)
+	case tokEndSwitch:
+		p.closer(tok, frameSwitch, "", "{/switch}")
 	case tokElseIf, tokElse:
 		p.elseBranch(tok)
 	case tokEndIf:
@@ -204,6 +241,8 @@ func (p *parser) closer(tok token, kind frameKind, name, text string) {
 			what = "{if}"
 		case frameFor:
 			what = "{for}"
+		case frameSwitch:
+			what = "{switch}"
 		}
 		p.errorf(tok.span, "unexpected %s: no %s is open", text, what)
 		return
@@ -246,6 +285,39 @@ func (p *parser) elseBranch(tok token) {
 	f.kids = &br.Children
 }
 
+// caseBranch handles a {case list} or {default}.
+func (p *parser) caseBranch(tok token) {
+	text := "{case}"
+	if tok.kind == tokDefault {
+		text = "{default}"
+	}
+	i := p.find(frameSwitch, "")
+	if i < 0 {
+		p.errorf(tok.span, "unexpected %s: no {switch} is open", text)
+		return
+	}
+	if i != len(p.stack)-1 {
+		f := p.top()
+		p.errorf(tok.span, "unexpected %s: %s opened at %s isn't closed", text, f.label(), p.at(f.open.Start))
+		p.closeTo(i, tok.span.Start)
+	}
+	f := p.top()
+	n := f.node.(*Switch)
+	c := &Case{Span: tok.span, Header: tok.span, Default: tok.kind == tokDefault, List: tok.code}
+	if c.Default {
+		if f.elseAt.End > 0 {
+			p.errorf(tok.span, "multiple {default} cases in {switch} (first at %s)", p.at(f.elseAt.Start))
+		} else {
+			f.elseAt = tok.span
+		}
+	}
+	if k := len(n.Cases); k > 0 {
+		n.Cases[k-1].End = tok.span.Start
+	}
+	n.Cases = append(n.Cases, c)
+	f.kids = &c.Children
+}
+
 // closeTo closes every frame above stack index i at offset at, without end
 // tags (the caller has reported the error).
 func (p *parser) closeTo(i, at int) {
@@ -281,6 +353,11 @@ func (p *parser) closeTop(end int, endTag Span) {
 		n.Branches[len(n.Branches)-1].End = endTag.Start
 	case *For:
 		n.End, n.EndTag = end, endTag
+	case *Switch:
+		n.End, n.EndTag = end, endTag
+		if k := len(n.Cases); k > 0 {
+			n.Cases[k-1].End = endTag.Start
+		}
 	}
 }
 

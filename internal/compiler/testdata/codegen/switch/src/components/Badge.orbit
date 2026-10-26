@@ -1,0 +1,6 @@
+---
+type Props struct {
+	Tone string
+}
+---
+<span class={"badge " + props.Tone}><slot /><slot name="icon">*</slot></span>

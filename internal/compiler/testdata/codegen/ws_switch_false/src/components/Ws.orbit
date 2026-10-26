@@ -1,0 +1,34 @@
+---
+type Props struct {
+	Kind string
+	N    int
+}
+---
+<section>
+  <ul>
+    {switch props.Kind}
+      {/* between the header and the first case */}
+      {case "a"}
+        <li>a{props.N}</li>
+      {default}
+        <li>other</li>
+    {/switch}
+  </ul>
+  <p>
+    before
+    {switch props.N}
+      {case 1}
+        <b>one</b>
+    {/switch}
+    after
+  </p>
+  <p>{switch props.N}{case 1}<b>1</b>{case 2}<b>2</b>{/switch} <i>z</i></p>
+  <div>
+    <span>a</span>
+    {switch}
+      {case props.N > 5}
+        <span>big</span>
+    {/switch}
+    <span>b</span>
+  </div>
+</section>

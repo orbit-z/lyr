@@ -1,0 +1,24 @@
+{switch post.Status}
+	{/* status badge */}
+	{case "draft"}
+		<span class="badge">Draft</span>
+	{case "scheduled", "queued"}
+		<span class="badge">Scheduled</span>
+	{default}
+		<span class="badge">Published</span>
+{/switch}
+{switch s := status(); s}{case "a"}A{/switch}
+{switch}
+	{case n > 10}big
+	{case n > 0}small
+{/switch}
+{switch v := item.(type)}
+	{case int, int64}<b>{v}</b>
+	{case posts.Video}{v.Title}
+	{case nil}{default}other
+{/switch}
+{ switch  x }{ case 1 }one{ default }rest{ /switch }
+{for _, p := range list}{switch p.Kind}{case "a"}{if p.New}new{/if}<Card {p} />{/switch}{/for}
+{switch x}{/switch}
+<title>{switch x}{case 1}One{/switch}</title>
+{switcher} {cases} {defaults}

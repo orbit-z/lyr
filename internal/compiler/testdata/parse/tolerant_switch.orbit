@@ -1,0 +1,7 @@
+{switch x}
+	<p>{before}</p>
+	{case }
+	{case 1}{v.}
+	{default}{default}
+{switch v := y.(type)}
+	{case int}{v

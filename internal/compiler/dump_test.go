@@ -64,6 +64,14 @@ func dumpNode(b *strings.Builder, n Node, depth int) {
 		return
 	case *For:
 		fmt.Fprintf(b, "%sFor %s header=%s clause=%s end=%s\n", ind, sp(n.Span), sp(n.Header), code(n.Clause), sp(n.EndTag))
+	case *Switch:
+		fmt.Fprintf(b, "%sSwitch %s header=%s clause=%s end=%s\n", ind, sp(n.Span), sp(n.Header), code(n.Clause), sp(n.EndTag))
+	case *Case:
+		kind := "case"
+		if n.Default {
+			kind = "default"
+		}
+		fmt.Fprintf(b, "%sCase %s %s header=%s list=%s\n", ind, kind, sp(n.Span), sp(n.Header), code(n.List))
 	case *Element:
 		flags := ""
 		if n.Void {
@@ -214,6 +222,17 @@ func checkInvariants(t testing.TB, f *File) {
 			if n.EndTag.Len() > 0 {
 				inside("{/for}", n.EndTag, s)
 			}
+		case *Switch:
+			inside("switch header", n.Header, s)
+			inside("switch clause", n.Clause.Span, n.Header)
+			text("switch clause", n.Clause.Span, n.Clause.Text)
+			if n.EndTag.Len() > 0 {
+				inside("{/switch}", n.EndTag, s)
+			}
+		case *Case:
+			inside("case header", n.Header, s)
+			inside("case list", n.List.Span, n.Header)
+			text("case list", n.List.Span, n.List.Text)
 		case *Script:
 			inside("script content", n.Content.Span, s)
 			text("script content", n.Content.Span, n.Content.Text)

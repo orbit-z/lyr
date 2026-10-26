@@ -1,0 +1,3 @@
+-- errors --
+err_switch.orbit:2:12: expected operand, found ':='
+err_switch.orbit:4:3: expected ':', found 'EOF'

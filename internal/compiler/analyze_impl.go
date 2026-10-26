@@ -462,6 +462,25 @@ func (y *anSynth) nodes(ns []Node, tags map[string]bool) {
 			y.glue(" {\n")
 			y.nodes(n.Children, tags)
 			y.glue("}\n")
+		case *Switch:
+			y.nodes(n.Pre, tags)
+			y.glue("switch ")
+			y.copy(n.Clause)
+			y.glue(" {\n")
+			for _, cs := range n.Cases {
+				switch {
+				case cs.Default:
+					y.glue("default:\n")
+				case strings.TrimSpace(cs.List.Text) == "":
+					y.glue("case true:\n")
+				default:
+					y.glue("case ")
+					y.copy(cs.List)
+					y.glue(":\n")
+				}
+				y.nodes(cs.Children, tags)
+			}
+			y.glue("}\n")
 		default:
 			if c, ok := n.(*Component); ok && !c.Self {
 				tags[c.Name] = true

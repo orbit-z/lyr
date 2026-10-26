@@ -1,0 +1,6 @@
+tolerant_switch.orbit:1:1: {switch} isn't closed; add {/switch}
+tolerant_switch.orbit:2:2: content before the first {case} of a {switch} is never rendered; move it into a {case} or {default}
+tolerant_switch.orbit:3:2: {case} needs a value or a condition, e.g. {case "draft"}; use {default} for the rest
+tolerant_switch.orbit:5:11: multiple {default} cases in {switch} (first at 5:2)
+tolerant_switch.orbit:6:1: {switch} isn't closed; add {/switch}
+tolerant_switch.orbit:7:12: { has no matching }

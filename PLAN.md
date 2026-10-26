@@ -126,6 +126,7 @@ title := strings.ToUpper(props.Title)
 | `{/* … */}` | Template comment, emits nothing. |
 | `{if c}` `{else if c}` `{else}` `{/if}` | Copied as a Go `if` chain. |
 | `{for clause}` `{/for}` | Any Go for clause (`range`, 3-clause, condition). Go 1.22 per-iteration variables make closures safe. |
+| `{switch header}` `{case list}` `{default}` `{/switch}` | Copied as a Go `switch`: a tag, an init statement, tagless or a type switch (below). |
 | `<tag …>` lowercase or containing `-` | HTML or custom element. |
 | `<Name …>` capitalized | Component. Must match a `.orbit` import alias, otherwise it's an error: `unknown component <Crad>: no .orbit import with this alias`. |
 | `<Self …>` | The current component, rendered recursively. Same props and slots rules. |
@@ -135,7 +136,7 @@ title := strings.ToUpper(props.Title)
 | `<Fragment>` | Grouping with no wrapper element; mostly used for `<Fragment slot="x">`. As in Astro, it takes only `slot`, `set:html` and `set:text` (`<Fragment set:html={body} />` writes raw HTML with no wrapper); any other attribute is a compile error. |
 | `<!DOCTYPE …>`, `<!-- … -->` | Passed through. `{…}` inside an HTML comment isn't evaluated. |
 
-`{switch}` blocks (**accepted, being implemented**; user decision 2026-10-26: keyword `switch`, not `match`, since the header is copied as Go like `{if}`/`{for}` and `match` would promise patterns and exhaustiveness Go can't check):
+`{switch}` blocks (**implemented** 2026-10-26 as specified here; the error wordings and other small details are in `docs/DECISIONS.md` "Switch blocks"; user decision 2026-10-26: keyword `switch`, not `match`, since the header is copied as Go like `{if}`/`{for}` and `match` would promise patterns and exhaustiveness Go can't check):
 - `{switch header}` … `{case list}` … `{default}` … `{/switch}`. The header is any Go switch header, copied verbatim: a tag (`{switch post.Status}`), an init statement (`{switch s := f(); s}`), none (`{switch}` with conditions in the cases), or a type switch (`{switch v := item.(type)}`). A `{case …}` list is copied verbatim too (`{case "scheduled", "queued"}`, `{case n > 10}`, `{case posts.Video}`). It compiles to a plain Go `switch` with each case's template as its body, so Go's rules apply: no fall-through, the first matching case wins, at most one `{default}`, duplicate constant cases are Go's error at the `.orbit` line.
 - Decided by rule (simplest): content other than whitespace or `{/* */}` between `{switch …}` and the first `{case}`/`{default}` is a compile error (it could never render); `fallthrough` isn't supported (no statement position in a template); `{case}`/`{default}` outside a `{switch}`, a second `{default}`, and an unclosed `{switch}` are compile errors like a stray `{else}`.
 
@@ -1823,7 +1824,7 @@ Dependencies:
   - **Tests**: idempotence (fmt∘fmt = fmt), AST equivalence, and rendered-output equality.
 - **Typed server→client bridge**: implemented (§5c).
 - **TypeScript editor support inside `.orbit` `<script>`**: specified in §9b (proposed, (Q) points open).
-- `{switch}` template blocks: accepted (§2.3), being implemented.
+- `{switch}` template blocks: implemented (§2.3): compiler, `orbit fmt`, the LSP's Go regions, the VS Code grammar and the docs' Chroma lexer; user docs `docs/reference/template-syntax.md#switch`.
 - esbuild code splitting (shared chunks between pages, and between page bundles and `client:*` lazy entries, §5)
 - **Cacheable server islands** (the MVP already makes island URLs deterministic and puts the build ID in the path, §3.4, so no URL format change is needed):
   - an `ETag` on island responses (a hash of the buffered body), answering `If-None-Match` with a 304;

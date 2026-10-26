@@ -554,6 +554,21 @@ See [Combining and reserved namespaces](reference/template-syntax.md#combining-a
 
 **Fix:** close the element (`<li>…</li>`) or self-close it (`<div />`). Void elements such as `<br>` and `<img>` take no closing tag. See [HTML and custom elements](reference/template-syntax.md#html-and-custom-elements).
 
+### `content before the first {case} of a {switch} is never rendered; move it into a {case} or {default}`
+
+**Cause:** text, an element or an expression sits between `{switch …}` and its first `{case}`. A Go switch runs only the body of the case that matches, so this content could never render. Whitespace and template comments are fine there.
+
+**Fix:** move it into a `{case}` or `{default}`, or before the `{switch}` if it should always render. See [`{switch}`](reference/template-syntax.md#switch).
+
+### `{switch}` block errors
+
+- `unexpected {case}: no {switch} is open` (or `{default}`): the case isn't directly inside a `{switch}`. An element or block opened in the previous case must be closed first.
+- `multiple {default} cases in {switch} (first at 9:2)`: a switch takes at most one `{default}`.
+- `fallthrough isn't supported in a {switch}; list the values in one {case a, b}`: a template has no statement position for `fallthrough`; list the values that share a body in one case.
+- `{case} needs a value or a condition, e.g. {case "draft"}; use {default} for the rest`: the case list is empty.
+- `unexpected {/case}: a {case} ends at the next {case}, {default} or {/switch}`: cases have no closing tag.
+- `duplicate case "a" (constant of type string) in expression switch`: Go's error, at the `.orbit` position of the second `"a"`.
+
 ## Markdown files
 
 Errors in Markdown files point at their `.md` line and column: a frontmatter key or value, the `layout` value, or a link's `[`. See [Markdown](markdown.md).

@@ -176,6 +176,8 @@ func treeSig(f *compiler.File) string {
 			fmt.Fprintf(&b, " %q", n.Body.Text)
 		case *compiler.Branch:
 			fmt.Fprintf(&b, " else=%v", n.Else)
+		case *compiler.Case:
+			fmt.Fprintf(&b, " default=%v", n.Default)
 		}
 		if t := compiler.TagOf(n); t != nil {
 			fmt.Fprintf(&b, " <%s self=%v", t.Name, t.SelfClosing)

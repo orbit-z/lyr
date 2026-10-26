@@ -1,0 +1,6 @@
+---
+status := "draft"
+---
+{switch stauts}
+	{case "a"}<p>a</p>
+{/switch}
