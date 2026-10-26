@@ -16,7 +16,7 @@ import (
 
 // A codegen case is a directory testdata/codegen/<case>/ holding a project
 // tree src/…/*.orbit, an optional "options" file (lines "compress=jsx",
-// "compress=false", "mode=tolerant", "locals=<path>"), and optionally a
+// "compress=false" (the cases default to "html"), "mode=tolerant", "locals=<path>"), and optionally a
 // main.go.txt with the HTML it must print, want.html (a golden compile
 // test). Generated files are checked against <pkg>.decl.go.golden,
 // <pkg>.render.go.golden and <pkg>.map.golden (pkg = Rel with "/" → "_"),
@@ -30,7 +30,7 @@ type cgCase struct {
 
 func loadCase(t *testing.T, dir string) *cgCase {
 	t.Helper()
-	c := &cgCase{dir: dir, opts: Options{Module: testModule}}
+	c := &cgCase{dir: dir, opts: Options{Module: testModule, CompressHTML: CompressHTML}}
 	err := filepath.WalkDir(filepath.Join(dir, "src"), func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err

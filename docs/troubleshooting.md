@@ -136,7 +136,7 @@ go tool orbit build
 
 The same applies after you edit an `.orbit` file: `go test` runs against the old generated code until you regenerate (a running `orbit dev` keeps it up to date). `orbit doctor` warns when `orbit_gen/` is missing or stale. To make plain `go build ./...` work right after a clone, you can commit `orbit_gen/` instead. See [Fresh clones and CI](project-structure.md#fresh-clones-and-ci).
 
-### `orbit.json: compressHTML must be "html" (or true), "jsx" or false, not "none"`
+### `orbit.json: compressHTML must be "jsx", "html" (or true) or false, not "none"`
 
 **Cause:** `orbit.json` has a value Orbit doesn't accept. Other messages of this kind: `orbit.json: server must not be empty; remove it to use ./cmd/server`, `orbit.json: server "/srv/cmd/server" must be a path relative to the project root, such as "./cmd/server"`, `orbit.json: site "blog.example.com" isn't an absolute URL; include the scheme and host, such as "https://example.com"`, and JSON syntax errors with a position, such as `orbit.json:3:1: invalid character '}' looking for beginning of object key string` (a trailing comma).
 

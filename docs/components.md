@@ -808,7 +808,7 @@ import (
   <Panel title="Contact">
     <p>Write to us any time.</p>
     <Fragment slot="actions">
-      <a href="mailto:hello@example.com">Email</a>
+      <a href="mailto:hello@example.com">Email</a>{" "}
       <a href="/rss.xml">RSS</a>
     </Fragment>
   </Panel>

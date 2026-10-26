@@ -36,7 +36,7 @@ orbit: orbit.json:3:1: invalid character '}' looking for beginning of object key
 | [`site`](#site) | string | none | Your site's absolute URL, available as `ctx.Site`. |
 | [`server`](#server) | string | `"./cmd/server"` if it exists, else a generated entry | The Go package of your server's `main`. |
 | [`embed`](#embed) | bool | `false` | Embed the static files in the server binary, like `orbit build --embed`. |
-| [`compressHTML`](#compresshtml) | `"html"` (or `true`), `"jsx"` or `false` | `"html"` | How template whitespace is compressed. |
+| [`compressHTML`](#compresshtml) | `"jsx"`, `"html"` (or `true`) or `false` | `"jsx"` | How template whitespace is compressed. |
 | [`sourcemap`](#sourcemap) | bool | `false` | Write source maps for the production CSS and JS bundles. |
 | [`watch`](#watch) | array of strings | `[]` | Extra files whose changes restart your server in `orbit dev`. |
 | [`markdown`](#markdown) | object | GFM and smart punctuation on, `github` / `github-dark` highlighting | How Markdown files are converted. |
@@ -126,20 +126,22 @@ Each pattern is checked when `orbit.json` is loaded. An empty or absolute patter
 How Orbit compresses the whitespace in your templates. It's applied when the Go code is generated, so it costs nothing per request:
 
 ```json
-{ "compressHTML": "jsx" }
+{ "compressHTML": "html" }
 ```
 
 | Value | Effect |
 |---|---|
-| `"html"` (default) | HTML-aware and lossless, like Astro's `compressHTML: true`. Each run of whitespace becomes one space, or one newline if it contains one. Whitespace-only text between block-level tags is dropped, but whitespace next to text, inline elements or `{expr}` always keeps one character, so words never join. |
+| `"jsx"` (default) | JSX's whitespace rules, Astro v7's default: whitespace that contains a newline is removed when it's next to a tag or an expression, and whitespace within a line is kept. Write `{" "}` where you need a space across lines. |
+| `"html"` | HTML-aware and lossless, like Astro's `compressHTML: true`. Each run of whitespace becomes one space, or one newline if it contains one. Whitespace-only text between block-level tags is dropped, but whitespace next to text, inline elements or `{expr}` always keeps one character, so words never join. |
 | `true` | The same as `"html"`, so an Astro config value works as is. |
-| `"jsx"` | JSX's whitespace rules, Astro v7's default: whitespace that contains a newline is removed when it's next to a tag or an expression, and whitespace within a line is kept. Write `{" "}` where you need a space across lines. |
 | `false` | Template text is written exactly as it is. |
+
+The default is the same as Astro's, so a template ported from Astro renders the same whitespace. The default used to be `"html"`. A project that relied on it, with words or inline elements on separate lines, can keep its output by setting `"compressHTML": "html"`, or add `{" "}` where a space must survive a line break.
 
 Any other value is an error:
 
 ```text
-orbit: orbit.json: compressHTML must be "html" (or true), "jsx" or false, not "none"
+orbit: orbit.json: compressHTML must be "jsx", "html" (or true) or false, not "none"
 ```
 
 In every mode, the content of `<pre>`, `<textarea>`, `<script>` and `<style>`, HTML comments, attribute values and the output of `{expr}` are never altered. The exact rules are in [Template syntax: Whitespace](reference/template-syntax.md#whitespace).
@@ -158,7 +160,13 @@ This template:
 </p>
 ```
 
-renders, with `name` set to `"Ana"`, as follows. With `"html"`, the whitespace between block tags is gone, and each run between inline content became one newline:
+renders, with `name` set to `"Ana"`, as follows. With `"jsx"` (the default), every whitespace run with a newline is gone, so `Anaand` and `OneTwo` are joined; write `<b>{name}</b>{" "}` and `<a href="/a">One</a>{" "}` to keep the spaces:
+
+```html
+<ul><li><a href="/">Home</a></li><li>Posts by <b>Ana</b>and friends</li></ul><p><a href="/a">One</a><a href="/b">Two</a></p>
+```
+
+With `"html"`, the whitespace between block tags is gone, and each run between inline content became one newline:
 
 ```html
 <ul><li><a href="/">Home</a></li><li>Posts by <b>Ana</b>
@@ -166,12 +174,6 @@ and friends</li></ul><p>
 <a href="/a">One</a>
 <a href="/b">Two</a>
 </p>
-```
-
-With `"jsx"`, every whitespace run with a newline is gone, so `Anaand` and `OneTwo` are joined; write `<b>{name}</b>{" "}` and `<a href="/a">One</a>{" "}` to keep the spaces:
-
-```html
-<ul><li><a href="/">Home</a></li><li>Posts by <b>Ana</b>and friends</li></ul><p><a href="/a">One</a><a href="/b">Two</a></p>
 ```
 
 With `false`, the output is the template as written.
