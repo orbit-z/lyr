@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // Markdown files in the language server (PLAN.md §2.4 "LSP", §9): Orbit's
@@ -116,18 +118,17 @@ func TestMarkdown(t *testing.T) {
 		if sev, _ := ds[0]["severity"].(float64); sev != sevWarning || rangeOf(ds[0]).Start != at(t, warn, "[the other]", 0, 0) {
 			t.Errorf("fragment warning: %v", ds[0])
 		}
-		// A type error the typed check hasn't seen isn't reported until it
-		// runs again; an edit of the key drops the old one.
-		c.change(hello, strings.Replace(warn, "draft: true", `draft: "no"`, 1))
-		// The server handles notifications in order and publishes before
-		// answering a later request.
-		c.call("textDocument/hover", c.textPos(hello, Position{}))
-		c.mu.Lock()
-		ds = c.diags[filepath.Join(dir, hello)]
-		c.mu.Unlock()
-		if len(ds) != 1 || diag(ds, "has no heading") == nil {
-			t.Errorf("after an edit of draft: %v", ds)
+		// A new type error shows up once the Markdown typed check reruns
+		// after the edit, with no orbit_gen/ event (there's no orbit_gen/);
+		// fixing it clears it.
+		bad := strings.Replace(warn, "draft: true", `draft: "no"`, 1)
+		c.change(hello, bad)
+		ds = c.waitDiag(hello, func(ds []map[string]any) bool { return len(ds) == 2 && diag(ds, "isn't a bool") != nil })
+		if got := rangeOf(diag(ds, "isn't a bool")).Start; got != at(t, bad, `"no"`, 0, 0) {
+			t.Errorf("typed error at %+v", got)
 		}
+		c.change(hello, warn)
+		c.waitDiag(hello, func(ds []map[string]any) bool { return len(ds) == 1 && diag(ds, "has no heading") != nil })
 	})
 
 	t.Run("requests answer null", func(t *testing.T) {
@@ -146,7 +147,8 @@ func TestMarkdown(t *testing.T) {
 	})
 
 	t.Run("close", func(t *testing.T) {
-		// The diagnostics are the disk content's again.
+		// The diagnostics are the disk content's again, the typed one
+		// after the Markdown typed check.
 		c.conn.Notify("textDocument/didClose", map[string]any{"textDocument": map[string]any{"uri": c.uri(hello)}})
 		c.waitDiag(hello, func(ds []map[string]any) bool { return len(ds) == 3 })
 	})
@@ -219,5 +221,98 @@ func TestMarkdownRename(t *testing.T) {
 	want := "can't rename Title: the frontmatter of src/pages/blog/hello.md:3 (title) sets it"
 	if msg := rpcMessage(err); !strings.Contains(msg, want) {
 		t.Errorf("rename of Title: %q, want %q", msg, want)
+	}
+}
+
+// TestMarkdownTypedCheck: the Markdown typed check while typing (PLAN.md
+// §9) adopts only the result of the latest snapshot, and reruns after an
+// edit of the layout's Props. The server runs in process, for its hooks.
+func TestMarkdownTypedCheck(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping in -short mode")
+	}
+	hello := strings.Replace(strings.Replace(mdHello, "tilte: typo\n", "", 1), `"yes"`, "true", 1)
+	hello = strings.Replace(hello, "./missing.md", "./other.md", 1)
+	dir := writeProject(t, map[string]string{
+		"src/layouts/Post.orbit":  mdLayout,
+		"src/pages/blog/hello.md": hello,
+		"src/pages/blog/other.md": "# Other\n",
+	})
+	started, release := make(chan struct{}), make(chan struct{})
+	results := make(chan bool, 16)
+	var runs atomic.Int32
+	mdHooks.Store(&mdTestHooks{
+		run: func() {
+			if runs.Add(1) == 1 {
+				started <- struct{}{}
+				<-release
+			}
+		},
+		done: func(adopted bool) { results <- adopted },
+	})
+	t.Cleanup(func() { mdHooks.Store(nil) })
+	stub, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(stubEnv, "record:"+filepath.Join(t.TempDir(), "rec"))
+	c := startInProcess(t, dir, map[string]any{"goplsPath": stub})
+	const md = "src/pages/blog/hello.md"
+	text := c.open(md)
+	c.call("textDocument/hover", c.textPos(md, Position{})) // open, and no diagnostics to publish
+	typed := func(ds []map[string]any, value string) bool {
+		for _, d := range ds {
+			if m, _ := d["message"].(string); strings.Contains(m, "frontmatter draft: "+value+" isn't a") {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Two edits: the first one's check, still running when the second
+	// comes, is dropped; the second one's is published.
+	first := strings.Replace(text, "draft: true", `draft: "no"`, 1)
+	c.change(md, first)
+	select {
+	case <-started:
+	case <-time.After(30 * time.Second):
+		t.Fatal("no Markdown typed check after an edit")
+	}
+	second := strings.Replace(text, "draft: true", `draft: "maybe"`, 1)
+	c.change(md, second)
+	c.call("textDocument/hover", c.textPos(md, Position{})) // the edit is in
+	close(release)
+	if adopted := <-results; adopted {
+		t.Error("the check of a superseded edit was adopted")
+	}
+	ds := c.waitDiag(md, func(ds []map[string]any) bool { return typed(ds, `"maybe"`) })
+	if typed(ds, `"no"`) || len(ds) != 1 {
+		t.Errorf("after two edits: %v", ds)
+	}
+	if adopted := <-results; !adopted {
+		t.Error("the latest check wasn't adopted")
+	}
+
+	// Fixed: the error goes away at once (the key's text changed) and the
+	// next check finds none.
+	c.change(md, text)
+	c.waitDiag(md, func(ds []map[string]any) bool { return len(ds) == 0 })
+	if adopted := <-results; !adopted {
+		t.Error("the check after the fix wasn't adopted")
+	}
+
+	// An edit of the layout's Props reruns it: draft: true isn't an int.
+	const layout = "src/layouts/Post.orbit"
+	src := c.open(layout)
+	c.change(layout, strings.Replace(src, "Draft bool", "Draft int", 1))
+	c.waitDiag(md, func(ds []map[string]any) bool { return typed(ds, "true") })
+	<-results
+	// A template edit of the layout doesn't.
+	n := runs.Load()
+	c.change(layout, strings.Replace(strings.Replace(src, "Draft bool", "Draft int", 1), "<h1>", "<h1 class=\"t\">", 1))
+	c.call("textDocument/hover", c.textPos(md, Position{}))
+	time.Sleep(2 * mdCheckDelay)
+	if got := runs.Load(); got != n {
+		t.Errorf("a template edit of the layout ran %d Markdown typed checks", got-n)
 	}
 }

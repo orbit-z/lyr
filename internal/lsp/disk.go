@@ -46,13 +46,17 @@ type diskCheck struct {
 	// mdTyped are the typed pass's diagnostics of Markdown files
 	// (mdtyped.go; set by run).
 	mdTyped map[string][]mdTypedDiag
-	files   int // generated files compared
-	took    time.Duration
+	// edit is ws.mdEdit at the snapshot: mdTyped is adopted only if no
+	// Markdown-relevant change happened since (mdcheck.go).
+	edit  uint64
+	files int // generated files compared
+	took  time.Duration
 }
 
 // newDiskCheck snapshots ws for a typed check (with s.mu held).
 func (ws *workspace) newDiskCheck() *diskCheck {
-	c := &diskCheck{proj: ws.proj.Clone(compiler.Strict), pass1: make(map[string]*compiler.Output, len(ws.proj.Files))}
+	c := &diskCheck{proj: ws.proj.Clone(compiler.Strict), pass1: make(map[string]*compiler.Output, len(ws.proj.Files)),
+		edit: ws.mdEdit}
 	for _, f := range ws.proj.Files {
 		c.pass1[f.Path] = f.Pass1
 	}
@@ -173,8 +177,11 @@ func (s *Server) startupCheck(ws *workspace) {
 	n := 0
 	if err == nil && s.ws == ws {
 		n = ws.adopt(c, late)
-		ws.mdTyped = c.mdTyped
-		if late && n > 0 || len(c.mdTyped) > 0 {
+		md := c.edit == ws.mdEdit
+		if md {
+			ws.mdTyped = c.mdTyped
+		}
+		if late && n > 0 || md && len(c.mdTyped) > 0 {
 			s.publishAll(ws)
 		}
 	}
@@ -255,9 +262,11 @@ func (s *Server) runDiskCheck() {
 	n := 0
 	if err == nil && s.ws == ws && ws.gopls != nil {
 		n = ws.adopt(c, false)
-		had := len(ws.mdTyped) > 0
-		ws.mdTyped = c.mdTyped
-		if n > 0 || had || len(c.mdTyped) > 0 {
+		md := c.edit == ws.mdEdit && (len(ws.mdTyped) > 0 || len(c.mdTyped) > 0)
+		if c.edit == ws.mdEdit {
+			ws.mdTyped = c.mdTyped
+		}
+		if n > 0 || md {
 			s.publishAll(ws)
 		}
 	}

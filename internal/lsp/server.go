@@ -6,6 +6,7 @@
 package lsp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -89,6 +90,15 @@ type Server struct {
 	// timer, and whether one runs and another was asked for meanwhile.
 	diskTimer                *time.Timer
 	diskRunning, diskPending bool
+	// The Markdown typed checks while typing (mdcheck.go): the debounce
+	// timer, whether one runs and another was asked for meanwhile, and the
+	// resident checker (used by the running check only), with the
+	// workspace it's for and whether its export data is stale.
+	mdTimer              *time.Timer
+	mdRunning, mdPending bool
+	mdChecker            *project.MarkdownChecker
+	mdCheckerWS          *workspace
+	mdInvalid            bool
 
 	exited   chan struct{}
 	exitOnce sync.Once
@@ -435,7 +445,9 @@ func (s *Server) didOpen(params jsonRaw) {
 	ws.docs[path] = doc
 	if isMarkdownSource(path) {
 		doc.md, doc.text = true, p.TextDocument.Text
-		ws.setMarkdown(path, doc.text, false)
+		if ws.setMarkdown(path, doc.text, false) {
+			s.markdownChanged(ws) // an unsaved buffer
+		}
 	} else {
 		ws.setSource(path, p.TextDocument.Text)
 	}
@@ -469,7 +481,9 @@ func (s *Server) didChange(params jsonRaw) {
 		// (an import may compile it later), so the buffer is kept here.
 		doc.version = p.TextDocument.Version
 		doc.text = applyChanges(doc.text, p.ContentChanges)
-		ws.setMarkdown(path, doc.text, false)
+		if ws.setMarkdown(path, doc.text, false) {
+			s.markdownChanged(ws)
+		}
 		s.publishAll(ws)
 		return
 	}
@@ -478,7 +492,18 @@ func (s *Server) didChange(params jsonRaw) {
 		return
 	}
 	doc.version = p.TextDocument.Version
+	// An .orbit edit reruns the Markdown typed check only when the file is
+	// a compiled Markdown file's layout and its decl package (its Props)
+	// changed.
+	var decl []byte
+	layout := ws.isMarkdownLayout(path)
+	if layout && f.Pass1 != nil && f.Pass1.Decl != nil {
+		decl = f.Pass1.Decl.Content
+	}
 	ws.setSource(path, applyChanges(f.Src, p.ContentChanges))
+	if f := ws.byPath[path]; layout && (f == nil || f.Pass1 == nil || f.Pass1.Decl == nil || !bytes.Equal(decl, f.Pass1.Decl.Content)) {
+		s.markdownChanged(ws)
+	}
 	s.publishAll(ws)
 }
 
@@ -526,7 +551,9 @@ func (s *Server) didClose(params jsonRaw) {
 	// As for .orbit files, the diagnostics stay: they're about the disk
 	// content now.
 	if doc.md {
-		ws.reloadMarkdown(path)
+		if ws.reloadMarkdown(path) {
+			s.markdownChanged(ws) // closed without saving
+		}
 	} else {
 		ws.reloadFromDisk(path)
 	}
@@ -557,7 +584,7 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 	ws := s.ws
 	var forward []any
 	var gens []*genFile
-	orbitChanged := false
+	orbitChanged, mdChanged := false, false
 	for _, c := range p.Changes {
 		if ws == nil {
 			forward = append(forward, c)
@@ -573,15 +600,17 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 			continue
 		case isMarkdownSource(rel):
 			// Like .orbit files: the editor's buffer wins over the disk.
-			if ws.docs[rel] == nil {
-				ws.reloadMarkdown(rel)
-				orbitChanged = true
+			if ws.docs[rel] == nil && ws.reloadMarkdown(rel) {
+				orbitChanged, mdChanged = true, true
 			}
 			continue
 		case isGenPath(rel):
 			if g := ws.gen[rel]; g != nil {
 				gens = append(gens, g)
 			}
+			s.mdInvalid = true // orbit dev rewrites it after .go edits too
+		case invalidatesExports(rel):
+			s.mdInvalid, mdChanged = true, true
 		}
 		forward = append(forward, c)
 	}
@@ -593,6 +622,9 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 	}
 	if len(gens) > 0 {
 		s.scheduleDiskCheck()
+	}
+	if mdChanged {
+		s.markdownChanged(ws)
 	}
 	if orbitChanged {
 		s.publishAll(ws)

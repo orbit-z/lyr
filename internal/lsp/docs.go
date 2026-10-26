@@ -54,6 +54,10 @@ type workspace struct {
 	// mdTyped are the latest typed check's diagnostics of Markdown files
 	// (mdtyped.go), by project path.
 	mdTyped map[string][]mdTypedDiag
+	// mdEdit counts the changes to what the typed diagnostics of Markdown
+	// files depend on (mdcheck.go): a typed check's Markdown result is
+	// adopted only when none happened since its snapshot.
+	mdEdit uint64
 }
 
 // document is an .orbit or Markdown file open in the editor.
@@ -401,19 +405,20 @@ func isMarkdownSource(rel string) bool {
 
 // reloadMarkdown makes the disk content of the Markdown file at p its
 // source, or drops it if it's gone.
-func (ws *workspace) reloadMarkdown(p string) {
+func (ws *workspace) reloadMarkdown(p string) bool {
 	src, err := os.ReadFile(filepath.Join(ws.root, filepath.FromSlash(p)))
-	ws.setMarkdown(p, string(src), err != nil)
+	return ws.setMarkdown(p, string(src), err != nil)
 }
 
 // setMarkdown replaces the source of the Markdown file at p (an editor
 // buffer or the disk content), adding it when new, or removes it, and
 // regenerates what depends on it: the Markdown front of that file, in
-// memory (project.UpdateMarkdown; no gopls involved).
-func (ws *workspace) setMarkdown(p, src string, removed bool) {
+// memory (project.UpdateMarkdown; no gopls involved). It reports whether
+// anything changed.
+func (ws *workspace) setMarkdown(p, src string, removed bool) bool {
 	files, ok := ws.proj.UpdateMarkdown(p, src, removed)
 	if !ok {
-		return
+		return false
 	}
 	same := len(ws.proj.Files) == len(ws.byPath)
 	for _, f := range ws.proj.Files {
@@ -425,6 +430,7 @@ func (ws *workspace) setMarkdown(p, src string, removed bool) {
 	} else {
 		ws.syncAll()
 	}
+	return true
 }
 
 // isOrbitSource reports whether a module-relative path is an .orbit file
