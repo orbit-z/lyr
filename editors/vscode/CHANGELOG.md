@@ -9,6 +9,7 @@
 - The extension activates in any workspace that contains an `.orbit` file, so Markdown diagnostics work before an `.orbit` file is opened.
 - Import path completion offers `.orbit` and Markdown files (`/` is a new completion trigger character).
 - Highlighting for `{switch}` blocks: `{switch …}`, `{case …}`, `{default}` and `{/switch}`, with the header and case lists as Go.
+- `class:list` highlights as a directive, with its list as Go; completion offers it on HTML elements and on components with a `class` prop.
 
 ## 0.1.0
 

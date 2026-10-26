@@ -2,6 +2,7 @@
 <div id="main" class='box' data-n=3 hidden {...attrs} {open} title={strings.ToUpper(t)}>
   <div set:html={orbit.HTML(body)} />
   <p set:text={msg}></p>
+  <p class:list={"a b", props.Class, "hidden": hidden}>x</p>
   <Card client:visible="200px" {post} />
   <Card client:idle />
   <Card client:media="(max-width: 600px)" />
