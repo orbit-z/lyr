@@ -24,6 +24,7 @@ var (
 // app is one running instance of the user's server.
 type app struct {
 	cmd  *exec.Cmd
+	bin  string // the binary it runs
 	addr string // 127.0.0.1:<port>, its ORBIT_ADDR
 	done chan struct{}
 	err  error // cmd.Wait's result, set before done is closed
@@ -42,7 +43,7 @@ func startApp(ctx context.Context, bin, dir string, env []string, stdout, stderr
 	if err != nil {
 		return nil, err
 	}
-	a := &app{addr: addr, done: make(chan struct{}), tail: &tailBuffer{max: 32 << 10}}
+	a := &app{bin: bin, addr: addr, done: make(chan struct{}), tail: &tailBuffer{max: 32 << 10}}
 	cmd := exec.Command(bin)
 	cmd.Dir = dir
 	cmd.Env = append(env, "ORBIT_ADDR="+addr)

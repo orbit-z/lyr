@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 var graphFiles = map[string]string{
@@ -61,7 +63,7 @@ func TestGenerateManifest(t *testing.T) {
 	}
 	// The order follows the graph.
 	css := res.Project.Assets.File(res.Project.Assets.Pages["src/pages/index.orbit"][0].URL)
-	order := []string{"nav:where(", "body{", "b:where(", ".card:where(", "main:where("}
+	order := []string{"nav[data-o-", "body{", "b[data-o-", ".card[data-o-", "main[data-o-"}
 	last := -1
 	for _, s := range order {
 		i := strings.Index(string(css.Contents), s)
@@ -89,5 +91,29 @@ func TestGenerateAssetError(t *testing.T) {
 	}
 	if res.Write != nil {
 		t.Errorf("a failed bundle wrote orbit_gen/")
+	}
+}
+
+// TestScopedBeatsGlobal is the docs-site dogfood case: a layout's global
+// `a` rule and a scoped `a` rule in a component the layout renders. The
+// component's CSS comes first in the bundle, so the scoped rule must win
+// on specificity: a[data-o-…] is (0,1,1), the global a is (0,0,1).
+func TestScopedBeatsGlobal(t *testing.T) {
+	needGo(t)
+	files := map[string]string{
+		"src/layouts/Base.orbit":    "---\nimport Link \"../components/Link.orbit\"\n---\n<html><head></head><body><Link /><slot /></body></html>\n<style is:global>a{color:red}</style>\n",
+		"src/components/Link.orbit": "<a href=\"/\">home</a>\n<style>a{color:navy}</style>\n",
+		"src/pages/index.orbit":     "---\nimport Base \"../layouts/Base.orbit\"\n---\n<Base><p>x</p></Base>\n",
+	}
+	p := newTestProject(t, files)
+	res := p.generate()
+	if res.HasErrors() {
+		t.Fatal(joinLines(diagStrings(res.Diagnostics)))
+	}
+	css := string(res.Project.Assets.File(res.Project.Assets.Pages["src/pages/index.orbit"][0].URL).Contents)
+	scoped := "a[" + compiler.ScopeAttr("src/components/Link.orbit") + "]{color:navy}"
+	s, g := strings.Index(css, scoped), strings.Index(css, "a{color:red}")
+	if s < 0 || g < 0 || s > g {
+		t.Errorf("want the scoped %q (specificity 0,1,1) before the global a{color:red} (0,0,1):\n%s", scoped, css)
 	}
 }

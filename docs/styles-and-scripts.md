@@ -67,7 +67,7 @@ Every component with a scoped `<style>` gets a **scope ID**: `o-` plus the first
 Orbit then does two things:
 
 1. It adds a `data-o-8a161775` attribute, after the element's other attributes, to every HTML element in the component's template. As in Astro, the document-metadata elements `<head>`, `<title>`, `<meta>`, `<link>`, `<base>` and `<noscript>` (and the legacy `<font>`, `<frame>`, `<frameset>`, `<noframes>`) don't get it, nor do `is:inline` `<script>`/`<style>` tags; `<html>` and `<body>` do.
-2. It appends `:where([data-o-8a161775])` to the last part (the last compound selector) of each CSS selector.
+2. It adds the attribute selector `[data-o-8a161775]` to the last part (the last compound selector) of each CSS selector, as Astro does with its default `scopedStyleStrategy: "attribute"`.
 
 So the `Counter` above renders as:
 
@@ -81,20 +81,20 @@ So the `Counter` above renders as:
 and its CSS becomes (before minification):
 
 ```css
-counter-button:where([data-o-8a161775]) { display: flex; gap: 0.5rem; align-items: center; }
-button:where([data-o-8a161775]) { font-weight: bold; }
+counter-button[data-o-8a161775] { display: flex; gap: 0.5rem; align-items: center; }
+button[data-o-8a161775] { font-weight: bold; }
 ```
 
-`:where(…)` adds no specificity, so `button` keeps the specificity of a type selector. Your selectors win and lose exactly as they would without scoping.
+The attribute selector adds one attribute's worth of specificity: `button[data-o-8a161775]` is (0,1,1) where `button` is (0,0,1). So a component's scoped rules beat global rules with the same selector, such as a layout's `<style is:global> a { … }`, whatever order the stylesheets end up in. Between scoped rules, the comparison is the same as without scoping, since every scoped selector gets the same +1.
 
 What follows from this:
 
 - **Only the last compound is scoped.** In `.theme-dark .card`, `.card` must be in this component, but `.theme-dark` can be anywhere, for example on `<body>`.
-- **Pseudo-elements stay at the end**, as in Astro: `p::first-line` becomes `p:where([data-o-8a161775])::first-line`.
+- **Pseudo-classes and pseudo-elements come after the scope**, as in Astro: `a:hover` becomes `a[data-o-8a161775]:hover`, `p::first-line` becomes `p[data-o-8a161775]::first-line`, and `:hover` alone becomes `[data-o-8a161775]:hover`.
 - **At-rules**: rules inside `@media`, `@supports`, `@layer`, `@container`, `@scope`, `@starting-style` and `@document` are scoped too. The bodies of every other at-rule (`@keyframes`, `@font-face`, `@page`, `@property`, …) are left alone, since they contain no selectors. Keyframe names aren't scoped: they're global, as in plain CSS.
 - **`html`, `body` and `:root` are never scoped**, as in Astro: `html { … }`, `body { … }` and `:root { --accent: … }` work in a scoped style, and in `body .card` only `.card` is scoped.
 - **Nesting**: nested rules are scoped like top-level ones (`.card { .title { … } }` scopes both). A nested selector whose last part holds `&` (`&:hover`, `.dark &`) isn't scoped again, since `&` is the already scoped parent.
-- Selector arguments of `:is()`, `:not()`, `:where()` and `:has()` aren't rewritten; the scope goes after them: `li:not(.done)` becomes `li:not(.done):where([data-o-8a161775])`.
+- Selector arguments of `:is()`, `:not()`, `:where()` and `:has()` aren't rewritten; the scope goes before them: `li:not(.done)` becomes `li[data-o-8a161775]:not(.done)`.
 - **Child components aren't affected.** A parent's scoped styles don't match the elements inside a child component's template, because those carry the child's scope attribute (or none).
 - **Slot content belongs to the parent.** Markup you pass into a component's slot is compiled in the file where you write it, so it carries *that* file's scope attribute. Style it from the parent, not from the child. The same goes for the `fallback` of a [`server:defer`](lazy-loading.md) component.
 - **No scoped style, no attributes.** A component without a scoped `<style>` gets no `data-o-…` attributes at all.
@@ -114,7 +114,7 @@ Wrap part of a selector in `:global(…)` to leave that part unscoped:
 </style>
 ```
 
-Here `.prose` must be this component's element, but `p` and `a:hover` match any paragraph or link inside it, including the ones passed in through the slot or rendered by child components. As in Astro, the scope goes on the nearest part of the selector that isn't inside `:global(…)`: the first rule becomes `.prose:where([data-o-…]) p`. A selector that is entirely `:global(…)` isn't scoped at all. A part that mixes `:global(…)` with other selectors (`.a:global(.b)`) counts as global, and the `:global(` wrapper is removed from the output (`.a.b`).
+Here `.prose` must be this component's element, but `p` and `a:hover` match any paragraph or link inside it, including the ones passed in through the slot or rendered by child components. As in Astro, the scope goes on the nearest part of the selector that isn't inside `:global(…)`: the first rule becomes `.prose[data-o-…] p`. A selector that is entirely `:global(…)` isn't scoped at all. A part that mixes `:global(…)` with other selectors (`.a:global(.b)`) counts as global, and the `:global(` wrapper is removed from the output (`.a.b`).
 
 ## Global styles: `is:global`
 
@@ -146,7 +146,7 @@ type Props struct {
 
 An `is:global` style is still taken out of the template, bundled and minified with the rest of the page's CSS; it just isn't rewritten. A component can have both a scoped `<style>` and an `is:global` one.
 
-**Order in the page's stylesheet**: styles follow the import graph, the way modules are evaluated: a component's imports come first, in import order, then the component's own styles. So a page that imports `Base.orbit` and then `Card.orbit` gets the layout's styles, then the card's, then the page's own. Each component's styles appear once. Since scoped selectors keep their specificity, rely on specificity rather than on this order where you can.
+**Order in the page's stylesheet**: styles follow the import graph, the way modules are evaluated: a component's imports come first, in import order, then the component's own styles. So a page that imports `Base.orbit` and then `Card.orbit` gets the layout's styles, then the card's, then the page's own. Each component's styles appear once. Scoped rules carry one extra attribute of specificity, so they beat global rules with the same selector whatever the order; between rules of equal specificity, this order decides.
 
 ## Which scripts Orbit processes
 
@@ -519,7 +519,7 @@ src/components/Total.orbit:4:9: error TS2322: Type 'string' is not assignable to
 
 In `orbit dev`, every CSS and JS bundle has a linked source map, so the browser's dev tools show your `.orbit` files, at the line and column where you wrote the code, and your `.ts` files. A breakpoint set in `src/components/Counter.orbit` stops in the bundled code for it.
 
-Production builds have no source maps unless you set [`"sourcemap": true`](configuration.md#sourcemap) in `orbit.json`; the maps are then written next to the bundles but not linked from them. In a scoped style, the inserted `:where(…)` shifts the columns after it on the same line, so a CSS position can be a few columns off; lines are always right.
+Production builds have no source maps unless you set [`"sourcemap": true`](configuration.md#sourcemap) in `orbit.json`; the maps are then written next to the bundles but not linked from them. In a scoped style, the inserted `[data-o-…]` shifts the columns after it on the same line, so a CSS position can be a few columns off; lines are always right.
 
 ## Styles and scripts in `orbit dev`
 

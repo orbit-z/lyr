@@ -75,7 +75,7 @@ func TestNew(t *testing.T) {
 	css := regexp.MustCompile(`<link rel="stylesheet" href="(/_orbit/[^"]+\.css)">`).FindStringSubmatch(body)
 	if css == nil {
 		t.Errorf("GET /: no stylesheet link:\n%s", body)
-	} else if sheet := get(t, site+css[1], 200); !strings.Contains(sheet, "main:where([data-o-") || !strings.Contains(sheet, "max-width") {
+	} else if sheet := get(t, site+css[1], 200); !strings.Contains(sheet, "main[data-o-") || !strings.Contains(sheet, "max-width") {
 		t.Errorf("GET %s: not the layout's scoped CSS:\n%s", css[1], sheet)
 	}
 	if body := get(t, site+"/nope", 404); !strings.Contains(body, "<h1>Page not found</h1>") {

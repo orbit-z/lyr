@@ -164,7 +164,7 @@ go tool orbit build
 go tool orbit preview
 ```
 
-Runs `dist/server`, the output of the last `orbit build`, to check it locally before you deploy. It runs the binary as is, with your environment, so it listens where `dist/server` would: `ORBIT_ADDR`, else `:$PORT`, else `:4321`. To use another port, set `PORT`:
+Runs `dist/server`, the output of the last `orbit build`, to check it locally before you deploy. It runs the binary as is, with your environment, so it listens where `dist/server` would: `ORBIT_ADDR`, else `:$PORT`, else `:4321`. A server that uses `orbit.ListenAndServe` logs its URL once it's listening (`orbit: listening on http://localhost:4321`). To use another port, set `PORT`:
 
 ```sh
 PORT=3000 go tool orbit preview
@@ -200,7 +200,7 @@ Creates a project in the directory `<dir>` from the starter template built into 
 - a `Dockerfile` and `.dockerignore`: a multi-stage build that runs `go tool orbit build --embed` and copies only `dist/server` into a distroless image, with `ENV PORT=8080` (see [Deploy](../deploy.md));
 - a `.gitignore` covering `orbit_gen/`, `.orbit/`, `dist/` and `node_modules/`.
 
-It then runs `orbit generate`, then `go mod tidy`, in that order: the scaffolded `cmd/server` imports `orbit_gen/app`, so `go mod tidy` would fail before the code is generated. `orbit build` works on the starter with no edits. Finally it prints the next steps (`cd <dir>`, then `go tool orbit dev`) to stdout; `go mod tidy`'s progress goes to stderr.
+It then runs `orbit generate`, then `go mod tidy`, in that order: the scaffolded `cmd/server` imports `orbit_gen/app`, so `go mod tidy` would fail before the code is generated. `orbit build` works on the starter with no edits. Finally it prints the next steps (`cd <dir>`, then `orbit dev`, the global CLI that hands over to the pinned one) to stdout; `go mod tidy`'s progress goes to stderr.
 
 Flags may come before or after `<dir>`. A missing `<dir>`, a second argument or an unknown flag is a usage error (exit code 2). A module path with characters Go doesn't allow (`orbit new "my site"`) or a non-empty `<dir>` fails with exit code 1 before anything is written. If generating the code or `go mod tidy` fails, `orbit new` exits with code 1, names the failed step, and leaves `<dir>` as it is for you to inspect.
 

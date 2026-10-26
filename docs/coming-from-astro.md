@@ -119,7 +119,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 
 | Astro | Orbit | Notes |
 |---|---|---|
-| Scoped `<style>` | The same | Orbit adds a `data-o-…` attribute to the component's elements and `:where([data-o-…])` to selectors, so specificity doesn't change. See [How scoping works](styles-and-scripts.md#how-scoping-works). |
+| Scoped `<style>` | The same | Orbit adds a `data-o-…` attribute to the component's elements and `[data-o-…]` to selectors, like Astro's default `scopedStyleStrategy: "attribute"` (+1 attribute specificity). There's no `scopedStyleStrategy` option. See [How scoping works](styles-and-scripts.md#how-scoping-works). |
 | `:global(…)` | The same | See [`:global`](styles-and-scripts.md#escaping-the-scope-global). |
 | `<style is:global>` | The same | See [`is:global`](styles-and-scripts.md#global-styles-isglobal). |
 | `is:inline` | The same | On `<script>` and `<style>`. The directive is removed and the rest of the tag is left as written. |

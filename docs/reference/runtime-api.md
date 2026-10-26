@@ -462,7 +462,7 @@ The address to listen on: `$ORBIT_ADDR`, else `":" + $PORT`, else `":4321"`. `or
 ```go
 func ListenAndServe(h http.Handler) error
 ```
-Serves `h` on `Addr()` and shuts down gracefully on `SIGINT` or `SIGTERM`, giving in-flight requests up to 5 seconds to finish. It reads no command-line flags, so it never clashes with your own.
+Serves `h` on `Addr()` and shuts down gracefully on `SIGINT` or `SIGTERM`, giving in-flight requests up to 5 seconds to finish. It reads no command-line flags, so it never clashes with your own. Once listening, it logs `orbit: listening on http://localhost:4321` (the bound address, with `localhost` for an address without a host) through the `log` package, except under `orbit dev` (`ORBIT_DEV=1`).
 
 It returns `nil` after a graceful shutdown, and otherwise the error that stopped the server (for example, the address is already in use), or `orbit: shutdown: context deadline exceeded` when requests were still running after the grace period. A second signal during the shutdown stops the process at once. So `if err := orbit.ListenAndServe(h); err != nil { log.Fatal(err) }`, as in the scaffolded `main.go`, exits cleanly on Ctrl-C and logs only real failures. Don't pass the result straight to `log.Fatal`, which exits 1 even for a nil error.
 

@@ -22,7 +22,7 @@ func TestDebounce(t *testing.T) {
 		out := make(chan Change)
 		busy := 0
 		gone := map[string]bool{"src/pages/sedAb12": true}
-		go debounce(ctx, in, out, Debounce, func() { busy++ }, func(rel string) bool { return !gone[rel] })
+		go debounce(ctx, in, out, Debounce, func() { busy++ }, func(rel string) bool { return !gone[rel] }, Classify)
 
 		start := time.Now()
 		in <- event{rel: "src/components/Card.orbit"}
@@ -133,4 +133,71 @@ func TestWatcher(t *testing.T) {
 	expect("src/pages/blog/post.orbit")
 	write("src/pages/blog/other.orbit")
 	expect("src/pages/blog/other.orbit")
+}
+
+// TestWatcherPatterns checks the orbit.json "watch" patterns: their
+// directories are watched, outside the module too; a missing directory is
+// a warning; files that no pattern matches have no events.
+func TestWatcherPatterns(t *testing.T) {
+	top := t.TempDir()
+	root := filepath.Join(top, "site")
+	for _, d := range []string{"site/src", "site/content/posts", "reference", "other"} {
+		if err := os.MkdirAll(filepath.Join(top, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w, err := newWatcher(root, func(err error) { t.Error(err) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.close()
+	var warnings []string
+	w.setWatch([]string{"../*.md", "../reference/*.md", "content/**", "missing/*.md"}, func(s string) { warnings = append(warnings, s) })
+	if want := []string{`orbit.json: watch "missing/*.md": directory missing doesn't exist; not watched`}; !slices.Equal(warnings, want) {
+		t.Errorf("warnings %q, want %q", warnings, want)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	events := make(chan event, 100)
+	go w.run(ctx, events)
+
+	write := func(rel string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(top, filepath.FromSlash(rel)), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	next := func() string {
+		select {
+		case e := <-events:
+			return e.rel
+		case <-time.After(2 * time.Second):
+			return ""
+		}
+	}
+	write("other.txt")      // in a watched directory, matches no pattern
+	write("other/x.md")     // not watched
+	write("site/README.md") // in the module, matches no pattern
+	// expect wants the next new path to be want (a write can have several
+	// events: Create, then Write).
+	last := ""
+	expect := func(want string) {
+		t.Helper()
+		for {
+			got := next()
+			if got == want {
+				last = got
+				return
+			}
+			if got == "" || got != last {
+				t.Fatalf("event %q, want %q", got, want)
+			}
+		}
+	}
+	write("guide.md")
+	expect("../guide.md")
+	write("reference/cli.md")
+	expect("../reference/cli.md")
+	write("site/content/posts/a.md")
+	expect("content/posts/a.md")
 }

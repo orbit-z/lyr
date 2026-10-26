@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/orbit-z/orbit/internal/compiler"
@@ -33,6 +34,13 @@ func TestParse(t *testing.T) {
 		{`{"sourcemap": "inline"}`, Config{}, `orbit.json: sourcemap must be true or false`},
 		{"{\n  \"site\": \"https://x.dev\",\n}", Config{}, `orbit.json:3:1: invalid character '}' looking for beginning of object key string`},
 		{`[]`, Config{}, `orbit.json: must be a JSON object`},
+		{`{"watch": ["../*.md", "content/**"]}`, Config{Watch: []string{"../*.md", "content/**"}}, ""},
+		{`{"watch": null}`, Config{}, ""},
+		{`{"watch": "content/**"}`, Config{}, `orbit.json: watch must be an array of strings`},
+		{`{"watch": [1]}`, Config{}, `orbit.json: watch must be an array of strings`},
+		{`{"watch": [""]}`, Config{}, `orbit.json: watch[0] "": must not be empty`},
+		{`{"watch": ["a", "/etc/*.conf"]}`, Config{}, `orbit.json: watch[1] "/etc/*.conf": must be a slash-separated path relative to the project root, such as "content/**"`},
+		{`{"watch": ["content/[a-"]}`, Config{}, `orbit.json: watch[0] "content/[a-": segment "[a-": syntax error in pattern`},
 	}
 	for _, tt := range tests {
 		c, err := Parse([]byte(tt.json))
@@ -46,7 +54,7 @@ func TestParse(t *testing.T) {
 			t.Errorf("%s: %v", tt.json, err)
 			continue
 		}
-		if *c != tt.want {
+		if !reflect.DeepEqual(*c, tt.want) {
 			t.Errorf("%s: got %+v, want %+v", tt.json, *c, tt.want)
 		}
 	}
@@ -54,7 +62,7 @@ func TestParse(t *testing.T) {
 
 func TestLoadMissing(t *testing.T) {
 	c, err := Load(t.TempDir())
-	if err != nil || *c != (Config{}) {
+	if err != nil || !reflect.DeepEqual(*c, Config{}) {
 		t.Fatalf("Load without orbit.json = %+v, %v", c, err)
 	}
 }

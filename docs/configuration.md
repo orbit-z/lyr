@@ -38,6 +38,7 @@ orbit: orbit.json:3:1: invalid character '}' looking for beginning of object key
 | [`embed`](#embed) | bool | `false` | Embed the static files in the server binary, like `orbit build --embed`. |
 | [`compressHTML`](#compresshtml) | `"html"` (or `true`), `"jsx"` or `false` | `"html"` | How template whitespace is compressed. |
 | [`sourcemap`](#sourcemap) | bool | `false` | Write source maps for the production CSS and JS bundles. |
+| [`watch`](#watch) | array of strings | `[]` | Extra files whose changes restart your server in `orbit dev`. |
 
 ## `site`
 
@@ -101,6 +102,23 @@ Makes `orbit build` write a source map next to each CSS and JS bundle in `dist/c
 The maps aren't linked from the bundles (there's no `sourceMappingURL` comment), so browsers don't download them. Upload them to your error tracker, or serve them yourself if you want them in the browser's dev tools. Their sources are paths from your project root, such as `/src/components/Card.orbit` and `/src/scripts/util.ts`, and positions point at the line and column of the `.orbit` file itself, not at the extracted `<script>` or `<style>`. Each map includes the source text, so a public map exposes your component sources.
 
 In `orbit dev`, source maps are always on and linked, whatever this key says. Any value other than `true`, `false` or `null` is an error: `orbit.json: sourcemap must be true or false`.
+
+## `watch`
+
+Glob patterns for extra files that `orbit dev` watches. When a matching file changes, `orbit dev` restarts your server and reloads the browser, as it does after a `.go` edit, but without regenerating or rebuilding: the same binary starts again. Use it for files your server reads at startup or per request that Orbit doesn't know about, such as Markdown content or a JSON data file:
+
+```json
+{ "watch": ["content/**", "../*.md"] }
+```
+
+- Patterns are relative to the project root (the directory of `orbit.json`) and use `/` on every OS. They may start with `../` to watch files outside the project, such as docs in a parent directory.
+- Each part between slashes is matched like Go's [`path.Match`](https://pkg.go.dev/path#Match): `*` matches any run of characters except `/`, `?` matches one, `[a-z]` a class. A part that is exactly `**` matches any number of directories, including none: `content/**` matches every file under `content/`, and `content/**/*.md` every `.md` file there. There are no `{a,b}` alternatives; write two patterns.
+- A pattern matches files, not directories: write `content/**`, not `content`.
+- Orbit watches each pattern's leading directory (the part before the first `*`, `?` or `[`, such as `content/` or `../`), and the directories under it when the pattern can match deeper. Below that directory, the directories `orbit dev` always skips (`node_modules/`, directories starting with `.`, …) are skipped. If the leading directory doesn't exist when `orbit dev` starts, `orbit dev` prints a warning and doesn't watch it.
+- A file that Orbit already watches (`src/`, `public/`, `.go` files) keeps its usual rebuild; `watch` only adds files. Files under `orbit_gen/`, `dist/` and `.orbit/` never match.
+- `watch` changes nothing outside `orbit dev`.
+
+Each pattern is checked when `orbit.json` is loaded. An empty or absolute pattern, or one with a bad `[` class, is an error, such as `orbit.json: watch[0] "content/[a-": segment "[a-": syntax error in pattern`. A value that isn't an array of strings is an error too: `orbit.json: watch must be an array of strings`.
 
 ## `compressHTML`
 

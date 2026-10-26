@@ -8,13 +8,13 @@ import (
 const testScope = "data-o-12345678"
 
 func TestScopeCSS(t *testing.T) {
-	const w = ":where([" + testScope + "])"
+	const w = "[" + testScope + "]"
 	tests := []struct {
 		name, in, want string
 	}{
 		{"type", "button { font-weight: bold; }", "button" + w + " { font-weight: bold; }"},
 		{"class", ".a{color:red}", ".a" + w + "{color:red}"},
-		{"compound", "a.b#c[d]:hover{}", "a.b#c[d]:hover" + w + "{}"},
+		{"compound", "a.b#c[d]:hover{}", "a.b#c[d]" + w + ":hover{}"},
 		{"universal", "* { margin: 0 }", "*" + w + " { margin: 0 }"},
 		{"attribute", "[data-x=\"a b\"] {}", "[data-x=\"a b\"]" + w + " {}"},
 		{"attribute spaces", "[ data-x = y ] {}", "[ data-x = y ]" + w + " {}"},
@@ -23,11 +23,16 @@ func TestScopeCSS(t *testing.T) {
 		{"tight combinators", "a>b+c~d{}", "a>b+c~d" + w + "{}"},
 		{"column", "col || td {}", "col || td" + w + " {}"},
 		{"list", "h1, h2,\n  .x > p {}", "h1" + w + ", h2" + w + ",\n  .x > p" + w + " {}"},
-		{"is args untouched", ":is(.a, .b) p:not(.c, .d) {}", ":is(.a, .b) p:not(.c, .d)" + w + " {}"},
-		{"where args", "a:where(.x){}", "a:where(.x)" + w + "{}"},
-		{"nth", "li:nth-child(2n + 1) {}", "li:nth-child(2n + 1)" + w + " {}"},
+		{"is args untouched", ":is(.a, .b) p:not(.c, .d) {}", ":is(.a, .b) p" + w + ":not(.c, .d) {}"},
+		{"where args", "a:where(.x){}", "a" + w + ":where(.x){}"},
+		// The scope goes before the first pseudo-class, as in Astro.
+		{"hover", "a:hover{}", "a" + w + ":hover{}"},
+		{"only pseudo-classes", ":is(.a, .b):hover {}", w + ":is(.a, .b):hover {}"},
+		{"pseudo-class then element", "button:focus::before{}", "button" + w + ":focus::before{}"},
+		{"pseudo chain", ".a>:not(:first-child)::after{}", ".a>" + w + ":not(:first-child)::after{}"},
+		{"nth", "li:nth-child(2n + 1) {}", "li" + w + ":nth-child(2n + 1) {}"},
 		{"pseudo-element", "p::first-line {}", "p" + w + "::first-line {}"},
-		{"pseudo-element after class", "p.x:hover::before:hover {}", "p.x:hover" + w + "::before:hover {}"},
+		{"pseudo-element after class", "p.x:hover::before:hover {}", "p.x" + w + ":hover::before:hover {}"},
 		{"legacy pseudo-element", "a:before, a:AFTER, p:first-letter {}", "a" + w + ":before, a" + w + ":AFTER, p" + w + ":first-letter {}"},
 		{"bare pseudo-element", "::selection {}", w + "::selection {}"},
 		{"pseudo-element function", "x::part(foo) {}", "x" + w + "::part(foo) {}"},
@@ -70,7 +75,7 @@ func TestScopeCSS(t *testing.T) {
 		{"statements", "@charset \"utf-8\";\n@import url(x.css) screen;\na {}", "@charset \"utf-8\";\n@import url(x.css) screen;\na" + w + " {}"},
 		{"nesting", ".a { color: red; .b { x: y } &:hover { } & .c {} > .d {} }",
 			".a" + w + " { color: red; .b" + w + " { x: y } &:hover { } & .c" + w + " {} > .d" + w + " {} }"},
-		{"nesting ident", ".a { p:hover { } }", ".a" + w + " { p:hover" + w + " { } }"},
+		{"nesting ident", ".a { p:hover { } }", ".a" + w + " { p" + w + ":hover { } }"},
 		{"nesting trailing amp", ".a { .b & {} }", ".a" + w + " { .b & {} }"},
 		{"nesting global", ".a { :global(.b) {} }", ".a" + w + " { .b {} }"},
 		{"nesting media", ".a { @media (x) { color: red; .b {} } }", ".a" + w + " { @media (x) { color: red; .b" + w + " {} } }"},
@@ -153,7 +158,7 @@ func TestScopeCSSErrors(t *testing.T) {
 func TestScopeCSSAttr(t *testing.T) {
 	attr := ScopeAttr("src/components/Card.orbit")
 	got, _ := ScopeCSS("a{}", attr)
-	if want := "a:where([" + attr + "]){}"; got != want {
+	if want := "a[" + attr + "]{}"; got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
@@ -177,7 +182,7 @@ func FuzzScopeCSS(f *testing.F) {
 		// Removing the inserted scopes and restoring the :global( wrappers
 		// can't be checked in general; check the output only adds scopes
 		// and removes text, never invents other text.
-		stripped := strings.ReplaceAll(out, ":where(["+testScope+"])", "")
+		stripped := strings.ReplaceAll(out, "["+testScope+"]", "")
 		if len(stripped) > len(in) {
 			t.Fatalf("output grew beyond the scopes:\n in %q\nout %q", in, out)
 		}

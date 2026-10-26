@@ -137,7 +137,7 @@ func TestGenerateLazy(t *testing.T) {
 	if js := body("both", "js"); !strings.Contains(js, `"counter"`) {
 		t.Errorf("both: Counter's script isn't in the page bundle:\n%s", js)
 	}
-	if css := body("subtree", "css"); !strings.Contains(css, "i:where(") {
+	if css := body("subtree", "css"); !strings.Contains(css, "i[data-o-") {
 		t.Errorf("subtree: Icon's style isn't in the page stylesheet:\n%s", css)
 	}
 	if js := body("mixed", "js"); !strings.Contains(js, `"card"`) || !strings.Contains(js, `"icon"`) || strings.Contains(js, `"tip"`) {

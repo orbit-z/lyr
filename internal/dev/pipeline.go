@@ -153,6 +153,11 @@ func (pl *pipeline) run(ctx context.Context, c Change, appRunning bool) (out out
 	if !full && c.Only(KindPublic) {
 		return out, nil
 	}
+	// Only watched files: nothing to rebuild; the dev loop restarts the
+	// running server. Without one, go on to build and start one.
+	if !full && appRunning && c.Only(KindPublic, KindWatch) {
+		return out, nil
+	}
 
 	// A .go-only edit: start go build now, in parallel with regenerating.
 	// If regenerating writes nothing to orbit_gen/, that build stands.
