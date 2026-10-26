@@ -1,0 +1,22 @@
+---
+type Props struct {
+	Status string
+	Item   any
+}
+---
+{switch props.Status}
+	{/* the badge */}
+	{case "draft"}
+		<span class="badge">Draft</span>
+	{case "scheduled", "queued"}
+		<span class="badge">Scheduled</span>
+	{default}
+		<span class="badge">Published</span>
+{/switch}
+{switch}
+	{case len(props.Status) > 10}<b>long</b>
+{/switch}
+{switch v := props.Item.(type)}
+	{case int}<i>{v}</i>
+{/switch}
+<p>{switcher}</p>

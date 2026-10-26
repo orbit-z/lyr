@@ -23,7 +23,8 @@ import (
 //   - {…} in content, as an attribute value and in a start tag (spreads) is
 //     matched up to its closing brace by braceRe, then split by braceTokens
 //     as the compiler's lexBrace does: {/* comment */}, {if …}, {else if …},
-//     {else}, {/if}, {for …}, {/for}, {...spread}, or a Go expression.
+//     {else}, {/if}, {for …}, {/for}, {switch …}, {case …}, {default},
+//     {/switch}, {...spread}, or a Go expression.
 //   - <script> content is TypeScript (JSON for type="application/json" and
 //     "application/ld+json"), <style> content CSS, as in the compiler.
 //
@@ -150,7 +151,7 @@ func braceTokens(goLexer chroma.Lexer, s string) []chroma.Token {
 		return append(out, tok(chroma.Punctuation, "}"))
 	}
 	switch identPrefix(t) {
-	case "if", "for":
+	case "if", "for", "switch", "case", "default":
 		w := identPrefix(t)
 		return kw(w, t[len(w):])
 	case "else":
@@ -163,7 +164,7 @@ func braceTokens(goLexer chroma.Lexer, s string) []chroma.Token {
 		return kw("else", rest)
 	}
 	if strings.HasPrefix(t, "/") {
-		if w := strings.TrimSpace(t[1:]); w == "if" || w == "for" {
+		if w := strings.TrimSpace(t[1:]); w == "if" || w == "for" || w == "switch" {
 			end := strings.TrimRight(t, " \t\r\n\f")
 			out = append(out, tok(chroma.Keyword, end))
 			if end != t {

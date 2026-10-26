@@ -1,0 +1,159 @@
+>---
+#^^^ source.orbit meta.frontmatter.orbit punctuation.definition.frontmatter.begin.orbit
+>type Props struct {
+#^^^^^^^^^^^^^^^^^^^^ source.orbit meta.frontmatter.orbit meta.embedded.block.go
+>	Status string
+#^^^^^^^^^^^^^^^ source.orbit meta.frontmatter.orbit meta.embedded.block.go
+>	Item   any
+#^^^^^^^^^^^^ source.orbit meta.frontmatter.orbit meta.embedded.block.go
+>}
+#^^ source.orbit meta.frontmatter.orbit meta.embedded.block.go
+>---
+#^^^ source.orbit meta.frontmatter.orbit punctuation.definition.frontmatter.end.orbit
+>{switch props.Status}
+#^ source.orbit meta.control.switch.orbit punctuation.section.embedded.begin.orbit
+# ^^^^^^ source.orbit meta.control.switch.orbit keyword.control.conditional.orbit
+#       ^^^^^^^^^^^^^ source.orbit meta.control.switch.orbit meta.embedded.expression.go
+#                    ^ source.orbit meta.control.switch.orbit punctuation.section.embedded.end.orbit
+>	{/* the badge */}
+#^ source.orbit
+# ^ source.orbit comment.block.orbit punctuation.definition.comment.begin.orbit
+#  ^^ source.orbit comment.block.orbit punctuation.definition.comment.begin.orbit
+#    ^^^^^^^^^^^ source.orbit comment.block.orbit
+#               ^^ source.orbit comment.block.orbit punctuation.definition.comment.end.orbit
+#                 ^ source.orbit comment.block.orbit punctuation.definition.comment.end.orbit
+>	{case "draft"}
+#^ source.orbit
+# ^ source.orbit meta.control.case.orbit punctuation.section.embedded.begin.orbit
+#  ^^^^ source.orbit meta.control.case.orbit keyword.control.conditional.orbit
+#      ^ source.orbit meta.control.case.orbit meta.embedded.expression.go
+#       ^ source.orbit meta.control.case.orbit meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.begin.go
+#        ^^^^^ source.orbit meta.control.case.orbit meta.embedded.expression.go string.quoted.double.go
+#             ^ source.orbit meta.control.case.orbit meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.end.go
+#              ^ source.orbit meta.control.case.orbit punctuation.section.embedded.end.orbit
+>		<span class="badge">Draft</span>
+#^^ source.orbit
+#  ^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#   ^^^^ source.orbit meta.tag.html entity.name.tag.html
+#       ^ source.orbit meta.tag.html
+#        ^^^^^ source.orbit meta.tag.html entity.other.attribute-name.html
+#             ^ source.orbit meta.tag.html punctuation.separator.key-value.html
+#              ^ source.orbit meta.tag.html string.quoted.double.html punctuation.definition.string.begin.html
+#               ^^^^^ source.orbit meta.tag.html string.quoted.double.html
+#                    ^ source.orbit meta.tag.html string.quoted.double.html punctuation.definition.string.end.html
+#                     ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#                      ^^^^^ source.orbit
+#                           ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                             ^^^^ source.orbit meta.tag.html entity.name.tag.html
+#                                 ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+>	{case "scheduled", "queued"}
+#^ source.orbit
+# ^ source.orbit meta.control.case.orbit punctuation.section.embedded.begin.orbit
+#  ^^^^ source.orbit meta.control.case.orbit keyword.control.conditional.orbit
+#      ^ source.orbit meta.control.case.orbit meta.embedded.expression.go
+#       ^ source.orbit meta.control.case.orbit meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.begin.go
+#        ^^^^^^^^^ source.orbit meta.control.case.orbit meta.embedded.expression.go string.quoted.double.go
+#                 ^ source.orbit meta.control.case.orbit meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.end.go
+#                  ^^ source.orbit meta.control.case.orbit meta.embedded.expression.go
+#                    ^ source.orbit meta.control.case.orbit meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.begin.go
+#                     ^^^^^^ source.orbit meta.control.case.orbit meta.embedded.expression.go string.quoted.double.go
+#                           ^ source.orbit meta.control.case.orbit meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.end.go
+#                            ^ source.orbit meta.control.case.orbit punctuation.section.embedded.end.orbit
+>		<span class="badge">Scheduled</span>
+#^^ source.orbit
+#  ^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#   ^^^^ source.orbit meta.tag.html entity.name.tag.html
+#       ^ source.orbit meta.tag.html
+#        ^^^^^ source.orbit meta.tag.html entity.other.attribute-name.html
+#             ^ source.orbit meta.tag.html punctuation.separator.key-value.html
+#              ^ source.orbit meta.tag.html string.quoted.double.html punctuation.definition.string.begin.html
+#               ^^^^^ source.orbit meta.tag.html string.quoted.double.html
+#                    ^ source.orbit meta.tag.html string.quoted.double.html punctuation.definition.string.end.html
+#                     ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#                      ^^^^^^^^^ source.orbit
+#                               ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                                 ^^^^ source.orbit meta.tag.html entity.name.tag.html
+#                                     ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+>	{default}
+#^ source.orbit
+# ^ source.orbit meta.control.default.orbit punctuation.section.embedded.begin.orbit
+#  ^^^^^^^ source.orbit meta.control.default.orbit keyword.control.conditional.orbit
+#         ^ source.orbit meta.control.default.orbit punctuation.section.embedded.end.orbit
+>		<span class="badge">Published</span>
+#^^ source.orbit
+#  ^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#   ^^^^ source.orbit meta.tag.html entity.name.tag.html
+#       ^ source.orbit meta.tag.html
+#        ^^^^^ source.orbit meta.tag.html entity.other.attribute-name.html
+#             ^ source.orbit meta.tag.html punctuation.separator.key-value.html
+#              ^ source.orbit meta.tag.html string.quoted.double.html punctuation.definition.string.begin.html
+#               ^^^^^ source.orbit meta.tag.html string.quoted.double.html
+#                    ^ source.orbit meta.tag.html string.quoted.double.html punctuation.definition.string.end.html
+#                     ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#                      ^^^^^^^^^ source.orbit
+#                               ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                                 ^^^^ source.orbit meta.tag.html entity.name.tag.html
+#                                     ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+>{/switch}
+#^ source.orbit meta.control.end.orbit punctuation.section.embedded.begin.orbit
+# ^ source.orbit meta.control.end.orbit keyword.control.orbit
+#  ^^^^^^ source.orbit meta.control.end.orbit keyword.control.conditional.orbit
+#        ^ source.orbit meta.control.end.orbit punctuation.section.embedded.end.orbit
+>{switch}
+#^ source.orbit meta.control.switch.orbit punctuation.section.embedded.begin.orbit
+# ^^^^^^ source.orbit meta.control.switch.orbit keyword.control.conditional.orbit
+#       ^ source.orbit meta.control.switch.orbit punctuation.section.embedded.end.orbit
+>	{case len(props.Status) > 10}<b>long</b>
+#^ source.orbit
+# ^ source.orbit meta.control.case.orbit punctuation.section.embedded.begin.orbit
+#  ^^^^ source.orbit meta.control.case.orbit keyword.control.conditional.orbit
+#      ^^^^^^^^^^^^^^^^^^^^^^^ source.orbit meta.control.case.orbit meta.embedded.expression.go
+#                             ^ source.orbit meta.control.case.orbit punctuation.section.embedded.end.orbit
+#                              ^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                               ^ source.orbit meta.tag.html entity.name.tag.html
+#                                ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#                                 ^^^^ source.orbit
+#                                     ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                                       ^ source.orbit meta.tag.html entity.name.tag.html
+#                                        ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+>{/switch}
+#^ source.orbit meta.control.end.orbit punctuation.section.embedded.begin.orbit
+# ^ source.orbit meta.control.end.orbit keyword.control.orbit
+#  ^^^^^^ source.orbit meta.control.end.orbit keyword.control.conditional.orbit
+#        ^ source.orbit meta.control.end.orbit punctuation.section.embedded.end.orbit
+>{switch v := props.Item.(type)}
+#^ source.orbit meta.control.switch.orbit punctuation.section.embedded.begin.orbit
+# ^^^^^^ source.orbit meta.control.switch.orbit keyword.control.conditional.orbit
+#       ^^^^^^^^^^^^^^^^^^^^^^^ source.orbit meta.control.switch.orbit meta.embedded.expression.go
+#                              ^ source.orbit meta.control.switch.orbit punctuation.section.embedded.end.orbit
+>	{case int}<i>{v}</i>
+#^ source.orbit
+# ^ source.orbit meta.control.case.orbit punctuation.section.embedded.begin.orbit
+#  ^^^^ source.orbit meta.control.case.orbit keyword.control.conditional.orbit
+#      ^^^^ source.orbit meta.control.case.orbit meta.embedded.expression.go
+#          ^ source.orbit meta.control.case.orbit punctuation.section.embedded.end.orbit
+#           ^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#            ^ source.orbit meta.tag.html entity.name.tag.html
+#             ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#              ^ source.orbit meta.expression.orbit punctuation.section.embedded.begin.orbit
+#               ^ source.orbit meta.expression.orbit meta.embedded.expression.go
+#                ^ source.orbit meta.expression.orbit punctuation.section.embedded.end.orbit
+#                 ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                   ^ source.orbit meta.tag.html entity.name.tag.html
+#                    ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+>{/switch}
+#^ source.orbit meta.control.end.orbit punctuation.section.embedded.begin.orbit
+# ^ source.orbit meta.control.end.orbit keyword.control.orbit
+#  ^^^^^^ source.orbit meta.control.end.orbit keyword.control.conditional.orbit
+#        ^ source.orbit meta.control.end.orbit punctuation.section.embedded.end.orbit
+><p>{switcher}</p>
+#^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+# ^ source.orbit meta.tag.html entity.name.tag.html
+#  ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#   ^ source.orbit meta.expression.orbit punctuation.section.embedded.begin.orbit
+#    ^^^^^^^^ source.orbit meta.expression.orbit meta.embedded.expression.go
+#            ^ source.orbit meta.expression.orbit punctuation.section.embedded.end.orbit
+#             ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#               ^ source.orbit meta.tag.html entity.name.tag.html
+#                ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+>
