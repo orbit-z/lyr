@@ -1,13 +1,16 @@
 package assets
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/evanw/esbuild/pkg/api"
 	"github.com/orbit-z/orbit/internal/tailwind"
@@ -27,6 +30,12 @@ type esbuildBundler struct {
 	ctx      api.BuildContext
 	ctxKey   string
 	contexts int // contexts created, for tests
+
+	// For tests: noSplit turns code splitting off (to compare the
+	// stylesheets with and without it), twLoads counts the loads of
+	// Tailwind blocks.
+	noSplit bool
+	twLoads atomic.Int32
 
 	twOnce sync.Once
 	tw     *tailwind.Processor // Options.Tailwind, or made on first use
@@ -67,6 +76,11 @@ func (b *esbuildBundler) buildOptions(p *plan) api.BuildOptions {
 		Metafile:            true,
 		LogLevel:            api.LogLevelSilent,
 		Plugins:             []api.Plugin{b.plugin()},
+		// Code splitting (PLAN.md §5e): the modules that several entries
+		// import, and dynamic import() targets, are chunks, flat in
+		// /_orbit/ next to the entries.
+		Splitting:  !b.noSplit,
+		ChunkNames: "[name]-[hash]",
 	}
 	if b.opts.Dev {
 		o.Sourcemap = api.SourceMapLinked
@@ -102,7 +116,7 @@ func (b *esbuildBundler) plugin() api.Plugin {
 					return api.OnResolveResult{Path: strings.TrimPrefix(a.Path, stylePrefix), Namespace: highlightNamespace}, nil
 				}
 				blk := b.current().blocks[a.Path]
-				if blk == nil {
+				if blk.block == nil {
 					return api.OnResolveResult{}, fmt.Errorf("unknown Orbit module %s", a.Path)
 				}
 				return api.OnResolveResult{
@@ -156,7 +170,12 @@ func (b *esbuildBundler) plugin() api.Plugin {
 					return api.OnLoadResult{Contents: &src, Loader: api.LoaderJS, ResolveDir: b.opts.Root}, nil
 				}
 				if blk.tw.Input {
-					return b.loadTailwindBlock(pb, blk, a.Path)
+					// Once for all the block's per-page copies.
+					blk.twOnce.Do(func() {
+						b.twLoads.Add(1)
+						blk.twRes = b.loadTailwindBlock(pb, blk, a.Path)
+					})
+					return blk.twRes, nil
 				}
 				loader := api.LoaderTS
 				if blk.css {
@@ -205,11 +224,20 @@ func (b *esbuildBundler) Bundle(in *Input) (*Result, error) {
 	if tw != nil && len(r.Errors) == 0 {
 		tw.Sweep()
 	}
+	// A block copied into several pages is reported once per copy by
+	// esbuild: deduplicated by position and message.
+	seen := map[Diagnostic]bool{}
+	add := func(d Diagnostic) {
+		if !seen[d] {
+			seen[d] = true
+			res.Diagnostics = append(res.Diagnostics, d)
+		}
+	}
 	for _, m := range r.Errors {
-		res.Diagnostics = append(res.Diagnostics, b.diagnostic(m, false))
+		add(b.diagnostic(m, false))
 	}
 	for _, m := range r.Warnings {
-		res.Diagnostics = append(res.Diagnostics, b.diagnostic(m, true))
+		add(b.diagnostic(m, true))
 	}
 	if len(r.Errors) > 0 {
 		return res, nil
@@ -232,10 +260,16 @@ func (b *esbuildBundler) Close() { b.dispose() }
 
 // metafile is the part of esbuild's metafile that Bundle reads.
 type metafile struct {
-	Outputs map[string]struct {
-		EntryPoint string `json:"entryPoint"`
-		CSSBundle  string `json:"cssBundle"`
-	} `json:"outputs"`
+	Outputs map[string]metaOutput `json:"outputs"`
+}
+
+type metaOutput struct {
+	EntryPoint string `json:"entryPoint"`
+	CSSBundle  string `json:"cssBundle"`
+	Imports    []struct {
+		Path string `json:"path"`
+		Kind string `json:"kind"`
+	} `json:"imports"`
 }
 
 // collect turns esbuild's output files into Result files and page assets.
@@ -252,32 +286,55 @@ func (b *esbuildBundler) collect(p *plan, r api.BuildResult, res *Result) error 
 		}
 		files[filepath.ToSlash(rel)] = of.Contents
 	}
-	// The metafile's output keys are relative to the working directory:
-	// "_orbit/index-HASH.js".
+	// The metafile's output keys, and the paths of their imports, are
+	// relative to the working directory: "_orbit/index-HASH.js".
 	name := func(key string) string { return strings.TrimPrefix(filepath.ToSlash(key), "_orbit/") }
-	var empty []string
-	lazyJS, lazyCSS := map[string]string{}, map[string]string{} // by component file
+	outs := make(map[string]metaOutput, len(meta.Outputs)) // by name
 	for key, out := range meta.Outputs {
+		outs[name(key)] = out
+	}
+	b.dropEmptyChunks(p, outs, files)
+
+	// preloads returns the chunks in the static import closure of the JS
+	// output n, in import order (PLAN.md §5e rule 9).
+	preloads := func(n string) []Asset {
+		var as []Asset
+		seen := map[string]bool{n: true}
+		queue := []string{n}
+		for len(queue) > 0 {
+			cur := queue[0]
+			queue = queue[1:]
+			for _, imp := range outs[cur].Imports {
+				c := name(imp.Path)
+				if imp.Kind != "import-statement" || seen[c] || files[c] == nil {
+					continue
+				}
+				seen[c] = true
+				as = append(as, Asset{Kind: "modulepreload", URL: URLPrefix + c})
+				queue = append(queue, c)
+			}
+		}
+		return as
+	}
+
+	lazyJS, lazyCSS := map[string]string{}, map[string]string{} // by component file
+	for n, out := range outs {
 		if file, ok := p.lazyOf[out.EntryPoint]; ok {
-			n := name(key)
 			if !strings.HasSuffix(n, ".js") {
 				continue
 			}
 			if out.CSSBundle != "" {
 				lazyCSS[file] = URLPrefix + name(out.CSSBundle)
 			}
-			if isEmptyJS(files[n]) {
-				empty = append(empty, n)
-				continue
+			if !isEmptyJS(files[n]) {
+				lazyJS[file] = URLPrefix + n
 			}
-			lazyJS[file] = URLPrefix + n
 			continue
 		}
 		page, ok := p.pageOf[out.EntryPoint]
 		if !ok {
 			continue
 		}
-		n := name(key)
 		switch {
 		case strings.HasSuffix(n, ".css"):
 			res.Pages[page] = append(res.Pages[page], Asset{Kind: "css", URL: URLPrefix + n})
@@ -286,15 +343,11 @@ func (b *esbuildBundler) collect(p *plan, r api.BuildResult, res *Result) error 
 				res.Pages[page] = append(res.Pages[page], Asset{Kind: "css", URL: URLPrefix + name(out.CSSBundle)})
 			}
 			if isEmptyJS(files[n]) {
-				empty = append(empty, n)
 				continue
 			}
 			res.Pages[page] = append(res.Pages[page], Asset{Kind: "js", URL: URLPrefix + n})
+			res.Pages[page] = append(res.Pages[page], preloads(n)...)
 		}
-	}
-	for _, n := range empty {
-		delete(files, n)
-		delete(files, n+".map")
 	}
 	// Each page's lazy assets, in Lazy order (sorted by ID), and the CSS
 	// of its lazy entries after its own stylesheet.
@@ -312,10 +365,28 @@ func (b *esbuildBundler) collect(p *plan, r api.BuildResult, res *Result) error 
 			}
 		}
 	}
+	linked := map[string]bool{}
 	for page, as := range res.Pages {
-		// The stylesheets first, then the module, then the lazy entries.
+		// The stylesheets first, then the module, then the lazy entries,
+		// then the module's chunks.
 		slices.SortStableFunc(as, func(x, y Asset) int { return strings.Compare(x.Kind, y.Kind) })
 		res.Pages[page] = as
+		for _, a := range as {
+			linked[strings.TrimPrefix(a.URL, URLPrefix)] = true
+		}
+	}
+	for n, out := range outs {
+		// Empty JS entries (a page or lazy entry whose scripts only
+		// declare types) and the stylesheets that nothing links: those
+		// of dynamic import() chunks, whose CSS is in the stylesheet of
+		// every page that can reach them (PLAN.md §5e rule 7).
+		_, entry := p.pageOf[out.EntryPoint]
+		_, lazy := p.lazyOf[out.EntryPoint]
+		if (strings.HasSuffix(n, ".js") && (entry || lazy) && !linked[n]) ||
+			(strings.HasSuffix(n, ".css") && !linked[n]) {
+			delete(files, n)
+			delete(files, n+".map")
+		}
 	}
 	for n, data := range files {
 		if strings.HasSuffix(n, ".map") {
@@ -329,6 +400,56 @@ func (b *esbuildBundler) collect(p *plan, r api.BuildResult, res *Result) error 
 	}
 	slices.SortFunc(res.Files, func(x, y File) int { return strings.Compare(x.Name, y.Name) })
 	return nil
+}
+
+// dropEmptyChunks removes the shared chunks with no code (PLAN.md §5e rule
+// 8): esbuild makes one for a CSS file or a types-only module imported
+// from scripts of several entries. The side-effect imports of a removed
+// chunk are deleted from every JS file, or replaced by as many spaces
+// where a source map exists so that its mappings stay valid, until
+// nothing changes (a chunk left with only such imports is empty too).
+// Entries and dynamic import() targets are kept: an import() of a removed
+// file would fail.
+func (b *esbuildBundler) dropEmptyChunks(p *plan, outs map[string]metaOutput, files map[string][]byte) {
+	dynamic := map[string]bool{}
+	for _, out := range outs {
+		for _, imp := range out.Imports {
+			if imp.Kind == "dynamic-import" {
+				dynamic[strings.TrimPrefix(filepath.ToSlash(imp.Path), "_orbit/")] = true
+			}
+		}
+	}
+	blank := b.opts.Dev || b.opts.Sourcemap
+	for changed := true; changed; {
+		changed = false
+		for n, out := range outs {
+			_, entry := p.pageOf[out.EntryPoint]
+			_, lazy := p.lazyOf[out.EntryPoint]
+			if entry || lazy || dynamic[n] || !strings.HasSuffix(n, ".js") || files[n] == nil || !isEmptyJS(files[n]) {
+				continue
+			}
+			changed = true
+			delete(files, n)
+			delete(files, n+".map")
+			url := strconv.Quote(URLPrefix + n)
+			for m, data := range files {
+				if !strings.HasSuffix(m, ".js") {
+					continue
+				}
+				for _, stmt := range []string{"import" + url + ";", "import " + url + ";\n", "import " + url + ";"} {
+					with := ""
+					if blank {
+						with = strings.Repeat(" ", len(stmt))
+						if strings.HasSuffix(stmt, "\n") {
+							with = with[1:] + "\n"
+						}
+					}
+					data = bytes.ReplaceAll(data, []byte(stmt), []byte(with))
+				}
+				files[m] = data
+			}
+		}
+	}
 }
 
 var sourceMappingURL = regexp.MustCompile(`(?m)^//# sourceMappingURL=\S*\s*$`)

@@ -51,7 +51,7 @@ func (b *esbuildBundler) loadCSS(pb api.PluginBuild, a api.OnLoadArgs) (api.OnLo
 
 // loadTailwindBlock returns the contents of a <style> block that is a
 // Tailwind input: Tailwind's output, after the block's padding.
-func (b *esbuildBundler) loadTailwindBlock(pb api.PluginBuild, blk *block, path string) (api.OnLoadResult, error) {
+func (b *esbuildBundler) loadTailwindBlock(pb api.PluginBuild, blk *block, path string) api.OnLoadResult {
 	dir := filepath.Dir(path)
 	out, err := b.runTailwind(pb, tailwind.Source{Text: blk.text, File: path, Line: blk.start.Line, Col: blk.start.Col, Dir: dir})
 	if err != nil {
@@ -59,10 +59,10 @@ func (b *esbuildBundler) loadTailwindBlock(pb api.PluginBuild, blk *block, path 
 		if errors.As(err, &te) && te.File == path && blk.scope != "" {
 			blockPosition(te, blk)
 		}
-		return api.OnLoadResult{Errors: []api.Message{tailwindMessage(err)}}, nil
+		return api.OnLoadResult{Errors: []api.Message{tailwindMessage(err)}}
 	}
 	contents := pad(compiler.Position{Line: blk.start.Line, Col: 1}) + out
-	return api.OnLoadResult{Contents: &contents, Loader: api.LoaderCSS, ResolveDir: dir}, nil
+	return api.OnLoadResult{Contents: &contents, Loader: api.LoaderCSS, ResolveDir: dir}
 }
 
 // runTailwind inlines src's CSS imports (with esbuild's resolver) and runs

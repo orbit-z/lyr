@@ -225,6 +225,61 @@ func TestTailwindFakeErrors(t *testing.T) {
 	}
 }
 
+// TestTailwindBlockOnce: a Tailwind <style> block on three pages has a
+// copy per page (code splitting, PLAN.md §5e) but is inlined and processed
+// once per build, and its error is reported once.
+func TestTailwindBlockOnce(t *testing.T) {
+	log := tailwindtest.Fake(t, "")
+	for _, tt := range []struct {
+		name, card string
+		errs       int
+	}{
+		{"ok", "<h2 class=\"title\">x</h2>\n<style>\n  @reference \"../styles/global.css\";\n  .title { @apply font-bold; }\n</style>\n", 0},
+		{"error", "<p>x</p>\n<style>\n  @reference \"../styles/global.css\";\n  /* FAIL_TW */ .b { @apply nope; }\n</style>\n", 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := project(t, map[string]string{
+				"src/styles/global.css":     "@import \"tailwindcss\";\n",
+				"src/components/Card.orbit": tt.card,
+				"src/pages/a.orbit":         "<p>a</p>\n<script>console.log(1)</script>\n",
+				"src/pages/b.orbit":         "<p>b</p>\n<script>console.log(2)</script>\n",
+				"src/pages/c.orbit":         "<p>c</p>\n",
+			})
+			pages := map[string][]string{}
+			for _, p := range []string{"a", "b", "c"} {
+				pages["src/pages/"+p+".orbit"] = []string{"src/components/Card.orbit", "src/pages/" + p + ".orbit"}
+			}
+			before := len(tailwindtest.Log(t, log))
+			b := New(Options{Root: dir}).(*esbuildBundler)
+			defer b.Close()
+			res, err := b.Bundle(input(t, dir, pages))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n := b.twLoads.Load(); n != 1 {
+				t.Errorf("block loaded %d times, want 1", n)
+			}
+			if n := len(tailwindtest.Log(t, log)) - before; n != 1 {
+				t.Errorf("%d Tailwind runs, want 1", n)
+			}
+			if len(res.Diagnostics) != tt.errs {
+				t.Fatalf("diagnostics: %+v", res.Diagnostics)
+			}
+			if tt.errs > 0 {
+				if d := res.Diagnostics[0]; d.File != "src/components/Card.orbit" || d.Line != 4 {
+					t.Errorf("diagnostic: %+v", d)
+				}
+				return
+			}
+			for page := range pages {
+				if css := pageCSS(t, res, page); !strings.Contains(css, "--applied: font-bold") {
+					t.Errorf("%s CSS:\n%s", page, css)
+				}
+			}
+		})
+	}
+}
+
 // TestTailwindNotFound: without a CLI, an error at the marker, only for
 // projects with a Tailwind input.
 func TestTailwindNotFound(t *testing.T) {

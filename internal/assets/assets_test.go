@@ -111,10 +111,11 @@ func TestBundle(t *testing.T) {
 		t.Errorf("plain page has assets: %v", res.Pages["src/pages/plain.orbit"])
 	}
 	idx := res.Pages["src/pages/index.orbit"]
-	if len(idx) != 2 || idx[0].Kind != "css" || idx[1].Kind != "js" {
+	// util.ts is shared with blog/[slug]: a chunk, preloaded.
+	if len(idx) != 3 || idx[0].Kind != "css" || idx[1].Kind != "js" || idx[2].Kind != "modulepreload" {
 		t.Fatalf("index assets = %+v", idx)
 	}
-	for _, a := range idx {
+	for _, a := range idx[:2] {
 		if !hashed.MatchString(a.URL) || !strings.Contains(a.URL, "/index-") {
 			t.Errorf("URL %q", a.URL)
 		}
@@ -125,7 +126,7 @@ func TestBundle(t *testing.T) {
 	if body < 0 || card < 0 || p < 0 || !(body < card && card < p) {
 		t.Errorf("CSS order wrong:\n%s", css)
 	}
-	js := string(res.File(idx[1].URL).Contents)
+	js := string(res.File(idx[1].URL).Contents) + string(res.File(idx[2].URL).Contents)
 	if strings.Contains(js, ": number") || strings.Contains(js, ": string") || !strings.Contains(js, "hi ") {
 		t.Errorf("JS bundle:\n%s", js)
 	}
@@ -135,7 +136,7 @@ func TestBundle(t *testing.T) {
 
 	// A page with a src script and a global style.
 	post := res.Pages["src/pages/blog/[slug].orbit"]
-	if len(post) != 2 || !strings.Contains(post[1].URL, "/blog-slug-") {
+	if len(post) != 3 || !strings.Contains(post[1].URL, "/blog-slug-") || post[2] != idx[2] {
 		t.Fatalf("post assets = %+v", post)
 	}
 	for _, f := range res.Files {
