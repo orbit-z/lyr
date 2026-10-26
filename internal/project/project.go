@@ -68,7 +68,7 @@ type File struct {
 	// Path is project-relative, "/"-separated: "src/components/Card.orbit".
 	Path string
 	// MD is the parsed Markdown file, for a Markdown file (set by Front);
-	// AST and Analysis are then stand-ins (no template, the layout as the
+	// AST and Analysis are then stand-ins (an empty template, the layout as the
 	// only import).
 	MD   *markdown.Doc
 	Info compiler.FileInfo

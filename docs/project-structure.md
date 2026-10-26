@@ -17,9 +17,12 @@ blog/
   src/
     pages/                file-based routes
       index.orbit         /
+      about.md            /about: a Markdown page
       404.orbit           the not-found page
       blog/
         [slug].orbit      /blog/<slug>
+    content/              optional Markdown files that pages import
+      intro.md
     components/
       Card.orbit
     layouts/
@@ -37,7 +40,7 @@ blog/
 
 ## `src/pages/`
 
-Every `.orbit` file under `src/pages/` is a page, and its path is its URL: `src/pages/about.orbit` is served at `/about`, and `index.orbit` is its directory's root (`src/pages/blog/index.orbit` is `/blog`). URLs have no trailing slash; a request for `/about/` is redirected to `/about`. Brackets make a dynamic segment (`[slug].orbit`, `[...rest].orbit`), and `404.orbit` renders unknown URLs. A file whose name, or the name of a directory on its path, starts with `_` isn't a page but a component, as in Astro: `src/pages/blog/_parts/Byline.orbit` has no URL. Every page is rendered on the server for each request. [Routing](routing.md) covers the rules.
+Every `.orbit` file under `src/pages/` is a page, and its path is its URL: `src/pages/about.orbit` is served at `/about`, and `index.orbit` is its directory's root (`src/pages/blog/index.orbit` is `/blog`). URLs have no trailing slash; a request for `/about/` is redirected to `/about`. Brackets make a dynamic segment (`[slug].orbit`, `[...rest].orbit`), and `404.orbit` renders unknown URLs. A file whose name, or the name of a directory on its path, starts with `_` isn't a page but a component, as in Astro: `src/pages/blog/_parts/Byline.orbit` has no URL. A Markdown file (`.md`, `.markdown`, …) under `src/pages/` is a page too, with the same rules (see [Markdown pages](markdown.md#markdown-pages)). Every page is rendered on the server for each request. [Routing](routing.md) covers the rules.
 
 ## `src/components/` and `src/layouts/`
 
@@ -51,11 +54,15 @@ import Card "../components/Card.orbit"
 
 See [Components](components.md).
 
-Orbit finds every `.orbit` file under `src/`. It skips files and directories whose names start with `.`, and follows symlinked directories, except a link that leads back to a directory it's already in. A project without a `src/` directory is an error, so running `orbit generate` in the wrong module doesn't leave an `orbit_gen/` there:
+Orbit finds every `.orbit` and Markdown file under `src/`. It skips files and directories whose names start with `.`, and follows symlinked directories, except a link that leads back to a directory it's already in. A project without a `src/` directory is an error, so running `orbit generate` in the wrong module doesn't leave an `orbit_gen/` there:
 
 ```text
 orbit: /home/me/blog has no src/ directory; run orbit in an Orbit project
 ```
+
+## `src/content/`
+
+A Markdown file outside `src/pages/` isn't a route: it's compiled only when an `.orbit` file imports it (`Intro "../content/intro.md"`), so a stray `README.md` under `src/` never breaks a build. `content/` is a convention, not a special directory: Markdown files can live anywhere under `src/`. See [Importing Markdown into a component](markdown.md#importing-markdown-into-a-component).
 
 ## `src/locals/`
 

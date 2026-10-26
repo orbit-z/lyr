@@ -99,7 +99,7 @@ title: About
 Written in **Markdown**, rendered to HTML when Orbit generates code.
 ```
 
-An `.md` and an `.orbit` file with the same route (`about.md` and `about.orbit`) are a build error naming both, like any two pages. A Markdown page can't have route params (`[slug].md` is a build error). See [Markdown](markdown.md) (planned).
+An `.md` and an `.orbit` file with the same route (`about.md` and `about.orbit`) are a build error naming both, like any two pages. A Markdown page can't have route params (`[slug].md` is a build error). See [Markdown](markdown.md).
 
 ## Dynamic routes with `[param]`
 

@@ -127,6 +127,7 @@ Orbit watches `src/`, `public/`, `orbit.json`, `go.mod`, `tsconfig.json`, every 
 | only the contents of a `<style>` or `<script>`, or a `.ts`, `.css` or other file under `src/` that they import | rebuilds the CSS/JS bundles (incremental esbuild). No Go rebuild; your server keeps running and picks up the new asset URLs. |
 | a file in `public/` | nothing to rebuild; it just reloads. |
 | a template, frontmatter or `Props` | regenerates the affected Go packages, rebuilds your server and restarts it. The CSS/JS bundles aren't rebuilt unless a `<style>` or `<script>` changed too. |
+| a Markdown file under `src/` | regenerates its Go packages, rebuilds your server and restarts it. A body edit that keeps the frontmatter and headings regenerates only its implementation package, like a template edit; a frontmatter or heading edit also rebuilds the components that import it. Links between Markdown pages are checked again. |
 | only `.go` files (including `src/locals`) or `go.mod` | starts `go build` at once, while it regenerates; when regenerating changes nothing in `orbit_gen/` (the usual case), that build is the one it runs, otherwise it builds again. Then it restarts your server. |
 | a file matching a [`watch`](configuration.md#watch) pattern in `orbit.json` | nothing to rebuild; it restarts your server (the same binary), then reloads. |
 | `orbit.json`, or several kinds of files at once | regenerates, rebuilds your server and restarts it. |

@@ -96,6 +96,15 @@ type Attrs map[string]any
 ```
 Attributes to spread onto an HTML element with `{...attrs}`. Each value follows the [attribute rules](#attribute-values); each name must be a valid attribute name.
 
+```go
+type Heading struct {
+	Depth int    // 1 for <h1>, … 6 for <h6>
+	Slug  string // the heading's id
+	Text  string // its text, without markup
+}
+```
+One heading of a Markdown file, named after Astro's `MarkdownHeading`. A layout whose `Props` has a `Headings []orbit.Heading` field gets a Markdown page's headings there, and an imported Markdown file exposes them as `Post.Headings`. See [Markdown](../markdown.md#layouts).
+
 ## Locals
 
 Typed request-scoped data. You declare `type Locals struct` in the package `src/locals`; pages and components see it as `locals`, of type `*locals.Locals`. See [Middleware and locals](../middleware.md).
@@ -308,6 +317,8 @@ func Render(ctx *orbit.Ctx, w *orbit.Writer, props Props, slots orbit.Slots) err
 `Render` only works once the component is linked, by importing `example.com/blog/orbit_gen/app` (your server already does, through `app.New()`). Otherwise it panics with `orbit: src/components/Card.orbit not linked; import example.com/blog/orbit_gen/app`.
 
 Pages have a declaration package too, with an empty generated `Props`: pages never take props.
+
+A Markdown file's package has an `_md` suffix (`src/pages/blog/hello.md` is `orbit_gen/decl/pages/blog/hello_md`), an empty `Props`, and its `Frontmatter` (a struct of the frontmatter values), `Headings` (`[]orbit.Heading`) and, for a page, `URL` (its URL path). See [Importing Markdown](../markdown.md#importing-markdown-into-a-component).
 
 The generated `orbit_gen/app` package builds your site:
 

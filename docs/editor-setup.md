@@ -164,6 +164,8 @@ With an up-to-date `orbit_gen/`, gopls reads the generated code of every file yo
 
 **TypeScript** in `<script>` gets syntax highlighting only, with no completion or diagnostics. Run [`orbit check`](styles-and-scripts.md#type-checking-with-orbit-check) (which uses `bun check`, Bun 1.4.4 or later) to type-check your scripts.
 
+**Markdown files** (`.md`) are left to your editor's own Markdown support: the Orbit extension doesn't claim them, and the language server reports no diagnostics in them (`orbit check` and the `orbit dev` overlay do). It does follow their changes on disk, so in an `.orbit` file that imports `Post "./post.md"`, `Post.Frontmatter.` completes the frontmatter's fields. See [Markdown](markdown.md#in-the-dev-server).
+
 Formatting `.orbit` files and semantic highlighting are not yet supported.
 
 ## Rename

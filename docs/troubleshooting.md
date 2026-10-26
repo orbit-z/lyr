@@ -408,7 +408,7 @@ src/pages/blog/[slug].orbit:4:12: params.Slg undefined (type Params has no field
 
 **Symptom:** a build error that names both files.
 
-**Cause:** for example `src/pages/blog.orbit` next to `src/pages/blog/index.orbit` (both are `/blog`), or `[slug].orbit` next to `[id].orbit` in one directory.
+**Cause:** for example `src/pages/blog.orbit` next to `src/pages/blog/index.orbit` (both are `/blog`), `[slug].orbit` next to `[id].orbit` in one directory, or a Markdown page with the same route as an `.orbit` page (`about.md` and `about.orbit`): `src/pages/about.orbit: route /about is already defined by src/pages/about.md; remove or rename one of them`.
 
 **Fix:** delete or rename one of them. See [File-based routes](routing.md#file-based-routes).
 
@@ -527,6 +527,70 @@ See [Combining and reserved namespaces](reference/template-syntax.md#combining-a
 **Cause:** Orbit doesn't auto-close elements the way browsers do, so `<p>`, `<li>`, `<td>` and `<option>` need their closing tags.
 
 **Fix:** close the element (`<li>…</li>`) or self-close it (`<div />`). Void elements such as `<br>` and `<img>` take no closing tag. See [HTML and custom elements](reference/template-syntax.md#html-and-custom-elements).
+
+## Markdown files
+
+Errors in Markdown files point at their `.md` line and column: a frontmatter key or value, the `layout` value, or a link's `[`. See [Markdown](markdown.md).
+
+### `unknown frontmatter key "tilte" for layout Post (props: title, date, tags, headings)`
+
+**Cause:** a frontmatter key matches no field of the layout's `Props` (keys match fields ignoring case, `-` and `_`).
+
+**Fix:** fix the key's spelling, or add the field to the layout's `Props`. See [Layouts](markdown.md#layouts).
+
+### `frontmatter draft: "yes" isn't a bool (Post.Props.Draft is bool)`
+
+**Cause:** a frontmatter value doesn't fit the type of the layout's field: a quoted `"yes"` for a `bool`, a list for a `string`, a quoted date for a `time.Time`. A number too large for the field is `frontmatter order: 300 overflows uint8 (Post.Props.Order is uint8)`, and a field that frontmatter can't set at all (`any`, a pointer, an interface, a func) is `frontmatter on-click: Post.Props.OnClick is func(), which frontmatter can't set`.
+
+**Fix:** write the value as the field's type expects (`draft: true`, `date: 2026-10-26` without quotes), or change the field's type. See the table in [Layouts](markdown.md#layouts).
+
+### `frontmatter key "subtitle" has no value; delete the line or give it a value`
+
+**Cause:** a frontmatter key with nothing after the colon (or `null`).
+
+**Fix:** delete the line, or give the key a value.
+
+### `invalid YAML in the frontmatter: mapping values are not allowed in this context`
+
+**Cause:** the frontmatter isn't valid YAML: here, a value with an unquoted `: ` in it, such as `title: Go: a tour`. YAML anchors, aliases and tags are errors too (`YAML aliases (*x) aren't supported in frontmatter; repeat the value`).
+
+**Fix:** quote the value (`title: "Go: a tour"`). See [Frontmatter](markdown.md#frontmatter).
+
+### `layout ../layouts/Post.orbit: no such file`
+
+**Cause:** the `layout` path, relative to the Markdown file, doesn't name an `.orbit` file under `src/`. A path that doesn't end in `.orbit` is `layout ./Post.md must be an .orbit file`, and one outside `src/` is `layout ../../../X.orbit is outside src/`.
+
+**Fix:** fix the path, counting `../` from the Markdown file's directory.
+
+### `frontmatter key "headings" can't be set: Orbit fills Post.Props.Headings with the page's headings; rename the key`
+
+**Cause:** the layout has a `Headings []orbit.Heading` field, which Orbit fills with the page's headings, and the frontmatter sets it too.
+
+**Fix:** rename the key (and the field it's meant for).
+
+### `link ./routing.md: no such file`
+
+**Cause:** a relative link to a Markdown file that doesn't exist. A link to a Markdown file that isn't a page is `link ../content/intro.md: src/content/intro.md isn't a page, so it has no URL; link to a page, or import it into one`.
+
+**Fix:** fix the link, or link to the URL of the page that renders the file. See [Links between Markdown files](markdown.md#links-between-markdown-files).
+
+### `warning: link ./routing-guide.md#setup: src/pages/blog/routing-guide.md has no heading #setup`
+
+**Cause:** the link's `#fragment` is no heading ID of the target. It's a warning, since the ID may come from the target's layout or raw HTML.
+
+**Fix:** use the heading's ID (lowercase, punctuation removed, spaces turned into `-`), or ignore the warning if the ID exists. See [Heading IDs](markdown.md#heading-ids).
+
+### `a Markdown page can't have route params; rename it, or write a [slug].orbit page`
+
+**Cause:** a Markdown file in `src/pages/` has brackets in its path, such as `blog/[slug].md`. A Markdown page has no code to read params with.
+
+**Fix:** rename the file, or write an `.orbit` page that loads the content for each slug.
+
+### `unknown prop "x" on <Post> (Post takes no props)`
+
+**Cause:** an attribute on an imported Markdown file's tag. `<Post />` takes no attributes; its layout gets the frontmatter.
+
+**Fix:** remove the attribute. To pass values to the layout, put them in the Markdown file's frontmatter. See [Importing Markdown](markdown.md#importing-markdown-into-a-component).
 
 ## Runtime
 

@@ -1,7 +1,5 @@
 # Markdown
 
-> **Planned.** This page is the spec for Markdown support, written before the implementation (see `PLAN.md` §2.4). Nothing on it works yet.
-
 Orbit renders Markdown files the way Astro does: a `.md` file in `src/pages/` is a page, and an `.orbit` component can import a `.md` file and render it as `<Post />`. The difference is *when* it renders. Orbit converts the Markdown to HTML (and highlights its code blocks) **when it generates code**, not per request. The HTML ends up as string constants in the generated Go, the same as a template's static HTML, so serving a Markdown page costs the same as serving a static template, and your server binary never parses Markdown.
 
 A Markdown page with a layout:
@@ -131,7 +129,9 @@ layout: ../../layouts/Post.orbit
 
 `layout` is special: it's the path of an `.orbit` layout, relative to the Markdown file, and it must stay inside `src/`. Orbit uses it to compile the page and doesn't pass it on. Every other key goes to the layout (see [Layouts](#layouts)) and to files that import this one (see [`Post.Frontmatter`](#postfrontmatter)).
 
-Keys become Go field names with the same rules as props and route params: `title` → `Title`, `post-id` and `postId` → `PostID`, `url` → `URL`. So a key must start with a letter and use only letters, digits, `-` and `_`, and two keys that become the same field are an error.
+Keys become Go field names with the same rules as props and route params: `title` → `Title`, `post-id` and `postId` → `PostID`, `url` → `URL`. So a key must start with a letter and use only letters, digits, `-` and `_`, and two keys that become the same field are an error. The keys of nested maps follow the same rules.
+
+The frontmatter must be keys and values. YAML anchors (`&name`), aliases (`*name`) and tags (`!!str`) aren't supported, and are errors at their position: repeat the value instead.
 
 Values are checked when Orbit generates code, and errors point at the line and column in the `.md` file:
 
@@ -254,13 +254,14 @@ import (
 | `3.5` | `float64` |
 | `2026-10-26`, `2026-10-26T09:30:00Z` | `time.Time` |
 | `[news, go]` | `[]string` (a list's items must all have the same type) |
+| `[]` | `[]string` |
 | a nested map | a nested struct |
 
 Two Markdown files with the same keys and value types have the same `Frontmatter` type, so you can put them in one slice. The `layout` key isn't in it.
 
 ## What you can write
 
-Markdown is [CommonMark](https://commonmark.org) plus, as in Astro, **GitHub Flavored Markdown**: tables, task lists (`- [x] done`), strikethrough (`~~old~~`), footnotes and bare URLs turned into links. **Smart punctuation** is on too, as in Astro: straight quotes become curly, `--` and `---` become dashes and `...` an ellipsis (text in backticks and code blocks is never changed). Both can be turned off in `orbit.json` (see [Options](#options)).
+Markdown is [CommonMark](https://commonmark.org) plus, as in Astro, **GitHub Flavored Markdown**: tables, task lists (`- [x] done`), strikethrough (`~~old~~`), footnotes and bare URLs turned into links. **Smart punctuation** is on too, as in Astro: straight quotes become curly, `--` becomes an en dash, `---` an em dash and `...` an ellipsis (text in backticks and code blocks is never changed). Both can be turned off in `orbit.json` (see [Options](#options)).
 
 There are no expressions: `{` and `}` are plain text, and there's no frontmatter code. For data, use an `.orbit` page that imports the Markdown.
 
@@ -296,7 +297,7 @@ A relative link to another Markdown **page** is rewritten to that page's URL, so
 | `[home](../index.md)` | `<a href="/">` |
 | `[install](../docs/install.md#requirements)` | `<a href="/docs/install#requirements">` |
 
-The link is checked when Orbit generates code. A link to a Markdown file that doesn't exist, or that isn't a page, is an error at the link: `src/pages/blog/hello.md:19:6: link ./routing.md: no such file`. A `#fragment` that no heading of the target has is a warning (it may be an `id` your layout writes): `src/pages/blog/hello.md:19:6: warning: link ./routing-guide.md#setup: src/pages/blog/routing-guide.md has no heading #setup`. Absolute links (`/about`), external URLs and links to other files are left as written.
+The link is checked when Orbit generates code. A link to a Markdown file that doesn't exist, or that isn't a page, is an error at the link's `[`: `src/pages/blog/hello.md:21:10: link ./routing.md: no such file`, or `link ../content/intro.md: src/content/intro.md isn't a page, so it has no URL; link to a page, or import it into one`. A `#fragment` that no heading of the target has is a warning (it may be an `id` your layout writes): `src/pages/blog/hello.md:21:10: warning: link ./routing-guide.md#setup: src/pages/blog/routing-guide.md has no heading #setup`. Absolute links (`/about`), external URLs and links to other files are left as written.
 
 Images use the URL you write. Orbit has no image pipeline yet, so put images in `public/` and link them from the root: `![A cat](/images/cat.png)`.
 
@@ -310,7 +311,7 @@ func main() { fmt.Println("hi") }
 ```
 ````
 
-renders as a `<pre class="chroma" tabindex="0" data-language="go"><code>…</code></pre>` whose tokens are `<span>`s with Chroma's class names (`<span class="kd">func</span>`). A block whose language Chroma doesn't know, or that has none, is escaped plain text in the same `<pre>`. Anything after the language on the fence line (```` ```go title="main.go" ````) is ignored, as in Astro.
+renders as a `<pre class="chroma" tabindex="0" data-language="go"><code>…</code></pre>` whose tokens are `<span>`s with Chroma's class names (`<span class="kd">func</span>`). A block whose language Chroma doesn't know (`data-language="mermaid"`), or that has none (`data-language="plaintext"`, indented code blocks included), is escaped plain text in the same `<pre>`. Anything after the language on the fence line (```` ```go title="main.go" ````) is ignored, as in Astro.
 
 The token colors are CSS that Orbit adds to the stylesheet of every page that renders highlighted code, before your own styles, so yours win. By default it uses Chroma's `github` theme in light mode and `github-dark` in dark mode, with the CSS `light-dark()` function, so the colors follow your page's [`color-scheme`](https://developer.mozilla.org/docs/Web/CSS/color-scheme):
 
@@ -320,7 +321,7 @@ The token colors are CSS that Orbit adds to the stylesheet of every page that re
 :root[data-theme="light"] { color-scheme: light; }
 ```
 
-Without a `color-scheme` on the page, code is shown in the light theme. Pick other themes, or turn the CSS off to write your own, in `orbit.json` (see [Options](#options)). Chroma's themes are listed in its [style gallery](https://xyproto.github.io/splash/docs/).
+Without a `color-scheme` on the page, code is shown in the light theme. A theme that sets no text or background color of its own (`github` has no text color) uses the page's `CanvasText` and `Canvas` system colors for it. Pick other themes, or turn the CSS off to write your own, in `orbit.json` (see [Options](#options)). Chroma's themes are listed in its [style gallery](https://xyproto.github.io/splash/docs/).
 
 ## Options
 
@@ -362,7 +363,7 @@ Your editor's own Markdown support handles `.md` files; the Orbit language serve
 ## Performance
 
 - **At request time, nothing.** A Markdown page is a string constant written into the response buffer, plus its layout's render. The frontmatter props are built once at startup, so the page adds no allocations.
-- **When generating code, a few milliseconds.** Orbit's own docs (22 files, 520 KB of Markdown with 269 code blocks) convert in about 8 ms, and highlighting adds about 30 ms (AMD Ryzen 7 9700X, one thread). A typical page takes 1–2 ms, a small part of a rebuild, which is dominated by `go build`.
+- **When generating code, a few milliseconds.** Orbit's own docs (23 files, 560 KB of Markdown with about 420 code blocks) convert in about 10 ms, and highlighting adds about 22 ms (AMD Ryzen 7 9700X, one thread); `orbit generate` converts files in parallel, about 11 ms for all of them on 8 cores. A typical page takes 1–2 ms, a small part of a rebuild, which is dominated by `go build`.
 - **Your server binary** grows only by the HTML of your pages. The Markdown and highlighting libraries are part of the `orbit` CLI, not of your server.
 
 ## See also

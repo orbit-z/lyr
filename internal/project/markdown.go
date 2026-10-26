@@ -12,7 +12,7 @@ import (
 // Markdown files (PLAN.md §2.4). Load reads every Markdown file under src/
 // into Project.markdown; Front compiles the pages (Markdown files under
 // src/pages, not _-prefixed) and those imported by an .orbit file, as Files
-// whose MD is set, with a stand-in AST (no template; the file's line index)
+// whose MD is set, with a stand-in AST (an empty template; the file's line index)
 // and Analysis (the layout as the only import).
 
 // IsMD reports whether f is a Markdown file.
@@ -98,7 +98,7 @@ func (p *Project) frontMarkdown() []*File {
 	resolve := p.resolver()
 	parallel(files, func(f *File) {
 		f.MD = markdown.Parse(f.Path, f.Src, p.Config.Markdown, resolve)
-		f.AST = &compiler.File{Src: f.Src, Lines: f.MD.Lines, Diagnostics: f.MD.Diagnostics}
+		f.AST = &compiler.File{Src: f.Src, Lines: f.MD.Lines, Template: &compiler.Template{}, Diagnostics: f.MD.Diagnostics}
 		f.Analysis = &compiler.Analysis{Info: f.Info, Props: compiler.PropsInfo{Listable: true}}
 		if f.MD.Layout != "" {
 			f.Analysis.OrbitImports = []compiler.OrbitImport{{Alias: markdown.LayoutAlias, Path: f.MD.LayoutRaw,

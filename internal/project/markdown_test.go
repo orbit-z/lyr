@@ -304,3 +304,40 @@ type failLoader struct{}
 func (failLoader) Load(context.Context, *gotoken.FileSet, []string) (types.Importer, error) {
 	return nil, errors.New("no export data")
 }
+
+// TestMarkdownRefresh: the language server's edits (Refresh) and disk
+// changes of Markdown files (SetMarkdown, then Front).
+func TestMarkdownRefresh(t *testing.T) {
+	p := newTestProject(t, map[string]string{
+		"src/pages/index.orbit": "<p>home</p>\n",
+		"src/content/intro.md":  "---\nauthor: Ada\n---\nIntro.\n",
+	})
+	proj, err := Load(p.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if proj.Front() || len(proj.Files) != 1 {
+		t.Fatalf("Front: %d files, %v", len(proj.Files), diagStrings(proj.Diagnostics))
+	}
+	// An edit that imports the Markdown file compiles it.
+	proj.Files[0].Src = "---\nimport Intro \"../content/intro.md\"\n---\n<Intro /> {Intro.Frontmatter.Author}\n"
+	out := proj.Refresh([]string{"src/pages/index.orbit"})
+	if len(out) != 2 || len(proj.Files) != 2 || len(proj.Diagnostics) > 0 {
+		t.Fatalf("Refresh: %d files out, %d in the project, %v", len(out), len(proj.Files), diagStrings(proj.Diagnostics))
+	}
+	// A frontmatter edit on disk.
+	if !proj.SetMarkdown("src/content/intro.md", "---\nwriter: Ada\n---\nIntro.\n", false) || proj.SetMarkdown("README.md", "", false) {
+		t.Fatal("SetMarkdown")
+	}
+	proj.Front()
+	md := proj.byPath()["src/content/intro.md"]
+	if md == nil || !strings.Contains(string(md.Pass1.Decl.Content), "Writer string") {
+		t.Fatalf("intro.md not regenerated: %v", md)
+	}
+	// Removed: the import is now an error.
+	proj.SetMarkdown("src/content/intro.md", "", true)
+	proj.Front()
+	if got := joinLines(diagStrings(proj.Diagnostics)); got != "src/pages/index.orbit:2:14: no such component: src/content/intro.md" {
+		t.Errorf("after the removal: %s", got)
+	}
+}

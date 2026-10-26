@@ -305,6 +305,8 @@ p, _ := posts.Find("hello")
 src/pages/index.orbit:9:7: unknown prop "psot" on <Card> (props: post, featured)
 ```
 
+Errors in Markdown files point at the `.md` file the same way, at a frontmatter key or value, the `layout` value or a link: `src/pages/blog/hello.md:4:8: frontmatter draft: "yes" isn't a bool (Post.Props.Draft is bool)`. A link to a missing heading is a warning (`src/pages/blog/hello.md:21:10: warning: link ./routing-guide.md#setup: src/pages/blog/routing-guide.md has no heading #setup`), which doesn't fail the build. See [Troubleshooting: Markdown files](../troubleshooting.md#markdown-files).
+
 Errors about a whole file, such as an invalid route, a route param that can't become a field name, or two files that generate the same package, have no line and column: `src/pages/[1st].orbit: route param [1st] can't become a Go field name; …`.
 
 This holds for Orbit's own checks, esbuild and TypeScript errors, and Go compiler errors alike. `orbit build`, `orbit check` and the `orbit dev` overlay all print Go errors in your terms:
