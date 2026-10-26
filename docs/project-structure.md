@@ -206,6 +206,8 @@ go tool orbit build
 
 Use the same steps in CI. `go tool orbit` runs the CLI version pinned in `go.mod`, so CI needs only Go, not a global `orbit` install. You can also run `go tool orbit check` to type-check your `.orbit` files and, with Bun installed, your TypeScript.
 
+To check that your `.orbit` files are formatted, add `go tool orbit fmt -l` (planned, see [`orbit fmt`](reference/cli.md#orbit-fmt)). It lists the files that aren't formatted and exits with code 1 if there are any, so the step fails and names them. It needs no generated code, so it can run before `orbit generate`. Install Bun in CI too if you want it to check `<script>` and `<style>` formatting; without Bun, it skips them.
+
 Two Go tools see `orbit_gen/` as ordinary Go code:
 
 - **`gofmt -l .`** lists the generated files, because Orbit never gofmts them (formatting would move the code away from its line directives, which point into your `.orbit` files). Check only your own files: `gofmt -l $(git ls-files '*.go')`, or `test -z "$(gofmt -l $(git ls-files '*.go'))"` to fail the CI step when any needs formatting.

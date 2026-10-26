@@ -215,9 +215,43 @@ Orbit refuses a rename, with a message:
 
 Rename waits until the language server has loaded the whole project (see [Startup and `orbit_gen/`](#startup-and-orbit_gen)), so it never misses a use.
 
+## Formatting
+
+> **Planned.** This section describes formatting in the language server, which comes with [`orbit fmt`](reference/cli.md#orbit-fmt) (see `PLAN.md` §6.1). It doesn't work yet.
+
+The language server formats `.orbit` files with the same rules as `orbit fmt`: the frontmatter, `{…}` expressions and control blocks with `gofmt`'s rules, and `<script>` and `<style>` content with `bun fmt` when Bun 1.4.4 or later is installed. It formats what's in the editor, saved or not. It never touches the HTML, so formatting never changes what a page renders.
+
+- It formats the **whole document** ("Format Document"). "Format Selection" isn't supported, as with gopls.
+- A file with a syntax error isn't changed; the error is already in your diagnostics.
+- Your editor's tab size and spaces setting don't apply: the frontmatter uses tabs, like Go, the template keeps its own indentation, and scripts and styles follow your Prettier or Bun configuration.
+- Without Bun, scripts and styles are left as they are, and the language server says so once per session.
+- Markdown files aren't formatted by Orbit's language server: VS Code's Markdown support, Prettier or `bun fmt` handle them.
+
+**VS Code**: the Orbit extension is the default formatter for `.orbit` files, so "Format Document" (Shift+Alt+F) works as installed. To format on save, add this to your settings:
+
+```json
+{
+  "[orbit]": {
+    "editor.formatOnSave": true
+  }
+}
+```
+
+**Neovim**: `vim.lsp.buf.format()` formats the current buffer. To format on save:
+
+```lua
+vim.api.nvim_create_autocmd('BufWritePre', {
+  pattern = '*.orbit',
+  callback = function() vim.lsp.buf.format() end,
+})
+```
+
+To check formatting in CI, run `orbit fmt -l` (see [Fresh clones and CI](project-structure.md#fresh-clones-and-ci)).
+
 ## See also
 
 - [Getting started](getting-started.md): installing Orbit and running `orbit doctor`
 - [Components](components.md): what `props`, `slots`, `ctx` and `locals` are
 - [CLI reference](reference/cli.md#orbit-lsp): `orbit lsp`, and [`orbit doctor`](reference/cli.md#orbit-doctor)'s checks
 - [Styles and scripts](styles-and-scripts.md): TypeScript and `orbit check`
+- [CLI reference](reference/cli.md#orbit-fmt): `orbit fmt` (planned)

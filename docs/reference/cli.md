@@ -10,6 +10,7 @@ orbit dev              # dev server with live reload, on localhost:4321
 orbit build            # build into dist/
 orbit preview          # run the built server locally
 orbit check            # type-check Go and TypeScript without building
+orbit fmt              # format .orbit files (planned)
 orbit generate         # (re)generate orbit_gen/
 orbit doctor           # check your environment and project
 orbit create-key       # print a new island key for ORBIT_KEY
@@ -24,6 +25,7 @@ orbit lsp              # language server, started by your editor
 | [`orbit preview`](#orbit-preview) | | Runs the built server |
 | [`orbit new <dir>`](#orbit-new) | `--module path` | Creates a project |
 | [`orbit check`](#orbit-check) | | Type-checks Go and TypeScript |
+| [`orbit fmt [paths]`](#orbit-fmt) | `-l`, `-d`, `-w`, `--stdin-filepath` | Formats `.orbit` files (planned) |
 | [`orbit doctor`](#orbit-doctor) | `--json` | Checks the environment and project |
 | [`orbit create-key`](#orbit-create-key) | | Prints a new island key |
 | [`orbit lsp`](#orbit-lsp) | | Language server over stdio |
@@ -221,6 +223,217 @@ Type-checks your project without building it.
 **TypeScript**: extracts every processed inline `<script>` into `.orbit/check/`, mirroring `src/` (the second script of `src/components/Card.orbit` becomes `.orbit/check/src/components/Card.orbit.1.ts`), so a relative import such as `../scripts/util` resolves from the `.orbit` file's directory. A generated `.orbit/check/tsconfig.json` extends your `tsconfig.json` and includes the extracted files plus your `include` globs (`src/**/*.ts` if you set none); your `exclude` still applies. Without a `tsconfig.json`, it uses the options `orbit new` scaffolds, which include `allowImportingTsExtensions` (as in Astro's base tsconfig), so `import { f } from "../scripts/util.ts"` checks as it bundles. A `<script src="…">` isn't extracted; its file is checked through that include. Then Orbit runs `bun check --no-pretty -p .orbit/check`, the TypeScript type checker built into Bun. Each error in a script is mapped back to its line and column in the `.orbit` file; errors in your `.ts` files keep their own path. Both are printed as `file:line:col: error TSxxxx: message`. Unchanged scripts aren't rewritten, and stale files in `.orbit/check/` are removed. This half needs **Bun 1.4.4 or later**, and no `typescript` package. If Bun is missing or older, the TypeScript half is skipped with a notice naming the command to install or upgrade Bun, and the Go half still runs. A project with no processed script and no `.ts` file under `src/` skips it silently. See [Styles and scripts](../styles-and-scripts.md#type-checking-with-orbit-check).
 
 Errors are printed to stderr, Go first; a clean project prints nothing. Exit code: 1 if any error was found (warnings and the skip notice don't count), 0 otherwise, 2 for a usage error.
+
+## `orbit fmt`
+
+> **Planned.** This section is the spec for `orbit fmt`, written before the implementation (see `PLAN.md` §6.1). The command doesn't exist yet.
+
+```sh
+go tool orbit fmt                         # format every .orbit file under src/, in place
+go tool orbit fmt src/components          # only the files under these paths
+go tool orbit fmt -l                      # list the files that aren't formatted; change nothing
+go tool orbit fmt -d src/pages/index.orbit   # show the changes as a diff; change nothing
+go tool orbit fmt --stdin-filepath=src/pages/index.orbit < in.orbit   # for editors and scripts
+```
+
+Formats your `.orbit` files the way `gofmt` formats Go: there's one style, with no options to argue about. `orbit fmt` formats the parts of a file that are code, and never anything that's rendered. So a formatted page renders **exactly the same HTML**, in every [`compressHTML`](../configuration.md#compresshtml) mode.
+
+| It formats | How |
+|---|---|
+| The frontmatter | With `gofmt`'s rules (`go/format`): tabs, spacing, one statement per line, sorted imports. Comments are kept. |
+| `{expr}` expressions, in content and in attribute values (`a={expr}`, `{...attrs}`) | The Go code inside the braces, with `gofmt`'s spacing; the braces hug the code. |
+| Control blocks: `{if}`, `{else if}`, `{else}`, `{/if}`, `{for}`, `{/for}` | The condition or clause, with `gofmt`'s spacing, and the block tag spelled one way. |
+| `<script>` and `<style>` content | With `bun fmt`, Bun's Prettier-compatible formatter, when Bun 1.4.4 or later is installed (see [Scripts and styles](#scripts-and-styles)). |
+
+It **never** changes:
+
+- the HTML: text, tags, attributes and their order, quotes, and the whitespace between them (indentation included);
+- `<pre>` and `<textarea>` content, HTML comments and `{/* … */}` template comments;
+- the content of a `<script>` whose `type` isn't JavaScript (JSON, JSON-LD, import maps);
+- the order of your frontmatter statements: it doesn't move code between the declarations Orbit hoists and the statements of the render function;
+- line endings: a file with CRLF line endings keeps them;
+- the end of the template: it doesn't add or remove a final newline (that would be rendered).
+
+### Paths and flags
+
+With no paths, `orbit fmt` formats every `.orbit` file under the `src/` directory of the project around the current directory (the nearest directory with a `go.mod`). With paths, it formats those files, and every `.orbit` file under those directories, skipping directories whose name starts with `.`, `node_modules` and `orbit_gen`. A path can be outside a project, or outside `src/`: formatting needs only the file itself.
+
+| Flag | Meaning |
+|---|---|
+| (none) | Writes the formatted files in place. Files that are already formatted aren't rewritten. Prints nothing. |
+| `-l` | Lists the files whose formatting differs, one per line, and writes nothing. |
+| `-d` | Prints a unified diff of each file whose formatting differs (`gofmt -d`'s format), and writes nothing. |
+| `-w` | With `-l` or `-d`: also writes the files. On its own, the same as no flag. |
+| `--stdin-filepath=PATH` | Reads one file from stdin and prints the formatted file to stdout. `PATH` is used for error positions and for Bun's configuration lookup; the file doesn't have to exist. With `-l` it prints `PATH` if the input isn't formatted, with `-d` the diff. It takes no paths, and `-w` is a usage error with it. |
+
+Only `.orbit` files are formatted. A Markdown file passed by name is an error (`orbit fmt: src/pages/about.md: orbit fmt formats .orbit files; format Markdown with bun fmt`), and Markdown files in a directory are skipped: format them with `bun fmt` or Prettier, as in an Astro project.
+
+Inside a project that pins the CLI, `orbit fmt` runs the pinned version, like every other command, so everyone on the project formats the same way.
+
+### Errors and exit codes
+
+`orbit fmt` only formats a file it can parse. A file with a syntax error (an unclosed tag or block, a `{` without its `}`, frontmatter that isn't valid Go, a script Bun can't parse) is left unchanged, and the error is printed as `file:line:col: message`; the other files are still formatted:
+
+```text
+src/components/Card.orbit:7:20: expected ';', found err
+src/components/Card.orbit:31:9: <script>: Variable declaration expected.
+```
+
+Other errors, such as an unknown prop or an unused import, don't stop it: `gofmt` formats Go that doesn't type-check, too. `orbit check` reports those.
+
+| Code | Meaning |
+|---|---|
+| `0` | Success. With `-l` or `-d`, every file is already formatted. |
+| `1` | A file couldn't be formatted (a syntax error, a Bun error, a file that can't be read or written), or, with `-l` or `-d` and no `-w`, some file isn't formatted. |
+| `2` | Usage error. |
+
+So in CI, `go tool orbit fmt -l` fails the step when a file needs formatting, and names it.
+
+### The frontmatter
+
+The frontmatter is formatted with `gofmt`'s rules. The declarations that Orbit hoists (`import`, `type`, `const` and named `func`s) are formatted as file-level Go, and the statements of the render function as a function body, at the left margin. Imports are sorted by path within each group, as `gofmt` sorts them, so `.orbit` imports (their paths start with `.`) come first in their group; separate them with a blank line to keep them apart. Before:
+
+```orbit
+---
+import (
+    "strings"
+    "example.com/blog/internal/posts"
+    Card "../components/Card.orbit"
+)
+type Props struct { Title string;   Count int }
+
+list,err:=posts.All()
+if err != nil { return err }
+title := strings.ToUpper( props.Title )   // shown in the header
+---
+```
+
+After:
+
+```orbit
+---
+import (
+	Card "../components/Card.orbit"
+	"example.com/blog/internal/posts"
+	"strings"
+)
+
+type Props struct {
+	Title string
+	Count int
+}
+
+list, err := posts.All()
+if err != nil {
+	return err
+}
+title := strings.ToUpper(props.Title) // shown in the header
+---
+```
+
+A run of hoisted declarations gets `gofmt`'s blank lines (one after the import block). Elsewhere, blank lines are kept as you wrote them, at most one in a row, and leading and trailing blank lines in the frontmatter are removed. Indentation in the frontmatter is always tabs, as in Go files.
+
+### Expressions and control blocks
+
+The Go code in `{…}` gets `gofmt`'s spacing, as if it were written `x := <expr>`. The braces hug it, and block tags are spelled `{if c}`, `{else if c}`, `{else}`, `{/if}`, `{for clause}` and `{/for}`. Attribute forms are kept: `title={title}` isn't shortened to `{title}`, nor the other way round. Before:
+
+```orbit
+---
+import "strconv"
+
+items := []string{"a", "b"}
+n := len(items)
+---
+{ if n==0 }
+  <p>Nothing yet</p>
+{ else if n==1 }
+  <p class={ "one"+"-item" }>One item</p>
+{else}
+  <ul>
+    {for i:=0;i<n;i++}
+      <li data-index={ i+1 }>{ items[i]+" ("+strconv.Itoa(i)+")" }</li>
+    {/for}
+  </ul>
+{ /if }
+```
+
+After:
+
+```orbit
+---
+import "strconv"
+
+items := []string{"a", "b"}
+n := len(items)
+---
+{if n == 0}
+  <p>Nothing yet</p>
+{else if n == 1}
+  <p class={"one" + "-item"}>One item</p>
+{else}
+  <ul>
+    {for i := 0; i < n; i++}
+      <li data-index={i + 1}>{items[i] + " (" + strconv.Itoa(i) + ")"}</li>
+    {/for}
+  </ul>
+{/if}
+```
+
+The HTML lines themselves, and their indentation, are untouched. An expression that spans several lines keeps its line breaks, as `gofmt` keeps them; its continuation lines are indented from the line where the `{` is, one level per `gofmt` indentation level, using the template's own indentation (a tab, or the smallest space indentation the template uses; two spaces if nothing is indented):
+
+```orbit
+  <Card post={posts.Post{
+    Title: "Hello",
+    Tags:  []string{"go", "orbit"},
+  }} />
+```
+
+### Scripts and styles
+
+`<script>` and `<style>` content is formatted with **`bun fmt`**, the Prettier-compatible formatter built into Bun 1.4.4 and later. Orbit runs it once per block (`bun fmt --stdin-filepath=src/components/Card.orbit.0.ts`), from the project root, so your Prettier or Bun formatter configuration (`.prettierrc`, `bunfig.toml`'s `[fmt]`, `.editorconfig`) applies, as it would to a `.ts` or `.css` file next to the component.
+
+| Block | Formatted as |
+|---|---|
+| A [processed](../styles-and-scripts.md#which-scripts-orbit-processes) `<script>` | TypeScript |
+| Any other `<script>` with no `type`, or a JavaScript `type` (`module`, `text/javascript`) | JavaScript |
+| A `<script>` with another `type` (`application/json`, `application/ld+json`, `importmap`, …) | Not formatted |
+| Every `<style>` | CSS |
+
+The block keeps its indentation: content indented two spaces inside the tag stays indented two spaces. Content written on the same line as the tag moves to its own lines, one level in from the tag. Before:
+
+```orbit
+<button id="like">Like</button>
+<script>
+  const btn=document.querySelector<HTMLButtonElement>("#like")!
+  btn.addEventListener("click",async ()=>{ const r=await fetch("/api/like",{method:"POST"}); btn.textContent=String((await r.json()).count) })
+</script>
+<style> button{padding:.5rem 1rem;border-radius:4px} </style>
+```
+
+After:
+
+```orbit
+<button id="like">Like</button>
+<script>
+  const btn = document.querySelector<HTMLButtonElement>("#like")!;
+  btn.addEventListener("click", async () => {
+    const r = await fetch("/api/like", { method: "POST" });
+    btn.textContent = String((await r.json()).count);
+  });
+</script>
+<style>
+  button {
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+  }
+</style>
+```
+
+**Without Bun** (or with a Bun older than 1.4.4), `orbit fmt` formats everything else and leaves scripts and styles as they are, with one notice on stderr naming the command to install or upgrade Bun. The notice doesn't change the exit code. So if your team formats scripts, install Bun in CI too: without it, `orbit fmt -l` can't tell that a script isn't formatted. `orbit doctor` reports a missing Bun.
+
+### In your editor
+
+The language server formats `.orbit` files too, with the same rules, so format-on-save works in VS Code and Neovim. See [Editor setup: Formatting](../editor-setup.md#formatting).
 
 ## `orbit doctor`
 
