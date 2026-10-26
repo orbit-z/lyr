@@ -137,8 +137,15 @@ func (p *Project) appGo() []byte {
 	b.WriteString("// New returns the site: every page of src/pages, with its assets. Options\n")
 	b.WriteString("// passed here come after the ones from orbit.json and --embed, so they win.\n")
 	b.WriteString("func New(opts ...orbit.Option) *orbit.Site {\n")
+	var defaults []string
 	if p.Config.Site != "" {
-		fmt.Fprintf(&b, "\tdefaults := []orbit.Option{orbit.WithSite(%s)}\n", strconv.Quote(p.Config.Site))
+		defaults = append(defaults, "orbit.WithSite("+strconv.Quote(p.Config.Site)+")")
+	}
+	if p.Config.TrailingSlashAlways {
+		defaults = append(defaults, "orbit.WithTrailingSlash(orbit.TrailingSlashAlways)")
+	}
+	if len(defaults) > 0 {
+		fmt.Fprintf(&b, "\tdefaults := []orbit.Option{%s}\n", strings.Join(defaults, ", "))
 	} else {
 		b.WriteString("\tvar defaults []orbit.Option\n")
 	}

@@ -125,7 +125,7 @@ Where you put a middleware relative to Orbit decides what it sees:
 
 Middleware listed first runs first: in `logging(requestInfo(mux))`, `logging` sees the request before `requestInfo`, and sees the response after it. See [Server](server.md#choosing-precedence) for where the mux and Orbit go.
 
-Outer middleware also runs before Orbit's trailing-slash redirect, so it can see `/account/` as well as `/account`. Compare paths with that in mind (see [Routing](routing.md#trailing-slashes)).
+Outer middleware also runs before Orbit's trailing-slash redirect, so it can see `/account/` as well as `/account` (whichever isn't the canonical URL is redirected afterwards, per `orbit.json`'s `trailingSlash`). Compare paths with that in mind (see [Routing](routing.md#trailing-slashes)).
 
 ## The request flow
 

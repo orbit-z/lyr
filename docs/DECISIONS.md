@@ -803,3 +803,20 @@ With Tailwind CSS v4 support (`PLAN.md` §5d). The bigger choices (the standalon
 | The dev loop's word set is seeded, after the first bundle with a Tailwind input, from the module's files with the watcher's skip rules (no CSS, lock or binary files); a changed directory, or a file over 4 MB, counts as new | simplest | Seed from Tailwind's own file list | `PLAN.md` §5d |
 | A failed Tailwind run's error is kept until the next batch, which reruns it | simplest (so one batch doesn't run a failing input twice) | Rerun at once | [Using Tailwind](tailwind.md#in-orbit-dev) |
 | The output cache keeps only the inputs the last successful bundle used | simplest (memory stays bounded in long dev sessions) | Keep everything | — |
+
+## Trailing slashes
+
+The `orbit.json` `trailingSlash` option (`PLAN.md` §4e). The modes (`"never"`, `"always"`, no `"ignore"`), the 308 for every method, the exported `orbit.WithTrailingSlash` option passed before the caller's options, and the same behavior in dev and prod were the user's, not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| A wrong value is `orbit.json: trailingSlash must be "never" or "always", not <raw JSON>`, plus `; Orbit has no "ignore" mode: each page has one URL` for `"ignore"`; `null` means unset | simplest (Astro's default is the likeliest wrong value) | No hint; accept `"ignore"` as `"never"` | [Configuration](configuration.md#trailingslash) |
+| A path has a file extension when its last segment has a `.` that isn't its first byte, followed by one or more of `[A-Za-z0-9_]` only (a byte loop) | Astro (`hasFileExtension`) | Any dot | [Routing](routing.md#trailing-slashes) |
+| An extension route (last segment static with an extension, `rss.xml.orbit`) is slash-less in both modes, and `/rss.xml/` matches nothing | Astro (its endpoint rule) | Astro's page quirk (`/rss.xml/`) | [Routing](routing.md#trailing-slashes) |
+| In `"always"`, a dotted param value (`/blog/v1.2`) isn't redirected and reaches `next`; `/blog/v1.2/` renders | Astro | Redirect it | [Routing](routing.md#trailing-slashes) |
+| Never redirected: `/`, `/_orbit/…`, `public/` files and `//`-prefixed paths (Orbit's counterparts of Astro's internal paths) | Astro, mapped to Orbit's internal prefix | Astro's `/_`, `/@`, `/.` prefixes | [Routing](routing.md#trailing-slashes) |
+| The redirect is sent only when the other form is a page (the existing rule, now in both modes), so Orbit-first mux routes keep working | simplest | Astro's unconditional redirect | [Routing](routing.md#trailing-slashes), [Server](server.md#choosing-precedence) |
+| Duplicate trailing slashes (`/x//`) aren't collapsed; they match nothing | simplest | Astro's collapse | [Routing](routing.md#trailing-slashes) |
+| `Route.Pattern` stays slash-less in both modes; the mode is site-wide | simplest | Patterns with a trailing slash | `PLAN.md` §4e |
+| In `"never"`, `//` still gets a 308 to `/` (unchanged; its `Location` isn't protocol-relative) | simplest (today's behavior) | Never redirect `//` | `PLAN.md` §4e |
+| The config field is a bool (`TrailingSlashAlways`) in `internal/config` and `markdown.GenInput`; `markdown.CanonicalURL` mirrors the runtime's extension rule rather than importing the runtime package | simplest | A string or the runtime's `TrailingSlash` type | `PLAN.md` §4e |

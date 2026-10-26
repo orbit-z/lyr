@@ -37,6 +37,7 @@ orbit: orbit.json:3:1: invalid character '}' looking for beginning of object key
 | [`server`](#server) | string | `"./cmd/server"` if it exists, else a generated entry | The Go package of your server's `main`. |
 | [`embed`](#embed) | bool | `false` | Embed the static files in the server binary, like `orbit build --embed`. |
 | [`compressHTML`](#compresshtml) | `"jsx"`, `"html"` (or `true`) or `false` | `"jsx"` | How template whitespace is compressed. |
+| [`trailingSlash`](#trailingslash) | `"never"` or `"always"` | `"never"` | Whether page URLs end in `/`. |
 | [`sourcemap`](#sourcemap) | bool | `false` | Write source maps for the production CSS and JS bundles. |
 | [`watch`](#watch) | array of strings | `[]` | Extra files whose changes restart your server in `orbit dev`. |
 | [`markdown`](#markdown) | object | GFM and smart punctuation on, `github` / `github-dark` highlighting | How Markdown files are converted. |
@@ -91,6 +92,23 @@ Builds a single, self-contained server binary with the `/_orbit/` assets and `pu
 ```
 
 It's the same as passing `--embed` to `orbit build`; the flag turns embedding on even when `embed` is `false`. `dist/client/` is still written, so you can also upload it to a CDN. See [Deploy](deploy.md#single-binary---embed).
+
+## `trailingSlash`
+
+Whether a page's canonical URL ends in `/`. Every page has exactly one URL, and the other form gets a 308 redirect to it:
+
+```json
+{ "trailingSlash": "always" }
+```
+
+| Value | Canonical URL | Redirected |
+|---|---|---|
+| `"never"` (default) | `/blog/hello`, `/blog` for `blog/index.orbit` | `/blog/hello/` → `/blog/hello` |
+| `"always"` | `/blog/hello/`, `/blog/` | `/blog/hello` → `/blog/hello/` |
+
+`/` is `/` in both modes, and a page whose file name has an extension, such as `src/pages/rss.xml.orbit`, is always at `/rss.xml`. The mode also sets Markdown's `Post.URL` and the URLs of rewritten `.md` links. Orbit doesn't rewrite the links in your templates: in `"always"`, write `href="/blog/{slug}/"`. [Routing: Trailing slashes](routing.md#trailing-slashes) has the details: what's never redirected, extension pages and dotted URLs.
+
+There's no `"ignore"` mode, Astro's default: it gives every page two URLs. Any other value is an error when `orbit.json` loads, such as `orbit.json: trailingSlash must be "never" or "always", not "ignore"; Orbit has no "ignore" mode: each page has one URL`. A site that moves from Astro's `"ignore"` picks one of the two.
 
 ## `sourcemap`
 
@@ -210,9 +228,8 @@ An unknown theme name is an error that lists the available themes, such as `orbi
 - **The island key and build ID** that a build embeds are random, created fresh by every `orbit build`; there's nothing to configure. To share one key across builds, set `ORBIT_KEY`. See [Deploy](deploy.md#island-key-orbit_key).
 - **The dev server port** is a flag: `orbit dev --port 3000`.
 - **Tailwind CSS** has no key: it's configured in CSS (`@theme`, `@source`, `@plugin`, …), turned on by `@import "tailwindcss"` in a stylesheet, and Orbit only needs to find its CLI. See [Using Tailwind](tailwind.md).
-- **Trailing slashes** aren't configurable: a page's canonical URL never ends in `/` (except `/` itself), and the server redirects `/blog/hello/` to `/blog/hello` with a 308. See [Routing](routing.md).
 - **Rendering** isn't configurable either: every page renders on the server, per request. See [Rendering](rendering.md).
-- A `base` path (serving the site under a subdirectory) and `trailingSlash` modes are not yet supported.
+- A `base` path (serving the site under a subdirectory) is not yet supported.
 
 ## See also
 

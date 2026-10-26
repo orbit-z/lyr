@@ -417,7 +417,7 @@ func TestSite(t *testing.T) {
 }
 ```
 
-`Get` doesn't follow redirects, so you can check them, like the 308 above.
+`Get` doesn't follow redirects, so you can check them, like the 308 above. With `"trailingSlash": "always"` in `orbit.json`, request the canonical paths: `orbittest.Get(t, h, "/blog/hello/")` renders the page, while `/blog/hello` returns the 308 to `/blog/hello/` (see [Trailing slashes](routing.md#trailing-slashes)).
 
 ## Testing `server:defer` components
 

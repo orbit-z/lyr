@@ -24,6 +24,9 @@ type GenInput struct {
 	Options compiler.Options
 	// Index is the project's component index, for the layout.
 	Index compiler.ComponentIndex
+	// TrailingSlashAlways is orbit.json "trailingSlash": "always": URL is
+	// then the route plus "/" (CanonicalURL).
+	TrailingSlashAlways bool
 }
 
 // Info returns the component index entry of a Markdown file: a component
@@ -158,7 +161,7 @@ func genDecl(d *Doc, in GenInput) *compiler.GenFile {
 	}
 	if page && in.Info.Route != "" && strings.HasPrefix(in.Info.Route, "/") {
 		b.WriteString("// URL is the page's URL path.\n")
-		fmt.Fprintf(&b, "const URL = %s\n\n", strconv.Quote(in.Info.Route))
+		fmt.Fprintf(&b, "const URL = %s\n\n", strconv.Quote(CanonicalURL(in.Info.Route, in.TrailingSlashAlways)))
 	}
 	sig := "*" + compiler.NameRuntime + ".Ctx, *" + compiler.NameRuntime + ".Writer, Props, " + compiler.NameRuntime + ".Slots"
 	if page {

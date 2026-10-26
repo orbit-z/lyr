@@ -93,7 +93,7 @@ For a page request, the path through your server looks like this:
 2. **`site.Middleware`** matches the URL. In order, it tries:
    1. the deferred-island endpoint `/_orbit/island/…` (see [Lazy loading](lazy-loading.md));
    2. a static file: a `/_orbit/*` asset or a `public/` file (`GET` and `HEAD` only);
-   3. a page route, which may answer a trailing slash with a 308 (see [Routing](routing.md#trailing-slashes)).
+   3. a page route, which may answer the other form of a page URL (`/blog/hello/` by default) with a 308 (see [Routing](routing.md#trailing-slashes)).
 
    If nothing matches, it calls the next handler untouched (see [Server](server.md)).
 3. **The page renders**: it gets a `ctx` and the request's `locals`, runs its frontmatter and template, and writes into a pooled buffer. Components it uses render into the same buffer.

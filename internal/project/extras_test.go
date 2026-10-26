@@ -21,6 +21,8 @@ func TestExtrasGolden(t *testing.T) {
 	}{
 		{"site", `{"site": "https://blog.example.com"}`},
 		{"nosite", `{}`},
+		{"always", `{"trailingSlash": "always"}`},
+		{"sitealways", `{"site": "https://blog.example.com", "trailingSlash": "always"}`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			files := map[string]string{}
@@ -51,7 +53,7 @@ func TestExtrasGolden(t *testing.T) {
 				if f, err := format.Source(content); err != nil || !bytes.Equal(f, content) {
 					t.Errorf("%s isn't gofmt-clean (%v)", path, err)
 				}
-				if tt.name == "nosite" && path != AppFile {
+				if tt.name != "site" && path != AppFile {
 					continue
 				}
 				golden := filepath.Join("testdata", "extras", tt.name+"."+strings.ReplaceAll(strings.TrimPrefix(path, "orbit_gen/"), "/", "_")+".golden")

@@ -37,6 +37,9 @@ type Config struct {
 	Embed bool
 	// CompressHTML is "compressHTML" ("jsx" by default; true means "html").
 	CompressHTML compiler.Compression
+	// TrailingSlashAlways is "trailingSlash": "always": page URLs end with
+	// "/" (PLAN.md §4e). The default, "never", is false.
+	TrailingSlashAlways bool
 	// Sourcemap is "sourcemap": true: orbit build writes external source
 	// maps next to the bundles, not linked from them (PLAN.md §5).
 	Sourcemap bool
@@ -70,6 +73,7 @@ func Parse(data []byte) (*Config, error) {
 		Embed        json.RawMessage `json:"embed"`
 		CompressHTML json.RawMessage `json:"compressHTML"`
 		Sourcemap    json.RawMessage `json:"sourcemap"`
+		Slash        json.RawMessage `json:"trailingSlash"`
 		Watch        json.RawMessage `json:"watch"`
 		Markdown     json.RawMessage `json:"markdown"`
 	}
@@ -113,6 +117,21 @@ func Parse(data []byte) (*Config, error) {
 	if isSet(raw.Sourcemap) {
 		if json.Unmarshal(raw.Sourcemap, &c.Sourcemap) != nil {
 			return nil, fmt.Errorf("%s: sourcemap must be true or false", FileName)
+		}
+	}
+	if isSet(raw.Slash) {
+		var v any
+		_ = json.Unmarshal(raw.Slash, &v)
+		switch v {
+		case "never":
+		case "always":
+			c.TrailingSlashAlways = true
+		default:
+			hint := ""
+			if v == "ignore" {
+				hint = `; Orbit has no "ignore" mode: each page has one URL`
+			}
+			return nil, fmt.Errorf(`%s: trailingSlash must be "never" or "always", not %s%s`, FileName, bytes.TrimSpace(raw.Slash), hint)
 		}
 	}
 	if isSet(raw.Watch) {
