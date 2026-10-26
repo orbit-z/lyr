@@ -69,6 +69,12 @@ func TestE2E(t *testing.T) {
 			if userServer {
 				return
 			}
+			// The build flavor: the panic above is logged at its .orbit line
+			// from an overlaid file, and the responses match the hooks'.
+			if b, err := os.ReadFile(filepath.Join(dir, ".orbit/build/overlay.json")); err != nil || !strings.Contains(string(b), `"orbit_gen/impl/pages/blog/slug_param/render.go"`) {
+				t.Errorf("the [slug] page isn't overlaid (%v):\n%s", err, b)
+			}
+			checkFlavors(t, dir, "example.com/site", []string{"/", "/search", "/bare", "/blog/hello", "/blog/teapot", "/nope"})
 			// orbit preview runs the same build.
 			p := start(t, filepath.Join(dir, "src"), orbitCLI(t), "preview")
 			if resp, body := p.get("/"); resp.StatusCode != 200 || !strings.Contains(body, "<title>Home</title>") {

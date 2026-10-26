@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/orbit-z/orbit/internal/assets"
+	"github.com/orbit-z/orbit/internal/compiler"
 	"github.com/orbit-z/orbit/internal/config"
 	"github.com/orbit-z/orbit/internal/project"
 )
@@ -82,6 +83,13 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 		return nil, err
 	}
 	embed := o.Embed || cfg.Embed
+	goflags, err := GoFlags(ctx, root, o.Env)
+	if err != nil {
+		return nil, fmt.Errorf("go env GOFLAGS: %w", err)
+	}
+	if hasFlag(goflags, "overlay") {
+		return nil, ErrOverlayFlag
+	}
 
 	res := &Result{}
 	g := &project.Generator{Root: root, Env: o.Env}
@@ -119,23 +127,22 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 		return res, nil
 	}
 
-	var flags []string
+	// PLAN.md §3.5: the build flavor, overlaid on orbit_gen/.
+	buildFiles, err := p.BuildFiles()
+	if err != nil {
+		return nil, err
+	}
+	if err := project.WriteBuildFiles(root, buildFiles); err != nil {
+		return nil, err
+	}
+	flags := []string{"-overlay=" + compiler.OverlayFile}
 	if embed {
 		if err := writeStatic(root, client); err != nil {
 			return nil, err
 		}
-		tags, err := embedTagsFlag(ctx, root, o.Env)
-		if err != nil {
-			return nil, fmt.Errorf("go env GOFLAGS: %w", err)
-		}
-		flags = append(flags, tags)
+		flags = append(flags, embedTagsFlag(goflags))
 	}
-
-	ld, err := islandLDFlags(ctx, root, o.Env)
-	if err != nil {
-		return nil, fmt.Errorf("go env GOFLAGS: %w", err)
-	}
-	flags = append(flags, ld)
+	flags = append(flags, islandLDFlags(goflags))
 
 	server := filepath.Join(stage, "server")
 	out, err := goBuild(ctx, root, server, p.ServerEntry, flags, o.Env)
@@ -198,19 +205,31 @@ func CleanOutput(p *project.Project, out []byte) []byte {
 const runtimePkg = "github.com/orbit-z/orbit"
 
 // islandLDFlags returns the -ldflags flag of a build (PLAN.md §6): the
-// -ldflags already in GOFLAGS (a -ldflags on the command line replaces the
-// one in GOFLAGS, so both are passed), plus a fresh random island key and
+// -ldflags already in goflags, the effective GOFLAGS (a -ldflags on the
+// command line replaces the one in GOFLAGS, so both are passed), plus a fresh random island key and
 // build ID set with -X, so nothing random is written to orbit_gen/.
-func islandLDFlags(ctx context.Context, root string, env []string) (string, error) {
-	out, err := GoFlags(ctx, root, env)
-	if err != nil {
-		return "", err
-	}
+func islandLDFlags(goflags string) string {
 	key := make([]byte, 32)
 	rand.Read(key)
 	id := make([]byte, 8)
 	rand.Read(id)
-	return ldflagsWithIslandKey(out, base64.StdEncoding.EncodeToString(key), hex.EncodeToString(id)), nil
+	return ldflagsWithIslandKey(goflags, base64.StdEncoding.EncodeToString(key), hex.EncodeToString(id))
+}
+
+// ErrOverlayFlag is the error for an -overlay flag in GOFLAGS: orbit build
+// passes its own (PLAN.md §3.5), which would silently replace it.
+var ErrOverlayFlag = errors.New("-overlay in GOFLAGS isn't supported (orbit build passes its own)")
+
+// hasFlag reports whether goflags (the value of GOFLAGS) sets the go flag
+// name, as -name=… or --name=… (GOFLAGS flags always have a value).
+func hasFlag(goflags, name string) bool {
+	for _, f := range splitQuoted(goflags) {
+		f = strings.TrimPrefix(strings.TrimPrefix(f, "-"), "-")
+		if f == name || strings.HasPrefix(f, name+"=") {
+			return true
+		}
+	}
+	return false
 }
 
 // ldflagsWithIslandKey merges the -ldflags of goflags (the value of

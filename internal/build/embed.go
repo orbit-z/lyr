@@ -2,10 +2,8 @@ package build
 
 import (
 	"bytes"
-	"context"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -65,19 +63,13 @@ func staticGo(hasFiles bool) []byte {
 }
 
 // embedTagsFlag returns the -tags flag for an --embed go build: the tags
-// already in GOFLAGS (go env, so a go env -w setting counts too) plus
-// EmbedTag. A -tags on the command line replaces the one in GOFLAGS, so
-// both are passed.
-func embedTagsFlag(ctx context.Context, root string, env []string) (string, error) {
-	cmd := exec.CommandContext(ctx, "go", "env", "GOFLAGS")
-	cmd.Dir = root
-	cmd.Env = append(os.Environ(), env...)
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
+// already in goflags (the effective GOFLAGS, from go env, so a go env -w
+// setting counts too) plus EmbedTag. A -tags on the command line replaces
+// the one in GOFLAGS, so both are passed.
+func embedTagsFlag(goflags string) string {
+	out := goflags
 	tags := ""
-	for _, f := range strings.Fields(string(out)) {
+	for _, f := range strings.Fields(out) {
 		f = strings.TrimPrefix(f, "-")
 		if v, ok := strings.CutPrefix(f, "-tags="); ok {
 			tags = v
@@ -87,7 +79,7 @@ func embedTagsFlag(ctx context.Context, root string, env []string) (string, erro
 	}
 	tags = strings.Trim(strings.ReplaceAll(tags, " ", ","), ",")
 	if tags == "" {
-		return "-tags=" + EmbedTag, nil
+		return "-tags=" + EmbedTag
 	}
-	return "-tags=" + tags + "," + EmbedTag, nil
+	return "-tags=" + tags + "," + EmbedTag
 }

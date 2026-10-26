@@ -315,3 +315,63 @@ func TestDirectAllocs(t *testing.T) {
 		t.Errorf("hook flavor: %s allocations per render, want %s", got, hookAllocs)
 	}
 }
+
+// TestLineDirectivePositionsBuildFlavor builds the position project of
+// TestLineDirectivePositions (PLAN.md §3.3) in both flavors: with the build
+// flavor overlaid (its pages call Emb directly, and their errors are in a
+// hoisted declaration and a direct call's field key), go build and go vet
+// must report every error at the same .orbit position as the hook build,
+// with the same cleaned output.
+func TestLineDirectivePositionsBuildFlavor(t *testing.T) {
+	c := loadCase(t, "testdata/positions")
+	m := newGenModule(t)
+	p := plPipeline(t, m, plReadCase(t, c), c.opts)
+	var res []*cgResult
+	var analyses []*Analysis
+	for _, pf := range p.files {
+		res = append(res, &cgResult{path: pf.path, f: pf.f, a: pf.a, in: pf.in})
+		analyses = append(analyses, pf.a)
+	}
+	direct := directCalls(res)
+	builds := map[string]*Output{}
+	for _, pf := range p.files {
+		if d := direct[pf.path]; d != nil {
+			in := *pf.in
+			in.Typed, in.Direct = pf.typed.Writes, d
+			builds[pf.path] = Generate(&in)
+		}
+	}
+	for _, want := range []string{"src/pages/index.orbit", "src/pages/alias.orbit"} {
+		if builds[want] == nil {
+			t.Fatalf("%s has no build flavor", want)
+		}
+	}
+	p.write(m, true)
+	m.writeOverlay(builds)
+	names := NewErrorNames(testModule, analyses)
+	clean := func(args ...string) map[string]string {
+		out := map[string]string{}
+		for _, cmd := range []string{"build", "vet"} {
+			o, err := m.goCmd(append(append([]string{cmd}, args...), "./...")...)
+			if err == nil {
+				t.Fatalf("go %s %v succeeded, want errors", cmd, args)
+			}
+			out[cmd] = sortPackages(string(CleanGoOutput([]byte(o), names)))
+		}
+		return out
+	}
+	hook, overlay := clean(), clean("-overlay="+OverlayFile)
+	for _, cmd := range []string{"build", "vet"} {
+		if hook[cmd] != overlay[cmd] {
+			t.Errorf("go %s: the build flavor's errors differ\n--- hook\n%s--- build flavor\n%s", cmd, hook[cmd], overlay[cmd])
+		}
+	}
+	for _, line := range []string{
+		"src/pages/index.orbit:5:8: unknown field Nmae in struct literal of type Emb.Props",
+		"src/pages/alias.orbit:4:13: cannot use Emb.Props{} (value of struct type Emb.Props) as int value in variable declaration",
+	} {
+		if !hasLine(overlay["build"], line) {
+			t.Errorf("build flavor lacks %q:\n%s", line, overlay["build"])
+		}
+	}
+}
