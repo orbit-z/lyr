@@ -130,6 +130,19 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 | `<style is:global>` | The same | See [`is:global`](styles-and-scripts.md#global-styles-isglobal). |
 | `is:inline` | The same | On `<script>` and `<style>`. The directive is removed and the rest of the tag is left as written. |
 | `<script>`, processed and bundled, TypeScript by default | The same rule | A script with no attributes, or only a local `src`, is processed; any other attribute leaves it as-is. Bundled per page by esbuild inside the CLI (no Node.js), with npm imports from `node_modules`. See [Which scripts Orbit processes](styles-and-scripts.md#which-scripts-orbit-processes). |
+| Tailwind CSS v4 through `@tailwindcss/vite` | Built in, through Tailwind's CLI | No integration to install. See [Tailwind CSS](#tailwind-css) below. |
+
+### Tailwind CSS
+
+An Astro site on Tailwind v4 moves over almost as is. To port it:
+
+1. Remove `@tailwindcss/vite` from `astro.config` and `package.json`. Orbit needs nothing in its place but the Tailwind CLI: the standalone binary, `brew install tailwindcss`, or `@tailwindcss/cli` in `package.json` (see [Install the Tailwind CLI](tailwind.md#install-the-tailwind-cli)).
+2. Keep `src/styles/global.css` as it is: `@import "tailwindcss"`, `@theme`, `@utility`, `@custom-variant`, `@plugin` and `@source` work the same.
+3. Move `import "../styles/global.css"` from the layout's frontmatter (which is Go in Orbit) to a global style block in the layout: `<style is:global> @import "../styles/global.css"; </style>`.
+4. Fonts and other CSS that `global.css` imports (`@import "@fontsource-variable/figtree"`) keep working: Orbit inlines them and rewrites their `url()`s, as `@tailwindcss/vite` does. Importing them from a script or the layout's style block works too.
+5. `@reference "../styles/global.css"` with `@apply` in a component's `<style>` works the same, scoped the same way. `class:list` and classes in Go strings are found by Tailwind's scan, like classes in `.astro` files.
+
+See [Using Tailwind](tailwind.md).
 
 ### Routing and the request
 
@@ -200,6 +213,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 | `astro build` | `orbit build` | Produces `dist/server` (your server binary) and `dist/client` (assets). No HTML files. |
 | `astro preview` | `orbit preview` | Runs `dist/server`. |
 | `astro check` | `orbit check` | Go through `go vet` on the generated code; TypeScript through `bun check` (Bun 1.4.4 or later). See [CLI](reference/cli.md#orbit-check). |
+| `astro add tailwind` | Nothing to add | Tailwind v4 works out of the box once its CLI is installed. See [Using Tailwind](tailwind.md). |
 | `astro add`, integrations, adapters | None | The output is a Go binary, not a Node app, so there's nothing to adapt. `orbit build --embed` makes it one self-contained file, and `orbit new` scaffolds a Dockerfile. See [Deploy](deploy.md). |
 | Content collections, `astro:assets` images | Not supported yet | Import Markdown files one by one (see [Markdown](markdown.md)), or load content from your own Go package under `internal/` and render trusted HTML with `orbit.HTML`. |
 | `astro.config.mjs` | `orbit.json` (optional) | Plain JSON with four keys: `site`, `server`, `embed` and `compressHTML`. No `base` or `trailingSlash` yet. See [Configuration](configuration.md). |

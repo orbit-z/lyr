@@ -117,6 +117,7 @@ Glob patterns for extra files that `orbit dev` watches. When a matching file cha
 - A pattern matches files, not directories: write `content/**`, not `content`.
 - Orbit watches each pattern's leading directory (the part before the first `*`, `?` or `[`, such as `content/` or `../`), and the directories under it when the pattern can match deeper. Below that directory, the directories `orbit dev` always skips (`node_modules/`, directories starting with `.`, …) are skipped. If the leading directory doesn't exist when `orbit dev` starts, `orbit dev` prints a warning and doesn't watch it.
 - A file that Orbit already watches (`src/`, `public/`, `.go` files) keeps its usual rebuild; `watch` only adds files. Files under `orbit_gen/`, `dist/` and `.orbit/` never match.
+- In a project that uses [Tailwind](tailwind.md), a matching file is also one Tailwind scans: when it brings a word Tailwind hasn't seen, Tailwind reruns too. That's how to watch a [`@source`](tailwind.md#use-utilities-in-templates) directory outside the module, such as `{ "watch": ["../packages/ui/**"] }`.
 - `watch` changes nothing outside `orbit dev`.
 
 Each pattern is checked when `orbit.json` is loaded. An empty or absolute pattern, or one with a bad `[` class, is an error, such as `orbit.json: watch[0] "content/[a-": segment "[a-": syntax error in pattern`. A value that isn't an array of strings is an error too: `orbit.json: watch must be an array of strings`.
@@ -208,6 +209,7 @@ An unknown theme name is an error that lists the available themes, such as `orbi
 - **Runtime settings** are environment variables that the server binary reads at startup: the listen address (`ORBIT_ADDR`, or `PORT`), the static files directory (`ORBIT_STATIC`), and the island key (`ORBIT_KEY`, created with `orbit create-key`). See [Deploy](deploy.md#environment-variables).
 - **The island key and build ID** that a build embeds are random, created fresh by every `orbit build`; there's nothing to configure. To share one key across builds, set `ORBIT_KEY`. See [Deploy](deploy.md#island-key-orbit_key).
 - **The dev server port** is a flag: `orbit dev --port 3000`.
+- **Tailwind CSS** has no key: it's configured in CSS (`@theme`, `@source`, `@plugin`, …), turned on by `@import "tailwindcss"` in a stylesheet, and Orbit only needs to find its CLI. See [Using Tailwind](tailwind.md).
 - **Trailing slashes** aren't configurable: a page's canonical URL never ends in `/` (except `/` itself), and the server redirects `/blog/hello/` to `/blog/hello` with a 308. See [Routing](routing.md).
 - **Rendering** isn't configurable either: every page renders on the server, per request. See [Rendering](rendering.md).
 - A `base` path (serving the site under a subdirectory) and `trailingSlash` modes are not yet supported.

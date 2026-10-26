@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/tailwind"
 )
 
 // The virtual modules (PLAN.md §5).
@@ -87,6 +88,15 @@ type block struct {
 	suffix   string // "?orbit-script=0"
 	css      bool
 	contents string
+	// For a style block that is a Tailwind input (PLAN.md §5d): its
+	// scoped text, unpadded, and its position in the .orbit file.
+	// orig is the text before scoping and scope the inserted attribute,
+	// to place Tailwind's errors in the user's text.
+	tw    tailwind.Info
+	text  string
+	orig  string
+	scope string
+	start compiler.Position
 }
 
 // key returns the stable identity of the plan's entries: an esbuild
@@ -226,8 +236,17 @@ func (p *plan) style(src *Source, st compiler.StyleBlock) string {
 			})
 		}
 	}
+	start := src.Lines.Position(st.Content.Start)
 	b := &block{file: src.Path, suffix: styleSuffix + strconv.Itoa(st.Index), css: true,
-		contents: pad(src.Lines.Position(st.Content.Start)) + css}
+		contents: pad(start) + css}
+	// Scoped first, then Tailwind (Astro's order): the Tailwind run is in
+	// the load step, in parallel.
+	if b.tw = tailwind.Detect(css); b.tw.Input {
+		b.text, b.orig, b.start = css, st.Content.Text, start
+		if !st.Global {
+			b.scope = "[" + compiler.ScopeAttr(src.Path) + "]"
+		}
+	}
 	p.blocks[spec] = b
 	p.byKey[b.file+b.suffix] = b
 	return spec

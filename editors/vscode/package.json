@@ -60,6 +60,9 @@
     "configurationDefaults": {
       "[orbit]": {
         "editor.defaultFormatter": "orbit-z.orbit"
+      },
+      "tailwindCSS.includeLanguages": {
+        "orbit": "html"
       }
     },
     "configuration": {

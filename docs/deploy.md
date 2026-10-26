@@ -131,6 +131,18 @@ orbit_gen
 
 `node_modules/` stays in the context, because esbuild resolves npm imports in your scripts from it and the image has no Node or Bun to install them.
 
+### With Tailwind
+
+A project that uses [Tailwind](tailwind.md) needs the Tailwind CLI in the build stage; the `golang` image has none. Add the standalone binary before `RUN … go tool orbit build`. `ADD --checksum` makes Docker verify the download:
+
+```dockerfile
+ADD --checksum=sha256:dc61b3ac6b8c9ca874c0cc4c57b2409791a64c5540404ca5f5367360babc313a \
+    https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-linux-x64 /usr/local/bin/tailwindcss
+RUN chmod +x /usr/local/bin/tailwindcss
+```
+
+On an arm64 builder, use `tailwindcss-linux-arm64`, whose sha256 is `55fd0b241214eff3de1e8ee4f22796662f2d2e7a49bcfca7477cfd0bac398195`. The final image doesn't change: Tailwind's output is a stylesheet inside the binary like any other. Plugins from npm (such as daisyUI) load from `node_modules`, which is in the build context; if you'd rather install them in the image, copy `package.json` and your lockfile and run the install (for example `RUN npm ci` in a `node` stage, or Bun's `oven/bun` image) before the build.
+
 A project created before Orbit's first release has a `replace` directive in `go.mod` pointing at a local clone of Orbit (see [Getting started](getting-started.md#trying-orbit-before-its-first-release)). The build stage can't see that directory, so `go mod download` fails. To build the image anyway (in a copy of the project, since local builds need the original `replace`), point the `replace` at a path inside the image, such as `replace github.com/orbit-z/orbit => /orbit`, add `COPY --from=orbit . /orbit` after `WORKDIR /src`, and pass the clone as a named build context: `docker build --build-context orbit=/path/to/orbit -t blog .`.
 
 ### Projects that need files outside their directory

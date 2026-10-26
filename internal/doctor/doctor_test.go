@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/orbit-z/orbit/internal/compiler"
 	"github.com/orbit-z/orbit/internal/pin"
 	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/tailwind"
 	"github.com/orbit-z/orbit/internal/tsengine"
 )
 
@@ -131,7 +133,7 @@ func write(t *testing.T, dir, rel, content string) {
 	}
 }
 
-var projectChecks = []string{"go", "cli", "gopls", "bun", "typescript", "orbit_gen", "gitignore", "config", "tsconfig"}
+var projectChecks = []string{"go", "cli", "gopls", "bun", "typescript", "tailwind", "orbit_gen", "gitignore", "config", "tsconfig"}
 
 func TestHealthy(t *testing.T) {
 	dir := newProject(t)
@@ -156,6 +158,7 @@ func TestHealthy(t *testing.T) {
 		"✓ gopls: v0.24.0, built with go1.27.3\n" +
 		"✓ bun: 1.4.4\n" +
 		"✓ typescript: TypeScript 7.0.2 through bun x (fetched into Bun's cache on first use)\n" +
+		"✓ tailwind: Tailwind CSS 4.3.3 through bun x (fetched into Bun's cache on first use)\n" +
 		"✓ orbit_gen: up to date\n" +
 		"✓ gitignore: covers orbit_gen/, .orbit/ and dist/\n" +
 		"✓ config: no orbit.json (defaults); server ./cmd/server\n" +
@@ -199,6 +202,27 @@ func TestChecks(t *testing.T) {
 			delete(f.path, "bun")
 			f.path["tsc"] = fakeTSC(t, f, "6.0.3")
 		}, "typescript", Warning, "is TypeScript 6.0.3, which has no language server (7.0.2 or later needed)", tsengine.Install},
+		{"tailwind on PATH, used", func(t *testing.T, dir string, f *fakes) {
+			write(t, dir, "src/styles/global.css", "@import \"tailwindcss\";\n")
+			f.path["tailwindcss"] = "/bin/tailwindcss"
+			f.out["/bin/tailwindcss --help"] = "\u2248 tailwindcss v4.3.3\n\nUsage:\n"
+		}, "tailwind", OK, "tailwindcss 4.3.3 (/bin/tailwindcss), used by src/styles/global.css", ""},
+		{"tailwind missing, not needed", func(t *testing.T, _ string, f *fakes) { delete(f.path, "bun") },
+			"tailwind", OK, "not installed (needed only by projects that use Tailwind)", ""},
+		{"tailwind missing, needed", func(t *testing.T, dir string, f *fakes) {
+			write(t, dir, "src/styles/global.css", "@import \"tailwindcss\";\n")
+			delete(f.path, "bun")
+		}, "tailwind", Error, "the Tailwind CSS CLI (v4) was not found; needed by src/styles/global.css", tailwind.Install(runtime.GOOS, runtime.GOARCH)},
+		{"tailwind v3, a block needs it", func(t *testing.T, dir string, f *fakes) {
+			write(t, dir, "src/components/Card.orbit", "<p class=\"t\">card</p>\n<style>\n  .t { @apply font-bold; }\n</style>\n")
+			delete(f.path, "bun")
+			f.path["tailwindcss"] = "/bin/tailwindcss"
+			f.out["/bin/tailwindcss --help"] = "tailwindcss v3.4.17\n"
+		}, "tailwind", Error, "/bin/tailwindcss is Tailwind CSS 3.4.17, and Orbit needs v4; needed by src/components/Card.orbit", tailwind.Install(runtime.GOOS, runtime.GOARCH)},
+		{"tailwind scans build output", func(t *testing.T, dir string, f *fakes) {
+			write(t, dir, "src/styles/global.css", "@import \"tailwindcss\";\n")
+			write(t, dir, ".gitignore", "orbit_gen/\n")
+		}, "tailwind", Warning, "Tailwind CSS 4.3.3 through bun x (fetched into Bun's cache on first use); .gitignore doesn't cover .orbit/, dist/, so Tailwind scans them (slower runs)", `printf '.orbit/\ndist/\n' >> .gitignore`},
 		{"go missing", func(t *testing.T, _ string, f *fakes) { delete(f.path, "go") },
 			"go", Error, "go command not found", installGo},
 		{"go.mod go too old", func(t *testing.T, dir string, f *fakes) {
@@ -285,7 +309,7 @@ func TestChecks(t *testing.T) {
 				c := &r.Checks[i]
 				if c.Name == tt.check {
 					got = c
-				} else if c.Status != OK && !(c.Name == "bun" && tt.check == "typescript") { // without Bun, no bun x
+				} else if c.Status != OK && !(c.Name == "bun" && (tt.check == "typescript" || tt.check == "tailwind")) && !(c.Name == "gitignore" && tt.check == "tailwind") { // without Bun, no bun x
 					t.Errorf("other check %s: %s %q", c.Name, c.Status, c.Message)
 				}
 			}
@@ -309,6 +333,7 @@ func TestOutsideProject(t *testing.T) {
 		{Name: "gopls", Status: Error, Message: "gopls v0.21.0 was built with go1.26.0, older than go 1.27, the oldest Go Orbit supports", Fix: installGopls},
 		{Name: "bun", Status: OK, Message: "1.4.4"},
 		{Name: "typescript", Status: OK, Message: "TypeScript 7.0.2 through bun x (fetched into Bun's cache on first use)"},
+		{Name: "tailwind", Status: OK, Message: "Tailwind CSS 4.3.3 through bun x (fetched into Bun's cache on first use)"},
 	}
 	if len(r.Checks) != len(want) {
 		t.Fatalf("checks: %+v", r.Checks)
@@ -322,7 +347,7 @@ func TestOutsideProject(t *testing.T) {
 	// A module without src/ isn't a project either.
 	dir := t.TempDir()
 	write(t, dir, "go.mod", "module example.com/x\n\ngo 1.27\n")
-	if r := Run(context.Background(), healthy().env(dir)); len(r.Checks) != 4 {
+	if r := Run(context.Background(), healthy().env(dir)); len(r.Checks) != 5 {
 		t.Errorf("module without src/: %+v", r.Checks)
 	}
 

@@ -10,6 +10,8 @@ Language support for [Orbit](https://github.com/orbit-z/orbit) `.orbit` componen
 - **TypeScript in `<script>` blocks**: completion (with auto-imports), hover, signature help, diagnostics, go-to-definition, references, rename and quick fixes, from TypeScript 7's language server, which `orbit lsp` starts for you. The types of `orbit.JSON` data (`import { data } from "./X.orbit"`) follow your unsaved Go edits, and go-to-definition on a data key or field jumps to the Go code that declares it. `is:inline` and other plain JavaScript scripts get the same features as JavaScript. Needs TypeScript 7 (below); without it, scripts keep their highlighting and everything else works.
 - **Markdown diagnostics**: for Markdown pages and imported `.md` files under `src/`, the language server reports Orbit's errors and warnings as you type (frontmatter, layout, links, routes). Highlighting, preview and every other Markdown feature stay VS Code's own; the extension sends Markdown files to `orbit lsp` for diagnostics only. See [Editor setup](https://github.com/orbit-z/orbit/blob/main/docs/editor-setup.md) for what it covers.
 
+- **Tailwind CSS**: with the [Tailwind CSS IntelliSense](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss) extension installed, class completion, hover previews and linting work in `.orbit` files: this extension sets `"tailwindCSS.includeLanguages": { "orbit": "html" }` by default (it does nothing without Tailwind's extension). If you set `tailwindCSS.includeLanguages` yourself, your object replaces the default, so include `"orbit": "html"` in it. See [Using Tailwind](https://github.com/orbit-z/orbit/blob/main/docs/tailwind.md).
+
 ## Requirements
 
 - The `orbit` CLI on your `PATH`:

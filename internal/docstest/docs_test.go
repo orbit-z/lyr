@@ -48,6 +48,7 @@ import (
 
 	"github.com/orbit-z/orbit/internal/check"
 	"github.com/orbit-z/orbit/internal/scaffold"
+	"github.com/orbit-z/orbit/internal/tailwind/tailwindtest"
 )
 
 // goEnv runs the go command in a temp project: no workspace, and go.sum
@@ -76,6 +77,12 @@ var pageStubs = map[string]map[string]string{
 		"internal/posts/posts.go":   stubPosts,
 		"src/components/Card.orbit": stubCard,
 	},
+	// The Tailwind stylesheet imports a Fontsource font from node_modules.
+	"tailwind.md": {
+		"node_modules/@fontsource-variable/figtree/package.json":                          `{"name":"@fontsource-variable/figtree","version":"5.2.10","main":"index.css"}`,
+		"node_modules/@fontsource-variable/figtree/index.css":                             "@font-face {\n  font-family: 'Figtree Variable';\n  src: url(./files/figtree-latin-wght-normal.woff2) format('woff2-variations');\n}\n",
+		"node_modules/@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2": "wOF2",
+	},
 	// The error output examples pass wrong props to a Card.
 	"reference/cli.md": {
 		"internal/posts/posts.go":   stubPosts,
@@ -96,6 +103,11 @@ var pageSetup = map[string][][]string{
 	// Create the golden file of the Snapshot example.
 	"testing.md": {{"test", "./internal/views_test", "-update"}},
 }
+
+// tailwindPages are pages whose examples need the Tailwind CSS CLI
+// (PLAN.md §5d): skipped with a notice without one, like the TypeScript
+// half without Bun.
+var tailwindPages = map[string]bool{"tailwind.md": true}
 
 // skipPages are pages not built, with the Orbit bug that stops them.
 var skipPages = map[string]string{}
@@ -309,6 +321,11 @@ func TestDocs(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	tailwindCLI, hasTailwind := tailwindtest.Lookup()
+	if hasTailwind {
+		tailwindtest.OnPath(t, tailwindCLI)
+	}
+
 	start := time.Now()
 	var bunNotice sync.Once
 	t.Cleanup(func() { t.Logf("built the docs examples in %v", time.Since(start).Round(time.Millisecond)) })
@@ -328,6 +345,9 @@ func TestDocs(t *testing.T) {
 		t.Run(rel, func(t *testing.T) {
 			if bug, ok := skipPages[rel]; ok {
 				t.Skip("TODO(orbit bug): " + bug)
+			}
+			if tailwindPages[rel] && !hasTailwind {
+				t.Skip(tailwindtest.Notice)
 			}
 			t.Parallel()
 			var good []block

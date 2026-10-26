@@ -37,7 +37,8 @@ func TestDoctor(t *testing.T) {
 	fakeDoctor(t, "go1.27.3")
 	code, stdout, stderr := runCLI(t, t.TempDir(), "doctor")
 	want := "✓ go: go1.27.3\n✓ gopls: v0.24.0, built with go1.27.3\n✓ bun: 1.4.4\n" +
-		"✓ typescript: TypeScript 7.0.2 through bun x (fetched into Bun's cache on first use)\n"
+		"✓ typescript: TypeScript 7.0.2 through bun x (fetched into Bun's cache on first use)\n" +
+		"✓ tailwind: Tailwind CSS 4.3.3 through bun x (fetched into Bun's cache on first use)\n"
 	if code != 0 || stdout != want || stderr != "" {
 		t.Errorf("exit %d\nstdout:\n%s\nstderr:\n%s", code, stdout, stderr)
 	}
@@ -60,7 +61,7 @@ func TestDoctor(t *testing.T) {
 			t.Errorf("fields: %v", c)
 		}
 	}
-	if strings.Join(names, " ") != "go gopls bun typescript" {
+	if strings.Join(names, " ") != "go gopls bun typescript tailwind" {
 		t.Errorf("checks: %v", names)
 	}
 	if g := r.Checks[1]; g["status"] != "error" || g["fix"] != "go install golang.org/x/tools/gopls@latest" {

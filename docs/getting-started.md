@@ -462,5 +462,6 @@ The Go code Orbit generates from your `.orbit` files. Don't edit it: `orbit dev`
 - [Rendering](rendering.md): the request lifecycle, status codes, redirects and errors
 - [Server](server.md): `cmd/server/main.go`, custom routes and precedence
 - [Deploy](deploy.md): the server binary, `--embed` and Docker
+- [Using Tailwind](tailwind.md): add Tailwind CSS with one stylesheet
 - [Editor setup](editor-setup.md): VS Code, Neovim and gopls
 - [CLI reference](reference/cli.md)

@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/evanw/esbuild/pkg/api"
+	"github.com/orbit-z/orbit/internal/tailwind"
 )
 
 // esbuildBundler is the Bundler built on esbuild's Go API. It keeps one
@@ -26,11 +27,14 @@ type esbuildBundler struct {
 	ctx      api.BuildContext
 	ctxKey   string
 	contexts int // contexts created, for tests
+
+	twOnce sync.Once
+	tw     *tailwind.Processor // Options.Tailwind, or made on first use
 }
 
 // New returns the esbuild Bundler.
 func New(opts Options) Bundler {
-	return &esbuildBundler{opts: opts, outdir: filepath.Join(opts.Root, "_orbit")}
+	return &esbuildBundler{opts: opts, outdir: filepath.Join(opts.Root, "_orbit"), tw: opts.Tailwind}
 }
 
 // fileLoaders are the extensions that CSS (url(…)) and scripts may import
@@ -151,11 +155,17 @@ func (b *esbuildBundler) plugin() api.Plugin {
 					src := componentModule
 					return api.OnLoadResult{Contents: &src, Loader: api.LoaderJS, ResolveDir: b.opts.Root}, nil
 				}
+				if blk.tw.Input {
+					return b.loadTailwindBlock(pb, blk, a.Path)
+				}
 				loader := api.LoaderTS
 				if blk.css {
 					loader = api.LoaderCSS
 				}
 				return api.OnLoadResult{Contents: &blk.contents, Loader: loader, ResolveDir: filepath.Dir(a.Path)}, nil
+			})
+			pb.OnLoad(api.OnLoadOptions{Filter: `\.css$`, Namespace: "file"}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
+				return b.loadCSS(pb, a)
 			})
 		},
 	}
@@ -184,7 +194,17 @@ func (b *esbuildBundler) Bundle(in *Input) (*Result, error) {
 		b.ctx, b.ctxKey = ctx, p.key()
 		b.contexts++
 	}
+	tw := b.tw
+	if tw != nil {
+		tw.Begin()
+	}
 	r := b.ctx.Rebuild()
+	if tw == nil {
+		tw = b.tw // made during this build
+	}
+	if tw != nil && len(r.Errors) == 0 {
+		tw.Sweep()
+	}
 	for _, m := range r.Errors {
 		res.Diagnostics = append(res.Diagnostics, b.diagnostic(m, false))
 	}
