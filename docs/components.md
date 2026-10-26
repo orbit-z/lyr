@@ -658,7 +658,31 @@ type Props struct {
 {for i := 0; i < 3; i++}<span>★</span>{/for}
 ```
 
-Each loop iteration has its own variables (Go 1.22 semantics), so closures inside a loop are safe. `{switch}` isn't supported yet; use `{if}`/`{else if}`.
+Each loop iteration has its own variables (Go 1.22 semantics), so closures inside a loop are safe.
+
+`{switch …}`, `{case …}`, `{default}` and `{/switch}` form a Go `switch`. The header can be a tag, an init statement and a tag, nothing (each case is then a condition), or a type switch:
+
+```orbit file=src/components/Media.orbit
+---
+type Props struct {
+	Items []any
+}
+---
+<ul>
+  {for _, item := range props.Items}
+    {switch v := item.(type)}
+      {case string}
+        <li>{v}</li>
+      {case int}
+        <li>{v} items</li>
+      {default}
+        <li>other</li>
+    {/switch}
+  {/for}
+</ul>
+```
+
+As in Go, the first matching case wins and there's no fall-through; list several values in one case instead (`{case "scheduled", "queued"}`). The details and errors are in [`{switch}`](reference/template-syntax.md#switch).
 
 A call that returns a value and an error can't be used directly in `{…}`. Handle the error in the frontmatter, then use the value.
 
@@ -666,7 +690,7 @@ A call that returns a value and an error can't be used directly in `{…}`. Hand
 
 The template has no statements, so you can't write `x := …` between two tags. A variable lives in one of these places:
 
-- **A block header**, as in Go. `{if}` and `{else if}` take an init statement (`{if n, ok := counts[tag]; ok}`), and the variable is visible in that branch and the branches after it. `{for}` declares its loop variables.
+- **A block header**, as in Go. `{if}` and `{else if}` take an init statement (`{if n, ok := counts[tag]; ok}`), and the variable is visible in that branch and the branches after it. `{for}` declares its loop variables. `{switch}` takes an init statement too (`{switch s := label(p); s}`), and a type switch declares its variable with each case's type.
 - **The frontmatter**, for anything computed once per render.
 - **A helper func** in the frontmatter, called from the template: `{label(p)}`.
 - **A component**, when each loop iteration needs its own variables: the component's frontmatter runs on every render.

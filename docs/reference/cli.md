@@ -241,7 +241,7 @@ Formats your `.orbit` files the way `gofmt` formats Go: there's one style, with 
 |---|---|
 | The frontmatter | With `gofmt`'s rules (`go/format`): tabs, spacing, one statement per line, sorted imports. Comments are kept. |
 | `{expr}` expressions, in content and in attribute values (`a={expr}`, `{...attrs}`) | The Go code inside the braces, with `gofmt`'s spacing; the braces hug the code. |
-| Control blocks: `{if}`, `{else if}`, `{else}`, `{/if}`, `{for}`, `{/for}` | The condition or clause, with `gofmt`'s spacing, and the block tag spelled one way. |
+| Control blocks: `{if}`, `{else if}`, `{else}`, `{/if}`, `{for}`, `{/for}`, `{switch}`, `{case}`, `{default}`, `{/switch}` | The condition, clause or case list, with `gofmt`'s spacing, and the block tag spelled one way. |
 | `<script>` and `<style>` content | With `bun fmt`, Bun's Prettier-compatible formatter, when Bun 1.4.4 or later is installed (see [Scripts and styles](#scripts-and-styles)). |
 
 It **never** changes:
@@ -335,7 +335,7 @@ A run of hoisted declarations gets `gofmt`'s blank lines (one after the import b
 
 ### Expressions and control blocks
 
-The Go code in `{…}` gets `gofmt`'s spacing, as if it were written `x := <expr>`. The braces hug it, and block tags are spelled `{if c}`, `{else if c}`, `{else}`, `{/if}`, `{for clause}` and `{/for}`. Attribute forms are kept: `title={title}` isn't shortened to `{title}`, nor the other way round. Before:
+The Go code in `{…}` gets `gofmt`'s spacing, as if it were written `x := <expr>`. The braces hug it, and block tags are spelled `{if c}`, `{else if c}`, `{else}`, `{/if}`, `{for clause}`, `{/for}`, `{switch x}`, `{case a, b}`, `{default}` and `{/switch}`. Attribute forms are kept: `title={title}` isn't shortened to `{title}`, nor the other way round. Before:
 
 ```orbit unformatted
 ---

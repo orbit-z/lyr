@@ -67,6 +67,7 @@ tags := []string{"go", "web"}
 | `{/* … */}` | Template comment; emits nothing. |
 | `{if c}` `{else if c}` `{else}` `{/if}` | A Go `if` chain. |
 | `{for clause}` `{/for}` | A Go `for` loop with any clause: `range`, three-clause, or condition only. |
+| `{switch x}` `{case a, b}` `{default}` `{/switch}` | A Go `switch` statement: with a tag, an init statement, no tag, or a type switch. |
 | `<tag …>`, lowercase or containing `-` | An HTML element or custom element (`<my-widget>`). |
 | `<Name …>`, capitalized | A component. `Name` must be the alias of an `.orbit` import; otherwise it's an error. |
 | `<Self …>` | The current component, rendered recursively. Same props and slots rules as any component. |
@@ -75,8 +76,6 @@ tags := []string{"go", "web"}
 | `<slot />`, `<slot name="x">fallback</slot>` | A slot outlet, with optional fallback children. |
 | `<Fragment>` | Groups children without a wrapper element; mostly used as `<Fragment slot="x">`. |
 | `<!DOCTYPE …>`, `<!-- … -->` | Passed through to the output. |
-
-`{switch}` blocks aren't supported yet; use `{if}`/`{else if}`.
 
 ## Text
 
@@ -110,7 +109,7 @@ Orbit compresses template whitespace when it generates the Go code, following th
 - Each run of whitespace becomes one space, or one newline if the run contains a newline.
 - A text that is only whitespace is dropped when what can render on each side of it is a block-level boundary: the tag of a block-level element, a doctype, a `<script>` or `<style>`, or the start or end of the template. It's also dropped when the whitespace on one side is kept anyway.
 - Anything else counts as inline, and whitespace next to it is kept: text, inline elements (`<a>`, `<b>`, `<span>`, …), `{expr}`, components, `<slot>`, HTML comments, and the start and end of a component's children. So words never join.
-- Orbit looks through `{if}` and `{for}` to find the neighbors: every branch of an `{if}` (and nothing, when it has no `{else}`), and zero or more iterations of a `{for}`. Whitespace is dropped only when every possible neighbor allows it.
+- Orbit looks through `{if}`, `{switch}` and `{for}` to find the neighbors: every branch of an `{if}` (and nothing, when it has no `{else}`), every case of a `{switch}` (and nothing, when it has no `{default}`), and zero or more iterations of a `{for}`. Whitespace is dropped only when every possible neighbor allows it.
 - Template comments (`{/* … */}`) are removed first, so the whitespace around one is a single run.
 
 The block-level elements are `html`, `head`, `body`, `title`, `meta`, `link`, `base`, `style`, `script`, `noscript`, `template`, `address`, `article`, `aside`, `blockquote`, `details`, `dialog`, `dd`, `div`, `dl`, `dt`, `fieldset`, `figcaption`, `figure`, `footer`, `form`, `h1`–`h6`, `header`, `hgroup`, `hr`, `li`, `main`, `nav`, `ol`, `p`, `pre`, `section`, `summary`, `menu`, `ul`, `br`, `table`, `caption`, `colgroup`, `col`, `thead`, `tbody`, `tfoot`, `tr`, `td`, `th`, `legend`, `optgroup` and `option`.
@@ -195,9 +194,70 @@ The last line ranges over an iterator (`maps.Keys` returns an `iter.Seq`). Each 
 
 There's no `{else}` for an empty loop; wrap the loop in `{if len(list) > 0}` instead.
 
+### `{switch}`
+
+`{switch}` picks one of several cases. It compiles to a Go `switch` statement, each case's template as its body:
+
+```orbit file=src/components/StatusBadge.orbit
+---
+type Props struct {
+	Status string
+}
+---
+{switch props.Status}
+	{case "draft"}
+		<span class="badge">Draft</span>
+	{case "scheduled", "queued"}
+		<span class="badge">Scheduled</span>
+	{default}
+		<span class="badge">Published</span>
+{/switch}
+```
+
+The header is any Go switch header, copied as written, and so is each `{case}` list:
+
+| Header | Example |
+|---|---|
+| A tag | `{switch post.Status}` with `{case "draft"}`, `{case "scheduled", "queued"}` |
+| An init statement and a tag | `{switch s := strings.ToLower(post.Status); s}` |
+| No tag: each case is a condition | `{switch}` with `{case n > 10}`, `{case n > 0}` |
+| A type switch | `{switch v := item.(type)}` with `{case int}`, `{case posts.Video}`, `{case nil}` |
+
+Go's rules apply: the first matching case wins, there's no fall-through (list several values in one `{case a, b}` instead), and `{default}` runs when no case matches, wherever it's written. Without a `{default}`, a switch with no matching case renders nothing. In a type switch, the variable has the case's type when the case lists one type, so `{v}` in `{case int}` is written as an `int`; in a case that lists several types, and in `{default}`, it keeps the type of the switched value. Go's errors, such as a duplicate constant case or a case of the wrong type, are reported at the `.orbit` position.
+
+Only whitespace and template comments may come between `{switch …}` and its first case, since nothing there could render:
+
+```orbit file=src/components/StatusBadge.orbit expect-error
+---
+type Props struct {
+	Status string
+}
+---
+{switch props.Status}
+	<h3>Status</h3>
+	{case "draft"}
+		Draft
+	{default}
+		Published
+{/switch}
+```
+
+```text
+src/components/StatusBadge.orbit:7:2: content before the first {case} of a {switch} is never rendered; move it into a {case} or {default}
+```
+
+These are errors too:
+
+- `{case}` or `{default}` outside a `{switch}`: `unexpected {case}: no {switch} is open`.
+- A second `{default}`: `multiple {default} cases in {switch} (first at 9:2)`.
+- `{fallthrough}`: `fallthrough isn't supported in a {switch}; list the values in one {case a, b}`.
+- A `{case}` without a list: `{case} needs a value or a condition, e.g. {case "draft"}; use {default} for the rest`.
+- `{/case}` or `{/default}`: a case ends at the next `{case}`, `{default}` or `{/switch}`, so there's no closing tag.
+- A missing `{/switch}`: `{switch} isn't closed; add {/switch}`.
+
 ### Nesting rules
 
-- A block must be closed inside the element where it was opened: `<ul>{for …}<li>…</li>{/for}</ul>` works, while `{if a}<div>{/if}</div>` is a parse error.
+- A block must be closed inside the element where it was opened: `<ul>{for …}<li>…</li>{/for}</ul>` works, while `{if a}<div>{/if}</div>` is a parse error. In the same way, an element opened in a `{case}` must be closed before the next `{case}`.
 - Blocks can't appear inside a start tag. To set an attribute conditionally, use its value: `false` and `nil` omit an attribute (see [Attribute values](#attribute-values-on-html-elements)). To add several attributes at once, use a [spread](#spread-attributes).
 
 ## Elements

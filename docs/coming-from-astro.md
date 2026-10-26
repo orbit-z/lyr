@@ -115,6 +115,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 |---|---|---|
 | `{expr}` | `{expr}` | Any Go expression, escaped. How each type prints (numbers, errors, `fmt.Stringer`, …) is in [How values render](reference/template-syntax.md#how-values-render). |
 | `{cond && <p />}`, `{a ? <x /> : <y />}` | `{if cond}…{else}…{/if}` | Go has no ternary and no markup inside expressions. `{else if}` works too. See [Control flow](components.md#control-flow). |
+| A chain of conditions on one value, or `switch` in the frontmatter | `{switch post.Status}{case "draft"}…{default}…{/switch}` | A Go `switch`: with a tag, an init statement, no tag, or a type switch. No fall-through. See [`{switch}`](reference/template-syntax.md#switch). |
 | `{list.map((x) => <li>{x}</li>)}` | `{for _, x := range list}<li>{x}</li>{/for}` | Any Go `for` clause: `range`, three-clause, condition only. |
 | `` class={`card ${extra}`} `` | `class={"card " + extra}` | A quoted value is literal text, with no interpolation. |
 | `class:list={[…]}` | Not supported (a compile error with a hint) | Build the string in the frontmatter, as in the card above, or with `strings.Join(classes, " ")`. |
