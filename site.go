@@ -48,6 +48,7 @@ type siteOptions struct {
 	staticFS  fs.FS
 	key       []byte // WithKey
 	onError   errorHandler
+	slash     TrailingSlash
 }
 
 // NewSite is called by the generated orbit_gen/app.New(). It compiles the
@@ -70,6 +71,7 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 	for _, opt := range opts {
 		opt(&o)
 	}
+	rt.always = o.slash == TrailingSlashAlways
 	s := &Site{
 		router: rt,
 		site:   o.site,
@@ -118,6 +120,30 @@ func WithSite(rawURL string) Option {
 		panic(fmt.Sprintf("orbit: WithSite(%q): the site must be an absolute URL, such as \"https://example.com\"", rawURL))
 	}
 	return func(o *siteOptions) { o.site = u }
+}
+
+// TrailingSlash is a site's trailing-slash mode: whether page URLs end
+// with "/". Set it in orbit.json ("trailingSlash"); see WithTrailingSlash.
+type TrailingSlash uint8
+
+const (
+	// TrailingSlashNever is the default: page URLs have no trailing slash
+	// (/blog/hello), and /blog/hello/ gets a 308 to /blog/hello.
+	TrailingSlashNever TrailingSlash = iota
+	// TrailingSlashAlways makes page URLs end with "/" (/blog/hello/), and
+	// /blog/hello gets a 308 to /blog/hello/. "/" and extension routes
+	// (/rss.xml) keep their URL, and paths with a file extension are never
+	// redirected.
+	TrailingSlashAlways
+)
+
+// WithTrailingSlash sets the trailing-slash mode. The generated app.New()
+// passes orbit.json's "trailingSlash" first (only for "always"), so a
+// caller's option wins. Set the mode in orbit.json rather than here:
+// orbit generate writes Markdown's Post.URL and rewritten .md links in the
+// orbit.json mode, so overriding it makes each of those links redirect once.
+func WithTrailingSlash(mode TrailingSlash) Option {
+	return func(o *siteOptions) { o.slash = mode }
 }
 
 // WithStaticDir sets the directory of built static files (the /_orbit/
@@ -177,7 +203,8 @@ func (s *Site) ServeError(w http.ResponseWriter, r *http.Request, err error) {
 // untouched. In order: island requests (/_orbit/island/…, GET, HEAD and
 // POST; other methods get a 405), static files (/_orbit/* assets and public/ files,
 // GET and HEAD only), then pages (all methods), including the 308 redirect
-// of a trailing-slash path whose slash-less form is a page.
+// of a path whose other form is a page URL: /x/ to /x by default, /x to /x/
+// with TrailingSlashAlways.
 func (s *Site) Middleware(next http.Handler) http.Handler {
 	return &middleware{site: s, next: next}
 }

@@ -31,6 +31,9 @@ type compiledRoute struct {
 	route *Route
 	segs  []routeSeg
 	names []string // param names in path order; nil when there are none
+	// ext is set for an extension route: its last segment is static and has
+	// a file extension (/rss.xml). Its URL never has a trailing slash.
+	ext bool
 }
 
 // node is one level of the segment trie. Children are tried in priority
@@ -46,6 +49,9 @@ type node struct {
 type router struct {
 	root     node
 	notFound *Route // the 404.orbit route, or nil
+	// always is set in TrailingSlashAlways mode: page URLs end with "/",
+	// except "/" and extension routes.
+	always bool
 }
 
 // newRouter compiles routes into a segment trie. It returns every
@@ -76,7 +82,7 @@ func newRouter(routes []Route) (*router, error) {
 			continue
 		}
 		seen[key] = r
-		rt.insert(&compiledRoute{route: r, segs: segs, names: paramNames(segs)})
+		rt.insert(&compiledRoute{route: r, segs: segs, names: paramNames(segs), ext: isExtRoute(segs, r.Pattern)})
 	}
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
@@ -110,6 +116,32 @@ func (rt *router) insert(cr *compiledRoute) {
 		}
 	}
 	n.route = cr
+}
+
+// isExtRoute reports whether a route's last segment is static and has a
+// file extension (/rss.xml, /a/b.min.js).
+func isExtRoute(segs []routeSeg, pattern string) bool {
+	return len(segs) > 0 && segs[len(segs)-1].kind == segStatic && hasFileExtension(pattern)
+}
+
+// hasFileExtension reports whether the last segment of path (after its last
+// '/') has a '.' that isn't its first byte, followed only by one or more of
+// [A-Za-z0-9_] (Astro's hasFileExtension): /rss.xml, /a/b.min.js and /v1.2
+// have one; /x., /.env, /a.b/ and /a.%41 don't.
+func hasFileExtension(path string) bool {
+	for i := len(path) - 1; i >= 0; i-- {
+		c := path[i]
+		switch {
+		case c == '.':
+			// The extension is path[i+1:]; it must be non-empty and the dot
+			// not the first byte of the segment.
+			return i < len(path)-1 && i > 0 && path[i-1] != '/'
+		case 'a' <= c && c <= 'z', 'A' <= c && c <= 'Z', '0' <= c && c <= '9', c == '_':
+		default:
+			return false
+		}
+	}
+	return false
 }
 
 // paramNames returns the parameter names of segs in order, or nil.
@@ -233,8 +265,9 @@ func parseSegment(p string, last bool, file string) (*routeSeg, error) {
 
 // match finds the route for an escaped request path (r.URL.EscapedPath())
 // and appends its param values to vals, in the order of cr.names. It
-// returns nil if no route matches. Paths with an empty segment (a trailing
-// slash, or "//") never match; see redirectTarget.
+// returns nil if no route matches. Paths with an empty segment ("//") never
+// match, and neither does the non-canonical form of a page URL (a trailing
+// slash by default, its absence in always mode); see redirectTarget.
 //
 // Pass a reused buffer as vals (Ctx keeps one) and match doesn't allocate,
 // except to decode values that contain a %-escape.
@@ -246,8 +279,32 @@ func (rt *router) match(path string, vals []string) (cr *compiledRoute, out []st
 	return cr, cr.extract(rem, vals)
 }
 
-// find returns the route for path, and the path as lookup sees it.
+// find returns the route for path, and the path as lookup sees it. In
+// always mode, a path ending in "/" is looked up with that slash cut off
+// (a substring) and matches only a non-extension route; a path without it
+// matches only an extension route.
 func (rt *router) find(path string) (*compiledRoute, string) {
+	if !rt.always || path == "/" {
+		return rt.lookupPath(path)
+	}
+	if path == "" || path[len(path)-1] != '/' {
+		if cr, rem := rt.lookupPath(path); cr != nil && cr.ext {
+			return cr, rem
+		}
+		return nil, ""
+	}
+	cut := path[:len(path)-1]
+	if cut == "/" {
+		return nil, "" // "//" is not the root
+	}
+	if cr, rem := rt.lookupPath(cut); cr != nil && !cr.ext {
+		return cr, rem
+	}
+	return nil, ""
+}
+
+// lookupPath looks path up in the slash-less trie, ignoring the mode.
+func (rt *router) lookupPath(path string) (*compiledRoute, string) {
 	if path == "" || path[0] != '/' {
 		return nil, ""
 	}
@@ -386,22 +443,41 @@ func unhex(c byte) byte {
 	return c - 'A' + 10
 }
 
-// redirectTarget returns the 308 Location for a trailing-slash path whose
-// slash-less form matches a page: "/blog/hello/" → "/blog/hello", keeping
-// the query. "/" and paths under /_orbit/ are never redirected; otherwise
-// ok is false and the request should reach next untouched.
+// redirectTarget returns the 308 Location for a path whose other form (per
+// the mode) is a page URL, keeping the query. By default that's a
+// trailing-slash path whose slash-less form matches a page: "/blog/hello/"
+// → "/blog/hello". In always mode it's a path without a trailing slash or a
+// file extension whose form with one matches a non-extension page:
+// "/blog/hello" → "/blog/hello/". "/", paths under /_orbit/ and paths that
+// would give a protocol-relative Location ("//…") are never redirected;
+// otherwise ok is false and the request should reach next untouched.
 func (rt *router) redirectTarget(path, rawQuery string) (string, bool) {
-	if len(path) < 2 || path[len(path)-1] != '/' || strings.HasPrefix(path, "/_orbit/") {
+	if len(path) < 2 || strings.HasPrefix(path, "/_orbit/") {
 		return "", false
 	}
-	target := path[:len(path)-1]
-	// "//evil.example/" must never become the protocol-relative
-	// "//evil.example"; match rejects empty segments, but be explicit.
-	if strings.HasPrefix(target, "//") {
-		return "", false
-	}
-	if cr, _ := rt.find(target); cr == nil {
-		return "", false
+	var target string
+	if rt.always {
+		if path[len(path)-1] == '/' || strings.HasPrefix(path, "//") || hasFileExtension(path) {
+			return "", false
+		}
+		// The trie is slash-less, so path itself is the lookup of path+"/".
+		if cr, _ := rt.lookupPath(path); cr == nil || cr.ext {
+			return "", false
+		}
+		target = path + "/"
+	} else {
+		if path[len(path)-1] != '/' {
+			return "", false
+		}
+		target = path[:len(path)-1]
+		// "//evil.example/" must never become the protocol-relative
+		// "//evil.example"; match rejects empty segments, but be explicit.
+		if strings.HasPrefix(target, "//") {
+			return "", false
+		}
+		if cr, _ := rt.lookupPath(target); cr == nil {
+			return "", false
+		}
 	}
 	if rawQuery != "" {
 		target += "?" + rawQuery

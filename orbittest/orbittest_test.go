@@ -275,6 +275,22 @@ func TestGetNoRedirectFollowing(t *testing.T) {
 	}
 }
 
+// In always mode, Get of a slash-less page path returns the redirect; tests
+// request the canonical /blog/hello/.
+func TestGetTrailingSlashAlways(t *testing.T) {
+	t.Setenv("ORBIT_STATIC", t.TempDir())
+	site := orbit.NewSite([]orbit.Route{{Pattern: "/blog/hello", File: "src/pages/blog/hello.orbit",
+		Render: func(c *orbit.Ctx, w *orbit.Writer) error { w.Raw("hello"); return nil }}},
+		nil, orbit.WithTrailingSlash(orbit.TrailingSlashAlways))
+	h := site.Handler()
+	if rec := Get(t, h, "/blog/hello"); rec.Code != http.StatusPermanentRedirect || rec.Header().Get("Location") != "/blog/hello/" {
+		t.Errorf("Get /blog/hello: %d Location %q", rec.Code, rec.Header().Get("Location"))
+	}
+	if rec := Get(t, h, "/blog/hello/"); rec.Code != 200 || rec.Body.String() != "hello" {
+		t.Errorf("Get /blog/hello/: %d %q", rec.Code, rec.Body)
+	}
+}
+
 func TestGetErrors(t *testing.T) {
 	tests := []struct {
 		name string
