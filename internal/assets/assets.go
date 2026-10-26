@@ -11,6 +11,7 @@ package assets
 
 import (
 	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/tailwind"
 )
 
 // URLPrefix is the URL path every bundle is served under (PLAN.md §4).
@@ -39,6 +40,10 @@ type Options struct {
 	// "sourcemap": true). They aren't linked from the bundles (no
 	// sourceMappingURL comment). Dev builds always have linked maps.
 	Sourcemap bool
+	// Tailwind runs the Tailwind inputs (PLAN.md §5d). nil: the bundler
+	// makes its own when it meets one. orbit dev passes the one whose
+	// runs it starts early.
+	Tailwind *tailwind.Processor
 }
 
 // Input is everything a bundle needs.
