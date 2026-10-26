@@ -1418,6 +1418,243 @@ Decided by rule (to log in `docs/DECISIONS.md`): `orbit.JSON` also allowed in co
 - The int64 warning is dropped (Q6); slices and maps are `| null` (the sketch didn't say; Q5); embedded structs follow `typeFields`' tie-breaks (not a plain flatten); `TextMarshaler` → `string`, and pointer-receiver marshalers → `unknown`.
 - `set:json` gets types too (Q3), and its missing error position is fixed.
 
+## 5d. Tailwind CSS
+**Status: Proposed, (Q) points open** (2026-10-26). User decision the same day, prompted by porting `nyth` (an Astro site on Tailwind v4 through `@tailwindcss/vite`): Orbit supports Tailwind CSS out of the box through Tailwind's **standalone CLI**, a native binary that needs no Node, used as an **external, optional tool** and turned on by `@import "tailwindcss"` in a stylesheet. Nothing changes for projects that don't use Tailwind. The measurements below come from a throwaway spike in `scratchpad/tailwind-spike/` (Ryzen 7 9700X, 16 threads, Go 1.27.3, Tailwind 4.3.3; the machine was shared, so each number gives its load average).
+
+**In short**: a CSS file (or a `<style>` block) that uses Tailwind is a **Tailwind input**. Before esbuild loads it, Orbit pipes it through `tailwindcss --optimize` (run in the project root, so Tailwind's automatic source detection scans the project, `.orbit` files included, and honors `.gitignore`). esbuild then bundles, minifies and hashes the result like any other CSS, and it goes into the manifest the usual way. Scoped blocks are scoped first and run through Tailwind after, as in Astro. In `orbit dev`, the Tailwind run starts as soon as the change batch starts, **in parallel with regenerate and `go build`**, so a template edit that adds a class gets new CSS without waiting longer (measured +8 ms on 16 threads, +15 ms on 4 cores, from CPU contention). A CSS- or script-only edit pays the run on its critical path (~18 → ~95 ms). There's no runtime cost: the output is a static stylesheet, built ahead of time ("pay at build time", CLAUDE.md). There's no new Go dependency and no `orbit.json` key.
+
+### End-to-end example
+`src/styles/global.css` (the project's one Tailwind stylesheet, Tailwind v4's CSS-first config):
+
+```css
+@import "tailwindcss";
+
+@theme {
+  --color-ember: #d1703f;
+  --font-ui: "Figtree Variable", system-ui, sans-serif;
+}
+
+@utility card-row {
+  @apply flex items-baseline gap-2 border-b border-zinc-700 py-4;
+}
+```
+
+`src/layouts/Base.orbit` includes it, the way an Astro layout imports `../styles/global.css` (an Orbit frontmatter is Go, so the import goes in a style block):
+
+```orbit
+---
+type Props struct{ Title string }
+---
+<html lang="en">
+  <head><title>{props.Title}</title></head>
+  <body class="bg-zinc-900 font-ui text-zinc-100"><slot /></body>
+</html>
+
+<style is:global>
+  @import "../styles/global.css";
+</style>
+```
+
+`src/components/Card.orbit` uses utilities in the template, including `class:list` and Go strings, plus a scoped style that uses `@apply` through `@reference`:
+
+```orbit
+---
+type Props struct {
+	Title  string
+	Active bool
+}
+size := "p-8"
+if !props.Active {
+	size = "p-2"
+}
+---
+<article class="card-row" class:list={"rounded-lg", size, "ring-2 ring-ember": props.Active}>
+  <h2 class="title">{props.Title}</h2>
+</article>
+
+<style>
+  @reference "../styles/global.css";
+  .title { @apply text-lg font-bold hover:text-ember; }
+</style>
+```
+
+What happens:
+
+| Step | What Orbit does | Result (spike) |
+|---|---|---|
+| `orbit build`, `orbit generate` | esbuild reaches `global.css` through the layout's `@import`. Its first line is `@import "tailwindcss"`, so Orbit runs `tailwindcss --optimize -i <abs>/src/styles/global.css` with the project root as the working directory, then hands the output to esbuild as that file's content. | Tailwind found `card-row`, `rounded-lg`, `p-8`, `p-2`, `ring-2`, `ring-ember`, `bg-zinc-900`, … in the `.orbit` files, **including the Go string literals and the `class:list` elements**. `orbit_gen/`, `.orbit/` and `dist/` were skipped (gitignored). |
+| the same, `Card.orbit`'s `<style>` | Orbit scopes the block as today (`.title` → `.title[data-o-…]`; Tailwind's at-rules are left alone, verified with `compiler.ScopeCSS`), then pipes it to `tailwindcss --optimize -i -` with `Card.orbit`'s directory as the working directory, so `@reference "../styles/global.css"` resolves. | `.title[data-o-…] { font-size: var(--text-lg, 1.125rem); …; font-weight: var(--font-weight-bold, 700) }` and `@media (hover: hover) { .title[data-o-…]:hover { color: var(--color-ember, #d1703f) } }`: scoped, as in Astro, plus Tailwind's `@property --tw-font-weight` fallback for the applied utility. 0.06 s per block. (This example was run as written in the spike.) |
+| esbuild | bundles, minifies (prod) and hashes both into the page's stylesheet, in import-graph order; `url()`s in `global.css` resolve from `src/styles/`. | nyth's real stylesheet: Tailwind gives 90 KB; esbuild minifies it to 72,465 B (13.7 KB gzipped) in 4 ms with no warnings, the same size as Tailwind's own `--minify` (72,431 B). |
+| `orbit dev`, edit Card's template to add `underline` | the batch starts the Tailwind run at once, next to regenerate and `go build`; Tailwind's output changed, so the incremental esbuild rebuild runs after it and rewrites the dev manifest; the reload waits for both. | 200-file project: template edit 177 → 185 ms on 16 threads (load 0.9–3.0); Tailwind took 75–85 ms of that, in parallel. |
+| `orbit dev`, edit `@theme` in `global.css` | Tailwind, then esbuild; no Go work. | ~18 → ~95 ms (Tailwind 70–75 ms, then esbuild 18 ms). |
+| no Tailwind CLI installed | an error at the root: `src/styles/global.css:1:1: @import "tailwindcss" needs the Tailwind CSS CLI (v4): …install line…; see orbit doctor`. | Today the same project fails with esbuild's `src/layouts/Base.orbit:10:26: Could not resolve "tailwindcss"`. |
+
+### The engine and how Orbit finds it (Q1)
+Research on 2026-10-26 (GitHub releases and the npm registry):
+- **Tailwind CSS v4.3.3**, released 2026-07-16 (npm `latest`; 4.3.2 2026-06-29, 4.3.1 2026-06-12, 4.3.0 2026-05-08). Pin: **4.3.3** (over three months old, ≥ two weeks per CLAUDE.md).
+- **Standalone CLI**: one binary per platform on the GitHub release (`tailwindcss-linux-x64` 112 MB, `-arm64`, `-musl` variants, `macos-arm64`/`x64`, `windows-x64.exe`), with a `sha256sums.txt`. It's a Bun-compiled executable with Tailwind, Lightning CSS and the Oxide scanner inside. Homebrew's `tailwindcss` formula (4.3.3) is the same CLI. Spike: start-up ~45 ms; 84–124 MB RSS per run.
+- **`@tailwindcss/cli`** 4.3.3 on npm: the same CLI as a **JavaScript** package (`bin` `tailwindcss` → `dist/index.mjs`, `#!/usr/bin/env node`) over the native `@tailwindcss/oxide` addon. It needs Node or Bun to run. Measured on nyth's stylesheet: under Bun 0.08 s, under Node 25 0.11 s, standalone 0.09–0.11 s (load 7.8).
+- `tailwindcss` itself (npm) has no CLI in v4. `@tailwindcss/standalone` on npm is a stale 4.0 alpha; not used.
+
+**Version requirement: v4 only** (decided by rule, Astro: Astro's Tailwind integration is `@tailwindcss/vite`, and the v3 one, `@astrojs/tailwind`, is deprecated). A v3 CLI is refused with a message (its CSS directives and flags differ). A v3-style JavaScript config still works through v4's `@config "./tailwind.config.js"` (verified in the spike). The version is read once per process from `tailwindcss --help`'s first line (`≈ tailwindcss v4.3.3`, ~60 ms; there's no `--version`).
+
+**Lookup order** (like §9b's, minus the editor setting; it runs only when the project has a Tailwind input):
+1. The project's **`node_modules/.bin/tailwindcss`** from `@tailwindcss/cli` at v4: run directly when `node` is on PATH, else as `bun <path>`, else this step is skipped. A project that pins Tailwind in `package.json` gets that version (and it's the case where `node_modules` exists anyway, for JavaScript plugins, below).
+2. **`tailwindcss` on PATH**: the standalone binary (GitHub release, Homebrew, or a `bin/` directory the user adds to PATH), or a global `@tailwindcss/cli`.
+3. **Bun present**: `bun x --package @tailwindcss/cli@4.3.3 tailwindcss …`, pinned to Orbit's version (the §9b pattern; the first run downloads into Bun's cache).
+4. Not found: the error above, only when a stylesheet is a Tailwind input. The fix line names the release download for the current `GOOS`/`GOARCH` (`curl -sLo ~/.local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-linux-x64 && chmod +x ~/.local/bin/tailwindcss`), `brew install tailwindcss`, and `bun add -d @tailwindcss/cli@4.3.3`.
+
+The **(Q1)** choice is how a user with nothing installed gets the CLI, including in Docker and CI (the scaffolded Dockerfile's `golang:` build stage has none):
+- (a) **Steps 1–4** (recommended): no download code in Orbit; "Using Tailwind" shows the install lines and a Dockerfile line, `ADD --checksum=sha256:dc61b3ac… https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-linux-x64 /usr/local/bin/tailwindcss` plus `RUN chmod +x …` (Docker verifies the hash).
+- (b) (a) without the `bun x` step: simpler, but a Bun user still has to install something.
+- (c) (a) plus **Orbit downloading the pinned standalone binary itself** into `os.UserCacheDir()/orbit/tailwindcss/4.3.3/`, verified against sha256 values from the release's `sha256sums.txt` pinned in Orbit's source, with stdlib `net/http` only. Zero-install everywhere, Docker included, but `orbit build` would do network I/O, the download is **112 MB**, and Orbit would own a pinned hash per platform (7 binaries) and cache cleanup.
+
+There's no `orbit.json` key and no environment variable for the path (decided by rule, simplest: PATH already covers a project-local binary).
+
+### What gets processed (Q2)
+A **Tailwind input** is one of:
+- a **`.css` file** that esbuild loads (from a `<style>`'s `@import`, a script's `import "./x.css"`, or another CSS file's `@import`) whose text has an `@import` of `tailwindcss` or `tailwindcss/…` (`@import "tailwindcss" source("…")`, `@import "tailwindcss/theme.css" layer(theme)`, …) or a `@tailwind` directive. That's a **root**: it emits utilities, so it depends on the project's sources.
+- a **`<style>` block** (scoped or `is:global`) whose content has such an `@import`, or uses a Tailwind at-rule: `@apply`, `@reference`, `@theme`, `@utility`, `@variant`, `@custom-variant`, `@source`, `@plugin`, `@config`. Without `@import "tailwindcss"` it's a **block input** (typically `@reference` + `@apply`); its output doesn't depend on the scanned sources.
+
+Detection runs Orbit's CSS tokenizer over the text (comments and strings don't count); it's a few µs per file and runs for every project, so non-Tailwind projects pay nothing measurable. CSS files that a root `@import`s are inlined by Tailwind and never reach esbuild on their own. A plain CSS file is untouched.
+
+Rules:
+- **Where it runs**: inside esbuild's load step (the `file`-namespace `OnLoad` for `.css`, and the existing `.orbit` block loader), before esbuild parses the CSS, so esbuild bundles, minifies, hashes, resolves `url()` and writes the manifest as for any CSS (§5). The Tailwind output is cached per input in the bundler (key: the input text; for roots also a generation counter bumped by the dev loop, below).
+- **Command**: `tailwindcss --optimize -i <input> -o -` with a cleaned environment (`NO_COLOR`), stdout read in full:
+  - **Root files**: `-i <absolute path>`, working directory = **project root**. Tailwind's automatic source detection uses the working directory as its base (verified: run from `/tmp`, it scanned all of `/tmp`), so it scans the whole project, as `@tailwindcss/vite` scans Vite's root in Astro (decided by rule, Astro). The input's own `@import`s resolve from its directory.
+  - **Blocks**: the scoped text on stdin (`-i -`), working directory = **the `.orbit` file's directory**, so relative `@reference`/`@import` resolve as written. When the block has `@import "tailwindcss"` with no `source(…)`, Orbit adds `source("<path to the project root>")` to that import, because a stdin input's detection base is its working directory (verified: `source("../..")` from `src/components` scanned the project and honored `.gitignore`).
+  - **`--optimize` always**, in dev too: Tailwind's raw output uses CSS nesting (`&:hover { @media (hover: hover) { … } }`), which Tailwind's own browser targets (Safari 16.4, Chrome 111) don't support; `--optimize` runs Lightning CSS, which flattens it. `@tailwindcss/vite` optimizes in builds; doing it in dev too keeps dev and prod CSS the same (decided by rule, simplest; measured at no extra cost, 0.09 s with or without). Tailwind's `--minify` isn't used: esbuild minifies prod bundles (§5), to the same size.
+  - Several inputs run in parallel, at most `GOMAXPROCS` processes at once.
+- **Scoping order**: a scoped block is scoped first (today's `compiler.ScopeCSS`, unchanged) and run through Tailwind after, which is Astro's order (its compiler scopes the `<style>` before Vite's CSS plugins run). Consequences, all as in Astro:
+  - `@apply` inside a scoped rule applies to the scoped selector, variants included (`.title[data-o-…]:hover`).
+  - `@theme`, `@utility`, `@custom-variant`, `@plugin`, `@source` bodies aren't scoped: the scoper already leaves unknown at-rules alone (verified).
+  - **Utilities are never scoped**: they're generated by Tailwind after scoping. A scoped block that `@import`s `tailwindcss` therefore emits global utilities next to its scoped rules. Docs recommend one global stylesheet (Astro's guidance) and `@reference` for `@apply` in components.
+  - Tailwind puts utilities in `@layer utilities`, while component styles are unlayered, so a scoped rule beats a utility on the same property whatever the specificity (CSS cascade layers; the same in Astro with Tailwind v4). Docs say so.
+- **Order in the page stylesheet**: unchanged (§5: import-graph order). The root's output sits where its `@import` is, typically the layout's `<style is:global>`, before component styles.
+- **Several roots**: allowed, each run separately (Tailwind's behavior); docs recommend one.
+- **Block inputs repeat Tailwind's fallbacks**: each block that `@apply`s utilities gets its own `@layer properties` / `@property --tw-*` declarations for them (seen in the spike), so they repeat across blocks, as under Astro; harmless, and another reason the docs prefer `@utility` in the global stylesheet over many `@apply` blocks.
+- **`url()` in files a root `@import`s (Q3)**: Tailwind's CLI inlines local and npm `@import`s itself and, unlike `@tailwindcss/vite` and the PostCSS plugin (`@tailwindcss/node`'s `shouldRewriteUrls`, which the CLI doesn't set), **doesn't rebase their `url()`s** (verified: `url("./x.woff2")` in `fonts/fonts.css` stays `./x.woff2` in the output). esbuild then resolves them from the root's directory. A file that's missing there fails the build with esbuild's error; Orbit adds a hint: "Tailwind's CLI doesn't rewrite url() in files @imported by `src/styles/global.css`; import `fonts/fonts.css` from a `<style is:global>` or a `<script>` instead". nyth already imports its Fontsource CSS from the layout and not from `global.css`, for the same reason under Vite.
+- **Errors**: Tailwind exits 1 with a boxed, always-colored message on stderr. Orbit strips the ANSI codes and box characters and reports it at a `.orbit`/`.css` position (Go convention, `file:line:col`): Tailwind's own `file:line:col` when it gives one (CSS syntax errors), otherwise for "Cannot apply unknown utility class `x`" the first `@apply` that names `x` in that input, otherwise the input's start (the block's line:col). `orbit build`, `orbit generate` and `orbit check` fail; `orbit dev` shows the overlay, as for any CSS error.
+- **Legal comment**: Tailwind's `/*! tailwindcss v4.3.3 | MIT License … */` banner stays, where esbuild's default puts legal comments (decided by rule, esbuild default).
+
+### Source detection
+Tailwind v4 scans the project without configuration. Verified with the 4.3.3 CLI on a small project and on `bench/devloop`'s 200-file one:
+- **`.orbit` files are scanned by default**, and classes are found in plain attributes, in `class:list={"rounded-lg", cls, "ring-2": props.Active, "bg-red-500": !props.Active}` (every literal element), and in Go string literals in the frontmatter or in `{…}` (`cls := "text-ember"`, `map[bool]string{true: "p-8", false: "p-2"}`, `class={"font-bold " + big}`). `.go` files elsewhere in the module (`internal/ui/c.go`) and `.md` files are scanned too. Classes built at runtime (`fmt.Sprintf("w-%d", n)`) aren't, as Tailwind documents for every framework: write complete class names.
+- **`.gitignore` is honored even without a Git repository** (verified after removing `.git`), so the starter's `.gitignore` (`orbit_gen/`, `.orbit/`, `dist/`, `node_modules/`, §6 `orbit new`) keeps generated code and build output out of the scan. Without those lines the 200-file project's run went from 0.07 to 0.12 s (load 6.9): generated code repeats every class, so the CSS is the same, only slower. `orbit doctor` warns (below); Orbit doesn't add `@source not` lines itself (decided by rule, simplest).
+- `node_modules`, binary files, CSS files and lock files are skipped by Tailwind itself.
+- Anything else goes through Tailwind's own directives in the stylesheet: `@source "../../packages/ui"` for classes outside the project, `@source not "../internal/api"` to skip a large Go tree, `@import "tailwindcss" source(none)` for an explicit list, `@source inline("…")` for safelisting.
+
+### Dev loop (Q4)
+Today a template edit **skips esbuild** (§7.1). With Tailwind, an edit that adds a class needs new CSS. Options, measured on `bench/devloop`'s 200-file project with 12 Tailwind utilities added to every `.orbit` file and a `global.css` root (scans 203 files; the CSS has 1,336 distinct whitespace tokens to choose from), with `-dev` (`internal/dev`'s pipeline) and a Tailwind run started next to `Pipeline.Run`:
+- (a) **A long-running `tailwindcss --watch` child per root**, Orbit reading its output file. Rebuilds are fast once warm: **5.6–10 ms** from the file write to the new output for a new class; for an edit with no new class Tailwind doesn't rewrite the file and prints `Done in 300–500µs` (load 1.5). But Orbit has no reliable way to know when the CSS for a batch is ready: Tailwind watches files on its own, debounces on its own, writes the output in place (a reader can see a half-written file), and its only signal is the human-readable `Done in …` line on stderr, which `--silent` turns off and which can change between versions. A reload sent too early shows stale CSS. One process per root also stays resident (84–124 MB each), and block inputs would each need their own.
+- (b) **Orbit runs the CLI once per relevant batch** (recommended, with the gate below). A run costs **0.06 s** on a small project, **0.07–0.10 s** on the 200-file project and **0.10–0.11 s** on nyth's 181 `.astro` files with its 1,230-line `global.css` (loads 1.6–2.2); ~45 ms of each is the binary's start-up. Started at the beginning of the batch, it runs **in parallel** with regenerate, the type check and `go build`, which take ~170 ms for a template edit, so it's off the critical path:
+
+  | Edit (200 files, `-dev`, 7 runs, median) | today | with Tailwind in parallel |
+  |---|---:|---:|
+  | template body, 16 threads (load 1.0 → 0.9–3.0) | 177 ms | 185 ms (Tailwind 75–85 ms, hidden) |
+  | frontmatter, 16 threads | 168 ms | 173 ms |
+  | template body, 4 cores (`GOMAXPROCS=4 taskset -c 0-3`, load 3.3–3.4) | 169 ms | 184 ms (Tailwind 69–85 ms) |
+  | `.go` body edit (every `Props` depends on it), 16 threads | 561 ms | 573 ms |
+  | scoped `<style>` / `<script>` content, 16 threads | 18 ms | ~95 ms: Tailwind 70–75 ms, then esbuild ~20 ms (the spike measured Tailwind's 70–75 ms next to the pipeline's 20–23 ms; the real order is sequential) |
+
+  The extra 8–15 ms on template edits is CPU contention between Tailwind and `go build`, not waiting.
+- (c) **Orbit reruns only when the "class candidate set" changes**: keep the set of whitespace-separated tokens of every file Tailwind could scan, and run Tailwind only when a batch brings a token that wasn't in the set at the last run. Tailwind candidates never contain whitespace (arbitrary values use `_`), so a new candidate implies a new token. Cost: **1.1 ms** for all 203 files of the 200-file project (1,336 tokens), **4.5 ms** for nyth's 181 files (10,972 tokens), 17–27 µs per changed file. On its own it doesn't help much: most template edits add some new word (text, an identifier), so they'd still run Tailwind; but they run it in parallel anyway. It does skip the run for edits that only remove, move or repeat tokens.
+
+**Recommended: (b) with (c) as a gate.** In detail:
+- At the start of each batch, Orbit decides which Tailwind inputs to rerun, then starts them at once, in parallel with the rest of the pipeline:
+  - **any `.css` file changed**, or `tsconfig.json`/`package.json` (plugins): every input (roots and blocks; Orbit doesn't track Tailwind's import graph, and a `@theme` change affects `@reference` blocks);
+  - **a block input's text changed**: that block;
+  - **any other changed file** in the batch (the §7 watched set, plus `orbit.json` `"watch"` files, which is how a `@source` directory outside the module gets watched): the roots, if the gate sees a new token.
+- When an output differs from the cached one, the incremental esbuild rebuild runs after it (today's asset step, which a template edit otherwise skips) and rewrites `.orbit/dev/manifest.json`. The reload waits for both the Go side and the asset side. When no output changed, esbuild stays skipped.
+- Like Tailwind's own watch mode, a dev stylesheet only grows between full runs: removing the last use of a class doesn't rerun Tailwind (no new token), so the class stays until the next run. Production builds always run from scratch.
+- A failed run keeps the last good CSS and shows the overlay; the next batch reruns.
+- The CLI lookup (Q1) and its version check happen once per `orbit dev` process (~60 ms, during the first build, in parallel with it).
+
+### Production build
+- `orbit build` and `orbit generate` run every Tailwind input once, from scratch, before esbuild bundles (both bundle; §5, §6 step 3). The bundle step already runs while `go list -export` preloads, so part of Tailwind's ~0.1 s overlaps. Estimate for the 200-file project: **≤ +0.1 s** on a ~0.31–0.33 s incremental `orbit build` (load 11, noisy), less where the preload hides it; nothing on a project without Tailwind.
+- **Determinism**: Tailwind's output was byte-identical across 5 runs of nyth's stylesheet, across 3 runs on the 200-file project, and in a copy of the project at another path (no absolute paths in the output). esbuild's hashing is already deterministic, so the same sources give the same hashed URLs and manifest, and `orbit_gen/` stays byte-identical between `generate` and `build`.
+- **`orbit check`** runs generate, so it reports Tailwind errors too (an unknown `@apply` class is a check failure), and needs the CLI when the project uses Tailwind.
+- Source maps: prod's optional external maps (`"sourcemap": true`) and dev's linked maps cover Tailwind inputs as esbuild sees them, i.e. Tailwind's output, not the `.orbit`/`.css` lines (out of scope, below).
+
+### Configuration and plugins
+- **No `orbit.json` key.** Tailwind v4 is configured in CSS (`@theme`, `@utility`, `@custom-variant`, `@plugin`, `@source`), and Orbit only needs to find the CLI.
+- **First-party plugins are built into the standalone CLI** (verified with 4.3.3): `@plugin "@tailwindcss/typography"`, `@plugin "@tailwindcss/forms"` and `@plugin "@tailwindcss/aspect-ratio"` work with no `node_modules`. Container queries are in Tailwind v4's core (`@tailwindcss/container-queries` doesn't resolve and isn't needed).
+- **Local JavaScript plugins and configs work** with the standalone CLI (Bun inside runs them): `@plugin "./plug.mjs"`, `@config "./tailwind.config.js"` (verified).
+- **Third-party plugins from npm** (`@plugin "daisyui"`) need the package in `node_modules`, installed by any package manager; the **standalone CLI then loads it**, with no Node at build time (verified with `daisyui@5.7.47` installed by `bun add`). Without `node_modules`, Tailwind's error (`Can't resolve 'daisyui'`) is shown at the root. Docs: `bun add -d daisyui` (or npm), and the Dockerfile copies `package.json` and runs the install in the build stage.
+
+### Editors (Q5)
+- **Tailwind CSS IntelliSense** (`bradlc.vscode-tailwindcss` 0.16.0, 2026-07-20, on the Marketplace and Open VSX) works on `.orbit` files with `"tailwindCSS.includeLanguages": { "orbit": "html" }`. Its default `tailwindCSS.classAttributes` already has `class` and `class:list`; completion inside `class:list={…}`'s Go string literals is to be checked when implemented (they look like JS strings to its matcher). It finds the v4 stylesheet by itself; that it works with no `tailwindcss` package in `node_modules` (its server ships a bundled Tailwind for that case) is to be confirmed when implemented. For `.css` files, Tailwind's docs recommend `"files.associations": { "*.css": "tailwindcss" }` so VS Code's CSS validator stops flagging `@theme`/`@apply`; Orbit's docs repeat it.
+- **Orbit's extension contributes the mapping by default** (`contributes.configurationDefaults`, which VS Code allows for another extension's setting) (recommended): zero config for Orbit users, no effect without the Tailwind extension. A user's own `tailwindCSS.includeLanguages` replaces the default object, so docs say to include `"orbit": "html"` when setting it. Alternative: docs only.
+- **No conflict with Orbit's LSP**: two servers on one document is normal in VS Code; Orbit offers nothing inside `class` attribute values, the Tailwind server offers nothing in Go regions, and hovers from both are shown together. Neovim: `tailwindcss` language server with `filetypes` including `orbit` and `settings.tailwindCSS.includeLanguages = { orbit = "html" }`.
+- `orbit fmt` is unaffected: `bun fmt` formats Tailwind's at-rules (nyth's `global.css` formatted, then compiled, gave byte-identical Tailwind output).
+- Orbit's own LSP doesn't learn Tailwind (no class completion or validation of its own): out of scope.
+
+### `orbit new`, docs and Astro migration (Q6)
+- **`orbit new` doesn't scaffold Tailwind** (recommended): the starter stays dependency-free, and adding Tailwind is two files (above). A new docs page, **"Using Tailwind"**, gives the install lines, `global.css`, the layout's `<style is:global>@import …`, `@reference` for `@apply`, plugins, the editor settings, the Dockerfile line, and the dev-loop behavior. Alternative: `orbit new --tailwind` (writes `src/styles/global.css` and the layout's import; the Dockerfile line too), easy to add later.
+- **Migrating from Astro** (`coming-from-astro.md`): drop `@tailwindcss/vite` from `astro.config` and `package.json` (Orbit needs nothing in their place but the CLI); keep `global.css` as is; move `import "../styles/global.css"` from the layout's frontmatter to `<style is:global>@import "../styles/global.css";</style>`; Fontsource and other `url()`-bearing CSS stay imported from the layout, not from `global.css` (Q3); `class:list` works the same; `@reference` in component styles works the same.
+
+### `orbit doctor`
+A new **Tailwind** check, after TypeScript:
+- inside a project with a Tailwind input: ✓ `tailwindcss 4.3.3 (path)` (or "through `bun x`"); **✗** when no v4 CLI is found ("needed by `src/styles/global.css`", with the fix line), since `orbit build` fails without it; ⚠ when `.gitignore` doesn't ignore `orbit_gen/`, `.orbit/` and `dist/` (slower scans).
+- inside a project without Tailwind, and outside a project: ✓ with the version when found, else ✓ "not installed (needed only by projects that use Tailwind)".
+
+### (Q) points
+1. **(Q1) Install story**: (a) found locally (`node_modules/.bin/tailwindcss` run with Node or Bun, `tailwindcss` on PATH), then `bun x --package @tailwindcss/cli@4.3.3`, else an error with install lines and a Dockerfile `ADD --checksum` line in the docs (recommended), vs. (b) (a) without `bun x`, vs. (c) (a) plus Orbit downloading the pinned 112 MB standalone binary into its cache, hash-checked (zero-install, Docker included, but network I/O in `orbit build` and a pinned hash per platform).
+2. **(Q2) `<style>` blocks**: blocks with Tailwind at-rules are Tailwind inputs, scoped first and then run through Tailwind, one process each (0.06 s, parallel, cached by text) (recommended: Astro supports `@apply` + `@reference` in component styles, and the scoper already handles Tailwind's at-rules), vs. only `.css` files are processed and a block using a Tailwind at-rule is an error pointing to a `.css` file (simpler; no per-block processes).
+3. **(Q3) `url()` in files a Tailwind root `@import`s**: Tailwind CLI behavior (not rebased) with a hint in esbuild's resolve error, and docs saying to import such CSS from a `<style is:global>` or a `<script>` (recommended for the first release), vs. Orbit inlining the root's relative local `@import`s itself before Tailwind and rebasing their `url()`s, as `@tailwindcss/vite` does (~150 lines over the existing tokenizer; npm imports still not rebased), vs. mapping each `url()` back through Tailwind's `--map` source map (exact, more code).
+4. **(Q4) Dev loop**: (b) one run per relevant batch, started in parallel with regenerate and `go build`, gated by the token set (c) (recommended: template edit +8 ms on 16 threads, +15 ms on 4 cores; CSS/script-only edits ~18 → ~95 ms), vs. (a) `--watch` children (5.6–10 ms per rebuild, but readiness depends on parsing stderr text, and a resident process per input), vs. (b) without the gate (slightly simpler, a run on every batch).
+5. **(Q5) VS Code**: Orbit's extension contributes `tailwindCSS.includeLanguages: {"orbit": "html"}` through `configurationDefaults` (recommended) vs. docs only.
+6. **(Q6) Starter**: no Tailwind in `orbit new`, a "Using Tailwind" page (recommended) vs. an `orbit new --tailwind` flag now.
+
+Decided by rule (to log in `docs/DECISIONS.md`):
+- v4 only; v3 CLIs refused; `@config` works through v4 (Astro: `@tailwindcss/vite`).
+- Detection base = project root for root files (Astro: Vite's root).
+- Scope first, then Tailwind (Astro's order).
+- `--optimize` in dev and prod (simplest: same CSS in both; nesting lowered for Tailwind's targets).
+- esbuild minifies, not Tailwind (simplest: one minifier, same size).
+- No `orbit.json` key and no path variable (simplest).
+- `.gitignore` relied on for exclusions, doctor warns (simplest).
+- Errors at `file:line:col`, ANSI stripped (Go convention).
+- Tailwind's license banner kept where esbuild puts legal comments (esbuild default).
+- Several roots allowed (Tailwind behavior).
+- A `"watch"` file change also reruns Tailwind (simplest way to cover `@source` outside the module).
+- `orbit check` reports Tailwind errors (it runs generate).
+
+### Cost
+- **Runtime**: none. The output is a static, hashed stylesheet like any other; the SSR hot path is untouched.
+- **Projects without Tailwind**: a token scan of each CSS input for the markers, µs per file; no process is started and no lookup happens.
+- **`orbit build`/`generate`/`check`**: one Tailwind run per input, in parallel: ~0.1 s for a root (0.07–0.10 s at 200 files, 0.10–0.11 s for nyth), 0.06 s per block input; partly overlapped by the `go list -export` preload. Estimated ≤ +0.1 s on a ~0.3 s incremental build at 200 files.
+- **`orbit dev`**: template and frontmatter edits +5–8 ms on 16 threads, +15 ms on 4 cores (contention; Tailwind runs in parallel); CSS and script edits ~18 → ~95 ms; edits that bring no new token: nothing. The first build adds the version probe (~60 ms) and one run, in parallel with the first `go build`.
+- **Memory**: 84–124 MB RSS per Tailwind run, for its ~0.1 s; nothing resident.
+- **Install**: optional; the standalone binary is 112 MB.
+- **Code**: about 600–900 lines: `internal/tailwind` (lookup, version, run, error cleanup, the token gate), hooks in `internal/assets` (the CSS `OnLoad`, block inputs), `internal/dev` (rerun decision, parallel start, the esbuild-after-Tailwind step), `internal/doctor`; the VS Code `configurationDefaults` entry; docs. No new Go dependency (`os/exec`).
+
+### Tests (what must exist)
+- **Detection** (table-driven): `@import "tailwindcss"`, `'tailwindcss'`, `url(tailwindcss)`, `tailwindcss/theme.css` with `layer(…)`, `source(…)`; `@tailwind utilities`; each Tailwind at-rule in a block; not inside comments or strings; a plain CSS file stays plain.
+- **Lookup**: a fake `tailwindcss` script on a temp PATH (prints a v4 banner; v3 banner refused; missing → the error with the install lines); `node_modules/.bin` preferred over PATH; the `bun x` command line; the not-found error only when an input exists.
+- **Pipeline with a fake CLI** (always runs, no real Tailwind): the arguments, working directory and stdin per input kind; the `source(…)` injection for blocks; output fed to esbuild (bundled, minified, hashed, in the manifest, in import-graph order); scoped-then-Tailwind order; error cleanup and positions (ANSI, box characters, Tailwind's own `file:line:col`, the `@apply` search, the block start); the `url()` hint.
+- **Real CLI** (skipped with a notice when no v4 CLI is found, like the loader's `bun test`): a small project like the example, asserting the classes found (`.orbit` attributes, `class:list`, Go strings, `.go`, `.md`), `orbit_gen/`/`.orbit/`/`dist/` excluded, `@reference` + `@apply` scoped, a first-party plugin, determinism (two builds, identical `dist/`).
+- **Dev** (`internal/dev`, fake CLI): a template edit with a new token reruns the root in parallel and rebuilds esbuild once its output changed; an edit with no new token doesn't run it; a `.css` change reruns every input; a block edit reruns only that block; the reload waits for the asset side; a failed run keeps the last CSS and shows the overlay.
+- **`bench/devloop`**: a `-tailwind` flag adding the classes and `global.css` (as in the spike) and reporting the template- and CSS-edit costs, run when implemented; results in `docs/performance.md`.
+- **`orbit doctor`**: the Tailwind check's ✓/✗/⚠ cases.
+- **VS Code**: the `configurationDefaults` entry in `package.json` (a manifest test).
+
+### User-docs changes (with the implementation)
+- New **`docs/tailwind.md`** ("Using Tailwind"), linked from `styles-and-scripts.md`, `getting-started.md`'s next steps and the docs index.
+- `styles-and-scripts.md`: Tailwind inputs, scoped blocks with `@reference`/`@apply`, unscoped utilities, layers vs. scoped rules, "Styles and scripts in `orbit dev`" (Tailwind reruns).
+- `dev-server.md`: what a change reruns with Tailwind, and the costs.
+- `configuration.md`: no Tailwind key; `"watch"` for `@source` directories outside the module.
+- `reference/cli.md`: `orbit build`/`generate`/`check` run Tailwind; the doctor check.
+- `editor-setup.md`: Tailwind IntelliSense (the default Orbit contributes, `files.associations`), Neovim.
+- `coming-from-astro.md`: the migration notes above; `deployment.md`: the Dockerfile `ADD --checksum` line and npm plugins in the build stage; `troubleshooting.md`: CLI not found, v3 found, a class missing (dynamic names, `@source`), `url()` in imported files; `performance.md`: dev and build costs.
+
+### Out of scope
+- Tailwind v3 (`tailwind.config.js` as the entry, `@tailwind base`), PostCSS and other CSS processors (Sass, Less, PostCSS plugins).
+- Source maps through Tailwind (dev and `"sourcemap": true` maps show Tailwind's output for Tailwind inputs).
+- Orbit downloading the CLI (Q1 c) and `orbit new --tailwind` (Q6), unless chosen.
+- Class completion, validation or sorting in Orbit's own LSP or `orbit fmt` (Tailwind's IntelliSense and Prettier plugin cover these where the user wants them).
+- Removing classes from the dev stylesheet before the next full run.
+
 ## 6. CLI (`cmd/orbit`)
 | Command | Behavior |
 |---|---|
@@ -2021,6 +2258,7 @@ Dependencies:
   - **Tests**: idempotence (fmt∘fmt = fmt), AST equivalence, and rendered-output equality.
 - **Typed server→client bridge**: implemented (§5c).
 - **TypeScript editor support inside `.orbit` `<script>`**: specified in §9b (proposed, (Q) points open).
+- **Tailwind CSS** (user decision, 2026-10-26, from the `nyth` port): built-in support through Tailwind's standalone CLI as an external, optional tool, detected from `@import "tailwindcss"`; specified in §5d (proposed, (Q) points open).
 - `{switch}` template blocks: implemented (§2.3): compiler, `orbit fmt`, the LSP's Go regions, the VS Code grammar and the docs' Chroma lexer; user docs `docs/reference/template-syntax.md#switch`.
 - esbuild code splitting (shared chunks between pages, and between page bundles and `client:*` lazy entries, §5)
 - **Cacheable server islands** (the MVP already makes island URLs deterministic and puts the build ID in the path, §3.4, so no URL format change is needed):
