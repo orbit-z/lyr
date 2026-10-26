@@ -104,6 +104,16 @@ func classify(f *project.File, off int) region {
 				out = region{kind: regionGo}
 				return true
 			}
+		case *compiler.Switch:
+			if n.Header.Contains(off) && n.Clause.Contains(off) {
+				out = region{kind: regionGo}
+				return true
+			}
+		case *compiler.Case:
+			if !n.Default && n.Header.Contains(off) && n.List.Contains(off) {
+				out = region{kind: regionGo}
+				return true
+			}
 		}
 		if t := compiler.TagOf(n); t != nil && inStartTag(f.Src, t, off) {
 			out = classifyTag(n, t, off, parent)
