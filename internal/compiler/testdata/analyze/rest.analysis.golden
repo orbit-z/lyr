@@ -1,0 +1,10 @@
+info src/components/rest.orbit component route=""
+implicit orbit: decl
+decl type @4-108 place=decl Props@9-14
+  "type Props struct {\n\tVariant string\n\tAttrs   orbit.RestAttrs…"
+echo []
+terminating false
+props declared=true listable=true span=@9-108
+  field @25-32 "Variant" type="string" doc=""
+  field @41-46 "Attrs" type="orbit.RestAttrs" doc="every other attribute of the call site\n"
+  rest Attrs

@@ -1,0 +1,14 @@
+orbit_gen/decl/components/field/decl.go (src/components/Field.orbit)
+  exact 4:1 "type Props struct {\n\tLabel string\n\tAttrs orbit.RestAttrs\n}" -> 191-249 "type Props struct {\n\tLabel string\n\tAttrs orbit.RestAttrs\n}"
+orbit_gen/impl/components/field/render.go (src/components/Field.orbit)
+  exact 2:8 "Input" -> 213-218 "Input"
+  span  2:14 "\"./Input.orbit\"" -> 219-269 "\"example.com/blog/orbit_gen/decl/components/input\""
+  span  9:17 "Input" -> 835-847 "Input.Render"
+  span  9:23 "label" -> 962-967 "Label"
+  exact 9:30 "props.Label" -> 1045-1056 "props.Label"
+  exact 9:47 "props.Attrs" -> 1228-1239 "props.Attrs"
+  span  10:2 "Input" -> 1430-1442 "Input.Render"
+  span  10:8 "label" -> 1557-1562 "Label"
+  span  10:14 "\"scope only\"" -> 1641-1653 "\"scope only\""
+  exact 10:31 "props.Attrs" -> 1802-1813 "props.Attrs"
+call sites

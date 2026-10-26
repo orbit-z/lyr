@@ -1,0 +1,10 @@
+info src/components/err_rest_two.orbit component route=""
+implicit orbit: decl
+decl type @4-73 place=decl Props@9-14
+  "type Props struct {\n\tAttrs orbit.RestAttrs\n\tExtra orbit . Re…"
+echo []
+terminating false
+props declared=true listable=true span=@9-73
+  field @25-30 "Attrs" type="orbit.RestAttrs" doc=""
+  field @48-53 "Extra" type="orbit . RestAttrs" doc=""
+  rest Attrs

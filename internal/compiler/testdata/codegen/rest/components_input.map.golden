@@ -1,0 +1,11 @@
+orbit_gen/decl/components/input/decl.go (src/components/Input.orbit)
+  exact 2:1 "type Props struct {\n\tLabel string\n\tAttrs orbit.RestAttrs\n}" -> 191-249 "type Props struct {\n\tLabel string\n\tAttrs orbit.RestAttrs\n}"
+orbit_gen/impl/components/input/render.go (src/components/Input.orbit)
+  exact 7:23 "props.Label" -> 694-705 "props.Label"
+  exact 7:46 "props.Attrs" -> 833-844 "props.Attrs"
+  exact 8:32 "props.Attrs.Has(\"required\")" -> 979-1006 "props.Attrs.Has(\"required\")"
+  exact 8:75 "props.Attrs" -> 1200-1211 "props.Attrs"
+  exact 8:89 "props.Label" -> 1332-1343 "props.Label"
+call sites
+  content key=89 "props.Label" call="orbit__w.Expr(\n/*line ../../../../src/components/Input.orbit:7:23*/props.Label/*line render.go:21:88*/,\n\t)"
+  content key=224 "props.Label" call="orbit__w.Expr(\n/*line ../../../../src/components/Input.orbit:8:89*/props.Label/*line render.go:38:88*/,\n\t)"

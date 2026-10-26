@@ -1,0 +1,13 @@
+---
+import Input "./Input.orbit"
+
+type Props struct {
+	Label string
+	Attrs orbit.RestAttrs
+}
+---
+<div class="f"><Input label={props.Label} {...props.Attrs} required name="field" /></div>
+<Input label="scope only" {...props.Attrs} />
+<style>
+	.f { display: grid; }
+</style>

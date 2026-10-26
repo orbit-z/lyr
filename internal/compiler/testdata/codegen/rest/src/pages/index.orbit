@@ -1,0 +1,36 @@
+---
+import Button "../components/Button.orbit"
+import Field "../components/Field.orbit"
+import Input "../components/Input.orbit"
+import Wrap "../components/Wrap.orbit"
+
+type Slug string
+
+type point struct{ X, Y int }
+
+shelf := "s-81"
+n, u, f, f32 := -3, uint(7), 0.5, float32(0.1)
+on, off := true, false
+var slug Slug = "a&b"
+cls := "  x  y "
+extra := orbit.Attrs{"data-extra": 1, "name": "spread", "class": "from-map"}
+fwd := orbit.RestOf(orbit.Attrs{"id": "fwd", "class": "fwd"})
+---
+<main>
+<Button variant="quiet" name="shelf" data-shelf={shelf} required class="mt-2">Save</Button>
+<Button variant="static" name='a "q"' value=bare disabled>Static</Button>
+<Button variant="kinds" data-n={n} data-u={u} data-f={f} data-f32={f32} data-on={on} data-off={off}
+	data-slug={slug} href={orbit.URL("javascript:trusted")} formaction={"javascript:no"} data-json={orbit.JSON(point{1, 2})}
+	data-any={point{3, 4}} data-nil={nil} {shelf}>Kinds</Button>
+<Button variant="link" href="/docs" class:list={"a", "b": on, cls}>Link</Button>
+<Button variant="lone" class={cls} aria-label="lone">Lone</Button>
+<Input label="spread" {...extra} />
+<Input label="merged" {...extra} name="tag" class="own" />
+<Input label="fwd" attrs={fwd} />
+<Field label="field" class="mt-2" data-x={n} />
+<Wrap {...fwd} />
+<Wrap />
+</main>
+<style>
+	main { display: grid; }
+</style>

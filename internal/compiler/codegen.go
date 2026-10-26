@@ -127,6 +127,10 @@ const (
 	// SiteClassProp is a dynamic class:list item in a component's class
 	// prop: orbit__rt.ClassString(x).
 	SiteClassProp
+	// SiteRest is a dynamic pass-through attribute a={expr} or {a} on a
+	// component with an orbit.RestAttrs field (PLAN.md §2.5):
+	// orbit__rt.RestAny(pre, "a", x).
+	SiteRest
 )
 
 // CallSite records one write emitted with the Expr/Attr fallback, for the
@@ -201,6 +205,19 @@ const (
 	// string(x) and orbit__rt.JoinClasses(x...) in a component's prop.
 	WriteClass
 	WriteClasses
+	// The pass-through attribute writes (SiteRest, PLAN.md §2.5): the
+	// orbit__rt constructor of the attribute's typed value, with Conv to
+	// its parameter type. WriteRestStringURL is a string in a URL
+	// attribute (filtered), WriteRestURL an orbit.URL (trusted).
+	WriteRestString
+	WriteRestStringURL
+	WriteRestURL
+	WriteRestBool
+	WriteRestInt
+	WriteRestUint
+	WriteRestFloat
+	WriteRestFloat32
+	WriteRestJSON
 )
 
 // writeMethods is the Writer method each kind calls. WriteAttrString,
@@ -208,7 +225,8 @@ const (
 // attrPieces), so they call a value-only method (URL for WriteAttrURL).
 var writeMethods = [...]string{"Expr", "", "String", "Int", "Uint", "Float", "Float32", "Bool",
 	"HTML", "Bytes", "Error", "Stringer", "Render", "String", "URL", "AttrBool",
-	"Int", "Uint", "Float", "Float32", "JSONAttr", "Class", "Classes"}
+	"Int", "Uint", "Float", "Float32", "JSONAttr", "Class", "Classes",
+	"RestString", "RestStringURL", "RestURL", "RestBool", "RestInt", "RestUint", "RestFloat", "RestFloat32", "RestJSON"}
 
 // attrPieces reports whether k writes its attribute as pieces: the static
 // ` name="` and `"` join the neighbouring Raw constants, and the call writes

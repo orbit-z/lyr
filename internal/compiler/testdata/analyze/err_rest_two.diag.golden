@@ -1,0 +1,1 @@
+src/components/err_rest_two.orbit:4:2: Props has two orbit.RestAttrs fields (Attrs, Extra); a component takes one

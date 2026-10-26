@@ -597,9 +597,19 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 				if isUntyped(t) {
 					t, _, _ = tyStatic(tv)
 				}
-				merged := site.Attr != nil && !site.Attr.Code.Contains(site.Code.Start)
-				diags = append(diags, Diagnostic{SeverityError, site.Code.Span, classTypeError(t, merged)})
+				what := "class:list items"
+				switch {
+				case site.Attr != nil && site.Attr.Directive != ClassList:
+					// A class attribute merged with pass-through attributes
+					// (PLAN.md §2.5), with no class:list.
+					what = "class={…} merged with pass-through attributes"
+				case site.Attr != nil && !site.Attr.Code.Contains(site.Code.Start):
+					what = "class={…} next to class:list"
+				}
+				diags = append(diags, Diagnostic{SeverityError, site.Code.Span, classTypeError(t, what)})
 			}
+		case SiteRest:
+			w = env.classifyRest(tv, site.URLAttr)
 		default:
 			w = env.classify(tv)
 		}

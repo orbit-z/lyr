@@ -293,15 +293,36 @@ func classifyClass(tv types.TypeAndValue) (w TypedWrite, ok bool) {
 }
 
 // classTypeError is the error for a class:list item of type t (nil for
-// untyped nil); merged is set for the value of a class attribute merged
-// into the list.
-func classTypeError(t types.Type, merged bool) string {
+// untyped nil); what names the item ("class:list items", or the value of a
+// class attribute merged into the list).
+func classTypeError(t types.Type, what string) string {
 	name := "untyped nil"
 	if t != nil {
 		name = types.TypeString(t, func(p *types.Package) string { return p.Name() })
 	}
-	if merged {
-		return "class={…} next to class:list must be a string or []string, not " + name
+	return what + " must be a string or []string, not " + name
+}
+
+// restWrites maps an attribute write to the pass-through attribute write
+// with the same output (PLAN.md §2.5).
+var restWrites = map[WriteKind]WriteKind{
+	WriteAttrString: WriteRestString, WriteAttrURL: WriteRestStringURL, WriteAttrBool: WriteRestBool,
+	WriteAttrInt: WriteRestInt, WriteAttrUint: WriteRestUint, WriteAttrFloat: WriteRestFloat,
+	WriteAttrFloat32: WriteRestFloat32, WriteAttrJSON: WriteRestJSON,
+}
+
+// classifyRest picks the write of a dynamic pass-through attribute: the
+// typed constructor of the value Attr would write the same way (an
+// orbit.URL stays trusted), or the RestAny fallback (untyped nil too: it's
+// omitted at render time).
+func (e *tyEnv) classifyRest(tv types.TypeAndValue, urlAttr bool) TypedWrite {
+	if t, nilv, ok := tyStatic(tv); ok && !nilv && identical(t, e.url) {
+		return TypedWrite{Kind: WriteRestURL}
 	}
-	return "class:list items must be a string or []string, not " + name
+	w := e.classifyAttr(tv, urlAttr)
+	k, ok := restWrites[w.Kind]
+	if !ok {
+		return TypedWrite{}
+	}
+	return TypedWrite{Kind: k, Conv: w.Conv}
 }

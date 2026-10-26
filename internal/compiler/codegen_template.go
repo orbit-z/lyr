@@ -279,19 +279,23 @@ func (g *cgGen) discardHeader(kw string, code GoCode) {
 // returns its set: directive, if any.
 func (g *cgGen) htmlAttrs(t *Tag, node Node) (set *Attr) {
 	o := g.o
-	cl, merged := classAttrs(t)
+	at, cl, merged, rest := g.elementClasses(t)
 	for _, a := range t.Attrs {
 		if g.skipAttr[a] {
 			continue
 		}
 		switch {
-		case cl != nil && (a == cl || slices.Contains(merged, a)):
-			if a == cl {
-				g.classList(node, cl, merged)
+		case at != nil && (a == cl || slices.Contains(merged, a)):
+			if a == at {
+				g.classList(node, at, cl, merged, rest)
 			}
 			continue
 		case a.Kind == AttrSpread:
-			g.write("Spread", a.Code)
+			if g.restOperand(a) != "" {
+				g.spreadRest(a, at == nil)
+			} else {
+				g.write("Spread", a.Code)
+			}
 			continue
 		case a.Directive.IsSet():
 			if set == nil {
@@ -531,6 +535,8 @@ type cgField struct {
 	// node is its component.
 	merged []*Attr
 	node   Node
+	// rest is the value of the target's RestAttrs field (attr is nil).
+	rest *cgRest
 }
 
 type cgSlot struct {
@@ -567,14 +573,42 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	var fields []cgField
 	var pre []GoCode // Go code of broken attributes, for Tolerant mode
 	cl, merged := classAttrs(&n.Tag)
+	// A target with an orbit.RestAttrs field collects the attributes that
+	// match no other field (PLAN.md §2.5); its class too when it has no
+	// class prop.
+	restField := props.Rest
+	classRest := restField != "" && !hasProp(props, "class")
+	var rest cgRest
+	var explicitRest *Attr
+	passed := map[string]bool{} // collected names, lowercased
+	collect := func(a *Attr) bool {
+		key := strings.ToLower(a.Name)
+		if passed[key] {
+			g.errorf(a.NameSpan, "attribute %s is passed twice to <%s>", a.Name, n.Name)
+			pre = append(pre, a.Code)
+			return false
+		}
+		passed[key] = true
+		return true
+	}
 	for _, a := range n.Attrs {
 		if a.Kind == AttrSpread {
+			if restField != "" {
+				rest.spreads = append(rest.spreads, a)
+				continue
+			}
+			g.errorf(a.Span, "{...} spread on <%s> needs an orbit.RestAttrs field in its Props, to pass HTML attributes through", n.Name)
 			pre = append(pre, a.Code)
 			continue
 		}
 		if cl != nil && (a == cl || slices.Contains(merged, a)) {
 			if a == cl {
-				fields, pre = g.classField(n, props, cl, merged, fields, pre)
+				if classRest {
+					passed["class"] = true
+					rest.cl, rest.classes = cl, merged
+				} else {
+					fields, pre = g.classField(n, props, cl, merged, fields, pre)
+				}
 			}
 			continue
 		}
@@ -582,9 +616,21 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 			pre = append(pre, a.Code)
 			continue
 		}
+		if classRest && a.Name == "class" {
+			if collect(a) {
+				rest.classes = append(rest.classes, a)
+			}
+			continue
+		}
 		key, err := MatchProp(props, a.Name)
+		if err != nil && restField != "" {
+			if collect(a) {
+				rest.attrs = append(rest.attrs, a)
+			}
+			continue
+		}
 		if err != nil {
-			g.errorf(a.NameSpan, "unknown prop %q on <%s> (%s)", a.Name, n.Name, propList(n.Name, props))
+			g.errorf(a.NameSpan, "unknown prop %q on <%s> (%s; add an orbit.RestAttrs field to pass HTML attributes through)", a.Name, n.Name, propList(n.Name, props))
 			pre = append(pre, a.Code)
 			continue
 		}
@@ -593,7 +639,18 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 			pre = append(pre, a.Code)
 			continue
 		}
+		if key == restField {
+			explicitRest = a
+		}
 		fields = append(fields, cgField{key: key, attr: a})
+	}
+	switch {
+	case restField == "":
+	case explicitRest != nil && rest.any():
+		g.errorf(n.NameSpan, "<%s> gets %s={…} and pass-through attributes; use {...x} to merge them", n.Name, explicitRest.Name)
+		pre = append(pre, rest.codes()...)
+	case explicitRest == nil && (rest.any() || g.scope != ""):
+		fields = append(fields, cgField{key: restField, rest: &rest, node: n})
 	}
 	slots := g.groupSlots(n.Children)
 
@@ -673,6 +730,12 @@ func (g *cgGen) propFields(fields []cgField) {
 	for _, f := range fields {
 		a := f.attr
 		o.ind()
+		if f.rest != nil {
+			o.str(f.key + ": ")
+			g.restValue(f.node.(*Component), f.rest)
+			o.str(",\n")
+			continue
+		}
 		o.inline(a.NameSpan, f.key, SegSpan)
 		o.str(": ")
 		switch {

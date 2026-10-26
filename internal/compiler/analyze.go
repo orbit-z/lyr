@@ -145,6 +145,10 @@ type PropsInfo struct {
 	// fall back to FieldName and the unknown-prop pre-check is skipped
 	// (PLAN.md §2.3; MatchProp).
 	Listable bool
+	// Rest is the name of the field of type orbit.RestAttrs, which
+	// collects the call site's attributes that match no other field
+	// (PLAN.md §2.5); "" when there is none (or Props isn't Listable).
+	Rest string
 }
 
 // PropField is one named field of Props.

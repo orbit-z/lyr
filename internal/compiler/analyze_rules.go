@@ -183,6 +183,7 @@ func (s *anState) props(ts *ast.TypeSpec, broken bool) {
 		return
 	}
 	norm := map[string]string{}
+	var restSpan Span
 	for _, fld := range st.Fields.List {
 		if len(fld.Names) == 0 {
 			p.Listable = false
@@ -212,8 +213,30 @@ func (s *anState) props(ts *ast.TypeSpec, broken bool) {
 				norm[key] = id.Name
 			}
 			p.Fields = append(p.Fields, PropField{Name: id.Name, NameSpan: sp, Type: typ, Doc: doc})
+			if !IsRestAttrsType(typ) {
+				continue
+			}
+			if p.Rest != "" {
+				if !broken {
+					s.errorf(sp, "Props has two orbit.RestAttrs fields (%s, %s); a component takes one", p.Rest, id.Name)
+				}
+				continue
+			}
+			p.Rest, restSpan = id.Name, sp
 		}
 	}
+	if p.Rest != "" && !p.Listable {
+		if !broken {
+			s.errorf(restSpan, "an orbit.RestAttrs field needs a Props without embedded fields, so Orbit can tell props from pass-through attributes")
+		}
+		p.Rest = ""
+	}
+}
+
+// IsRestAttrsType reports whether a Props field's type expression, as
+// written, is orbit.RestAttrs (PLAN.md §2.5).
+func IsRestAttrsType(typ string) bool {
+	return strings.Join(strings.Fields(typ), "") == "orbit.RestAttrs"
 }
 
 // placeImports places Go and .orbit imports by their uses, and reports

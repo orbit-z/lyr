@@ -13,7 +13,6 @@ errors_set.orbit:15:6: set:html needs a value, e.g. set:html={value}
 errors_set.orbit:18:11: attribute class isn't allowed on <Fragment>; it takes only slot, set:html and set:text
 errors_set.orbit:18:21: {...} spread isn't allowed on <Fragment>; it takes only slot, set:html and set:text
 errors_set.orbit:18:32: attribute key isn't allowed on <Fragment>; it takes only slot, set:html and set:text
-errors_set.orbit:19:7: {...} spread only works on HTML elements
 errors_set.orbit:20:7: {...} spread only works on HTML elements
 errors_set.orbit:21:4: slot needs a name, e.g. slot="footer"
 errors_set.orbit:22:4: slot takes a static name, e.g. slot="footer"

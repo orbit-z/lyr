@@ -1,0 +1,8 @@
+---
+import Input "./Input.orbit"
+
+type Props struct {
+	Attrs orbit.RestAttrs
+}
+---
+<Input label="wrapped" {...props.Attrs} />
