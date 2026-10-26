@@ -914,3 +914,20 @@ Keyword completion after `{` in template content (`internal/lsp/blocks.go`). Whe
 | The server doesn't filter keywords by the typed prefix; the editor does (its fuzzy match over the replaced range) | LSP convention (the client filters a complete list) | Filter by prefix on the server | — |
 | Offered when invoked, or triggered by `{` or `/`; an `{` directly followed by a space (`{ i`) gets no keywords | simplest (the brief's "nothing else between `{` and the cursor") | Allow leading spaces | — |
 | `<title>` and `<textarea>` content gets the keywords: control blocks are valid in RCDATA | the parser (they lex `{…}` there) | None in RCDATA | — |
+
+## Conditional attributes
+
+`orbit.If`, `orbit.Cond` and booleans on true/false attributes (`PLAN.md` §2.6). The generic `If` with its typed-pass lowering, `Cond`, and writing a `bool` as `"true"`/`"false"` only on attributes whose values are those keywords were the user's (§2.6 (Q1)–(Q3)), not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| The true/false attributes are every `aria-*` attribute plus `contenteditable`, `draggable`, `spellcheck` and `writingsuggestions`: the attributes whose keywords include `true` and `false` in the WHATWG HTML attribute index (checked 2026-10-26); `translate` (yes/no), `autocomplete`, `autocorrect` and `autocapitalize` (on/off) aren't | the spec's index (user decision (Q3) asked for the check) | Also on/off and yes/no attributes | [Template syntax](reference/template-syntax.md#attribute-values-on-html-elements) |
+| The rule depends on the attribute's name only, in any ASCII case, so `aria-pressed={x}` on a custom element writes `"true"`/`"false"` too, while its other attributes keep presence; `aria-` alone isn't one | simplest (`Attr` and `Spread` see no tag name, and the typed and untyped writes must agree) | Presence for every attribute of a custom element | [Template syntax](reference/template-syntax.md#attribute-values-on-html-elements) |
+| `Writer.AttrBool` keeps writing the bare attribute or nothing on every attribute; `Attr`, `Spread`, `SpreadRest` and the typed writes apply the rule | simplest (an explicit presence write keeps its meaning) | Apply the rule in `AttrBool` too | [Runtime API](reference/runtime-api.md#attribute-values) |
+| A bare static attribute (`<div aria-hidden>`, `<Button aria-live />`) is written as is | simplest (static attributes are copied as written) | Rewrite it to `="true"` | — |
+| `RestBool` on a true/false attribute stores the text `"true"`/`"false"`, so `Get`, the JSON of a `RestAttrs` and the spread agree; a JSON `true`/`false` decoded for such an attribute writes `="true"`/`="false"` | simplest | Keep a bool kind and check the name at each use | [Runtime API](reference/runtime-api.md#attribute-values) |
+| The lowering also applies through parentheses (`{(orbit.If(c, v))}`) and to `set:text={orbit.If(…)}`, which is content | simplest (the same value, the same bytes) | Only the bare call in `{…}` | — |
+| Constants folded into the static HTML are strings, integers (runes included) and bools; a float constant is written with its typed write under the `if` | simplest (the folded bytes are exactly the runtime's escaping and integer formatting; float formatting stays in one place) | Fold floats too | — |
+| The lowered code is a block, `{ orbit__c, orbit__v := cond, v; if orbit__c { … } }`, rather than `if c, v := cond, v; c { … }` | simplest (robust to a `//` comment at the end of an argument) | The one-line `if` with an init statement | — |
+| The first lowered site of a file keeps a reference to the callee (`_ = orbit.If[bool]`, no code), so a file whose only use of `orbit` is a lowered `If` still compiles | simplest | Drop the implicit import when unused | — |
+| The type check records identifier uses (to identify the runtime's `If` by its object) only for files where an attribute or content expression contains `If` | measured choice: no cost for other files | Always record them | — |

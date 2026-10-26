@@ -218,6 +218,10 @@ const (
 	WriteRestFloat
 	WriteRestFloat32
 	WriteRestJSON
+	// WriteAttrBoolText is a bool on a true/false attribute (aria-*,
+	// draggable, …, IsTrueFalseAttr; PLAN.md §2.6 (Q3)): pieces ` name="`
+	// and `"` around Bool, as Attr writes it.
+	WriteAttrBoolText
 )
 
 // writeMethods is the Writer method each kind calls. WriteAttrString,
@@ -226,7 +230,8 @@ const (
 var writeMethods = [...]string{"Expr", "", "String", "Int", "Uint", "Float", "Float32", "Bool",
 	"HTML", "Bytes", "Error", "Stringer", "Render", "String", "URL", "AttrBool",
 	"Int", "Uint", "Float", "Float32", "JSONAttr", "Class", "Classes",
-	"RestString", "RestStringURL", "RestURL", "RestBool", "RestInt", "RestUint", "RestFloat", "RestFloat32", "RestJSON"}
+	"RestString", "RestStringURL", "RestURL", "RestBool", "RestInt", "RestUint", "RestFloat", "RestFloat32", "RestJSON",
+	"Bool"}
 
 // attrPieces reports whether k writes its attribute as pieces: the static
 // ` name="` and `"` join the neighbouring Raw constants, and the call writes
@@ -234,7 +239,7 @@ var writeMethods = [...]string{"Expr", "", "String", "Int", "Uint", "Float", "Fl
 // AttrString or AttrURL (and to Attr for a number) and saves the name and
 // quote writes.
 func (k WriteKind) attrPieces() bool {
-	return k == WriteAttrString || k == WriteAttrURL || k >= WriteAttrInt && k <= WriteAttrJSON
+	return k == WriteAttrString || k == WriteAttrURL || k >= WriteAttrInt && k <= WriteAttrJSON || k == WriteAttrBoolText
 }
 
 // Method is the Writer method the write calls ("Expr" for a content
@@ -249,6 +254,32 @@ type TypedWrite struct {
 	// type such as "int64", "string", "bool", or "orbit__rt.Renderer".
 	// Codegen emits Method(Conv(<expr>,)) with the same line layout.
 	Conv string
+	// If is set when the site's expression is a call of the runtime's
+	// orbit.If, lowered (PLAN.md §2.6): Kind and Conv are then the write of
+	// its value argument, and may be WriteFallback (Attr or Expr of it).
+	If *IfWrite
+}
+
+// IfWrite is a lowered orbit.If(cond, v) call site. Codegen emits
+//
+//	{
+//		orbit__c, orbit__v := cond, v
+//		if orbit__c {
+//			<the write of orbit__v>
+//		}
+//	}
+//
+// which evaluates both arguments in order, as the call does, and writes the
+// same bytes as Attr or Expr of its result. With Folded, v is a constant
+// and the body is Raw(Text) (Text "" writes nothing).
+type IfWrite struct {
+	// Fun, Cond and Val are the .orbit spans of the callee (orbit.If, with
+	// its type arguments if written), the condition and the value.
+	Fun, Cond, Val Span
+	// Inst is true when Fun includes explicit type arguments.
+	Inst   bool
+	Folded bool
+	Text   string
 }
 
 // TypedWrites maps CallSite.Key to the chosen write.

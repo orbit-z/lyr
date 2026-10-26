@@ -158,6 +158,10 @@ func (g *cgGen) site(kind SiteKind, node Node, a *Attr, code GoCode) {
 	if kind == SiteAttr {
 		method = "Attr"
 	}
+	if tw, ok := g.in.Typed[code.Start]; ok && tw.If != nil {
+		g.ifSite(cs, a, tw)
+		return
+	}
 	if tw, ok := g.in.Typed[code.Start]; ok && tw.Kind != WriteFallback {
 		if tw.Kind == WriteSkip {
 			at := Span{len(o.b), len(o.b)}
@@ -204,6 +208,108 @@ func (g *cgGen) site(kind SiteKind, node Node, a *Attr, code GoCode) {
 	g.sites = append(g.sites, cs)
 	if pieces {
 		o.html(quote)
+	}
+}
+
+// ifSite emits a lowered orbit.If site (PLAN.md §2.6, IfWrite): both
+// arguments into temporaries, in order, then the typed write of the value
+// (or the folded constant) under the condition. Its call site's Call is the
+// write in the if body, and Arg the value there (empty when folded).
+func (g *cgGen) ifSite(cs CallSite, a *Attr, tw TypedWrite) {
+	o := g.o
+	iw := tw.If
+	o.flush()
+	if !g.ifRef {
+		// The lowering drops the call, which may be the file's only use
+		// of the package; keep one (an instantiation, no code).
+		g.ifRef = true
+		o.ind()
+		o.str("_ = ")
+		o.exact(iw.Fun)
+		if !iw.Inst {
+			o.str("[bool]")
+		}
+		o.str("\n")
+	}
+	o.ln("{")
+	o.depth++
+	o.ind()
+	if iw.Folded {
+		o.str("orbit__c :=\n")
+		o.exact(iw.Cond)
+		o.str("\n")
+	} else {
+		o.str("orbit__c, orbit__v :=\n")
+		o.exact(iw.Cond)
+		o.str(",\n")
+		o.exact(iw.Val)
+		o.str("\n")
+	}
+	o.ln("if orbit__c {")
+	o.depth++
+	if iw.Folded {
+		o.html(iw.Text)
+		o.flush()
+		at := Span{len(o.b), len(o.b)}
+		cs.Call, cs.Arg = at, at
+	} else {
+		g.ifWrite(&cs, a, tw)
+	}
+	o.depth--
+	o.ln("}")
+	o.depth--
+	o.ln("}")
+	g.sites = append(g.sites, cs)
+}
+
+// ifWrite emits the write of orbit__v in a lowered If: tw's typed write, or
+// Attr/Expr for a value with none.
+func (g *cgGen) ifWrite(cs *CallSite, a *Attr, tw TypedWrite) {
+	o := g.o
+	method := "Expr"
+	if cs.Kind == SiteAttr {
+		method = "Attr"
+	}
+	pieces := false
+	switch tw.Kind {
+	case WriteFallback:
+	case WriteSkip:
+		at := Span{len(o.b), len(o.b)}
+		cs.Call, cs.Arg = at, at
+		return
+	default:
+		method, pieces = tw.Kind.Method(), tw.Kind.attrPieces()
+	}
+	quote := `"`
+	if method == "JSONAttr" {
+		quote = `'`
+	}
+	if pieces {
+		o.html(" " + a.Name + "=" + quote)
+		o.flush()
+	}
+	o.ind()
+	start := len(o.b)
+	o.str(NameW + "." + method + "(")
+	if method == "JSONAttr" {
+		o.str(strconv.Quote(g.position(attrValuePos(a))) + ", ")
+	}
+	if cs.Kind == SiteAttr && !pieces {
+		o.str(strconv.Quote(a.Name) + ", ")
+	}
+	arg := "orbit__v"
+	if tw.Conv != "" {
+		arg = tw.Conv + "(" + arg + ")"
+	}
+	argStart := len(o.b)
+	o.str(arg)
+	cs.Arg = Span{argStart, len(o.b)}
+	o.str(")")
+	cs.Call = Span{start, len(o.b)}
+	o.str("\n")
+	if pieces {
+		o.html(quote)
+		o.flush()
 	}
 }
 

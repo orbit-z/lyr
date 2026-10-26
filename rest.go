@@ -98,8 +98,12 @@ func RestURL(pre, name string, u URL) RestAttr {
 }
 
 // RestBool is a dynamic boolean attribute: bare when true, omitted when
-// false.
+// false, or name="true"/name="false" on an attribute whose values are those
+// keywords (aria-*, draggable, …), as Attr writes it.
 func RestBool(pre, name string, b bool) RestAttr {
+	if isTrueFalseAttr(name) {
+		return RestAttr{pre: pre, name: name, kind: restString, s: strconv.FormatBool(b)}
+	}
 	a := RestAttr{pre: pre, name: name, kind: restBool}
 	if b {
 		a.n = 1
@@ -356,6 +360,9 @@ func anyValue(name string, v any) (string, bool) {
 	case nil:
 		return "", false
 	case bool:
+		if isTrueFalseAttr(name) {
+			return strconv.FormatBool(v), true
+		}
 		return "", v
 	case JSONValue:
 		b, err := json.Marshal(v.v)
@@ -654,7 +661,7 @@ func (a RestAttrs) MarshalJSON() ([]byte, error) {
 				continue
 			}
 			seen[strings.ToLower(name)] = true
-			add(name, v, isBare(p.m[name]))
+			add(name, v, isBare(name, p.m[name]))
 		}
 	}
 	b.WriteByte('}')
@@ -667,14 +674,18 @@ func (d *RestAttr) bare() bool {
 	case restBool:
 		return true
 	case restAny:
-		return isBare(d.v)
+		return isBare(d.name, d.v)
 	}
 	return false
 }
 
 // isBare reports whether Attr writes v as a bare attribute: a true bool,
-// or a named bool that is true.
-func isBare(v any) bool {
+// or a named bool that is true, on an attribute that isn't a true/false
+// one.
+func isBare(name string, v any) bool {
+	if isTrueFalseAttr(name) {
+		return false
+	}
 	if b, ok := v.(bool); ok {
 		return b
 	}
@@ -684,7 +695,8 @@ func isBare(v any) bool {
 
 // UnmarshalJSON decodes the object MarshalJSON writes: each string value
 // becomes a static attribute (escaped), true a bare one; false and null
-// are dropped. Names are checked as Spread checks them, and URL attributes
+// are dropped. On a true/false attribute (aria-*, draggable, …), a bool is
+// written name="true" or name="false", as Attr writes it. Names are checked as Spread checks them, and URL attributes
 // are scheme-filtered.
 func (a *RestAttrs) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
@@ -729,7 +741,14 @@ func (a *RestAttrs) UnmarshalJSON(data []byte) error {
 			escapeString(&tail, v)
 			tail.WriteByte('"')
 		case bool:
-			if v {
+			switch {
+			case isTrueFalseAttr(name):
+				tail.WriteByte(' ')
+				tail.WriteString(name)
+				tail.WriteString(`="`)
+				tail.WriteString(strconv.FormatBool(v))
+				tail.WriteByte('"')
+			case v:
 				tail.WriteByte(' ')
 				tail.WriteString(name)
 			}

@@ -544,6 +544,9 @@ func (s *tyState) checkUnit(u *tyUnit, generate func(*Input) *Output) TypedUnit 
 	}
 	s.stats.impl.Add(1)
 	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}}
+	if mayCallIf(u.unit.Pass1.CallSites) {
+		info.Uses = map[*ast.Ident]types.Object{} // to identify orbit.If (PLAN.md §2.6)
+	}
 	var n int
 	conf := types.Config{Importer: si, Error: func(error) { n++ }}
 	conf.Check(u.implPath, s.fset, []*ast.File{u.implFile}, info)
@@ -587,9 +590,15 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 			return true
 		}
 		var w TypedWrite
+		if site.Kind == SiteAttr || site.Kind == SiteContent {
+			if w, ok := env.lowerIf(tf, call.Args[len(call.Args)-1], site, info); ok {
+				writes[site.Key] = w
+				return true
+			}
+		}
 		switch site.Kind {
 		case SiteAttr:
-			w = env.classifyAttr(tv, site.URLAttr)
+			w = env.classifyAttr(tv, site.URLAttr, IsTrueFalseAttr(site.AttrName))
 		case SiteClass, SiteClassProp:
 			var ok bool
 			if w, ok = classifyClass(tv); !ok {

@@ -373,13 +373,32 @@ An expression value may contain `>`, quotes and braces; the scanner finds the cl
 |---|---|
 | `true` | The bare attribute: `<input disabled>` |
 | `false`, `nil` | Nothing: the attribute is omitted. |
+| `true`/`false` on a true/false attribute | `="true"` or `="false"`: `<button aria-pressed="false">`. These are the attributes whose values are the keywords `true` and `false`: every `aria-*` attribute (any case), and `contenteditable`, `draggable`, `spellcheck` and `writingsuggestions`. |
 | a string | The escaped value in quotes. |
 | `orbit.URL` | The escaped value in quotes, without URL filtering. |
 | `orbit.HTML` | Escaped like any string; attribute values are never raw. |
 | `orbit.JSON(v)` (an `orbit.JSONValue`) | `v` encoded as JSON, always written (`false` and `null` too), single-quoted: `data-post='{"id":42}'`. See [JSON attributes](#json-attributes). |
 | any other value | Formatted exactly as in [How values render](#how-values-render), then escaped and quoted. A slice concatenates its elements with no separator, so build lists such as class names with [`class:list`](#classlist) or `strings.Join(classes, " ")`. |
 
-Because `false` omits the attribute, ARIA attributes that need the literal text `"false"` take a string: `aria-expanded={strconv.FormatBool(open)}`.
+On every other attribute, a `bool` is a presence flag: HTML boolean attributes (`disabled`, `hidden`, `open`, …), `data-*` attributes (`data-featured={props.Featured}` renders a bare `data-featured`, or nothing), and every attribute of a custom element (`<my-el open={x}>`). The choice depends only on the attribute's name, so `aria-pressed={x}` on a custom element writes `"true"`/`"false"` too. In a component's `Props`, a `bool` is just a field; the rule applies where it ends up on an element, pass-through attributes included.
+
+#### Conditional values: `orbit.If` and `orbit.Cond`
+
+Go has no ternary. Two small runtime helpers stand in for Astro's `cond ? v : undefined` and `c ? a : b`:
+
+```orbit
+<a href={item.Href} aria-current={orbit.If(item.Section == props.Current, "page")}>{item.Label}</a>
+<button title={orbit.Cond(props.Saved, "Remove from library", "Add to library")}>
+  {orbit.Cond(props.Saved, "Saved", "Save")}
+</button>
+```
+
+- `orbit.If(cond, v)` is `v` when `cond` is true, and `nil` otherwise. As an attribute value, `nil` omits the attribute; in content, it writes nothing. `orbit.If(c, nil)` doesn't compile: write nothing instead.
+- `orbit.Cond(cond, a, b)` is `a` or `b`, with their type, so it's written like any value of that type.
+- For text, `{if}…{else}…{/if}` works too, and writes static text; `orbit.Cond` is shorter for a word.
+- Astro's `x ?? "fallback"` is the standard library's `cmp.Or(x, "fallback")`: the first argument that isn't the zero value (`""`, `0`, `nil`).
+- **Both arguments are always evaluated**, as for any Go call: `orbit.If(viewer != nil, viewer.Email)` panics when `viewer` is nil, unlike Astro's `viewer ? viewer.email : undefined`. Guard it in the frontmatter (`email := ""` then `if viewer != nil { email = viewer.Email }`), or use `{if viewer != nil}…{/if}`.
+- They're plain Go functions, so they work in the frontmatter, in `orbit.Attrs` values and in Go code. When `orbit.If(…)` is the whole value of an HTML element attribute or of a `{…}` in content, `orbit build` and `orbit dev` compile it to an `if` with no boxing and no allocation (see [Performance](../performance.md#conditional-values)); elsewhere it's an ordinary call. Either way the output is the same. As a component prop, `orbit.If` gives an `any`, so the prop must have type `any`; for a `string` prop use `orbit.Cond` or a variable.
 
 #### JSON attributes
 

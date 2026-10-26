@@ -116,6 +116,12 @@ type Attrs map[string]any
 ```
 Attributes to spread onto an HTML element with `{...attrs}`. Each value follows the [attribute rules](#attribute-values); each name must be a valid attribute name.
 
+```go
+func If[T any](cond bool, v T) any
+func Cond[T any](cond bool, a, b T) T
+```
+Conditional values, for Astro's `cond ? v : undefined` and `c ? a : b` ([Conditional values](template-syntax.md#conditional-values-orbitif-and-orbitcond)). `If` returns `v` when `cond` is true and `nil` otherwise, so as an attribute value it omits the attribute when `cond` is false, and in content it writes nothing. `Cond` returns `a` or `b`. Both arguments are evaluated, as for any call. `If` is generic so that a false condition boxes nothing. When an `If` call is the whole value of an HTML element attribute or of a content `{…}`, generated code writes it as an `if` around the typed write of `v`, with the same output ([Performance](../performance.md#conditional-values)).
+
 ### RestAttrs
 
 ```go
@@ -296,7 +302,7 @@ func (w *Writer) Attr(name string, v any)       // generic path
 func (w *Writer) AttrString(name, s string)
 func (w *Writer) AttrURL(name, s string)        // for URL attributes: scheme-filtered
 func (w *Writer) URL(s string)                  // only the value AttrURL writes between the quotes
-func (w *Writer) AttrBool(name string, b bool)
+func (w *Writer) AttrBool(name string, b bool)  // bare or nothing, on any attribute
 func (w *Writer) Spread(a Attrs)                // {...attrs}
 func (w *Writer) SpreadRest(a *RestAttrs, withClass bool) // {...props.Attrs}
 func (w *Writer) RestClass(a *RestAttrs)        // the pass-through class, inside the element's class value
@@ -306,6 +312,7 @@ func (w *Writer) JSONAttr(pos string, v JSONValue) // only the value, for name={
 #### Attribute values
 
 - `true` writes the bare attribute (`disabled`); `false` and `nil` omit it.
+- **A `bool` on a true/false attribute** writes `name="true"` or `name="false"`: every `aria-*` attribute (any case), `contenteditable`, `draggable`, `spellcheck` and `writingsuggestions`, the HTML attributes whose values are the keywords `true` and `false`. It applies to `Attr`, `Spread`, `SpreadRest` (and `RestBool`, `RestOf`, a `RestAttrs`'s JSON) and the typed writes; only the name counts, so it's the same on a custom element. `AttrBool` itself always writes the bare attribute or nothing.
 - Anything else is attribute-escaped and quoted.
 - **URL attributes** (`action`, `background`, `cite`, `codebase`, `data`, `formaction`, `href`, `icon`, `longdesc`, `manifest`, `poster`, `profile`, `src`, `usemap`, `xmlns` and `xlink:href`: the list Go's `html/template` uses, plus `xlink:href`): a value whose scheme is `javascript:` or `vbscript:` (ignoring case, and after trimming whitespace and control characters) is replaced with `about:invalid#orbit`, unless it has type `orbit.URL`. This applies to `Attr`, `AttrURL`, `URL` and `Spread`.
 - **`URL`** writes just the value: generated code writes `href={url}` (a `string`) as the static ` href="`, `w.URL(url)` and the closing `"`, the same bytes as `AttrURL("href", url)`. An `orbit.URL` value is written with `String` instead, unfiltered.

@@ -165,3 +165,30 @@ func TestIsURLAttrMatchesRuntime(t *testing.T) {
 		}
 	}
 }
+
+// TestIsTrueFalseAttrMatchesRuntime checks IsTrueFalseAttr against Attr's
+// bool rule, so the typed Bool pieces mirror it (PLAN.md §2.6 (Q3)).
+func TestIsTrueFalseAttrMatchesRuntime(t *testing.T) {
+	names := append(trueFalseAttrs[:], "aria-pressed", "ARIA-HIDDEN", "aria-x", "aria", "aria-", "Draggable",
+		"hidden", "data-x", "translate", "autocomplete", "autocorrect", "popover", "download", "open")
+	for _, name := range names {
+		var buf bytes.Buffer
+		orbit.NewWriter(&buf).Attr(name, false)
+		tf := buf.String() != ""
+		if IsTrueFalseAttr(name) != tf {
+			t.Errorf("IsTrueFalseAttr(%q) = %v, runtime writes %q", name, IsTrueFalseAttr(name), buf.String())
+		}
+	}
+}
+
+// TestIsUnsafeURLMatchesRuntime checks the build-time URL filter (folded
+// orbit.If constants) against Attr's.
+func TestIsUnsafeURLMatchesRuntime(t *testing.T) {
+	for _, u := range []string{"javascript:x", " JavaScript:x", "java\tscript:x", "\x01vbscript:x", "VBSCRIPT:", "/ok", "javascript", "https://x", "data:x", "jav\nascript:"} {
+		var buf bytes.Buffer
+		orbit.NewWriter(&buf).Attr("href", u)
+		if got := strings.Contains(buf.String(), invalidURL); got != isUnsafeURL(u) {
+			t.Errorf("isUnsafeURL(%q) = %v, runtime filters: %v", u, isUnsafeURL(u), got)
+		}
+	}
+}
