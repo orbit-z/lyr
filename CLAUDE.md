@@ -124,7 +124,7 @@ When independent tasks can run in parallel, launch them in **one message**. If p
     - Users may shadow `ctx` and friends; internals are named `orbit__*`.
     - A frontmatter `func init` is rejected.
     - Relative line directives; own-line `//line` around hoisted declarations.
-  - **Typed writes**: on in dev too (hot, incremental). Engine: go/types + `go list -export` (no go/packages, no type cache). float32 prints as `0.1`. Dev builds use `-ldflags=-w`.
+  - **Typed writes**: on in dev too (hot, incremental). Engine: go/types + `go list -export` (no go/packages, no type cache). float32 prints as `0.1`. Dev builds use `-ldflags=-w` (being changed to `-s -w` plus `-buildvcs=false` and `-gcflags=all=-dwarf=false`, user decision after the `go build` investigation; see PLAN §12 "Dev-loop speed work").
   - **LSP**:
     - UTF-16 positions to the editor.
     - In-memory start plus a readiness barrier. The "orbit generate" nudge was removed at the M12 checkpoint (user decision: startup is ~50 ms slower without `orbit_gen/`).
