@@ -1,0 +1,12 @@
+---
+import "time"
+
+type Props struct {
+	Name string
+}
+
+// A slow data fetch.
+time.Sleep(30 * time.Millisecond)
+ctx.Header().Set("X-"+props.Name, "1")
+---
+<section>{props.Name} {ctx.URL.Path}<slot /></section>
