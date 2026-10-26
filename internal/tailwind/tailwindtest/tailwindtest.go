@@ -86,26 +86,42 @@ func Real(t *testing.T) string {
 	if testing.Short() {
 		t.Skip("skipping the Tailwind CSS integration test in -short mode")
 	}
+	p, ok := Lookup()
+	if !ok {
+		t.Skip(Notice)
+	}
+	OnPath(t, p)
+	return p
+}
+
+// Notice is the skip message without a CLI.
+var Notice = "NOTICE: the Tailwind CSS CLI v" + tailwind.Pinned + " was not found; skipping the Tailwind integration test (set ORBIT_TEST_TAILWIND to a tailwindcss binary, or put one on PATH)"
+
+// Lookup returns the absolute path of the real v4 CLI: ORBIT_TEST_TAILWIND,
+// or tailwindcss on PATH.
+func Lookup() (string, bool) {
 	p := os.Getenv("ORBIT_TEST_TAILWIND")
 	if p == "" {
 		var err error
 		if p, err = exec.LookPath("tailwindcss"); err != nil {
-			t.Skipf("NOTICE: the Tailwind CSS CLI v%s was not found; skipping the Tailwind integration test (set ORBIT_TEST_TAILWIND to a tailwindcss binary)", tailwind.Pinned)
+			return "", false
 		}
 	}
 	out, _ := exec.Command(p, "--help").CombinedOutput()
 	if v, ok := tailwind.ParseVersion(string(out)); !ok || v.Major != 4 {
-		t.Skipf("NOTICE: %s isn't the Tailwind CSS CLI v4; skipping the Tailwind integration test", p)
+		return "", false
 	}
 	abs, err := filepath.Abs(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// A directory with only tailwindcss in it, first on PATH.
+	return abs, err == nil
+}
+
+// OnPath puts the CLI at p first on PATH, as "tailwindcss" in a directory
+// of its own, for the rest of the test.
+func OnPath(t *testing.T, p string) {
+	t.Helper()
 	dir := t.TempDir()
-	if err := os.Symlink(abs, filepath.Join(dir, "tailwindcss")); err != nil {
+	if err := os.Symlink(p, filepath.Join(dir, "tailwindcss")); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	return abs
 }

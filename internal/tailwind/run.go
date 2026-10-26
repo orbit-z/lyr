@@ -251,8 +251,17 @@ func (p *Processor) run(ctx context.Context, e *entry) {
 	cli, err := p.CLI(ctx)
 	if err != nil {
 		file, line, col := e.in.Position(e.in.Marker)
+		why := "which wasn't found"
+		var nf *NotFound
+		if errors.As(err, &nf) {
+			if d := nf.details(); d != "" {
+				why += " (" + d + ")"
+			}
+		} else {
+			why = err.Error()
+		}
 		e.err = &Error{File: file, Line: line, Col: col,
-			Msg: fmt.Sprintf("%s needs the Tailwind CSS CLI (v4): %v; install it: %s; see orbit doctor", e.in.MarkerName, err, Install(runtime.GOOS, runtime.GOARCH))}
+			Msg: fmt.Sprintf("%s needs the Tailwind CSS CLI v4, %s; install it: %s; see orbit doctor", e.in.MarkerName, why, Install(runtime.GOOS, runtime.GOARCH))}
 		return
 	}
 	p.sem <- struct{}{}

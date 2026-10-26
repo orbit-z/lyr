@@ -109,6 +109,30 @@ The first line makes Neovim detect `.orbit` files; the rest starts `orbit lsp` f
 
 Orbit doesn't ship syntax highlighting for Neovim: its grammar is a TextMate grammar, which only VS Code uses. Completion, diagnostics and the other language-server features work without it.
 
+## Tailwind CSS
+
+In a project that uses [Tailwind](tailwind.md), Tailwind's own language server completes, previews and lints classes in `.orbit` files, next to Orbit's. The two don't overlap: Orbit offers nothing inside `class` attribute values, Tailwind's server offers nothing in Go code, and when both answer a hover the editor shows both.
+
+**VS Code.** Install [Tailwind CSS IntelliSense](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss). Orbit's extension sets `"tailwindCSS.includeLanguages": { "orbit": "html" }` by default (it does nothing without Tailwind's extension), so `.orbit` files work with no setup. Its default `tailwindCSS.classAttributes` covers `class`. If you set `tailwindCSS.includeLanguages` yourself, your object replaces Orbit's default: include `"orbit": "html"` in it. Tailwind finds your v4 stylesheet by itself. For `.css` files, Tailwind recommends its CSS mode, so VS Code's CSS validator stops flagging `@theme` and `@apply`:
+
+```json file=~/.config/Code/User/settings.json
+{
+  "files.associations": { "*.css": "tailwindcss" }
+}
+```
+
+**Neovim.** Enable the `tailwindcss` language server (from `@tailwindcss/language-server`) for `orbit` files too:
+
+```lua file=~/.config/nvim/lua/tailwind.lua
+vim.lsp.config('tailwindcss', {
+  filetypes = { 'orbit', 'html', 'css' },
+  settings = { tailwindCSS = { includeLanguages = { orbit = 'html' } } },
+})
+vim.lsp.enable('tailwindcss')
+```
+
+`orbit fmt` leaves class order alone; Tailwind's Prettier plugin sorts classes if you want that.
+
 ## How gopls is found
 
 `orbit lsp` starts a gopls process for your project. It looks for one in this order:

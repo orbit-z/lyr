@@ -286,6 +286,21 @@ The speed-ups, all dev only (`orbit build` is unchanged):
 
 Most of a template edit is `go build`, and most of that is the link, about 105 ms (130 ms before), a fixed cost for any Go binary of this size. Template, frontmatter and `Props` edits skip esbuild, and a `.go` edit starts `go build` at once, while Orbit regenerates. The slow rows are a Go package that every component imports: `go build` then recompiles all the generated packages, even when only a function body changed, because Go recompiles a package's importers whenever it changes. Keep frequently edited Go code out of packages that every `Props` imports.
 
+#### Tailwind CSS
+
+The same benchmark with `-tailwind` (PLAN.md §5d): the project gets a `global.css` with `@import "tailwindcss"` in its layout and 12 utilities in every `.orbit` file, and `orbit dev` runs the Tailwind CSS 4.3.3 standalone CLI. A Tailwind run takes 0.07–0.1 s here; for a template, frontmatter or `.go` edit that brings a new word it starts with the batch, in parallel with regenerating and `go build`, and esbuild runs after it only when the CSS changed. Every edit below brings a new word, so Tailwind runs on each one. Median of 7 runs, the two configurations run back to back; the machine was shared with other builds (load average 13–21 during these runs), so treat the differences of a few ms as noise.
+
+| Edit | 16 threads, without → with Tailwind | 4 cores, without → with Tailwind |
+|---|---:|---:|
+| Template text | 183 → 188 ms | 183 → 205 ms |
+| Frontmatter statement | 173 → 180 ms | 178 → 200 ms |
+| A Go package every `Props` imports, function body only | 594 → 642 ms | 1.10 → 1.04 s |
+| Only a `<style>` or `<script>` (no Go rebuild) | 18 → 90 ms | 23–27 → 91–92 ms |
+
+On template and frontmatter edits Tailwind is hidden behind `go build`; what remains (5–20 ms) is CPU contention, worse on 4 cores. A style or script edit has no Go rebuild to hide behind, so it waits for the run, then esbuild. A project without Tailwind runs none of this: no lookup, no process, no word set (measured the same as before, 173 and 17 ms).
+
+`orbit build` on the same project, everything else cached: 0.30 s without Tailwind, 0.40 s with it (5 runs each, three rounds, load average 8.5). A project without Tailwind builds in the same time as before (0.30–0.31 s).
+
 ### Editor (`orbit lsp`)
 
 `bench/lsp` starts `orbit lsp` on the same 200-file project as the dev-loop benchmark and drives it as an editor would, with gopls v0.24.0 and a warm Go build cache. It runs in two modes: without `orbit_gen/` on disk, where every generated file reaches gopls in memory, and after `orbit generate`. Startup times are the median of 3 starts, measured from process start. Request times are the median of 20 runs after the readiness barrier, and a completion includes the edit before it. Measured on a quiet machine (load average 1.5 at the start, 1.4 at the end). The last column is from the milestone 0 spike, which drove gopls directly with hand-written generated code, at a smaller size.

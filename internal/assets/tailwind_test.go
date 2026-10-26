@@ -243,7 +243,7 @@ func TestTailwindNotFound(t *testing.T) {
 	}
 	d := res.Diagnostics[0]
 	if d.File != "src/styles/global.css" || d.Line != 2 || d.Col != 1 ||
-		!strings.HasPrefix(d.Message, `@import "tailwindcss" needs the Tailwind CSS CLI (v4)`) || !strings.Contains(d.Message, "bun add -d @tailwindcss/cli@"+tailwind.Pinned) {
+		!strings.HasPrefix(d.Message, `@import "tailwindcss" needs the Tailwind CSS CLI v4, which wasn't found; install it: `) || !strings.Contains(d.Message, "bun add -d @tailwindcss/cli@"+tailwind.Pinned) {
 		t.Errorf("diagnostic: %+v", d)
 	}
 }

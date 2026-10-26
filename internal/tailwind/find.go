@@ -95,15 +95,19 @@ type NotFound struct {
 }
 
 func (e *NotFound) Error() string {
-	var b strings.Builder
-	b.WriteString("the Tailwind CSS CLI (v4) was not found")
+	if d := e.details(); d != "" {
+		return "the Tailwind CSS CLI (v4) was not found; " + d
+	}
+	return "the Tailwind CSS CLI (v4) was not found"
+}
+
+// details are the versions and problems seen, "; "-separated.
+func (e *NotFound) details() string {
+	var s []string
 	for _, o := range e.Old {
-		b.WriteString("; " + o + ", and Orbit needs v4")
+		s = append(s, o+", and Orbit needs v4")
 	}
-	for _, p := range e.Problems {
-		b.WriteString("; " + p)
-	}
-	return b.String()
+	return strings.Join(append(s, e.Problems...), "; ")
 }
 
 // Find looks for the CLI in order (PLAN.md §5d): the project's

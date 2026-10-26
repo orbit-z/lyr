@@ -134,6 +134,8 @@ Orbit watches `src/`, `public/`, `orbit.json`, `go.mod`, `tsconfig.json`, every 
 
 Adding or removing a component's scoped `<style>` or a processed `<script>`, or toggling `is:global`, counts as "anything else": it changes the HTML (scope attributes, bundle entries), not just the CSS or JS.
 
+With [Tailwind](tailwind.md), a change can also need new CSS. Orbit keeps the set of words in the files Tailwind scans, and when a template, frontmatter, `.go`, Markdown or [`watch`](configuration.md#watch) file brings a word it hasn't seen (a new class always does), it reruns your Tailwind stylesheets at once, in parallel with the Go rebuild, and rebuilds the CSS bundles after them if Tailwind's output changed. The page reloads when both are done. A `.css`, `tsconfig.json` or `package.json` change reruns every Tailwind input, and an edited `<style>` that uses Tailwind reruns that block, both as part of the CSS rebuild. Edits that only remove, move or repeat words don't run Tailwind, so a class you stop using stays in the dev stylesheet until `orbit dev` restarts; `orbit build` always starts from scratch. See [Using Tailwind](tailwind.md#in-orbit-dev).
+
 For a Go rebuild, Orbit:
 
 1. regenerates only the `.orbit` files affected by the change, and type-checks only those (the type checker stays loaded between rebuilds);
@@ -162,6 +164,8 @@ These numbers come from Orbit's dev-loop benchmark (`bench/devloop`) on a genera
 | a component's frontmatter or template | about 0.17 s | about 0.17 s |
 | a `.go` file that every component's `Props` depends on, such as `internal/posts` (even a function body) | about 0.6 s | about 1 s |
 | only `<style>` or `<script>` contents (no Go rebuild) | about 25 ms | about 25 ms |
+| with [Tailwind](tailwind.md): a template edit that adds a class | about 0.19 s | about 0.2 s |
+| with Tailwind: only `<style>` or `<script>` contents | about 90 ms | about 90 ms |
 
 The goal is for a save to show up in the browser in about a second.
 

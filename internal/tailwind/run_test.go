@@ -224,7 +224,7 @@ func TestProcessor(t *testing.T) {
 	n := NewProcessorWith(dir, func(context.Context) (CLI, error) { return CLI{}, &NotFound{} })
 	in := Input{Inlined: Inline(Source{Text: "/* x */\n@import \"tailwindcss\";", Dir: dir, File: dir + "/g.css"}, InlineOptions{}), Dir: dir, Root: true, Marker: 8, MarkerName: `@import "tailwindcss"`}
 	_, err = n.Process(t.Context(), in)
-	if !errors.As(err, &te) || te.Line != 2 || te.Col != 1 || !strings.HasPrefix(te.Msg, `@import "tailwindcss" needs the Tailwind CSS CLI (v4): the Tailwind CSS CLI (v4) was not found; install it: `) {
+	if !errors.As(err, &te) || te.Line != 2 || te.Col != 1 || !strings.HasPrefix(te.Msg, `@import "tailwindcss" needs the Tailwind CSS CLI v4, which wasn't found; install it: `) {
 		t.Errorf("not found: %v", err)
 	}
 }

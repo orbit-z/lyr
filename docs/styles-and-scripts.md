@@ -630,14 +630,23 @@ In `orbit dev`, every CSS and JS bundle has a linked source map, so the browser'
 
 Production builds have no source maps unless you set [`"sourcemap": true`](configuration.md#sourcemap) in `orbit.json`; the maps are then written next to the bundles but not linked from them. In a scoped style, the inserted `[data-o-…]` shifts the columns after it on the same line, so a CSS position can be a few columns off; lines are always right.
 
+## Tailwind CSS
+
+Orbit supports Tailwind CSS v4 through Tailwind's CLI, with no integration and no `orbit.json` key: a stylesheet that imports `tailwindcss` (or uses `@apply`, `@reference`, `@theme`, `@utility` and Tailwind's other at-rules) goes through Tailwind before esbuild bundles it, and the result is part of the page's stylesheet like any other CSS. Include your Tailwind stylesheet from the layout with `<style is:global> @import "../styles/global.css"; </style>`.
+
+In a component's scoped `<style>`, `@reference "../styles/global.css";` plus `@apply` works as in Astro: the block is scoped first, then Tailwind applies the utilities to the scoped selectors (`.title[data-o-…]:hover`). Utilities themselves are never scoped, and since Tailwind puts them in `@layer utilities`, a component's own rule wins over a utility on the same property. CSS files your Tailwind stylesheet imports, such as a Fontsource font, are inlined with their `url()`s rewritten, so fonts end up hashed under `/_orbit/`. See [Using Tailwind](tailwind.md).
+
 ## Styles and scripts in `orbit dev`
 
 Editing only the contents of a `<style>` or `<script>` (or a `.ts` file they import) rebuilds just the CSS and JS, with no Go rebuild, then reloads the page.
 
 Adding or removing a component's scoped `<style>` or a processed `<script>`, or toggling `is:global`, also changes the HTML (scope attributes, bundle entries), so Orbit rebuilds the Go code too. See [Dev server](dev-server.md#what-a-change-rebuilds).
 
+With Tailwind, a template edit that adds a class reruns Tailwind in parallel with the Go rebuild, then rebuilds the CSS; a style or script edit waits for its Tailwind run (about 90 ms instead of 20 ms on a 200-file project). See [Using Tailwind](tailwind.md#in-orbit-dev).
+
 ## See also
 
+- [Using Tailwind](tailwind.md): Tailwind CSS v4, `@apply` in components, fonts
 - [Lazy loading](lazy-loading.md): `client:*` strategies and `server:defer` islands
 - [Components](components.md): templates, slots, and the warnings for `style={…}` and `on*={…}`
 - [Dev server](dev-server.md): how style and script edits reload

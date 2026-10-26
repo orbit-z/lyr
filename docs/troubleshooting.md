@@ -775,6 +775,41 @@ bookmarklet := orbit.URL("javascript:void(document.body.classList.toggle('dark')
 
 See [URL attributes](components.md#url-attributes).
 
+## Tailwind CSS
+
+### The Tailwind CSS CLI isn't found
+
+```
+src/styles/global.css:1:1: @import "tailwindcss" needs the Tailwind CSS CLI v4, which wasn't found; install it: curl -sLo ~/.local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-linux-x64 && chmod +x ~/.local/bin/tailwindcss, or brew install tailwindcss, or bun add -d @tailwindcss/cli@4.3.3; see orbit doctor
+```
+
+**Cause:** a stylesheet or `<style>` uses Tailwind, and Orbit found no Tailwind v4 CLI: not in `node_modules/.bin`, not on your `PATH`, and no Bun for `bun x`. When it found a v3 CLI, the message says so (`(/usr/local/bin/tailwindcss is Tailwind CSS 3.4.17, and Orbit needs v4)`): Tailwind v3 isn't supported.
+
+**Fix:** install the v4 CLI with one of the commands in the message, then run `orbit doctor`, which shows the CLI Orbit uses. In Docker or CI, add it to the build stage (see [Deploy: With Tailwind](deploy.md#with-tailwind)). See [Install the Tailwind CLI](tailwind.md#install-the-tailwind-cli).
+
+### ``Cannot apply unknown utility class `font-boldest` ``
+
+**Cause:** an `@apply` names a class Tailwind doesn't know: a typo, a class from your `@theme` or `@utility` in a component's `<style>` that doesn't `@reference` the stylesheet that defines it, or a plugin's class without its `@plugin`. The error points at the `@apply`.
+
+**Fix:** fix the class name, or add `@reference "../styles/global.css";` at the top of the component's `<style>`. See [`@apply` in component styles](tailwind.md#apply-in-component-styles).
+
+### A Tailwind class has no effect
+
+**Cause:** usually one of these:
+
+- **The class is built at runtime** (`fmt.Sprintf("w-%d", n)`, `"bg-" + color`): Tailwind only finds complete class names in your files. Spell each class out, in a map or a `switch`.
+- **The file isn't scanned**: Tailwind skips what `.gitignore` ignores, and everything outside the project. Add the directory with `@source "../path";` in the stylesheet (and, for `orbit dev`, to [`watch`](configuration.md#watch) when it's outside the module).
+- **A component style wins**: utilities are in `@layer utilities`, and an unlayered rule beats them on the same property, whatever the specificity. Remove the property from the component's `<style>`, or put that rule in a layer.
+- **In `orbit dev`, a class you removed still applies**: the dev stylesheet only grows between full runs, like Tailwind's own watch mode. Restart `orbit dev`; `orbit build` is always exact.
+
+See [Use utilities in templates](tailwind.md#use-utilities-in-templates).
+
+### A font or image from the Tailwind stylesheet's imports doesn't load
+
+**Cause:** Orbit inlines the CSS files a Tailwind stylesheet imports and rewrites their relative `url()`s, so `url(./files/x.woff2)` in a package's CSS ends up as a hashed `/_orbit/` file. What it leaves alone: root-relative URLs such as `/fonts/x.woff2`, which are served from `public/` and must exist there, absolute URLs, and imports it can't resolve, which Tailwind then reports (`Can't resolve './fonts.css' in '…'`).
+
+**Fix:** install the package (`bun add @fontsource-variable/figtree`), check the import's path, or put root-relative files in `public/`. See [Fonts and other CSS your stylesheet imports](tailwind.md#fonts-and-other-css-your-stylesheet-imports).
+
 ## Dev server
 
 ### The browser doesn't reload after a save
