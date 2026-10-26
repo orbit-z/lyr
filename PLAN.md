@@ -1573,7 +1573,7 @@ On a compile error, the old app keeps running and the proxy serves an overlay pa
 ```json
 { "site": "https://example.com", "server": "./cmd/server", "embed": false, "compressHTML": "html", "sourcemap": false, "watch": [] }
 ```
-- `compressHTML` (user decision; like Astro's option): `"html"` (default; HTML-aware lossless whitespace collapsing, Astro's `true`; `true` is accepted and means `"html"`, user decision), `"jsx"` (Astro v7's default JSX whitespace rules; `{" "}` forces a space) or `false` (verbatim). Applied at codegen time, so it costs nothing at runtime. `<pre>`, `<textarea>`, `<script>`, `<style>`, HTML comments and `{expr}` output are never altered. Rules in `internal/compiler/DESIGN.md`.
+- `compressHTML` (user decision; like Astro's option): `"jsx"` (**default**, user decision 2026-10-26 reversing the earlier `"html"` default, so Astro v7 sites port with the same whitespace; Astro v7's default JSX whitespace rules; `{" "}` forces a space; being implemented), `"html"` (HTML-aware lossless whitespace collapsing, Astro's `true`; `true` is accepted and means `"html"`, user decision) or `false` (verbatim). Applied at codegen time, so it costs nothing at runtime. `<pre>`, `<textarea>`, `<script>`, `<style>`, HTML comments and `{expr}` output are never altered. Rules in `internal/compiler/DESIGN.md`.
 - `site`: the absolute site URL, exposed as `ctx.Site`. Unset gives a nil `ctx.Site` (like `Astro.site` being `undefined`); a value that isn't absolute (no scheme or host) is an error when `orbit.json` is loaded.
 - `server`: the server entry package; default `./cmd/server` if it exists, else the generated one (§5b).
 - `embed`: like `orbit build --embed`; the flag turns embedding on even when this is `false`.

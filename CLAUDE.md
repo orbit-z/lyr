@@ -111,7 +111,7 @@ When independent tasks can run in parallel, launch them in **one message**. If p
   - Codegen generates `type Params struct{…}` per page from its route, and pages get `params` (e.g. `params.Slug`).
   - Components use `ctx.Param("slug")`. There's no `ctx.Params` map.
   - Router matches allocate nothing.
-- **Whitespace**: `orbit.json` `compressHTML`: `"html"` (default, HTML-aware lossless; `true` is accepted as Astro's spelling of it), `"jsx"` (Astro v7 rules) or `false`. Applied at codegen time.
+- **Whitespace**: `orbit.json` `compressHTML`: `"jsx"` (**default since 2026-10-26**, user decision reversing the earlier `"html"` default: Astro v7's default, so ported Astro sites render the same; `{" "}` keeps a space across lines), `"html"` (HTML-aware lossless; `true` is accepted as Astro's spelling of it) or `false`. Applied at codegen time.
 - **Unused component import**: an Orbit error.
 - **Tailwind** (user decision 2026-10-26, from the `nyth` port): built-in support through Tailwind's **standalone CLI** as an external, optional tool (no Node), detected from `@import "tailwindcss"`; spec first (PLAN §5d), with dev-loop measurements.
 - **`class:list`** (accepted 2026-10-26, from the `nyth` port): `class:list={"a", expr, "c": cond}`, Go composite-literal elements, static parts joined at build time, zero allocations, merged with `class` (PLAN §2.3).
