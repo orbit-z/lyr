@@ -79,6 +79,7 @@ When independent tasks can run in parallel, launch them in **one message**. If p
 - **HTTP**: stdlib `net/http` only, no web framework. Orbit is a middleware (`site.Middleware(next)`), and the user's `cmd/server/main.go` decides where it sits in the chain and its precedence.
 - **Locals**: typed, via a user-declared `type Locals struct` (location per PLAN.md §5b).
 - **Components**: recursive and self components (`<Self>`) and mutual recursion are supported.
+- **Generated packages**: one decl + one impl package per component (PLAN §3.1), reconfirmed by the user after the speed work (not one shared package, not per directory): small rebuilds and verbatim user code outweigh the ~40 ms of per-package build overhead at 200 files.
 - **Editor support**: an LSP is required (gopls proxy plus native template completion), with a VS Code extension.
 - **Order**: milestone 0 is a throwaway spike that proves the risky mechanisms (DONE). Docs come next (milestone 1), and the user reviews them before implementation starts.
 - **Compile speed**: fast compiles and a ~1 s dev loop are a core goal (the reason for Go over Rust).
