@@ -177,7 +177,7 @@ title := strings.ToUpper(props.Title)
   - a bare `a` becomes `true`
   - `{expr}` is used as-is
   - Children that are only whitespace pass no slot.
-  - **Unknown props are pre-checked by Orbit**: an attribute that matches no field of the target's parsed `Props` is an Orbit error at the attribute name, in the user's spelling, listing the attribute names that would work (each field in lower camel case: `IsOpen` → `isOpen`, `ID` → `id`): `src/pages/index.orbit:9:6: unknown prop "psot" on <Card> (props: post, featured)`.
+  - **Unknown props are pre-checked by Orbit**: an attribute that matches no field of the target's parsed `Props` is an Orbit error at the attribute name, in the user's spelling, listing the attribute names that would work (each field in lower camel case: `IsOpen` → `isOpen`, `ID` → `id`): `src/pages/index.orbit:9:6: unknown prop "psot" on <Card> (props: post, featured)`. (Proposed: a target with an `orbit.RestAttrs` field collects such attributes instead, §2.5.)
   - When the fields can't be listed (the embed/alias fallback above), Orbit skips the pre-check and Go's `unknown field` error is reported at the attribute name through its field-key directive (§3.3). The Go compiler always checks the value types.
 - **Scripts and styles**: non-inline `<script>`/`<style>` tags anywhere in a template are extracted from the HTML (§5).
 
@@ -312,6 +312,145 @@ Other types (`any`, pointers, interfaces, funcs, chans) are errors at the key. M
 - Net: a `.md` edit adds ~1–2 ms to a ~220 ms rebuild; a full generate of a docs-sized site adds ~40 ms, parallel per file.
 
 **Out of scope here**: content collections and glob imports (§12), MDX (expressions/components in Markdown), remark/rehype-style plugins, image processing, code-block titles/captions (`file=`), and heading self-links.
+
+### 2.5 Pass-through attributes
+**Status: Proposed, (Q) points open** (user decision 2026-10-26 to add the feature, from the `nyth` assessment; this spec settles the shape).
+
+**Why**: Astro components pass undeclared attributes through with `const { variant, size, ...rest } = Astro.props` and `<button {...rest}>`. In `nyth`, the seven form components (`Button`, `Input`, `Textarea`, `Select`, `Switch`, `Choice`, `ChoiceGroup`) do this, and 114 of their 138 call sites pass HTML attributes they don't declare: `name`, `form`, `value`, `required`, `autocomplete`, `data-*`, `aria-*`, `disabled`, `formaction`, … (`<Button>` alone has 106 call sites). Counted over the 157 tags of these components: 426 static attribute values, 72 bare booleans, 107 expressions, no `class:list` and no spread on the tag. Today an unknown attribute is an Orbit error (§2.3), so every call site would have to write `attrs={orbit.Attrs{"name": "shelf", "data-shelf": id}}`.
+
+#### End-to-end example
+`src/components/Button.orbit`:
+```orbit
+---
+import "example.com/nyth/internal/ui"
+
+type Props struct {
+	Variant, Size string
+	Type          string
+	Attrs         orbit.RestAttrs // every other attribute of the call site
+}
+
+typ := props.Type
+if typ == "" {
+	typ = "button"
+}
+---
+<button {...props.Attrs} type={typ} class:list={ui.ButtonClass(props.Variant, props.Size)}><slot /></button>
+```
+A call site, in a page with a scoped `<style>` (scope `data-o-5c7d1e2f`):
+```orbit
+<Button variant="quiet" name="shelf" data-shelf={shelf.ID} required class="mt-2">Save</Button>
+```
+renders
+```html
+<button name="shelf" data-shelf="s-81" required data-o-5c7d1e2f type="button" class="btn btn-quiet mt-2">Save</button>
+```
+- `variant` matches the `Variant` field. `name`, `data-shelf` and `required` match no field, so they go into `Attrs`, in source order. `class` matches no field either: it's kept apart in `Attrs` and merged into the element's own `class:list` ((Q2)). The caller's scope attribute is added to `Attrs` (Astro behavior, below), so the page's scoped rules for `.mt-2` also match the button.
+- Generated call (hook flavor; directives omitted): the static attributes are pre-escaped into string constants at build time, and only `data-shelf` is a runtime value, written later with a typed write:
+  ```go
+  Button.Render(orbit__ctx, orbit__w, Button.Props{
+  	Variant: "quiet",
+  	Attrs: orbit__rt.Rest("mt-2", ` required data-o-5c7d1e2f`,
+  		orbit__rt.RestAttr{Pre: ` name="shelf"`, Name: "data-shelf", Kind: orbit__rt.RestString, S: shelf.ID}),
+  }, orbit__rt.Slots{Default: …})
+  ```
+  A call site whose extra attributes are all static becomes ``orbit__rt.Rest("", ` name="shelf" required`)``: no slice, no allocation.
+- In `Button`, `{...props.Attrs}` compiles to `orbit__w.SpreadRest(&props.Attrs, false)` (`false`: the element has its own `class`, which gets the rest's class through `orbit__w.RestClass(&props.Attrs)` at the end of its value).
+
+#### Rules
+- **Declaration**: a `Props` field whose type is **`orbit.RestAttrs`** is the component's pass-through field ((Q1)). The type is the marker: no struct tag and no name convention (the docs use `Attrs`). At most one per `Props`; a second is an Orbit error at the field: `Props has two orbit.RestAttrs fields (Attrs, Extra); a component takes one`. It must be a direct field of a `Props` whose fields Orbit can list (§2.3: no embedded struct, no `type Props = other.T`); otherwise it's an error at the field, `an orbit.RestAttrs field needs a Props without embedded fields, so Orbit can tell props from pass-through attributes` (decided by rule: simplest; with the fields unlisted, Orbit couldn't decide which attributes are props).
+- **What's collected**: every attribute of the call site that matches no other field by the usual mapping (§2.3: case, `-` and `_` ignored), keeping its spelling as written:
+  - `a="s"`, `a='s'`, `a=bare`: static, written as `a="s"`, attribute-escaped at build time.
+  - bare `a`: a boolean attribute, written bare.
+  - `a={expr}` and `{a}`: dynamic. The value is typed by the go/types pass like an element attribute value (§3.3): string, the int/uint/float kinds, `bool` (`true` bare, `false` omitted), `orbit.URL` (trusted), `orbit.JSONValue`; anything else is kept as `any` and written with `Attr`'s rules (boxing, like `Attr`). URL attributes (`href`, `src`, `formaction`, …) are scheme-filtered when spread, as on an element (§4); static ones are copied as written, like static attributes on an element.
+  - `class` and `class:list`: the joined class string is kept apart (rule below).
+  - Not collected: `slot`, `server:defer`, `client:*`, and every other directive (`set:*`, `is:*`, unknown `server:`/`client:` names keep their errors, §2.3). An attribute that matches a field sets the field, as today; `attrs={x}` sets the `RestAttrs` field itself (forwarding), and an explicit `attrs={x}` together with collected attributes is an error at the tag: `<Button> gets attrs={…} and pass-through attributes; use {...x} to merge them` (decided by rule: simplest).
+  - The same name twice on one call site is an error at the second: `attribute name is passed twice to <Button>` (decided by rule: Go rejects a duplicate field in the props literal, so the same for rest attributes).
+- **The caller's scope attribute**: when the calling file has a scoped `<style>`, its scope attribute (`data-o-xxxx`) is appended to the static part of the rest, so a parent's scoped rule for a class it passes (`.mt-2`) matches the element the child spreads it on. Components without a `RestAttrs` field never get it. *Decided by rule: Astro behavior* (Astro passes `data-astro-cid-<parent>` as a prop, verified with `@astrojs/compiler-rs` 0.5.1, and its docs pass it through `{...rest}`).
+- **Unknown-prop pre-check** (§2.3): for a target with a `RestAttrs` field, an attribute matching no field is collected, never an error. A typo of a declared prop (`varient="quiet"`) then becomes an HTML attribute, as in Astro ((Q3)). For a target without one, the error stays, with a hint: `unknown prop "name" on <Card> (props: post, featured; add an orbit.RestAttrs field to pass HTML attributes through)`.
+- **Spread on the element** (`{...props.Attrs}`, HTML elements only, as today):
+  - Written at the spread's position, in the call site's source order (each dynamic attribute carries the static run before it, so static and dynamic parts interleave as written), then the caller's scope attribute. `false`/`nil` values are omitted; names were validated at build time, so only an `orbit.Attrs` merged at runtime ((Q4)) is checked, as in `Spread`.
+  - **Attributes the element also writes**: both are written, in the element's source order, and the browser keeps the first (*decided by rule: Astro behavior*, the same as `Spread` today, §4). The docs say: declare a prop for any attribute the component sets itself (`Type` above).
+  - **`class`**: see (Q2). The spread may appear on several elements (`nyth`'s `Button` picks `<a>` or `<button>`); each gets the attributes.
+- **Reading it**: `func (a RestAttrs) Has(name string) bool` and `func (a RestAttrs) Get(name string) (string, bool)` (the attribute's value as it would be written, unescaped; `""` for a bare one), so a component can branch on a passed attribute like `rest.href === undefined` (decided by rule: Astro, where `rest` is a plain object; a linear scan, only when called).
+- **From Go code** (`orbittest`, `RenderComponent`, a hand-built `Props`): `orbit.RestOf(m orbit.Attrs) RestAttrs` wraps a map; it's spread like `Spread` (sorted by name, names checked at render time). The zero `RestAttrs` is empty.
+- **`server:defer`**: `RestAttrs` implements `json.Marshaler` and `json.Unmarshaler` (a JSON object of name → string, or `true` for a bare attribute; `false`/`nil` omitted; values as they'd be written, so an `orbit.URL` loses its trust and is filtered after the round trip), so the generate-time JSON check (§3.4) accepts a `Props` that has one (decided by rule: the existing marshaler pair rule, §3.4).
+- **LSP** (§9): completion on a component tag offers the declared props, as today (the `RestAttrs` field itself is listed as `attrs`); attribute names aren't offered, since any is accepted. A component with a `RestAttrs` field gets no unknown-prop diagnostics. Completing the HTML attributes of the element the rest is spread on comes later (out of scope).
+
+#### Runtime API (additions, stdlib only)
+```go
+// RestAttrs is a component's pass-through attributes (§2.5). Generated code builds it with Rest;
+// Go code with RestOf. Unexported fields: class, static tail, dynamic attributes, a merged Attrs.
+type RestAttrs struct{ /* … */ }
+type RestAttr struct {           // one dynamic attribute, built by generated code
+	Pre  string                  // pre-escaped static attributes written before it
+	Name string
+	Kind RestKind                // RestString, RestInt, RestUint, RestFloat, RestBool, RestURL, RestJSON, RestAny
+	S    string; N uint64; V any // the value by Kind (N holds int/uint/float bits)
+}
+func Rest(class, tail string, dyn ...RestAttr) RestAttrs
+func RestOf(m Attrs) RestAttrs
+func (a RestAttrs) Has(name string) bool
+func (a RestAttrs) Get(name string) (string, bool)
+func (a RestAttrs) MarshalJSON() ([]byte, error)
+func (a *RestAttrs) UnmarshalJSON(b []byte) error
+func (w *Writer) SpreadRest(a *RestAttrs, withClass bool) // withClass: also write class="…" (the element has none)
+func (w *Writer) RestClass(a *RestAttrs)                   // " "+class, escaped, inside the element's class value; nothing if empty
+```
+The exact field layout of `RestAttr` is the implementation's choice, guided by the measurements below; the shape (pre-escaped static runs, typed dynamic values, no map) is the spec.
+
+#### (Q) points
+- **(Q1) How the field is declared, and its type.** CLAUDE.md's decision says "an `orbit.Attrs` prop"; `orbit.Attrs` is today's `map[string]any`.
+  - (a) **Recommended**: a new type `orbit.RestAttrs` (the type is the marker), with static parts pre-escaped at build time and typed dynamic values. Measured below: a static-only call site costs nothing (21 ns, the same as passing no attributes), a call site with dynamic attributes 1 allocation (48 B) through the hook (`orbit dev`, calls inside import cycles) and 0 with direct calls (`orbit build`, §3.5). JSON-serializable by its own methods. Cost: one more runtime type, and Go code builds it with `RestOf`.
+  - (b) An `orbit.Attrs` field marked with a struct tag (`orbit:"rest"`) or by name (`Attrs`): keeps the user's wording, and the map is easy to read and change in Go. But every call site with extra attributes builds a map: 2 allocations (336 B) when they're all static and 3 (352 B) with a dynamic one through the hook, 0–1 with direct calls; about 250 ns vs 21–55 ns; spreading sorts the names; and `any` values fail the `server:defer` JSON check unless `Attrs` gets JSON methods too. A tag or a name convention is also one more rule to learn.
+  - (c) Redefine `orbit.Attrs` itself as the struct and rename the map type (`orbit.AttrMap`): keeps the name, but breaks every existing `orbit.Attrs{…}` literal (docs, `examples/`, user code).
+- **(Q2) A passed `class` when the element has its own `class`/`class:list`.**
+  - (a) **Recommended**: merge. The rest's class is appended to the element's class value (`class="btn btn-quiet mt-2"`), and the spread doesn't write a second `class`. Zero cost: one `RestClass` write, decided at build time (the element's attributes are static). On an element without a class, the spread writes `class="mt-2"`.
+  - (b) Astro behavior: the spread writes its own `class` attribute and the element's `class:list` another; the browser keeps the first, so the component's classes are lost (verified with `@astrojs/compiler-rs` 0.5.1: `<button${spreadAttributes(rest)} … ${addAttribute([…], "class:list")}>`). Astro users avoid it by destructuring `class` (`nyth` does), which in Orbit is a `Class string` prop, still allowed in both options. Byte-compatible with Astro, but a known trap.
+- **(Q3) Typos on components that take pass-through attributes.**
+  - (a) **Recommended**: no check (Astro behavior). Declared props stay first in completion, and the docs show the trade-off.
+  - (b) A warning when an unmatched name is within edit distance 1 of a declared prop. Catches `varient`, but `nyth` would get false warnings: `Input` declares `ids` and its call sites pass `id` 11 times.
+- **(Q4) `{...x}` on a component tag.** Today a spread is an error on components (§2.3).
+  - (a) **Recommended**: allowed on a component with a `RestAttrs` field, when `x` is an `orbit.Attrs` or an `orbit.RestAttrs`: its attributes are merged into the rest (attributes written on the tag win over the spread's for the same name; the spread's own order is kept). This is how a wrapper forwards its rest to an inner component (`<Input {...props.Attrs} />` inside `Field`). A spread alone is passed as is (no allocation); a spread plus other attributes costs 1 allocation (the merge). Spreads that set declared props (`nyth`'s `{...actions}` and `{...props}` on component tags) stay unsupported: Go struct fields can't be set from a map without reflection.
+  - (b) Not in the first release: forwarding goes through `attrs={props.Attrs}` only, with no merging.
+
+#### Cost (prototype `scratchpad/specs-attrs/proto/`, `<Button variant="quiet" …>Save</Button>` with the real `orbit.Writer`; Ryzen 7 9700X, Go 1.27.3, `GOMAXPROCS=1`; the machine was shared, load average 5–9 on 16 threads, so times are ±20%; allocations are exact)
+| Representation, call site | via hook (dev) | direct call (build) |
+|---|---|---|
+| no extra attributes | 23 ns, 0 allocs | – |
+| `orbit.Attrs` map, 3 static | 250 ns, 2 allocs / 336 B | 180 ns, 0 |
+| `orbit.Attrs` map, 2 static + 1 dynamic | 260 ns, 3 allocs / 352 B | 190 ns, 1 alloc / 16 B (boxing) |
+| `[]{Name, any}` slice, 2 static + 1 dynamic | 117 ns, 2 allocs / 112 B | 98 ns, 1 alloc / 16 B |
+| **pre-escaped static + typed dynamic (proposed)**, 3 static | **21 ns, 0** | **21 ns, 0** |
+| **same**, 2 static + 1 dynamic | **55–68 ns, 1 alloc / 48 B** | **47–66 ns, 0** |
+| inline `[4]` typed array (no slice), 2 static + 1 dynamic | 48–57 ns, 0 | – |
+
+- A boxed `any` value always allocates, even with a direct call, because `Attr`'s fallback can reach `fmt.Sprint`; typed values avoid it. The inline array removes the dev allocation too, but makes every such `Props` about 200 B bigger, copied per call; kept as a fallback if hook-path allocations matter.
+- So the zero-allocation rule (§4b) holds in `orbit build` for call sites with pass-through attributes, and for all-static ones in dev too. `TestRestAllocs` asserts it.
+- **Codegen and dev loop**: the target's parsed `Props` is already read for the pre-check (§2.3), so knowing whether it has a `RestAttrs` field costs nothing new; the typed kinds of dynamic values come from the existing pass 2 (§3.3; pass 1 emits `RestAny`, as it emits `Expr`). Adding or removing a `RestAttrs` field changes the callers' generated code, which a `Props` edit already rebuilds (§7). No measurable change expected; checked with `bench/devloop`.
+
+#### Tests (what must exist)
+- Compiler goldens: static, bare, dynamic (each kind), mixed order, URL attributes, `class` merge into `class`/`class:list` and alone, the caller's scope attribute, a spread on two elements, `{...x}` on a component tag with and without other attributes, forwarding with `attrs={…}`.
+- Errors, each at its `.orbit` position: two `RestAttrs` fields, embedded `Props`, duplicate name, explicit `attrs={…}` plus collected attributes, the new unknown-prop hint.
+- Runtime: `SpreadRest` output equals `Spread`/`Attr` output for the same values (escaping, URL filtering, `false`/`nil`); `Has`/`Get`; JSON round trip; `RestOf` ordering and name validation; `AllocsPerRun`: 0 for all-static, 0 for dynamic with a direct call.
+- `server:defer` with a `RestAttrs` prop: the generate-time check passes and the island renders the attributes.
+- LSP: no unknown-prop diagnostic on a component with a `RestAttrs` field; completion lists declared props.
+- `examples/blog`: one component using it (a `Button`).
+
+#### User-docs changes (with the implementation)
+- `components.md`: "Passing HTML attributes through" (the example above, `class` merging, the scope attribute, "declare a prop for attributes the component sets itself", the typo trade-off).
+- `reference/template-syntax.md`: component attribute mapping (collected attributes), spreads on component tags ((Q4)), the new error messages.
+- `reference/runtime-api.md`: `RestAttrs`, `RestOf`, `Has`/`Get`, `SpreadRest`.
+- `coming-from-astro.md`: `...rest` → an `orbit.RestAttrs` field; differences ((Q2), typed props).
+- `lazy-loading.md`: pass-through attributes on deferred components.
+- `performance.md`: costs.
+- `DECISIONS.md`: the decided-by-rule items above.
+
+#### Out of scope
+- Spreading declared props onto a component (`{...props}` setting typed fields).
+- HTML-attribute completion for the spread target element.
+- Rest attributes on `.md` layouts (their props come from YAML frontmatter, §2.4).
+- Dropping attributes that the element also sets (no deduplication beyond `class`).
 
 ## 3. Compilation
 
@@ -959,7 +1098,7 @@ func Snapshot(t testing.TB, name, html string)              // compares with tes
 - **Trailing slashes: none** (user decision; one fixed behavior, the `trailingSlash` modes are deferred, §12). A page's canonical URL has no trailing slash: `/blog/hello`, and `blog/index.orbit` is `/blog`. `/` stays `/`. The router answers `/blog/hello/` with a **308 to `/blog/hello`**, keeping the query string (`/search/?q=go` → `/search?q=go`), as `net/http`'s `ServeMux` does for its redirects. Same in dev and prod. Paths for files (`/_orbit/…`, `public/` files) are never redirected.
   - The redirect is issued only when the path without its trailing slash matches a page route; otherwise the request falls through to `next` untouched, so a user route such as `/api/items/` keeps working in Orbit-first setups. *Decided by rule* (simplest option that never steals the user's routes; log it in `docs/DECISIONS.md`).
 - **Errors**: panics are recovered per request.
-  - Prod (user decision): a minimal built-in page (`500 Internal Server Error`), never showing the error. The error and its `.orbit` position are logged to stderr with the `log` package (`orbit: GET /blog/hello: src/pages/blog/[slug].orbit:14:5: …`): for a returned error, the position of its frontmatter `return` (§2.2, `orbit.ErrorAt`); for a panic, the innermost `.orbit` line on the stack. A custom `src/pages/500.orbit` comes after the MVP (§12).
+  - Prod (user decision): a minimal built-in page (`500 Internal Server Error`), never showing the error. The error and its `.orbit` position are logged to stderr with the `log` package (`orbit: GET /blog/hello: src/pages/blog/[slug].orbit:14:5: …`): for a returned error, the position of its frontmatter `return` (§2.2, `orbit.ErrorAt`); for a panic, the innermost `.orbit` line on the stack. A custom `src/pages/500.orbit` comes after the MVP (§12). Proposed: an app-supplied error handler answers first (§4c).
   - Dev: error overlay with file:line.
 - **Locals helpers**: `EnsureLocals` is what middleware uses. It returns the attached `*L` (and `r` unchanged), or attaches a `new(L)` with `WithLocals` and returns the new request, so every middleware in the chain can call it and they all share one value. `LocalsFromRequest` returns `nil` when nothing is attached, rather than a detached zero value whose writes would be silently lost (decided by rule: Go stdlib convention; context accessors such as `httptrace.ContextClientTrace` return nil when absent). Pages never see nil: `LocalsOf` allocates. `WithLocals` on a request that already carries locals shadows them for handlers further down only, like `context.WithValue`; middleware that ran earlier keeps its pointer (decided by rule: Go stdlib).
 - **Island key** (resolved once, in `NewSite`), in this order:
@@ -1001,6 +1140,196 @@ The SSR hot path is built for speed. There's no fixed target number; the results
 - **Metrics**: req/s, p50/p99 latency, TTFB (scenario 4), RSS.
 - **Go comparison** (`bench/go`): Orbit vs. templ vs. `html/template` rendering an equivalent page, as Go benchmarks.
 - **Micro-benchmarks** for the `Writer` and the escaper (`b.Loop()`, `b.ReportAllocs()`) live next to the runtime as dev tools.
+
+## 4c. Error → response hook
+**Status: Proposed, (Q) points open** (user decision 2026-10-26 to add the feature, from the `nyth` assessment).
+
+**Why**: in `nyth`, every catalogue or reader call (16 `catalog` and 19 `reader` uses in templates, plus layouts) can fail with one of three typed errors, from the page or from any component: `AccessRefused` becomes a 303 to `/signin/?next=…` or `/waiting/`, `CatalogUnavailable` a 503 with `Retry-After: 60` (and a log line), `ReaderBlocked` a 403 with a short text body. Astro lets middleware catch what the page threw (`try { return await next() } catch (e) { … }`, `nyth`'s `handleRequest`). In Orbit, a returned error that isn't `ErrNotFound` or a `*RedirectError` becomes the built-in 500 inside `site.Middleware` (§4), and middleware around it can't intercept, since the 500 has been written. Only the redirect has a workaround today (an error that `Unwrap`s to a `*orbit.RedirectError`).
+
+#### End-to-end example
+```go
+// cmd/server/main.go
+site := app.New(orbit.WithErrorHandler(answerError))
+
+// answerError maps the app's data errors to responses. It returns false for
+// any other error, which then gets Orbit's built-in 500.
+func answerError(w http.ResponseWriter, r *http.Request, err error) bool {
+	var refused *catalog.AccessRefused
+	switch {
+	case errors.As(err, &refused):
+		http.Redirect(w, r, refused.Page(pageURL(r)), http.StatusSeeOther)
+	case errors.Is(err, catalog.ErrUnavailable):
+		log.Printf("%s %s: %v", r.Method, r.URL.Path, err) // "src/pages/fiction/[bookSlug].orbit:12:3: catalog: …"
+		w.Header().Set("Retry-After", "60")
+		http.Error(w, "The library is unavailable right now. Try again in a minute.", http.StatusServiceUnavailable)
+	case errors.Is(err, reader.ErrBlocked):
+		http.Error(w, "Requests from your network are refused.", http.StatusForbidden)
+	default:
+		return false
+	}
+	return true
+}
+
+// pageURL is the page the reader was on: for an island request, its Referer (§5b).
+func pageURL(r *http.Request) string {
+	if strings.HasPrefix(r.URL.Path, "/_orbit/island/") {
+		return r.Referer()
+	}
+	return r.URL.RequestURI()
+}
+```
+```orbit
+---
+// src/components/ChapterList.orbit
+chapters, err := locals.Catalog.Chapters(ctx.Request.Context(), props.BookID)
+if err != nil {
+	return err // wrapped by ErrorAt with this position; errors.As still finds *catalog.AccessRefused
+}
+---
+```
+
+#### Rules
+- **API**: `func WithErrorHandler(h func(w http.ResponseWriter, r *http.Request, err error) bool) Option` ((Q1)). `true` means the handler wrote the response; `false` means Orbit answers as today (the built-in 500 with its log line; later `500.orbit`). Several `WithErrorHandler` options: the last wins (decided by rule: Go functional-options convention, like `WithKey`).
+- **Which errors reach it** ((Q2)): every render failure that would otherwise become a 500, in pages (the 404 page included), deferred island requests and the `orbit dev` app; never `ErrNotFound` or a `*RedirectError` (found with `errors.As`/`errors.Is`, as today), which stay control flow. A recovered panic reaches it too, as Orbit's panic error (its text names the `.orbit` line; `Unwrap` returns the panic value when that is an `error`, a small addition so `errors.As` sees `panic(err)`). The island endpoint's own 400s and 413s (bad token, props that don't decode, body too big) aren't render errors and don't reach it.
+- **Error identity**: `ErrorAt`'s position wrapper (§2.2) and component nesting keep `Unwrap`, so `errors.Is`/`errors.As` see the user's error through any depth, and `errors.Join` works. The handler's `err.Error()` starts with the `.orbit` position of the `return`, so a handler's own log line names it (no separate position API; decided by rule: simplest).
+- **Response state**: nothing has been written when the handler runs (responses are buffered, §4): the page's buffer is dropped, so the handler can send any status, headers and body. Headers the page set with `ctx.Header()` are dropped as for the 500 (decided by rule: Astro, where a thrown error discards the page's response; a redirect keeps them, unchanged). Headers set on `w` by middleware before `next` stay. For an island request, Orbit sets `Cache-Control: private, no-store` and `X-Robots-Tag: noindex` on `w` before calling the handler, which may replace them (decided by rule: simplest, so an error answer isn't cached either). The loader keeps the fallback for any non-2xx answer (§5), a 303 included (`redirect: "manual"`).
+- **`r`** is the request Orbit was serving: the page request, or the island request (its `URL` is the island URL; the page is in `Referer`, §5b). Locals attached by middleware are there (`orbit.LocalsFromRequest`).
+- **Logging**: Orbit logs only errors it answers itself (the 500 line, §4). A handled error isn't logged; the handler decides (decided by rule: Go stdlib, like `httputil.ReverseProxy.ErrorHandler`).
+- **Dev and prod behave the same**: the handler runs in `orbit dev` too; only unhandled errors show the dev error page (`<pre>` with the error and position, §4).
+- **The handler runs inside `site.Middleware`** on the request's goroutine, concurrently across requests, and isn't recovered by Orbit (a panic in it goes to `net/http`'s recovery, decided by rule: Go stdlib). For `HEAD`, `net/http` drops the body as usual.
+- **`RenderComponent`** (§4) keeps its contract: on error nothing is written and the error is returned, since it has no `Site`. For custom handlers that want the same answers as pages: (Q3).
+- **Future `src/pages/500.orbit`** (§12): the order is handler → `500.orbit` → built-in page, so a handler that returns `false` for unknown errors composes with it, and `500.orbit` needs no hook of its own.
+
+#### (Q) points
+- **(Q1) Shape.**
+  - (a) **Recommended**: the `Site` option above. One central function maps any error, including ones the app doesn't own (`context.DeadlineExceeded` → 504, a driver's error); it's the Go analogue of `nyth`'s catch around `next()`. Same shape as Echo's `HTTPErrorHandler` and `ReverseProxy.ErrorHandler` (plus the `bool` for fallback). The data package needs no `net/http` code.
+  - (b) An interface errors implement, checked with `errors.As`: `interface{ error; ServeHTTPError(w http.ResponseWriter, r *http.Request) }` (or just `StatusCode() int`, rendered as a status-only answer). Zero config, but only for errors the app defines, it couples data packages to HTTP, and `StatusCode()` alone can't express `nyth`'s 303 with `next=` or a 503 body.
+  - (c) Both: (a) first, then (b). More API for little gain; (b) can be added later without breaking (a).
+  - (d) Middleware catches, like Astro: middleware attaches an error slot (`r, e := orbit.CatchErrors(r)`), Orbit writes nothing on failure, and the middleware answers after `next` returns. Closest to Astro's model, but forgetting to answer gives an empty 200, and every wrapping `ResponseWriter` between them must cope with "nothing written".
+- **(Q2) What reaches the handler.**
+  - (a) **Recommended**: only 500-bound errors, panics included (above). Redirects and not-found keep working however the handler is written.
+  - (b) Also `ErrNotFound` and redirects (the handler could log or rewrite them). Easy to break the 404 page and `ctx.Redirect` by returning `true` by accident.
+  - (c) Without panics: a panic is a bug, and `net/http` has no panic hook. But then a custom error page can't cover them until `500.orbit`.
+- **(Q3) Answering errors from custom handlers.**
+  - (a) **Recommended**: `func (s *Site) ServeError(w http.ResponseWriter, r *http.Request, err error)`: answers `err` exactly as a page's would be (redirect, `404.orbit`, the handler, the 500 with its log line). A handler then writes `if err := orbit.RenderComponent(w, r, …); err != nil { site.ServeError(w, r, err) }`. A few lines; it reuses `renderFailed`.
+  - (b) Nothing new: the custom handler calls its own `answerError` and falls back to `http.Error`.
+
+#### Cost
+- Nothing on the success path, and nothing on the failure path without a handler (one nil check). With one, the cost is the handler's.
+- No codegen, dev-loop or LSP change.
+
+#### Tests (what must exist)
+- A page and a nested component returning a typed error: the handler's 303/403/503 is sent with its headers and body; the page's buffer and `ctx.Header()` headers aren't.
+- `errors.As` finds the user's error through `ErrorAt`, two levels of components and `errors.Join`.
+- `false` gives the built-in 500 and the log line; `true` logs nothing.
+- `ErrNotFound` and `ctx.Redirect` don't reach the handler; the 404 page's own failure does.
+- A panic reaches it; `errors.As` finds a panicked `error`.
+- Island request: the handler runs with the island request, after Orbit's default island headers; the island's 400/413 don't reach it.
+- `HEAD`; dev mode (`ORBIT_DEV=1`) behaves the same; the last of two options wins.
+- `ServeError` ((Q3)) gives the same answers as a page.
+- `orbittest.Get` through a site built with the option.
+
+#### User-docs changes (with the implementation)
+- `rendering.md` (errors section): the handler, the order with the 500, logging, what reaches it.
+- `middleware.md` and `coming-from-astro.md`: "catching what the page threw" becomes `WithErrorHandler`.
+- `server.md`: `app.New(orbit.WithErrorHandler(…))` in `main.go`; `ServeError` in custom handlers.
+- `lazy-loading.md`: islands and the handler (`Referer`, the fallback stays).
+- `reference/runtime-api.md`: `WithErrorHandler`, `ServeError`, the panic error's `Unwrap`.
+- `DECISIONS.md`: the decided-by-rule items above.
+
+#### Out of scope
+- `src/pages/500.orbit` (§12), which this composes with.
+- Typed HTTP error helpers in the runtime (`orbit.HTTPError{Code, …}`); users define their own error types.
+- `ErrorAt`-style positions as a separate API.
+
+## 4d. Rendering a slot to a string
+**Status: Proposed, (Q) points open** (user decision 2026-10-26 to add the feature, from the `nyth` assessment).
+
+**Why**: `nyth`'s `<Cacher key ttl store>` (34 uses) renders its default slot to an HTML string (`Astro.slots.render("default")`), keeps it in an in-memory fragment cache (cards 6 h, lists 1 h) and writes it with `set:html`. Today this works with `var b bytes.Buffer; slots.Default(orbit.NewWriter(&b))`, but a fresh `Writer` has an empty component stack (so the depth guard restarts at 0: runaway recursion through a captured slot overflows the Go stack), and what `</head>` or `server:defer` do inside it is undocumented.
+
+#### End-to-end example
+`src/components/Cacher.orbit`:
+```orbit
+---
+import (
+	"time"
+
+	"example.com/nyth/internal/htmlcache"
+)
+
+type Props struct {
+	Key   string        // everything the slot's HTML depends on, e.g. cardKey(book)
+	TTL   time.Duration
+	Store string        // "cards", "lists", "pages"
+}
+
+html, err := htmlcache.Store(props.Store).Get(props.Key, props.TTL, func() (orbit.HTML, error) {
+	return orbit.RenderHTML(ctx, slots.Default)
+})
+if err != nil {
+	return err
+}
+---
+<Fragment set:html={html} />
+```
+A call site: `<Cacher key={ui.CardKey(book)} ttl={6 * time.Hour} store="cards"><NovelCard book={book} /></Cacher>`. On a hit the slot isn't run at all (in Astro, the slot is built hit or miss, a trap `nyth` documents).
+
+#### Rules
+- **API** ((Q1)): `func RenderHTML(ctx *Ctx, r Renderer) (HTML, error)` in the runtime. It renders `r` into a pooled buffer with a pooled `Writer` and returns a copy of the output as `orbit.HTML` (it's Orbit's own escaped output, so `set:html` takes it without a conversion). A nil `r` (no slot content) returns `""`. Works with any `Renderer`: `slots.Default`, `slots.Get("x")`, or a Go function.
+- **The current writer**: `Ctx` gets an unexported pointer to the `Writer` rendering the request (set where the runtime pairs them: pages, islands, `RenderComponent`, `orbittest`). The capture's `Writer` starts with that writer's component stack, so the depth guard counts through captures (nested captures work, e.g. a list `<Cacher>` around card `<Cacher>`s), and while it runs the pointer names the capture writer, restored afterwards. A `Ctx` without one (built in a test by hand) starts at depth 0.
+- **Errors**: the render's error is **returned**, not set as the page's sticky error, so the caller decides (`return err` hands it to the 500 or the error handler, §4c). On error the partial output is dropped. Panics aren't recovered here; the request's recovery handles them (decided by rule: simplest).
+- **Head injection**: the page's asset tags are written by the page's own first `</head>` (§4), never inside a capture, so cached HTML never holds one page's tags. A `</head>` marker reached inside a capture is a render error: `orbit: </head> can't be inside orbit.RenderHTML; keep the document head outside the captured content` ((Q2)).
+- **Assets need nothing**: slot content is compiled in the calling file, so every component it renders is imported there and its CSS and scripts are in every page's static graph that uses the caller (§5); scripts aren't part of the HTML. So the Astro trap of a cached copy missing its `<script>` (`nyth`'s `hasScriptTag` check) can't happen. `client:*` markers are static HTML and keep working in cached copies.
+- **`server:defer` inside**: the placeholder holds a deterministic token (§3.4) for this build and key, so a cached placeholder stays valid for the process's lifetime and loads per user through the middleware: the way to put per-user parts inside cached HTML. An external cache shared across deploys must put the deploy in its key (a new build has a new build ID and, without a stable `ORBIT_KEY`, a new key).
+- **Side effects run only on a miss**: `ctx.SetStatus`, `ctx.Header()` and `locals` writes inside captured content happen when it renders, not when a cached copy is served. Documented.
+- **Safety: never cache per-user content.** The cache key must hold everything the HTML depends on, and the content must not read cookies, the session or per-user `locals`. Orbit doesn't enforce this ((Q3)); the docs give the pattern below.
+- **`compressHTML`** and scoping are applied at build time as usual; the captured HTML is byte-identical to the same content rendered in place.
+
+#### The documented caching pattern (`rendering.md`)
+- An in-memory cache keyed by everything the fragment depends on (data version, locale), with a TTL and a size cap, plus single-flight so concurrent misses render once. The render shares the leader request's `Ctx` only while it runs; nothing retains it.
+- Per-user parts go outside the cached component, or inside it as `server:defer`.
+- A shared-scope guard, if wanted, is app code: the cache component sets a flag on `locals` around `RenderHTML` (`locals.Shared = true; defer …`), and the app's per-user accessors refuse while it's set (`nyth`'s `assertNotShared`).
+- Measure first: a hit costs a map lookup plus a copy into the page (19 ns for 2 KB below), and rendering static markup in place is cheaper still (12 ns); caching pays off when the content needs slow data or heavy work.
+
+#### (Q) points
+- **(Q1) API shape.**
+  - (a) **Recommended**: `orbit.RenderHTML(ctx, r)`: one function for any `Renderer`, reachable from the frontmatter (which has `ctx` but no `Writer`). The name says it returns `orbit.HTML`.
+  - (b) A method on `Slots`, Astro-style: `slots.Render(ctx, "default") (orbit.HTML, error)`. Closer to `Astro.slots.render`, but only for slots; Go renderers would still need (a). Could be added on top of (a) later.
+  - (c) `func (w *Writer) Capture(r Renderer) (HTML, error)`: natural for Go renderers, but the frontmatter can't reach the `Writer` (`orbit__w` is internal, §2.2).
+  - (d) Named `RenderString` returning `string`: the caller converts to `orbit.HTML` for `set:html`, a conversion that hides nothing.
+- **(Q2) `</head>` inside a capture.**
+  - (a) **Recommended**: a render error (above): a cached head would pin one page's state, and the error is cheap to check (one flag in `HeadEnd`).
+  - (b) Ignored: the page's tags go after the doctype (§4's no-marker rule), which browsers accept but which differs from the normal placement.
+- **(Q3) Help for the "no per-user data" rule.**
+  - (a) **Recommended**: none in Orbit; the docs give the `locals`-flag pattern above. Per-user accessors live in the app's `locals`, which Orbit can't see into.
+  - (b) `func (c *Ctx) Capturing() bool`, true inside `RenderHTML`, so an app can check it. But the app's data accessors usually don't receive `ctx`, so it helps little.
+
+#### Cost (prototype `scratchpad/specs-attrs/proto/capture_test.go`, a model with pooled buffer and `Writer`; same machine and caveats as §2.5)
+- A miss: **1 allocation**, the returned string (2 KB of HTML: 138 ns, 2048 B); the buffer and `Writer` are pooled. The copy is unavoidable, since the caller keeps the string.
+- A hit: 0 allocations in Orbit (19 ns to look up and write 2 KB with `set:html`).
+- The slot closure itself costs what slots cost (§4b: 1 allocation when it captures and goes through a hook, 0 with direct calls). A cache API that takes a callback (`func() (orbit.HTML, error)`) costs the user's closure, as in the example; a `Get`/`Set` API without a callback avoids it.
+- No codegen, dev-loop or LSP change.
+
+#### Tests (what must exist)
+- Output equals the same content rendered in place (goldens with nested components, `class:list`, `client:*` markers, `server:defer` placeholders).
+- The depth guard counts through captures (a recursive component through `RenderHTML` stops at 1000 with the stack error); nested captures; the current-writer pointer is restored after success, error and panic.
+- An error is returned and the page's writer stays clean; partial output is dropped.
+- `</head>` inside a capture is the render error; the page's head injection is unaffected.
+- `AllocsPerRun`: 1 per miss (the string), 0 per hit.
+- `orbittest.Render` of a component using it.
+
+#### User-docs changes (with the implementation)
+- `components.md` (slots): `orbit.RenderHTML`.
+- `rendering.md`: "Caching fragments" (the pattern and the safety rules above).
+- `reference/runtime-api.md`: `RenderHTML`.
+- `coming-from-astro.md`: `Astro.slots.render("default")` → `orbit.RenderHTML(ctx, slots.Default)`; slot functions with arguments (`render("default", [item])`) → call the component's `Render` from Go.
+- `lazy-loading.md`: `server:defer` inside cached fragments.
+- `DECISIONS.md`: the decided-by-rule items above.
+
+#### Out of scope
+- A fragment cache in Orbit (SSR caching stays deferred, §12); this is the primitive an app's cache uses.
+- Slots as functions with arguments (Astro's `slots.render(name, args)`).
+- Streaming or partial flushes (responses stay buffered).
 
 ## 5. Assets (scripts and styles)
 - **Scope ID**: `o-` + the first 8 hex chars of sha256 of the file's project-relative path with `/` separators (`src/components/Card.orbit`), so IDs are the same on every OS. It's added as an attribute to every HTML element in the template, but only when the component has a scoped `<style>`.
@@ -2286,6 +2615,7 @@ Dependencies:
 - Tests of embedding in chi/Gin
 - The `base` config option
 - **`trailingSlash` option** (user decision, 2026-10-26, prompted by porting `nyth`, an Astro site with `trailingSlash: "always"`): `orbit.json` `"trailingSlash": "never"` (default, today's behavior, §4) or `"always"` (`/x` gets a 308 to `/x/`, query kept; `/` unchanged; files and paths with a file extension never redirected); no `"ignore"` mode (two URLs per page). Reaches the router, generated URLs (`.md` `Post.URL`, rewritten `.md` links), dev and docs. Next after direct calls (§3.5); spec first.
+- **From the `nyth` assessment** (user decisions 2026-10-26; specs first, (Q) points open): pass-through attributes (§2.5, an `orbit.RestAttrs` field collects a call site's undeclared attributes, spread with `{...props.Attrs}`), an error → response hook (§4c, `orbit.WithErrorHandler`, before the built-in 500), and rendering a slot to a string (§4d, `orbit.RenderHTML(ctx, slots.Default)`, for fragment caches).
 - SSR response caching
 - The docs dogfood site (`docs/site/`, docs built with Orbit)
 - **Typed form actions** (user idea, like Astro Actions): a typed, validated handler for a form or `fetch` call, declared next to the page or in `src/actions`, with an input struct decoded and validated (a Zod-like Go validator such as Zog, or struct tags, chosen then; ask before adding a dependency), errors returned to the page, and progressive enhancement without JS. Until then, users write a plain handler in `cmd/server` and render the response with `orbit.RenderComponent`.
