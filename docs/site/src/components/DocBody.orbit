@@ -1,23 +1,38 @@
 ---
 type Props struct {
-    // HTML is a page rendered from Markdown by internal/content.
-    HTML orbit.HTML
+	// HTML is a page rendered from Markdown by internal/content.
+	HTML orbit.HTML
 }
 ---
 <doc-body class="prose" set:html={props.HTML}></doc-body>
 
 <style>
-  .prose { display: block; overflow-wrap: break-word; }
-  .prose :global(h1) { font-size: 2.1rem; line-height: 1.2; margin: 0 0 1rem; }
+  .prose {
+    display: block;
+    overflow-wrap: break-word;
+  }
+  .prose :global(h1) {
+    font-size: 2.1rem;
+    line-height: 1.2;
+    margin: 0 0 1rem;
+  }
   .prose :global(h2) {
     font-size: 1.45rem;
     margin: 2.5rem 0 0.75rem;
     padding-bottom: 0.3rem;
     border-bottom: 1px solid var(--border);
   }
-  .prose :global(h3) { font-size: 1.15rem; margin: 2rem 0 0.5rem; }
-  .prose :global(h4) { font-size: 1rem; margin: 1.5rem 0 0.5rem; }
-  .prose :global(:is(h1, h2, h3, h4)) { scroll-margin-top: 4.5rem; }
+  .prose :global(h3) {
+    font-size: 1.15rem;
+    margin: 2rem 0 0.5rem;
+  }
+  .prose :global(h4) {
+    font-size: 1rem;
+    margin: 1.5rem 0 0.5rem;
+  }
+  .prose :global(:is(h1, h2, h3, h4)) {
+    scroll-margin-top: 4.5rem;
+  }
   .prose :global(.anchor) {
     margin-left: 0.4rem;
     color: var(--muted);
@@ -25,7 +40,9 @@ type Props struct {
     opacity: 0;
   }
   .prose :global(:is(h1, h2, h3, h4):hover .anchor),
-  .prose :global(.anchor:focus) { opacity: 1; }
+  .prose :global(.anchor:focus) {
+    opacity: 1;
+  }
   .prose :global(:not(pre) > code) {
     padding: 0.1em 0.35em;
     border-radius: 4px;
@@ -45,7 +62,9 @@ type Props struct {
     align-items: center;
     padding: 0.35rem 0.85rem;
     border-bottom: 1px solid var(--border);
-    font: 0.8rem ui-monospace, monospace;
+    font:
+      0.8rem ui-monospace,
+      monospace;
     color: var(--muted);
   }
   .prose :global(.badge) {
@@ -54,8 +73,14 @@ type Props struct {
     font-family: system-ui, sans-serif;
     font-size: 0.72rem;
   }
-  .prose :global(.badge-expect-error) { background: #fde2e1; color: #a1251b; }
-  .prose :global(.badge-expect-warning) { background: #fdf0d2; color: #8a5a00; }
+  .prose :global(.badge-expect-error) {
+    background: #fde2e1;
+    color: #a1251b;
+  }
+  .prose :global(.badge-expect-warning) {
+    background: #fdf0d2;
+    color: #8a5a00;
+  }
   .prose :global(pre) {
     margin: 0;
     padding: 0.85rem 1rem;
@@ -72,12 +97,16 @@ type Props struct {
     border-radius: 5px;
     background: var(--bg);
     color: var(--muted);
-    font: 0.75rem system-ui, sans-serif;
+    font:
+      0.75rem system-ui,
+      sans-serif;
     cursor: pointer;
     opacity: 0;
   }
   .prose :global(figure.code:hover .copy),
-  .prose :global(.copy:focus) { opacity: 1; }
+  .prose :global(.copy:focus) {
+    opacity: 1;
+  }
   .prose :global(table) {
     display: block;
     overflow-x: auto;
@@ -91,7 +120,9 @@ type Props struct {
     text-align: left;
     vertical-align: top;
   }
-  .prose :global(th) { background: var(--bg-soft); }
+  .prose :global(th) {
+    background: var(--bg-soft);
+  }
   .prose :global(blockquote) {
     margin: 1rem 0;
     padding: 0.25rem 1rem;
@@ -104,8 +135,12 @@ type Props struct {
     border: 1px solid var(--border);
     border-radius: 8px;
   }
-  .prose :global(summary) { cursor: pointer; }
-  .prose :global(img) { max-width: 100%; }
+  .prose :global(summary) {
+    cursor: pointer;
+  }
+  .prose :global(img) {
+    max-width: 100%;
+  }
 </style>
 
 <script>
@@ -126,7 +161,9 @@ type Props struct {
           } catch {
             button.textContent = "Failed";
           }
-          setTimeout(() => { button.textContent = "Copy"; }, 1500);
+          setTimeout(() => {
+            button.textContent = "Copy";
+          }, 1500);
         });
         fig.append(button);
       }

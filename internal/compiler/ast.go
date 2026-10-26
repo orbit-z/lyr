@@ -41,6 +41,8 @@ type File struct {
 	// Diagnostics holds every error and warning, sorted by position.
 	Diagnostics []Diagnostic
 	Lines       *LineIndex
+	// syntax holds the errors raised before the structural checks, sorted.
+	syntax []Diagnostic
 }
 
 // HasErrors reports whether any diagnostic is an error (not a warning).

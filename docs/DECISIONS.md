@@ -594,7 +594,7 @@ Decided with the dev-loop speed work (`PLAN.md` §12, items 3 and 4). None chang
 
 ## Formatter
 
-Proposed with the `orbit fmt` spec (`PLAN.md` §6.1, docs marked Planned). The bigger choices (what the first release covers, tabs in the frontmatter, the default mode, `-l`'s exit code, Bun by default, Markdown) are open questions for the user, not rows here.
+With the `orbit fmt` spec and implementation (`PLAN.md` §6.1). The bigger choices (what the first release covers, tabs in the frontmatter, the default mode, `-l`'s exit code, Bun by default, Markdown) were the user's, not rows here.
 
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
@@ -616,7 +616,7 @@ Proposed with the `orbit fmt` spec (`PLAN.md` §6.1, docs marked Planned). The b
 | Only syntax errors stop formatting; Orbit's other checks (unknown props, unused imports, directive misuse) don't | Go stdlib (gofmt formats code that doesn't type-check) | Refuse any file `orbit check` rejects | [CLI](reference/cli.md#errors-and-exit-codes) |
 | A safety check re-parses each result (same template tree, same Go tokens, same esbuild-minified script and style); on a mismatch the region is left as written, with a warning | simplest (the "never changes rendered output" promise is checked, not assumed) | Trust the formatters | `PLAN.md` §6.1 |
 | A CRLF file keeps CRLF in the regions Orbit rewrites; template text keeps its bytes, mixed endings follow the first line break | simplest (gofmt writes LF, but changing template text would change rendered output) | Convert to LF | [CLI](reference/cli.md#orbit-fmt) |
-| A BOM is kept, and the template's final newline (or its absence) is never changed; a file ending at the closing `---` with no line break gets one | simplest (both are rendered template text) | gofmt's single trailing newline | [CLI](reference/cli.md#orbit-fmt) |
+| A BOM is kept by `orbit fmt`, and the template's final newline (or its absence) is never changed; a file ending at the closing `---` with no line break gets one | simplest (both are rendered template text) | gofmt's single trailing newline | [CLI](reference/cli.md#orbit-fmt) |
 | Directory walks take `.orbit` regular files, skip `.*` directories, `node_modules` and `orbit_gen`, and don't follow symlinks | Go stdlib (gofmt skips symlinks; `go fmt` skips dot directories) | Respect `.gitignore` | [CLI](reference/cli.md#paths-and-flags) |
 | A file named explicitly that isn't `.orbit` (a `.md`, say) is an error naming `bun fmt`; directory walks skip it | simplest | Format any file named explicitly, as gofmt does | [CLI](reference/cli.md#paths-and-flags) |
 | No path, outside a project: `orbit fmt: no go.mod found; pass the files or directories to format`, exit 1 | simplest (like `orbit generate` outside a project) | Read stdin, as gofmt does | `PLAN.md` §6.1 |
@@ -626,3 +626,11 @@ Proposed with the `orbit fmt` spec (`PLAN.md` §6.1, docs marked Planned). The b
 | The language server formats the whole document only (no range or on-type formatting), returns one edit per changed region, ignores the editor's tab settings, and returns no edits on a syntax error | Go stdlib (gopls: no range formatting, ignores `FormattingOptions`) | A single whole-file edit; an error response on a syntax error | [Editor setup](editor-setup.md#formatting) |
 | Without Bun, the language server says so once per session (`window/showMessage`, Info) | simplest | Say nothing; a message on every format | [Editor setup](editor-setup.md#formatting) |
 | The VS Code extension makes itself the default formatter for `[orbit]`; format on save stays off unless you turn it on | simplest (no other formatter knows `.orbit`; VS Code's default for format on save is off) | Ask on first use | [Editor setup](editor-setup.md#formatting) |
+| A `//` comment that ends an `{if}`, `{else if}` or `{for}` header is a syntax error (`a // comment can't end a {if} header; use /* … */`); one that ends an `{expr}` is kept, with a line break before the `}` | simplest (`if x // c {` can't compile; an expression can end in a comment) | Move the comment out of the braces | `PLAN.md` §6.1 |
+| A frontmatter chunk that ends with a comment on its own line gets a blank line before the next chunk | simplest (otherwise the comment becomes the next statement's doc comment on the next run, and formatting isn't idempotent) | Attach the comment to the next statement | `PLAN.md` §6.1 |
+| The safety check also keeps the number of comments in each Go region, and lets a control header lose redundant parentheses | Go stdlib (gofmt drops an empty `//` above a block and `if (x)`'s parentheses) | Trust gofmt | `PLAN.md` §6.1 |
+| Without Bun, the notice is printed only when some file has a script or style to format | simplest (no noise for projects without scripts) | Print it on every run | [CLI](reference/cli.md#scripts-and-styles) |
+| Directory walks also skip the project's `dist/` | simplest (it's build output) | Only `.*`, `node_modules` and `orbit_gen` | [CLI](reference/cli.md#paths-and-flags) |
+| The language server formats only the documents it follows (`.orbit` under the workspace's `src/`); others get `null` | simplest (the same set it gives diagnostics for) | Format any `.orbit` buffer | `PLAN.md` §6.1 |
+| A docs ```` ```orbit ```` block whose info string has `unformatted` (a "before" example) is exempt from the fmt-clean test | simplest | A separate fence language | `PLAN.md` §6.1 |
+| A leading UTF-8 BOM is skipped by the parser, so the frontmatter after it is found and the BOM isn't rendered | Go stdlib (go/scanner skips a leading BOM) | Treat it as template text | [CLI](reference/cli.md#orbit-fmt) |

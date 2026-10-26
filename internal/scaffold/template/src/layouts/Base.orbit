@@ -1,6 +1,6 @@
 ---
 type Props struct {
-    Title string
+	Title string
 }
 ---
 <!DOCTYPE html>

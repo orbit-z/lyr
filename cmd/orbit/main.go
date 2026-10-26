@@ -34,6 +34,7 @@ type command struct {
 
 // env is what commands print to and run in.
 type env struct {
+	stdin          io.Reader
 	stdout, stderr io.Writer
 	dir            string // working directory
 	ctx            context.Context
@@ -49,6 +50,7 @@ func init() {
 		{name: "preview", short: "run the built server", run: runPreview},
 		{name: "new", args: "<dir> [--module path]", short: "create a project", run: runNew},
 		{name: "check", short: "type-check Go and TypeScript", run: runCheck},
+		{name: "fmt", args: "[-l] [-d] [-w] [--stdin-filepath=PATH] [paths]", short: "format .orbit files", run: runFmt},
 		{name: "doctor", args: "[--json]", short: "check the environment and project", run: runDoctor},
 		{name: "create-key", short: "print a new island key for ORBIT_KEY", run: runCreateKey},
 		{name: "lsp", short: "language server over stdio", run: runLSP},
@@ -65,7 +67,7 @@ func main() {
 		os.Exit(code)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	code := run(&env{stdout: os.Stdout, stderr: os.Stderr, dir: dir, ctx: ctx}, os.Args[1:])
+	code := run(&env{stdin: os.Stdin, stdout: os.Stdout, stderr: os.Stderr, dir: dir, ctx: ctx}, os.Args[1:])
 	stop()
 	os.Exit(code)
 }

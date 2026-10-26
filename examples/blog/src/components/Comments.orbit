@@ -1,17 +1,17 @@
 ---
 import (
-    "example.com/blog/internal/posts"
-    CommentThread "./CommentThread.orbit"
+	CommentThread "./CommentThread.orbit"
+	"example.com/blog/internal/posts"
 )
 
 type Props struct {
-    PostID int
+	PostID int
 }
 
 // Slow: the post page renders this component with server:defer.
 comments, err := posts.Comments(props.PostID)
 if err != nil {
-    return err
+	return err
 }
 ---
 <section class="comments">

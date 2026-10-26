@@ -1,0 +1,3 @@
+-- errors --
+err_brace.orbit:1:1: <p> isn't closed; add </p>
+err_brace.orbit:1:4: { has no matching }

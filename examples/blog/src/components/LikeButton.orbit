@@ -1,7 +1,7 @@
 ---
 type Props struct {
-    Slug  string
-    Likes int
+	Slug  string
+	Likes int
 }
 ---
 <like-button data-slug={props.Slug} data-likes={props.Likes}>
@@ -30,7 +30,9 @@ type Props struct {
     }
 
     async like(): Promise<void> {
-      const res = await fetch(`/blog/${this.dataset.slug}/like`, { method: "POST" });
+      const res = await fetch(`/blog/${this.dataset.slug}/like`, {
+        method: "POST",
+      });
       if (res.ok) {
         this.outerHTML = await res.text();
       }

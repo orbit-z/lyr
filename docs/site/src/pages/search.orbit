@@ -1,20 +1,20 @@
 ---
 import (
-    "strings"
+	"strings"
 
-    "github.com/orbit-z/orbit/docs/site/internal/content"
-    Base "../layouts/Base.orbit"
+	Base "../layouts/Base.orbit"
+	"github.com/orbit-z/orbit/docs/site/internal/content"
 )
 
 q := strings.TrimSpace(ctx.Request.URL.Query().Get("q"))
 docs, err := content.Get()
 if err != nil {
-    return err
+	return err
 }
 results := docs.Search(q)
 title := "Search"
 if q != "" {
-    title = "Search: " + q
+	title = "Search: " + q
 }
 ---
 <Base title={title} query={q}>
@@ -46,7 +46,11 @@ if q != "" {
 </Base>
 
 <style>
-  .big { display: flex; gap: 0.5rem; margin: 1rem 0 1.5rem; }
+  .big {
+    display: flex;
+    gap: 0.5rem;
+    margin: 1rem 0 1.5rem;
+  }
   .big input {
     flex: 1;
     padding: 0.55rem 0.8rem;
@@ -66,12 +70,33 @@ if q != "" {
     font-weight: 600;
     cursor: pointer;
   }
-  .hint { color: var(--muted); }
-  .results { list-style: none; padding: 0; }
-  .results li { padding: 0.85rem 0; border-bottom: 1px solid var(--border); }
-  .results a { font-weight: 600; text-decoration: none; }
-  .results a:hover { text-decoration: underline; }
-  .page { color: var(--fg); }
-  .sep { color: var(--muted); }
-  .results p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.92rem; }
+  .hint {
+    color: var(--muted);
+  }
+  .results {
+    list-style: none;
+    padding: 0;
+  }
+  .results li {
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .results a {
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .results a:hover {
+    text-decoration: underline;
+  }
+  .page {
+    color: var(--fg);
+  }
+  .sep {
+    color: var(--muted);
+  }
+  .results p {
+    margin: 0.25rem 0 0;
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
 </style>

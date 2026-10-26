@@ -1,0 +1,2 @@
+go test fuzz v1
+string("---\ntype A A\n/*\n00*/{}\n---")

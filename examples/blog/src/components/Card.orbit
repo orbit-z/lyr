@@ -2,7 +2,7 @@
 import "example.com/blog/internal/posts"
 
 type Props struct {
-    Post posts.Post
+	Post posts.Post
 }
 
 href := "/blog/" + props.Post.Slug
@@ -24,7 +24,9 @@ href := "/blog/" + props.Post.Slug
     border: 1px solid var(--border);
     border-radius: 8px;
   }
-  .card:hover { border-color: var(--muted); }
+  .card:hover {
+    border-color: var(--muted);
+  }
   h2 {
     margin: 0 0 0.25rem;
     font-size: 1.2rem;

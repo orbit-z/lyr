@@ -51,8 +51,8 @@ func Comments(slug string) ([]string, error) {
 import "example.com/blog/internal/posts"
 
 type Props struct {
-    Post     posts.Post
-    Featured bool
+	Post     posts.Post
+	Featured bool
 }
 
 func href(p posts.Post) string { return "/blog/" + p.Slug }
@@ -66,7 +66,11 @@ url := href(props.Post)
     <footer><slot name="footer" /></footer>
   {/if}
 </article>
-<style>.card { border: 1px solid #ccc }</style>
+<style>
+  .card {
+    border: 1px solid #ccc;
+  }
+</style>
 ```
 
 This test renders it with props and a default slot, and checks the HTML:
@@ -255,12 +259,12 @@ Pages are components too. A dynamic page reads its route params from its typed `
 import "example.com/blog/internal/posts"
 
 type Props struct {
-    Slug string
+	Slug string
 }
 
 list, err := posts.Comments(props.Slug)
 if err != nil {
-    return err
+	return err
 }
 ---
 <section class="comments">
@@ -273,19 +277,19 @@ if err != nil {
 ```orbit file=src/pages/blog/[slug].orbit
 ---
 import (
-    "errors"
+	"errors"
 
-    "example.com/blog/internal/posts"
-    Card     "../../components/Card.orbit"
-    Comments "../../components/Comments.orbit"
+	Card "../../components/Card.orbit"
+	Comments "../../components/Comments.orbit"
+	"example.com/blog/internal/posts"
 )
 
 post, err := posts.Find(params.Slug)
 if errors.Is(err, posts.ErrNotFound) {
-    return orbit.ErrNotFound
+	return orbit.ErrNotFound
 }
 if err != nil {
-    return err
+	return err
 }
 ---
 <!DOCTYPE html>

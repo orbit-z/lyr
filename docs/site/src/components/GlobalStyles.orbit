@@ -43,15 +43,37 @@
     --code-bg: #1d2129;
     --mark: #5a4d00;
   }
-  *, *::before, *::after { box-sizing: border-box; }
-  * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--fg);
-    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    font:
+      16px/1.6 system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
   }
-  a { color: var(--accent); }
-  code, pre, kbd { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.9em; }
-  mark { background: var(--mark); color: inherit; border-radius: 2px; }
+  a {
+    color: var(--accent);
+  }
+  code,
+  pre,
+  kbd {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.9em;
+  }
+  mark {
+    background: var(--mark);
+    color: inherit;
+    border-radius: 2px;
+  }
 </style>

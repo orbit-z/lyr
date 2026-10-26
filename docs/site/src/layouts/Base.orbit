@@ -1,33 +1,33 @@
 ---
 import (
-    "github.com/orbit-z/orbit/docs/site/internal/content"
-    // Imported first, so the global styles come before every component's
-    // scoped styles in the page's stylesheet, and lose to them on ties.
-    GlobalStyles "../components/GlobalStyles.orbit"
-    Sidebar "../components/Sidebar.orbit"
-    ThemeToggle "../components/ThemeToggle.orbit"
+	"github.com/orbit-z/orbit/docs/site/internal/content"
+	// Imported first, so the global styles come before every component's
+	// scoped styles in the page's stylesheet, and lose to them on ties.
+	GlobalStyles "../components/GlobalStyles.orbit"
+	Sidebar "../components/Sidebar.orbit"
+	ThemeToggle "../components/ThemeToggle.orbit"
 )
 
 type Props struct {
-    Title       string
-    Description string
-    // Query fills the header's search box (on the search page).
-    Query string
+	Title       string
+	Description string
+	// Query fills the header's search box (on the search page).
+	Query string
 }
 
 docs, err := content.Get()
 if err != nil {
-    return err
+	return err
 }
 
 title := "Orbit docs"
 if props.Title != "" {
-    title = props.Title + " · Orbit docs"
+	title = props.Title + " · Orbit docs"
 }
 // No data-theme attribute means "follow the system setting".
 var theme any
 if locals.Theme != "" {
-    theme = locals.Theme
+	theme = locals.Theme
 }
 ---
 <!DOCTYPE html>
@@ -68,8 +68,15 @@ if locals.Theme != "" {
 
 
 <style>
-  .skip { position: absolute; left: -999px; }
-  .skip:focus { left: 1rem; top: 0.5rem; z-index: 10; }
+  .skip {
+    position: absolute;
+    left: -999px;
+  }
+  .skip:focus {
+    left: 1rem;
+    top: 0.5rem;
+    z-index: 10;
+  }
   .top {
     position: sticky;
     top: 0;
@@ -90,7 +97,11 @@ if locals.Theme != "" {
     color: var(--fg);
     text-decoration: none;
   }
-  .search { flex: 1; max-width: 28rem; margin-left: auto; }
+  .search {
+    flex: 1;
+    max-width: 28rem;
+    margin-left: auto;
+  }
   .search input {
     width: 100%;
     padding: 0.4rem 0.75rem;
@@ -108,7 +119,9 @@ if locals.Theme != "" {
     margin: 0 auto;
     padding: 0 1.25rem;
   }
-  .nav-wrap > summary { display: none; }
+  .nav-wrap > summary {
+    display: none;
+  }
   .nav-wrap {
     position: sticky;
     top: 3.5rem;
@@ -117,7 +130,10 @@ if locals.Theme != "" {
     overflow-y: auto;
     padding: 1.5rem 0;
   }
-  main { min-width: 0; padding: 1.5rem 0 4rem; }
+  main {
+    min-width: 0;
+    padding: 1.5rem 0 4rem;
+  }
   .aside {
     position: sticky;
     top: 3.5rem;
@@ -128,13 +144,29 @@ if locals.Theme != "" {
     font-size: 0.875rem;
   }
   @media (max-width: 70rem) {
-    .shell { grid-template-columns: 15rem minmax(0, 1fr); }
-    .aside { display: none; }
+    .shell {
+      grid-template-columns: 15rem minmax(0, 1fr);
+    }
+    .aside {
+      display: none;
+    }
   }
   @media (max-width: 48rem) {
-    .shell { display: block; }
-    .nav-wrap { position: static; max-height: none; padding: 0.75rem 0 0; }
-    .nav-wrap > summary { display: list-item; cursor: pointer; font-weight: 600; }
-    .search { max-width: none; }
+    .shell {
+      display: block;
+    }
+    .nav-wrap {
+      position: static;
+      max-height: none;
+      padding: 0.75rem 0 0;
+    }
+    .nav-wrap > summary {
+      display: list-item;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .search {
+      max-width: none;
+    }
   }
 </style>

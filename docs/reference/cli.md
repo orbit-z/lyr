@@ -10,7 +10,7 @@ orbit dev              # dev server with live reload, on localhost:4321
 orbit build            # build into dist/
 orbit preview          # run the built server locally
 orbit check            # type-check Go and TypeScript without building
-orbit fmt              # format .orbit files (planned)
+orbit fmt              # format .orbit files
 orbit generate         # (re)generate orbit_gen/
 orbit doctor           # check your environment and project
 orbit create-key       # print a new island key for ORBIT_KEY
@@ -25,7 +25,7 @@ orbit lsp              # language server, started by your editor
 | [`orbit preview`](#orbit-preview) | | Runs the built server |
 | [`orbit new <dir>`](#orbit-new) | `--module path` | Creates a project |
 | [`orbit check`](#orbit-check) | | Type-checks Go and TypeScript |
-| [`orbit fmt [paths]`](#orbit-fmt) | `-l`, `-d`, `-w`, `--stdin-filepath` | Formats `.orbit` files (planned) |
+| [`orbit fmt [paths]`](#orbit-fmt) | `-l`, `-d`, `-w`, `--stdin-filepath` | Formats `.orbit` files |
 | [`orbit doctor`](#orbit-doctor) | `--json` | Checks the environment and project |
 | [`orbit create-key`](#orbit-create-key) | | Prints a new island key |
 | [`orbit lsp`](#orbit-lsp) | | Language server over stdio |
@@ -226,8 +226,6 @@ Errors are printed to stderr, Go first; a clean project prints nothing. Exit cod
 
 ## `orbit fmt`
 
-> **Planned.** This section is the spec for `orbit fmt`, written before the implementation (see `PLAN.md` §6.1). The command doesn't exist yet.
-
 ```sh
 go tool orbit fmt                         # format every .orbit file under src/, in place
 go tool orbit fmt src/components          # only the files under these paths
@@ -252,11 +250,12 @@ It **never** changes:
 - the content of a `<script>` whose `type` isn't JavaScript (JSON, JSON-LD, import maps);
 - the order of your frontmatter statements: it doesn't move code between the declarations Orbit hoists and the statements of the render function;
 - line endings: a file with CRLF line endings keeps them;
-- the end of the template: it doesn't add or remove a final newline (that would be rendered).
+- the end of the template: it doesn't add or remove a final newline (that would be rendered);
+- a byte order mark at the start of the file (Orbit skips it, as Go does, so the frontmatter after it is found and the mark isn't rendered).
 
 ### Paths and flags
 
-With no paths, `orbit fmt` formats every `.orbit` file under the `src/` directory of the project around the current directory (the nearest directory with a `go.mod`). With paths, it formats those files, and every `.orbit` file under those directories, skipping directories whose name starts with `.`, `node_modules` and `orbit_gen`. A path can be outside a project, or outside `src/`: formatting needs only the file itself.
+With no paths, `orbit fmt` formats every `.orbit` file under the `src/` directory of the project around the current directory (the nearest directory with a `go.mod`). With paths, it formats those files, and every `.orbit` file under those directories, skipping directories whose name starts with `.`, `node_modules`, `orbit_gen` and the project's `dist/`; symbolic links met in a directory aren't followed. A path can be outside a project, or outside `src/`: formatting needs only the file itself.
 
 | Flag | Meaning |
 |---|---|
@@ -293,7 +292,7 @@ So in CI, `go tool orbit fmt -l` fails the step when a file needs formatting, an
 
 The frontmatter is formatted with `gofmt`'s rules. The declarations that Orbit hoists (`import`, `type`, `const` and named `func`s) are formatted as file-level Go, and the statements of the render function as a function body, at the left margin. Imports are sorted by path within each group, as `gofmt` sorts them, so `.orbit` imports (their paths start with `.`) come first in their group; separate them with a blank line to keep them apart. Before:
 
-```orbit
+```orbit unformatted
 ---
 import (
     "strings"
@@ -337,7 +336,7 @@ A run of hoisted declarations gets `gofmt`'s blank lines (one after the import b
 
 The Go code in `{…}` gets `gofmt`'s spacing, as if it were written `x := <expr>`. The braces hug it, and block tags are spelled `{if c}`, `{else if c}`, `{else}`, `{/if}`, `{for clause}` and `{/for}`. Attribute forms are kept: `title={title}` isn't shortened to `{title}`, nor the other way round. Before:
 
-```orbit
+```orbit unformatted
 ---
 import "strconv"
 
@@ -401,7 +400,7 @@ The HTML lines themselves, and their indentation, are untouched. An expression t
 
 The block keeps its indentation: content indented two spaces inside the tag stays indented two spaces. Content written on the same line as the tag moves to its own lines, one level in from the tag. Before:
 
-```orbit
+```orbit unformatted
 <button id="like">Like</button>
 <script>
   const btn=document.querySelector<HTMLButtonElement>("#like")!
@@ -429,7 +428,7 @@ After:
 </style>
 ```
 
-**Without Bun** (or with a Bun older than 1.4.4), `orbit fmt` formats everything else and leaves scripts and styles as they are, with one notice on stderr naming the command to install or upgrade Bun. The notice doesn't change the exit code. So if your team formats scripts, install Bun in CI too: without it, `orbit fmt -l` can't tell that a script isn't formatted. `orbit doctor` reports a missing Bun.
+**Without Bun** (or with a Bun older than 1.4.4), `orbit fmt` formats everything else and leaves scripts and styles as they are, with one notice on stderr naming the command to install or upgrade Bun (only when some file has a script or style to format). The notice doesn't change the exit code. So if your team formats scripts, install Bun in CI too: without it, `orbit fmt -l` can't tell that a script isn't formatted. `orbit doctor` reports a missing Bun.
 
 ### In your editor
 
@@ -503,8 +502,8 @@ Errors are printed one per line as `file:line:col: message`, with the position i
 ```orbit file=src/pages/index.orbit expect-error
 ---
 import (
-    "example.com/blog/internal/posts"
-    Card "../components/Card.orbit"
+	Card "../components/Card.orbit"
+	"example.com/blog/internal/posts"
 )
 
 p, _ := posts.Find("hello")
@@ -534,8 +533,8 @@ For example, a type error in an attribute value:
 ```orbit file=src/pages/index.orbit expect-error
 ---
 import (
-    "example.com/blog/internal/posts"
-    Card "../components/Card.orbit"
+	Card "../components/Card.orbit"
+	"example.com/blog/internal/posts"
 )
 
 p, _ := posts.Find("hello")

@@ -1,0 +1,6 @@
+<p>x</p>
+<script>
+  let s = `a
+  b`;
+  console.log(s);
+</script>

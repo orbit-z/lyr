@@ -21,7 +21,9 @@ import Base "../layouts/Base.orbit"
   // Store the theme in a cookie and reload, so the server renders it.
   class ThemePicker extends HTMLElement {
     connectedCallback(): void {
-      for (const button of this.querySelectorAll<HTMLButtonElement>("button[data-theme]")) {
+      for (const button of this.querySelectorAll<HTMLButtonElement>(
+        "button[data-theme]",
+      )) {
         button.addEventListener("click", () => {
           document.cookie = `theme=${button.dataset.theme}; path=/; max-age=31536000; samesite=lax`;
           location.reload();

@@ -1,0 +1,17 @@
+---
+    query := `SELECT *
+    FROM posts
+        WHERE id = ?`
+    if query!="" {
+        msg := `line one
+  line two`
+        _ = msg
+    }
+---
+<pre>{`raw
+   in an expression`+query}</pre>
+<div>
+  {strings.Join([]string{`a
+b`,
+      "c"}, ",")}
+</div>

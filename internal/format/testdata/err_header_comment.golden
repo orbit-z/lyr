@@ -1,0 +1,2 @@
+-- errors --
+err_header_comment.orbit:1:7: a // comment can't end a {if} header; use /* … */

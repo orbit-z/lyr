@@ -1,0 +1,17 @@
+---
+import "strconv"
+
+items := []string{"a", "b"}
+n := len(items)
+---
+{if n == 0}
+  <p>Nothing yet</p>
+{else if n == 1}
+  <p class={"one" + "-item"}>One item</p>
+{else}
+  <ul>
+    {for i := 0; i < n; i++}
+      <li data-index={i + 1}>{items[i] + " (" + strconv.Itoa(i) + ")"}</li>
+    {/for}
+  </ul>
+{/if}

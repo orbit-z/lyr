@@ -9,12 +9,12 @@ This page is the complete reference for the template part of a `.orbit` file: th
 import "time"
 
 type Props struct {
-    Title string
-    URL   string
-    Date  time.Time
-    Tags  []string
-    Draft bool
-    Attrs orbit.Attrs
+	Title string
+	URL   string
+	Date  time.Time
+	Tags  []string
+	Draft bool
+	Attrs orbit.Attrs
 }
 ---
 {/* The title line of a post. */}
@@ -37,8 +37,8 @@ type Props struct {
 ```orbit file=src/pages/index.orbit
 ---
 import (
-    "time"
-    PostMeta "../components/PostMeta.orbit"
+	PostMeta "../components/PostMeta.orbit"
+	"time"
 )
 
 date := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
@@ -445,7 +445,7 @@ Astro's `class:list` and `define:vars` aren't supported, and using them is a com
 ```orbit file=src/components/Card.orbit expect-error
 ---
 type Props struct {
-    Featured bool
+	Featured bool
 }
 ---
 <article class:list={[]string{"card"}}>
@@ -512,12 +512,12 @@ When Orbit can't list the fields (the embed and alias case above), it skips this
 ```orbit file=src/components/Card.orbit
 ---
 type Link struct {
-    Post string
+	Post string
 }
 
 type Props struct {
-    Link
-    Featured bool
+	Link
+	Featured bool
 }
 ---
 <article>{props.Post}</article>

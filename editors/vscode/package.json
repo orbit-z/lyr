@@ -57,6 +57,11 @@
         }
       }
     ],
+    "configurationDefaults": {
+      "[orbit]": {
+        "editor.defaultFormatter": "orbit-z.orbit"
+      }
+    },
     "configuration": {
       "title": "Orbit",
       "properties": {

@@ -182,8 +182,8 @@ import Card "../components/Card.orbit"
 import "example.com/blog/internal/posts"
 
 type Props struct {
-    Post     posts.Post
-    Featured bool
+	Post     posts.Post
+	Featured bool
 }
 ---
 <h2>{props.Post.Titel}</h2>
@@ -490,7 +490,7 @@ import "strings"
 
 classes := []string{"card"}
 if props.Featured {
-    classes = append(classes, "featured")
+	classes = append(classes, "featured")
 }
 ---
 <article class={strings.Join(classes, " ")}>…</article>

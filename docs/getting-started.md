@@ -154,9 +154,9 @@ Open `src/pages/index.orbit`. Like an Astro component, it has a frontmatter bloc
 ```orbit
 ---
 import (
-    "time"
+	"time"
 
-    Base "../layouts/Base.orbit"
+	Base "../layouts/Base.orbit"
 )
 
 year := time.Now().Year()
@@ -194,9 +194,9 @@ Create `src/components/Card.orbit`. A component declares its inputs in a `Props`
 ```orbit file=src/components/Card.orbit
 ---
 type Props struct {
-    Title string
-    Href  string
-    Tag   string
+	Title string
+	Href  string
+	Tag   string
 }
 ---
 <a class="card" href={props.Href}>
@@ -217,7 +217,9 @@ type Props struct {
     color: inherit;
     text-decoration: none;
   }
-  .card:hover { border-color: #888; }
+  .card:hover {
+    border-color: #888;
+  }
   .tag {
     font-size: 0.75rem;
     padding: 0.1rem 0.4rem;
@@ -240,15 +242,15 @@ Now use it from the page. Import it with an alias, and pass its props as attribu
 ```orbit file=src/pages/index.orbit
 ---
 import (
-    "time"
+	"time"
 
-    Base "../layouts/Base.orbit"
-    Card "../components/Card.orbit"
+	Card "../components/Card.orbit"
+	Base "../layouts/Base.orbit"
 )
 
 name := ctx.Request.URL.Query().Get("name")
 if name == "" {
-    name = "Orbit"
+	name = "Orbit"
 }
 year := time.Now().Year()
 ---
@@ -361,7 +363,7 @@ A layout is an ordinary component that renders the page shell around its default
 ```orbit file=src/layouts/Base.orbit
 ---
 type Props struct {
-    Title string
+	Title string
 }
 ---
 <!DOCTYPE html>

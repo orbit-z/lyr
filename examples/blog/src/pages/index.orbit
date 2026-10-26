@@ -1,14 +1,14 @@
 ---
 import (
-    "example.com/blog/internal/posts"
-    Base "../layouts/Base.orbit"
-    Card "../components/Card.orbit"
-    Intro "../content/intro.md"
+	Card "../components/Card.orbit"
+	Intro "../content/intro.md"
+	Base "../layouts/Base.orbit"
+	"example.com/blog/internal/posts"
 )
 
 all, err := posts.All()
 if err != nil {
-    return err
+	return err
 }
 ---
 <Base title="Posts">
@@ -23,5 +23,7 @@ if err != nil {
   {/for}
 </Base>
 <style>
-  h1 { margin-top: 0; }
+  h1 {
+    margin-top: 0;
+  }
 </style>

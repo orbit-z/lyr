@@ -65,20 +65,28 @@ func ParseBunVersion(s string) (Version, bool) {
 // findBun returns the path of a usable bun, or "" and the skip notice.
 // bun is the configured path, or "" to look it up on PATH.
 func findBun(ctx context.Context, bun string) (path, notice string) {
+	return FindBun(ctx, bun, "orbit check: skipping TypeScript type checking")
+}
+
+// FindBun returns the path of a usable bun (MinBun or later), or "" and a
+// notice that starts with skipping ("orbit fmt: skipping …") and names the
+// command to install or upgrade Bun. bun is the configured path, or "" to
+// look it up on PATH.
+func FindBun(ctx context.Context, bun, skipping string) (path, notice string) {
 	if bun == "" {
 		p, err := exec.LookPath("bun")
 		if err != nil {
-			return "", fmt.Sprintf("orbit check: skipping TypeScript type checking: bun not found (%s or later needed); install it with: %s", MinBun, InstallBun)
+			return "", fmt.Sprintf("%s: bun not found (%s or later needed); install it with: %s", skipping, MinBun, InstallBun)
 		}
 		bun = p
 	}
 	out, err := exec.CommandContext(ctx, bun, "--version").Output()
 	v, ok := ParseBunVersion(string(bytes.TrimSpace(out)))
 	if err != nil || !ok {
-		return "", fmt.Sprintf("orbit check: skipping TypeScript type checking: can't read the version of %s (%s or later needed); reinstall it with: %s", bun, MinBun, InstallBun)
+		return "", fmt.Sprintf("%s: can't read the version of %s (%s or later needed); reinstall it with: %s", skipping, bun, MinBun, InstallBun)
 	}
 	if v.Less(MinBun) {
-		return "", fmt.Sprintf("orbit check: skipping TypeScript type checking: bun %s is older than %s; upgrade it with: %s", v, MinBun, UpgradeBun)
+		return "", fmt.Sprintf("%s: bun %s is older than %s; upgrade it with: %s", skipping, v, MinBun, UpgradeBun)
 	}
 	return bun, ""
 }

@@ -1,0 +1,16 @@
+---
+m := map[string]int{}
+---
+{ if n,ok:=m["k"];ok }
+  <p>{n}</p>
+{else  if len(m)>1}
+  <p>many</p>
+{ else }
+  <p>none</p>
+{ /if }
+{for k,v:=range m}<i>{k}={v}</i>{ /for }
+{for i:=0;i<3;i++}{i}{/for}
+{for len(m)<3}x{/for}
+{for range 3}x{/for}
+{if (Point{1,2}).X>0}p{/if}
+{if x := f(); x /* why */}c{/if}

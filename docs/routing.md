@@ -5,17 +5,17 @@ Every `.orbit` file in `src/pages/` is a page (unless its name starts with `_`),
 ```orbit file=src/pages/blog/[slug].orbit
 ---
 import (
-    "errors"
+	"errors"
 
-    "example.com/blog/internal/posts"
+	"example.com/blog/internal/posts"
 )
 
 post, err := posts.Find(params.Slug)
 if errors.Is(err, posts.ErrNotFound) {
-    return orbit.ErrNotFound
+	return orbit.ErrNotFound
 }
 if err != nil {
-    return err
+	return err
 }
 ---
 <article>
@@ -147,13 +147,13 @@ A rest parameter, `[...name]`, matches **zero or more** segments. `src/pages/doc
 ```orbit file=src/pages/docs/[...path].orbit
 ---
 titles := map[string]string{
-    "":               "Docs",
-    "install":        "Install",
-    "guides/routing": "Routing guide",
+	"":               "Docs",
+	"install":        "Install",
+	"guides/routing": "Routing guide",
 }
 title, ok := titles[params.Path]
 if !ok {
-    return orbit.ErrNotFound
+	return orbit.ErrNotFound
 }
 ---
 <h1>{title}</h1>
@@ -215,7 +215,7 @@ import "strconv"
 
 id, err := strconv.Atoi(params.ID)
 if err != nil {
-    return orbit.ErrNotFound
+	return orbit.ErrNotFound
 }
 ---
 <h1>Post #{id}</h1>
@@ -246,7 +246,7 @@ src/pages/[1st].orbit: route param [1st] can't become a Go field name; use lette
 ---
 lang := ctx.Param("lang")
 if lang == "" {
-    lang = "en"
+	lang = "en"
 }
 ---
 <nav>

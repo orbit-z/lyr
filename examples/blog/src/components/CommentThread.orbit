@@ -2,7 +2,7 @@
 import "example.com/blog/internal/posts"
 
 type Props struct {
-    Comments []posts.Comment
+	Comments []posts.Comment
 }
 ---
 <ul class="thread">
@@ -36,5 +36,7 @@ type Props struct {
     margin: 0.75rem 0 0;
     font-weight: 600;
   }
-  p { margin: 0.25rem 0; }
+  p {
+    margin: 0.25rem 0;
+  }
 </style>

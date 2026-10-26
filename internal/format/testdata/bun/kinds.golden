@@ -1,0 +1,28 @@
+---
+data := map[string]int{"a": 1}
+---
+<div>
+    <script type="application/json" set:json={data}></script>
+    <script type="application/ld+json">{"@context":"https://schema.org"}</script>
+    <script type="importmap">{ "imports": {"a":"./a.js"} }</script>
+    <script is:inline>
+    window.x = 1;
+    const tpl = `line one
+    line two kept`;
+    </script>
+    <script type="module">
+        import { a } from "./a.js";
+        a();
+    </script>
+    <script type="text/x-template"><p>{{ not js }}</p></script>
+    <script></script>
+    <style>   </style>
+    <style is:global>
+	.a {
+	  color: red;
+	}
+	.b {
+	  margin: 0;
+	}
+    </style>
+</div>

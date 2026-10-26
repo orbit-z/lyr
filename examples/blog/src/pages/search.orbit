@@ -1,8 +1,8 @@
 ---
 import (
-    "example.com/blog/internal/posts"
-    Base "../layouts/Base.orbit"
-    Card "../components/Card.orbit"
+	Card "../components/Card.orbit"
+	Base "../layouts/Base.orbit"
+	"example.com/blog/internal/posts"
 )
 
 q := ctx.Request.URL.Query().Get("q")
@@ -11,11 +11,11 @@ results := posts.Search(q)
 // Every title, for the search box's suggestions (see the script below).
 all, err := posts.All()
 if err != nil {
-    return err
+	return err
 }
 titles := make([]string, len(all))
 for i, p := range all {
-    titles[i] = p.Title
+	titles[i] = p.Title
 }
 ---
 <Base title="Search">
@@ -43,7 +43,9 @@ for i, p := range all {
     gap: 0.5rem;
     margin-bottom: 1.5rem;
   }
-  input { flex: 1; }
+  input {
+    flex: 1;
+  }
 </style>
 <script>
   // Fill the search box's suggestions from the set:json block above.

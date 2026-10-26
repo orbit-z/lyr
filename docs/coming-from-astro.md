@@ -44,15 +44,15 @@ In Orbit:
 import "strings"
 
 type Props struct {
-    Title    string
-    Tags     []string
-    Featured bool
+	Title    string
+	Tags     []string
+	Featured bool
 }
 
 heading := strings.ToUpper(props.Title)
 classes := "card"
 if props.Featured {
-    classes += " featured"
+	classes += " featured"
 }
 ---
 <article class={classes}>
@@ -71,9 +71,16 @@ if props.Featured {
 </article>
 
 <style>
-  .card { border: 1px solid #ccc; padding: 1rem; }
-  .featured { border-color: gold; }
-  h2 { margin: 0; }
+  .card {
+    border: 1px solid #ccc;
+    padding: 1rem;
+  }
+  .featured {
+    border-color: gold;
+  }
+  h2 {
+    margin: 0;
+  }
 </style>
 ```
 

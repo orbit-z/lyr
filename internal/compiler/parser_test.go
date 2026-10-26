@@ -86,6 +86,10 @@ func TestSplitFrontmatter(t *testing.T) {
 		{src: "---", present: true, code: "", template: "", diags: 1},
 		{src: " ---\n---\n", template: " ---\n---\n"},
 		{src: "----\n", template: "----\n"},
+		// A leading BOM is skipped, as Go's scanner skips it.
+		{src: "\uFEFF---\nx := 1\n---\n<p/>", present: true, closed: true, code: "x := 1\n", template: "<p/>"},
+		{src: "\uFEFF<p>hi</p>", template: "<p>hi</p>"},
+		{src: "\uFEFF\uFEFF---\n---\n", template: "\uFEFF---\n---\n"},
 	}
 	for _, tt := range tests {
 		fm, tmpl, diags := SplitFrontmatter(tt.src)
