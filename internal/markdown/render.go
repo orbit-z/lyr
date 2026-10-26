@@ -61,9 +61,11 @@ func engine(o Options) goldmark.Markdown {
 		exts = append(exts, extension.GFM, extension.Footnote)
 	}
 	if k.smarty {
-		// Astro's smartypants doesn't turn << and >> into guillemets.
+		// Astro's smartypants doesn't turn << and >> into guillemets, and
+		// does dashes its own way (dashes.go).
 		exts = append(exts, extension.NewTypographer(extension.WithTypographicSubstitutions(
-			map[extension.TypographicPunctuation][]byte{extension.LeftAngleQuote: nil, extension.RightAngleQuote: nil})))
+			map[extension.TypographicPunctuation][]byte{extension.LeftAngleQuote: nil, extension.RightAngleQuote: nil,
+				extension.EnDash: nil, extension.EmDash: nil})), dashes{})
 	}
 	ropts := []renderer.Option{gmhtml.WithUnsafe()}
 	if k.highlight {

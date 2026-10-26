@@ -136,7 +136,13 @@ func TestRender(t *testing.T) {
 				`<a href="http://www.example.com">www.example.com</a>`, `<sup id="fnref:1">`, "A footnote."}},
 		{"no gfm", Options{NoGFM: true}, "~~old~~\n", []string{"<p>~~old~~</p>"}},
 		{"smartypants", Options{}, "\"Hi\" -- it's... << x >> `don't`\n",
-			[]string{"<p>&ldquo;Hi&rdquo; &ndash; it&rsquo;s&hellip; &lt;&lt; x &gt;&gt; <code>don't</code></p>"}},
+			[]string{"<p>&ldquo;Hi&rdquo; &mdash; it&rsquo;s&hellip; &lt;&lt; x &gt;&gt; <code>don't</code></p>"}},
+		// As Astro (retext-smartypants, dashes: true): exactly two hyphens
+		// make an em dash, other runs stay; code is untouched.
+		{"dashes", Options{}, "a--b a -- b a---b a --- b a----b a-----b x - y\n\n--start and end--\n\n`a--b` `---`\n\n```\na--b\n```\n\n    c -- d\n",
+			[]string{"<p>a&mdash;b a &mdash; b a---b a --- b a----b a-----b x - y</p>", "<p>&mdash;start and end&mdash;</p>",
+				"<p><code>a--b</code> <code>---</code></p>", "<code>a--b\n</code>", "<code>c -- d\n</code>"}},
+		{"no dashes without smartypants", Options{NoSmartypants: true}, "a--b a---b\n", []string{"<p>a--b a---b</p>"}},
 		{"no smartypants", Options{NoSmartypants: true}, "\"Hi\" -- it's...\n", []string{"<p>&quot;Hi&quot; -- it's...</p>"}},
 		{"raw html", Options{}, "<details>\n<summary>Why?</summary>\n\nBecause.\n</details>\n\n<script>alert(1)</script>\n",
 			[]string{"<details>\n<summary>Why?</summary>\n<p>Because.</p>\n</details>", "<script>alert(1)</script>"}},
@@ -195,12 +201,13 @@ func TestLinks(t *testing.T) {
 }
 
 func TestHighlight(t *testing.T) {
-	src := "```go title=\"main.go\"\nfunc main() { fmt.Println(\"<hi>\") }\n```\n\n```orbit\n<p>{x}</p>\n```\n\n```\nplain & simple\n```\n\n    indented <code>\n"
+	src := "```go title=\"main.go\"\nfunc main() { fmt.Println(\"<hi>\") }\n```\n\n```orbit\n<p>{x}</p>\n```\n\n```mermaid\ngraph TD; A-->B\n```\n\n```\nplain & simple\n```\n\n    indented <code>\n"
 	d := Parse("src/pages/x.md", src, Options{}, nil)
 	for _, w := range []string{
 		`<pre class="chroma" tabindex="0" data-language="go"><code><span class="kd">func</span> <span class="nf">main</span><span class="p">()</span>`,
 		`<span class="s">"&lt;hi&gt;"</span>`,
-		`<pre class="chroma" tabindex="0" data-language="orbit"><code>&lt;p&gt;{x}&lt;/p&gt;` + "\n</code></pre>",
+		`<pre class="chroma" tabindex="0" data-language="orbit"><code><span class="p">&lt;</span><span class="nt">p</span><span class="p">&gt;{</span><span class="nx">x</span>`,
+		`<pre class="chroma" tabindex="0" data-language="mermaid"><code>graph TD; A--&gt;B` + "\n</code></pre>",
 		`<pre class="chroma" tabindex="0" data-language="plaintext"><code>plain &amp; simple` + "\n</code></pre>",
 		`<pre class="chroma" tabindex="0" data-language="plaintext"><code>indented &lt;code&gt;` + "\n</code></pre>",
 	} {
@@ -211,7 +218,7 @@ func TestHighlight(t *testing.T) {
 	if !d.Highlighted {
 		t.Error("Highlighted not set")
 	}
-	if d := Parse("src/pages/x.md", "```orbit\nx\n```\n", Options{}, nil); d.Highlighted {
+	if d := Parse("src/pages/x.md", "```mermaid\nx\n```\n", Options{}, nil); d.Highlighted {
 		t.Error("Highlighted set for an unknown language")
 	}
 	d = Parse("src/pages/x.md", "```go\nfunc main() {}\n```\n", Options{NoHighlight: true}, nil)

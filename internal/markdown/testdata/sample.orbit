@@ -1,0 +1,41 @@
+---
+import (
+	"fmt"
+	Card "../components/Card.orbit"
+)
+
+type Props struct {
+	Title string
+	Posts []Post
+}
+
+// A comment with a } brace.
+greeting := fmt.Sprintf("{%s}", props.Title)
+---
+<!doctype html>
+<html lang="en">
+<!-- an HTML comment -->
+{/* a template comment */}
+<h1 class={cls} data-x="literal {x}">{greeting}</h1>
+<p>{fmt.Sprintf("}%d{", len(props.Posts))} &amp; {'}'} {`raw }`} {f(map[string]int{"a": 1}) /* } */}</p>
+{if len(props.Posts) == 0}
+	<p>No posts.</p>
+{else if len(props.Posts) == 1}
+	<p>One post.</p>
+{else}
+	<ul>
+	{for _, p := range props.Posts}
+		<li><Card title={p.Title} {...p.Attrs} client:visible /></li>
+	{/for}
+	</ul>
+{/if}
+<Self depth={props.Depth - 1}>slot</Self>
+<p>a < b</p>
+<script>
+	const n: number = document.querySelectorAll("li").length;
+	if (n > 0) { console.log(`${n} posts`); }
+</script>
+<script type="application/json" set:json={data}></script>
+<style>
+	h1 { color: rebeccapurple; }
+</style>
