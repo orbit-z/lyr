@@ -333,4 +333,4 @@ To check formatting in CI, run `orbit fmt -l` (see [Fresh clones and CI](project
 - [Components](components.md): what `props`, `slots`, `ctx` and `locals` are
 - [CLI reference](reference/cli.md#orbit-lsp): `orbit lsp`, and [`orbit doctor`](reference/cli.md#orbit-doctor)'s checks
 - [Styles and scripts](styles-and-scripts.md): TypeScript and `orbit check`
-- [CLI reference](reference/cli.md#orbit-fmt): `orbit fmt` (planned)
+- [CLI reference](reference/cli.md#orbit-fmt): `orbit fmt`, the formatter

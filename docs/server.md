@@ -201,14 +201,16 @@ mux.Handle("/", site.Handler())
 h := logging(mux)
 ```
 
-```mermaid
-flowchart LR
-    req([Request]) --> log[logging] --> mux[http.ServeMux]
-    mux -->|"GET /api/posts"| api[listPosts]
-    mux -->|"POST /blog/{slug}/like"| like[like]
-    mux -->|"/ (anything else)"| handler["site.Handler()"]
-    handler -->|"page, island, /_orbit/*, public/"| served([Orbit responds])
-    handler -->|no match| nf["site.NotFound(): 404.orbit"]
+```text
+Request → logging → http.ServeMux
+                     ├─ GET /api/posts          → listPosts
+                     ├─ POST /blog/{slug}/like  → like
+                     └─ / (anything else)
+                          → site.Handler()
+                             ├─ page, island, /_orbit/*, public/
+                             │    → Orbit responds
+                             └─ no match
+                                  → site.NotFound(): 404.orbit
 ```
 
 Pick this when your routes must never be shadowed by a page, for example an API under `/api/`. A route you register at the same path as a page replaces that page. Don't register routes under `/_orbit/`: that prefix belongs to Orbit.
@@ -224,14 +226,14 @@ mux.Handle("/", site.NotFound()) // unmatched paths render 404.orbit
 h := logging(site.Middleware(mux))
 ```
 
-```mermaid
-flowchart LR
-    req([Request]) --> log[logging] --> mw["site.Middleware(mux)"]
-    mw -->|"page, island, /_orbit/*, public/"| served([Orbit responds])
-    mw -->|"no match: next, untouched"| mux[http.ServeMux]
-    mux -->|"GET /api/posts"| api[listPosts]
-    mux -->|"POST /blog/{slug}/like"| like[like]
-    mux -->|"/ (anything else)"| nf["site.NotFound(): 404.orbit"]
+```text
+Request → logging → site.Middleware(mux)
+                     ├─ page, island, /_orbit/*, public/  → Orbit responds
+                     └─ no match: next, untouched
+                          → http.ServeMux
+                             ├─ GET /api/posts          → listPosts
+                             ├─ POST /blog/{slug}/like  → like
+                             └─ / (anything else)       → site.NotFound(): 404.orbit
 ```
 
 Pick this when pages should win, for example when a content team adds pages that may overlap with older handler paths. Things to watch:

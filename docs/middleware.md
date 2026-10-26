@@ -131,15 +131,15 @@ Outer middleware also runs before Orbit's trailing-slash redirect, so it can see
 
 With the `main.go` above, every request takes this path:
 
-```mermaid
-flowchart LR
-    req([Request]) --> log[logging] --> info[requestInfo] --> mux[http.ServeMux]
-    mux -->|"GET /api/prefs"| prefs[prefs]
-    mux -->|"/ (anything else)"| site["site.Handler()"]
-    site -->|"/_orbit/island/…"| island([deferred component])
-    site -->|"/_orbit/*, public/"| file([file])
-    site -->|page route| page([page])
-    site -->|no match| nf(["404.orbit"])
+```text
+Request → logging → requestInfo → http.ServeMux
+                                   ├─ GET /api/prefs  → prefs
+                                   └─ / (anything else)
+                                        → site.Handler()
+                                           ├─ /_orbit/island/…    → deferred component
+                                           ├─ /_orbit/*, public/  → file
+                                           ├─ page route          → page
+                                           └─ no match            → 404.orbit
 ```
 
 Inside `site.Handler()`, Orbit picks up the `*locals.Locals` that `EnsureLocals` attached to the request, and the page, its components and `404.orbit` all render with it. Responses come back out through `requestInfo` and `logging`.
