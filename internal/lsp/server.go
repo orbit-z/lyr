@@ -66,6 +66,8 @@ type Server struct {
 	goplsPath   string // the goplsPath initialization option
 	started     bool   // startGopls ran
 	cancels     map[string]context.CancelFunc
+	// bun is the Bun lookup for formatting.
+	bun bunState
 
 	// gopls: the process, whether Go features are on, and gopls's
 	// position encoding (UTF-16 unless its initialize result says
@@ -192,6 +194,9 @@ func (s *Server) handle(m *message) {
 
 // request answers one editor request.
 func (s *Server) request(ctx context.Context, method string, params jsonRaw) (any, *rpcError) {
+	if method == "textDocument/formatting" {
+		return s.formatting(ctx, params) // syntax-only: no gopls, no barrier
+	}
 	// Every request below may map positions through the generated files,
 	// which the startup typed check can still switch to orbit_gen/'s typed
 	// content.
@@ -319,9 +324,10 @@ func (s *Server) initialize(params jsonRaw) (any, *rpcError) {
 				"change":    2, // incremental
 				"save":      map[string]any{"includeText": false},
 			},
-			"hoverProvider":      true,
-			"definitionProvider": true,
-			"referencesProvider": true,
+			"documentFormattingProvider": true,
+			"hoverProvider":              true,
+			"definitionProvider":         true,
+			"referencesProvider":         true,
 			// No resolveProvider: gopls's items are complete (docs inline,
 			// no data) and so are Orbit's.
 			"completionProvider": map[string]any{
