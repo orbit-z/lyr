@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -107,10 +108,13 @@ func writeProject(t *testing.T, files map[string]string) string {
 
 // testClient is the editor.
 type testClient struct {
-	t     *testing.T
-	dir   string
-	conn  *Conn
-	cmd   *exec.Cmd
+	t    *testing.T
+	dir  string
+	conn *Conn
+	cmd  *exec.Cmd
+	// done is closed when an in-process server (startInProcess, cmd nil)
+	// returned.
+	done  chan struct{}
 	start time.Time
 
 	mu       sync.Mutex
@@ -165,6 +169,51 @@ func startClient(t *testing.T, dir string, initOpts map[string]any, env ...strin
 			t.Logf("orbit lsp log:\n%s", b)
 		}
 	})
+	c.initialize(initOpts)
+	return c
+}
+
+// startInProcess runs the language server in this test process (so that
+// tests can set its test hooks) on dir, and initializes it. The go command
+// runs in the module mode startClient sets.
+func startInProcess(t *testing.T, dir string, initOpts map[string]any) *testClient {
+	t.Helper()
+	t.Setenv("GOFLAGS", "-mod=mod")
+	t.Setenv("GOWORK", "off")
+	inR, inW := io.Pipe()
+	outR, outW := io.Pipe()
+	logf, err := os.Create(filepath.Join(t.TempDir(), "lsp.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &testClient{t: t, dir: dir, done: make(chan struct{}), diags: map[string][]map[string]any{}, diagAt: map[string]time.Time{},
+		texts: map[string]string{}, versions: map[string]int{}}
+	c.cond = sync.NewCond(&c.mu)
+	c.start = time.Now()
+	go func() {
+		defer close(c.done)
+		Run(context.Background(), inR, outW, Options{Log: logf})
+		outW.Close()
+	}()
+	c.conn = newConn(outR, inW)
+	go c.conn.Run(c.handle)
+	t.Cleanup(func() {
+		c.shutdown()
+		inW.Close()
+		<-c.done
+		logf.Close()
+		if t.Failed() || testing.Verbose() {
+			b, _ := os.ReadFile(logf.Name())
+			t.Logf("orbit lsp log:\n%s", b)
+		}
+	})
+	c.initialize(initOpts)
+	return c
+}
+
+// initialize sends initialize and initialized.
+func (c *testClient) initialize(initOpts map[string]any) {
+	t, dir := c.t, c.dir
 	// noDocumentChanges (an initOpts key, not sent) makes an editor
 	// without workspace.workspaceEdit.documentChanges support (and
 	// without prepareRename support).
@@ -199,7 +248,6 @@ func startClient(t *testing.T, dir string, initOpts map[string]any, env ...strin
 		t.Fatalf("initialize: no utf-16 position encoding: %s", res)
 	}
 	c.conn.Notify("initialized", map[string]any{})
-	return c
 }
 
 func (c *testClient) shutdown() {
@@ -207,6 +255,13 @@ func (c *testClient) shutdown() {
 	c.conn.Call(ctx, "shutdown", nil)
 	cancel()
 	c.conn.Notify("exit", nil)
+	if c.cmd == nil {
+		select {
+		case <-c.done:
+		case <-time.After(10 * time.Second):
+		}
+		return
+	}
 	done := make(chan struct{})
 	go func() { c.cmd.Wait(); close(done) }()
 	select {

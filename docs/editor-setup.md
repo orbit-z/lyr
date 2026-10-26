@@ -177,7 +177,7 @@ The language server reports Orbit's errors and warnings in the Markdown files it
 - links to other Markdown files: a missing target is an error, a `#fragment` with no matching heading a warning;
 - route errors: brackets in a page's path, a route another page already has.
 
-A frontmatter value of the wrong type for its layout field (`draft: "yes"` for a `bool` field) is found by Go's type checker, which the language server runs in the background when the editor starts and again after `orbit dev` or `orbit generate` rewrites `orbit_gen/`. That error stays on its key while you edit the rest of the file; once you edit the key itself, it's hidden until the next check. `orbit dev` and `orbit check` always show it.
+A frontmatter value of the wrong type for its layout field (`draft: "yes"` for a `bool` field) is found by Go's type checker, which the language server runs in the background: when the editor starts, after `orbit dev` or `orbit generate` rewrites `orbit_gen/`, and about 300 ms after you stop typing in a Markdown file (or change the `Props` of a layout that a Markdown file uses, or a Go file). That error stays on its key while you edit the rest of the file; once you edit the key itself, it's hidden until the next check, a moment later. `orbit dev` and `orbit check` always show it.
 
 Other Markdown files, such as a `README.md` that nothing imports, are ignored. Everything else about Markdown files (highlighting, preview, their own completion) stays with your editor's Markdown support: the VS Code extension sends `.md` files under `src/` to the language server for diagnostics only.
 
