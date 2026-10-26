@@ -178,7 +178,7 @@ Braces inside composite literals, strings, runes, raw strings and comments don't
 {/if}
 ```
 
-The header is copied into a Go `if` statement, so the condition must be a `bool` expression, and Go's error for a non-boolean condition is reported at the `.orbit` position. An init statement works too, as in Go, in `{if}` and `{else if}`: `{if n, ok := counts[tag]; ok}`.
+The header is copied into a Go `if` statement, so the condition must be a `bool` expression, and Go's error for a non-boolean condition is reported at the `.orbit` position. An init statement works too, as in Go, in `{if}` and `{else if}`: `{if n, ok := counts[tag]; ok}`. For the other places a template variable can live, see [Variables in the template](../components.md#variables-in-the-template).
 
 ### `{for}`
 

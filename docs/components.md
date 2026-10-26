@@ -641,6 +641,55 @@ Each loop iteration has its own variables (Go 1.22 semantics), so closures insid
 
 A call that returns a value and an error can't be used directly in `{…}`. Handle the error in the frontmatter, then use the value.
 
+### Variables in the template
+
+The template has no statements, so you can't write `x := …` between two tags. A variable lives in one of these places:
+
+- **A block header**, as in Go. `{if}` and `{else if}` take an init statement (`{if n, ok := counts[tag]; ok}`), and the variable is visible in that branch and the branches after it. `{for}` declares its loop variables.
+- **The frontmatter**, for anything computed once per render.
+- **A helper func** in the frontmatter, called from the template: `{label(p)}`.
+- **A component**, when each loop iteration needs its own variables: the component's frontmatter runs on every render.
+
+```orbit file=src/components/TagRow.orbit
+---
+type Props struct {
+    Tag   string
+    Count int
+}
+
+plural := "s"
+if props.Count == 1 {
+    plural = ""
+}
+---
+<li>{props.Tag}: {props.Count} post{plural}</li>
+```
+
+```orbit file=src/components/TagCounts.orbit
+---
+import (
+    "maps"
+    "slices"
+    TagRow "./TagRow.orbit"
+)
+
+type Props struct {
+    Counts   map[string]int
+    Featured string
+}
+---
+{if n, ok := props.Counts[props.Featured]; ok}
+  <p>Featured: {props.Featured} ({n})</p>
+{/if}
+<ul>
+  {for _, tag := range slices.Sorted(maps.Keys(props.Counts))}
+    <TagRow tag={tag} count={props.Counts[tag]} />
+  {/for}
+</ul>
+```
+
+Splitting a template into components costs almost nothing at runtime. A call is one Go function call, with `Props` passed as a struct value. There's no per-call object or context to set up, unlike Astro, where setting up each component is a large share of the render time (see [Performance](performance.md#where-the-time-goes-orbit-vs-astro)). The one cost to know: slot content that uses a variable of the caller, such as `<Row>{p.Title}</Row>` inside a loop, allocates a small closure per call. Passing the value as a prop (`<Row title={p.Title} />`) allocates nothing ([Allocations per request](performance.md#allocations-per-request)).
+
 ## Slots
 
 A component renders the children its parent passed with `<slot />`. Children are compiled in the parent, so they see the parent's variables and get the parent's scoped styles.
