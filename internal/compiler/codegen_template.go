@@ -600,7 +600,9 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	for _, a := range n.Attrs {
 		if a.Kind == AttrSpread {
 			if restField != "" {
-				rest.spreads = append(rest.spreads, a)
+				if strings.TrimSpace(a.Code.Text) != "" { // {...} is reported by the parser
+					rest.spreads = append(rest.spreads, a)
+				}
 				continue
 			}
 			g.errorf(a.Span, "{...} spread on <%s> needs an orbit.RestAttrs field in its Props, to pass HTML attributes through", n.Name)
