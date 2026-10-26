@@ -151,6 +151,7 @@ func reportTimings(b *testing.B, ts []Timings, written int) {
 		sum.Front += t.Front
 		sum.Assets += t.Assets
 		sum.GoList += t.GoList
+		sum.GoLists += t.GoLists
 		sum.Check += t.Check
 		sum.Extras += t.Extras
 		sum.Write += t.Write
@@ -162,6 +163,7 @@ func reportTimings(b *testing.B, ts []Timings, written int) {
 	b.ReportMetric(ms(sum.Front), "front-ms")
 	b.ReportMetric(ms(sum.Assets), "assets-ms")
 	b.ReportMetric(ms(sum.GoList), "golist-ms")
+	b.ReportMetric(float64(sum.GoLists)/n, "golists/op")
 	b.ReportMetric(ms(sum.Check), "check-ms")
 	b.ReportMetric(ms(sum.Extras), "extras-ms")
 	b.ReportMetric(ms(sum.Write), "write-ms")

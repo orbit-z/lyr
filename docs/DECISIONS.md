@@ -559,3 +559,13 @@ Decided with the Markdown spec (`PLAN.md` §2.4); the choices that shape the pub
 | `<<` and `>>` aren't turned into guillemets | Astro (smartypants has no such rule) | goldmark Typographer's default | [Markdown](markdown.md#what-you-can-write) |
 | Link errors and warnings point at the link's `[`; a `?query` and the `#fragment` are kept when a link is rewritten | simplest | The destination's position | [Markdown](markdown.md#links-between-markdown-files) |
 | `orbit lsp` regenerates on `.md` changes on disk (its file watcher), so gopls completes `Post.Frontmatter.`, and publishes no diagnostics for `.md` files | simplest (`PLAN.md` §9: nothing for `.md` in this release) | Diagnostics in `.md` files | [Markdown](markdown.md#in-the-dev-server) |
+
+## Codegen speed
+
+Decided with the dev-loop speed work (`PLAN.md` §12, items 3 and 4). None changes what's generated for a page; `orbit_gen/link` is a new generated package.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| One `orbit_gen/link` package, not sharded | simplest (16 shards made the recompile after a body edit 3 ms instead of 8–12 ms, within the noise of a ~200 ms `go build`) | Shards by path hash or by first path segment | [Project structure](project-structure.md#orbit_gen-generated-go-code) |
+| `project.Reload` falls back to a full `Load` and `Front` for `go.mod`, `orbit.json`, or a Go edit that changes which `src/locals` type is used; it always rediscovers `src/`, and a changed path that's a directory stands for every file under it | simplest (those change every file's codegen options; a walk of `src/` is well under a millisecond and catches renamed directories) | Trusting the watcher's paths for added and removed files | `PLAN.md` §12 |
+| `orbit generate` starts `go list -export` once the files are parsed, over the runtime, `src/locals`, every frontmatter Go import and `time` (with Markdown files); a guess that misses a package loads again | simplest (the exact set needs pass 1, which comes later; the guess is exact for every project in the repository) | Waiting for pass 1; the import set of the last `orbit_gen/` on disk | `PLAN.md` §3.3 |

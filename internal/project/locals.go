@@ -180,14 +180,15 @@ func inModule(module, p string) bool {
 
 // forbiddenFromLocals reports whether src/locals can't import p: the
 // generated packages that import src/locals, orbit_gen/app and the
-// implementation packages (and so orbit_gen/cmd/server, which imports app).
+// implementation packages, orbit_gen/link (which imports them all) and
+// orbit_gen/cmd/server (which imports app).
 func forbiddenFromLocals(module, p string) bool {
 	rel, ok := strings.CutPrefix(p, module+"/"+compiler.GenDir+"/")
 	if !ok {
 		return false
 	}
 	first, _, _ := strings.Cut(rel, "/")
-	return slices.Contains([]string{"app", "impl", "cmd"}, first)
+	return slices.Contains([]string{"app", "impl", "link", "cmd"}, first)
 }
 
 // goError is an error at pos in the Go file rel (project-relative).

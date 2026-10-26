@@ -22,6 +22,12 @@ type GenFile struct {
 const (
 	AppFile      = compiler.GenDir + "/app/app.go"
 	AppEmbedFile = compiler.GenDir + "/app/embed.go"
+	// LinkFile is the leaf package that imports every implementation
+	// package, so that their hooks are set (PLAN.md §3.1 Linking); app
+	// imports it. With the impl imports out of app, a template edit
+	// recompiles that impl package and link only: app, which imports every
+	// page, stays a build-cache hit.
+	LinkFile     = compiler.GenDir + "/link/link.go"
 	ManifestFile = compiler.GenDir + "/manifest/manifest.go"
 	ServerFile   = compiler.GenDir + "/cmd/server/main.go"
 	// StaticDocFile makes orbit_gen/static a package even before an
@@ -32,10 +38,10 @@ const (
 
 // GenFiles returns every generated file: each .orbit file's decl.go and
 // render.go (its final Output), then orbit_gen/app (app.go and the
-// orbit_embed-tagged embed.go), orbit_gen/manifest and, when the project has
-// no server entry, orbit_gen/cmd/server.
+// orbit_embed-tagged embed.go), orbit_gen/link, orbit_gen/manifest and,
+// when the project has no server entry, orbit_gen/cmd/server.
 func (p *Project) GenFiles() []GenFile {
-	files := make([]GenFile, 0, 2*len(p.Files)+4)
+	files := make([]GenFile, 0, 2*len(p.Files)+6)
 	for _, f := range p.Files {
 		files = append(files,
 			GenFile{Path: f.Output.Decl.Path, Content: f.Output.Decl.Content},
@@ -44,6 +50,7 @@ func (p *Project) GenFiles() []GenFile {
 	files = append(files,
 		GenFile{Path: AppFile, Content: p.appGo()},
 		GenFile{Path: AppEmbedFile, Content: p.appEmbedGo()},
+		GenFile{Path: LinkFile, Content: p.linkGo()},
 		GenFile{Path: ManifestFile, Content: p.manifestGo()},
 		GenFile{Path: StaticDocFile, Content: staticDocGo})
 	if p.GeneratedServer {
@@ -66,15 +73,17 @@ func pageAlias(pkg compiler.GenPackage) string {
 // orbit or manifest.
 func islandAlias(pkg compiler.GenPackage) string { return "island_" + pageAlias(pkg) }
 
-// appGo generates orbit_gen/app/app.go: the route table, the imports that
-// link every implementation package, and New (PLAN.md §3.1, §3.2).
+// appGo generates orbit_gen/app/app.go: the route table, the import of
+// orbit_gen/link (which links every implementation package), and New
+// (PLAN.md §3.1, §3.2).
 func (p *Project) appGo() []byte {
 	var b bytes.Buffer
 	b.WriteString(compiler.GenHeader + "\n\n")
 	fmt.Fprintf(&b, "// Package app wires the pages of %s into an orbit.Site: the\n", p.Module)
-	b.WriteString("// route table, the imports that link every component, and New.\n")
+	b.WriteString("// route table, the import that links every component, and New.\n")
 	b.WriteString("package app\n\nimport (\n")
 	fmt.Fprintf(&b, "\torbit %q\n\n", compiler.RuntimePath)
+	fmt.Fprintf(&b, "\t_ %q\n", p.Module+"/"+compiler.GenDir+"/link")
 	fmt.Fprintf(&b, "\t%q\n", p.Module+"/"+compiler.GenDir+"/manifest")
 	var pages []*File
 	for _, f := range p.Files {
@@ -93,12 +102,6 @@ func (p *Project) appGo() []byte {
 		b.WriteString("\n")
 		for _, f := range islands {
 			fmt.Fprintf(&b, "\t%s %q\n", islandAlias(f.Pkg), f.Pkg.DeclImportPath(p.Module))
-		}
-	}
-	if len(p.Files) > 0 {
-		b.WriteString("\n")
-		for _, f := range p.Files {
-			fmt.Fprintf(&b, "\t_ %q\n", f.Pkg.ImplImportPath(p.Module))
 		}
 	}
 	b.WriteString(")\n\n")
@@ -144,6 +147,31 @@ func (p *Project) appGo() []byte {
 		b.WriteString("\t}\n}\n")
 	}
 	return gofmt(b.Bytes())
+}
+
+// linkGo generates orbit_gen/link/link.go: a blank import of every
+// implementation package, whose package-level initializer sets its decl
+// package's hook (PLAN.md §3.1 Linking). The imports are sorted as gofmt
+// sorts them, so the file is gofmt-clean without running gofmt.
+func (p *Project) linkGo() []byte {
+	var b bytes.Buffer
+	b.WriteString(compiler.GenHeader + "\n\n")
+	fmt.Fprintf(&b, "// Package link links every component of %s: each import sets the\n", p.Module)
+	b.WriteString("// Render hook of a declaration package. orbit_gen/app imports it.\n")
+	b.WriteString("package link\n")
+	if len(p.Files) > 0 {
+		paths := make([]string, len(p.Files))
+		for i, f := range p.Files {
+			paths[i] = f.Pkg.ImplImportPath(p.Module)
+		}
+		slices.Sort(paths)
+		b.WriteString("\nimport (\n")
+		for _, path := range paths {
+			fmt.Fprintf(&b, "\t_ %q\n", path)
+		}
+		b.WriteString(")\n")
+	}
+	return b.Bytes()
 }
 
 // appEmbedGo generates orbit_gen/app/embed.go, compiled only with the

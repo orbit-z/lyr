@@ -97,6 +97,9 @@ func TestGenerateSite(t *testing.T) {
 			t.Errorf("%s: not type-checked", f.Path)
 		}
 	}
+	if res.Timings.GoLists != 1 {
+		t.Errorf("%d go list runs, want 1 (the one started during Front)", res.Timings.GoLists)
+	}
 	if !strings.Contains(p.read("orbit_gen/impl/components/card/render.go"), "orbit__w.Int(") {
 		t.Errorf("Card has no typed Int write")
 	}

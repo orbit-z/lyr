@@ -128,6 +128,9 @@ func TestMarkdownProject(t *testing.T) {
 	if got := joinLines(diagStrings(res.Diagnostics)); got != want {
 		t.Fatalf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
+	if res.Timings.GoLists != 1 {
+		t.Errorf("%d go list runs, want 1 (the one started during Front)", res.Timings.GoLists)
+	}
 	for _, path := range []string{
 		"orbit_gen/decl/pages/blog/hello_md/decl.go", "orbit_gen/impl/pages/blog/hello_md/render.go",
 		"orbit_gen/decl/content/intro_md/decl.go", "orbit_gen/impl/content/intro_md/render.go",

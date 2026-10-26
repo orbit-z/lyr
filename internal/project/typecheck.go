@@ -4,12 +4,46 @@ import (
 	"context"
 	gotoken "go/token"
 	"go/types"
+	"maps"
+	"slices"
 	"sync/atomic"
 	"time"
 
 	"github.com/orbit-z/orbit/internal/compiler"
 	"github.com/orbit-z/orbit/internal/markdown"
 )
+
+// FrontPreload is Front, and starts checker's go list -export
+// (Checker.Preload) as soon as the .orbit files are parsed, so that it runs
+// during pass 1 and whatever comes before the Typecheck with checker (the
+// esbuild bundles, in orbit build). It preloads the packages the generated
+// code will import, as far as parsing tells: the runtime, src/locals, every
+// .orbit file's Go imports, and time when there are Markdown files (their
+// frontmatter dates). When that guess misses a package, Typecheck loads
+// again.
+func (p *Project) FrontPreload(checker *compiler.Checker) bool {
+	return p.front(func() { checker.Preload(p.goImports()) })
+}
+
+// goImports is FrontPreload's guess, after parsing, of the packages outside
+// orbit_gen/ that the generated code imports.
+func (p *Project) goImports() []string {
+	set := map[string]bool{compiler.RuntimePath: true}
+	if p.Options.Locals != "" {
+		set[p.Options.Locals] = true
+	}
+	if len(p.mdPaths) > 0 {
+		set["time"] = true
+	}
+	for _, f := range p.Files {
+		if f.Analysis != nil && f.MD == nil {
+			for _, im := range f.Analysis.GoImports {
+				set[im.Path] = true
+			}
+		}
+	}
+	return slices.Sorted(maps.Keys(set))
+}
 
 // Units returns the typed-pass units of every file, from its pass-1 output.
 func (p *Project) Units() []compiler.Unit {
@@ -57,14 +91,16 @@ func (p *Project) Typecheck(ctx context.Context, checker *compiler.Checker) ([]s
 }
 
 // timedLoader wraps an ExportLoader and adds the time spent in Load (the
-// go list -export run) to d.
+// go list -export run) to d, and counts the runs in n.
 type timedLoader struct {
 	loader compiler.ExportLoader
 	d      *atomic.Int64
+	n      *atomic.Int32
 }
 
 func (l timedLoader) Load(ctx context.Context, fset *gotoken.FileSet, paths []string) (types.Importer, error) {
 	start := time.Now()
+	l.n.Add(1)
 	defer func() { l.d.Add(int64(time.Since(start))) }()
 	return l.loader.Load(ctx, fset, paths)
 }

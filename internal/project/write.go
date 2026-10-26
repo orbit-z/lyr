@@ -42,11 +42,19 @@ func WriteGenerated(root string, files []GenFile) (*WriteResult, error) {
 			return nil, errors.New("orbit: generated file outside " + compiler.GenDir + "/: " + f.Path)
 		}
 		keep[f.Path] = true
-		changed, err := writeIfChanged(filepath.Join(root, filepath.FromSlash(f.Path)), f.Content)
-		if err != nil {
-			return nil, err
+	}
+	// Each file is read, compared and maybe written on its own, so they go
+	// in parallel; the results are collected in files order.
+	changed := make([]bool, len(files))
+	errs := make([]error, len(files))
+	parallelN(len(files), func(i int) {
+		changed[i], errs[i] = writeIfChanged(filepath.Join(root, filepath.FromSlash(files[i].Path)), files[i].Content)
+	})
+	for i, f := range files {
+		if errs[i] != nil {
+			return nil, errs[i]
 		}
-		if changed {
+		if changed[i] {
 			res.Written = append(res.Written, f.Path)
 		}
 	}

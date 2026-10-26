@@ -48,6 +48,9 @@ func TestDetectLocals(t *testing.T) {
 		{name: "imports an impl package", files: map[string]string{
 			"src/locals/locals.go": "package locals\n\nimport _ \"example.com/blog/orbit_gen/impl/components/card\"\n\ntype Locals struct{}\n",
 		}, diags: []string{"src/locals/locals.go:3:10: src/locals can't import example.com/blog/orbit_gen/impl/components/card: pages that use locals import src/locals, so this would be an import cycle"}},
+		{name: "imports orbit_gen/link", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport _ \"example.com/blog/orbit_gen/link\"\n\ntype Locals struct{}\n",
+		}, diags: []string{"src/locals/locals.go:3:10: src/locals can't import example.com/blog/orbit_gen/link: pages that use locals import src/locals, so this would be an import cycle"}},
 		{name: "a decl package is fine", files: map[string]string{
 			"src/locals/locals.go": "package locals\n\nimport _ \"example.com/blog/orbit_gen/decl/components/card\"\n\ntype Locals struct{}\n",
 		}, want: self},

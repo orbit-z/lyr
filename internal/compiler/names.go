@@ -283,8 +283,18 @@ func LowerCamel(field string) string {
 // are matched by: lowercased, with '-' and '_' removed (PLAN.md §2.3), so
 // is-open, isOpen and IsOpen all match.
 func NormalizeName(s string) string {
-	return strings.ToLower(strings.NewReplacer("-", "", "_", "").Replace(s))
+	for i := 0; i < len(s); i++ {
+		if c := s[i]; c == '-' || c == '_' || c >= utf8.RuneSelf || 'A' <= c && c <= 'Z' {
+			return strings.ToLower(nameSeparators.Replace(s))
+		}
+	}
+	return s // already a key: the common case of a lowercase attribute name
 }
+
+// nameSeparators removes the separators NormalizeName ignores. It's built
+// once: a strings.Replacer builds its tables on first use, which costs
+// more than the replacement itself.
+var nameSeparators = strings.NewReplacer("-", "", "_", "")
 
 // ErrNoField is returned by MatchProp when the attribute matches no field
 // of a listable Props.
