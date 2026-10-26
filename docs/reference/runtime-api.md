@@ -429,6 +429,18 @@ func WithSite(rawURL string) Option
 Sets the absolute site URL exposed as `ctx.Site`. The generated `app.New()` passes `orbit.json`'s `site` first, so your own `WithSite` wins. A value that isn't an absolute URL, with a scheme and a host, panics.
 
 ```go
+type TrailingSlash uint8
+
+const (
+	TrailingSlashNever  TrailingSlash = iota // the default: /blog/hello
+	TrailingSlashAlways                      // /blog/hello/
+)
+
+func WithTrailingSlash(mode TrailingSlash) Option
+```
+Sets the trailing-slash mode: which form of a page URL renders and which gets a 308 to it (see [Trailing slashes](../routing.md#trailing-slashes)). The generated `app.New()` passes `orbit.WithTrailingSlash(orbit.TrailingSlashAlways)` first when `orbit.json` has `"trailingSlash": "always"`, so your own option wins. Set the mode in `orbit.json` rather than here: Markdown's `Post.URL` and rewritten `.md` links are generated in the `orbit.json` mode, so overriding it makes each of those links redirect once. It's meant for tests and hand-built `orbit.NewSite` calls.
+
+```go
 func WithStaticDir(dir string) Option
 ```
 Sets the directory of built static files, replacing the default (`client/` next to the server binary). `$ORBIT_STATIC` still wins when it's set, so `orbit dev`, which sets it, keeps serving its own assets. The full order is `$ORBIT_STATIC`, then `WithStaticDir`, then the embedded files of an `--embed` build, then `client/` next to the binary.

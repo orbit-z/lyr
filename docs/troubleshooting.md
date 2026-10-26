@@ -138,7 +138,7 @@ The same applies after you edit an `.orbit` file: `go test` runs against the old
 
 ### `orbit.json: compressHTML must be "jsx", "html" (or true) or false, not "none"`
 
-**Cause:** `orbit.json` has a value Orbit doesn't accept. Other messages of this kind: `orbit.json: server must not be empty; remove it to use ./cmd/server`, `orbit.json: server "/srv/cmd/server" must be a path relative to the project root, such as "./cmd/server"`, `orbit.json: site "blog.example.com" isn't an absolute URL; include the scheme and host, such as "https://example.com"`, and JSON syntax errors with a position, such as `orbit.json:3:1: invalid character '}' looking for beginning of object key string` (a trailing comma).
+**Cause:** `orbit.json` has a value Orbit doesn't accept. Other messages of this kind: `orbit.json: server must not be empty; remove it to use ./cmd/server`, `orbit.json: server "/srv/cmd/server" must be a path relative to the project root, such as "./cmd/server"`, `orbit.json: site "blog.example.com" isn't an absolute URL; include the scheme and host, such as "https://example.com"`, `orbit.json: trailingSlash must be "never" or "always", not "ignore"; Orbit has no "ignore" mode: each page has one URL`, and JSON syntax errors with a position, such as `orbit.json:3:1: invalid character '}' looking for beginning of object key string` (a trailing comma).
 
 **Fix:** correct the value the message names, or remove the key to get its default (`null` counts as unset too). See [Configuration](configuration.md#all-keys).
 
@@ -673,9 +673,9 @@ See [The 404 page](routing.md#the-404-page) and [Choosing precedence](server.md#
 
 ### A URL redirects with 308
 
-**Cause:** pages have no trailing slash, so `/blog/hello/` gets a 308 to `/blog/hello`, keeping the query string (`/search/?q=go` → `/search?q=go`). The redirect is sent only when the slash-less path is a page; other paths reach your next handler untouched, and files are never redirected.
+**Cause:** each page has one canonical URL, and the other form gets a 308. By default pages have no trailing slash, so `/blog/hello/` gets a 308 to `/blog/hello`, keeping the query string (`/search/?q=go` → `/search?q=go`); with `"trailingSlash": "always"` in `orbit.json`, `/blog/hello` gets a 308 to `/blog/hello/`. The redirect is sent only when the other form of the path is a page; other paths reach your next handler untouched, and files are never redirected.
 
-**Fix:** nothing is broken. Link to canonical URLs (`href="/blog/hello"`) to skip the extra round trip. Middleware that wraps Orbit runs before the redirect, so it sees both forms; compare paths with that in mind. This behavior isn't configurable. See [Trailing slashes](routing.md#trailing-slashes).
+**Fix:** nothing is broken. Link to canonical URLs (`href="/blog/hello"`, or `href="/blog/hello/"` in `"always"`) to skip the extra round trip. Middleware that wraps Orbit runs before the redirect, so it sees both forms; compare paths with that in mind. To change which form is canonical, set [`trailingSlash`](configuration.md#trailingslash). See [Trailing slashes](routing.md#trailing-slashes).
 
 ### A file added to `dist/client/` isn't served
 

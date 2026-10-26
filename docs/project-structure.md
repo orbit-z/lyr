@@ -40,7 +40,7 @@ blog/
 
 ## `src/pages/`
 
-Every `.orbit` file under `src/pages/` is a page, and its path is its URL: `src/pages/about.orbit` is served at `/about`, and `index.orbit` is its directory's root (`src/pages/blog/index.orbit` is `/blog`). URLs have no trailing slash; a request for `/about/` is redirected to `/about`. Brackets make a dynamic segment (`[slug].orbit`, `[...rest].orbit`), and `404.orbit` renders unknown URLs. A file whose name, or the name of a directory on its path, starts with `_` isn't a page but a component, as in Astro: `src/pages/blog/_parts/Byline.orbit` has no URL. A Markdown file (`.md`, `.markdown`, …) under `src/pages/` is a page too, with the same rules (see [Markdown pages](markdown.md#markdown-pages)). Every page is rendered on the server for each request. [Routing](routing.md) covers the rules.
+Every `.orbit` file under `src/pages/` is a page, and its path is its URL: `src/pages/about.orbit` is served at `/about`, and `index.orbit` is its directory's root (`src/pages/blog/index.orbit` is `/blog`). URLs have no trailing slash by default; a request for `/about/` is redirected to `/about` (`orbit.json`'s `trailingSlash` can flip that). Brackets make a dynamic segment (`[slug].orbit`, `[...rest].orbit`), and `404.orbit` renders unknown URLs. A file whose name, or the name of a directory on its path, starts with `_` isn't a page but a component, as in Astro: `src/pages/blog/_parts/Byline.orbit` has no URL. A Markdown file (`.md`, `.markdown`, …) under `src/pages/` is a page too, with the same rules (see [Markdown pages](markdown.md#markdown-pages)). Every page is rendered on the server for each request. [Routing](routing.md) covers the rules.
 
 ## `src/components/` and `src/layouts/`
 

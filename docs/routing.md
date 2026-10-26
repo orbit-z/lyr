@@ -66,7 +66,7 @@ func Find(slug string) (Post, error) {
 
 ## File-based routes
 
-The file path under `src/pages/` becomes the URL. `index.orbit` is the root of its directory, and URLs have no trailing slash (see [Trailing slashes](#trailing-slashes)).
+The file path under `src/pages/` becomes the URL. `index.orbit` is the root of its directory, and URLs have no trailing slash by default (see [Trailing slashes](#trailing-slashes)).
 
 | File | URL |
 |---|---|
@@ -314,9 +314,16 @@ Inside a deferred component (`server:defer`), `orbit.ErrNotFound` gives an empty
 
 ## Trailing slashes
 
-Every page has one canonical URL, and it has no trailing slash: `/blog/hello`, and `/blog` for `blog/index.orbit`. `/` stays `/`.
+Every page has exactly one canonical URL. The `trailingSlash` key of `orbit.json` decides whether it ends in `/` (see [Configuration](configuration.md#trailingslash)):
 
-A request with a trailing slash gets a **308 Permanent Redirect** to the canonical URL:
+| | `"never"` (default) | `"always"` |
+|---|---|---|
+| `src/pages/blog/hello.orbit` | `/blog/hello` | `/blog/hello/` |
+| `src/pages/blog/index.orbit` | `/blog` | `/blog/` |
+| `src/pages/index.orbit` | `/` | `/` |
+| `src/pages/rss.xml.orbit` | `/rss.xml` | `/rss.xml` |
+
+A request for the other form of a page URL gets a **308 Permanent Redirect** to the canonical one, for every method:
 
 ```
 $ curl -i http://localhost:4321/blog/hello/
@@ -324,17 +331,20 @@ HTTP/1.1 308 Permanent Redirect
 Location: /blog/hello
 ```
 
-The redirect has no body, only the `Location` header.
+In `"always"`, it's the mirror image: `/blog/hello` gets a 308 to `/blog/hello/`. The redirect has no body, only the `Location` header.
 
-- **Query kept**: `/search/?q=go` goes to `/search?q=go`, as `net/http`'s `ServeMux` does for its own redirects. A 308 also keeps the method and body, so a form that posts to `/subscribe/` still works, at the cost of an extra round trip.
-- **Pages only**: the redirect is sent only when the path without its slash matches a page. Otherwise the request goes to your next handler untouched, so your own `/api/items/` route keeps working when Orbit comes first.
-- **Files never**: paths under `/_orbit/` and files from `public/` are never redirected.
+- **Query kept**: `/search/?q=go` goes to `/search?q=go` (`/search?q=go` to `/search/?q=go` in `"always"`), as `net/http`'s `ServeMux` does for its own redirects. A 308 also keeps the method and body, so a form that posts to the other form of the URL still works, at the cost of an extra round trip.
+- **Pages only**: the redirect is sent only when the other form of the path is a page URL. Otherwise the request goes to your next handler untouched, so your own `/api/items/` route keeps working when Orbit comes first (`/api/items` in `"always"`). The exception is a page that matches it, such as a root `[...rest].orbit`: then `/api/items` in `"always"` is redirected to `/api/items/`, as `/api/items/` is redirected to `/api/items` by default.
+- **Never redirected**: `/`, paths under `/_orbit/` (assets and `server:defer` islands), files from `public/`, and paths starting with `//`. In `"always"`, a path whose last segment has a file extension (`/feed.xml`, `/v1.2`) isn't redirected either.
+- **Extension pages**: a page whose last path segment has a file extension, such as `src/pages/rss.xml.orbit` or `src/pages/api/data.json.orbit`, is at `/rss.xml` in both modes, like an Astro endpoint; `/rss.xml/` matches nothing. An extension is a `.` that isn't the segment's first character, followed by letters, digits or `_` only.
+- **Dotted values**: in `"always"`, a `[slug]` value with a dot follows the same rule: `/blog/v1.2/` renders the page with `slug` `"v1.2"`, while `/blog/v1.2` matches nothing and isn't redirected.
+- **No collapsing**: `/blog//` matches nothing in either mode; it reaches your next handler (a 404).
 - **Same everywhere**: `orbit dev` and `dist/server` behave the same way.
-- **Write canonical links**: use `href="/blog/hello"` in your templates to skip the redirect.
+- **Write canonical links**: Orbit doesn't rewrite the `href`s in your templates, so write `href="/blog/hello"` (`href="/blog/{slug}/"` in `"always"`) to skip the redirect. Markdown's `Post.URL` and rewritten `.md` links already follow the mode (see [Markdown](markdown.md#links-between-markdown-files)).
 
-Middleware that wraps Orbit runs before the redirect, so it can see `/blog/hello/` as well as `/blog/hello`. See [Middleware and locals](middleware.md).
+Params come from the path without its slash: in `"always"`, `[slug]` at `/blog/hello/` is `"hello"`, `[...path]` at `/docs/a/b/` is `"a/b"`, and at `/docs/` it's `""`. `ctx.URL` is the request URL as received, slash included.
 
-This behavior is fixed. Astro's `trailingSlash` modes are not yet supported.
+Middleware that wraps Orbit runs before the redirect, so it can see both `/blog/hello/` and `/blog/hello`. See [Middleware and locals](middleware.md).
 
 ## Which HTTP methods Orbit handles
 

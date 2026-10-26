@@ -236,7 +236,7 @@ The same rules apply as for `.orbit` imports: the alias is required and starts w
 | `<Hello />` | The rendered Markdown: its HTML, inside its `layout` if it has one. It takes no attributes or children. |
 | `Hello.Frontmatter` | The frontmatter values, as a struct (below). |
 | `Hello.Headings` | Its headings, a `[]orbit.Heading`, for a table of contents. |
-| `Hello.URL` | For a Markdown page, its URL path (`"/blog/hello"`). Only Markdown pages have it. |
+| `Hello.URL` | For a Markdown page, its canonical URL path (`"/blog/hello"`, or `"/blog/hello/"` with `"trailingSlash": "always"`). Only Markdown pages have it. |
 
 A Markdown file outside `src/pages/` isn't a route; it's compiled only when something imports it. Keep such files anywhere under `src/`, for example `src/content/`, and render them inside a page:
 
@@ -306,6 +306,8 @@ A relative link to another Markdown **page** is rewritten to that page's URL, so
 | `[routing](./routing-guide.md)` | `<a href="/blog/routing-guide">` |
 | `[home](../index.md)` | `<a href="/">` |
 | `[install](../docs/install.md#requirements)` | `<a href="/docs/install#requirements">` |
+
+The URL is the page's canonical URL, so it follows `orbit.json`'s [`trailingSlash`](configuration.md#trailingslash): with `"always"`, the links above render as `/blog/routing-guide/`, `/` and `/docs/install/#requirements`, and `Post.URL` is `/blog/hello/`. Changing the mode regenerates them.
 
 The link is checked when Orbit generates code. A link to a Markdown file that doesn't exist, or that isn't a page, is an error at the link's `[`: `src/pages/blog/hello.md:21:10: link ./routing.md: no such file`, or `link ../content/intro.md: src/content/intro.md isn't a page, so it has no URL; link to a page, or import it into one`. A `#fragment` that no heading of the target has is a warning (it may be an `id` your layout writes): `src/pages/blog/hello.md:21:10: warning: link ./routing-guide.md#setup: src/pages/blog/routing-guide.md has no heading #setup`. Absolute links (`/about`), external URLs and links to other files are left as written.
 

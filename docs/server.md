@@ -238,7 +238,7 @@ Pick this when pages should win, for example when a content team adds pages that
 
 - **Pages claim every method.** `POST /blog/hello/like` still reaches `like`, because `[slug]` matches a single segment and no page matches `/blog/hello/like`. But a page at the same path as one of your routes wins for `GET`, `POST` and everything else.
 - **Catch-alls claim their whole prefix.** A `[...rest]` page answers every method under its prefix. Keep your handlers outside those prefixes.
-- **Trailing slashes** are redirected only for page paths. A request for your `/api/items/` route reaches the mux untouched, unless `/api/items` is also a page.
+- **Trailing slashes** are redirected only for page paths. A request for your `/api/items/` route reaches the mux untouched, unless `/api/items` is also a page. With `"trailingSlash": "always"`, it's the mirror image: `/api/items` reaches the mux unless `/api/items/` is a page, which a root `[...rest].orbit` makes it (see [Trailing slashes](routing.md#trailing-slashes)).
 
 ## Wrapping with middleware
 
