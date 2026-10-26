@@ -120,7 +120,7 @@ func write(t *testing.T, dir, rel, content string) {
 	}
 }
 
-var projectChecks = []string{"go", "cli", "gopls", "bun", "orbit_gen", "gitignore", "config"}
+var projectChecks = []string{"go", "cli", "gopls", "bun", "orbit_gen", "gitignore", "config", "tsconfig"}
 
 func TestHealthy(t *testing.T) {
 	dir := newProject(t)
@@ -146,7 +146,8 @@ func TestHealthy(t *testing.T) {
 		"✓ bun: 1.4.4\n" +
 		"✓ orbit_gen: up to date\n" +
 		"✓ gitignore: covers orbit_gen/, .orbit/ and dist/\n" +
-		"✓ config: no orbit.json (defaults); server ./cmd/server\n"
+		"✓ config: no orbit.json (defaults); server ./cmd/server\n" +
+		"✓ tsconfig: no typed script data (orbit.JSON, set:json) to check\n"
 	if b.String() != want {
 		t.Errorf("text:\n%s\nwant:\n%s", b.String(), want)
 	}
@@ -232,6 +233,18 @@ func TestChecks(t *testing.T) {
 			write(t, dir, ".gitignore", "orbit_gen/static/\n.orbit/\ndist/\n")
 		},
 			"gitignore", OK, "covers orbit_gen/static/, .orbit/ and dist/", ""},
+		{"tsconfig without rootDirs", func(t *testing.T, dir string, f *fakes) {
+			write(t, dir, "src/components/Like.orbit", "<p data-n={orbit.JSON(1)}></p>\n")
+			write(t, dir, "tsconfig.json", "{\n  // comment\n  \"compilerOptions\": {\"strict\": true},\n  \"include\": [\"src/**/*.ts\"],\n}\n")
+		}, "tsconfig", Warning, "tsconfig.json's rootDirs lacks orbit_gen/types", tsconfigFix},
+		{"tsconfig with rootDirs", func(t *testing.T, dir string, f *fakes) {
+			write(t, dir, "src/components/Like.orbit", "<script type=\"application/json\" id=\"x\" set:json={1}></script>\n")
+			write(t, dir, "tsconfig.json", `{"compilerOptions": {"rootDirs": [".", "./orbit_gen/types/"]}}`)
+		}, "tsconfig", OK, "rootDirs includes orbit_gen/types", ""},
+		{"no tsconfig", func(t *testing.T, dir string, f *fakes) {
+			write(t, dir, "src/components/Like.orbit", "<p data-n={orbit.JSON(1)}></p>\n")
+			os.Remove(filepath.Join(dir, "tsconfig.json"))
+		}, "tsconfig", Warning, "no tsconfig.json", `create tsconfig.json (orbit new writes one) with "rootDirs": [".", "orbit_gen/types"]`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

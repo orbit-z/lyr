@@ -313,9 +313,25 @@ An expression value may contain `>`, quotes and braces; the scanner finds the cl
 | a string | The escaped value in quotes. |
 | `orbit.URL` | The escaped value in quotes, without URL filtering. |
 | `orbit.HTML` | Escaped like any string; attribute values are never raw. |
+| `orbit.JSON(v)` (an `orbit.JSONValue`) | `v` encoded as JSON, always written (`false` and `null` too), single-quoted: `data-post='{"id":42}'`. See [JSON attributes](#json-attributes). |
 | any other value | Formatted exactly as in [How values render](#how-values-render), then escaped and quoted. A slice concatenates its elements with no separator, so build lists such as class names yourself (`strings.Join(classes, " ")`). |
 
 Because `false` omits the attribute, ARIA attributes that need the literal text `"false"` take a string: `aria-expanded={strconv.FormatBool(open)}`.
+
+#### JSON attributes
+
+`name={orbit.JSON(v)}` writes `v` encoded with `encoding/json` (struct tags apply), in single quotes, with `'` written as `&#39;` and `&`, `<` and `>` as character references, so the browser decodes it back to the exact JSON text:
+
+```orbit
+<like-button data-post={orbit.JSON(props.Post)} data-liked={orbit.JSON(props.Liked)}></like-button>
+```
+
+renders `<like-button data-post='{"id":42,"slug":"hello"}' data-liked='false'></like-button>`.
+
+- **Any attribute** can take a JSON value, and an element can have several: `hx-vals={orbit.JSON(vals)}` (htmx) and `x-data={orbit.JSON(state)}` (Alpine) work too.
+- **On `data-*` attributes**, a direct `orbit.JSON(…)` call is typed for the component's scripts: `import { data } from "./LikeButton.orbit"`, then `data(this, "post")` has the TypeScript type of `props.Post`. The key is the dataset name (`data-author-name` is `authorName`). See [Client modules](client-modules.md).
+- **In a spread** (`orbit.Attrs{"data-x": orbit.JSON(v)}`), it's written the same way, untyped. **In content** (`<pre>{orbit.JSON(cfg)}</pre>`), it's written HTML-escaped like a string. **On a component tag**, it's an ordinary Go value passed to a prop of type `orbit.JSONValue`.
+- A type `encoding/json` can never encode (a func, a channel) is a compile error at the argument; a value it can't encode (NaN, a cycle) is a render error at the attribute value's position.
 
 **URL attributes** are filtered at runtime. These are `action`, `background`, `cite`, `codebase`, `data`, `formaction`, `href`, `icon`, `longdesc`, `manifest`, `poster`, `profile`, `src`, `usemap`, `xmlns` and `xlink:href` (the list Go's `html/template` uses, plus `xlink:href`). If the value's scheme, after trimming leading whitespace and control characters and ignoring case, is `javascript:` or `vbscript:`, the value is replaced with `about:invalid#orbit`. Values of type `orbit.URL` skip the filter. The filter applies to expression values and to spread attributes; static values you write in the template are left as written.
 
@@ -360,12 +376,12 @@ The compiler **warns** (without failing) on `on*={expr}` attributes such as `onc
 <script type="application/json" id="tags" set:json={props.Tags}></script>
 ```
 
-- `expr` can have any type. It's encoded with `encoding/json`, so `json` struct tags apply, and an encoding error is a render error at the `.orbit` position.
+- `expr` can have any type `encoding/json` can encode, and `json` struct tags apply. A type it can never encode (a func, a channel) is a compile error at the value; a value it can't encode (NaN, a cycle) is a render error at the `set:json` attribute's position. An `orbit.JSON(x)` value writes `x`.
 - The output is escaped for the script element: `<`, `>`, `&`, U+2028 and U+2029 become `\u003c`, `\u003e`, `\u0026`, `\u2028` and `\u2029`. A value containing `</script>` or `<!--` can't end the element.
-- A script reads it with `JSON.parse(document.getElementById("tags").textContent)`.
+- A script reads it with `json(id)` from the component's module, typed from `expr`: `import { json } from "./PostMeta.orbit"`, then `json("tags")` is a `string[] | null`. Only a static `id` is typed; with a dynamic `id={…}` (or none), read it with `JSON.parse(document.getElementById(…).textContent)`. See [Client modules](client-modules.md#jsonid).
 - On any other element, `set:json` is a compile error: `set:json only works on <script type="application/json">`.
 
-For per-element data, `data-*` attributes are escaped like any attribute and read with `el.dataset`. Both patterns, with a custom-element example, are in [Components](../components.md#passing-data-to-client-scripts).
+For per-element data, use [`orbit.JSON`](#json-attributes) or plain `data-*` attributes. All three patterns, with custom-element examples, are in [Components](../components.md#passing-data-to-client-scripts).
 
 ### `server:defer`
 
@@ -575,5 +591,6 @@ Attribute values follow the same formatting, with the attribute rules for `true`
 - [Components](../components.md): frontmatter, props, slots, recursion, passing data to scripts and escaping, with examples
 - [Lazy loading](../lazy-loading.md): `server:defer` and `client:*` in depth
 - [Styles and scripts](../styles-and-scripts.md): `<style>`, `<script>`, `is:inline` and `is:global`
-- [Runtime API](runtime-api.md): `orbit.HTML`, `orbit.URL`, `orbit.Attrs`, `orbit.Slots`, `orbit.Renderer`
+- [Runtime API](runtime-api.md): `orbit.HTML`, `orbit.URL`, `orbit.JSON`, `orbit.Attrs`, `orbit.Slots`, `orbit.Renderer`
+- [Client modules](client-modules.md): `data` and `json` in scripts, and the Go-to-TypeScript type mapping
 - [CLI](cli.md): where errors and warnings are reported

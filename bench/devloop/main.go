@@ -143,6 +143,12 @@ func run(nfiles, runs int, orbitRoot, dir string, keep bool, ldflags, only, json
 			o.paths = []string{compPath(t)}
 			return o, writeFile(dir, compPath(t), componentOrbit(t, n, badgeT, " <em>"+o.verify+"</em>", "", "", ""))
 		}},
+		{"jsontype", fmt.Sprintf("the type of an orbit.JSON argument in C%d (its .d.ts changes)", t), func(k int) (stepOpts, error) {
+			o := goEdit
+			o.verify = "F" + id(k)
+			o.paths = []string{compPath(t)}
+			return o, writeFile(dir, compPath(t), componentOrbit(t, n, badgeT, fmt.Sprintf(" <i data-v={orbit.JSON(struct{ %s int }{%d})}></i>", o.verify, k), "", "", ""))
+		}},
 		{"frontmatter", fmt.Sprintf("a frontmatter statement in C%d", t), func(k int) (stepOpts, error) {
 			o := goEdit
 			o.verify = "-f" + id(k)

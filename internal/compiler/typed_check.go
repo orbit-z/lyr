@@ -66,6 +66,9 @@ type tyState struct {
 	env      *tyEnv
 	module   string
 	units    map[string]*tyUnit // by .orbit path
+	// genFiles maps the import path of each unit's decl and impl package
+	// to its .orbit path (TS namespaces, nsOf); set before each check.
+	genFiles map[string]string
 	decls    map[string]*tyDecl // by decl import path
 	stats    tyStats
 }
@@ -485,6 +488,12 @@ func (s *tyState) getEnv() *tyEnv {
 // checkUnits type-checks the impl packages of units in parallel (decls on
 // demand), picks the typed writes and re-emits.
 func (s *tyState) checkUnits(ctx context.Context, units []*tyUnit, generate func(*Input) *Output) error {
+	s.genFiles = make(map[string]string, 2*len(s.units))
+	for _, u := range s.units {
+		if u.declPath != "" {
+			s.genFiles[u.declPath], s.genFiles[u.implPath] = u.path, u.path
+		}
+	}
 	sem := make(chan struct{}, runtime.GOMAXPROCS(0))
 	var wg sync.WaitGroup
 	for _, u := range units {
@@ -505,7 +514,7 @@ func (s *tyState) checkUnits(ctx context.Context, units []*tyUnit, generate func
 }
 
 func (s *tyState) checkUnit(u *tyUnit, generate func(*Input) *Output) TypedUnit {
-	fallback := TypedUnit{Output: u.unit.Pass1}
+	fallback := TypedUnit{Output: u.unit.Pass1, Types: uncheckedTypes(u.unit)}
 	if u.parseErr || s.loadWarn != "" {
 		return fallback
 	}
@@ -533,8 +542,9 @@ func (s *tyState) checkUnit(u *tyUnit, generate func(*Input) *Output) TypedUnit 
 		return fallback
 	}
 	writes := siteWrites(s.fset, u.implFile, u.unit.Pass1.CallSites, info, env)
-	res := TypedUnit{Output: u.unit.Pass1, Writes: writes, Checked: true,
-		Diagnostics: checkDeferProps(s.fset, u.implFile, u.unit.Pass1.DeferSites, info)}
+	ts, jds := s.bridgeTypes(u, info, env)
+	res := TypedUnit{Output: u.unit.Pass1, Writes: writes, Checked: true, Types: ts,
+		Diagnostics: append(checkDeferProps(s.fset, u.implFile, u.unit.Pass1.DeferSites, info), jds...)}
 	if len(writes) > 0 {
 		in := *u.unit.Input
 		in.Typed = writes

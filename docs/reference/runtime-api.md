@@ -105,6 +105,33 @@ type Heading struct {
 ```
 One heading of a Markdown file, named after Astro's `MarkdownHeading`. A layout whose `Props` has a `Headings []orbit.Heading` field gets a Markdown page's headings there, and an imported Markdown file exposes them as `Post.Headings`. See [Markdown](../markdown.md#layouts).
 
+### JSON
+
+```go
+type JSONValue struct {
+	// unexported fields
+}
+
+func JSON(v any) JSONValue
+```
+`JSON` wraps a value to write as JSON, encoded exactly as `json.Marshal(v)` would (struct tags apply). `JSONValue` is opaque; its zero value encodes as `null`. Where it's written decides how it's escaped:
+
+- **As an attribute value** (`data-post={orbit.JSON(post)}`): always written, `false` and `null` included, **single-quoted**, with `'` as `&#39;` and `&`, `<`, `>` as character references (inside strings, `encoding/json` has already written them as `\u003c`-style escapes): `data-post='{"id":42,"title":"Hello \u003cworld\u003e"}'`. The browser decodes the attribute back to the exact JSON text. On a `data-*` attribute of an HTML element, a direct `orbit.JSON(…)` call is typed for the component's scripts; see [Client modules](client-modules.md).
+- **In a spread** (`orbit.Attrs{"data-x": orbit.JSON(v)}`): written the same way, but untyped.
+- **In content** (`<pre>{orbit.JSON(cfg)}</pre>`): the JSON text, HTML-escaped like a string (`"` becomes `&#34;`).
+- **In `set:json`**: written as its value (`set:json={orbit.JSON(x)}` writes `x`).
+- **On a component tag**, it's an ordinary Go value of type `orbit.JSONValue` passed to a prop.
+
+`JSONValue` implements `json.Marshaler`, so inside a struct (or anywhere `encoding/json` sees it), it encodes as its value.
+
+A type `encoding/json` can never encode (a func, a channel, a complex number, a map with other key types) is a compile error at the argument. A value it can't encode (NaN, a pointer cycle, a failing `MarshalJSON`) is a render error, at the attribute's `.orbit` position:
+
+```text
+src/components/LikeButton.orbit:9:24: orbit.JSON: json: unsupported value: NaN
+```
+
+Encoding costs roughly 100 to 500 ns per value, more than plain `data-*` attributes (about 13 ns for two scalars); see [Performance](../performance.md#encoding-json-for-scripts).
+
 ## Locals
 
 Typed request-scoped data. You declare `type Locals struct` in the package `src/locals`; pages and components see it as `locals`, of type `*locals.Locals`. See [Middleware and locals](../middleware.md).
@@ -140,7 +167,7 @@ Island requests pass through your middleware like any other request, so deferred
 
 A `Writer` writes HTML straight into a pooled `bytes.Buffer`. Generated code calls its methods; you use it when you write an `orbit.Renderer` in Go.
 
-The writer keeps a **sticky error**: the first error from a write (an invalid spread attribute name, a `set:json` encoding error, a failing renderer, a depth error) is kept, later writes do nothing, and `Err` returns it.
+The writer keeps a **sticky error**: the first error from a write (an invalid spread attribute name, an `orbit.JSON` or `set:json` encoding error, a failing renderer, a depth error) is kept, later writes do nothing, and `Err` returns it.
 
 ```go
 func NewWriter(buf *bytes.Buffer) *Writer
@@ -158,9 +185,9 @@ func (w *Writer) Expr(v any)
 Writes any value with the [escaping rules](#escaping-rules) below. This is the generic path, used when an expression's static type has no typed write.
 
 ```go
-func (w *Writer) JSON(v any)
+func (w *Writer) JSON(pos string, v any)
 ```
-Writes `v` encoded with `encoding/json`, escaped for a `<script>`'s content: `<`, `>` and `&` become `\u003c`, `\u003e` and `\u0026`, and U+2028/U+2029 become `\u2028`/`\u2029`, so the output can't contain `</script>` or `<!--`. Generated for `set:json={expr}`, which is only valid on `<script type="application/json">`. An encoding error is a render error, reported at the `set:json` position. See [Passing data from the server to scripts](../styles-and-scripts.md#passing-data-from-the-server-to-scripts).
+Writes `v` encoded with `encoding/json`, escaped for a `<script>`'s content: `<`, `>` and `&` become `\u003c`, `\u003e` and `\u0026`, and U+2028/U+2029 become `\u2028`/`\u2029`, so the output can't contain `</script>` or `<!--`. A `JSONValue` is written as its value. Generated for `set:json={expr}`, which is only valid on `<script type="application/json">`. `pos` is the `.orbit` position of the `set:json` attribute (`"src/pages/index.orbit:16:47"`): an encoding error becomes the sticky error, prefixed with it (`src/pages/index.orbit:16:47: set:json: json: unsupported value: NaN`), or with `orbit: ` when `pos` is empty. See [Passing data from the server to scripts](../styles-and-scripts.md#passing-data-from-the-server-to-scripts).
 
 ```go
 func (w *Writer) Err() error
@@ -232,6 +259,7 @@ func (w *Writer) AttrURL(name, s string)        // for URL attributes: scheme-fi
 func (w *Writer) URL(s string)                  // only the value AttrURL writes between the quotes
 func (w *Writer) AttrBool(name string, b bool)
 func (w *Writer) Spread(a Attrs)                // {...attrs}
+func (w *Writer) JSONAttr(pos string, v JSONValue) // only the value, for name={orbit.JSON(…)}
 ```
 
 #### Attribute values
@@ -241,6 +269,8 @@ func (w *Writer) Spread(a Attrs)                // {...attrs}
 - **URL attributes** (`action`, `background`, `cite`, `codebase`, `data`, `formaction`, `href`, `icon`, `longdesc`, `manifest`, `poster`, `profile`, `src`, `usemap`, `xmlns` and `xlink:href`: the list Go's `html/template` uses, plus `xlink:href`): a value whose scheme is `javascript:` or `vbscript:` (ignoring case, and after trimming whitespace and control characters) is replaced with `about:invalid#orbit`, unless it has type `orbit.URL`. This applies to `Attr`, `AttrURL`, `URL` and `Spread`.
 - **`URL`** writes just the value: generated code writes `href={url}` (a `string`) as the static ` href="`, `w.URL(url)` and the closing `"`, the same bytes as `AttrURL("href", url)`. An `orbit.URL` value is written with `String` instead, unfiltered.
 - **`Spread`** checks each name against `[A-Za-z_:][-A-Za-z0-9_:.]*`. An invalid name (with spaces, quotes, `>`, `/` or `=`) is a render error.
+- **A `JSONValue`** is always written (even when it encodes as `false` or `null`), single-quoted, as described in [JSON](#json). This applies to `Attr` and `Spread`. `Expr` writes it as HTML-escaped text.
+- **`JSONAttr`** writes just the value: generated code writes `data-post={orbit.JSON(post)}` as the static ` data-post='`, `w.JSONAttr(pos, orbit.JSON(post))` and the closing `'`, the same bytes as `Attr("data-post", orbit.JSON(post))`. `pos` is the `.orbit` position of the attribute value's `{`: an encoding error becomes the sticky error, prefixed with it. Errors from `Attr`, `Expr` and `Spread`, which have no position, read `orbit: orbit.JSON: json: …`.
 
 ### Generated-code hooks
 
@@ -534,3 +564,4 @@ Compares `html` with `testdata/<name>.golden` and fails the test, showing the di
 - [Lazy loading](../lazy-loading.md): `server:defer`, `Defer` and the island key
 - [Testing](../testing.md): `orbittest`
 - [Template syntax](template-syntax.md)
+- [Client modules](client-modules.md): reading `orbit.JSON` and `set:json` data in scripts

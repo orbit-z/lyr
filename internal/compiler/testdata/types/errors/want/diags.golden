@@ -1,0 +1,5 @@
+src/components/Bad.orbit:16:28: orbit.JSON: Hook.Notify has type func(), which encoding/json can't encode
+src/components/Bad.orbit:16:61: orbit.JSON: the value has type chan int, which encoding/json can't encode
+src/components/Bad.orbit:16:96: orbit.JSON: the value has type map[[2]int]string, which encoding/json can't encode
+src/components/Bad.orbit:17:18: orbit.JSON: the value has type complex128, which encoding/json can't encode
+src/components/Bad.orbit:18:51: set:json: the value has type func(), which encoding/json can't encode

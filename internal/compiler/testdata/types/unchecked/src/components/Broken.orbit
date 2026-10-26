@@ -1,0 +1,9 @@
+---
+type Props struct {
+	N int
+}
+
+value := notDeclared
+---
+<div data-value={orbit.JSON(value)} data-n={orbit.JSON(props.N)} data-other={value}></div>
+<script type="application/json" id="cfg" set:json={value}></script>

@@ -990,24 +990,129 @@ Both work only on `.orbit` components, and they can't be combined on one tag.
 
 ## Passing data to client scripts
 
-A component's `<script>` runs in the browser, so it can't read `props`. Pass it data in the HTML. There are two patterns, and both are escaped for you.
+A component's `<script>` runs in the browser, so it can't read `props`. Pass it data in the HTML: as typed JSON with `orbit.JSON`, as plain `data-*` attributes, or as a JSON block with `set:json`. All three are escaped for you.
+
+### Typed data with `orbit.JSON`
+
+Wrap a value in `orbit.JSON` to write it into a `data-*` attribute as JSON. Orbit encodes it with `encoding/json`, so the usual `json` struct tags apply:
+
+```go file=internal/api/api.go
+// Package api holds the JSON that pages send to the browser.
+package api
+
+import "time"
+
+// Post is a post as a like button sees it.
+type Post struct {
+	ID        int64     `json:"id"`
+	Slug      string    `json:"slug"`
+	Title     string    `json:"title"`
+	Tags      []string  `json:"tags"`
+	Published time.Time `json:"published"`
+	Likes     int       `json:"likes"`
+	Author    *Author   `json:"author,omitempty"`
+	draft     bool
+}
+
+// Author is a post's author.
+type Author struct {
+	Name string `json:"name"`
+	URL  string `json:"url,omitempty"`
+}
+```
+
+The component's script imports **its own `.orbit` file** to read the data back. `data(el, key)` parses the attribute and returns it with the TypeScript type of the Go value:
+
+```orbit file=src/components/LikeButton.orbit
+---
+import "example.com/blog/internal/api"
+
+type Props struct {
+	Post  api.Post
+	Liked bool
+}
+---
+<like-button data-post={orbit.JSON(props.Post)} data-liked={orbit.JSON(props.Liked)}>
+  <button type="button">♥ <span>{props.Post.Likes}</span></button>
+</like-button>
+<script>
+  import { data } from "./LikeButton.orbit";
+
+  class LikeButton extends HTMLElement {
+    connectedCallback() {
+      const post = data(this, "post"); // api.Post
+      const liked = data(this, "liked"); // boolean
+      const count = this.querySelector("span")!;
+      this.title = post.tags?.join(", ") ?? "";
+      this.querySelector("button")!.addEventListener("click", async () => {
+        const res = await fetch(`/blog/${post.slug}/like`, { method: "POST" });
+        if (res.ok) count.textContent = String(post.likes + (liked ? 0 : 1));
+      });
+    }
+  }
+  customElements.define("like-button", LikeButton);
+</script>
+```
+
+The value is written single-quoted, so the JSON stays readable in view-source:
+
+```html
+<like-button data-post='{"id":42,"slug":"hello","title":"Hello \u003cworld\u003e","tags":["go"],"published":"2026-10-26T12:00:00Z","likes":7}' data-liked='false'>
+```
+
+The import never loads the component itself: it bundles a tiny reader (368 bytes minified, once per page bundle). Its types come from a declaration file that `orbit generate` (and `build`, `dev`, `check`) writes to `orbit_gen/types/src/components/LikeButton.orbit.d.ts`:
+
+```ts
+import type { api } from "orbit:types";
+
+/** The orbit.JSON data-* attributes written by src/components/LikeButton.orbit, by dataset name. */
+export interface Data {
+  /** data-liked (LikeButton.orbit:9:49) */
+  liked: boolean;
+  /** data-post (LikeButton.orbit:9:14) */
+  post: api.Post;
+}
+export declare function data<K extends "liked" | "post">(el: Element, key: K): Data[K];
+```
+
+with `api.Post` declared in `orbit_gen/types/go.d.ts` (`tags: string[] | null`, `published: string`, `author?: Author`, and no `draft`, which is unexported). So [`orbit check`](styles-and-scripts.md#type-checking-with-orbit-check) catches a script that reads a field the server doesn't send, misspells a key, or reads a key the template no longer writes, at the `.orbit` position. A nil slice encodes as `null`, so `tags` is typed `string[] | null`, and forgetting that is an error (won't type-check):
+
+```orbit file=src/components/LikeButton.orbit expect-error at=20
+      this.title = post.tags.join(", ");
+```
+
+```text
+src/components/LikeButton.orbit:20:20: error TS18047: 'post.tags' is possibly 'null'.
+```
+
+To get a non-null type, tag the field `omitempty` (or `omitzero`): a nil slice is then left out, so the field becomes optional (`tags?: string[]`).
+
+- **Keys** are the attributes' dataset names, as `el.dataset` uses them: `data-author-name` is `"authorName"`. Every `data-*` attribute of an HTML element whose value is a direct `orbit.JSON(…)` call is a key, and an element can have several. The same key written on several elements, or in `{if}` branches, gets the union of their types.
+- **`data` throws** if the element doesn't have the attribute: `orbit: <like-button> has no data-post attribute`. The types say what the component may write, not which element carries it, so call it on the element the template puts the attribute on.
+- **`.ts` files** can import any component's module by relative path (`import { data } from "../components/LikeButton.orbit"`), and your editor checks them. See [Importing TypeScript files](styles-and-scripts.md#importing-typescript-files).
+- **Unsupported types** are a compile error at the `orbit.JSON` argument: a func, a channel, a complex number or a map with non-string keys can never be encoded. Values that only fail at render time (a NaN float, a pointer cycle) are a render error at the attribute's position.
+- **64-bit integers** are typed `number`, but JavaScript numbers lose precision past 2⁵³. For IDs that large, add the `,string` tag option (`json:"id,string"`) to send them as strings.
+
+The full Go-to-TypeScript mapping, `set:json` typing with `json(id)` and the untyped `orbit:client` module are in [Client modules](reference/client-modules.md).
+
+**When to keep plain `data-*`**: encoding a value as JSON costs about 130 ns for a two-field struct, and around 500 ns for a typical post, against about 13 ns and no allocation for the same values as plain attributes. Use plain `data-*` attributes (below) for a few scalars and `orbit.JSON` for structured data, and pass large values as a pointer (`orbit.JSON(&post)`), which saves `encoding/json` a copy. See [Performance](performance.md#encoding-json-for-scripts).
 
 ### `data-*` attributes and custom elements
 
-For data that belongs to one element, write it into `data-*` attributes and read `el.dataset` in a custom element. The script runs once per page, and `connectedCallback` runs for every instance of the element, including instances that arrive later in a deferred component:
+For a few scalar values that belong to one element, write them into plain `data-*` attributes and read `el.dataset` in a custom element. The script runs once per page, and `connectedCallback` runs for every instance of the element, including instances that arrive later in a deferred component:
 
-```orbit file=src/components/LikeButton.orbit
+```orbit file=src/components/LikeCount.orbit
 ---
 type Props struct {
 	Slug  string
 	Likes int
 }
 ---
-<like-button data-slug={props.Slug} data-likes={props.Likes}>
+<like-count data-slug={props.Slug} data-likes={props.Likes}>
   <button type="button">♥ <span>{props.Likes}</span></button>
-</like-button>
+</like-count>
 <script>
-  class LikeButton extends HTMLElement {
+  class LikeCount extends HTMLElement {
     connectedCallback() {
       const slug = this.dataset.slug ?? "";
       let likes = Number(this.dataset.likes);
@@ -1018,7 +1123,7 @@ type Props struct {
       });
     }
   }
-  customElements.define("like-button", LikeButton);
+  customElements.define("like-count", LikeCount);
 </script>
 ```
 
@@ -1026,7 +1131,7 @@ Attribute values are always strings in the browser, so convert numbers yourself 
 
 ### JSON blocks with `set:json`
 
-For structured data, use `set:json` on a `<script type="application/json">`. Orbit encodes the value with `encoding/json` and escapes it so it can't break out of the script element (`<`, `>`, `&`, U+2028 and U+2029 become `\u003c`, `\u003e`, `\u0026`, `\u2028` and `\u2029`). The script reads it back with `JSON.parse`:
+For a larger block of data, such as a list, use `set:json` on a `<script type="application/json">`. Orbit encodes the value with `encoding/json` and escapes it so it can't break out of the script element (`<`, `>`, `&`, U+2028 and U+2029 become `\u003c`, `\u003e`, `\u0026`, `\u2028` and `\u2029`). The script reads it back with `JSON.parse`:
 
 ```orbit file=src/components/PostFilter.orbit
 ---
@@ -1083,11 +1188,10 @@ for _, p := range list {
 </script>
 ```
 
-- The JSON block sits inside the custom element, so each instance finds its own. For page-wide data, give the block an `id` and read it with `document.getElementById("…").textContent`.
+- The JSON block sits inside the custom element, so each instance finds its own, and the script names the type itself (`Entry`). For per-instance data, `data-entries={orbit.JSON(entries)}` is typed for you instead.
+- For page-wide data, give the block a static `id` and read it with `json(id)` from the component's module (`import { json } from "./PostFilter.orbit"`): like `data`, it's typed from the Go value. See [JSON blocks](styles-and-scripts.md#json-blocks-with-setjson).
 - `set:json` only works on `<script type="application/json">`, which Orbit never bundles or processes. Anywhere else it's a compile error: `set:json only works on <script type="application/json">`.
-- The value can have any type `encoding/json` can encode, and the usual `json` struct tags apply. An encoding error is a render error at the `.orbit` position.
-
-A typed bridge that generates TypeScript types from your Go types is planned after the first release.
+- The value can have any type `encoding/json` can encode, and the usual `json` struct tags apply. A type it can never encode (a func, a channel) is a compile error; a value it can't encode (a NaN float, a cycle) is a render error at the `set:json` position.
 
 ## Escaping and security
 
@@ -1169,7 +1273,7 @@ src/components/Promo.orbit:8:11: warning: onclick={…} is escaped for HTML, not
 src/components/Promo.orbit:9:6: warning: style={…} is escaped for HTML, not for CSS; don't put untrusted values here
 ```
 
-There's no switch to silence these warnings. Static values you write yourself (`onclick="toggle()"`, `style="color: red"`) don't warn. To pass data to a script, use a `data-*` attribute or `set:json`; see [Passing data to client scripts](#passing-data-to-client-scripts).
+There's no switch to silence these warnings. Static values you write yourself (`onclick="toggle()"`, `style="color: red"`) don't warn. To pass data to a script, use `orbit.JSON`, a `data-*` attribute or `set:json`; see [Passing data to client scripts](#passing-data-to-client-scripts).
 
 ## How it compiles
 
@@ -1187,4 +1291,5 @@ Your own Go code (a test or an HTTP handler) can import a component through its 
 - [Rendering](rendering.md): the request lifecycle, status codes, redirects and errors
 - [Middleware and locals](middleware.md): typed `locals`
 - [Styles and scripts](styles-and-scripts.md): scoped CSS and TypeScript
-- [Runtime API](reference/runtime-api.md): `orbit.Ctx`, `orbit.Slots`, `orbit.HTML`, `orbit.URL`
+- [Client modules](reference/client-modules.md): `data` and `json` for scripts, and the Go-to-TypeScript type mapping
+- [Runtime API](reference/runtime-api.md): `orbit.Ctx`, `orbit.Slots`, `orbit.HTML`, `orbit.URL`, `orbit.JSON`

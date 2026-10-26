@@ -119,8 +119,8 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 | `` class={`card ${extra}`} `` | `class={"card " + extra}` | A quoted value is literal text, with no interpolation. |
 | `class:list={[…]}` | Not supported (a compile error with a hint) | Build the string in the frontmatter, as in the card above, or with `strings.Join(classes, " ")`. |
 | `set:html={str}` | `set:html={orbit.HTML(str)}` | Only an `orbit.HTML` value (or a string constant) is accepted, so a plain `string` variable is a compile error: raw HTML is always an explicit choice. `set:text` is the same as in Astro. See [Raw HTML](components.md#raw-html-with-orbithtml). |
-| No equivalent | `set:json={value}` on `<script type="application/json">` | New in Orbit: encodes a Go value with `encoding/json`, escaped so it can't break out of the script. Read it with `JSON.parse`. See [JSON blocks](components.md#json-blocks-with-setjson). |
-| `define:vars={{ … }}` | `data-*` attributes or `set:json` | `define:vars` isn't supported (a compile error with a hint). Write per-element values into `data-*` attributes and read `el.dataset` in a custom element. See [Passing data to client scripts](components.md#passing-data-to-client-scripts). |
+| No equivalent | `set:json={value}` on `<script type="application/json">` | New in Orbit: encodes a Go value with `encoding/json`, escaped so it can't break out of the script. Read it with `json(id)` from the component's module, typed from the Go value. See [JSON blocks](components.md#json-blocks-with-setjson). |
+| `define:vars={{ … }}` | `data-post={orbit.JSON(post)}` (or plain `data-*` attributes, or `set:json`) | `define:vars` isn't supported (a compile error with a hint). Write the values into `data-*` attributes with `orbit.JSON`, and read them in a custom element with `data(this, "post")` from `import { data } from "./X.orbit"`: the script gets them with their Go types, checked by `orbit check`. See [Typed data with `orbit.JSON`](components.md#typed-data-with-orbitjson). |
 
 ### Styles and scripts
 

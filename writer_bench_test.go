@@ -69,7 +69,7 @@ func BenchmarkSpread(b *testing.B) {
 
 func BenchmarkJSON(b *testing.B) {
 	v := map[string]any{"tags": []string{"go", "web"}, "n": 3}
-	bench(b, func(w *Writer) { w.JSON(v) })
+	bench(b, func(w *Writer) { w.JSON("", v) })
 }
 
 func BenchmarkEnterLeave(b *testing.B) {
@@ -124,4 +124,35 @@ func BenchmarkInjectHead(b *testing.B) {
 		injectHead(buf, tags)
 		putBuffer(buf)
 	}
+}
+
+// BenchmarkJSONAttr: PLAN.md §5c's encoding cost, for a small and a typical
+// value, passed by value and by pointer. Run with GOMAXPROCS=1.
+func BenchmarkJSONAttr(b *testing.B) {
+	small := struct {
+		ID    int  `json:"id"`
+		Liked bool `json:"liked"`
+	}{7, true}
+	for _, c := range []struct {
+		name string
+		v    JSONValue
+	}{
+		{"small", JSON(small)},
+		{"small-ptr", JSON(&small)},
+		{"typical", JSON(testPost)},
+		{"typical-ptr", JSON(&testPost)},
+	} {
+		b.Run(c.name, func(b *testing.B) {
+			bench(b, func(w *Writer) { w.Raw(` data-post='`); w.JSONAttr("x.orbit:1:1", c.v); w.Raw(`'`) })
+		})
+	}
+	// The same small value as two typed attributes, for comparison.
+	b.Run("small-typed-attrs", func(b *testing.B) {
+		bench(b, func(w *Writer) {
+			w.Raw(` data-id="`)
+			w.Int(int64(small.ID))
+			w.Raw(`"`)
+			w.AttrBool("data-liked", small.Liked)
+		})
+	})
 }

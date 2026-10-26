@@ -33,7 +33,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	_ = attrs
 	_ = body
 	orbit__w.Raw("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Home</title><script type=\"application/json\" id=\"data\">")
-	orbit__w.JSON(
+	orbit__w.JSON("src/pages/index.orbit:16:47",
 /*line ../../../../src/pages/index.orbit:16:57*/data/*line render.go:37:77*/,
 	)
 	orbit__w.Raw("</script><script>console.log(1 < 2)</script>")

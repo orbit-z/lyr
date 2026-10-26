@@ -33,6 +33,10 @@ type Writer struct {
 	// tags are the page's head tags (headTags), written by the first
 	// HeadEnd; "" once written, and for fragments.
 	tags string
+	// jenc is the reused encoder of JSON values (json.go), writing
+	// through jsink; created on first use and kept with the pooled Writer.
+	jenc  *json.Encoder
+	jsink jsonSink
 }
 
 // NewWriter returns a Writer that writes into buf.
@@ -170,24 +174,6 @@ func (w *Writer) Render(r Renderer) {
 	}
 }
 
-// JSON writes v encoded with encoding/json, escaped for the content of a
-// <script> element: <, >, &, U+2028 and U+2029 become \u escapes, so the
-// output can't contain </script> or <!--. An encoding error becomes the
-// sticky error.
-func (w *Writer) JSON(v any) {
-	if w.err != nil {
-		return
-	}
-	data, err := json.Marshal(v)
-	if err != nil {
-		w.setErr(fmt.Errorf("orbit: set:json: %w", err))
-		return
-	}
-	// json.Marshal already escapes these by default; HTMLEscape makes the
-	// guarantee independent of that default.
-	json.HTMLEscape(w.buf, data)
-}
-
 // HeadEnd marks the place where the page's </head> starts: the page's
 // asset tags are written there. Only the first call counts.
 func (w *Writer) HeadEnd() {
@@ -243,6 +229,7 @@ func depthError(stack []string) error {
 //
 //   - nil: nothing
 //   - HTML: raw
+//   - JSONValue: its JSON text, HTML-escaped
 //   - string, URL: HTML-escaped
 //   - []byte: HTML-escaped, as a string
 //   - ints, floats, bools: strconv (float32 as a float32)
@@ -271,6 +258,8 @@ func (w *Writer) value(v any, escape bool) {
 	case nil:
 	case HTML:
 		w.buf.WriteString(string(v))
+	case JSONValue:
+		w.textJSON(v, escape)
 	case string:
 		w.text(v, escape)
 	case URL:
@@ -400,6 +389,8 @@ func nilPanic(v any, r any) string {
 //
 //   - true: the bare attribute ( name)
 //   - false, nil: nothing
+//   - JSONValue: always written, single-quoted ( name='json'), with ', &, <
+//     and > as character references (JSONAttr)
 //   - anything else: formatted as Expr does, then attribute-escaped and
 //     quoted ( name="value"). Attribute values are never raw, so HTML is
 //     escaped too.
@@ -416,6 +407,8 @@ func (w *Writer) Attr(name string, v any) {
 func (w *Writer) attr(name string, v any, urlAttr bool) {
 	switch v := v.(type) {
 	case nil:
+	case JSONValue:
+		w.attrJSON(name, v)
 	case bool:
 		w.AttrBool(name, v)
 	case string:

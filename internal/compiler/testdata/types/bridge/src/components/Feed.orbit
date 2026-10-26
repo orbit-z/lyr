@@ -1,0 +1,35 @@
+---
+import (
+	o "github.com/orbit-z/orbit"
+
+	"example.com/blog/internal/posts"
+	legacy "example.com/blog/legacy/posts"
+)
+
+type link struct {
+	Href  string `json:"href"`
+	Label string `json:"label"`
+}
+
+type Props struct {
+	Page   posts.Page[posts.Post]
+	Tree   posts.Tree
+	Old    legacy.Post
+	Def    posts.Default
+	Pinned bool
+}
+
+state := o.JSON(map[string]int{"n": 1})
+links := []link{{"/", "Home"}}
+---
+<section data-page={o.JSON(props.Page)} data-tree={o.JSON(props.Tree)} data-old={o.JSON(props.Old)} data-default={o.JSON(props.Def)} data-state={state} data-links={o.JSON(links)} data-Mixed-Case={o.JSON(1)} data-bad_name={o.JSON(2)} data-plain={props.Pinned}>
+	{if props.Pinned}
+		<p data-item={o.JSON(props.Page.Items[0])}></p>
+	{else}
+		<p data-item={o.JSON(posts.Summary{})}></p>
+	{/if}
+	<p data-item={o.JSON(posts.Summary{})} hx-vals={o.JSON(links)}></p>
+</section>
+<script type="application/json" id="feed-config" set:json={links}></script>
+<script type="application/json" id="wrapped" set:json={o.JSON(props.Old)}></script>
+<script type="application/json" set:json={props.Tree}></script>

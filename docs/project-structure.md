@@ -33,7 +33,7 @@ blog/
   internal/
     posts/                your own Go code
   public/                 static files, served as-is at the site root
-  orbit_gen/              generated Go packages (gitignored)
+  orbit_gen/              generated Go packages and TypeScript types (gitignored)
   .orbit/                 cache (gitignored)
   dist/                   build output (gitignored)
 ```
@@ -87,6 +87,19 @@ Keep `src/locals` a plain types package. It can import your own packages (such a
 
 `<script>` tags are TypeScript, and they can import `.ts`, `.tsx` and `.js` files from anywhere in the project; `src/scripts/` is a good home for them. Bare imports (`import confetti from "canvas-confetti"`) resolve from `node_modules/` if you have one. `tsconfig.json` and `src/env.d.ts` configure TypeScript; a `package.json` is needed only for npm packages. See [Styles and scripts](styles-and-scripts.md).
 
+A script can also import a component's `.orbit` file (`import { data } from "./LikeButton.orbit"`) to read the data that component writes with `orbit.JSON` or `set:json`, typed from Go. The types are generated into `orbit_gen/types/`. The starter `tsconfig.json` points TypeScript at them with two entries:
+
+```json
+{
+  "compilerOptions": {
+    "rootDirs": [".", "orbit_gen/types"]
+  },
+  "include": ["src/**/*.ts", "orbit_gen/types/*.d.ts"]
+}
+```
+
+`rootDirs` overlays `orbit_gen/types/src/` onto `src/`, so `./LikeButton.orbit` resolves to the generated `LikeButton.orbit.d.ts`. A project created before these entries existed needs them only for editor support (`orbit check` adds them itself, and `orbit doctor` warns when they're missing). See [Client modules](reference/client-modules.md).
+
 ## `cmd/server/`
 
 Your server's `main` package. It creates the site with `app.New()` from `orbit_gen/app`, places Orbit's middleware in your handler chain next to your own routes and middleware, and listens. `orbit new` scaffolds it, and it's yours to edit. `orbit dev` runs it during development, and `orbit build` compiles it to `dist/server`.
@@ -122,7 +135,11 @@ orbit_gen/
   manifest/    the CSS and JS URLs of each page
   cmd/server/  the default server, generated only when you have no cmd/server
   static/      an embedded copy of dist/client, only for orbit build --embed
+  types/       TypeScript declarations for scripts: go.d.ts (orbit:types, your Go types),
+               client.d.ts (orbit:client) and src/…/X.orbit.d.ts (each component's data)
 ```
+
+`orbit_gen/types/` isn't Go, so the `go` command ignores it. It holds a `.d.ts` file only for components that write typed data (an `orbit.JSON` `data-*` attribute, or a `set:json` block with a static `id`). `orbit check` also writes it.
 
 Your own Go code imports two kinds of generated packages:
 

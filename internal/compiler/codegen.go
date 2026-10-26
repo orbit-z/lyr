@@ -66,6 +66,10 @@ type Output struct {
 	// appear in Impl, for the JSON-serializable Props check of the typed
 	// pass (PLAN.md §3.4).
 	DeferSites []DeferSite
+	// JSONSites are the data-* attribute expressions and the set:json
+	// blocks with a static id, in order, for the types of the component's
+	// client module (PLAN.md §5c).
+	JSONSites []JSONSite
 	// Diagnostics are codegen errors and warnings (unknown component or
 	// prop, missing component file, not-yet-implemented directives),
 	// sorted by position. Generate always returns both files, even with
@@ -157,6 +161,10 @@ const (
 	WriteAttrUint
 	WriteAttrFloat
 	WriteAttrFloat32
+	// WriteAttrJSON is an orbit.JSONValue attribute (PLAN.md §5c): pieces
+	// ` name='` and `'` around JSONAttr(pos, value), pos being the .orbit
+	// position of the value.
+	WriteAttrJSON
 )
 
 // writeMethods is the Writer method each kind calls. WriteAttrString,
@@ -164,7 +172,7 @@ const (
 // attrPieces), so they call a value-only method (URL for WriteAttrURL).
 var writeMethods = [...]string{"Expr", "", "String", "Int", "Uint", "Float", "Float32", "Bool",
 	"HTML", "Bytes", "Error", "Stringer", "Render", "String", "URL", "AttrBool",
-	"Int", "Uint", "Float", "Float32"}
+	"Int", "Uint", "Float", "Float32", "JSONAttr"}
 
 // attrPieces reports whether k writes its attribute as pieces: the static
 // ` name="` and `"` join the neighbouring Raw constants, and the call writes
@@ -172,7 +180,7 @@ var writeMethods = [...]string{"Expr", "", "String", "Int", "Uint", "Float", "Fl
 // AttrString or AttrURL (and to Attr for a number) and saves the name and
 // quote writes.
 func (k WriteKind) attrPieces() bool {
-	return k == WriteAttrString || k == WriteAttrURL || k >= WriteAttrInt && k <= WriteAttrFloat32
+	return k == WriteAttrString || k == WriteAttrURL || k >= WriteAttrInt && k <= WriteAttrJSON
 }
 
 // Method is the Writer method the write calls ("Expr" for a content

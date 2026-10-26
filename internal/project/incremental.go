@@ -25,6 +25,7 @@ type prevFile struct {
 	out                  *compiler.Output
 	typed                bool
 	writes               compiler.TypedWrites
+	types                *compiler.UnitTypes
 	diags                []compiler.Diagnostic
 }
 
@@ -102,16 +103,16 @@ func (in *Incremental) Typecheck(ctx context.Context, p *Project) (warnings []st
 		old := in.prev[f.Path]
 		var diags []compiler.Diagnostic
 		if u, ok := byImpl[f.Pass1.Impl.Path]; ok {
-			f.Output, f.Typed, f.Writes, diags = u.Output, u.Checked, u.Writes, u.Diagnostics
+			f.Output, f.Typed, f.Writes, f.Types, diags = u.Output, u.Checked, u.Writes, u.Types, u.Diagnostics
 		} else if old != nil {
-			f.Output, f.Typed, f.Writes, diags = old.out, old.typed, old.writes, old.diags
+			f.Output, f.Typed, f.Writes, f.Types, diags = old.out, old.typed, old.writes, old.types, old.diags
 		} else {
 			return nil, 0, fmt.Errorf("orbit: %s was not type-checked", f.Path)
 		}
 		for _, d := range diags {
 			ds = append(ds, fromCompiler(f, d))
 		}
-		in.prev[f.Path] = &prevFile{pass1Decl: f.Pass1.Decl.Content, pass1Impl: f.Pass1.Impl.Content, out: f.Output, typed: f.Typed, writes: f.Writes, diags: diags}
+		in.prev[f.Path] = &prevFile{pass1Decl: f.Pass1.Decl.Content, pass1Impl: f.Pass1.Impl.Content, out: f.Output, typed: f.Typed, writes: f.Writes, types: f.Types, diags: diags}
 	}
 	if len(ds) > 0 {
 		p.Diagnostics = append(p.Diagnostics, ds...)

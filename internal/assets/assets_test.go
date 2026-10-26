@@ -175,7 +175,6 @@ func TestBundleErrors(t *testing.T) {
 		{"syntax", "src/pages/a.orbit", "<p>a</p>\n<script>\n  const x = ;\n</script>\n", "src/pages/a.orbit:3:13: Unexpected \";\""},
 		{"resolve", "src/pages/a.orbit", "<p>a</p>\n<script>\n  import x from \"nope-pkg\";\n  console.log(x);\n</script>\n", `src/pages/a.orbit:3:17: Could not resolve "nope-pkg"`},
 		{"src", "src/pages/a.orbit", "<p>a</p>\n<script src=\"./missing.ts\"></script>\n", `src/pages/a.orbit:2:13: Could not resolve "./missing.ts"`},
-		{"orbit import", "src/pages/a.orbit", "<p>a</p>\n<script>\n  import \"./a.orbit\";\n</script>\n", `src/pages/a.orbit:3:10: a script can't import a .orbit file; import a .ts file instead`},
 		{"first line", "src/pages/a.orbit", "<script>const x = ;</script>\n", "src/pages/a.orbit:1:19: Unexpected \";\""},
 	}
 	for _, tt := range tests {

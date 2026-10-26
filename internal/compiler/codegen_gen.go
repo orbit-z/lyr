@@ -30,6 +30,10 @@ type cgGen struct {
 	skipAttr map[*Attr]bool
 	// scope is the file's ScopeAttr when it has a scoped style, else "".
 	scope string
+	// jsonSites are the JSON sites, in order; rtNames the runtime's
+	// names in the file (runtimeNames), computed on first use.
+	jsonSites []JSONSite
+	rtNames   map[string]bool
 }
 
 func cgGenerate(in *Input) (out *Output) {
@@ -92,7 +96,7 @@ func cgGenerate(in *Input) (out *Output) {
 	decl := g.genDecl()
 	impl := g.genImpl()
 	sortDiagnostics(g.diags)
-	return &Output{Decl: decl, Impl: impl, CallSites: g.sites, DeferSites: g.defers, Diagnostics: g.diags}
+	return &Output{Decl: decl, Impl: impl, CallSites: g.sites, DeferSites: g.defers, JSONSites: g.jsonSites, Diagnostics: g.diags}
 }
 
 // cgFailed is the output of an input codegen can't handle: two files with

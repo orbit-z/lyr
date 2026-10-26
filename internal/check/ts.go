@@ -201,6 +201,10 @@ func MapOutput(root string, out []byte, scripts []Script) Output {
 				pos.Col = byteCol(lines[ln-1], col)
 			}
 		}
+		if strings.HasPrefix(file, compiler.GenDir+"/types/") {
+			// An error in a generated .d.ts is an Orbit bug (PLAN.md §5c).
+			b.WriteString("internal: ")
+		}
 		fmt.Fprintf(&b, "%s:%d:%d: %s %s\n", file, pos.Line, pos.Col, m[4], m[5])
 	}
 	res.Text = b.Bytes()

@@ -86,6 +86,9 @@ type File struct {
 	Typed  bool
 	// Writes are the typed writes chosen for the file (set by Typecheck).
 	Writes compiler.TypedWrites
+	// Types is the data contract of the file's client module (PLAN.md
+	// §5c), set by Typecheck; nil when it has no keys.
+	Types *compiler.UnitTypes
 	// callList caches compiler.ComponentCalls of AST (calls); Front
 	// resets it.
 	callList  []compiler.ComponentCall

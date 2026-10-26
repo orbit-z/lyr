@@ -128,13 +128,20 @@ func (g *cgGen) site(kind SiteKind, node Node, a *Attr, code GoCode) {
 		method, conv = tw.Kind.Method(), tw.Conv
 		pieces = tw.Kind.attrPieces()
 	}
+	quote := `"`
+	if method == "JSONAttr" {
+		quote = `'`
+	}
 	if pieces {
-		o.html(" " + a.Name + `="`)
+		o.html(" " + a.Name + "=" + quote)
 	}
 	o.flush()
 	o.ind()
 	start := len(o.b)
 	o.str(NameW + "." + method + "(")
+	if method == "JSONAttr" {
+		o.str(strconv.Quote(g.position(attrValuePos(a))) + ",")
+	}
 	if kind == SiteAttr && !pieces {
 		o.str(strconv.Quote(a.Name) + ",")
 		if conv != "" {
@@ -156,8 +163,21 @@ func (g *cgGen) site(kind SiteKind, node Node, a *Attr, code GoCode) {
 	o.str("\n")
 	g.sites = append(g.sites, cs)
 	if pieces {
-		o.html(`"`)
+		o.html(quote)
 	}
+}
+
+// position is the "<path>:L:C" of an offset in the .orbit file, as runtime
+// errors print it (ErrorAt, JSONAttr, JSON).
+func (g *cgGen) position(off int) string { return g.a.Info.Path + ":" + g.o.pos(off) }
+
+// attrValuePos is the offset JSONAttr reports: the value's opening brace,
+// or the attribute for {a}.
+func attrValuePos(a *Attr) int {
+	if a.ValueSpan.End > a.ValueSpan.Start {
+		return a.ValueSpan.Start
+	}
+	return a.Start
 }
 
 // emptySite emits the empty orbit__w.Expr( ) of a {} in Tolerant mode, so
@@ -241,6 +261,7 @@ func (g *cgGen) htmlAttrs(t *Tag, node Node) (set *Attr) {
 		}
 		if a.IsExpr() {
 			g.site(SiteAttr, node, a, a.Code)
+			g.jsonAttrSite(a, g.sites[len(g.sites)-1].Arg)
 			continue
 		}
 		o.html(" " + g.src[a.Start:a.End])
@@ -257,7 +278,7 @@ func (g *cgGen) setContent(set *Attr, node Node) {
 	case SetHTML:
 		g.write("HTML", set.Code)
 	case SetJSON:
-		g.write("JSON", set.Code)
+		g.setJSON(set, node)
 	case SetText:
 		g.site(SiteContent, node, set, set.Code)
 	}

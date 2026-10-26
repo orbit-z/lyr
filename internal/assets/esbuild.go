@@ -2,7 +2,6 @@ package assets
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -108,6 +107,17 @@ func (b *esbuildBundler) plugin() api.Plugin {
 					Suffix:    blk.suffix,
 				}, nil
 			})
+			pb.OnResolve(api.OnResolveOptions{Filter: `^orbit:(client|types)$`}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
+				return api.OnResolveResult{Path: a.Path, Namespace: clientNamespace}, nil
+			})
+			pb.OnLoad(api.OnLoadOptions{Filter: ".*", Namespace: clientNamespace}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
+				src := ""
+				if a.Path == "orbit:client" {
+					src = clientTS
+				}
+				// orbit:types only has types: empty at runtime.
+				return api.OnLoadResult{Contents: &src, Loader: api.LoaderTS, ResolveDir: b.opts.Root}, nil
+			})
 			pb.OnResolve(api.OnResolveOptions{Filter: "^" + lazyPrefix}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
 				return api.OnResolveResult{Path: strings.TrimPrefix(a.Path, lazyPrefix), Namespace: lazyNamespace}, nil
 			})
@@ -136,7 +146,10 @@ func (b *esbuildBundler) plugin() api.Plugin {
 				}
 				blk := b.current().byKey[filepath.ToSlash(rel)+a.Suffix]
 				if blk == nil {
-					return api.OnLoadResult{}, errors.New("a script can't import a .orbit file; import a .ts file instead")
+					// An import of a component from a script: its client
+					// module (PLAN.md §5c), the same for every component.
+					src := componentModule
+					return api.OnLoadResult{Contents: &src, Loader: api.LoaderJS, ResolveDir: b.opts.Root}, nil
 				}
 				loader := api.LoaderTS
 				if blk.css {
