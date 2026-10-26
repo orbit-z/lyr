@@ -4,9 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/markdown"
 )
 
 func TestParse(t *testing.T) {
@@ -41,6 +43,20 @@ func TestParse(t *testing.T) {
 		{`{"watch": [""]}`, Config{}, `orbit.json: watch[0] "": must not be empty`},
 		{`{"watch": ["a", "/etc/*.conf"]}`, Config{}, `orbit.json: watch[1] "/etc/*.conf": must be a slash-separated path relative to the project root, such as "content/**"`},
 		{`{"watch": ["content/[a-"]}`, Config{}, `orbit.json: watch[0] "content/[a-": segment "[a-": syntax error in pattern`},
+		// The markdown key (PLAN.md §8).
+		{`{"markdown": {"gfm": true, "smartypants": true, "syntaxHighlight": {"themes": {"light": "github", "dark": "github-dark"}, "css": true}}}`,
+			Config{Markdown: markdown.Options{Light: "github", Dark: "github-dark"}}, ""},
+		{`{"markdown": {"gfm": false, "smartypants": false, "syntaxHighlight": false}}`,
+			Config{Markdown: markdown.Options{NoGFM: true, NoSmartypants: true, NoHighlight: true}}, ""},
+		{`{"markdown": {"syntaxHighlight": {"themes": {"light": "monokai", "dark": null}, "css": false}}}`,
+			Config{Markdown: markdown.Options{Light: "monokai", SingleTheme: true, NoCSS: true}}, ""},
+		{`{"markdown": {"syntaxHighlight": true}}`, Config{}, ""},
+		{`{"markdown": null}`, Config{}, ""},
+		{`{"markdown": true}`, Config{}, `orbit.json: markdown must be an object`},
+		{`{"markdown": {"gfm": "yes"}}`, Config{}, `orbit.json: markdown.gfm must be true or false`},
+		{`{"markdown": {"syntaxHighlight": "shiki"}}`, Config{}, `orbit.json: markdown.syntaxHighlight must be false or an object such as {"themes": {"light": "github", "dark": "github-dark"}}`},
+		{`{"markdown": {"syntaxHighlight": {"css": 1}}}`, Config{}, `orbit.json: markdown.syntaxHighlight.css must be true or false`},
+		{`{"markdown": {"syntaxHighlight": {"themes": {"light": 3}}}}`, Config{}, `orbit.json: markdown.syntaxHighlight.themes.light must be a theme name`},
 	}
 	for _, tt := range tests {
 		c, err := Parse([]byte(tt.json))
@@ -57,6 +73,10 @@ func TestParse(t *testing.T) {
 		if !reflect.DeepEqual(*c, tt.want) {
 			t.Errorf("%s: got %+v, want %+v", tt.json, *c, tt.want)
 		}
+	}
+	_, err := Parse([]byte(`{"markdown": {"syntaxHighlight": {"themes": {"dark": "githbu"}}}}`))
+	if err == nil || !strings.HasPrefix(err.Error(), `orbit.json: markdown.syntaxHighlight.themes.dark: unknown theme "githbu"; the themes are abap, `) {
+		t.Errorf("unknown theme: %v", err)
 	}
 }
 

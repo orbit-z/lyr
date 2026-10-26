@@ -353,7 +353,8 @@ func (s *Server) start(ws *workspace) {
 				"id":     "orbit-files",
 				"method": "workspace/didChangeWatchedFiles",
 				"registerOptions": map[string]any{
-					"watchers": []any{map[string]any{"globPattern": "**/*.orbit"}},
+					"watchers": []any{map[string]any{"globPattern": "**/*.orbit"},
+						map[string]any{"globPattern": "**/*.{md,markdown,mdown,mkdn,mkd,mdwn}"}},
 				},
 			}},
 		})
@@ -544,6 +545,13 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 				ws.reloadFromDisk(rel)
 				orbitChanged = true
 			}
+			continue
+		case isMarkdownSource(rel):
+			// Markdown files have no editor support here (PLAN.md §9), but
+			// their decl packages are what gopls completes Post.Frontmatter.
+			// from, so they follow the disk.
+			ws.reloadMarkdown(rel)
+			orbitChanged = true
 			continue
 		case isGenPath(rel):
 			if g := ws.gen[rel]; g != nil {

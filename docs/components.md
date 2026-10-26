@@ -340,7 +340,7 @@ Components can import each other in cycles; see [Mutual recursion](#mutual-recur
 
 #### Importing Markdown
 
-A Markdown file is imported the same way, with an alias, and renders as a component that takes no props (planned; see [Markdown](markdown.md)):
+A Markdown file is imported the same way, with an alias, and renders as a component that takes no props (see [Markdown](markdown.md)):
 
 ```orbit
 ---
@@ -370,7 +370,7 @@ import Chart "./Chart.tsx"
 src/pages/index.orbit:2:14: framework components aren't supported; use a .orbit component with a <script>
 ```
 
-The same goes for `.jsx`, `.svelte` and `.vue` files. Any other relative path that doesn't end in `.orbit`, such as `"./util.ts"`, is an error too:
+The same goes for `.jsx`, `.svelte` and `.vue` files. Any other relative path that doesn't end in `.orbit` or `.md`, such as `"./util.ts"`, is an error too:
 
 ```orbit file=src/pages/index.orbit expect-error
 ---
@@ -379,7 +379,7 @@ import Util "./util.ts"
 ```
 
 ```text
-src/pages/index.orbit:2:13: only .orbit components can be imported by relative path; import client modules from a <script>
+src/pages/index.orbit:2:13: only .orbit and .md files can be imported by relative path; import client modules from a <script>
 ```
 
 Go packages are imported by their import paths, as usual.

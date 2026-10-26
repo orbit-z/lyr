@@ -16,6 +16,15 @@ import (
 type Unit struct {
 	Input *Input
 	Pass1 *Output
+	// Retype, when set, replaces the impl check and the typed writes: it
+	// is the typed pass of a Markdown file (PLAN.md §2.4), which converts
+	// the frontmatter to its layout's Props field types. Once the unit's own
+	// decl package checks, it is called with an importer for the generated
+	// decl packages (checked from pass-1 source) and every other package;
+	// it returns the pass-2 output and its diagnostics, or ok false to keep
+	// Pass1 (the fallback: a layout decl package with errors). Input needs
+	// only Analysis.Info and Options.
+	Retype func(imp types.Importer) (out *Output, diags []Diagnostic, ok bool)
 }
 
 // ExportLoader provides type information for the packages that aren't

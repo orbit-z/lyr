@@ -49,6 +49,11 @@ type Input struct {
 	// Pages are the pages to bundle, each with its asset graph. A page
 	// whose graph has no scripts and no styles gets no entry and no assets.
 	Pages []Page
+	// HighlightCSS is the code-highlighting stylesheet of Markdown files
+	// (PLAN.md §2.4): the virtual module orbit:style/markdown-highlight.css,
+	// first in the stylesheet of every page with Highlight set. "" for
+	// none.
+	HighlightCSS string
 }
 
 // Source is one .orbit file's processed blocks.
@@ -83,6 +88,10 @@ type Page struct {
 	// and client:media, PLAN.md §5), one per tagged component, sorted by
 	// ID.
 	Lazy []Lazy
+	// Highlight is set when the page's graph has a Markdown file with a
+	// highlighted code block: its stylesheet starts with
+	// Input.HighlightCSS.
+	Highlight bool
 }
 
 // Lazy is the list of entries a lazy marker loads on one page.

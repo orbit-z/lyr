@@ -5,9 +5,15 @@ go 1.27
 toolchain go1.27.3
 
 require (
+	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/evanw/esbuild v0.28.2
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/tdewolff/parse/v2 v2.8.16
+	github.com/yuin/goldmark v1.8.6
+	go.yaml.in/yaml/v3 v3.0.5
 )
 
-require golang.org/x/sys v0.13.0 // indirect
+require (
+	github.com/dlclark/regexp2/v2 v2.2.1 // indirect
+	golang.org/x/sys v0.13.0 // indirect
+)

@@ -3,21 +3,25 @@ package project
 import (
 	"github.com/orbit-z/orbit/internal/assets"
 	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/markdown"
 )
 
 // AssetInput returns the bundler input of the project (PLAN.md §5): every
 // file's processed scripts and styles, and each page's asset graph. It
 // needs Front.
 func (p *Project) AssetInput() *assets.Input {
-	in := &assets.Input{Sources: map[string]*assets.Source{}}
+	in := &assets.Input{Sources: map[string]*assets.Source{}, HighlightCSS: markdown.HighlightCSS(p.Config.Markdown)}
 	for _, f := range p.Files {
-		if s := assets.SourceOf(f.Path, f.AST); s != nil {
-			in.Sources[f.Path] = s
+		if f.MD == nil {
+			if s := assets.SourceOf(f.Path, f.AST); s != nil {
+				in.Sources[f.Path] = s
+			}
 		}
 	}
 	for _, f := range p.Files {
 		if f.Info.Role == compiler.RolePage {
-			in.Pages = append(in.Pages, assets.Page{File: f.Path, Modules: p.AssetGraph(f), Lazy: p.LazyLists(f)})
+			in.Pages = append(in.Pages, assets.Page{File: f.Path, Modules: p.AssetGraph(f), Lazy: p.LazyLists(f),
+				Highlight: in.HighlightCSS != "" && p.highlighted(f)})
 		}
 	}
 	return in

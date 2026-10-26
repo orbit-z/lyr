@@ -16,6 +16,14 @@ func (f *File) calls() []compiler.ComponentCall {
 	if f.callsDone {
 		return f.callList
 	}
+	if f.MD != nil {
+		// A Markdown file renders its layout, eagerly.
+		f.callList, f.callsDone = nil, true
+		if f.MD.Layout != "" {
+			f.callList = []compiler.ComponentCall{{Target: f.MD.Layout, Lazy: compiler.NotDirective, In: -1}}
+		}
+		return f.callList
+	}
 	f.callList, f.callsDone = compiler.ComponentCalls(f.AST, f.Analysis), true
 	return f.callList
 }

@@ -385,7 +385,9 @@ func inputKey(in *assets.Input) string {
 			w("lazy", l.ID)
 			w(l.Modules...)
 		}
+		w("highlight", strconv.FormatBool(pg.Highlight))
 	}
+	w("highlight-css", in.HighlightCSS)
 	return hex.EncodeToString(h.Sum(nil))
 }
 

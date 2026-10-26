@@ -98,11 +98,7 @@ var pageSetup = map[string][][]string{
 }
 
 // skipPages are pages not built, with the Orbit bug that stops them.
-var skipPages = map[string]string{
-	// The page is the spec of a feature that isn't built yet: .md imports
-	// and orbit.Heading don't exist (PLAN.md §2.4, Proposed).
-	"markdown.md": "Markdown pages and .md imports aren't implemented yet (PLAN.md §2.4)",
-}
+var skipPages = map[string]string{}
 
 // skipExamples are expect-error and expect-warning blocks not built, by
 // page and PATH ("page PATH"), with the Orbit bug that makes their output

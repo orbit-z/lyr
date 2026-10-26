@@ -72,7 +72,7 @@ func (in *Incremental) Typecheck(ctx context.Context, p *Project) (warnings []st
 			seen[f.Path] = true
 			old := in.prev[f.Path]
 			if old == nil || !bytes.Equal(old.pass1Decl, f.Pass1.Decl.Content) || !bytes.Equal(old.pass1Impl, f.Pass1.Impl.Content) {
-				changed = append(changed, compiler.Unit{Input: f.Input, Pass1: f.Pass1})
+				changed = append(changed, p.unit(f))
 			}
 		}
 		var removed []string

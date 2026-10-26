@@ -13,15 +13,18 @@
 package project
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/orbit-z/orbit/internal/assets"
 	"github.com/orbit-z/orbit/internal/compiler"
 	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/orbit/internal/markdown"
 )
 
 // Project is a loaded Orbit project.
@@ -50,12 +53,24 @@ type Project struct {
 	// localsDiags are the problems with src/locals found by Load; Front
 	// reports them.
 	localsDiags []Diagnostic
+	// markdown holds the source of every Markdown file under src/, by path,
+	// and mdPaths their sorted paths (set by Load). Front compiles the
+	// pages and the imported ones (PLAN.md §2.4); mdDiags are its link
+	// warnings.
+	markdown map[string]string
+	mdPaths  []string
+	mdDiags  []Diagnostic
 }
 
-// File is one .orbit file of the project, through the pipeline.
+// File is one .orbit or Markdown file of the project, through the
+// pipeline.
 type File struct {
 	// Path is project-relative, "/"-separated: "src/components/Card.orbit".
 	Path string
+	// MD is the parsed Markdown file, for a Markdown file (set by Front);
+	// AST and Analysis are then stand-ins (no template, the layout as the
+	// only import).
+	MD   *markdown.Doc
 	Info compiler.FileInfo
 	Pkg  compiler.GenPackage
 	Src  string
@@ -106,10 +121,16 @@ func Load(root string) (*Project, error) {
 	}
 	p.ServerEntry, p.GeneratedServer = cfg.ServerEntry(root)
 	p.Options.Locals, p.localsDiags = detectLocals(root, module)
+	p.markdown = map[string]string{}
 	for _, path := range paths {
 		src, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
 		if err != nil {
 			return nil, err
+		}
+		if compiler.IsMarkdown(path) {
+			p.markdown[path] = string(src)
+			p.mdPaths = append(p.mdPaths, path)
+			continue
 		}
 		f, err := NewFile(path, string(src))
 		if err != nil {
@@ -139,6 +160,9 @@ func NewFile(path, src string) (*File, error) {
 // collisions, Props import cycles, src/locals) and pass-1 Generate. It sets
 // p.Diagnostics, and reports whether there are errors.
 func (p *Project) Front() bool {
+	// The Markdown Files of an earlier Front are rebuilt: which ones are
+	// compiled depends on the .orbit imports.
+	p.Files = slices.DeleteFunc(slices.Clone(p.Files), (*File).IsMD)
 	// Files are independent until the index, and the index is read-only
 	// during pass 1, so both loops run in parallel.
 	parallel(p.Files, func(f *File) {
@@ -146,15 +170,20 @@ func (p *Project) Front() bool {
 		f.Analysis = compiler.Analyze(f.AST, f.Info)
 		f.callList, f.callsDone = nil, false
 	})
+	if md := p.frontMarkdown(); len(md) > 0 {
+		p.Files = append(p.Files, md...)
+		slices.SortFunc(p.Files, func(a, b *File) int { return strings.Compare(a.Path, b.Path) })
+	}
 	p.Index = compiler.ComponentIndex{}
 	for _, f := range p.Files {
-		p.Index[f.Path] = compiler.NewComponentInfo(f.AST, f.Analysis)
+		if f.MD != nil {
+			p.Index[f.Path] = markdown.Info(p.mdGenInput(f))
+		} else {
+			p.Index[f.Path] = compiler.NewComponentInfo(f.AST, f.Analysis)
+		}
 	}
-	parallel(p.Files, func(f *File) {
-		f.Input = &compiler.Input{File: f.AST, Analysis: f.Analysis, Index: p.Index, Options: p.Options}
-		f.Pass1 = compiler.Generate(f.Input)
-		f.Output, f.Typed, f.Writes = f.Pass1, false, nil
-	})
+	parallel(p.Files, p.pass1)
+	p.mdDiags = checkLinks(p.Files)
 	p.collectDiagnostics()
 	return HasErrors(p.Diagnostics)
 }
@@ -163,6 +192,7 @@ func (p *Project) Front() bool {
 // file's parse, analysis and pass-1 diagnostics.
 func (p *Project) collectDiagnostics() {
 	ds := slices.Clone(p.localsDiags)
+	ds = append(ds, p.mdDiags...)
 	ds = append(ds, checkFiles(p.Files)...)
 	ds = append(ds, checkPropsCycles(p.Files)...)
 	for _, f := range p.Files {
@@ -190,7 +220,7 @@ func (p *Project) Refresh(paths []string) []*File {
 	regen := map[string]bool{}
 	for _, path := range paths {
 		f := byPath[path]
-		if f == nil {
+		if f == nil || f.MD != nil {
 			continue
 		}
 		f.AST = compiler.Parse(f.Src, p.Options.Mode)
@@ -202,6 +232,14 @@ func (p *Project) Refresh(paths []string) []*File {
 		}
 		p.Index[f.Path] = info
 		regen[f.Path] = true
+		// A new import of a Markdown file that isn't compiled yet: only
+		// Front adds files.
+		for _, im := range f.Analysis.OrbitImports {
+			if _, ok := p.markdown[im.Resolved]; ok && byPath[im.Resolved] == nil {
+				p.Front()
+				return slices.Clone(p.Files)
+			}
+		}
 	}
 	if len(changed) > 0 {
 		for _, f := range p.Files {
@@ -218,11 +256,7 @@ func (p *Project) Refresh(paths []string) []*File {
 			out = append(out, f)
 		}
 	}
-	parallel(out, func(f *File) {
-		f.Input = &compiler.Input{File: f.AST, Analysis: f.Analysis, Index: p.Index, Options: p.Options}
-		f.Pass1 = compiler.Generate(f.Input)
-		f.Output, f.Typed, f.Writes = f.Pass1, false, nil
-	})
+	parallel(out, p.pass1)
 	p.collectDiagnostics()
 	return out
 }
@@ -287,9 +321,12 @@ func (p *Project) Clone(mode compiler.Mode) *Project {
 	c.Options.Mode = mode
 	c.Index, c.Diagnostics, c.Assets = nil, nil, nil
 	c.localsDiags = slices.Clone(p.localsDiags)
-	c.Files = make([]*File, len(p.Files))
-	for i, f := range p.Files {
-		c.Files[i] = &File{Path: f.Path, Info: f.Info, Pkg: f.Pkg, Src: f.Src}
+	c.markdown, c.mdPaths, c.mdDiags = maps.Clone(p.markdown), slices.Clone(p.mdPaths), nil
+	c.Files = nil
+	for _, f := range p.Files {
+		if !f.IsMD() { // Front recompiles the Markdown files from c.markdown
+			c.Files = append(c.Files, &File{Path: f.Path, Info: f.Info, Pkg: f.Pkg, Src: f.Src})
+		}
 	}
 	return &c
 }

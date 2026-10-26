@@ -264,9 +264,9 @@ src/pages/blog/[slug].orbit:4:12: params.Slg undefined (type Params has no field
 
 **Fix:** write an `.orbit` component with a vanilla `<script>`. A `<script>` can still import `.ts` and `.tsx` modules. See [No framework components](components.md#no-framework-components).
 
-### `only .orbit components can be imported by relative path; import client modules from a <script>`
+### `only .orbit and .md files can be imported by relative path; import client modules from a <script>`
 
-**Cause:** the frontmatter imports a relative path that doesn't end in `.orbit`, such as `"./util.ts"`.
+**Cause:** the frontmatter imports a relative path that doesn't end in `.orbit` or a Markdown extension (`.md`, `.markdown`, …), such as `"./util.ts"`.
 
 **Fix:** import client modules from inside a `<script>` (`import { greet } from "../scripts/greet";`). Go packages are imported by their import paths, as usual (`"example.com/blog/internal/posts"`). See [No framework components](components.md#no-framework-components).
 

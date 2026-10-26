@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/orbit-z/orbit/internal/compiler"
 	"github.com/orbit-z/orbit/internal/config"
 )
 
@@ -23,9 +24,10 @@ const (
 	// or .css file under src/, or tsconfig.json: incremental esbuild, no Go
 	// rebuild.
 	KindAsset
-	// KindOrbit: a .orbit file (or a directory under src/). The pipeline
-	// regenerates and compares: if only <style>/<script> contents changed,
-	// it's an esbuild rebuild; otherwise a Go rebuild.
+	// KindOrbit: a .orbit or Markdown file under src/ (or a directory
+	// there). The pipeline regenerates and compares: if only
+	// <style>/<script> contents changed, it's an esbuild rebuild; otherwise
+	// a Go rebuild.
 	KindOrbit
 	// KindGo: a user .go file, go.mod or go.sum: reload the type checker's
 	// export data, regenerate, go build. A change made only of KindGo
@@ -129,7 +131,9 @@ func Classify(rel string, isDir bool) Kind {
 		return KindIgnore
 	case strings.HasSuffix(base, ".go"):
 		return KindGo
-	case strings.HasSuffix(base, ".orbit"):
+	case strings.HasSuffix(base, ".orbit") || compiler.IsMarkdown(base):
+		// Markdown files under src/ are compiled like .orbit files
+		// (PLAN.md §2.4).
 		if rel == "src" || strings.HasPrefix(rel, "src/") {
 			return KindOrbit
 		}

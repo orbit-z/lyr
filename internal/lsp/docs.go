@@ -214,8 +214,8 @@ func (ws *workspace) setSource(p, src string) {
 	}
 	ws.proj.Files = append(ws.proj.Files, f)
 	slices.SortFunc(ws.proj.Files, func(a, b *project.File) int { return strings.Compare(a.Path, b.Path) })
-	ws.reindex()
 	ws.proj.Front()
+	ws.reindex()
 	ws.syncAll()
 }
 
@@ -225,8 +225,8 @@ func (ws *workspace) remove(p string) {
 		return
 	}
 	ws.proj.Files = slices.DeleteFunc(ws.proj.Files, func(f *project.File) bool { return f.Path == p })
-	ws.reindex()
 	ws.proj.Front()
+	ws.reindex()
 	ws.syncAll()
 }
 
@@ -374,6 +374,24 @@ func (ws *workspace) recheckDisk(g *genFile) {
 // isGenPath reports whether a module-relative path is in orbit_gen/.
 func isGenPath(rel string) bool {
 	return strings.HasPrefix(rel, compiler.GenDir+"/")
+}
+
+// isMarkdownSource reports whether a module-relative path is a Markdown
+// file under src/.
+func isMarkdownSource(rel string) bool {
+	return strings.HasPrefix(rel, project.SrcDir+"/") && compiler.IsMarkdown(rel)
+}
+
+// reloadMarkdown makes the disk content of the Markdown file at p its
+// source, or drops it if it's gone, and regenerates everything.
+func (ws *workspace) reloadMarkdown(p string) {
+	src, err := os.ReadFile(filepath.Join(ws.root, filepath.FromSlash(p)))
+	if !ws.proj.SetMarkdown(p, string(src), err != nil) {
+		return
+	}
+	ws.proj.Front()
+	ws.reindex()
+	ws.syncAll()
 }
 
 // isOrbitSource reports whether a module-relative path is an .orbit file

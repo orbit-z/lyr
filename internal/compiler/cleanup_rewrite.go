@@ -56,7 +56,7 @@ func newErrorNames(module string, files []*Analysis) *ErrorNames {
 var (
 	// clPos is an .orbit position, with an optional "./" and an optional
 	// related generated position in brackets.
-	clPos = regexp.MustCompile(`(\./)?([^\s:"]*\.orbit):(\d+):(\d+)(\[[^\]\s]*\])?`)
+	clPos = regexp.MustCompile(`(\./)?([^\s:"]*\.(?:orbit|md|markdown|mdown|mkdn|mkd|mdwn)):(\d+):(\d+)(\[[^\]\s]*\])?`)
 	// clQuoted is a quoted package path qualifying a name.
 	clQuoted = regexp.MustCompile(`"([^"\s]+)"\.([A-Za-z_][A-Za-z0-9_]*)`)
 	// clQualified is pkg.Name, pkg a lowercase Go identifier.

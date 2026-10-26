@@ -2,6 +2,7 @@ package project
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/orbit-z/orbit/internal/compiler"
@@ -33,10 +34,14 @@ func RouteFor(p string) (compiler.Role, string) {
 			return compiler.RoleComponent, ""
 		}
 	}
-	if p == NotFoundFile {
+	if compiler.IsMarkdown(rest) {
+		rest = strings.TrimSuffix(rest, path.Ext(rest)) // a Markdown page (PLAN.md §2.4)
+	} else {
+		rest = strings.TrimSuffix(rest, ".orbit")
+	}
+	if rest == "404" {
 		return compiler.RolePage, NotFoundPattern
 	}
-	rest = strings.TrimSuffix(rest, ".orbit")
 	if rest == "index" {
 		return compiler.RolePage, "/"
 	}
@@ -128,6 +133,10 @@ func checkFiles(files []*File) []Diagnostic {
 			pkgs[f.Pkg.Rel] = f
 		}
 		if f.Info.Role != compiler.RolePage {
+			continue
+		}
+		if msg := mdPageError(f); msg != "" {
+			ds = append(ds, fileError(f.Path, "%s", msg))
 			continue
 		}
 		if msg := checkRoute(f.Info.Route); msg != "" {

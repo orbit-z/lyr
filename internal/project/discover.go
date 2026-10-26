@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 // SrcDir and PagesDir are the project-relative source directories.
@@ -16,7 +18,7 @@ const (
 )
 
 // Discover returns the project-relative, "/"-separated paths of every .orbit
-// file under root/src, sorted. Directories and files whose names start with
+// and Markdown file under root/src, sorted. Directories and files whose names start with
 // "." are skipped. Symlinked directories are followed, except when they lead
 // back to a directory already being walked (a loop).
 func Discover(root string) ([]string, error) {
@@ -59,7 +61,7 @@ func Discover(root string) ([]string, error) {
 				if err := walk(full, relName, append(active, fi)); err != nil {
 					return err
 				}
-			case typ.IsRegular() && strings.HasSuffix(name, ".orbit"):
+			case typ.IsRegular() && (strings.HasSuffix(name, ".orbit") || compiler.IsMarkdown(name)):
 				out = append(out, relName)
 			}
 		}
