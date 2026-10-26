@@ -45,17 +45,24 @@ func BuildPath(genFile string) string {
 // Generated identifiers. User code may not declare names with the orbit__ or
 // Orbit__ prefix (IsReservedIdent); glue code uses only these.
 const (
-	NameRuntime    = "orbit__rt"     // import name of the runtime in glue
-	NameLocals     = "orbit__locals" // import name of the user's src/locals package (milestone 7)
-	NameCtx        = "orbit__ctx"    // render/Render parameter
-	NameW          = "orbit__w"      // the *Writer parameter (and slot closures' parameter)
-	NameProps      = "orbit__props"
-	NameSlots      = "orbit__slots"
-	NameParams     = "orbit__params"     // pages only
-	NameRenderImpl = "Orbit__RenderImpl" // the impl package's exported render function (PLAN.md §3.5)
-	NameErr        = "orbit__err"        // error variable in glue if-statements
-	NameSlot       = "orbit__s"          // slot renderer variable at an outlet
-	NameHook       = "Orbit__Render"     // the decl package's hook variable
+	NameRuntime = "orbit__rt"     // import name of the runtime in glue
+	NameLocals  = "orbit__locals" // import name of the user's src/locals package (milestone 7)
+	NameCtx     = "orbit__ctx"    // render/Render parameter
+	NameW       = "orbit__w"      // the *Writer parameter (and slot closures' parameter)
+	NameProps   = "orbit__props"
+	NameSlots   = "orbit__slots"
+	NameParams  = "orbit__params" // pages only
+	NameRender  = "orbit__render" // the impl package's render function (hook flavor)
+	// NameRenderImpl is the render function's exported name in the build
+	// flavor (PLAN.md §3.5), which direct callers call. The hook flavor
+	// keeps it unexported: an exported function puts its signature, and so
+	// the decl package's Props, into the impl package's export data, which
+	// orbit_gen/link then reads for every component (measured: link's
+	// compile went from 8 to 22 ms at 200 files, on every dev rebuild).
+	NameRenderImpl = "Orbit__RenderImpl"
+	NameErr        = "orbit__err"    // error variable in glue if-statements
+	NameSlot       = "orbit__s"      // slot renderer variable at an outlet
+	NameHook       = "Orbit__Render" // the decl package's hook variable
 )
 
 // Implicit identifiers bound at the top of render (PLAN.md §2.2). A page also

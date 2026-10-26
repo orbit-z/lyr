@@ -106,8 +106,8 @@ func tyFixture(t testing.TB, c tyComp) Unit {
 		bind += ", orbit__params"
 	}
 	impl := GenHeader + "\n\npackage " + pkg.ImplName() + "\n\nimport (\n\torbit__rt \"" + RuntimePath + "\"\n\t. \"" + declPath + "\"\n" + c.implImports + ")\n" +
-		c.implTop + "\nvar _ = func() int { Orbit__Render = Orbit__RenderImpl; return 0 }()\n\n" +
-		"func Orbit__RenderImpl(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit__props Props, orbit__slots orbit__rt.Slots" + implParams + ") error {\n" +
+		c.implTop + "\nvar _ = func() int { Orbit__Render = orbit__render; return 0 }()\n\n" +
+		"func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit__props Props, orbit__slots orbit__rt.Slots" + implParams + ") error {\n" +
 		"\tif orbit__err := orbit__w.Enter(\"" + c.orbit + "\"); orbit__err != nil {\n\t\treturn orbit__err\n\t}\n\tdefer orbit__w.Leave()\n" +
 		"\t" + bind + "\n\tlocals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)\n\t_, _, _, _ = " + names + ", locals\n" +
 		c.body + "\treturn orbit__w.Err()\n}\n"

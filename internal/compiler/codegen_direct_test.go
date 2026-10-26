@@ -13,7 +13,7 @@ import (
 // directCalls computes each file's DirectCalls with PLAN.md §3.5's rule,
 // the way internal/project does it: an edge X → Y (a render call site, not
 // server:defer, not <Self>, not to a page) is direct unless Y reaches X.
-// Files with nothing to call directly are left out.
+// Files that neither call nor are called directly are left out.
 func directCalls(res []*cgResult) map[string]*DirectCalls {
 	role := map[string]Role{}
 	for _, r := range res {
@@ -58,6 +58,14 @@ func directCalls(res []*cgResult) map[string]*DirectCalls {
 		}
 		if len(d.Callees) > 0 || d.Self {
 			out[r.path] = d
+		}
+	}
+	// A direct callee is in the build flavor too, for its exported name.
+	for _, d := range out {
+		for to := range d.Callees {
+			if out[to] == nil {
+				out[to] = &DirectCalls{}
+			}
 		}
 	}
 	return out
@@ -187,11 +195,14 @@ func TestDirectCallShapes(t *testing.T) {
 		t.Fatalf("no file %s", p)
 		return ""
 	}
-	if _, ok := direct["src/components/Card.orbit"]; ok {
-		t.Error("Card calls nothing, but has direct calls")
+	if d := direct["src/components/Card.orbit"]; d == nil || len(d.Callees) > 0 || d.Self {
+		t.Errorf("Card, a direct callee that calls nothing, has %+v", d)
 	}
 	if _, ok := direct["src/pages/about.orbit"]; ok {
-		t.Error("about calls nothing, but has direct calls")
+		t.Error("about, a page callee, has a build flavor")
+	}
+	if card := gen("src/components/Card.orbit"); !strings.Contains(card, "Orbit__Render = Orbit__RenderImpl;") || !strings.Contains(card, "\nfunc Orbit__RenderImpl(") {
+		t.Errorf("Card's build flavor doesn't export its render function:\n%s", card)
 	}
 	index := gen("src/pages/index.orbit")
 	for _, want := range []string{

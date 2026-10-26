@@ -16,13 +16,17 @@ import (
 // orbit_gen/ with go build -overlay. orbit_gen/ itself keeps the hook
 // flavor.
 
-// DirectCalls returns the direct calls of every file's build flavor,
-// by path, leaving out the files with none (PLAN.md §3.5, Cycles). The
-// graph has an edge X → Y for each component Y that X's template calls with
-// a render call site (not server:defer, not <Self>, not a page). An edge is
-// direct unless X and Y are in the same strongly connected component;
-// <Self> is a direct self-call outside pages. A Markdown file's call to its
-// layout keeps the hook, so Markdown files have no direct calls.
+// DirectCalls returns the direct calls of every file's build flavor, by
+// path, for the files that have one (PLAN.md §3.5, Cycles). The graph has
+// an edge X → Y for each component Y that X's template calls with a render
+// call site (not server:defer, not <Self>, not a page, not a Markdown
+// file). An edge is direct unless X and Y are in the same strongly
+// connected component; <Self> is a direct self-call outside pages. A direct
+// callee gets a build flavor too, for its exported render function (an
+// empty DirectCalls when it calls nothing directly). Markdown files keep
+// the hook both ways: their render ignores props and slots, so a direct
+// call would keep nothing on the stack, and their call to the layout has
+// a static slot.
 func (p *Project) DirectCalls() map[string]*compiler.DirectCalls {
 	byPath := p.byPath()
 	edges := map[string][]declEdge{}
@@ -37,7 +41,7 @@ func (p *Project) DirectCalls() map[string]*compiler.DirectCalls {
 			case c.Defer || g == nil:
 			case g == f:
 				self[f.Path] = f.Info.Role != compiler.RolePage
-			case g.Info.Role != compiler.RolePage:
+			case g.Info.Role != compiler.RolePage && g.MD == nil:
 				edges[f.Path] = append(edges[f.Path], declEdge{to: g.Path})
 			}
 		}
@@ -60,11 +64,18 @@ func (p *Project) DirectCalls() map[string]*compiler.DirectCalls {
 			out[f.Path] = d
 		}
 	}
+	for _, d := range out {
+		for to := range d.Callees {
+			if out[to] == nil {
+				out[to] = &compiler.DirectCalls{}
+			}
+		}
+	}
 	return out
 }
 
 // BuildFiles returns the build flavor's files (PLAN.md §3.5): the impl file
-// of every file with a direct call site, generated again with the typed
+// of every file in DirectCalls, generated again with the typed
 // writes Typecheck chose and the file's DirectCalls, at its BuildDir path
 // (compiler.BuildPath), sorted, then the overlay file (OverlayFile) that
 // maps each orbit_gen/ path to it. Call it after Typecheck, on a project

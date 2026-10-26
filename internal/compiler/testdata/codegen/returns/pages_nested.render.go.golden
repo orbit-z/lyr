@@ -10,9 +10,9 @@ R "example.com/blog/orbit_gen/decl/components/r"
 //line render.go:11:1
 )
 
-var _ = func() int { Orbit__Render = Orbit__RenderImpl; return 0 }()
+var _ = func() int { Orbit__Render = orbit__render; return 0 }()
 
-func Orbit__RenderImpl(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit__props Props, orbit__slots orbit__rt.Slots, orbit__params Params) error {
+func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit__props Props, orbit__slots orbit__rt.Slots, orbit__params Params) error {
 	if orbit__err := orbit__w.Enter("src/pages/nested.orbit"); orbit__err != nil {
 		return orbit__err
 	}

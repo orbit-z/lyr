@@ -2,5 +2,5 @@ orbit_gen/decl/components/wrap/decl.go (src/components/Wrap.orbit)
 orbit_gen/impl/components/wrap/render.go (src/components/Wrap.orbit)
   exact 2:8 "Counter" -> 210-217 "Counter"
   span  2:16 "\"./Counter.orbit\"" -> 218-270 "\"example.com/blog/orbit_gen/decl/components/counter\""
-  span  4:28 "Counter" -> 1098-1112 "Counter.Render"
+  span  4:28 "Counter" -> 1090-1104 "Counter.Render"
 call sites

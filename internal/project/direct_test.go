@@ -143,6 +143,9 @@ func TestDirectCallsRule(t *testing.T) {
 		// A ↔ B and C → D → E → C keep their hooks; ToA calls into the
 		// A ↔ B cycle directly; index calls ToA, C and Tree directly, but
 		// not About (a page) or Late (server:defer only).
+		// The direct callees (A, C) export their render function.
+		"src/components/A.orbit":    {nil, false},
+		"src/components/C.orbit":    {nil, false},
 		"src/components/ToA.orbit":  {[]string{"src/components/A.orbit"}, false},
 		"src/components/Tree.orbit": {nil, true},
 		"src/pages/index.orbit":     {[]string{"src/components/C.orbit", "src/components/ToA.orbit", "src/components/Tree.orbit"}, false},
@@ -173,6 +176,8 @@ func TestBuildFlavorCycles(t *testing.T) {
 		paths = append(paths, f.Path)
 	}
 	wantPaths := []string{
+		".orbit/build/impl/components/a/render.go",
+		".orbit/build/impl/components/c/render.go",
 		".orbit/build/impl/components/toa/render.go",
 		".orbit/build/impl/components/tree/render.go",
 		".orbit/build/impl/pages/index/render.go",
@@ -185,7 +190,7 @@ func TestBuildFlavorCycles(t *testing.T) {
 	if err := json.Unmarshal(files[len(files)-1].Content, &ov); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range wantPaths[:3] {
+	for _, p := range wantPaths[:5] {
 		if gen := "orbit_gen" + strings.TrimPrefix(p, compiler.BuildDir); ov.Replace[gen] != p {
 			t.Errorf("overlay maps %s to %q, want %s", gen, ov.Replace[gen], p)
 		}
@@ -194,7 +199,7 @@ func TestBuildFlavorCycles(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(files, again) {
 		t.Errorf("BuildFiles isn't deterministic (%v)", err)
 	}
-	index := string(files[2].Content)
+	index := string(files[4].Content)
 	for _, want := range []string{"orbit__C.Orbit__RenderImpl", "orbit__ToA.Orbit__RenderImpl", "orbit__Tree.Orbit__RenderImpl", "About.Render", "orbit__rt.Defer("} {
 		if !strings.Contains(index, want) {
 			t.Errorf("index build flavor lacks %q", want)
@@ -254,10 +259,10 @@ func snapshot(t *testing.T, dir string) map[string][]byte {
 }
 
 // TestBuildFlavorMarkdown checks Markdown in the build flavor (PLAN.md
-// §3.5): an .orbit file calls an imported .md component directly and a
-// Markdown page through its hook (a page), a Markdown page's call to its
-// layout keeps the hook (no build flavor for .md files), and the
-// project's own tests pass with go test -overlay.
+// §3.5): calls to an imported .md file and a Markdown page's call to its
+// layout keep the hook (a Markdown render ignores props and slots), so
+// this project has no build-flavor file, and its tests pass with go test
+// -overlay on the empty overlay.
 func TestBuildFlavorMarkdown(t *testing.T) {
 	needGo(t)
 	tp := newTestProject(t, mdFiles)
@@ -265,31 +270,15 @@ func TestBuildFlavorMarkdown(t *testing.T) {
 	if res.HasErrors() {
 		t.Fatal(joinLines(diagStrings(res.Diagnostics)))
 	}
+	if d := res.Project.DirectCalls(); len(d) > 0 {
+		t.Errorf("DirectCalls: %v, want none", d)
+	}
 	files, err := res.Project.BuildFiles()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 2 || files[0].Path != ".orbit/build/impl/pages/index/render.go" {
-		var paths []string
-		for _, f := range files {
-			paths = append(paths, f.Path)
-		}
-		t.Fatalf("BuildFiles: %v, want only the index page and the overlay", paths)
-	}
-	golden := filepath.Join("testdata", "markdown", "build_impl_pages_index_render.go.golden")
-	if *update {
-		if err := os.WriteFile(golden, files[0].Content, 0o644); err != nil {
-			t.Fatal(err)
-		}
-	} else if want, err := os.ReadFile(golden); err != nil || !bytes.Equal(files[0].Content, want) {
-		t.Errorf("index build flavor differs from %s (go test ./internal/project -update)\n%s", golden, files[0].Content)
-	}
-	hook := tp.read("orbit_gen/impl/pages/index/render.go")
-	if bytes.Count(files[0].Content, []byte("\n")) != strings.Count(hook, "\n") {
-		t.Error("the build flavor's line count differs")
-	}
-	if !bytes.Contains(files[0].Content, []byte("orbit__Intro.Orbit__RenderImpl")) || bytes.Contains(files[0].Content, []byte("orbit__Hello")) {
-		t.Errorf("index build flavor doesn't call Intro (only) directly:\n%s", files[0].Content)
+	if len(files) != 1 || files[0].Path != compiler.OverlayFile || !bytes.Contains(files[0].Content, []byte(`"Replace": {}`)) {
+		t.Fatalf("BuildFiles: %+v, want only an empty overlay", files)
 	}
 	if err := WriteBuildFiles(tp.Dir, files); err != nil {
 		t.Fatal(err)

@@ -2,7 +2,7 @@ orbit_gen/decl/pages/nested/decl.go (src/pages/nested.orbit)
 orbit_gen/impl/pages/nested/render.go (src/pages/nested.orbit)
   exact 2:8 "R" -> 206-207 "R"
   span  2:10 "\"../components/R.orbit\"" -> 208-254 "\"example.com/blog/orbit_gen/decl/components/r\""
-  span  4:7 "R" -> 847-855 "R.Render"
-  span  4:9 "mode" -> 960-964 "Mode"
-  span  4:14 "\"top\"" -> 1038-1043 "\"top\""
+  span  4:7 "R" -> 839-847 "R.Render"
+  span  4:9 "mode" -> 952-956 "Mode"
+  span  4:14 "\"top\"" -> 1030-1035 "\"top\""
 call sites

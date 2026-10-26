@@ -1,14 +1,14 @@
 orbit_gen/decl/components/ws/decl.go (src/components/Ws.orbit)
 orbit_gen/impl/components/ws/render.go (src/components/Ws.orbit)
-  exact 2:1 "items := []string{\"a\", \"b\"}" -> 632-659 "items := []string{\"a\", \"b\"}"
-  exact 3:1 "name := \"<you>\"" -> 733-748 "name := \"<you>\""
-  echo  - -> 778-783 "items"
-  echo  - -> 789-793 "name"
-  exact 7:8 "name" -> 909-913 "name"
-  exact 13:10 "_, it := range items" -> 1109-1129 "_, it := range items"
-  exact 14:12 "it" -> 1255-1257 "it"
-  exact 17:33 "\" \"" -> 1446-1449 "\" \""
-  exact 18:7 "len(items) > 1" -> 1567-1581 "len(items) > 1"
+  exact 2:1 "items := []string{\"a\", \"b\"}" -> 624-651 "items := []string{\"a\", \"b\"}"
+  exact 3:1 "name := \"<you>\"" -> 725-740 "name := \"<you>\""
+  echo  - -> 770-775 "items"
+  echo  - -> 781-785 "name"
+  exact 7:8 "name" -> 901-905 "name"
+  exact 13:10 "_, it := range items" -> 1101-1121 "_, it := range items"
+  exact 14:12 "it" -> 1247-1249 "it"
+  exact 17:33 "\" \"" -> 1438-1441 "\" \""
+  exact 18:7 "len(items) > 1" -> 1559-1573 "len(items) > 1"
 call sites
   content key=84 "name" call="orbit__w.Expr(\n/*line ../../../../src/components/Ws.orbit:7:8*/name/*line render.go:25:77*/,\n\t)"
   content key=230 "it" call="orbit__w.Expr(\n/*line ../../../../src/components/Ws.orbit:14:12*/it/*line render.go:31:77*/,\n\t\t)"

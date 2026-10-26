@@ -6,12 +6,12 @@ orbit_gen/decl/components/doc/decl.go (src/components/Doc.orbit)
   exact 19:1 "func (p Props) Title() string { return str.ToUpper(fmt.Sprint(p.Kind)) }" -> 532-604 "func (p Props) Title() string { return str.ToUpper(fmt.Sprint(p.Kind)) }"
 orbit_gen/impl/components/doc/render.go (src/components/Doc.orbit)
   exact 14:1 "const (\n\tbig   = 2\n\tsmall = 1\n)" -> 256-287 "const (\n\tbig   = 2\n\tsmall = 1\n)"
-  exact 21:1 "user := locals.User" -> 861-880 "user := locals.User"
-  echo  - -> 910-914 "user"
-  exact 23:7 "props.Title()" -> 1004-1017 "props.Title()"
-  exact 23:23 "user" -> 1132-1136 "user"
-  exact 23:30 "big" -> 1251-1254 "big"
-  exact 24:21 "props.Body" -> 1376-1386 "props.Body"
+  exact 21:1 "user := locals.User" -> 853-872 "user := locals.User"
+  echo  - -> 902-906 "user"
+  exact 23:7 "props.Title()" -> 996-1009 "props.Title()"
+  exact 23:23 "user" -> 1124-1128 "user"
+  exact 23:30 "big" -> 1243-1246 "big"
+  exact 24:21 "props.Body" -> 1368-1378 "props.Body"
 call sites
   content key=246 "props.Title()" call="orbit__w.Expr(\n/*line ../../../../src/components/Doc.orbit:23:7*/props.Title()/*line render.go:32:88*/,\n\t)"
   content key=262 "user" call="orbit__w.Expr(\n/*line ../../../../src/components/Doc.orbit:23:23*/user/*line render.go:36:80*/,\n\t)"

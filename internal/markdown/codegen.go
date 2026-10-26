@@ -230,13 +230,13 @@ func genImpl(d *Doc, in GenInput, layout *compiler.ComponentInfo, assigns []assi
 		line("}")
 		line("")
 	}
-	line("var _ = func() int { " + compiler.NameHook + " = " + compiler.NameRenderImpl + "; return 0 }()")
+	line("var _ = func() int { " + compiler.NameHook + " = " + compiler.NameRender + "; return 0 }()")
 	line("")
 	params := ""
 	if page {
 		params = ", _ Params"
 	}
-	line("func " + compiler.NameRenderImpl + "(" + compiler.NameCtx + " *" + compiler.NameRuntime + ".Ctx, " + compiler.NameW + " *" +
+	line("func " + compiler.NameRender + "(" + compiler.NameCtx + " *" + compiler.NameRuntime + ".Ctx, " + compiler.NameW + " *" +
 		compiler.NameRuntime + ".Writer, _ Props, _ " + compiler.NameRuntime + ".Slots" + params + ") error {")
 	line("\tif " + compiler.NameErr + " := " + compiler.NameW + ".Enter(" + strconv.Quote(in.Info.Path) + "); " + compiler.NameErr + " != nil {")
 	line("\t\treturn " + compiler.NameErr)

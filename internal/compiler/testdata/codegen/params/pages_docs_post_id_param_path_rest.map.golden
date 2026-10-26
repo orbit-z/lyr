@@ -1,7 +1,7 @@
 orbit_gen/decl/pages/docs/post_id_param/path_rest/decl.go (src/pages/docs/[post-id]/[...path].orbit)
 orbit_gen/impl/pages/docs/post_id_param/path_rest/render.go (src/pages/docs/[post-id]/[...path].orbit)
-  exact 1:5 "params.Path" -> 793-804 "params.Path"
-  exact 1:19 "params.PostID" -> 941-954 "params.PostID"
+  exact 1:5 "params.Path" -> 785-796 "params.Path"
+  exact 1:19 "params.PostID" -> 933-946 "params.PostID"
 call sites
   content key=4 "params.Path" call="orbit__w.Expr(\n/*line ../../../../../../src/pages/docs/[post-id]/[...path].orbit:1:5*/params.Path/*line render.go:21:108*/,\n\t)"
   content key=18 "params.PostID" call="orbit__w.Expr(\n/*line ../../../../../../src/pages/docs/[post-id]/[...path].orbit:1:19*/params.PostID/*line render.go:25:111*/,\n\t)"

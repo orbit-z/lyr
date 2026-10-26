@@ -55,13 +55,15 @@ type Input struct {
 	// also falls back.
 	Typed TypedWrites
 	// Direct selects the build flavor of Impl (PLAN.md §3.5) when non-nil:
-	// the call sites of the components in Direct.Callees (and <Self> with
-	// Direct.Self) call the callee's implementation, Orbit__RenderImpl,
-	// instead of its declaration package's hook, and directives name the
-	// .orbit file as seen from the file's overlay location under
-	// BuildDir. The file keeps the hook flavor's lines. Nil for the hook
-	// flavor (orbit generate, orbit dev, the LSP). Ignored in Tolerant
-	// mode.
+	// the render function is exported as Orbit__RenderImpl (so direct
+	// callers can call it), the call sites of the components in
+	// Direct.Callees (and <Self> with Direct.Self) call the callee's
+	// Orbit__RenderImpl instead of its declaration package's hook, and
+	// directives name the .orbit file as seen from the file's overlay
+	// location under BuildDir. The file keeps the hook flavor's lines. An
+	// empty DirectCalls is the build flavor of a direct callee that calls
+	// nothing directly itself. Nil for the hook flavor (orbit generate,
+	// orbit dev, the LSP). Ignored in Tolerant mode.
 	Direct *DirectCalls
 }
 

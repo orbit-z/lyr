@@ -3,7 +3,7 @@ orbit_gen/decl/components/frame/decl.go (src/components/Frame.orbit)
 orbit_gen/impl/components/frame/render.go (src/components/Frame.orbit)
   exact 2:8 "Card" -> 213-217 "Card"
   span  2:13 "\"./Card.orbit\"" -> 218-267 "\"example.com/blog/orbit_gen/decl/components/card\""
-  span  8:21 "Card" -> 829-840 "Card.Render"
-  span  8:26 "title" -> 954-959 "Title"
-  exact 8:33 "props.Title" -> 1037-1048 "props.Title"
+  span  8:21 "Card" -> 821-832 "Card.Render"
+  span  8:26 "title" -> 946-951 "Title"
+  exact 8:33 "props.Title" -> 1029-1040 "props.Title"
 call sites
