@@ -167,7 +167,7 @@ title := strings.ToUpper(props.Title)
   - **`class:list`** (user decision, 2026-10-26, prompted by porting `nyth`, which uses it 78 times; **implemented** 2026-10-26, see the notes after this bullet; user docs `docs/reference/template-syntax.md#classlist`): `class:list={"a b", expr, "c": cond, …}` on HTML elements and components. The value is a comma-separated list parsed as the elements of a Go composite literal: an unkeyed item is a class string (type `string`, or `[]string`, which expands, like Astro's nested arrays), a keyed item `"class": cond` adds the class when `cond` (a `bool`) is true (Astro's object form `{ hidden }` becomes `"hidden": hidden`); any other type is an error at the item. Each item is a Go region (gopls, source map), like other expressions. Codegen: static strings are joined into the surrounding `Raw` constant at build time, each condition becomes an `if` around a `Raw` write, dynamic strings are typed writes; whitespace is normalized and empty items dropped (so a typical `class:list` allocates nothing). A `class` attribute on the same element is merged in (Astro behavior); on a component tag the joined string is passed as its `class` prop (the target's `Props` needs the field; the unknown-prop pre-check applies). Exact Astro details (deduplication, order, `class` merge position, a spread's `class`) follow Astro's current behavior where it costs no allocation; otherwise decided by rule and logged.
     - *Implementation notes*: Astro 7.3's behavior (read from its source: `clsx` in `addAttribute`, `normalizeProps`, the compiler's merge) is followed: falsy/empty items dropped, **no deduplication**, list order, no attribute for an empty list, the `class` value first and the merged attribute at `class:list`'s position, a spread's `class` not merged, `clsx(class, class:list)` as a component's prop. Deviation (the user's §2.3 rule over Astro): whitespace inside items is normalized; Astro 7's `clsx` keeps it as written. The parser parses the value with `go/parser` (`_{…}`) into `Attr.Classes` (`ClassItem`: code, condition, static value) and reports syntax errors, nested lists, a non-brace value, a second `class:list` and other tags at their position; the analyzer sees the list as a composite literal. Codegen (`internal/compiler/classlist.go`): static items fold into `Raw` (escaped at build time with the runtime's table), a condition is an `if`, a dynamic item a call site of a new kind, `SiteClass` (`orbit__w.ClassAny(x)`, typed `Class`/`Classes` with a `string`/`[]string` conversion for named types); when codegen can't tell whether the first class is written, `ClassStart`/`ClassEnd` open the attribute lazily (no allocation, a flag on the Writer). A keyed item's key may be any string expression. On a component, the prop is a string constant when every item is static, else `orbit__rt.JoinClasses(…)` of the items (`ClassIf(cond, s)` for keyed ones, `SiteClassProp` sites: `ClassString(x)`, typed `string(x)` or `JoinClasses(x...)`), which allocates the string once (not at all for one clean item). Wrong item types are Orbit errors from the typed pass (`class:list items must be a string or []string, not int`), so the fallback calls take `any`; the editor doesn't show them (deviation: a generic helper would give Go's error, but at the generated call's position). `orbit fmt` formats the list as composite-literal elements; the LSP offers the directive (on components with a `Class` prop) and completes in items through gopls, an unparsable list being emitted as `_ = []any{…}` in Tolerant mode. Measured (Ryzen 7 9700X): an element with static, conditional and dynamic items, 0 allocs, ~45 ns (the same classes as one static attribute: ~4 ns, the dynamic items' scanning and escaping being the difference); a component prop join, 1 alloc, ~45 ns. Small choices are in `docs/DECISIONS.md` ("class:list").
   - **Astro-only directives** (decided by rule: simplest, with a clear error rather than passing them through as plain attributes): `define:vars` is a compile error with a hint (`class:list` was one too, until it was accepted, above): `define:vars isn't supported; pass data with orbit.JSON on a data-* attribute, or set:json`. Other colon attributes (`xlink:href`, `xml:lang`) are plain HTML.
-- **Security warnings**: the compiler warns (doesn't fail) on `on*={expr}` and `style={expr}`, because attribute escaping doesn't make a value safe in a JS or CSS context: `src/components/Card.orbit:14:9: warning: onclick={…} is escaped for HTML, not for JavaScript; don't put untrusted values here`. There's no switch to silence them (decided by rule: simplest). URL attributes are filtered at runtime (§4). Document both.
+- **Security warnings**: the compiler warns (doesn't fail) on `on*={expr}` and `style={expr}`, because attribute escaping doesn't make a value safe in a JS or CSS context: `src/components/Card.orbit:14:9: warning: onclick={…} is escaped for HTML, not for JavaScript; don't put untrusted values here`. There's no switch to silence them (decided by rule: simplest). URL attributes are filtered at runtime (§4). Document both. Proposed: a trusted `orbit.CSS` type and constant expressions exempt from the warnings (§2.7).
 - **Raw-text elements**: `<script>` and `<style>` content is opaque, with no `{}` interpolation. `<title>` and `<textarea>` allow `{expr}`; other markup inside them is text (RCDATA, as in HTML).
 - **Void elements** (`br img input meta link hr area base col embed source track wbr`) take no closing tag. Every other element must be closed explicitly, or self-closed (`<div />` renders `<div></div>`, as in Astro), and a mismatch is a parse error with line:col. No implicit auto-closing, so error messages stay clear.
 - **Component attribute → field mapping**:
@@ -463,6 +463,181 @@ The exact field layout of `RestAttr` is the implementation's choice, guided by t
 - **Runtime** (`rest.go`): `Has`/`Get` scan the static runs (no allocation for a static hit); JSON as specified, `class` first, decoding filtering URL attributes and checking names; `RestClass` uses `Class`, so it works inside a lazily opened `ClassStart` attribute.
 - **LSP**: unknown-prop diagnostics come from codegen, so a target with a `RestAttrs` field gets none; completion lists the field as a prop (`attrs`) and also offers `class:list` on such a component. **Formatter**: spreads on component tags are formatted like other spreads (no change needed, golden `internal/format/testdata/rest.orbit`).
 - **Measured** (Ryzen 7 9700X, 16 threads, Go 1.27.3, shared machine, load average 2–24): the codegen case `testdata/codegen/rest` page `allocs` (4 component calls: static attributes, three dynamic ones, forwarding through a wrapper and through a scoped wrapper) renders with **0 allocations in the build flavor** (`go test -overlay`, ~600 ns) and **1 through the hooks** (240 B, the dynamic call site's list, ~650 ns), asserted by `TestRestDirectAllocs`; the runtime's `TestRestAllocs` asserts 0 for a static and a dynamic rest that doesn't escape; `BenchmarkSpreadRest` (`GOMAXPROCS=1`, load average 26): building and spreading the example's rest, ~20 ns static, ~43 ns with one dynamic attribute. `bench/devloop -dev -kinds body,props` (200 files, 5 runs, binary ready, median): body 176 → 174 ms, props 182–190 → 186 ms (before, after, before again): no measurable change.
+
+### 2.6 Conditional attribute values (`orbit.If`, `orbit.Cond`)
+**Status: Proposed** (2026-10-26, from the `nyth` assessment; (Q) points open).
+
+**Why**: Go has no ternary, and Astro templates are full of them. The assessment counted 39 `attr={cond ? v : undefined}` and 248 ternaries in `nyth`. A recount over its 180 `.astro` files (HTML and component attribute values, `?.` excluded): **62 ternaries in attribute values**, of which **22 end in `: undefined`/`: null`**: 8 `aria-current={… ? "page" : undefined}`, 8 presence markers (`data-read={read ? "" : undefined}`, `data-unread`, `data-resumed`, `data-ranged`, `data-saves`, `data-shown`, `paused`), 2 `style`, and one each of `tabindex={scrolls ? -1 : undefined}`, `rel`, `value`, `class`, `aria-describedby`. Others are two-branch: 3 `aria-selected={… ? "true" : "false"}`, 5 `title`, 3 `href`, 3 `rel`; 10 are inside `class:list` (already covered by keyed items, §2.3). The rest of the 248 are text (`{saved ? "Remove from library" : "Add to library"}`).
+
+Today: text uses `{if}…{else}…{/if}` (zero-cost static text, but verbose for a word); a presence marker is a `bool` (`data-read={read}`, bare or omitted, §4); anything else needs a frontmatter variable of type `any` set in an `if`, one per attribute and per loop iteration (a loop body has no frontmatter, so it becomes a helper func).
+
+#### End-to-end example (recommended shape: (Q1) a, (Q2) a, (Q3) a)
+`src/components/TopBar.orbit`:
+```orbit
+---
+import "example.com/nyth/internal/ui"
+
+type Props struct {
+	Current string
+	Saved   bool
+}
+---
+<nav>
+  {for _, item := range ui.TopItems}
+    <a href={item.Href} aria-current={orbit.If(item.Section == props.Current, "page")}>{item.Label}</a>
+  {/for}
+  <button aria-pressed={props.Saved} title={orbit.Cond(props.Saved, "Remove from library", "Add to library")}>
+    {orbit.Cond(props.Saved, "Saved", "Save")}
+  </button>
+</nav>
+```
+`<TopBar current="fiction" />` renders (`compressHTML: "jsx"`):
+```html
+<nav><a href="/fiction" aria-current="page">Fiction</a><a href="/news">News</a><button aria-pressed="false" title="Add to library">Save</button></nav>
+```
+- `orbit.If(c, v)` is `v` when `c`, else `nil`, and `nil` omits the attribute (§4). It's a plain Go function, so it also works in the frontmatter and in Go code.
+- Typed pass (§3.3), for the `aria-current` site: the call is recognized and lowered to an `if`, with the constant folded into the `Raw` (0 allocations); pass 1 and tolerant mode keep the call (`orbit__w.Attr("aria-current", orbit.If(…))`), with the same bytes:
+  ```go
+  if item.Section == props.Current {
+  	orbit__w.Raw(` aria-current="page"`)
+  }
+  ```
+  With a dynamic value, `rel={orbit.If(ext, piece.Rel)}` becomes `if orbit__c, orbit__v := ext, piece.Rel; orbit__c { orbit__w.Raw(` rel="`); orbit__w.String(orbit__v); orbit__w.Raw(`"`) }`: both arguments are still evaluated, in order, as for the call.
+- `orbit.Cond[T](c, a, b T) T` returns `a` or `b`. Its result has the static type `T`, so the existing typed writes apply with no codegen change (`String` pieces in `title`, `String` in content): 0 allocations.
+- `aria-pressed={props.Saved}` writes `"false"`: that's (Q3) a, Astro's rule for booleans on attributes that aren't HTML boolean attributes. Today it would be omitted.
+
+#### Rules
+- **API** (runtime, stdlib only):
+  ```go
+  // If returns v when cond is true and nil otherwise. As an attribute value, nil omits the attribute;
+  // in content, it writes nothing. Both arguments are evaluated, as for any call.
+  func If[T any](cond bool, v T) any
+  // Cond returns a when cond is true and b otherwise. Both are evaluated.
+  func Cond[T any](cond bool, a, b T) T
+  ```
+  `If` is generic so a `false` condition boxes nothing (a non-generic `v any` parameter boxes `v` at the call even when the condition is false, measured below). `orbit.If(c, nil)` doesn't compile (T can't be inferred): write nothing instead.
+- **Eager evaluation** (the trap, documented with the helpers): `orbit.If(viewer != nil, viewer.Email)` panics when `viewer` is nil, unlike Astro's `again ? viewer?.email : undefined`. The docs show the guard in the frontmatter (`email := ""; if viewer != nil { email = viewer.Email }`) or `{if}` for text. The lowering keeps this behavior (both arguments evaluated before the `if`), so pass 1, the typed pass, `orbit dev` and the editor never disagree on a panic.
+- **Lowering** (typed pass only, decided by rule: pay at build time): a call whose function is the runtime's `If` (identified by its `types.Object`, so a user's own `If` or a shadowed `orbit` isn't touched), written as the **whole value** of an HTML element attribute or of a content `{expr}`, becomes `if c, v := cond, v; c { <the typed write of v's static type> }`: pieces for strings and numbers, `URL` (scheme-filtered) in a URL attribute, `AttrBool`'s rule for a `bool`, `WriteAttrJSON` for `orbit.JSONValue`, `Attr`/`Expr` for a `v` whose type has no typed write. A constant `v` is pre-escaped into the `Raw` and the temporaries are dropped (`if c { Raw(…) }`), as `class:list` does with its keyed items. The output is byte-identical to the call through `Attr`/`Expr` (the golden test that renders both ways, §3.3, gets `If` cases).
+  - Not lowered (the call stays, so 0 allocations for a constant or a false condition, 1 for a dynamic value that's written): inside a larger expression, in `{...spread}`/`orbit.Attrs` values, as a component prop (the prop's type must be `any`; a `string` prop is Go's type error, so use `Cond` or a variable), and in pass-through attributes (§2.5: the value's static type is `any`, so it's a `RestAny`). Lowering these is possible later (a `RestIf` constructor) if a measurement asks for it.
+- **`Cond`** needs no codegen. Text ternaries keep both forms: `{if}…{else}…{/if}` (static text, lazy) and `{orbit.Cond(c, "a", "b")}` (one line, eager). Astro's `x ?? "fallback"` is the standard library's `cmp.Or(x, "fallback")` (first non-zero value), documented next to them.
+- **`class:list`**: unchanged; its keyed items (`"active": cond`) are the conditional form for classes.
+- **Booleans on attributes**: (Q3).
+- **`orbit fmt` and the LSP**: both helpers are ordinary Go calls in a Go region: gopls completes and hovers them, `orbit fmt` formats them as expressions, the VS Code grammar and the Chroma lexer need nothing. The lowering is invisible to the editor (tolerant mode keeps the call).
+
+#### (Q) points
+- **(Q1) Shape of the conditional attribute.**
+  - (a) **Recommended**: `orbit.If[T any](cond bool, v T) any` plus the typed-pass lowering above. Works everywhere a Go expression does (frontmatter, attributes, content, `orbit.Attrs`, `any` props) with no runtime change (the `Attr`/`Expr` rules already omit `nil`); 0 allocations where it's lowered, and otherwise for constants and false conditions. Cost: one recognized call in the typed pass (small, like `class:list`'s `if`s).
+  - (b) Non-generic `orbit.If(cond bool, v any) any`, no lowering: the simplest code, but a dynamic `v` is boxed (1 allocation) even when the condition is false.
+  - (c) A typed option, `orbit.If[T](cond, v T) orbit.Opt[T]`: type-safe in frontmatter variables, but `Attr`/`Expr` (pass 1, tolerant mode, spreads) can only see an `Opt[T]` through an interface (boxing, plus a new runtime case), and pass 2 must lower it anyway for zero allocations. A pointer result (`*T`, nil when false) is the same, and `Attr` would print a non-nil `*string` with `fmt.Sprint` unless it gets a case too.
+  - (d) A template construct, lazy and zero-cost with no helper: a conditional attribute group, `<a {if cur}aria-current="page"{/if}>` (templ has `<hr if p.Big { class="big" } />`). It can set several attributes at once and evaluates lazily, but it's new grammar (parser, `orbit fmt`, the LSP's regions, the VS Code grammar, the Chroma lexer), has no Astro counterpart, and ports `cond ? v : undefined` less directly than (a).
+  - (e) Docs only: a three-line user helper (`func If(c bool, v any) any`) in the docs. Nothing to maintain, but every project rewrites it, it boxes, and nothing is lowered.
+- **(Q2) The two-branch helper.**
+  - (a) **Recommended**: ship `orbit.Cond[T any](cond bool, a, b T) T`. It covers the two-branch attribute values `{if}` can't (`aria-selected`, `title`, `href`, `rel`: 14 in `nyth`) and one-word text, at zero cost through the existing typed writes. Name alternatives: `orbit.Choose`, `orbit.Ternary`.
+  - (b) Not shipped: text uses `{if}…{else}…{/if}`, attributes a frontmatter variable or the user's own helper. Keeps the API to one helper, at the cost of more boilerplate in loops.
+- **(Q3) Booleans on attributes that aren't HTML boolean attributes (`aria-*`, `data-*`, `draggable`, …).** Orbit writes `true` bare and omits `false` on every attribute (§4). Astro 7.3 (`runtime/server/render/util.js`, `addAttribute`) does that only for HTML boolean attributes (`allowfullscreen async autofocus autoplay checked controls default defer disabled disablepictureinpicture disableremoteplayback formnovalidate inert loop muted nomodule novalidate open playsinline readonly required reversed scoped seamless selected itemscope`, any case, plus `hidden`, `popover` and `download` when the value is a boolean); on every other attribute it writes `"true"`/`"false"`, and on a custom element (a tag name with `-`) it writes `"true"`/`"false"` for every attribute. The trap: `aria-pressed={saved}` (twice in `nyth`), or `aria-hidden={true}`, renders a bare `aria-pressed`, an empty value that ARIA treats as the default (not pressed, not hidden), and `draggable={false}` is omitted (so `auto`) instead of `draggable="false"`. A port that keeps these renders different, wrong ARIA without any error.
+  - (a) **Recommended** (rule: Astro's behavior): adopt Astro's rule exactly (the list above, the three conditional names, custom elements). The attribute name is static at every typed call site, so the choice is made at build time (`AttrBool` for the listed names, pieces `="true"`/`="false"` otherwise): zero runtime cost. `Attr`, `Spread` and `SpreadRest` (runtime names) check the name with a switch, for `bool` values only. Visible change: today's presence idiom `data-featured={props.Featured}` (in `components.md` and `styles-and-scripts.md`) becomes `data-featured={orbit.If(props.Featured, "")}`, written `data-featured=""` (Astro writes a bare `data-featured` for `""`; same DOM, so Orbit's `=""` stays, decided by rule: simplest), which is `nyth`'s own idiom (`read ? "" : undefined`), so the 8 presence markers port literally.
+  - (b) Only `aria-*` writes `"true"`/`"false"`; everything else keeps today's rule. Fixes ARIA and keeps the `data-*` presence idiom, but is a third behavior (neither Astro's nor today's) and misses `draggable`/`spellcheck`/`contenteditable` and custom elements.
+  - (c) Keep today's rule, plus a typed-pass warning on `aria-*={bool}` (`aria-pressed={…} is a bool: true writes a bare aria-pressed, which ARIA reads as empty; write strconv.FormatBool(x) or orbit.Cond(x, "true", "false")`) and a `coming-from-astro.md` note. No behavior change, but ported code still needs editing at each site.
+  - (d) Docs only.
+
+#### Cost (prototype `scratchpad/small-specs3/`, the real `orbit.Writer` through a `replace`, Go 1.27.3, `testing.AllocsPerRun`; no timings, the machine was reserved for another agent's profiling)
+| Call site | allocs |
+|---|---|
+| `Attr("aria-current", If(c, "page"))`, generic `If`, constant | 0 |
+| same, dynamic string, condition true / false | 1 / 0 |
+| same, constant int (`-1`), `bool` | 0 |
+| non-generic `If(c bool, v any)`, dynamic string, condition true / false | 1 / **1** |
+| lowered `if` (constant folded into `Raw`, or pieces around a dynamic string) | 0 |
+| `Opt[T]` passed unlowered to `Attr` | 1 (and prints `{noreferrer true}`: `Attr` can't see inside) |
+| `String(Cond(c, a, b))` in content; `aria-selected` pieces with `Cond(c, "true", "false")`; `strconv.FormatBool` pieces | 0 |
+| `Attr("title", Cond(…))` (the untyped fallback) | 1 |
+
+- Codegen: one more case in pass 2's site classification (an `*ast.CallExpr` whose callee resolves to the runtime's `If`), no new pass; pass 1 and the dev loop are unchanged. The runtime grows by two small generic functions: they're instantiated in the generated packages that call them (tiny bodies; no type graph reaches `*orbit.Ctx`, §4b).
+- (Q3) a: no runtime cost on typed sites; one name switch per `bool` value in `Attr`/`Spread`/`SpreadRest`.
+
+#### Tests (what must exist)
+- Runtime: `If`/`Cond` results; `Attr`/`Expr` of an `If` result equal the typed writes; `AllocsPerRun` for the table above.
+- Compiler goldens: `If` lowered on an HTML attribute (constant, dynamic string, number, `bool`, URL attribute with a `javascript:` value filtered, `orbit.JSON`), in content, inside a `{for}`; not lowered in a larger expression, in a spread, as a component prop and as a pass-through attribute; a user-defined `If` and a shadowed `orbit` left alone; the typed/fallback byte-identical test with `If` and `Cond` cases; argument evaluation order and a panicking argument behave the same lowered and not.
+- (Q3) a: each listed boolean attribute, `hidden`/`popover`/`download` with a `bool` and with a string, `aria-*`/`data-*`/`draggable` with `true`/`false`, a custom element, the same through `Attr`, `Spread` and `SpreadRest`, and the typed/fallback identity.
+- `AllocsPerRun` on a page using both helpers: 0 in Orbit's render path (§4b).
+
+#### User-docs changes (with the implementation)
+- `reference/template-syntax.md` (attribute values): `orbit.If`, `orbit.Cond`, eager evaluation, `cmp.Or`; (Q3)'s rule in the value table.
+- `components.md`: the conditional attributes example; the presence idiom (if (Q3) a).
+- `coming-from-astro.md`: `cond ? v : undefined` → `orbit.If(cond, v)`, `c ? a : b` → `orbit.Cond(c, a, b)` or `{if}`, `??` → `cmp.Or`, optional chaining needs a guard; booleans on `aria-*` (per (Q3)).
+- `reference/runtime-api.md`: `If`, `Cond`. `performance.md`: what's lowered and what boxes.
+- `DECISIONS.md`: the decided-by-rule items above.
+
+#### Out of scope
+- A lazy conditional (the template construct of (Q1) d).
+- Lowering `If` in spreads, component props and pass-through attributes.
+- Astro's `style` object and array forms (`style={{ color: "red" }}`); `orbit.CSS` is §2.7.
+
+### 2.7 Trusted CSS values (`orbit.CSS`)
+**Status: Proposed** (2026-10-26, from the `nyth` assessment; (Q) points open).
+
+**Why**: the compiler warns on every `style={expr}` (§2.3, "Security warnings"), because attribute escaping doesn't make a value safe as CSS. `nyth` has 6 `style={…}` expressions, all trusted: `--reader-*` custom properties built by `readerStyle(settings)` from validated reader settings (2 layouts), `background-color:${shown.color}` on a media placeholder, and 3 progress bars (`` `width:${card.track}%` ``). Each would print a warning on every `orbit build`, `orbit dev` regenerate and `orbit check`, with no way to say "this one is fine". `set:html` has `orbit.HTML` and URL attributes have `orbit.URL` for the same purpose. Also, the check is syntactic today (`securityWarning` in `internal/compiler/validate.go`, at parse time): even a constant, `style={"display: none"}`, warns.
+
+#### End-to-end example
+```go
+// internal/reader/style.go
+// Style is the reader settings as CSS custom properties. Every value is a validated number,
+// so the declarations are trusted.
+func Style(s Settings) orbit.CSS {
+	return orbit.CSS("--reader-size:" + strconv.Itoa(s.Size) + "px;--reader-leading:" +
+		strconv.FormatFloat(s.Leading, 'f', 2, 64))
+}
+```
+```orbit
+---
+// src/layouts/ReaderLayout.orbit
+import "example.com/nyth/internal/reader"
+
+type Props struct{ Settings reader.Settings }
+---
+<html lang="en" style={reader.Style(props.Settings)}>
+```
+renders `<html lang="en" style="--reader-size:18px;--reader-leading:1.60">`, with no warning. `style={"width:" + strconv.Itoa(card.Track) + "%"}` still warns; `style={orbit.CSS(…)}` or a helper returning `orbit.CSS` doesn't.
+
+#### Rules
+- **Type**: `type CSS string` in the runtime: "CSS declarations (or a CSS value) from a trusted source. Orbit writes it escaped like any string and never filters it." Exact-type rule as for `orbit.URL` (§3.3): after `types.Unalias`, only `orbit.CSS` itself counts; `type ReaderCSS orbit.CSS` is a new type and warns (decided by rule: the existing exact-type rule).
+- **The warning** (`style={expr}` on an HTML element, as today):
+  - none when `expr`'s static type is `orbit.CSS`;
+  - none when `expr` is a **constant** (go/types gives it a constant value: `"display: none"`, a `const`, `"a" + "b"`), for `style` and for `on*` alike (decided by rule: §2.3's `set:html` precedent, where untyped string constants are accepted "since the author wrote them");
+  - otherwise the same message as today.
+  - **Where it's computed**: the parser keeps recording the candidate sites; the warning is emitted by the typed pass (§3.3), which knows the type. A unit that isn't type-checked (type errors, unreadable export data) warns for every candidate, as today (decided by rule: simplest, never silent). Editor: (Q2).
+- **Pass-through attributes**: `style={x}` and `on*={x}` collected into a component's `orbit.RestAttrs` (§2.5) get the same warnings, at the call site's attribute (decided by rule: they're written as HTML attributes; today a component tag never warns, so `<Button style={s}>` is silent, a gap). A declared `Style orbit.CSS` prop carries the trust into the component, where `style={props.Style}` doesn't warn.
+- **Writing it**: like a `string` everywhere, so no new escaping code: attribute-escaped (`&` and `"`; the browser decodes them before the CSS parser runs, so `content:"x"` survives), HTML-escaped in content, and **still scheme-filtered in a URL attribute** (CSS isn't a trusted URL; only `orbit.URL` skips the filter). Typed write: `String(string(x))` as pieces (§3.3's table gains the `orbit.CSS` row next to `orbit.URL`); `Expr` and `Attr` get a `case CSS` next to `URL`, so the untyped fallback doesn't reach `fmt.Sprint`; `RestAttrs` classifies it as `RestString`.
+- **Valid on any attribute** and in content; beyond `style`'s warning it means nothing (decided by rule: simplest; no "CSS-only" attribute list to maintain). `<style>` content is opaque (§2.3), so there's no CSS interpolation context to apply it to.
+- **No sanitizer** (decided by rule: Go stdlib): `orbit.CSS` is a trusted-content marker, like `html/template`'s `template.CSS` ("encapsulates known safe content that matches any of: 1. The CSS3 stylesheet production… 2. The CSS3 rule production… 3. The CSS3 declaration productions… 4. The CSS3 value production…"; "use of this type presents a security risk"), which `html/template` writes without filtering. `html/template` also filters *untrusted* strings in a CSS context (`cssValueFilter`, which replaces a value with `ZgotmplZ`), but that filter is written for a single value: it rejects `;`, `(`, `)`, `/`, quotes and `--`, so 2 of `nyth`'s 6 values (both layouts' custom-property declarations) would be blanked, and so would any `rgb(…)`, `url(…)` or multi-declaration string. Orbit keeps its build-time warning for untrusted strings and adds the marker; filtering at runtime would change today's output for every `style={string}` (Q1 b).
+
+#### (Q) points
+- **(Q1) Shape.**
+  - (a) **Recommended**: the `orbit.CSS` marker type above, typed-pass warnings, constants exempt. Mirrors `orbit.HTML`/`orbit.URL` and `template.CSS`; no runtime cost.
+  - (b) Also filter plain-string `style` values at runtime like `html/template`'s `cssValueFilter`, with `orbit.CSS` bypassing it (exactly the stdlib model, as Orbit does for URL attributes). Safer for values that really are untrusted, but it blanks most real declaration strings (above), changes the output of existing sites, and costs a scan per value.
+  - (c) A per-site opt-out instead of a type (a `{/* orbit:trusted */}` comment, or `style:trusted={…}`): no new type, but the trust doesn't travel with the value (a helper can't vouch for what it returns) and it's new syntax.
+- **(Q2) The warning in the editor.** Today the LSP shows it from the tolerant parse. With the warning in the typed pass:
+  - (a) **Recommended**: the LSP shows it from its background typed check (the strict copy it already type-checks at startup and after `orbit_gen/` changes for Markdown diagnostics, §9, `internal/lsp/mdtyped.go`), tied to the attribute's source text so it follows edits and disappears when the attribute is edited, until the next check. Same answer as the CLI, a little later.
+  - (b) The editor shows no `style`/`on*` warnings; they're CLI-only. Simplest, but the editor loses a security hint it has today.
+  - (c) The editor keeps today's syntactic warning (every non-literal expression): false positives on `orbit.CSS` values, so the editor and the CLI disagree.
+
+#### Cost
+- Runtime: one type and one `case` in `Expr`/`Attr`; no render cost (a `CSS` value writes like a `string`).
+- Typed pass: one type comparison and one constant check per `style`/`on*` site. No pass-1 or dev-loop change measurable.
+
+#### Tests (what must exist)
+- Compiler warnings golden: `style={x}` with `x` a `string` (warns), an `orbit.CSS` (no), a function returning `orbit.CSS` (no), `type S orbit.CSS` (warns), a string literal, a `const` and a constant concatenation (no), `on*={"…"}` (no), an unchecked unit (warns as today), a pass-through `style={x}` on a component with an `orbit.RestAttrs` field (warns) and a `Style orbit.CSS` prop (no).
+- Output: `orbit.CSS` with `"` and `&` escaped; in `href` still filtered; content; `Expr`/`Attr`/typed identity; `RestAttrs`.
+- LSP (per (Q2)): the warning appears after the typed check and goes away when the value becomes `orbit.CSS`.
+
+#### User-docs changes (with the implementation)
+- `components.md` "Event handler and style attributes": `orbit.CSS`, constants, what "trusted" means (no untrusted input without validating it), the pass-through case.
+- `reference/runtime-api.md`: `CSS`; `reference/template-syntax.md`: the value table row and the warning rules; `coming-from-astro.md`: Astro doesn't warn, Orbit does, and `orbit.CSS` is the answer.
+- `DECISIONS.md`: the decided-by-rule items above.
+
+#### Out of scope
+- A trusted JavaScript type for `on*={…}` (`html/template` has `template.JS`); scripts and `orbit.JSON` stay the recommended way to pass data.
+- A CSS sanitizer or builder API; Astro's `style` object form.
 
 ## 3. Compilation
 
@@ -1288,7 +1463,7 @@ func Snapshot(t testing.TB, name, html string)              // compares with tes
   - `fmt.Stringer` → escaped string
   - slices of these → each element
   - anything else → `fmt.Sprint`, escaped
-- **`Attr`**:
+- **`Attr`** (proposed: Astro's rule for booleans on attributes that aren't HTML boolean attributes, §2.6 (Q3)):
   - `true` → bare attribute
   - `false` / `nil` → omitted
   - anything else → attribute-escaped and quoted
@@ -1919,6 +2094,109 @@ They combine: a page can `orbit.All` its main data, warm the locals loader, and 
 - Error path (2 loads, one failing, with the position lookup): 1.5 µs (`-cpu 1`) / 1.8 µs (16 threads), 11 allocations: above the prototype's 0.6 µs because `relativeFile` calls `os.Getwd` and `filepath.Rel` (as panic positions do); error path only.
 - Latency: 3 loads sleeping 10 ms take ~10 ms (`TestAllConcurrent` asserts < 20 ms); a failing load next to one honoring a 1 s context returns in ~5 ms (`TestAllCancels`); `/loads` (two 30 ms loads) renders under 60 ms through `orbittest.Get`.
 - Unused, it costs nothing: `TestRenderAllocs` (0) and `TestServeAllocs` (1) unchanged; no codegen or `Ctx`/`Writer` field. The runtime package's build archive grew by 32 KB (1.89 → 1.93 MB, 1.7%: object code of `All`); `All` is neither generic nor inlinable, so generated packages' export data doesn't change.
+
+## 4g. The matched route, for middleware and logging
+**Status: Proposed** (2026-10-26, from the `nyth` assessment; (Q) points open).
+
+**Why**: `nyth`'s page log (`src/lib/server/request.ts`, `pageLog.ts`) records one line per page after the response: time, request ID, method, **`context.routePattern`** (`"/fiction/[bookSlug]"`) and **`context.params`**, status, user agent, and on purpose "never the URL or its query: the route pattern and its params only". In Orbit, the router knows the matched `Route` (`Pattern`, `File`) and the params, but only inside `site.Middleware`; the user's middleware sees the request before and the response after, never the route. Logging `r.URL.Path` instead breaks `nyth`'s privacy rule, and re-matching the path in user code would duplicate Orbit's router. The assessment's sketch, `orbit.RouteOf(r) (pattern string, ok bool)`, can't work on its own: the `r` an outer middleware holds is never the one Orbit could write to unless something was attached to it before `next` was called. So the slot has to be attached first, `EnsureLocals`-style (§5b).
+
+#### End-to-end example (recommended shape, (Q1) a)
+```go
+// cmd/server/pagelog.go
+func pageLog(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		r, route := orbit.EnsureRouteInfo(r)
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		if route.Kind != orbit.RoutePage {
+			return // static files, slash redirects, islands, 404s, the app's own routes
+		}
+		params := map[string]string{}
+		for name, value := range route.Params() {
+			params[name] = value
+		}
+		log.Record(Line{Time: start, Method: r.Method, Route: route.Pattern, Params: params, Status: rec.status})
+	})
+}
+```
+`GET /fiction/the-long-way` (page `src/pages/fiction/[bookSlug].orbit`) records `{"method":"GET","route":"/fiction/[bookSlug]","params":{"bookSlug":"the-long-way"},"status":200}`. It wraps `site.Middleware` (or the mux leading to `site.Handler()`) like any middleware that needs locals.
+
+#### Rules
+- **API** (runtime, stdlib only):
+  ```go
+  type RouteKind uint8
+  const (
+  	RouteNone     RouteKind = iota // Orbit didn't render this request (static file, slash redirect, next, never reached Orbit)
+  	RoutePage                      // a page route matched (whatever the outcome: 200, redirect, error, ErrNotFound)
+  	RouteNotFound                  // site.NotFound() answered: 404.orbit, or the empty 404
+  	RouteIsland                    // a /_orbit/island/ request
+  )
+  type RouteInfo struct {
+  	Kind    RouteKind
+  	Pattern string // "/fiction/[bookSlug]"; "/404"; "/_orbit/island/[buildID]/[id]"
+  	File    string // "src/pages/fiction/[bookSlug].orbit"; the deferred component's file; "" if none
+  	// unexported: the route's param names (its own static slice) and values ([8]string inline, then a slice)
+  }
+  func EnsureRouteInfo(r *http.Request) (*http.Request, *RouteInfo) // the attached *RouteInfo, or attaches a new one
+  func (ri *RouteInfo) Param(name string) string                    // like Ctx.Param: "" when absent
+  func (ri *RouteInfo) Params() iter.Seq2[string, string]           // name, value, in the route's order
+  ```
+  `EnsureRouteInfo` works like `EnsureLocals` (§4): every middleware can call it and they share one value; it returns `r` unchanged when one is attached. Several middlewares (a logger, metrics) read the same struct.
+- **Filled by Orbit** in `site.Middleware`, `site.Handler()` and `site.NotFound()` when a `*RouteInfo` is attached, as soon as the request is matched and **before rendering**, so an error, a panic or `ctx.Redirect` still leaves it set (`nyth` logs 500s with their route). What's recorded ((Q2)):
+  | Request | `Kind` | `Pattern` | `File` | params |
+  |---|---|---|---|---|
+  | a page route | `RoutePage` | `Route.Pattern` | the page | the route's |
+  | `site.NotFound()` (404.orbit or the empty 404), also through `Handler()` | `RouteNotFound` | `"/404"` | `src/pages/404.orbit`, or `""` | none |
+  | `/_orbit/island/<buildID>/<id>` (every answer: 200, 400, 404, 405, 413, errors) | `RouteIsland` | `"/_orbit/island/[buildID]/[id]"` | the component's `.orbit` file when the ID is known | `buildID`, `id` |
+  | static files (`/_orbit/*`, `public/`), trailing-slash redirects (§4e), requests passed to `next` | unchanged (`RouteNone` if nothing else set it) | | | |
+  Decided by rule (Astro): Astro's middleware gets `context.routePattern` for pages, `"/404"` for the 404 route and `"/_server-islands/[name]"` (with its `name` param) for server islands, and doesn't run for static assets or before its trailing-slash redirect. A request that goes through Orbit twice (`site.Middleware` passes it to the app's mux, whose catch-all is `site.NotFound()`) gets the last value.
+- **Params**: the names are the compiled route's own strings and the values are the router's (substrings of the escaped path, or their decoded copies, §4), so copying them into the `RouteInfo`'s inline array allocates nothing; a route with more than 8 params (the size of `Ctx`'s own storage) allocates once. The `Ctx`'s pooled storage is released after the request, but the copy belongs to the middleware, so the strings stay valid after `next` returns and may be retained.
+- **Zero cost when unused**: a package-level flag, set by the first `EnsureRouteInfo` call (an atomic store once), gates Orbit's context lookup; a process that never calls it pays one atomic load per matched request. Once used, Orbit does one `r.Context().Value` lookup per request it serves.
+- **Concurrency**: written on the request's goroutine before rendering and read after `next` returns, so no synchronization is needed; reading it from another goroutine during the request isn't supported (documented, like `Ctx`).
+- **Elsewhere**: `WithErrorHandler`'s handler (§4c) gets the request carrying the slot, so `EnsureRouteInfo(r)` there returns the filled value (to log the pattern of a failed page); `orbittest.Get` fills it like a real request; `RenderComponent` doesn't (no route; decided by rule: simplest); dev and prod behave the same.
+
+#### (Q) points
+- **(Q1) Shape.**
+  - (a) **Recommended**: the `EnsureRouteInfo` slot above. The idiom users already know from `EnsureLocals`, works without `src/locals`, plain net/http, testable. Costs 3 allocations per request in the middleware that attaches it (the `RouteInfo`, the context value, the request copy; measured below), as `EnsureLocals` does; 6 when a middleware attaches both. Name alternatives: `orbit.TrackRoute(r)`, `orbit.WithRouteInfo(r)`.
+  - (b) A field on the user's `Locals`, filled by convention: `type Locals struct { Route orbit.RouteInfo; … }`; the generator already parses `src/locals` (§5b) and would make `app.New()` pass an accessor (`orbit.WithLocalsRoute(func(l *locals.Locals) *orbit.RouteInfo { return &l.Route })`). 0 allocations beyond `EnsureLocals` (measured: 3, the same as `EnsureLocals` alone), and pages could read `locals.Route` too. But it's a convention to learn, needs locals, and puts routing data in a user type.
+  - (c) An interface on the `http.ResponseWriter`: Orbit walks `Unwrap()` (the `http.ResponseController` convention) looking for `interface{ SetOrbitRoute(RouteInfo) }`, which the app's status recorder implements. 0 allocations (loggers wrap `w` anyway), but any wrapper without `Unwrap` in between hides it silently, and an interface to implement is less discoverable than a function.
+  - (d) Docs only: not workable. The app can't know the matched pattern without re-implementing Orbit's router, and logging the path breaks `nyth`'s rule.
+- **(Q2) What's recorded beyond pages.**
+  - (a) **Recommended**: the table above (Astro's set: pages, `/404`, islands).
+  - (b) Pages only: `RouteNotFound` and `RouteIsland` dropped, and `Kind` becomes a `bool`. Simpler, but a request log can't tell an island or a 404 from a request Orbit never saw.
+- **(Q3) Also set `r.Pattern`?** `ServeMux` writes the matched pattern into the request it was given, in place (`http.Request.Pattern`, Go 1.23), and some observability middleware reads `r.Pattern` after the handler. Orbit could do the same, with the pattern in ServeMux syntax precomputed per route (`/fiction/{bookSlug}`, `[...path]` → `{path...}`), at no cost.
+  - (a) **Recommended**: no, not in the first release: writing into the caller's request is surprising outside a mux, it's invisible to any middleware that copied the request in between (`EnsureLocals` included), and Orbit's patterns aren't ServeMux's. `RouteInfo` covers the need; revisit if users ask.
+  - (b) Yes, in addition to `RouteInfo`.
+
+#### Cost (prototype `scratchpad/small-specs3/`, the real `orbit.EnsureLocals`, a model of `EnsureRouteInfo` and Orbit's fill, a request context as deep as `net/http`'s; Go 1.27.3, `testing.AllocsPerRun`; no timings, the machine was reserved for another agent's profiling)
+| Case | allocs |
+|---|---|
+| unused: Orbit's lookup with nothing attached (before the flag) | 0 |
+| `EnsureRouteInfo` + Orbit's fill + reading it | 3 |
+| `EnsureLocals` alone (today) | 3 |
+| `EnsureLocals` + `EnsureRouteInfo` | 6 |
+| (Q1) b: the route in `Locals`, filled through `LocalsFromRequest` | 3 (0 extra) |
+| `for name, v := range route.Params()` | 0 |
+
+- Render path untouched: `TestRenderAllocs` (0) and `TestServeAllocs` (1) must stay as they are without a slot; a new `TestServeRouteInfoAllocs` asserts 0 allocations in Orbit's handler with a slot attached (the 3 are the middleware's).
+- No codegen, dev-loop or LSP change.
+
+#### Tests (what must exist)
+- Each row of the table: page (200, `ctx.Redirect`, returned error, panic, `ErrNotFound` from a page, which stays `RoutePage`), `NotFound()` with and without `404.orbit`, an island (200, bad token, unknown ID, 405), a static file, a slash redirect in both modes, a request passed to `next`; params, percent-decoded values, a rest param, a route with more than 8 params.
+- Two middlewares share one value; a request through `Middleware` then `NotFound` gets `RouteNotFound`; the value read in a `WithErrorHandler` handler; retained strings valid after the `Ctx` is reused.
+- `AllocsPerRun`: the rows above; unused costs nothing.
+- `orbittest.Get` fills it.
+
+#### User-docs changes (with the implementation)
+- `middleware.md`: "Logging the matched route" (the example above, the table, when it's filled).
+- `reference/runtime-api.md`: `RouteInfo`, `RouteKind`, `EnsureRouteInfo`, `Param`, `Params`.
+- `coming-from-astro.md`: `context.routePattern`/`context.params` in middleware → `EnsureRouteInfo`.
+- `server.md` (the order of middleware around `site.Middleware`); `DECISIONS.md`: the decided-by-rule items above.
+
+#### Out of scope
+- The route inside pages and components (Astro's `Astro.routePattern`): a cheap `ctx.RoutePattern()` later, since `Ctx` knows its route.
+- Setting `r.Pattern` ((Q3) b), route metrics helpers, and routes of the app's own mux (use its `r.Pattern`).
 
 ## 5. Assets (scripts and styles)
 - **Scope ID**: `o-` + the first 8 hex chars of sha256 of the file's project-relative path with `/` separators (`src/components/Card.orbit`), so IDs are the same on every OS. It's added as an attribute to every HTML element in the template, but only when the component has a scoped `<style>`.
@@ -3403,6 +3681,9 @@ Dependencies:
 - The `base` config option
 - **`trailingSlash` option** (user decision, 2026-10-26, prompted by porting `nyth`, an Astro site with `trailingSlash: "always"`): `orbit.json` `"trailingSlash": "never"` (default, today's behavior, §4) or `"always"` (`/x` gets a 308 to `/x/`, query kept; `/` unchanged; files and paths with a file extension never redirected); no `"ignore"` mode (two URLs per page). Reaches the router, generated URLs (`.md` `Post.URL`, rewritten `.md` links), dev and docs. Spec: §4e. **Implemented** (308 for every method, user decision; `orbit.WithTrailingSlash` passed by `app.New()` before the caller's options).
 - **From the `nyth` assessment** (user decisions 2026-10-26; specs first, (Q) points open): pass-through attributes (§2.5, an `orbit.RestAttrs` field collects a call site's undeclared attributes, spread with `{...props.Attrs}`), an error → response hook (§4c, `orbit.WithErrorHandler`, before the built-in 500), and rendering a slot to a string (§4d, `orbit.RenderHTML(ctx, slots.Default)`, for fragment caches).
+- **Conditional attribute values** (nice-to-have, from the `nyth` assessment): `orbit.If(cond, v)` (nil omits the attribute; lowered to an `if` by the typed pass) and `orbit.Cond(c, a, b)`, plus Astro's rule for booleans on non-boolean attributes (`aria-pressed={false}` → `"false"`). Specified in §2.6 (proposed, (Q) points open).
+- **Trusted CSS values** (nice-to-have, from the `nyth` assessment): `orbit.CSS`, a marker type that silences the `style={…}` warning, which moves to the typed pass and exempts constants. Specified in §2.7 (proposed, (Q) points open).
+- **The matched route for middleware** (nice-to-have, from the `nyth` assessment: its page log records the route pattern and params): `r, route := orbit.EnsureRouteInfo(r)` before `next`, filled by Orbit (pattern, file, params). Specified in §4g (proposed, (Q) points open).
 - **Loading data concurrently** (user direction 2026-10-26, from the `nyth` assessment: "load all the data at the page level"): page-level loading becomes the documented main pattern, with a runtime helper `orbit.All(ctx, loads...)` (first error in time, a cancellable context per call, the failing load's position, panics re-panicked on the caller) and a documented per-request memoizing loader in `locals`; `server:concurrent` (§3.6) stays the porting escape hatch. Specified and implemented in §4f.
 - SSR response caching
 - The docs dogfood site (`docs/site/`, docs built with Orbit)
