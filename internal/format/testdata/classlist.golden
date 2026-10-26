@@ -1,0 +1,14 @@
+---
+hidden := true
+---
+<div class:list={"appearance-none", "rounded-input border", "hidden": hidden}>a</div>
+<div class:list={"block", props.Class}>b</div>
+<div class:list={}>c</div>
+<div class:list={"a", "b"}>trailing comma</div>
+<section>
+  <div class:list={
+    "grid": pairs,
+    "flex": !pairs,
+  }>d</div>
+</section>
+<Card class:list={baseClasses, props.Class /* why */} />

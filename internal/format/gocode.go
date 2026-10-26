@@ -293,6 +293,17 @@ func (fx *fileFmt) goRegion(r *region) {
 		out = "{case " + f + "}"
 	case rShorthand:
 		out, formatted = "{"+code+"}", code
+	case rClassList:
+		if strings.TrimSpace(code) == "" {
+			out = "{}"
+			break
+		}
+		f, ok := fx.classList(code, r.code.Start, base)
+		if !ok {
+			return
+		}
+		formatted = f
+		out = "{" + f + "}"
 	case rExpr, rAttrExpr, rSpread:
 		if code == "" {
 			out = "{}"
@@ -325,7 +336,9 @@ func (fx *fileFmt) goRegion(r *region) {
 		}
 	}
 	header := r.kind == rIf || r.kind == rElseIf || r.kind == rFor || r.kind == rSwitch
-	if formatted != "" && !sameGo(code, formatted, false) && !(header && sameGo(stripParens(code), stripParens(formatted), false)) {
+	// gofmt drops the trailing comma of a one-line class:list.
+	list := r.kind == rClassList && sameGo(dropTrailingComma(code), dropTrailingComma(formatted), false)
+	if formatted != "" && !sameGo(code, formatted, false) && !list && !(header && sameGo(stripParens(code), stripParens(formatted), false)) {
 		fx.warns = append(fx.warns, warning(r.span, "formatting this "+regionName(r.kind)+" would change its code; left as is (please report this)"))
 		return
 	}
@@ -344,6 +357,8 @@ func regionName(k regionKind) string {
 		return "{switch}"
 	case rCase:
 		return "{case}"
+	case rClassList:
+		return "class:list"
 	case rScript:
 		return "<script>"
 	case rStyle:
@@ -371,6 +386,37 @@ func (fx *fileFmt) expr(code string, off int, base string) (string, bool) {
 		s += "\n" + base
 	}
 	return s, true
+}
+
+// classList formats the items of a class:list value as the elements of a
+// composite literal.
+func (fx *fileFmt) classList(code string, off int, base string) (string, bool) {
+	const prefix = "package p\n\nvar _ = _{"
+	out, err := goformat.Source([]byte(prefix + code + "}\n"))
+	if err != nil {
+		fx.goErr(err, off, 2, len("var _ = _{"))
+		return "", false
+	}
+	s, ok := strings.CutPrefix(string(out), prefix)
+	if ok {
+		s, ok = strings.CutSuffix(strings.TrimRight(s, "\n"), "}")
+	}
+	if !ok {
+		fx.errs = append(fx.errs, errorAt(off, "can't format this class:list (please report this)"))
+		return "", false
+	}
+	// A multi-line list ends with a newline before its closing brace,
+	// which goes at the line's indentation.
+	trail := ""
+	if t, ok := strings.CutSuffix(s, "\n"); ok {
+		s, trail = t, "\n"+base
+	}
+	return reindent(s, 0, base, fx.unit) + trail, true
+}
+
+// dropTrailingComma removes the comma that ends s, if any.
+func dropTrailingComma(s string) string {
+	return strings.TrimSuffix(strings.TrimRight(s, " \t\r\n"), ",")
 }
 
 // header formats the condition of {if}/{else if} or the clause of {for}
