@@ -40,6 +40,9 @@ type Writer struct {
 	// clsPending is set between ClassStart and the first class written
 	// (classlist.go).
 	clsPending bool
+	// capture is set on the Writer of an orbit.RenderHTML capture, where
+	// a </head> marker is a render error.
+	capture bool
 }
 
 // NewWriter returns a Writer that writes into buf.
@@ -55,6 +58,7 @@ func (w *Writer) reset(buf *bytes.Buffer) {
 	w.stack = w.stack[:0]
 	w.tags = ""
 	w.clsPending = false
+	w.capture = false
 }
 
 // finishHead inserts the head tags after a leading doctype (or at the
@@ -181,6 +185,10 @@ func (w *Writer) Render(r Renderer) {
 // HeadEnd marks the place where the page's </head> starts: the page's
 // asset tags are written there. Only the first call counts.
 func (w *Writer) HeadEnd() {
+	if w.capture {
+		w.setErr(errHeadInCapture)
+		return
+	}
 	if w.head >= 0 {
 		return
 	}

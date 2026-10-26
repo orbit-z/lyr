@@ -35,6 +35,8 @@ type Site struct {
 	// asset tags) of the routes that have any; unused in dev with a dev
 	// manifest.
 	heads map[*Route]string
+	// onError is WithErrorHandler's handler, or nil.
+	onError errorHandler
 }
 
 // Option configures a Site. Pass options to app.New().
@@ -45,6 +47,7 @@ type siteOptions struct {
 	staticDir string
 	staticFS  fs.FS
 	key       []byte // WithKey
+	onError   errorHandler
 }
 
 // NewSite is called by the generated orbit_gen/app.New(). It compiles the
@@ -72,6 +75,8 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 		site:   o.site,
 		dev:    os.Getenv("ORBIT_DEV") == "1",
 		keys:   resolveKeyring(o.key),
+
+		onError: o.onError,
 	}
 	s.keys.warnIfRandom(len(islands))
 	s.islands = make(map[string]*Island, len(islands))
@@ -127,6 +132,45 @@ func WithStaticDir(dir string) Option {
 // WithStaticDir win over it.
 func WithStaticFS(fsys fs.FS) Option {
 	return func(o *siteOptions) { o.staticFS = fsys }
+}
+
+// errorHandler answers a render error; see WithErrorHandler.
+type errorHandler = func(w http.ResponseWriter, r *http.Request, err error) bool
+
+// WithErrorHandler sets h to answer the render errors that would otherwise
+// become the built-in 500: errors returned by a page or any component it
+// renders (the 404 page and deferred islands included) and recovered
+// panics. ErrNotFound and redirects never reach h; they keep their usual
+// answers. h returns true when it wrote the response, false to let Orbit
+// send the 500 and log the error.
+//
+// Nothing has been written when h runs: the page's output and the headers
+// it set with ctx.Header are dropped, and h can send any status, headers and
+// body. err keeps the user's error for errors.Is and errors.As, and its text
+// starts with the .orbit position of the failing return. For an island
+// request, r is the island request (the page is r.Referer()), and
+// Cache-Control: private, no-store and X-Robots-Tag: noindex are already set
+// on w. Orbit doesn't log an error h answers, and doesn't recover a panic in
+// h. With several WithErrorHandler options, the last one wins.
+func WithErrorHandler(h func(w http.ResponseWriter, r *http.Request, err error) bool) Option {
+	return func(o *siteOptions) { o.onError = h }
+}
+
+// ServeError answers err as a page's render error would be answered: a
+// *RedirectError redirects, ErrNotFound renders 404.orbit, and any other
+// error goes to the WithErrorHandler handler, then to the built-in 500 with
+// its log line. Use it in custom handlers:
+//
+//	if err := orbit.RenderComponent(w, r, card.Render, props); err != nil {
+//		site.ServeError(w, r, err)
+//	}
+//
+// A nil err writes nothing.
+func (s *Site) ServeError(w http.ResponseWriter, r *http.Request, err error) {
+	if err == nil {
+		return
+	}
+	s.renderFailed(w, r, err, nil, false)
 }
 
 // Middleware serves the requests Orbit owns and passes the rest to next,
@@ -227,6 +271,7 @@ func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *
 	} else if s.heads != nil {
 		wr.tags = s.heads[route]
 	}
+	c.w = wr
 	err := callRender(route.Render, c, wr)
 	if err == nil {
 		err = wr.err
@@ -289,6 +334,13 @@ type panicError struct {
 	pos   string // "file.orbit:line" of the innermost .orbit frame, or ""
 }
 
+// Unwrap returns the panic value when it's an error, so errors.Is and
+// errors.As see a panic(err).
+func (e *panicError) Unwrap() error {
+	err, _ := e.value.(error)
+	return err
+}
+
 func (e *panicError) Error() string {
 	if e.pos != "" {
 		return fmt.Sprintf("%s: panic: %v", e.pos, e.value)
@@ -345,7 +397,7 @@ func relativeFile(file string) string {
 
 // renderFailed answers a render that returned err. head holds the headers
 // the page set, kept for a redirect; notFound is set when the 404 page itself
-// failed.
+// failed. Any other error goes to the error handler first, then the 500.
 func (s *Site) renderFailed(w http.ResponseWriter, r *http.Request, err error, head http.Header, notFound bool) {
 	var re *RedirectError
 	switch {
@@ -362,6 +414,9 @@ func (s *Site) renderFailed(w http.ResponseWriter, r *http.Request, err error, h
 		}
 		s.servePage(w, r, s.acquire(r), s.router.notFound, true)
 	default:
+		if s.onError != nil && s.onError(w, r, err) {
+			return
+		}
 		s.serverError(w, r, err)
 	}
 }

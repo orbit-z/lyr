@@ -33,6 +33,7 @@ func RenderComponent[P any](w http.ResponseWriter, r *http.Request, render func(
 	buf := getBuffer()
 	wr := writerPool.Get().(*Writer)
 	wr.reset(buf)
+	c.w = wr
 	err := callComponent(render, c, wr, props)
 	if err == nil {
 		err = wr.err
