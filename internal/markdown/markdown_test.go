@@ -200,6 +200,27 @@ func TestLinks(t *testing.T) {
 	}
 }
 
+func TestCanonicalURL(t *testing.T) {
+	for _, tt := range []struct {
+		route         string
+		never, always string
+	}{
+		{"/", "/", "/"},
+		{"/blog/hello", "/blog/hello", "/blog/hello/"},
+		{"/blog", "/blog", "/blog/"},
+		{"/rss.xml", "/rss.xml", "/rss.xml"},
+		{"/docs/v1.2", "/docs/v1.2", "/docs/v1.2"},
+		{"/.well-known", "/.well-known", "/.well-known/"},
+	} {
+		if got := CanonicalURL(tt.route, false); got != tt.never {
+			t.Errorf("CanonicalURL(%q, false) = %q, want %q", tt.route, got, tt.never)
+		}
+		if got := CanonicalURL(tt.route, true); got != tt.always {
+			t.Errorf("CanonicalURL(%q, true) = %q, want %q", tt.route, got, tt.always)
+		}
+	}
+}
+
 func TestHighlight(t *testing.T) {
 	src := "```go title=\"main.go\"\nfunc main() { fmt.Println(\"<hi>\") }\n```\n\n```orbit\n<p>{x}</p>\n```\n\n```mermaid\ngraph TD; A-->B\n```\n\n```\nplain & simple\n```\n\n    indented <code>\n"
 	d := Parse("src/pages/x.md", src, Options{}, nil)

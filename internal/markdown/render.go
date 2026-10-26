@@ -41,9 +41,37 @@ type Link struct {
 }
 
 // Resolver tells the parser about the project's Markdown files: for a
-// project-relative path, whether the file exists, and its page route ("" if
-// it isn't a page).
-type Resolver func(target string) (route string, exists bool)
+// project-relative path, whether the file exists, and its page's canonical
+// URL ("" if it isn't a page; see CanonicalURL).
+type Resolver func(target string) (url string, exists bool)
+
+// CanonicalURL returns the canonical URL of a page route (PLAN.md §4e): the
+// route itself, or with always (orbit.json "trailingSlash": "always") the
+// route plus "/", except "/" and an extension route, whose last segment has
+// a file extension (/rss.xml).
+func CanonicalURL(route string, always bool) string {
+	if !always || route == "/" || hasFileExtension(route) {
+		return route
+	}
+	return route + "/"
+}
+
+// hasFileExtension reports whether the last segment of path has a '.' that
+// isn't its first byte, followed only by one or more of [A-Za-z0-9_]: the
+// runtime router's rule (Astro's hasFileExtension).
+func hasFileExtension(path string) bool {
+	for i := len(path) - 1; i >= 0; i-- {
+		c := path[i]
+		switch {
+		case c == '.':
+			return i < len(path)-1 && i > 0 && path[i-1] != '/'
+		case 'a' <= c && c <= 'z', 'A' <= c && c <= 'Z', '0' <= c && c <= '9', c == '_':
+		default:
+			return false
+		}
+	}
+	return false
+}
 
 // engines caches one goldmark instance per option set; they are safe for
 // concurrent use.

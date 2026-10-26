@@ -70,7 +70,8 @@ func (p *Project) mdActive() []string {
 	return out
 }
 
-// resolver tells the Markdown parser about the project's Markdown files.
+// resolver tells the Markdown parser about the project's Markdown files,
+// with their pages' canonical URLs in the orbit.json trailingSlash mode.
 func (p *Project) resolver() markdown.Resolver {
 	return func(target string) (string, bool) {
 		if _, ok := p.markdown[target]; !ok {
@@ -80,7 +81,7 @@ func (p *Project) resolver() markdown.Resolver {
 		if role != compiler.RolePage || route == NotFoundPattern || strings.Contains(route, "[") {
 			return "", true
 		}
-		return route, true
+		return markdown.CanonicalURL(route, p.Config.TrailingSlashAlways), true
 	}
 }
 
@@ -118,7 +119,8 @@ func (p *Project) parseMarkdown(files []*File) {
 
 // mdGenInput is the markdown codegen input of f.
 func (p *Project) mdGenInput(f *File) markdown.GenInput {
-	return markdown.GenInput{Info: f.Info, Pkg: f.Pkg, Options: p.Options, Index: p.Index}
+	return markdown.GenInput{Info: f.Info, Pkg: f.Pkg, Options: p.Options, Index: p.Index,
+		TrailingSlashAlways: p.Config.TrailingSlashAlways}
 }
 
 // pass1 generates f's pass-1 output and sets its Input.

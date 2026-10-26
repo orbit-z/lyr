@@ -43,6 +43,14 @@ func TestParse(t *testing.T) {
 		{`{"watch": [""]}`, Config{}, `orbit.json: watch[0] "": must not be empty`},
 		{`{"watch": ["a", "/etc/*.conf"]}`, Config{}, `orbit.json: watch[1] "/etc/*.conf": must be a slash-separated path relative to the project root, such as "content/**"`},
 		{`{"watch": ["content/[a-"]}`, Config{}, `orbit.json: watch[0] "content/[a-": segment "[a-": syntax error in pattern`},
+		// The trailingSlash key (PLAN.md §4e).
+		{`{"trailingSlash": "never"}`, Config{}, ""},
+		{`{"trailingSlash": "always"}`, Config{TrailingSlashAlways: true}, ""},
+		{`{"trailingSlash": null}`, Config{}, ""},
+		{`{"trailingSlash": "ignore"}`, Config{}, `orbit.json: trailingSlash must be "never" or "always", not "ignore"; Orbit has no "ignore" mode: each page has one URL`},
+		{`{"trailingSlash": "Always"}`, Config{}, `orbit.json: trailingSlash must be "never" or "always", not "Always"`},
+		{`{"trailingSlash": true}`, Config{}, `orbit.json: trailingSlash must be "never" or "always", not true`},
+		{`{"trailingSlash": 1}`, Config{}, `orbit.json: trailingSlash must be "never" or "always", not 1`},
 		// The markdown key (PLAN.md §8).
 		{`{"markdown": {"gfm": true, "smartypants": true, "syntaxHighlight": {"themes": {"light": "github", "dark": "github-dark"}, "css": true}}}`,
 			Config{Markdown: markdown.Options{Light: "github", Dark: "github-dark"}}, ""},
