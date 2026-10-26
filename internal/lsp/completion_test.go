@@ -176,6 +176,22 @@ func TestCompletion(t *testing.T) {
 		}
 	})
 
+	// {c} is both the start of a control block and of an expression: the
+	// keywords come first, then gopls's items.
+	t.Run("block keywords and gopls", func(t *testing.T) {
+		src := strings.Replace(text, "<p>{count}</p>", "<p>{c}</p>", 1)
+		c.change(page, src)
+		items := c.complete(page, at(t, src, "{c}", 0, len("{c")))
+		kw, gp := item(items, "if"), item(items, "count")
+		if kw == nil || gp == nil || kw.Kind != kindKeyword || kw.SortText >= gp.SortText {
+			t.Fatalf("{c: %v, want the if keyword sorted before gopls's count", labels(items))
+		}
+		if got := accept(src, kw); !strings.Contains(got, "<p>{if }</p>") {
+			t.Errorf("accepting if gives:\n%s", got)
+		}
+		c.change(page, text)
+	})
+
 	// {switch} headers and case lists are Go regions completed by gopls.
 	t.Run("switch header and case list", func(t *testing.T) {
 		card := c.open("src/components/Card.orbit")

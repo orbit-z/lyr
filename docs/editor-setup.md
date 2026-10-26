@@ -196,6 +196,7 @@ With an up-to-date `orbit_gen/`, gopls reads the generated code of every file yo
 - **Props** on a component tag: its `Props` fields as attribute names (`post`, `featured`), with their types and doc comments. Accepting one inserts `post={…}`. Props you've already set aren't offered again.
 - **HTML attributes** on HTML elements: the element's own and the global ones.
 - **Directives** where they're valid: `slot` on any tag; `set:html` and `set:text` on HTML elements and `<Fragment>`; `is:inline` on `<script>` and `<style>`; `is:global` on `<style>`; `set:json` on `<script type="application/json">`. On component tags, `server:defer`, `client:load`, `client:idle`, `client:visible` and `client:media` (they're errors on HTML elements, so they're never offered there). See [Lazy loading](lazy-loading.md).
+- **Control blocks** after `{` in template content: `if`, `for` and `switch` (accepting `if` inserts `{if cond}{/if}`, with the cursor on `cond`), `else if`/`else` inside an `{if}`, `case`/`default` inside a `{switch}`, and the closer of the innermost open block (`{/` offers just that one). Where the `{` could also start an expression, gopls's items follow.
 - **Slot names** inside `slot="…"`: the slots of the component you're passing content to. Inside a `server:defer` component, only `fallback`.
 - **Go to definition** on `<Card` opens `Card.orbit`; on a component attribute, it jumps to the `Props` field.
 
