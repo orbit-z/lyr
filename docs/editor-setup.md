@@ -21,6 +21,7 @@ Among other things, it checks the gopls that `orbit lsp` will use. Its output lo
 ✓ orbit_gen: up to date
 ✓ gitignore: covers orbit_gen/, .orbit/ and dist/
 ✓ config: no orbit.json (defaults); server ./cmd/server
+✓ tsconfig: rootDirs includes orbit_gen/types
 ```
 
 For gopls you'll see:
@@ -165,9 +166,17 @@ With an up-to-date `orbit_gen/`, gopls reads the generated code of every file yo
 
 **Import paths**: inside the quotes of a frontmatter import, once you type `./` or `../`, completion offers the project's `.orbit` files and the Markdown files under `src/`, as paths relative to the file you're in (the file itself and those you've already imported aren't offered). In an import with no alias, `import "./`, accepting one also adds the alias: `import Post "./post.md"`.
 
-**TypeScript** in `<script>` gets syntax highlighting only, with no completion or diagnostics. Run [`orbit check`](styles-and-scripts.md#type-checking-with-orbit-check) (which uses `bun check`, Bun 1.4.4 or later) to type-check your scripts.
+**TypeScript** in `<script>` gets syntax highlighting only, with no completion or diagnostics; see [TypeScript](#typescript).
 
 Formatting `.orbit` files and semantic highlighting are not yet supported.
+
+## TypeScript
+
+Your editor's own TypeScript support (VS Code's built-in TypeScript server, or `typescript-language-server` in Neovim) covers the **`.ts` files** under `src/`, through your `tsconfig.json`. That includes the generated types of the data components pass to scripts: in `src/scripts/like-button.ts`, `import { data } from "../components/LikeButton.orbit"` is typed: completion offers the keys, and the result has the TypeScript type of the Go value. This needs the starter `tsconfig.json`'s `rootDirs` and `include` entries for `orbit_gen/types` (see [`tsconfig.json`](styles-and-scripts.md#tsconfigjson); `orbit doctor` warns when they're missing), and an `orbit_gen/types/` that `orbit dev` or `orbit generate` has written. Before that, on a fresh clone, the editor reports `Cannot find module '../components/LikeButton.orbit'`.
+
+**`<script>` blocks inside `.orbit` files** get no TypeScript features yet: no completion, hovers or diagnostics. To have your editor check a script, move its logic into a `.ts` file and import it (or point `<script src="../scripts/like-button.ts">` at it); see [Importing TypeScript files](styles-and-scripts.md#importing-typescript-files). [`orbit check`](styles-and-scripts.md#type-checking-with-orbit-check) (which uses `bun check`, Bun 1.4.4 or later) type-checks both kinds, block scripts at their `.orbit` positions.
+
+The language server doesn't write `orbit_gen/types/`; `orbit dev` keeps it current as you edit, and `orbit generate` writes it once.
 
 ## Markdown files
 

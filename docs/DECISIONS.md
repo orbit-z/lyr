@@ -312,7 +312,6 @@ To override a decision, say which row and the alternative you want; the docs and
 | In a component, its styles come before the CSS its scripts import | simplest | Script CSS first | [Styles and scripts](styles-and-scripts.md) |
 | A page with only styles gets a CSS entry, not an empty JS one; a JS bundle with no code (type-only scripts) is dropped with its `<script>` tag | simplest (PLAN: no empty entries) | Always emit both | [Styles and scripts](styles-and-scripts.md) |
 | esbuild errors without a location print as `esbuild: …`; esbuild warnings (including CSS syntax warnings) are printed as Orbit warnings and don't fail the build | simplest | Fail on warnings | — |
-| Importing a `.orbit` file from a script is an error: `a script can't import a .orbit file; import a .ts file instead` | simplest | Let esbuild fail on it | [Troubleshooting](troubleshooting.md) |
 | Bundle names come from the page path (`blog-slug-HASH.js`), made unique on collision | simplest | One name per page file hash | — |
 | The scope attribute (`data-o-xxxxxxxx`) is written last on each element, after spreads | Astro | First | [Styles and scripts](styles-and-scripts.md) |
 | Elements that never get the scope attribute: `head`, `title`, `meta`, `link`, `base`, `noscript`, `font`, `frame`, `frameset`, `noframes`, and `is:inline` scripts and styles (`html` and `body` do get it) | Astro (its compiler's `NeverScopedElements`, checked in its source) | Scope every element | [Styles and scripts](styles-and-scripts.md) |
@@ -634,3 +633,23 @@ With the `orbit fmt` spec and implementation (`PLAN.md` §6.1). The bigger choic
 | The language server formats only the documents it follows (`.orbit` under the workspace's `src/`); others get `null` | simplest (the same set it gives diagnostics for) | Format any `.orbit` buffer | `PLAN.md` §6.1 |
 | A docs ```` ```orbit ```` block whose info string has `unformatted` (a "before" example) is exempt from the fmt-clean test | simplest | A separate fence language | `PLAN.md` §6.1 |
 | A leading UTF-8 BOM is skipped by the parser, so the frontmatter after it is found and the BOM isn't rendered | Go stdlib (go/scanner skips a leading BOM) | Treat it as template text | [CLI](reference/cli.md#orbit-fmt) |
+
+## Typed bridge
+
+With the typed server→client bridge (`orbit.JSON`, the `./X.orbit` client modules; `PLAN.md` §5c). The bigger choices (per-component modules imported by relative path, `orbit.JSON` on any attribute, `set:json` typed with `json(id)`, single-quoted values, nil slices and maps typed `| null`, 64-bit integers as `number`, the types in `orbit_gen/types/`, no TypeScript features inside `<script>` yet, no `bun check` in `orbit dev`) were the user's, not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| `orbit.JSON` is also allowed in content (written HTML-escaped, like a string) and in spreads (untyped) | simplest (it's what `Expr` and `Spread` do with any value) | A compile error outside attributes | [Runtime API](reference/runtime-api.md#json) |
+| Keys are the attributes' DOM dataset names (`data-author-name` → `authorName`) | web standard (`el.dataset`); simplest | The attribute name as written | [Client modules](reference/client-modules.md#datael-key) |
+| The starter `tsconfig.json` lists `orbit_gen/types/*.d.ts` in `include` | Astro (≥ 5 adds its generated `.astro/types.d.ts` to `include`) | A triple-slash reference in `src/env.d.ts` | [Styles and scripts](styles-and-scripts.md#tsconfigjson) |
+| Generate-time errors only for types that always fail to encode (func, chan, complex, `unsafe.Pointer`, bad map keys); interfaces are accepted | Go stdlib (`json.Marshal` fails on the type) | Reject interfaces too, as `server:defer` props do | [Client modules](reference/client-modules.md#unsupported-types) |
+| `set:json` values get the same generate-time check as `orbit.JSON` arguments | Go stdlib (`json.Marshal` fails on the type) | Check `orbit.JSON` only | [Client modules](reference/client-modules.md#unsupported-types) |
+| A marshaler declared only on `*T`, at a `T` position, maps to `unknown` | simplest (whether `encoding/json` calls it depends on addressability; `unknown` is never wrong) | Use the marshaler's type | [Client modules](reference/client-modules.md#type-mapping) |
+| `[N]T` maps to `T[]`, not a tuple | simplest | A fixed-length tuple type | [Client modules](reference/client-modules.md#type-mapping) |
+| `JSONAttr`'s position is the attribute value's `{`; `set:json`'s is the `set:json` attribute | simplest | The `orbit.JSON` call; the element | [Runtime API](reference/runtime-api.md#attribute-values) |
+| `JSONValue` implements `json.Marshaler`, and `set:json` unwraps a `JSONValue` (`set:json={orbit.JSON(x)}` writes `x`, not `{}`) | Go stdlib (`encoding/json` sees it as its value) | An opaque struct that encodes as `{}` | [Runtime API](reference/runtime-api.md#json) |
+| Encode errors without a position (the `Attr`, `Expr` and `Spread` fallbacks) read `orbit: orbit.JSON: json: …` and `orbit: set:json: …` | Go stdlib (package-prefixed errors); simplest | No prefix | [Troubleshooting](troubleshooting.md#orbitjson-json-unsupported-value-nan) |
+| A component without keys has no `.d.ts` module, so importing it is `TS2307 Cannot find module` | simplest (one module per file with at least one key, PLAN §5c) | An empty module for every component | [Client modules](reference/client-modules.md#components-without-data) |
+| `orbit doctor`'s `tsconfig` check runs when a `.orbit` file contains `.JSON(` or `set:json` (a text search; a non-runtime `.JSON(` call can make it warn, harmlessly) | simplest | Run the typed pass to find real uses | [CLI](reference/cli.md#orbit-doctor) |
+| The doc comments of a component module name each site as `data-post (LikeButton.orbit:9:14)` and `set:json #cfg (X.orbit:L:C)` | simplest | Full paths | [Client modules](reference/client-modules.md#component-modules-xorbit) |

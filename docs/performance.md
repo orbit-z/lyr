@@ -66,7 +66,22 @@ What still allocates:
 - **Slot content that uses parent variables**: one small closure per slot.
 - **Values without a typed write** (the `Expr` fallback) and your own `String()` or `Error()` methods.
 - **Route params with percent-escapes**, and **`server:defer` props** (encoded and encrypted per instance).
+- **`orbit.JSON` and `set:json` values**: `encoding/json`'s own allocations (below). Orbit's code around them adds none.
 - **Your frontmatter code**: database queries and the like. This is usually the biggest part.
+
+### Encoding JSON for scripts
+
+[`orbit.JSON`](components.md#typed-data-with-orbitjson) and `set:json` values are encoded with `encoding/json`, through one `json.Encoder` per writer that writes straight into the pooled buffer (no intermediate `[]byte`). Measured on a Ryzen 7 9700X at `GOMAXPROCS=1`, Go 1.27.3:
+
+| Value | Passed by value | Passed as a pointer |
+|---|---|---|
+| a typical post (7 fields with a `time.Time`, a slice and a pointer; about 210 bytes of JSON) | ~510 ns, 1 alloc | ~365 ns, 0 allocs |
+| a 2-field struct | ~130 ns, 1 alloc | ~95 ns, 0 allocs |
+| the same two values as plain typed `data-*` attributes | ~13 ns, 0 allocs | |
+
+The allocation for a value is `encoding/json`'s own: Go 1.27's `encoding/json` runs on the json/v2 engine, which copies a value it can't address before encoding it. Pass a pointer (`orbit.JSON(&post)`) to avoid it. So use plain `data-*` attributes for a few scalars, `orbit.JSON` for structured data, and a pointer when the value is large.
+
+JSON attribute values are single-quoted, so the quotes inside need no escaping: the 209-byte post stays 209 bytes in the HTML, where a double-quoted value with `&quot;` would take 389.
 
 ### What Orbit leaves to you
 

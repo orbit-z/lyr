@@ -466,17 +466,43 @@ Each message names the directive you wrote:
 
 See [Template syntax: `client:*`](reference/template-syntax.md#client).
 
+### `orbit.JSON: Post.Notify has type func(), which encoding/json can't encode`
+
+**Cause:** the value passed to `orbit.JSON` (or to `set:json`) has a type that `encoding/json` can never encode: a func, a channel, a complex number, an `unsafe.Pointer`, or a map whose keys aren't strings, integers or `TextMarshaler`s, anywhere in the type. Here a field of `Post` is a func:
+
+```orbit file=src/components/NewsItem.orbit expect-error
+---
+type Post struct {
+	Title  string `json:"title"`
+	Notify func()
+}
+
+type Props struct {
+	Title string
+}
+---
+<news-item data-post={orbit.JSON(Post{Title: props.Title})}></news-item>
+```
+
+```text
+src/components/NewsItem.orbit:11:34: orbit.JSON: Post.Notify has type func(), which encoding/json can't encode
+```
+
+For `set:json`, the message reads `set:json: the value has type func(), which encoding/json can't encode`. Orbit reports it at generate time, in `orbit build`, `orbit dev`, `orbit generate` and `orbit check`, because the encoding would fail on every render.
+
+**Fix:** tag the field `json:"-"` (or unexport it), or pass a struct with only the fields the script needs. Interfaces (`any`) are accepted: what they hold is checked at render time. See [Client modules: Unsupported types](reference/client-modules.md#unsupported-types).
+
 ### `set:json only works on <script type="application/json">`
 
 **Cause:** `set:json` was used on another element, or on a `<script>` without `type="application/json"`.
 
-**Fix:** put it on an empty JSON script, and read it with `JSON.parse`:
+**Fix:** put it on an empty JSON script, and read it with `json(id)` from the component's module (`import { json } from "./PostMeta.orbit"`):
 
 ```orbit
 <script type="application/json" id="tags" set:json={props.Tags}></script>
 ```
 
-A value `encoding/json` can't encode (a channel, a func, a cyclic structure) fails at render time, at the `set:json` position. For data that belongs to one element, use `data-*` attributes instead. See [Template syntax: `set:json`](reference/template-syntax.md#setjson).
+A value `encoding/json` can't encode (a NaN float, a cyclic structure) fails at render time, at the `set:json` position. For data that belongs to one element, use `orbit.JSON` in a `data-*` attribute instead. See [Template syntax: `set:json`](reference/template-syntax.md#setjson).
 
 ### `class:list isn't supported; build the class string in the frontmatter (e.g. strings.Join)`
 
@@ -646,6 +672,24 @@ See [The 404 page](routing.md#the-404-page) and [Choosing precedence](server.md#
 
 **Fix:** request files with `GET`. Handle form posts and uploads with a page (pages receive every method, in `ctx.Request.Method`) or with your own handler at a path that isn't a file. See [Which HTTP methods Orbit handles](routing.md#which-http-methods-orbit-handles).
 
+### `orbit.JSON: json: unsupported value: NaN`
+
+**Cause:** a value passed to `orbit.JSON` couldn't be encoded at render time, for a reason only the value shows: a NaN or infinite float, a pointer cycle, a func held in an `any` field, or an error from a `MarshalJSON` method. It's a render error at the attribute value's position (a 500 in production, logged with that position; an overlay in `orbit dev`):
+
+```text
+src/components/LikeButton.orbit:9:24: orbit.JSON: json: unsupported value: NaN
+```
+
+For `set:json`, the position is the `set:json` attribute's: `src/pages/index.orbit:16:47: set:json: json: unsupported value: NaN`. When the value was written through a spread or a variable that Orbit couldn't type, the message has no position: `orbit: orbit.JSON: json: unsupported value: NaN`.
+
+**Fix:** check the value in the frontmatter (`math.IsNaN`), break the cycle, or encode a struct with only what the script needs. See [Client modules](reference/client-modules.md#unsupported-types).
+
+### `orbit: <like-button> has no data-post attribute`
+
+**Cause:** a script called `data(el, "post")` on an element without a `data-post` attribute. The component module's types say which keys the component may write, not which element carries them. Common reasons: the script reads a different element than the one the template puts the attribute on (`this.querySelector("button")` instead of `this`), or the element comes from another component. `json(id)` throws `orbit: no element with id "…"` the same way when the page has no element with that `id`.
+
+**Fix:** call `data` on the element with the attribute; in a custom element, that's usually `this`. See [Client modules: `data(el, key)`](reference/client-modules.md#datael-key).
+
 ### Visitors get a `500 Internal Server Error` page
 
 **Cause:** a page or component returned an error, or panicked. In production, Orbit answers with a minimal built-in page that never shows the error, and logs the error with its `.orbit` position to stderr:
@@ -782,7 +826,17 @@ Go through these in order:
 3. **Neovim**: add the `vim.filetype.add({ extension = { orbit = 'orbit' } })` line and `vim.lsp.enable('orbit')` from [Editor setup](editor-setup.md#neovim).
 4. Open the project at its root: the language server looks for the directory with `go.mod` and `src/`.
 
-TypeScript inside `<script>` gets syntax highlighting only, with no completion or diagnostics; run `orbit check` to type-check it. See [What completion covers](editor-setup.md#what-completion-covers).
+TypeScript inside `<script>` gets syntax highlighting only, with no completion or diagnostics; run `orbit check` to type-check it, or move the logic into a `.ts` file, which your editor checks. See [TypeScript](editor-setup.md#typescript).
+
+### `Cannot find module './LikeButton.orbit' or its corresponding type declarations`
+
+**Cause:** TypeScript (`orbit check`, as `error TS2307`, or your editor) can't find the generated types of `import { data } from "./LikeButton.orbit"`. There are three reasons:
+
+- `orbit_gen/types/` hasn't been written yet, as in a fresh clone.
+- Your `tsconfig.json` lacks the `rootDirs` entry that points TypeScript at `orbit_gen/types/` (editor only: `orbit check` adds it itself). `orbit doctor` reports it.
+- The component has no typed data: no `data-*` attribute set with a direct `orbit.JSON(…)` call, and no `set:json` block with a static `id`. Such a component has no module. This is also what you see after renaming the file: the import must use the new name.
+
+**Fix:** run `orbit generate` (or keep `orbit dev` running); add `"rootDirs": [".", "orbit_gen/types"]` to `compilerOptions` and `"orbit_gen/types/*.d.ts"` to `include` in `tsconfig.json`; or check that the template writes the data with `orbit.JSON`. See [Client modules](reference/client-modules.md#components-without-data).
 
 ### The Go extension reports errors in `orbit_gen/`
 

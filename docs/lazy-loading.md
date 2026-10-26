@@ -447,6 +447,8 @@ A lazy script is bundled on its own, without code splitting. A module that both 
 
 A module that runs `document.querySelectorAll(…)` when it loads sees only the elements present at that moment, not those that arrive later in a deferred island or that a lazy script loads for. For lazy and deferred components, define a custom element (`customElements.define` with `connectedCallback`), as `ShareButtons` does: the browser calls `connectedCallback` for every instance, whenever it appears. See [Styles and scripts](styles-and-scripts.md) and [Passing data to client scripts](components.md#passing-data-to-client-scripts).
 
+Typed data works the same in deferred and lazy components. A `data-post={orbit.JSON(…)}` attribute is part of the component's HTML, in the page or in the island fragment, so `data(this, "post")` in `connectedCallback` reads it whenever the element arrives, and `import { data } from "./X.orbit"` is typed the same way. The small reader it needs is bundled with the script, in the page bundle or in the lazy one. A `set:json` block in a deferred component arrives with the fragment, so read it with `json(id)` from `connectedCallback` of an element in that fragment, not when the script loads.
+
 ### Without JavaScript
 
 Lazy components are rendered on the server like any other, so their HTML is there. Only their scripts never run.

@@ -323,32 +323,84 @@ class LiveClock extends HTMLElement {
 customElements.define("live-clock", LiveClock);
 ```
 
+A script or a `.ts` file can also import a **component's `.orbit` file**, by relative path, to read the data that component writes with `orbit.JSON` and `set:json`, typed from its Go values: `import { data } from "../components/LikeButton.orbit"`. It never imports the component itself, only a tiny reader; see [Typed data with `orbit.JSON`](#typed-data-with-orbitjson) below. Moving a script's logic into a `.ts` file this way also gets you your editor's TypeScript checking, which `<script>` blocks inside `.orbit` files don't have yet (see [Editor setup](editor-setup.md#typescript)).
+
 Scripts may import `.tsx` files too (esbuild applies your `tsconfig.json`'s `jsx` settings). That's different from a framework component: Orbit has no framework islands, and importing a `.tsx`, `.jsx`, `.svelte` or `.vue` file from a component's *frontmatter* is a compile error.
 
 ## Passing data from the server to scripts
 
-`{…}` doesn't work inside `<script>`, and a processed script is bundled once per page, so it can't see one component's props anyway. Hand data from Go to the browser in one of two ways:
+`{…}` doesn't work inside `<script>`, and a processed script is bundled once per page, so it can't see one component's props anyway. Hand data from Go to the browser in one of three ways:
 
-- **`data-*` attributes**, for data that belongs to one element;
+- **`orbit.JSON`** in a `data-*` attribute, for structured data that belongs to one element, typed for your script;
+- **plain `data-*` attributes**, for a few scalar values;
 - **`set:json`**, for a larger block of data, such as a list.
+
+[Passing data to client scripts](components.md#passing-data-to-client-scripts) covers them in more detail.
+
+### Typed data with `orbit.JSON`
+
+`data-like={orbit.JSON(v)}` writes `v` as JSON (encoded with `encoding/json`, so `json` struct tags apply). The script reads it with `data(el, key)` from the component's module, `./LikeButton.orbit` (here from a `.ts` file, so `../components/LikeButton.orbit`), and gets it back with the TypeScript type of the Go value:
+
+```orbit file=src/components/LikeButton.orbit
+---
+type like struct {
+	Slug  string `json:"slug"`
+	Likes int    `json:"likes"`
+}
+
+type Props struct {
+	Slug  string
+	Likes int
+}
+---
+<like-button data-like={orbit.JSON(like{Slug: props.Slug, Likes: props.Likes})}>
+  <button type="button">♥ <span>{props.Likes}</span></button>
+</like-button>
+
+<script src="../scripts/like-button.ts"></script>
+```
+
+```ts file=src/scripts/like-button.ts
+import { data } from "../components/LikeButton.orbit";
+
+class LikeButton extends HTMLElement {
+  connectedCallback() {
+    const like = data(this, "like"); // LikeButton.like: { slug: string; likes: number }
+    let likes = like.likes;
+    const count = this.querySelector("span")!;
+
+    this.querySelector("button")!.addEventListener("click", async () => {
+      const res = await fetch(`/blog/${like.slug}/like`, { method: "POST" });
+      if (res.ok) {
+        likes++;
+        count.textContent = String(likes);
+      }
+    });
+  }
+}
+
+customElements.define("like-button", LikeButton);
+```
+
+This renders `<like-button data-like='{"slug":"hello","likes":7}'>`. The types come from `orbit_gen/types/`, which `orbit generate` (and `build`, `dev`, `check`) writes; [`orbit check`](#type-checking-with-orbit-check) uses them, and so does your editor in `.ts` files. The mapping from Go types to TypeScript is in [Client modules](reference/client-modules.md).
 
 ### `data-*` attributes and custom elements
 
-Render the values into `data-*` attributes and read them with `el.dataset`. They're escaped like any other attribute. This pairs well with a custom element: the browser runs its `connectedCallback` for every instance on the page, including ones added later, and `this.dataset` holds that instance's data.
+For a few scalar values, render them into plain `data-*` attributes and read them with `el.dataset`. They're escaped like any other attribute, and cost less to write than JSON. This pairs well with a custom element: the browser runs its `connectedCallback` for every instance on the page, including ones added later, and `this.dataset` holds that instance's data.
 
-```orbit file=src/components/LikeButton.orbit
+```orbit file=src/components/LikeCount.orbit
 ---
 type Props struct {
 	Slug  string
 	Likes int
 }
 ---
-<like-button data-slug={props.Slug} data-likes={props.Likes}>
+<like-count data-slug={props.Slug} data-likes={props.Likes}>
   <button type="button">♥ <span>{props.Likes}</span></button>
-</like-button>
+</like-count>
 
 <script>
-  class LikeButton extends HTMLElement {
+  class LikeCount extends HTMLElement {
     connectedCallback() {
       const slug = this.dataset.slug ?? "";
       let likes = Number(this.dataset.likes ?? 0);
@@ -364,7 +416,7 @@ type Props struct {
     }
   }
 
-  customElements.define("like-button", LikeButton);
+  customElements.define("like-count", LikeCount);
 </script>
 ```
 
@@ -372,7 +424,7 @@ Attribute values are always strings in the browser: convert numbers and booleans
 
 ### JSON blocks with `set:json`
 
-For structured data, put `set:json={expr}` on an empty `<script type="application/json">` with an `id`. Orbit encodes the value with `encoding/json` (so `json` struct tags apply) and writes it as the script's content:
+For structured data, put `set:json={expr}` on an empty `<script type="application/json">` with an `id`. Orbit encodes the value with `encoding/json` (so `json` struct tags apply) and writes it as the script's content. The script reads it with `json(id)` from the component's module, typed from the Go value:
 
 ```orbit file=src/components/NavMenu.orbit
 ---
@@ -391,13 +443,11 @@ links := []link{
 <script type="application/json" id="nav-links" set:json={links}></script>
 
 <script>
-  type Link = { title: string; url: string };
+  import { json } from "./NavMenu.orbit";
 
-  const links: Link[] = JSON.parse(
-    document.getElementById("nav-links")!.textContent ?? "[]",
-  );
+  const links = json("nav-links"); // NavMenu.link[] | null
   const nav = document.querySelector(".nav-menu")!;
-  for (const link of links) {
+  for (const link of links ?? []) {
     const a = document.createElement("a");
     a.href = link.url;
     a.textContent = link.title;
@@ -417,9 +467,12 @@ What you need to know:
 - **It's safe for any value.** The JSON is escaped for a script's content: `<`, `>` and `&` become `\u003c`, `\u003e` and `\u0026`, and U+2028/U+2029 become `\u2028`/`\u2029`. A string containing `</script>` or `<!--` can't end the element early, and `JSON.parse` gives you back the original value.
 - **Only on JSON scripts.** `set:json` is valid only on `<script type="application/json">`; anywhere else it's a compile error. Like any script with attributes, this one is never processed or bundled: it stays in the HTML where you wrote it.
 - **One per id.** The script is part of the template, so a component rendered twice emits it twice. Use `set:json` in a component that renders once per page (a page or a layout), or give each instance its own `id`. For per-instance data, prefer `data-*` attributes.
-- **Encoding errors fail the render.** If `encoding/json` can't encode the value (a channel, a func, a cyclic structure), the render fails with an error at the `.orbit` position of the `set:json`.
+- **Typed by `id`.** `json(id)` takes the block's `id`, which must be a static string to be typed (with a dynamic `id={…}`, read the block with `JSON.parse` yourself). Like `data`, it throws if the page has no element with that `id`. A slice is typed `T[] | null`, since a nil slice encodes as `null`.
+- **Encoding errors.** A type `encoding/json` can never encode (a func, a channel) is a compile error at the value. A value it can't encode (a NaN float, a cyclic structure) fails the render with an error at the `.orbit` position of the `set:json`:
 
-The TypeScript type of the parsed data (`Link` above) is yours to keep in sync with the Go type. Generating TypeScript types from your Go structs, with a typed helper to read them, is planned for after the first release.
+  ```text
+  src/pages/index.orbit:16:47: set:json: json: unsupported value: NaN
+  ```
 
 ## npm packages
 
@@ -494,13 +547,14 @@ The scaffolded `tsconfig.json`:
     "resolveJsonModule": true,
     "allowJs": true,
     "allowImportingTsExtensions": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "rootDirs": [".", "orbit_gen/types"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "orbit_gen/types/*.d.ts"]
 }
 ```
 
-It's yours to change.
+It's yours to change. The `rootDirs` and `include` entries let TypeScript find the generated types of `import … from "./X.orbit"` in `orbit_gen/types/` (see [Typed data with `orbit.JSON`](#typed-data-with-orbitjson)). A project created before they existed needs them only for editor support: `orbit check` adds them itself, and `orbit doctor` warns when a project uses typed data without them.
 
 ### Type checking with `orbit check`
 
@@ -515,6 +569,8 @@ orbit check
 1. It extracts each processed inline `<script>` to `.orbit/check/` as a `.ts` file, with a generated `tsconfig.json` that extends yours and checks the extracted scripts plus the files your `include` lists (`src/**/*.ts` by default), minus your `exclude`. The extracted files mirror `src/`, so relative imports (`../scripts/greet`) resolve from the `.orbit` file's directory, as they do in the bundle. A `<script src="…">` file is checked as one of your `.ts` files.
 2. It runs `bun check --no-pretty -p .orbit/check`.
 3. It maps every error back to the line and column in your `.orbit` file.
+
+The check includes the generated types in `orbit_gen/types/`, so it also catches a script that reads data the server doesn't send: a field that isn't in the Go type, a key the template doesn't write, or a nullable value used as if it were present.
 
 `bun check` reports the same errors as `tsc` and uses all your cores, and it needs no `typescript` package in your project.
 
@@ -533,6 +589,38 @@ is reported at its `.orbit` position, in the same `file:line:col: message` forma
 ```text
 src/components/Total.orbit:4:9: error TS2322: Type 'string' is not assignable to type 'number'.
 ```
+
+The same goes for the data a script reads. A nil slice or map encodes as `null`, so a `[]string` field is typed `string[] | null`, and using it directly is an error:
+
+```ts file=src/scripts/tags.ts expect-error
+import { data } from "../components/TagList.orbit";
+
+for (const el of document.querySelectorAll("tag-list")) {
+  const tags = data(el, "tags");
+  el.textContent = tags.names.join(", ");
+}
+```
+
+```text
+src/scripts/tags.ts:5:20: error TS18047: 'tags.names' is possibly 'null'.
+```
+
+with this component:
+
+```orbit file=src/components/TagList.orbit
+---
+type tags struct {
+	Names []string `json:"names"`
+}
+
+type Props struct {
+	Tags []string
+}
+---
+<tag-list data-tags={orbit.JSON(tags{Names: props.Tags})}></tag-list>
+```
+
+Check for `null` (`tags.names ?? []`), or tag the field `omitempty` (or `omitzero`): a nil slice is then left out, so the field is typed optional and non-null (`names?: string[]`). An error inside a generated `orbit_gen/types/` file would be a bug in Orbit; it's printed with that path, prefixed `internal: `.
 
 **Bun 1.4.4 or later is required** for the TypeScript half. Without Bun, or with an older one, `orbit check` skips the TypeScript half, prints a notice with the command to install or upgrade Bun (`bun upgrade`), and still runs the Go checks. Its exit code then reflects the Go checks only. `orbit doctor` reports a missing or old Bun as a warning, never as an error, since nothing else in Orbit needs it.
 
@@ -555,3 +643,4 @@ Adding or removing a component's scoped `<style>` or a processed `<script>`, or 
 - [Dev server](dev-server.md): how style and script edits reload
 - [CLI reference](reference/cli.md): `orbit check`, `orbit build`
 - [Template syntax](reference/template-syntax.md): `is:inline`, `is:global`, `set:json`, `client:*` and other directives
+- [Client modules](reference/client-modules.md): `data`, `json` and the Go-to-TypeScript type mapping

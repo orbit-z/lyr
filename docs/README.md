@@ -27,6 +27,7 @@ Orbit is a server-rendered (SSR) web framework with Astro's developer experience
 ## Reference
 - [Template syntax](reference/template-syntax.md)
 - [Runtime API](reference/runtime-api.md): the `orbit` package
+- [Client modules](reference/client-modules.md): reading server data in scripts, typed from Go
 - [CLI](reference/cli.md)
 - [Troubleshooting](troubleshooting.md): common errors and how to fix them
 
