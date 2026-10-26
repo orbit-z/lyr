@@ -779,6 +779,171 @@ templ and `html/template` are unchanged (within noise). The output is byte-ident
 - **Two flavors to keep correct**: a codegen bug that only shows in the build flavor isn't caught by `orbit dev`, `orbit check` or the LSP. The byte-identical, cycle and golden tests above are the guard; `orbit build` errors from generated glue would be Orbit bugs, not user errors.
 - **`-overlay`** is a stable `go build` flag (since Go 1.16) but less used; its interaction with relative `//line` names (resolved against the replacement file) is why the directive names are recomputed, and a test pins it.
 
+### 3.6 Concurrent rendering of slow components
+**Status: Proposed, (Q) points open** (2026-10-26; user decision: spec an opt-in directive now; automatic concurrency was rejected). `server:parallel` is the working name (Q1).
+
+**Why**: Astro 7 overlaps sibling components that await. In `runtime/server/render/any.js` (`renderArray`) and `astro/render-template.js` (`RenderTemplateResult.render`), when one child of a template (or of an array, such as a `.map()` result) returns a promise, **every following child of that template starts at once**, each into its own `BufferedRenderer` (`util.js`), and the buffers are flushed in order. Astro component factories are async, so after the first component in a template, the rest of that template's expressions render concurrently. Children before the first async one render in order. Nested templates apply the same rule recursively. Orbit renders in order into one buffered response (§4), so two sibling components that each wait 10 ms for their own data take 20 ms in Orbit and about 10 ms in Astro. Sites written in that style, where components fetch their own data (`nyth`, the port that prompted this), would have to restructure their fetches into the page to get the overlap back.
+
+Go can't know in advance whether a component will block, so automatic concurrency would charge every sibling: a goroutine, a pooled buffer and an in-order copy cost about 170 ns and 2 allocations each, roughly 10× a small component's render (coordinator's measurement: 500 cards went from 9 µs to 87 µs). Orbit therefore makes it **opt-in**: the author marks the slow call sites, and only those pay.
+
+#### End-to-end example
+```orbit
+---
+import (
+    Weather "../components/Weather.orbit"       // frontmatter: ~10 ms weather API call
+    LatestPosts "../components/LatestPosts.orbit" // frontmatter: ~10 ms DB query
+    Base "../layouts/Base.orbit"
+)
+---
+<Base title="Home">
+  <Weather server:parallel city="Paris" />
+  <LatestPosts server:parallel limit={5} />
+  <footer>…</footer>
+</Base>
+```
+- **Without the directive**: `Weather` renders, then `LatestPosts`: about 20 ms before the response can be written.
+- **With it**: each marked component starts in its own goroutine when the page's render reaches it, the page keeps rendering (the `<footer>`, the rest of `Base`), and the response is assembled in source order once both are done: about 10 ms. The HTML is byte-identical.
+
+Measured with the prototype (`scratchpad/concurrent-spec/`, hand-written generated code over a patched copy of the runtime; a full `Site.Handler` request, 10 ms `time.Sleep` per component, 20 runs; Ryzen 7 9700X, 16 threads, Go 1.27.3, load average 30–60 on a shared machine):
+
+| Slow components on the page | In order | `server:parallel` |
+|---|---|---|
+| 1 | 10.7 ms | 10.4 ms |
+| 2 | 20.8 ms | 10.6 ms |
+| 3 | 31.8 ms | 10.5 ms |
+
+#### Semantics
+- **When a marked component starts**: when the parent's render reaches the call site, after its props and slots are evaluated in the parent, in source order, as for an unmarked call. Orbit doesn't hoist marked calls to the start of the parent: props can depend on `{if}`/`{for}` and on earlier output, and the gap is the parent's synchronous rendering, microseconds. This matches Astro, where the siblings after the first async child start "at once" when the parent reaches it.
+- **What runs concurrently**: the marked component's whole render (its frontmatter, its template and its subtree, including slot content passed to it) in one goroutine, against the rest of the request's render: the parent continues after the call site, and other marked components run in their own goroutines. Everything not marked still renders in order on the goroutine that reaches it. So an **unmarked** slow component still blocks its goroutine: `<A server:parallel /><B />` overlaps A and B, `<A /><B server:parallel />` doesn't (B starts only after A). The docs say: mark every slow component.
+- **Where the output goes**: into the marked component's own pooled `Writer` and buffer. The parent's `Writer` records a **hole**: the current offset in its buffer and the child `Writer`. The parent keeps writing into its own buffer.
+- **Join**: once, at the end of the request's render (the page, an island request, a `RenderComponent` fragment, `orbittest`), not when the parent component returns. Two marked components in different parents (one in the header, one in the body) overlap too, and a parent never waits for its children. The join waits for every goroutine of the request, including nested ones, then copies the root buffer and the child buffers, recursively and in output order, into one pooled buffer, which is written as today (one `Write`, `Content-Length`). Output order is strictly the source order, whatever finished first.
+- **Nesting**: a marked component inside a marked component's subtree forks from the child's `Writer`; its hole is in the child's buffer. Slot content forwarded into a marked component runs in that component's goroutine.
+- **Head injection**: the page's tags still go at the first `</head>` in output order. A root `Writer` with no holes yet writes them inline at `HeadEnd` as today (the usual case: the layout's `</head>` comes before any body component). Otherwise `HeadEnd` only records its offset, and the join inserts the tags while copying, which costs nothing extra. `finishHead` (no marker) runs on the assembled buffer.
+- **Only under Orbit's entry points**: a `Writer` from `orbit.NewWriter` (user Go code calling a component's `Render` with its own buffer) has no request group, so `server:parallel` renders inline there, in order. Output is always correct, never missing a hole.
+
+#### Codegen
+A marked call site (hook flavor; the props literal, field keys and line directives are those of a normal call, §3.2):
+```go
+if orbit__err := /*line ../../../../src/pages/index.orbit:9:4*/orbit__rt.Parallel/*line render.go:…*/(orbit__ctx, orbit__w, Weather.Render, Weather.Props{
+	/*line …*/City/*line render.go:…*/: "Paris",
+}, orbit__rt.Slots{}); orbit__err != nil {
+	return orbit__err
+}
+```
+- `Parallel[P any](c *Ctx, w *Writer, render func(*Ctx, *Writer, P, Slots) error, props P, slots Slots) error` is generic over `Props`, like `NewIsland`, so the props stay a typed literal evaluated in the parent, with no closure written by codegen. It returns the parent's sticky error (and starts nothing) when the parent already failed, and otherwise `nil`: the child's errors come out at the join.
+- **Build flavor** (§3.5): the render argument is `orbit__Weather.Orbit__RenderImpl` for a direct edge (the hook inside an SCC, the decl `Render` for a page callee, as for other calls). The goroutine makes props and slots escape anyway, so a marked call site loses §3.5's stack win for its own slot closures (accepted: one heap closure per marked instance is the price of the goroutine).
+- **Locals before the first fork**: `LocalsOf` caches the `*L` on the `Ctx` lazily (§4). If a child resolved it on its copy of the `Ctx` (below), two goroutines could allocate two `Locals`. So a render with a marked call site emits `orbit__rt.LocalsOf[orbit__locals.Locals](orbit__ctx)` right before the call, when the project has a `src/locals.Locals` (with `NoLocals` there's nothing to share). It's idempotent and appended to the call's line, so line numbers don't move. Cost: a `new(L)` on pages that use the directive while no middleware attached locals and nothing read them.
+- **Slot content rebinds the Ctx**: slot content is compiled in the parent and captures the parent's `orbit__ctx`, but it can run in another goroutine (passed to a marked component, or forwarded by an unmarked one into a marked one). So **every** slot closure whose content uses `orbit__ctx` (a component call, `Defer`, `LocalsOf`) or the user's `ctx` binding starts with `orbit__ctx := orbit__rt.CtxOf(orbit__w, orbit__ctx)` (and `ctx := orbit__ctx` when it uses `ctx`), on the closure's first line. `CtxOf` returns the `Ctx` of the goroutine that owns the writer (`w.ctx`, set on child writers), or its second argument for the root writer. That's a field load and a branch, no allocation; measured within noise on 500 capturing slots (below). It's emitted in every project, whether or not it uses the directive, so a file's output doesn't depend on others (decided by rule: simplest; per-file codegen in `orbit dev` stays per file). The `ctx` scan is the syntactic object resolution already used for `locals` (§3.3), so tolerant mode and the type-check fallbacks need no `types.Info`; a user who shadows `ctx` keeps their own variable.
+- **`{for}`**: a marked component in a loop forks once per iteration, up to the cap (below), so `{for _, p := range posts}<Card server:parallel post={p} />{/for}` is allowed. Go 1.22 per-iteration variables keep each iteration's props and captured variables apart. It's rarely a good idea: one query in the page beats 500 fetches. The docs say so.
+- **`<Self server:parallel>`** is allowed (a recursive tree whose levels fetch). The depth guard keeps working: a child `Writer` starts with a copy of its parent's component stack (`Enter`/`Leave`), so depth and the "naming the stack" error span goroutines.
+- **`client:*`**: allowed together. The `<orbit-lazy>` marker is static `Raw` written by the parent around the hole, so it ends up around the component's output.
+- **`server:defer`**: combining them is a compile error, `server:defer and server:parallel can't be combined; a deferred component already renders in its own request` (decided by rule: simplest; there's nothing to overlap). A `server:defer` call site inside a marked subtree works: `Defer` writes its placeholder into the child's buffer, and the island sealer is already safe for concurrent use (shared across requests).
+- **Compile errors** (same shape as `server:defer`'s, §2.3): `server:parallel only works on .orbit components` (on an HTML element, `<slot>` or `<Fragment>`), `server:parallel takes no value`. The unknown-directive message lists it: `(server directives: server:defer, server:parallel)`. On a `.md` component it's allowed and useless (its HTML is a constant); no special case (decided by rule: simplest).
+
+#### Shared state and safety
+Each marked component runs with its **own `Writer`** (pooled) and its **own `Ctx`** (pooled, a copy of the forking goroutine's), so most state needs no lock, and the unmarked path gains no atomics:
+
+| State | Concurrent rendering |
+|---|---|
+| `Writer` buffer, sticky error, component stack, head offset, JSON encoder | per goroutine (the child's `Writer`); the stack is copied at the fork |
+| `Ctx.Request`, `URL`, `Site`, route params, dev flag, island keys | copied pointers and slices, read-only. Param values live in the root `Ctx`'s storage, which is released only after the join |
+| `Ctx` locals | the same `*L` (resolved before the first fork, above); its **fields** are user data (below) |
+| `ctx.SetStatus`, `ctx.Header()` | per `Ctx`: a child's status and headers start empty and are **merged at the join in output order**, after the root's own: a child's non-zero status replaces the page's, and each header key a child set replaces the page's values for that key. So a later component in output order wins, as in order rendering, except that a parallel component's writes are applied after those of the unmarked components that follow it (decided by rule: simplest deterministic option; logged) |
+| `ctx.Redirect`, `orbit.ErrNotFound` | plain error values, nothing shared: they come out at the join like any error (below) |
+| The request group (a `sync.WaitGroup`, the running count for the cap, the abort flag) | the only shared, synchronized state; an unexported value embedded in the pooled root `Writer`, touched only by `Parallel`, the goroutines and the join |
+
+Cost on the unmarked path: `Writer` gets four fields (holes, group pointer, owner `Ctx`, the embedded group) reset with the rest; `servePage` checks `len(holes) > 0` once; `HeadEnd` checks it once; slot closures that use the ctx call `CtxOf`. No allocation, no atomic: measured, the existing `TestRenderAllocs` (0) and `TestServeAllocs` (1, `Content-Length`) pass unchanged on the patched runtime. The group's `sync.WaitGroup` and atomics sit behind an unexported field, so the generated packages' view of `Writer` stays light (§4b; verified in the implementation by the object-size check).
+
+**User data races** stay the user's responsibility, as with any goroutine. Only request-scoped data is newly shared, because package-level state is already shared between concurrent requests. Documented, with `go test -race` advice:
+- props passed by reference (slices, maps, pointers) that a parallel component, or the parent, mutates while the other reads them;
+- `locals` fields written by a parallel component and read or written elsewhere (`locals.Count++` from two components); use a `sync` type in `Locals` for such fields;
+- a frontmatter closure that captures `ctx` and calls `SetStatus`/`Header()`, called from code running in a parallel component;
+- reading `ctx.Request.Body` (read it in the page's frontmatter).
+
+#### Errors, panics, redirects, cancellation
+- **The first error in output order wins**: the join walks the holes in order (recursively), and the first child error wins over everything after it, including the parent's own error (which happened after the holes created so far, since `Parallel` refuses to fork once the parent failed). This gives exactly the error the in-order render would have given. A redirect or `ErrNotFound` from a parallel component is handled like one from an unmarked component (`renderFailed`, §4; on an island request §5b). Errors keep their `.orbit` position (`ErrorAt`).
+- **The request always waits for every started goroutine**, even after an error: children write into pooled buffers and read the root `Ctx`, which can't be released before they're done. Until the join, the parent and other components keep rendering (microseconds) and keep their side effects: a component after the failing one may already have run its fetch, which the in-order render would have skipped. Documented.
+- **Panics** are recovered in each goroutine (a panic there would crash the process) and become a `panicError` with the innermost `.orbit` frame of that goroutine, like `callRender` today (§4, Errors): the same production log line and 500, the same dev overlay. `http.ErrAbortHandler` is recorded and re-panicked on the request goroutine after the join, as net/http expects.
+- **No cancellation of the others** (Q4).
+
+#### Limits
+- **A per-request cap** on parallel components running at once, counted across nesting (Q3). Past the cap, `Parallel` renders the component **inline** on the calling goroutine, in order. Inline, not a blocking wait: a nested fork waiting for a slot held by its own ancestor would deadlock. The output is the same either way.
+
+#### Placement and name
+- **On the call site**, like `server:defer` and `client:*`: the cost is visible where it's paid, and a component can be parallel in one place and not in another (Q2).
+
+#### (Q) points
+1. **(Q1) Name**:
+   - (a) **`server:parallel`** (recommended): the phrase web developers use for overlapping fetches ("fetch in parallel", `Promise.all`), short, and next to `server:defer` in the reserved namespace. It overstates the CPU side: what matters is overlapped waiting, and with `GOMAXPROCS=1` it still helps.
+   - (b) `server:concurrent`: the exact Go term ("concurrency is not parallelism"), longer, less familiar to Astro users.
+   - (c) `server:async`: reads like Astro's async components, but in Astro every component can be async, so it would suggest the opposite of opt-in.
+   - (d) `server:eager` / `server:prefetch`: describes starting early, but the component doesn't start earlier than its position, it only stops blocking the rest.
+2. **(Q2) Placement**:
+   - (a) **On the call site** (recommended): explicit, consistent with `server:defer`/`client:*`, per use, and the compiler errors are at the use.
+   - (b) Declared in the component (a frontmatter marker such as `//orbit:parallel`), so every use is parallel: matches "the component knows it fetches" (`nyth`'s style) and can't be forgotten at one call site, but hides a goroutine per use, including in loops, and needs a new frontmatter construct (LSP, `orbit fmt`).
+   - (c) Both: more surface; (b) can be added later without breaking (a).
+3. **(Q3) The cap**:
+   - (a) **A fixed 16 per request** (recommended), past it inline: bounds goroutines, buffers and concurrent backend calls per request (a marked component in a 500-item loop); 16 covers every realistic page of slow siblings. An `orbit.WithParallelLimit(n)` `Option` can be added later without breaking.
+   - (b) Configurable now (`WithParallelLimit`, or `orbit.json`): more surface before anyone needs it.
+   - (c) No cap (Astro's behavior: every following sibling starts): 500 goroutines and buffers per request for a marked loop; the backend's own pool (`database/sql`'s `MaxOpenConns`) then queues them.
+   - A process-wide cap is out of scope (backend pools already bound it).
+4. **(Q4) Cancellation on error**:
+   - (a) **None** (recommended; Astro behavior: its siblings keep running, promises can't be cancelled): the reported error is exactly the in-order one, nothing allocates, and `ctx.Request.Context()` is still cancelled by net/http when the client goes away. Cost: a failing page waits for its slowest started sibling.
+   - (b) Derive a cancellable context for the request when the first component forks (`context.WithCancel` plus `Request.WithContext`: about 2–3 allocations and a `Request` copy, only on pages that fork) and cancel it at the first error in time; errors that are `context.Canceled` after Orbit cancelled are skipped when choosing the error in output order. Faster failure for code that honors the context, slightly non-deterministic reporting when two components fail.
+5. **(Q5) Status and header writes from parallel components**: merged at the join in output order (recommended, above: deterministic, no lock, the child's `ctx.Header()` starts empty so it doesn't see the page's) vs. one shared, mutex-protected `Ctx` response state (time order, non-deterministic; and `Header()` returns a map that can't be locked, so it would race anyway) vs. a compile/runtime error when a parallel component sets them (too strict: a component setting `Cache-Control` or `Vary` is plausible).
+
+Decided by rule (to log in `docs/DECISIONS.md`): start at the call site, not hoisted (Astro); join once at the end of the request's render (simplest that keeps Astro's overlap across parents); first error in output order (Astro: its buffers flush, and so reject, in order); `server:defer` + `server:parallel` is an error, `client:*` + `server:parallel` is allowed, `<Self>`, loops and `.md` components are allowed (simplest); inline under `NewWriter` and past the cap (simplest, deadlock-free); `CtxOf` emitted in every project (simplest); header merge semantics (simplest deterministic).
+
+#### Cost (prototype: a patched copy of the runtime, `scratchpad/concurrent-spec/orbit/parallel.go`, with hand-written generated pages in `parallel_test.go`; full `Site.Handler` requests with a reused `ResponseWriter`; Ryzen 7 9700X, 16 threads, Go 1.27.3, 6 runs, medians; the machine was heavily shared, load average 28–62 throughout, so the 16-thread rows are noisy)
+
+| Benchmark | In order | `server:parallel` | Notes |
+|---|---|---|---|
+| 3 small cards, `-cpu 1` | 279 ns, 1 alloc | 1.48 µs, 4 allocs (384 B) | ≈ 0.4 µs and 1 alloc (~90 B, the goroutine's arguments) per marked instance, join included |
+| 3 small cards, 16 threads | 223–562 ns | 1.2–4.7 µs | cross-CPU wake-ups |
+| 20 small cards, `-cpu 1` | 924 ns | 4.7 µs, 17 allocs | 16 forked + 4 inline (cap) |
+| 20 small cards, 16 threads | 1.0–2.6 µs | 8.5–16 µs | |
+| 500 small cards, cap 16, `-cpu 1` | 20.9 µs | 25.8 µs | the cap keeps a marked loop near the in-order cost |
+| 500 small cards, no cap, `-cpu 1` | 20.9 µs | 138 µs, 501 allocs, 56 KB | why (Q3) recommends a cap |
+| ~34 KB page, 2 marked components, 16 threads | 16.9 µs | 18.2 µs | the assembly copy plus 2 forks: ~1.2 µs |
+| 500 capturing slots, direct calls, with vs. without `CtxOf` | 25.9 µs | 26.3 µs (`CtxOf`) | within noise; 0 extra allocations |
+| Typical page (`TestServeAllocs`, unmarked) | 1 alloc | 1 alloc | unchanged; `TestRenderAllocs` stays 0 |
+
+So a marked component costs a few hundred nanoseconds and one small allocation, nothing against the 10 ms it's meant to hide, and nothing when unmarked. All prototype tests pass under `-race` (same output as in order, error, panic and status/header merge cases).
+
+**Build and dev loop**: one new directive in the parser and codegen; `Parallel` is a generic instantiation in each package with a marked call site only (like `NewIsland`'s in `app`). No new packages or imports, except `src/locals` in a component that has a marked call site but never used `locals` (a `src/locals` edit already recompiles nearly everything). Expected cost: within noise; measured in the implementation with `bench/devloop`.
+
+#### Tests (what must exist)
+- **Runtime** (`parallel_test.go`, run with and without `-race` in CI): byte-identical output vs. in order for siblings, nested marked components, slots forwarded into a marked component, `client:*` around a hole, a marked component in a loop past the cap; head injection with `</head>` before any hole, inside a marked component, and with no `</head>`; first error in output order (a later component failing first in time, a parent failing after a hole); a panic in a child (500, `.orbit` position in the log line) and `http.ErrAbortHandler` re-panicked on the request goroutine; redirect and `ErrNotFound` from a child, on a page and on an island request; status and header merge order; the depth guard across goroutines (`<Self server:parallel>` past depth 1000); `NewWriter` renders inline; the latency test (2–3 components sleeping 10 ms finish in well under 2× 10 ms); every pooled object returned (a pool-count check).
+- **Allocations**: `TestRenderAllocs` and `TestServeAllocs` unchanged (0 and 1); a page with one marked component serves with the expected small count (`Content-Length` + 1 per fork).
+- **Codegen goldens** (`-update`): a marked call site in both flavors (hook, direct, SCC member, page callee), with `LocalsOf` before it when `src/locals` exists; `CtxOf` in slot closures that use `orbit__ctx`/`ctx`, absent in those that don't; `ctx` shadowed by the user; each build-flavor file keeps the hook file's line count.
+- **Compile errors**: on an HTML element, `<slot>`, `<Fragment>`, with a value, combined with `server:defer`; the unknown-`server:`-directive message lists `server:parallel`.
+- **Integration**: an `examples/blog` (or fixture) page with two marked components that sleep, served through `orbittest.Get`: same body as without the directive, and the latency bound.
+- **LSP**: `server:parallel` in directive completion.
+- `go build ./... && go vet ./... && go test ./...` and `go test -race ./...`.
+
+#### User-docs changes (with the implementation)
+- `reference/template-syntax.md`: the directive (rules, combinations, errors) next to `server:defer`.
+- `rendering.md`: a "Slow components" section: buffered responses wait for the slowest part; `server:parallel` overlaps slow siblings in the same response; `server:defer` takes them off the first byte; fetching in the page with Go's own concurrency (`errgroup`-style) remains an option.
+- `lazy-loading.md`: **when to use which**. `server:defer`: the part can arrive after the page (below the fold, personalised, slow third-party APIs); the first byte doesn't wait for it, but it costs a second request and shows a fallback. `server:parallel`: the part must be in the HTML (SEO, above the fold, no layout shift); the page still waits for the slowest part, but slow parts no longer add up. They combine on one page, not on one tag.
+- `performance.md`: the cost table above, the cap, "mark every slow component, not fast ones", "a marked loop is a smell: one query in the page".
+- `components.md`: a short note on data fetching in components, with the race rules (props by reference, `locals` fields, `ctx.Request.Body`) and `go test -race`.
+- `coming-from-astro.md`: Astro overlaps awaiting siblings automatically; Orbit needs `server:parallel` on them.
+- `reference/runtime-api.md`: `Parallel` and `CtxOf` as generated-code-only functions, like `Defer`.
+- `docs/DECISIONS.md`: the "decided by rule" items above. Editors: directive completion in the LSP, and the VS Code grammar and docs Chroma lexer if they list directives.
+
+#### Out of scope
+- Automatic concurrency (rejected above: it charges every component).
+- Streaming or flushing early (responses stay buffered, §4); `server:defer` is the first-byte tool.
+- Running unmarked siblings of a marked component concurrently (Astro's "everything after the first async child"): only marked components leave the calling goroutine.
+- A component-level marker (Q2 b) and a configurable cap (Q3 b), until asked for.
+- Cancellation (if Q4 a), and a process-wide cap.
+- Making frontmatter code itself concurrent (`await`-style); users can use goroutines inside a frontmatter as in any Go code.
+
+#### Risks
+- **Data races in user code** that ran safely in order (props by reference, `locals` fields). Mitigation: opt-in, the docs' rules, `-race` advice; Orbit's own state is per goroutine or synchronized, and its tests run under `-race`.
+- **Side effects after an error**: components after a failing one may already have run (above). Documented.
+- **Overuse**: marking fast components costs ~0.4 µs each; marking a loop hits the cap. The docs and the cost table say when not to.
+
 ## 4. Runtime package (`github.com/orbit-z/orbit`, repo root)
 The runtime package depends only on the standard library (plus the framework's own stdlib-only `internal/islandcrypto`, §3.4, §10).
 ```go
@@ -2261,6 +2426,7 @@ Dependencies:
 - **Tailwind CSS** (user decision, 2026-10-26, from the `nyth` port): built-in support through Tailwind's standalone CLI as an external, optional tool, detected from `@import "tailwindcss"`; specified in §5d (proposed, (Q) points open).
 - `{switch}` template blocks: implemented (§2.3): compiler, `orbit fmt`, the LSP's Go regions, the VS Code grammar and the docs' Chroma lexer; user docs `docs/reference/template-syntax.md#switch`.
 - esbuild code splitting (shared chunks between pages, and between page bundles and `client:*` lazy entries, §5)
+- **Concurrent rendering of slow components** (user decision, 2026-10-26, from the `nyth` port: Astro 7 overlaps awaiting sibling components, Orbit renders in order): an opt-in call-site directive (working name `server:parallel`) runs a slow component in its own goroutine and buffer, copied back in source order at the end of the render; automatic concurrency rejected (it charges every component). Specified in §3.6 (proposed, (Q) points open).
 - **Cacheable server islands** (the MVP already makes island URLs deterministic and puts the build ID in the path, §3.4, so no URL format change is needed):
   - an `ETag` on island responses (a hash of the buffered body), answering `If-None-Match` with a 304;
   - docs on opting into public caching by setting `Cache-Control` from the component (`ctx.Header().Set("Cache-Control", "public, max-age=60, stale-while-revalidate=600")`), with a clear warning that an island cached as `public` must not depend on cookies, locals or the user (docs only, no checks);
