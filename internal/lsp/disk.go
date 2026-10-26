@@ -64,8 +64,8 @@ func (c *diskCheck) run(ctx context.Context) error {
 		c.proj = nil // garbage now, with the go/types data (freeMemory)
 	}()
 	p := c.proj
-	p.Front()
 	checker := compiler.NewChecker(&compiler.GoListLoader{Dir: p.Root})
+	p.FrontPreload(checker) // go list -export runs during pass 1
 	if _, err := p.Typecheck(ctx, checker); err != nil {
 		return err
 	}

@@ -37,6 +37,8 @@ too: the type checker and `go build -p` size their parallelism from it.
 | `-json out.json` | also write every sample |
 | `-keep -dir d` | build the project in `d` and keep it |
 | `-dev` | measure `internal/dev`'s pipeline, which is what `orbit dev` runs (below) |
+| `-fullfront` | `project.Load` and `Front` the whole project on every edit, instead of `project.Reload` (the front before per-file reloads) |
+| `-nopreload` | on a `.go` edit, run `go list -export` in the check stage, instead of starting it (`Checker.Preload`) at the start of the step |
 | `DEVLOOP_VERBOSE=1` | log every package `go build` compiled |
 
 Each run uses a fresh random salt in every edit, so no stage can hit the
@@ -98,9 +100,9 @@ are the ones the table prints.
 
 | Column | What it measures |
 |---|---|
-| front | `project.Load` and `Front`: discovery, reading, parse, analyze, index, project checks, pass 1, for every file (there is no per-file API yet) |
+| front | `project.Reload` of the last project with the edit's paths: discovery, then reading, parse, analyze and pass 1 of the changed files and of the importers of a file whose index entry changed, then the project checks (`project.Load` and `Front` of every file on the first step, or with `-fullfront`) |
 | esbuild | the resident dev `assets.New(Options{Dev: true})` context: `Bundle`, then `assets.WriteDev` to `.orbit/dev` |
-| check | the **resident** `compiler.Checker`: the first step calls `Check`, later steps call `Update` with the units whose pass-1 output changed (after `Invalidate` on a `.go` edit). Files it doesn't re-check keep their previous output. |
+| check | the **resident** `compiler.Checker`: the first step calls `Check`, later steps call `Update` with the units whose pass-1 output changed. A `.go` edit calls `Invalidate` and `Preload` (of the last load's packages) at the start of the step, as `orbit dev` does, so `go list -export` runs during the front and esbuild, and the check stage only waits for what's left of it. Files it doesn't re-check keep their previous output. |
 | gen+write | `GenFiles` and `WriteGenerated`, which only rewrites files whose content changed. The compiled manifest is left empty, because dev reads `.orbit/dev/manifest.json`. |
 | go build | `go build -o <tmp> -ldflags=-w -debug-actiongraph=… ./cmd/server` |
 | (link) | the link action's share of `go build`, from the action graph |

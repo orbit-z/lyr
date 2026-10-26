@@ -95,6 +95,13 @@ func (p *Project) frontMarkdown() []*File {
 		}
 		files = append(files, f)
 	}
+	p.parseMarkdown(files)
+	return files
+}
+
+// parseMarkdown parses the Markdown files, in parallel, and sets their
+// stand-in AST and Analysis.
+func (p *Project) parseMarkdown(files []*File) {
 	resolve := p.resolver()
 	parallel(files, func(f *File) {
 		f.MD = markdown.Parse(f.Path, f.Src, p.Config.Markdown, resolve)
@@ -107,7 +114,6 @@ func (p *Project) frontMarkdown() []*File {
 		}
 		f.callList, f.callsDone = nil, false
 	})
-	return files
 }
 
 // mdGenInput is the markdown codegen input of f.

@@ -35,8 +35,13 @@ func NewIncremental(checker *compiler.Checker) *Incremental {
 
 // Invalidate drops the loaded export data: call it when a user .go file,
 // go.mod or orbit.json changed, so the next Typecheck reruns go list
-// -export and re-checks every file.
-func (in *Incremental) Invalidate() { in.checker.Invalidate() }
+// -export and re-checks every file. It starts that go list right away
+// (Checker.Preload), over the packages of the last load, so that it runs
+// during the front and esbuild; a new import loads again.
+func (in *Incremental) Invalidate() {
+	in.checker.Invalidate()
+	in.checker.Preload(in.checker.LoadedPaths())
+}
 
 // Changed reports whether p (after Front) differs from the last Typecheck
 // in anything the generated Go code depends on: a file added or removed,

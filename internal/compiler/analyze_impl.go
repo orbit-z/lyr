@@ -282,8 +282,11 @@ func anPkgName(p string) string {
 	}
 	last = strings.TrimPrefix(last, "go-")
 	last = strings.TrimSuffix(last, "-go")
-	return strings.NewReplacer("-", "_", ".", "_").Replace(last)
+	return pkgNameReplacer.Replace(last)
 }
+
+// pkgNameReplacer is built once (a Replacer builds its tables on first use).
+var pkgNameReplacer = strings.NewReplacer("-", "_", ".", "_")
 
 // --- hoisted declarations ---
 

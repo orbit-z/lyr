@@ -20,6 +20,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/orbit-z/orbit/internal/assets"
 	"github.com/orbit-z/orbit/internal/compiler"
@@ -122,11 +123,16 @@ func Load(root string) (*Project, error) {
 	p.ServerEntry, p.GeneratedServer = cfg.ServerEntry(root)
 	p.Options.Locals, p.localsDiags = detectLocals(root, module)
 	p.markdown = map[string]string{}
-	for _, path := range paths {
-		src, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
-		if err != nil {
-			return nil, err
+	srcs := make([][]byte, len(paths))
+	errs := make([]error, len(paths))
+	parallelN(len(paths), func(i int) {
+		srcs[i], errs[i] = os.ReadFile(filepath.Join(root, filepath.FromSlash(paths[i])))
+	})
+	for i, path := range paths {
+		if errs[i] != nil {
+			return nil, errs[i]
 		}
+		src := srcs[i]
 		if compiler.IsMarkdown(path) {
 			p.markdown[path] = string(src)
 			p.mdPaths = append(p.mdPaths, path)
@@ -159,33 +165,53 @@ func NewFile(path, src string) (*File, error) {
 // Analyze, the component index, the project checks (routes, package
 // collisions, Props import cycles, src/locals) and pass-1 Generate. It sets
 // p.Diagnostics, and reports whether there are errors.
-func (p *Project) Front() bool {
+func (p *Project) Front() bool { return p.front(nil) }
+
+// front is Front. parsed, when set, is called once every .orbit file is
+// parsed and analyzed, before pass 1: Generator starts go list -export
+// there, from the files' Go imports (PLAN.md §3.3 Engine).
+func (p *Project) front(parsed func()) bool {
 	// The Markdown Files of an earlier Front are rebuilt: which ones are
 	// compiled depends on the .orbit imports.
 	p.Files = slices.DeleteFunc(slices.Clone(p.Files), (*File).IsMD)
 	// Files are independent until the index, and the index is read-only
 	// during pass 1, so both loops run in parallel.
-	parallel(p.Files, func(f *File) {
-		f.AST = compiler.Parse(f.Src, p.Options.Mode)
-		f.Analysis = compiler.Analyze(f.AST, f.Info)
-		f.callList, f.callsDone = nil, false
-	})
+	parallel(p.Files, p.parse)
+	if parsed != nil {
+		parsed()
+	}
 	if md := p.frontMarkdown(); len(md) > 0 {
 		p.Files = append(p.Files, md...)
-		slices.SortFunc(p.Files, func(a, b *File) int { return strings.Compare(a.Path, b.Path) })
+		sortFiles(p.Files)
 	}
 	p.Index = compiler.ComponentIndex{}
 	for _, f := range p.Files {
-		if f.MD != nil {
-			p.Index[f.Path] = markdown.Info(p.mdGenInput(f))
-		} else {
-			p.Index[f.Path] = compiler.NewComponentInfo(f.AST, f.Analysis)
-		}
+		p.Index[f.Path] = p.info(f)
 	}
 	parallel(p.Files, p.pass1)
 	p.mdDiags = checkLinks(p.Files)
 	p.collectDiagnostics()
 	return HasErrors(p.Diagnostics)
+}
+
+// parse parses and analyzes the .orbit file f.
+func (p *Project) parse(f *File) {
+	f.AST = compiler.Parse(f.Src, p.Options.Mode)
+	f.Analysis = compiler.Analyze(f.AST, f.Info)
+	f.callList, f.callsDone = nil, false
+}
+
+// info is f's component index entry.
+func (p *Project) info(f *File) *compiler.ComponentInfo {
+	if f.MD != nil {
+		return markdown.Info(p.mdGenInput(f))
+	}
+	return compiler.NewComponentInfo(f.AST, f.Analysis)
+}
+
+// sortFiles sorts files by path, the order of Project.Files.
+func sortFiles(files []*File) {
+	slices.SortFunc(files, func(a, b *File) int { return strings.Compare(a.Path, b.Path) })
 }
 
 // collectDiagnostics sets p.Diagnostics from the project checks and every
@@ -283,13 +309,27 @@ func sameInfo(a, b *compiler.ComponentInfo) bool {
 
 // parallel calls fn for every file, on up to GOMAXPROCS goroutines.
 func parallel(files []*File, fn func(*File)) {
-	sem := make(chan struct{}, runtime.GOMAXPROCS(0))
+	parallelN(len(files), func(i int) { fn(files[i]) })
+}
+
+// parallelN calls fn(i) for every i in [0, n), on up to GOMAXPROCS
+// goroutines that take the next i in turn (one goroutine, the caller's, for
+// n ≤ 1 or GOMAXPROCS=1).
+func parallelN(n int, fn func(int)) {
+	workers := min(runtime.GOMAXPROCS(0), n)
+	if workers <= 1 {
+		for i := range n {
+			fn(i)
+		}
+		return
+	}
+	var next atomic.Int64
 	var wg sync.WaitGroup
-	for _, f := range files {
-		sem <- struct{}{}
+	for range workers {
 		wg.Go(func() {
-			defer func() { <-sem }()
-			fn(f)
+			for i := int(next.Add(1)) - 1; i < n; i = int(next.Add(1)) - 1 {
+				fn(i)
+			}
 		})
 	}
 	wg.Wait()

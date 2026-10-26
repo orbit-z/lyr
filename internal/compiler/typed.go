@@ -78,8 +78,31 @@ type Checker struct {
 	// the last Load, the memoized decl packages, the last units by path,
 	// and the import graph between generated packages.
 	state *tyState
+	// pre is the load started by Preload, until a Check or Update takes
+	// it.
+	pre *tyPreload
 	// generate re-emits pass 2; nil means Generate (tests stub it).
 	generate func(*Input) *Output
+}
+
+// Preload starts loading export data for paths in the background (the
+// go list -export of the next Check or Update), so that it overlaps the
+// work before that call (PLAN.md §3.3 Engine): orbit generate starts it
+// once the .orbit files are parsed, with their Go imports, and orbit dev
+// when a user .go file changes, with the paths of the last load. The next
+// Check, or Update that needs a load, uses it when every path it needs is
+// among paths, and otherwise loads as usual: a wrong guess costs time,
+// never correctness. Import errors for paths that aren't needed are never
+// reported. A later Preload drops an unused one (Preload(nil) only drops
+// it), and so does a Check or Update that doesn't use it.
+func (c *Checker) Preload(paths []string) {
+	c.preload(paths)
+}
+
+// LoadedPaths returns the paths of the last load, sorted; nil before the
+// first Check.
+func (c *Checker) LoadedPaths() []string {
+	return c.loadedPaths()
 }
 
 // NewChecker returns a Checker that loads non-generated packages through

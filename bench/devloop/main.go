@@ -45,6 +45,8 @@ func main() {
 	jsonOut := flag.String("json", "", "also write every sample to this JSON file")
 	fresh := flag.Bool("fresh", true, "also time a fresh Checker (go list -export + full check) on every Go edit")
 	extra := flag.String("buildflags", "", "extra go build flags, space-separated (e.g. \"-p=8\")")
+	flag.BoolVar(&fullFront, "fullfront", false, "Load and Front the whole project on every edit instead of project.Reload (the front before per-file reloads)")
+	flag.BoolVar(&noPreload, "nopreload", false, "on a Go edit, run go list -export in the check stage instead of from the start of the step (as before Checker.Preload)")
 	devMode := flag.Bool("dev", false, "measure internal/dev's pipeline (what orbit dev runs) instead of the prototype stages; -ldflags, -buildflags and -fresh don't apply")
 	flag.Parse()
 	buildFlags = strings.Fields(*extra)

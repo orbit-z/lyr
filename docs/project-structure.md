@@ -117,6 +117,8 @@ orbit_gen/
                (and, for a page, its generated Params type)
   impl/        the rendering code for each .orbit file; never import these
   app/         app.New(): the route table and the wiring of every page
+  link/        imports every implementation package, so each component is linked
+               to its code (app imports it); never import it yourself
   manifest/    the CSS and JS URLs of each page
   cmd/server/  the default server, generated only when you have no cmd/server
   static/      an embedded copy of dist/client, only for orbit build --embed

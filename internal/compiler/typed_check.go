@@ -14,6 +14,7 @@ import (
 	goparser "go/parser"
 	gotoken "go/token"
 	"go/types"
+	"maps"
 	"runtime"
 	"slices"
 	"sort"
@@ -224,8 +225,10 @@ func (s *tyState) extPaths() []string {
 	return paths
 }
 
-// load runs the loader over every unit's external imports.
-func (s *tyState) load(ctx context.Context, loader ExportLoader) {
+// load runs the loader over every unit's external imports, or takes pre's
+// result (Checker.Preload) when it covers them; pre may be nil, and is
+// dropped when not used.
+func (s *tyState) load(ctx context.Context, loader ExportLoader, pre *tyPreload) {
 	paths := s.extPaths()
 	s.loaded = map[string]bool{}
 	for _, p := range paths {
@@ -234,7 +237,19 @@ func (s *tyState) load(ctx context.Context, loader ExportLoader) {
 	s.loadWarn = ""
 	s.envOnce = sync.Once{}
 	s.env = nil
-	imp, err := loader.Load(ctx, s.fset, paths)
+	var imp types.Importer
+	var err error
+	if pre.covers(s.fset, paths) {
+		imp, err = pre.wait(ctx)
+		if err != nil && ctx.Err() == nil && len(pre.paths) != len(paths) {
+			// The load failed, maybe because of a path that isn't needed
+			// (a malformed import of a file with errors): load just these.
+			imp, err = loader.Load(ctx, s.fset, paths)
+		}
+	} else {
+		pre.drop()
+		imp, err = loader.Load(ctx, s.fset, paths)
+	}
 	if err != nil {
 		s.imp = &tyExtImporter{imp: failImporter{err}, failed: map[string]string{}}
 		s.loadWarn = fmt.Sprintf("orbit: can't load export data: %s; using Expr fallbacks", firstLine(err.Error()))
@@ -248,6 +263,91 @@ func (s *tyState) load(ctx context.Context, loader ExportLoader) {
 	for _, p := range paths {
 		s.imp.Import(p)
 	}
+}
+
+// tyPreload is a load started ahead of a Check or Update (Checker.Preload).
+type tyPreload struct {
+	fset   *gotoken.FileSet
+	paths  map[string]bool
+	cancel context.CancelFunc
+	done   chan struct{}
+	// imp and err are the loader's result, set before done is closed.
+	imp types.Importer
+	err error
+}
+
+// preload is Checker.Preload.
+func (c *Checker) preload(paths []string) {
+	c.takePreload().drop()
+	if len(paths) == 0 {
+		return
+	}
+	fset := gotoken.NewFileSet()
+	if c.state != nil {
+		fset = c.state.fset // for an Update; a Check takes it over
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	pre := &tyPreload{fset: fset, paths: make(map[string]bool, len(paths)), cancel: cancel, done: make(chan struct{})}
+	for _, p := range paths {
+		pre.paths[p] = true
+	}
+	sorted := slices.Sorted(maps.Keys(pre.paths))
+	loader := c.loader
+	go func() {
+		defer close(pre.done)
+		pre.imp, pre.err = loader.Load(ctx, fset, sorted)
+	}()
+	c.pre = pre
+}
+
+// takePreload returns the pending preload, if any, and forgets it.
+func (c *Checker) takePreload() *tyPreload {
+	pre := c.pre
+	c.pre = nil
+	return pre
+}
+
+// covers reports whether pre (possibly nil) loaded into fset every path of
+// paths.
+func (pre *tyPreload) covers(fset *gotoken.FileSet, paths []string) bool {
+	if pre == nil || pre.fset != fset {
+		return false
+	}
+	for _, p := range paths {
+		if !pre.paths[p] {
+			return false
+		}
+	}
+	return true
+}
+
+// wait returns pre's result, or ctx's error (dropping pre) if ctx is done
+// first.
+func (pre *tyPreload) wait(ctx context.Context) (types.Importer, error) {
+	select {
+	case <-pre.done:
+		pre.cancel()
+		return pre.imp, pre.err
+	case <-ctx.Done():
+		pre.drop()
+		return nil, ctx.Err()
+	}
+}
+
+// drop cancels pre (possibly nil) and forgets its result. The load's
+// goroutine ends on its own: go list is killed by the cancellation.
+func (pre *tyPreload) drop() {
+	if pre != nil {
+		pre.cancel()
+	}
+}
+
+// loadedPaths is Checker.LoadedPaths.
+func (c *Checker) loadedPaths() []string {
+	if c.state == nil || c.state.loaded == nil {
+		return nil
+	}
+	return slices.Sorted(maps.Keys(c.state.loaded))
 }
 
 type failImporter struct{ err error }
@@ -494,12 +594,16 @@ func (s *tyState) warnings() []string {
 // check is Checker.Check.
 func (c *Checker) check(ctx context.Context, units []Unit) (*CheckResult, error) {
 	s := newTyState()
+	pre := c.takePreload()
+	if pre != nil {
+		s.fset = pre.fset // its load records positions there
+	}
 	c.state = s
 	tus := s.parseAll(units)
 	for _, tu := range tus {
 		s.units[tu.path] = tu
 	}
-	s.load(ctx, c.loader)
+	s.load(ctx, c.loader, pre)
 	s.resetDecls(nil)
 	if err := s.checkUnits(ctx, tus, c.gen()); err != nil {
 		return nil, err
@@ -572,12 +676,14 @@ func (c *Checker) update(ctx context.Context, changed []Unit, removed []string) 
 		changedSet[tu.path] = true
 	}
 	var order []*tyUnit
+	pre := c.takePreload()
 	if s.needsLoad() {
 		// Invalidated, or a new import: reload and re-check everything.
-		s.load(ctx, c.loader)
+		s.load(ctx, c.loader, pre)
 		s.resetDecls(nil)
 		order = s.orderUnits(tus, nil)
 	} else {
+		pre.drop()
 		// Dependents: decls importing a dirty decl, transitively.
 		for grew := true; grew; {
 			grew = false

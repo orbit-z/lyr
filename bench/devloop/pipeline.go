@@ -62,6 +62,8 @@ type pipeline struct {
 	// dev, with -dev, is internal/dev's pipeline: step runs it instead of
 	// the prototype stages below.
 	dev *dev.Pipeline
+	// proj is the project of the last front, for project.Reload.
+	proj *project.Project
 }
 
 func newPipeline(root, binDir, ldflags string) *pipeline {
@@ -115,18 +117,36 @@ type stepOpts struct {
 	invalidate bool // a user .go file changed: reload export data
 	fresh      bool // also time a fresh Checker (go list + full check)
 	verify     string
-	// paths are the files the edit wrote, for -dev (internal/dev's
+	// paths are the files the edit wrote: front passes them to
+	// project.Reload, and -dev to internal/dev (whose
 	// classifier decides from them).
 	paths []string
 }
 
-// front loads the project and runs pass 1.
-func (pl *pipeline) front() (*project.Project, error) {
-	p, err := project.Load(pl.root)
+// fullFront (-fullfront) makes front Load and Front the whole project on
+// every edit, as before project.Reload.
+var fullFront bool
+
+// noPreload (-nopreload) makes a Go edit run go list -export in the check
+// stage, as before Checker.Preload, instead of from the start of the step.
+var noPreload bool
+
+// front brings the project up to date after the edit of paths and runs
+// pass 1: project.Reload of the last project, which re-reads and re-parses
+// only the changed files (Load and Front the first time, or with
+// -fullfront).
+func (pl *pipeline) front(paths []string) (*project.Project, error) {
+	prev := pl.proj
+	if fullFront {
+		prev = nil
+	}
+	p, hasErrors, err := project.Reload(prev, pl.root, paths)
 	if err != nil {
+		pl.proj = nil
 		return nil, err
 	}
-	if p.Front() {
+	pl.proj = p
+	if hasErrors {
 		return nil, diagErr(p.Diagnostics)
 	}
 	return p, nil
@@ -147,7 +167,16 @@ func (pl *pipeline) step(ctx context.Context, o stepOpts) (sample, error) {
 	}
 	var s sample
 	mark := time.Now()
-	p, err := pl.front()
+	if o.invalidate && len(pl.prev) > 0 {
+		// As internal/dev does (project.Incremental.Invalidate): drop the
+		// export data, and start go list -export again now, over the last
+		// load's packages, so that it runs during the front and esbuild.
+		pl.checker.Invalidate()
+		if !noPreload {
+			pl.checker.Preload(pl.checker.LoadedPaths())
+		}
+	}
+	p, err := pl.front(o.paths)
 	if err != nil {
 		return s, err
 	}
@@ -170,7 +199,7 @@ func (pl *pipeline) step(ctx context.Context, o stepOpts) (sample, error) {
 	}
 
 	mark = time.Now()
-	n, err := pl.check(ctx, p, o.invalidate)
+	n, err := pl.check(ctx, p)
 	if err != nil {
 		return s, err
 	}
@@ -238,15 +267,12 @@ func (pl *pipeline) step(ctx context.Context, o stepOpts) (sample, error) {
 // check runs the resident checker: Check the first time, then Update with
 // the units whose pass-1 output changed. Files it doesn't re-check keep
 // their previous output. It returns the number of units re-checked.
-func (pl *pipeline) check(ctx context.Context, p *project.Project, invalidate bool) (int, error) {
+func (pl *pipeline) check(ctx context.Context, p *project.Project) (int, error) {
 	var res *compiler.CheckResult
 	var err error
 	if len(pl.prev) == 0 {
 		res, err = pl.checker.Check(ctx, p.Units())
 	} else {
-		if invalidate {
-			pl.checker.Invalidate()
-		}
 		var changed []compiler.Unit
 		seen := map[string]bool{}
 		for _, f := range p.Files {
