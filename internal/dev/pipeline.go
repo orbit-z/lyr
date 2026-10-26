@@ -56,6 +56,11 @@ type pipeline struct {
 	failed bool
 	// entry is the server entry package of the last load.
 	entry string
+	// proj is the project of the last front, which project.Reload updates
+	// with each change's paths; nil before the first front and after a
+	// failed load or a run cut short before its front (the next run then
+	// loads the whole project).
+	proj *project.Project
 	// slot alternates the binary's name, so go build never writes over
 	// the running server's binary.
 	slot int
@@ -151,8 +156,15 @@ type earlyBuild struct {
 // cancellation.
 func (pl *pipeline) run(ctx context.Context, c Change, appRunning bool) (out outcome, err error) {
 	t := &out.Timings
+	fronted := false
 	defer func() {
 		pl.failed = err != nil || out.Failure != nil
+		// Every changed path must reach project.Reload once: a run that
+		// returns before its front drops the project, so the next run
+		// loads everything.
+		if !fronted && err != nil {
+			pl.proj = nil
+		}
 	}()
 	full := pl.failed || pl.lastInput == nil
 	if !full && c.Only(KindPublic) {
@@ -199,15 +211,17 @@ func (pl *pipeline) run(ctx context.Context, c Change, appRunning bool) (out out
 
 	pl.tr("front")
 	mark := time.Now()
-	p, err := project.Load(pl.root)
+	p, hasErrors, err := project.Reload(pl.proj, pl.root, c.Paths)
+	fronted = true
 	if err != nil {
 		// No go.mod, an invalid orbit.json, no src/: shown like a compile
 		// error until it's fixed.
+		pl.proj = nil
 		out.Failure = compileFailure(err.Error())
 		return out, nil
 	}
+	pl.proj = p
 	pl.entry = p.ServerEntry
-	hasErrors := p.Front()
 	t.Front = time.Since(mark)
 	if f := diagFailure(p.Diagnostics, &out); f != nil || hasErrors {
 		out.Failure = f
