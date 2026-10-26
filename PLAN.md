@@ -601,7 +601,7 @@ and `Defer` (§4) writes:
 - The wrapper is always emitted for a lazy directive, even on a page where the component's scripts end up eager (eager wins, §5). The loader ignores IDs that aren't in the page's lazy map.
 
 ### 3.5 Direct calls in production builds
-**Status: Proposed, (Q) points open** (user decision 2026-10-26: `orbit build` calls components directly where the import graph allows it, `orbit dev` keeps the hooks; this section is the spec, with a throwaway prototype's numbers).
+**Status: Accepted** (2026-10-26; user decision: `orbit build` calls components directly where the import graph allows it, `orbit dev` keeps the hooks). The user chose the recommended answer to every (Q) point: (Q1) the build flavor reaches `go build` through `-overlay` from `.orbit/build/`, `orbit_gen/` unchanged; (Q2) `<Self>` is a direct self-call; (Q3) tests and benchmarks measure it with `go test -overlay=.orbit/build/overlay.json`; (Q4) no depth cap.
 
 **Why**: every component call goes through the callee's declaration-package hook (§3.1). Go's escape analysis can't see through an indirect call, so slot content that captures parent variables (`<Card>{p.Title}</Card>` in a loop) heap-allocates one closure per slot, which is almost all of a typical page's allocations (§4b). A direct call to the callee's implementation lets the compiler use the callee's escape summary (exported in its export data), and the closures stay on the stack. In dev, direct calls would make a component body edit recompile every component that imports it (a layout edit: every page; cmd/go recompiles direct importers of a changed package, §7), so `orbit dev` keeps the hooks and its ~0.2 s save loop.
 
