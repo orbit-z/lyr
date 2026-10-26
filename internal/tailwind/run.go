@@ -262,6 +262,13 @@ func (p *Processor) run(ctx context.Context, e *entry) {
 	cmd := exec.CommandContext(ctx, cli.Bin, args...)
 	cmd.Dir = e.in.Dir
 	cmd.Env = append(os.Environ(), "NO_COLOR=1", "FORCE_COLOR=0")
+	// The standalone CLI (a Bun executable) extracts its native addon to
+	// $TMPDIR under a fixed name, and concurrent runs race on that file
+	// ("cannot open shared object file"): each run gets its own TMPDIR.
+	if tmp, err := os.MkdirTemp("", "orbit-tailwind-"); err == nil {
+		defer os.RemoveAll(tmp)
+		cmd.Env = append(cmd.Env, "TMPDIR="+tmp, "TMP="+tmp, "TEMP="+tmp)
+	}
 	cmd.Stdin = strings.NewReader(e.in.Text)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr

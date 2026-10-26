@@ -20,6 +20,7 @@ import (
 	"github.com/orbit-z/orbit/internal/build"
 	"github.com/orbit-z/orbit/internal/compiler"
 	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/orbit/internal/tailwind"
 )
 
 // Dev output directories, relative to the module root.
@@ -43,6 +44,10 @@ type pipeline struct {
 	buildFlags []string
 	bundler    assets.Bundler
 	inc        *project.Incremental
+	// tw is the bundler's Tailwind processor, gate its token gate (made
+	// once the project has a Tailwind input; PLAN.md §5d).
+	tw   *tailwind.Processor
+	gate *tailwind.Gate
 
 	// The last good bundle input and its key; nil before the first bundle.
 	lastInput *assets.Input
@@ -82,13 +87,15 @@ func newPipeline(root string, env []string, goflags string) *pipeline {
 	// Like go build, go list compiles without the user's GOGC/GOMEMLIMIT:
 	// cmd/compile tunes its heap only when both are empty (goBuildEnv).
 	loader := &compiler.GoListLoader{Dir: root, Env: slices.Concat(env, []string{"GOGC=", "GOMEMLIMIT="}), BuildFlags: flags}
+	tw := tailwind.NewProcessor(root)
 	pl := &pipeline{
 		root:       root,
 		env:        env,
 		ldflags:    build.MergeLDFlags(goflags, devLDFlags),
 		buildFlags: flags,
-		bundler:    assets.New(assets.Options{Root: root, Dev: true}),
+		bundler:    assets.New(assets.Options{Root: root, Dev: true, Tailwind: tw}),
 		inc:        project.NewIncremental(compiler.NewChecker(loader)),
+		tw:         tw,
 	}
 	pl.goBuild = pl.runGoBuild
 	return pl
@@ -169,6 +176,12 @@ func (pl *pipeline) run(ctx context.Context, c Change, appRunning bool) (out out
 		}
 	}()
 	full := pl.failed || pl.lastInput == nil
+	// Tailwind's reruns start first, in parallel with everything else
+	// (PLAN.md §5d); the run returns once they're in the bundles.
+	tw := pl.tailwindStart(ctx, c)
+	if tw != nil {
+		defer pl.tailwindFinish(tw, &out, &err)
+	}
 	if !full && c.Only(KindPublic) {
 		return out, nil
 	}
@@ -243,6 +256,7 @@ func (pl *pipeline) run(ctx context.Context, c Change, appRunning bool) (out out
 		}
 		out.Assets = true
 	}
+	pl.tailwindAfterAssets(tw, out.Assets, in, key)
 
 	if pl.goOK && appRunning && !c.Has(KindGo) && !c.Has(KindConfig) && !pl.inc.Changed(p) {
 		return out, nil // only <style>/<script> contents changed
@@ -354,6 +368,7 @@ func (pl *pipeline) bundle(in *assets.Input, key string) (*failure, error) {
 		return nil, err
 	}
 	pl.lastInput, pl.assetKey = in, key
+	pl.tailwindBundled()
 	return nil, nil
 }
 
