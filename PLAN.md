@@ -1614,6 +1614,266 @@ User answers: (Q1) **308 for every method**, today's status kept (user decision,
 - Rewriting or checking `href`s in templates. A later `orbit check` warning for literal internal links that don't follow the mode is a possible addition.
 - A per-route override.
 
+## 4f. Loading data concurrently
+**Status: Proposed** ((Q) points open). User direction (2026-10-26): "ideally we should be able to load all the data at the page level". So **page-level loading is the documented main way to fetch data**; `server:concurrent` (§3.6) stays the porting escape hatch for components that fetch their own data, Astro style; and the runtime gets **a small helper that runs several loads concurrently in a frontmatter and returns the first error**.
+
+**Why**: a frontmatter is plain Go, so concurrent loads already work today, but the pattern is 13 lines of ceremony per page, and each page gets three details slightly wrong in its own way (which error wins, whether a slow sibling is waited for after a failure, what a panic in a load does):
+```go
+rc := ctx.Request.Context()
+var (
+	book     catalog.Book
+	chapters []catalog.Chapter
+	errs     [2]error
+	wg       sync.WaitGroup
+)
+wg.Go(func() { book, errs[0] = locals.Catalog.Book(rc, params.Slug) })
+wg.Go(func() { chapters, errs[1] = locals.Catalog.Chapters(rc, params.Slug) })
+wg.Wait()
+if err := errors.Join(errs[:]...); err != nil { return err }
+```
+- `errors.Join` of a redirect and a real failure makes `renderFailed`'s `errors.As` (§4) pick the redirect; with the §4c handler, whichever typed error comes first in the join wins.
+- **A panic in a `wg.Go` goroutine crashes the whole process**: the request's recovery (`callRender`, §4) only covers the request goroutine.
+- Nothing is cancelled, so a page whose catalog call failed in 5 ms still waits for the 100 ms reader call next to it.
+- The error's position is the `return`'s line, not the load that failed.
+
+In Astro, the same page is `const [book, chapters] = await Promise.all([getBook(slug), getChapters(slug)])` in the frontmatter. `nyth` (the motivating port: ~35 catalog/reader call sites, typed errors `AccessRefused`/`CatalogUnavailable`/`ReaderBlocked` answered by the §4c hook) fetches mostly in components; this section gives it the page-level form to move to, and the locals loader below for data that several components need.
+
+#### End-to-end example (recommended shape, (Q1) b)
+`src/pages/fiction/[bookSlug].orbit`:
+```orbit
+---
+import (
+	"context"
+
+	"example.com/nyth/internal/catalog"
+	Base "../../layouts/Base.orbit"
+	ChapterList "../../components/ChapterList.orbit"
+)
+
+var (
+	book     catalog.Book
+	author   catalog.Author
+	chapters []catalog.Chapter
+)
+err := orbit.All(ctx,
+	func(rc context.Context) (err error) {
+		if book, err = locals.Catalog.Book(rc, params.BookSlug); err != nil {
+			return err
+		}
+		author, err = locals.Catalog.Author(rc, book.AuthorID) // needs the book: chained in this load
+		return err
+	},
+	func(rc context.Context) (err error) {
+		chapters, err = locals.Catalog.Chapters(rc, params.BookSlug)
+		return err
+	},
+)
+if err != nil {
+	return err // e.g. "src/pages/fiction/[bookSlug].orbit:23: catalog: unavailable"; errors.As finds *catalog.AccessRefused
+}
+---
+<Base title={book.Title}>
+  <h1>{book.Title}</h1>
+  <p>by {author.Name}</p>
+  <ChapterList chapters={chapters} />
+</Base>
+```
+Both loads start at once; the page waits about `max(book + author, chapters)`. If `Chapters` fails first, the book load's `rc` is cancelled, `orbit.All` returns once both loads have returned, and the page's `return err` hands the `Chapters` error (positioned at line 23, its load) to the 500 or the §4c handler.
+
+#### API
+```go
+// All runs each load concurrently and waits for all of them. Each load gets a
+// context derived from c.Request.Context(), cancelled when a load fails (and
+// when All returns). All returns the first error in time, or nil.
+func All(c *Ctx, loads ...func(context.Context) error) error
+```
+Rules:
+- **Starts**: every load but the first in its own goroutine, in argument order, then the first on the calling goroutine (one goroutine fewer; measured below). Zero loads return `nil`; one load runs inline, without a derived context (nothing to cancel). A `nil` `*Ctx` (a hand-built test) uses `context.Background()`. *Decided by rule* (simplest).
+- **Waits for every load**, even after an error, before returning: loads assign variables of the frontmatter, so returning early would race with the template reading them (Go stdlib: `errgroup.Wait`).
+- **No concurrency limit**: the loads are written out explicitly, unlike a marked component in a `{for}` (§3.6's cap). A dynamic slice (`orbit.All(ctx, loads...)`) is allowed; the docs say "one query beats N", and a user who needs a cap uses `errgroup.SetLimit` or batches. *Decided by rule* (simplest).
+- **Not generic, no codegen, no new `Ctx` field**: one plain function in a new runtime file (`load.go`), so pages that don't call it are unchanged and no generated package carries new type weight (§4b).
+
+#### Errors ((Q2), (Q4))
+- **Which error**: the **first in time** ((Q2) a). That's `Promise.all`'s rejection (rule 1: Astro) and `errgroup`'s. With cancellation it's also the cause: once it's recorded, the other loads see a cancelled `rc` and usually fail with `context.Canceled`, which must not win. Two genuine failures racing each other are reported in whichever order they happen (documented; the page fails either way).
+- **Position** ((Q4) a): on the error path only, the recorded error is wrapped with the **failing load's `.orbit` line** (the line of its `func` literal), found from the func value's entry PC (`runtime.FuncForPC(…).FileLine`, which follows the generated code's line directives; `relativeFile` as for panics, §4). The wrapper is the existing position error (`posError`), so the frontmatter's `return err` (wrapped at codegen by `ErrorAt`, §2.2) passes it through unchanged and the 500 log line, the dev error page and a §4c handler's `err.Error()` name the load, e.g. `src/pages/fiction/[bookSlug].orbit:23: catalog: unavailable`. `file:line` without a column, like panic positions. Measured: verified with `//line` directives in the prototype; the success path doesn't pay anything.
+- **Error identity**: `posError` keeps `Unwrap`, so `errors.Is`/`errors.As` (the §4c hook's `*catalog.AccessRefused`, `catalog.ErrUnavailable`) see through it. A load that returns an error already carrying a position is recorded as is.
+- **Control flow**: `orbit.ErrNotFound` and a `*RedirectError` from a load (`return orbit.ErrNotFound` when the book doesn't exist, `return ctx.Redirect(…)` inside a load) are recorded **unwrapped**, like `ErrorAt` does, and win by the same first-in-time rule: the page returns them and gets its 404 or redirect. A later `context.Canceled` from a sibling doesn't hide them.
+- **The returned error is just a value**: the frontmatter may handle it (`if errors.Is(err, reader.ErrBlocked) { blocked = true } else if err != nil { return err }`) and render a partial page. Variables of loads that failed or were cancelled hold whatever their load assigned (usually zero values). Documented.
+
+#### Cancellation ((Q3))
+Each `All` derives `rc, cancel := context.WithCancel(c.Request.Context())`, passes `rc` to every load, cancels it at the first error and always before returning (as `errgroup.WithContext` does). Recommendation: **yes, cancel** ((Q3) a).
+- **Benefit**: measured, a load failing after 5 ms next to a 100 ms load that honors its context returns in **5.2 ms** instead of **100.3 ms**. `database/sql`, `net/http` clients and gRPC all honor contexts, so a 503 for `CatalogUnavailable` isn't held back by the slowest sibling.
+- **Cost**: 2 allocations and about 190 ns per `All` call (measured below), only on pages that call it; nothing per load.
+- **Why it's fine here when `server:concurrent` declined it** (§3.6 Q4): there, cancellation had to be bolted on by deriving a new request context mid-render, and it made the reported error (in output order) nondeterministic. Here every load receives its context as a parameter (the natural Go place for it), the reported error is the first in time by definition, and cancellation can only follow it. Loads that ignore `rc` (using `ctx.Request.Context()` instead) just aren't cancelled.
+- **`rc` is cancelled when `All` returns**: a load must not start background work with it that outlives the call. Documented.
+- **Naming**: the parameter is `rc` in the docs. Naming it `ctx` is allowed (shadowing in a nested block, §2.2) but hides Orbit's `ctx` inside the load, so `ctx.Param` there is a compile error; the docs mention it.
+
+#### Panics ((Q5))
+A panic in a load is recovered **in that load's goroutine** (otherwise it would crash the process), with the innermost `.orbit` frame of that goroutine (`orbitFrame`, §4), which is the load's own line. It cancels the others like an error, and once every load has returned, **`All` re-panics it on the calling goroutine** ((Q5) a) with the same `*panicError` value. The request's existing recovery then handles it as any frontmatter panic: the 500 and its log line, the §4c handler, the dev overlay; under `server:concurrent`, that component goroutine's recovery. Small runtime change: `callRender` (and §3.6's goroutine recovery) keeps a recovered `*panicError` as is, instead of wrapping it with the `All` call's frame. `http.ErrAbortHandler` is re-panicked as is, as `net/http` expects. Measured: the prototype's panic in a load re-panics on the caller as `…/src/pages/page.orbit:13: panic: assignment to entry in nil map` (the load's line; the prototype skips `relativeFile`).
+
+#### Dependent loads
+A load that needs another's result, for each shape:
+
+| Need | (b) `orbit.All` (recommended) | (a) group | (c) typed futures |
+|---|---|---|---|
+| A chain next to independent loads (`book` → `author`, with `chapters` alongside) | **chain inside one load** (the example above): `max(book + author, chapters)` | same | the dependent load calls `book.Get(rc)` |
+| A fan-out after one load (`book` → `author` and `reviews`) | a nested `orbit.All(ctx, …)` inside the load, after `book` | a nested group | two loads `Get` the book |
+| Stages (everything in stage 2 needs everything in stage 1) | two `orbit.All` calls in a row; costs the overlap between stages | `Wait`, then a second group | not needed |
+| A shared dependency used by several loads, or by the page **and** components | the **locals loader** below: each caller asks for `Book(slug)`, the first call runs it, the others wait for it (deduplicated by key, also across components) | same | `Get` from each load; components still need the locals loader |
+| An arbitrary DAG, every load started at once | chains + the locals loader (each shared node is a memoized key) | — | yes, directly: every load starts at once and `Get`s its inputs |
+
+- **Which error the page sees**: chained in one load, the dependency's error is that load's error. With futures, a dependent load that returns its dependency's error returns it *after* the dependency recorded it (the prototype records the group's first error before marking the future done), so the page sees the dependency's own error and position, deterministically (tested 500 times in the prototype). With the locals loader, every waiting caller gets the same error value from the memoized call; the first one recorded wins, so the position is the first load that returned it (any of them; same underlying error).
+- **`Get` inside another load (futures)**: allowed and safe (a channel close; values are written before it). **Deadlock**: a load waiting on itself or a cycle. With `:=` it can't be written (`f := orbit.Load(…, func(…) { f.Get(rc) })` is "undefined: f"); it needs futures declared with `var` first, so it's deliberate and rare. Orbit can't detect it cheaply (no goroutine identity; a wait-for graph would need every `Get` to carry its caller's load and take a lock). `Get(rc)` selects on `rc.Done()`, so a cycle is unblocked when any load fails or the client goes away (verified in the prototype: the cycle returns `context deadline exceeded` when the request context ends), but a pure cycle on a client that waits holds the request until then. Documented.
+- **The locals loader has the same self-wait risk**: a memoized load for key K that (indirectly) asks for K deadlocks in `sync.OnceValues`. Same answer: documented, not detected.
+
+**Criterion for (Q1)**: (b) covers chains, fan-outs and stages with plain Go inside the loads, and the locals loader covers the shared-dependency case that matters most in `nyth` (the book a page and its components all need). Typed futures are the only shape that expresses an arbitrary DAG with every load started at once, at the cost below; nothing in `nyth` needs that, and it can be added later on the same internals without breaking (b).
+
+#### Ctx and locals safety
+Loads run on other goroutines while the frontmatter waits in `All`, so they share the render's state:
+
+| Inside a load | Safe? |
+|---|---|
+| `rc`, `ctx.Request` (fields, headers, cookies, `Context()`), `ctx.URL`, `ctx.Site`, `ctx.Param`, `params`, `props` | yes: read-only during the render (props by reference: as safe as the reader's other goroutines) |
+| `locals` | the pointer yes (resolved at the top of the render, §5b, before any load starts); its **fields** are user data: read-only fields set by middleware are fine, fields written by loads need a `sync` type or a mutex |
+| the frontmatter's own variables | assign each from one load only, read them after `All` returns (the docs' pattern) |
+| `ctx.SetStatus`, `ctx.Header()`, `ctx.Redirect` as a call | `SetStatus`/`Header()` no: set them after `All` returns; returning `ctx.Redirect(…)` from a load is fine (it only builds the error) |
+| `orbit.RenderHTML(ctx, …)`, rendering a component | no: it swaps the `Ctx`'s current `Writer` (§4d); render after `All` |
+| `ctx.Request.Body` | read it once, before `All` |
+
+Enforcement: **docs only**, plus `go test -race` advice (Orbit's own state in `All` is synchronized and tested under `-race`). Guarding `SetStatus`/`Header()`/`RenderHTML` would add a check to every call on the unmarked path for a misuse `-race` already reports. *Decided by rule* (simplest).
+
+#### The locals loader (shared data without props drilling)
+The documented pattern for data several components need (`nyth`'s book, current reader, shelves): a per-request memoizing loader on `locals`, set by middleware. Components call it instead of receiving the data as props; the page can warm it concurrently with `orbit.All`, so components then hit the cache.
+```go
+// internal/catalog/loader.go: user code, ~20 lines
+type Loader struct {
+	ctx   context.Context // the request's, from the middleware
+	api   *Client
+	mu    sync.Mutex
+	books map[string]func() (Book, error)
+}
+
+func NewLoader(ctx context.Context, api *Client) *Loader {
+	return &Loader{ctx: ctx, api: api, books: map[string]func() (Book, error){}}
+}
+
+// Book returns the book, loading it once per request: concurrent callers wait for the first one.
+func (l *Loader) Book(slug string) (Book, error) {
+	l.mu.Lock()
+	f, ok := l.books[slug]
+	if !ok {
+		f = sync.OnceValues(func() (Book, error) { return l.api.Book(l.ctx, slug) })
+		l.books[slug] = f
+	}
+	l.mu.Unlock()
+	return f()
+}
+```
+```go
+// middleware
+r, l := orbit.EnsureLocals[locals.Locals](r)
+l.Catalog = catalog.NewLoader(r.Context(), api)
+```
+```orbit
+---
+// page: warm it
+err := orbit.All(ctx,
+	func(context.Context) error { _, err := locals.Catalog.Book(params.BookSlug); return err },
+	func(context.Context) error { _, err := locals.Catalog.Shelves(); return err },
+)
+if err != nil { return err }
+---
+```
+- **The loader uses the request's context, not the caller's**: a memoized call is shared, so one caller's cancellation (an `All` whose sibling failed) must not cache `context.Canceled` for every later caller, e.g. a page that handles `All`'s error and renders a partial page. So shared loads aren't cancelled by `All` (they still stop when the client leaves). Documented as the one rule of the pattern.
+- **Dedupe by key** across the page and all components, including `server:concurrent` ones (the mutex makes it safe) and island requests (their own request, their own loader).
+- **Errors are memoized too** (one failing backend call per request, not one per component).
+- Orbit ships no helper for it ((Q8)).
+
+#### Which tool
+| Tool | Use it when | The first byte waits? | Cost |
+|---|---|---|---|
+| **Page-level loads with `orbit.All`** (recommended) | the page knows what it needs; most pages | for the slowest load | ~0.2 µs and 2–3 allocs per load (the closure, the goroutine start, the variable it assigns), 3 per call (state, cancellation) |
+| **The locals loader** | several components (or the page and components) need the same data; no props drilling; dedupe | for the slowest load | a mutex and a map entry per key |
+| **`server:concurrent`** (§3.6) | porting components that fetch their own data (Astro style), or a component that is reused on many pages with its own data | for the slowest marked component | ~0.4 µs and 1 alloc per marked instance |
+| **`server:defer`** (§3.4) | the part can arrive after the page (below the fold, per user, slow third parties) | no | a second request, a fallback, a seal |
+
+They combine: a page can `orbit.All` its main data, warm the locals loader, and still have a `server:concurrent` sidebar and a `server:defer` recommendations block.
+
+#### (Q) points
+1. **(Q1) API shape** (each with the example's two loads; `book` etc. declared with `var` as above):
+   - (a) A group, errgroup-like:
+     ```go
+     g, rc := orbit.NewGroup(ctx)
+     g.Go(func() (err error) { book, err = locals.Catalog.Book(rc, params.BookSlug); return })
+     g.Go(func() (err error) { chapters, err = locals.Catalog.Chapters(rc, params.BookSlug); return })
+     if err := g.Wait(); err != nil { return err }
+     ```
+     Familiar to Go developers, natural for conditional loads (`if user != nil { g.Go(…) }`) and loops. But **forgetting `g.Wait()`** compiles and renders the template while loads still write its variables (a data race `go vet` doesn't see), and it's one more allocated object. Same cost as (b) otherwise.
+   - (b) **`orbit.All(ctx, loads...)`** (recommended): one statement that can't be left unwaited, reads like `Promise.all` (rule 1: feels like Astro), same errors, cancellation and panics as (a). Conditional loads go inside the load (`if user == nil { return nil }`), a dynamic list is a slice. Dependencies: see the table above (chains, nested `All`, stages, the locals loader).
+   - (c) Typed futures with generics:
+     ```go
+     g := orbit.NewGroup(ctx)
+     book := orbit.Load(g, func(rc context.Context) (catalog.Book, error) { return locals.Catalog.Book(rc, params.BookSlug) })
+     chapters := orbit.Load(g, func(rc context.Context) ([]catalog.Chapter, error) { return locals.Catalog.Chapters(rc, params.BookSlug) })
+     if err := g.Wait(); err != nil { return err }
+     // template: book.Value().Title, chapters.Value()
+     ```
+     No outer variables, and the only shape for an arbitrary DAG (a load calls `book.Get(rc)`). But each func literal repeats its result type, the template reads `.Value()`, a forgotten `Wait` reads zero values, cycles are possible (above), and each load allocates a future and a channel (+0.4 KB for 3 loads). **Compile cost** (§4b): `Load[T]` and `Future[T]` are instantiated per distinct `T` in each generated package: measured, a package with 3 loads went from **35.6 KB to 134.9 KB** of export/object data (~33 KB per instantiated type; `string`, a struct and a slice), with the package's `go build` time within noise (20–24 ms vs 23 ms, dominated by the `go` command). At 200 pages that's megabytes more build-cache and link input for `orbit build`, and per-edit work in `orbit dev` stays per package. Arity variants taking method values (`orbit.Load1(g, locals.Catalog.Book, params.BookSlug)`) would be shorter but multiply the API.
+   - (d) Docs only: the WaitGroup pattern, or `golang.org/x/sync/errgroup` in the user's own module (fine for users: the stdlib-only rule is about Orbit's runtime; `errgroup` would be a new runtime dependency, which §10 doesn't allow, so Orbit can't ship it). Zero API, but the panic-crashes-the-process trap, no load positions, and the usual `g, ctx := errgroup.WithContext(…)` shadows Orbit's `ctx`.
+2. **(Q2) Which error**: (a) **first in time** (recommended: `Promise.all`, errgroup; with cancellation, the cause); (b) first in argument order (deterministic when loads ignore `rc`, but with cancellation an earlier load can fail with `context.Canceled` *because* of a later one, so it needs filtering of Orbit-caused cancellations, as §3.6 Q4 b; and it waits for every load before choosing even without cancellation); (c) `errors.Join` (rejected above: a redirect hides a failure in `renderFailed`, and the §4c hook's `errors.As` matches whichever typed error comes first).
+3. **(Q3) Cancellation**: (a) **a derived, cancellable context per `All`, passed to each load** (recommended, above: 5 ms vs 100 ms on failure, 2 allocs and ~190 ns per call); (b) none, loads use `ctx.Request.Context()` (the funcs would be `func() error`, 2 allocs fewer; a failing page waits for its slowest load, like §3.6).
+4. **(Q4) Error position**: (a) **the failing load's line** (recommended: free on success, ~0.6 µs on the error path, names the call that failed); (b) the `return err`'s line only, as for any frontmatter error (simplest; the error text usually names the operation anyway).
+5. **(Q5) Panics**: (a) **recovered in the load, re-panicked on the calling goroutine after every load returned, keeping the load's position** (recommended: a panic stays a panic, so a frontmatter that handles `All`'s error to render a partial page can't swallow a nil-pointer bug; the outcome at the site level is the same 500/handler/overlay); (b) returned as `All`'s error (simpler; but it can be handled like a data error, and `errors.Is` checks in the frontmatter see it).
+6. **(Q6) Name**: (a) **`orbit.All`** (recommended: `Promise.all`; short; reads well as `err := orbit.All(ctx, …)`); (b) `orbit.LoadAll` (says what it's for, longer); (c) `orbit.Concurrently`. Not `orbit.Parallel`: it's §3.6's generated-code function.
+7. **(Q7) First argument**: (a) **`*orbit.Ctx`** (recommended: what a frontmatter has; the request context is derived inside); (b) `context.Context` (usable outside frontmatters, but every page writes `ctx.Request.Context()`, and custom handlers have errgroup).
+8. **(Q8) A memoizing helper in the runtime** (`orbit.Memo[K, V]` for the locals loader): (a) **no, a documented pattern** (recommended: ~20 lines of user code; the context rule and the key type are app decisions; a generic runtime type would be re-instantiated per package that mentions it, §4b); (b) yes, a small generic type.
+
+*Decided by rule* (to log in `docs/DECISIONS.md`): first load inline, zero/one load cases and the nil `Ctx` (simplest); wait for every load after an error (Go stdlib: errgroup); no concurrency limit (simplest); control-flow errors unwrapped (consistent with `ErrorAt`); `http.ErrAbortHandler` re-panicked as is (net/http); safety by docs only (simplest).
+
+#### Cost (prototype `scratchpad/load-proto/`: `All` with and without a derived context, typed futures, a page file with `//line` directives for positions and panics; 3 trivial loads with no I/O, `b.Loop()`, 5 runs, medians; Ryzen 7 9700X, 16 threads, Go 1.27.3, load average 3–33 on a shared machine; all prototype tests pass under `-race`)
+
+| Benchmark | `-cpu 1` | 16 threads | allocs | B |
+|---|---|---|---|---|
+| 3 sequential calls (no concurrency) | 7.5 ns | 8.0 ns | 0 | 0 |
+| hand-written `WaitGroup` + `errors.Join` (above) | 621 ns | 572 ns | 11 | 416 |
+| `errgroup.WithContext` (x/sync v0.24.0) | 762 ns | 747 ns | 13 | 456 |
+| **(b) `orbit.All`, cancellable** | **675 ns** | **685 ns** | **12** | **464** |
+| (b) `orbit.All`, no derived context ((Q3) b) | 484 ns | 470 ns | 10 | 368 |
+| (b) `orbit.All`, every load in a goroutine (no inline first) | 722 ns | 759 ns | 13 | 512 |
+| (b) 2 loads, `book` → `author` chained in one | 500 ns | 490 ns | 9 | 384 |
+| (c) typed futures, 3 loads | 792 ns | 831 ns | 12 | 864 |
+| (c) typed futures, `author` `Get`s `book` | 1.07 µs | 1.13 µs | 15 | 1000 |
+| (b) error path: 2 loads, one fails (position lookup included) | 582 ns | 591 ns | 6 | 384 |
+
+- So the helper costs about what the hand-written pattern costs (+55 ns, +1 alloc for 3 loads, with cancellation; −140 ns and −1 alloc without it), a few hundred nanoseconds against the milliseconds it hides. Of the 12 allocations, 3 are the frontmatter variables the closures assign (they escape, in any closure pattern), 3 the closures, 2 the goroutine starts, 1 the shared state, 2 the derived context.
+- **Latency** (loads sleeping 10 ms, best of 10): 1/2/3 loads take 10.1/20.3/30.5 ms sequentially and **10.2/10.2/10.2 ms** with `All`; a `book` → `author` chain (10 + 10 ms) next to `chapters` (10 ms) takes 20.4 ms.
+- **Unused, it costs nothing**: no codegen, no `Ctx` or `Writer` field, no change to the SSR path; `TestRenderAllocs`/`TestServeAllocs` unchanged. Not generic, so no per-package instantiation (the futures' 35.6 → 134.9 KB above doesn't apply). No dev-loop, build or LSP change.
+
+#### Tests (what must exist)
+- **Runtime** (`load_test.go`, also under `-race`): every load runs and `All` waits for all, after an error too (a slow load still finishes before `All` returns); first error in time (a later-in-order load failing first wins); cancellation reaches the other loads' `rc` (the fail-fast latency bound) and `rc` is cancelled after `All` returns; `ErrNotFound` and `*RedirectError` returned unwrapped and winning over a later `context.Canceled`; positions on the error path (a page file with line directives: the failing load's line, `errors.As`/`errors.Is` through the wrapper, an already-positioned error kept); a panic in a goroutine load and in the inline first load re-panicked on the caller with the load's position, the others waited for; `http.ErrAbortHandler`; zero and one load; a nil `*Ctx`; the latency test (3 × 10 ms loads well under 2 × 10 ms).
+- **Through a site**: a page whose load returns a typed error reaches the §4c handler with the load's position in `err.Error()`; a load returning `ErrNotFound` gives the 404 page, `ctx.Redirect` the redirect; a load panic gives the 500 with the load's line in the log line (not the `All` line); the same inside a `server:concurrent` component.
+- **Allocations**: `TestRenderAllocs`/`TestServeAllocs` unchanged; an `AllocsPerRun` bound for `All` with 3 trivial loads (so a regression shows).
+- **Integration**: an `examples/blog` (or orbittest fixture) page using `orbit.All`, rendered with `orbittest.Get`.
+- `go build ./... && go vet ./... && go test ./...` and `go test -race ./...`.
+
+#### User-docs changes (with the implementation)
+- **New `data-loading.md`** ("Loading data"), linked from the docs nav right after `rendering.md`, making page-level loading the primary pattern: fetch in the page's frontmatter, pass data down as props; `orbit.All` with the example above; dependent loads (chains, nested `All`, stages); errors (first in time, the load's position, typed errors and the §4c hook, `ErrNotFound`/redirect from a load, handling the error for a partial page); cancellation and `rc`; panics; the safety table; the locals loader with its context rule; the "which tool" table; "one query beats N loads"; `go test -race`.
+- `rendering.md`: the "Slow components" section (§3.6's docs) points at `data-loading.md` first, then `server:concurrent`/`server:defer`; its "fetching in the page with Go's own concurrency (errgroup-style)" line becomes `orbit.All`.
+- `components.md`: data fetching in components (§3.6's note) leads with "prefer loading in the page or through the locals loader".
+- `middleware.md`: setting up the locals loader (`catalog.NewLoader(r.Context(), api)`).
+- `coming-from-astro.md`: `const [a, b] = await Promise.all([…])` in the frontmatter → `orbit.All(ctx, …)`; `await` in a component → load in the page, the locals loader, or `server:concurrent` when porting as is.
+- `lazy-loading.md` and `performance.md`: the "which tool" table (or a link to it) and the cost row.
+- `reference/runtime-api.md`: `All`.
+- `troubleshooting.md`: a data race reported by `-race` in a load; a request that hangs on a self-waiting memoized load.
+- `DECISIONS.md`: the decided-by-rule items above.
+
+#### Out of scope
+- Typed futures and a group type ((Q1) a, c), until a real page needs an arbitrary DAG; both can sit on the same internals later without breaking `All`.
+- A concurrency limit, a timeout option (`context.WithTimeout` inside the load does it), and a memoizing helper in the runtime ((Q8)).
+- Enforcing the safety rules at runtime.
+- Making unmarked components concurrent, or hoisting component fetches into the page automatically (§3.6 rejected automatic concurrency).
+- Streaming or early flushes (responses stay buffered, §4).
+
 ## 5. Assets (scripts and styles)
 - **Scope ID**: `o-` + the first 8 hex chars of sha256 of the file's project-relative path with `/` separators (`src/components/Card.orbit`), so IDs are the same on every OS. It's added as an attribute to every HTML element in the template, but only when the component has a scoped `<style>`.
 - **Scoped CSS**: parse with `tdewolff/parse/v2/css`. Add the attribute selector `[data-o-xxxx]` to the last compound of each selector (Astro's default `scopedStyleStrategy: "attribute"`, user decision at the dogfood checkpoint): +1 attribute specificity, so scoped rules beat global rules with the same selector whatever the bundle order. Within the compound it goes before the first pseudo-class or pseudo-element (`a:hover` → `a[data-o-…]:hover`), as in Astro.
@@ -3078,6 +3338,7 @@ Dependencies:
 - The `base` config option
 - **`trailingSlash` option** (user decision, 2026-10-26, prompted by porting `nyth`, an Astro site with `trailingSlash: "always"`): `orbit.json` `"trailingSlash": "never"` (default, today's behavior, §4) or `"always"` (`/x` gets a 308 to `/x/`, query kept; `/` unchanged; files and paths with a file extension never redirected); no `"ignore"` mode (two URLs per page). Reaches the router, generated URLs (`.md` `Post.URL`, rewritten `.md` links), dev and docs. Spec: §4e. **Implemented** (308 for every method, user decision; `orbit.WithTrailingSlash` passed by `app.New()` before the caller's options).
 - **From the `nyth` assessment** (user decisions 2026-10-26; specs first, (Q) points open): pass-through attributes (§2.5, an `orbit.RestAttrs` field collects a call site's undeclared attributes, spread with `{...props.Attrs}`), an error → response hook (§4c, `orbit.WithErrorHandler`, before the built-in 500), and rendering a slot to a string (§4d, `orbit.RenderHTML(ctx, slots.Default)`, for fragment caches).
+- **Loading data concurrently** (user direction 2026-10-26, from the `nyth` assessment: "load all the data at the page level"): page-level loading becomes the documented main pattern, with a runtime helper `orbit.All(ctx, loads...)` (first error in time, a cancellable context per call, the failing load's position, panics re-panicked on the caller) and a documented per-request memoizing loader in `locals`; `server:concurrent` (§3.6) stays the porting escape hatch. Specified in §4f (proposed, (Q) points open).
 - SSR response caching
 - The docs dogfood site (`docs/site/`, docs built with Orbit)
 - **Typed form actions** (user idea, like Astro Actions): a typed, validated handler for a form or `fetch` call, declared next to the page or in `src/actions`, with an input struct decoded and validated (a Zod-like Go validator such as Zog, or struct tags, chosen then; ask before adding a dependency), errors returned to the page, and progressive enhancement without JS. Until then, users write a plain handler in `cmd/server` and render the response with `orbit.RenderComponent`.
