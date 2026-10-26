@@ -1497,7 +1497,7 @@ A call site: `<Cacher key={ui.CardKey(book)} ttl={6 * time.Hour} store="cards"><
 - Streaming or partial flushes (responses stay buffered).
 
 ## 4e. Trailing slashes
-**Status: Proposed, (Q) points open** (2026-10-26). The user decided the option (§12 "`trailingSlash` option", prompted by porting `nyth`, an Astro site with `trailingSlash: "always"`); this section specifies it.
+**Status: Accepted** (2026-10-26). User answers: (Q1) **308 for every method**, today's status kept (user decision, not the recommended 301 for GET/HEAD; differs from Astro's 301 for GET); (Q2) an exported `orbit.WithTrailingSlash(orbit.TrailingSlashNever|TrailingSlashAlways)` option, passed by `app.New()` before the caller's options (recommended). The user decided the option (§12 "`trailingSlash` option", prompted by porting `nyth`, an Astro site with `trailingSlash: "always"`); this section specifies it.
 
 **Goal**: `orbit.json` `"trailingSlash": "never"` (default, today's behavior, §4) or `"always"`. Each page has exactly one canonical URL, and the other form gets a permanent redirect to it. There's no `"ignore"` mode (two URLs per page, user decision), so Astro's own default has no equivalent: an Astro site on `"ignore"` picks one of the two when it moves.
 
@@ -1531,7 +1531,7 @@ A call site: `<Cacher key={ui.CardKey(book)} ttl={6 * time.Hour} store="cards"><
    - **Only when the other form matches a page route**; otherwise the request goes to `next` untouched (§4, decided by rule). This differs from Astro's unconditional redirect so that Orbit-first setups keep user routes like `/api/items` and `/api/items/`. To document: in `always` with Orbit first, a mux route `/api/items` is redirected only if `/api/items/` is a page (e.g. under a root `[...rest]` page), as `/api/items/` is in `never` today.
    - **Never redirected**: `/`; paths under `/_orbit/` (assets and island URLs, which §5b's steps 1–2 handle before the router anyway); `public/` files (step 2, GET/HEAD); paths starting with `//` (never a protocol-relative `Location`). These are Orbit's counterparts of Astro's internal paths: Orbit has no Vite `/@…` paths, and `_` files aren't routes (§4), so Astro's `/_`, `/@` and `/.` prefixes would only change today's behavior for param routes (decided by rule: Astro, mapped to Orbit's internal prefix).
    - `Location` is the new escaped path, plus `?` + `RawQuery` when there is a query (`/search?q=go` → `/search/?q=go`); the fragment never reaches the server. Empty body, as today.
-   - **Status: (Q1).**
+   - **Status: 308 for every method** ((Q1), user decision: today's status, unchanged in `never`).
    - Same in dev and prod (the §4 user decision). Astro's dev 404 hint page isn't copied: one behavior, and the redirect is what production does.
    - Duplicate trailing slashes (`/x//`) aren't collapsed: no form of them matches, so they reach `next` (a 404), as today (decided by rule: simplest; Astro collapses them only within its unconditional redirect, which Orbit doesn't have).
 6. **Where the mode reaches**:
