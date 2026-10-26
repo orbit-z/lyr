@@ -71,6 +71,18 @@ func highlight(b *strings.Builder, lang, code string) bool {
 	return true
 }
 
+// Highlight returns code as HTML spans with Chroma's token classes (styled
+// by HighlightCSS) for a fenced block's language, "orbit" included; ok is
+// false when the language is unknown. Orbit's docs site (docs/site) uses it
+// in its own Markdown renderer.
+func Highlight(lang, code string) (html string, ok bool) {
+	var b strings.Builder
+	if !highlight(&b, lang, code) {
+		return "", false
+	}
+	return b.String(), true
+}
+
 // tokenClass is Chroma's CSS class for a token type: its own, or its
 // nearest ancestor's ("" for plain text), as Chroma's HTML formatter picks
 // it.
