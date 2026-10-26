@@ -550,10 +550,10 @@ func (s *tyState) checkUnit(u *tyUnit, generate func(*Input) *Output) TypedUnit 
 	if n > 0 {
 		return fallback
 	}
-	writes := siteWrites(s.fset, u.implFile, u.unit.Pass1.CallSites, info, env)
+	writes, cds := siteWrites(s.fset, u.implFile, u.unit.Pass1.CallSites, info, env)
 	ts, jds := s.bridgeTypes(u, info, env)
 	res := TypedUnit{Output: u.unit.Pass1, Writes: writes, Checked: true, Types: ts,
-		Diagnostics: append(checkDeferProps(s.fset, u.implFile, u.unit.Pass1.DeferSites, info), jds...)}
+		Diagnostics: append(append(checkDeferProps(s.fset, u.implFile, u.unit.Pass1.DeferSites, info), jds...), cds...)}
 	if len(writes) > 0 {
 		in := *u.unit.Input
 		in.Typed = writes
@@ -563,8 +563,10 @@ func (s *tyState) checkUnit(u *tyUnit, generate func(*Input) *Output) TypedUnit 
 }
 
 // siteWrites finds each call site's write call in the impl file by its Go
-// offset and classifies its last argument (the expression).
-func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *types.Info, env *tyEnv) TypedWrites {
+// offset and classifies its last argument (the expression). The
+// diagnostics are the class:list items of a wrong type.
+func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *types.Info, env *tyEnv) (TypedWrites, []Diagnostic) {
+	var diags []Diagnostic
 	byStart := make(map[int]*CallSite, len(sites))
 	for i := range sites {
 		byStart[sites[i].Call.Start] = &sites[i]
@@ -585,9 +587,20 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 			return true
 		}
 		var w TypedWrite
-		if site.Kind == SiteAttr {
+		switch site.Kind {
+		case SiteAttr:
 			w = env.classifyAttr(tv, site.URLAttr)
-		} else {
+		case SiteClass, SiteClassProp:
+			var ok bool
+			if w, ok = classifyClass(tv); !ok {
+				t := tv.Type // as written (any, not interface{}), unless untyped
+				if isUntyped(t) {
+					t, _, _ = tyStatic(tv)
+				}
+				merged := site.Attr != nil && !site.Attr.Code.Contains(site.Code.Start)
+				diags = append(diags, Diagnostic{SeverityError, site.Code.Span, classTypeError(t, merged)})
+			}
+		default:
 			w = env.classify(tv)
 		}
 		if w.Kind != WriteFallback {
@@ -595,7 +608,7 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 		}
 		return true
 	})
-	return writes
+	return writes, diags
 }
 
 // warnings collects the load and export-data warnings.

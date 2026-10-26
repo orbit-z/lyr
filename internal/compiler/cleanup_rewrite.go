@@ -207,6 +207,8 @@ func cleanGoOutput(out []byte, names *ErrorNames) []byte {
 		// A frontmatter return's result is the argument of the generated
 		// ErrorAt wrapper: say what the user wrote.
 		line = strings.ReplaceAll(line, " in argument to "+NameRuntime+".ErrorAt", " in return statement")
+		// A component's keyed class:list item: "c": cond.
+		line = strings.ReplaceAll(line, " in argument to "+NameRuntime+".ClassIf", " in class:list condition")
 		if cur != nil {
 			line = rewriteNames(line, cur)
 		}

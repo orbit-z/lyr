@@ -97,11 +97,17 @@ const (
 	SiteContent SiteKind = iota
 	// SiteAttr is a={expr} or {a} on an HTML element: orbit__w.Attr("a", x).
 	SiteAttr
+	// SiteClass is a dynamic class:list item on an HTML element (or the
+	// value of a class={expr} merged into it): orbit__w.ClassAny(x).
+	SiteClass
+	// SiteClassProp is a dynamic class:list item in a component's class
+	// prop: orbit__rt.ClassString(x).
+	SiteClassProp
 )
 
 // CallSite records one write emitted with the Expr/Attr fallback, for the
 // go/types pass (C). set:html (always HTML), set:json (always JSON), spreads
-// and component props are not call sites.
+// and component props are not call sites, except class:list items.
 type CallSite struct {
 	Kind SiteKind
 	// Key identifies the site across passes: Code.Start, the offset of the
@@ -165,6 +171,12 @@ const (
 	// ` name='` and `'` around JSONAttr(pos, value), pos being the .orbit
 	// position of the value.
 	WriteAttrJSON
+	// WriteClass and WriteClasses are a class:list item of a string kind
+	// (Conv "string" unless it's string) or of type []string (Conv
+	// "[]string" for a named one): orbit__w.Class/Classes on an element;
+	// string(x) and orbit__rt.JoinClasses(x...) in a component's prop.
+	WriteClass
+	WriteClasses
 )
 
 // writeMethods is the Writer method each kind calls. WriteAttrString,
@@ -172,7 +184,7 @@ const (
 // attrPieces), so they call a value-only method (URL for WriteAttrURL).
 var writeMethods = [...]string{"Expr", "", "String", "Int", "Uint", "Float", "Float32", "Bool",
 	"HTML", "Bytes", "Error", "Stringer", "Render", "String", "URL", "AttrBool",
-	"Int", "Uint", "Float", "Float32", "JSONAttr"}
+	"Int", "Uint", "Float", "Float32", "JSONAttr", "Class", "Classes"}
 
 // attrPieces reports whether k writes its attribute as pieces: the static
 // ` name="` and `"` join the neighbouring Raw constants, and the call writes

@@ -143,6 +143,16 @@ func dumpTag(b *strings.Builder, t *Tag, depth int) {
 			fmt.Fprintf(b, " value=%s code=%s", sp(a.ValueSpan), code(a.Code))
 		}
 		b.WriteByte('\n')
+		for _, it := range a.Classes {
+			fmt.Fprintf(b, "%s    class %s code=%s", ind, sp(it.Span), code(it.Code))
+			if it.Static {
+				fmt.Fprintf(b, " static=%s", q(it.Value))
+			}
+			if it.Cond.Text != "" {
+				fmt.Fprintf(b, " cond=%s", code(it.Cond))
+			}
+			b.WriteByte('\n')
+		}
 	}
 }
 

@@ -1,0 +1,61 @@
+Template @0-387
+  Element @0-29
+    <div> name=@1-4 start=@0-22 end=@23-29
+      attr quoted @5-21 name=@5-15 "class:list" directive=class:list value=@17-20 "a b"
+    Text @22-23 "a"
+  Text @29-30 "\n"
+  Element @30-53
+    <div> name=@31-34 start=@30-46 end=@47-53
+      attr empty @35-45 name=@35-45 "class:list" directive=class:list
+    Text @46-47 "b"
+  Text @53-54 "\n"
+  Element @54-87
+    <div> name=@55-58 start=@54-80 end=@81-87
+      attr expr @59-79 name=@59-69 "class:list" directive=class:list value=@70-79 code=@71-78 "\"a\" \"b\""
+    Text @80-81 "c"
+  Text @87-88 "\n"
+  Element @88-127
+    <div> name=@89-92 start=@88-120 end=@121-127
+      attr expr @93-119 name=@93-103 "class:list" directive=class:list value=@104-119 code=@105-118 "\"a\", {\"b\": c}"
+        class @105-108 code=@105-108 "\"a\"" static="a"
+    Text @120-121 "d"
+  Text @127-128 "\n"
+  Element @128-162
+    <div> name=@129-132 start=@128-155 end=@156-162
+      attr expr @133-154 name=@133-143 "class:list" directive=class:list value=@144-154 code=@145-153 "\"a\": {c}"
+    Text @155-156 "e"
+  Text @162-163 "\n"
+  Element @163-209
+    <div> name=@164-167 start=@163-202 end=@203-209
+      attr expr @168-184 name=@168-178 "class:list" directive=class:list value=@179-184 code=@180-183 "\"a\""
+        class @180-183 code=@180-183 "\"a\"" static="a"
+      attr expr @185-201 name=@185-195 "class:list" directive=class:list value=@196-201 code=@197-200 "\"b\""
+    Text @202-203 "f"
+  Text @209-210 "\n"
+  Slot @210-235 default
+    <slot> name=@211-215 start=@210-235 end=@235-235 selfclosing
+      attr expr @216-232 name=@216-226 "class:list" directive=class:list value=@227-232 code=@228-231 "\"a\""
+  Text @235-236 "\n"
+  Fragment @236-275
+    <Fragment> name=@237-245 start=@236-263 end=@264-275
+      attr expr @246-262 name=@246-256 "class:list" directive=class:list value=@257-262 code=@258-261 "\"a\""
+    Text @263-264 "g"
+  Text @275-276 "\n"
+  Style @276-311 processed=true inline=false global=false content=@300-303 "p{}"
+    <style> name=@277-282 start=@276-300 end=@303-311
+      attr expr @283-299 name=@283-293 "class:list" directive=class:list value=@294-299 code=@295-298 "\"a\""
+  Text @311-312 "\n"
+  Element @312-348
+    <div> name=@313-316 start=@312-341 end=@342-348
+      attr expr @317-333 name=@317-327 "class:list" directive=class:list value=@328-333 code=@329-332 "\"a\""
+        class @329-332 code=@329-332 "\"a\"" static="a"
+      attr empty @333-334 name=@333-334 ","
+    Text @341-342 "h"
+  Text @348-349 "\n"
+  Element @349-386
+    <div> name=@350-353 start=@349-379 end=@380-386
+      attr expr @354-368 name=@354-364 "class:list" directive=class:list value=@365-368 code=@366-367 "a"
+        class @366-367 code=@366-367 "a"
+      attr spread @369-378 value=@369-378 code=@373-377 "rest"
+    Text @379-380 "i"
+  Text @386-387 "\n"
