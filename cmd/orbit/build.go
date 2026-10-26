@@ -7,11 +7,15 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"path/filepath"
+	"slices"
 
+	"github.com/orbit-z/orbit/internal/assets"
 	"github.com/orbit-z/orbit/internal/build"
 	"github.com/orbit-z/orbit/internal/compiler"
 	"github.com/orbit-z/orbit/internal/config"
@@ -65,9 +69,12 @@ func runBuild(e *env, args []string) int {
 	return exitOK
 }
 
-// printBundles is orbit build --verbose: each page's bundles with their raw
-// and gzipped sizes, then the totals over distinct files (pages share no
-// bundle today, but a later code splitting would).
+// printBundles is orbit build --verbose (PLAN.md §5e): each page's bundles
+// with their raw and gzipped sizes: its stylesheets, its module, the
+// chunks the module imports indented below it with "(preload)", and its
+// lazy entries with "(lazy)". Then the chunks that no page preloads (the
+// targets of dynamic import(), and chunks only lazy entries import), and
+// the totals, which count every CSS and JS file once.
 func printBundles(w io.Writer, p *project.Project) {
 	if p == nil || p.Assets == nil {
 		return
@@ -91,36 +98,78 @@ func printBundles(w io.Writer, p *project.Project) {
 		sizes[url] = s
 		return s
 	}
-	width := len("total CSS")
+	type line struct {
+		label, note string
+		url         string
+	}
+	// Each page's rows, in printing order, and the JS files they list.
+	listed := map[string]bool{}
+	rows := map[string][]line{}
 	for _, page := range pages {
+		var css, js, pre, lazy []line
+		seen := map[string]bool{}
 		for _, a := range p.Assets.Pages[page] {
-			width = max(width, len(a.URL)+2)
+			listed[a.URL] = true
+			switch a.Kind {
+			case "css":
+				css = append(css, line{"  " + a.URL, "", a.URL})
+			case "js":
+				js = append(js, line{"  " + a.URL, "", a.URL})
+			case "modulepreload":
+				pre = append(pre, line{"    " + a.URL, "  (preload)", a.URL})
+			case "lazy":
+				if !seen[a.URL] { // an entry listed under several markers
+					seen[a.URL] = true
+					lazy = append(lazy, line{"  " + a.URL, "  (lazy)", a.URL})
+				}
+			}
+		}
+		rows[page] = slices.Concat(css, js, pre, lazy)
+	}
+	var dynamic []line
+	var totalCSS, totalJS size
+	for _, f := range p.Assets.Files {
+		url := assets.URLPrefix + f.Name
+		switch path.Ext(f.Name) {
+		case ".css":
+			s := sizeOf(url)
+			totalCSS.raw, totalCSS.gz = totalCSS.raw+s.raw, totalCSS.gz+s.gz
+		case ".js":
+			s := sizeOf(url)
+			totalJS.raw, totalJS.gz = totalJS.raw+s.raw, totalJS.gz+s.gz
+			if !listed[url] {
+				dynamic = append(dynamic, line{"  " + url, "", url})
+			}
 		}
 	}
-	row := func(label string, s size) {
-		fmt.Fprintf(w, "%-*s  %10s  gzip %10s\n", width, label, kB(s.raw), kB(s.gz))
+
+	width := len("total CSS")
+	for _, rs := range append(slices.Collect(maps.Values(rows)), dynamic) {
+		for _, r := range rs {
+			width = max(width, len(r.label))
+		}
 	}
-	totals := map[string]*size{"css": {}, "js": {}}
-	counted := map[string]bool{}
+	row := func(label string, s size, note string) {
+		fmt.Fprintf(w, "%-*s  %10s  gzip %10s%s\n", width, label, kB(s.raw), kB(s.gz), note)
+	}
 	for _, page := range pages {
-		as := p.Assets.Pages[page]
-		if len(as) == 0 {
+		if len(rows[page]) == 0 {
 			fmt.Fprintf(w, "%s: no CSS or JS\n", page)
 			continue
 		}
 		fmt.Fprintln(w, page)
-		for _, a := range as {
-			s := sizeOf(a.URL)
-			row("  "+a.URL, s)
-			if t := totals[a.Kind]; t != nil && !counted[a.URL] {
-				counted[a.URL] = true
-				t.raw += s.raw
-				t.gz += s.gz
-			}
+		for _, r := range rows[page] {
+			row(r.label, sizeOf(r.url), r.note)
 		}
 	}
-	row("total CSS", *totals["css"])
-	row("total JS", *totals["js"])
+	if len(dynamic) > 0 {
+		fmt.Fprintln(w, "loaded with import()")
+		for _, r := range dynamic {
+			row(r.label, sizeOf(r.url), "")
+		}
+	}
+	row("total CSS", totalCSS, "")
+	row("total JS", totalJS, "")
 }
 
 // gzipLen returns the gzipped size of data at the default level.
