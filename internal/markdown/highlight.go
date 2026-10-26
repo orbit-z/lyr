@@ -16,12 +16,13 @@ import (
 // generated from two Chroma styles.
 
 // lexerCache memoizes lexers.Get by language name, misses included: for a
-// name Chroma doesn't know (orbit, mermaid), Get falls back to matching it
+// name Chroma doesn't know (mermaid), Get falls back to matching it
 // against every lexer's filename globs, about 1.5 ms a call.
 var lexerCache sync.Map // lowercased name → chroma.Lexer (nil for none)
 
 // lexerFor returns the coalescing lexer for a fenced block's language, or
-// nil when Chroma doesn't know it.
+// nil when Chroma doesn't know it. "orbit" is Orbit's own lexer
+// (orbitlexer.go).
 func lexerFor(lang string) chroma.Lexer {
 	key := strings.ToLower(lang)
 	if l, ok := lexerCache.Load(key); ok {
@@ -29,7 +30,9 @@ func lexerFor(lang string) chroma.Lexer {
 		return lx
 	}
 	var lx chroma.Lexer
-	if l := lexers.Get(key); l != nil {
+	if key == "orbit" {
+		lx = orbitLexer()
+	} else if l := lexers.Get(key); l != nil {
 		lx = chroma.Coalesce(l)
 	}
 	if lx == nil {

@@ -261,7 +261,7 @@ Two Markdown files with the same keys and value types have the same `Frontmatter
 
 ## What you can write
 
-Markdown is [CommonMark](https://commonmark.org) plus, as in Astro, **GitHub Flavored Markdown**: tables, task lists (`- [x] done`), strikethrough (`~~old~~`), footnotes and bare URLs turned into links. **Smart punctuation** is on too, as in Astro: straight quotes become curly, `--` becomes an en dash, `---` an em dash and `...` an ellipsis (text in backticks and code blocks is never changed). Both can be turned off in `orbit.json` (see [Options](#options)).
+Markdown is [CommonMark](https://commonmark.org) plus, as in Astro, **GitHub Flavored Markdown**: tables, task lists (`- [x] done`), strikethrough (`~~old~~`), footnotes and bare URLs turned into links. **Smart punctuation** is on too, as in Astro: straight quotes become curly, `--` becomes an em dash (—) and `...` an ellipsis (text in backticks and code blocks is never changed). As in Astro, only two hyphens make a dash: `-`, `---` and longer runs stay as written. Both can be turned off in `orbit.json` (see [Options](#options)).
 
 There are no expressions: `{` and `}` are plain text, and there's no frontmatter code. For data, use an `.orbit` page that imports the Markdown.
 
@@ -311,7 +311,7 @@ func main() { fmt.Println("hi") }
 ```
 ````
 
-renders as a `<pre class="chroma" tabindex="0" data-language="go"><code>…</code></pre>` whose tokens are `<span>`s with Chroma's class names (`<span class="kd">func</span>`). A block whose language Chroma doesn't know (`data-language="mermaid"`), or that has none (`data-language="plaintext"`, indented code blocks included), is escaped plain text in the same `<pre>`. Anything after the language on the fence line (```` ```go title="main.go" ````) is ignored, as in Astro.
+renders as a `<pre class="chroma" tabindex="0" data-language="go"><code>…</code></pre>` whose tokens are `<span>`s with Chroma's class names (`<span class="kd">func</span>`). ```` ```orbit ```` blocks are highlighted too, by Orbit's own lexer: the frontmatter as Go, the template as HTML with its `{…}` expressions as Go and its control tags (`{if …}`, `{for …}`, `{/if}`, …) as keywords, component tags (`<Card>`) apart from HTML tags, `<script>` as TypeScript and `<style>` as CSS. A block whose language Chroma doesn't know (`data-language="mermaid"`), or that has none (`data-language="plaintext"`, indented code blocks included), is escaped plain text in the same `<pre>`. Anything after the language on the fence line (```` ```go title="main.go" ````) is ignored, as in Astro.
 
 The token colors are CSS that Orbit adds to the stylesheet of every page that renders highlighted code, before your own styles, so yours win. By default it uses Chroma's `github` theme in light mode and `github-dark` in dark mode, with the CSS `light-dark()` function, so the colors follow your page's [`color-scheme`](https://developer.mozilla.org/docs/Web/CSS/color-scheme):
 
