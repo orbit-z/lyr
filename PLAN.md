@@ -1460,7 +1460,7 @@ There is no `base` or `trailingSlash` option in the MVP (§12); trailing-slash b
     - **Markdown typed check while typing** (user decision "Yes, debounced", 2026-10-26; `internal/lsp/mdcheck.go`): 300 ms after the last change that the typed `.md` diagnostics depend on (an open `.md` buffer edit, a `.md` change on disk, an `.orbit` buffer edit of a compiled `.md`'s layout that changes its pass-1 decl package, a `.go`/`go.mod`/`go.sum`/`go.work`/`orbit.json` event), a background goroutine clones the current buffers in strict mode, runs `Front`, and type-checks only the `.md` files with a layout plus the files whose decl packages they import, transitively (`project.MarkdownChecker`). Its `compiler.Checker` is resident: the first run does the `go list -export`, later runs `Update` without one; it's dropped (next run loads again) on `.go`/`go.mod`/`go.sum`/`go.work`/`orbit.json` and `orbit_gen/` events, after a load warning or a cancellation, and every 100 runs (the shared `token.FileSet` grows). Checks run one at a time; a check asked for while one runs runs after it. Every typed check (this one and Startup step 2's) records `workspace.mdEdit`, a counter of those changes, at its snapshot, and its `.md` result is adopted only if no change happened since. Off the request path: it takes `s.mu` only to snapshot and to adopt, never touches gopls, the generated files or the readiness barrier. `.orbit`-only editing never runs it. Cost at 200 `.orbit` files plus 5 `.md` pages (one 16-core machine, warm build cache): about 20 ms CPU per run with the reused `go list` (almost all of it the strict clone's `Front`; the typed part of 6 files is ~1 ms), about 70 ms with a fresh `go list -export` each run, against ~140 ms for the full typed check (all at `GOMAXPROCS=1`; with 16 cores ~45, ~150 and ~290 ms CPU, 5, 30 and 40 ms wall).
 - **Measured** (spike B, gopls v0.24.0): process start → first completion 312 ms cold / 82–102 ms warm with 4 overlays, 386 / 132 ms with 102; `didChange` + completion 1.6–3 ms; RSS 260 MB warm / 650 MB cold at 50 components. `bench/lsp` (milestone 12, 200 files): gopls 0.3 GB with `orbit_gen` on disk (plain `gopls stats`: 304 MB) and 0.3–0.5 GB overlay-only, down from 2–3.6 GB before the typed check and the cheaper barrier; gopls keeps each open file's type-checked package together with the imports of the batch that checked it, so memory grows with the number of overlays checked in separate requests.
 - **Formatting**: `textDocument/formatting`, whole document, with `orbit fmt`'s rules (§6.1).
-- **Out of scope for now**: semantic tokens (TextMate handles colors), code actions beyond gopls's own, and TypeScript completion inside `<script>`. TS could later be proxied to `typescript-language-server` with the same source-map approach. Until then, TS in `<script>` gets highlighting only.
+- **Out of scope for now**: semantic tokens (TextMate handles colors) and code actions beyond gopls's own. TypeScript features inside `<script>` blocks are specified in §9b (proposed); until it's implemented, TS in `<script>` gets highlighting only.
 
 **VS Code extension (`editors/vscode`)**
 - `package.json` registers the language `orbit` (`*.orbit`) and a TextMate grammar `source.orbit`:
@@ -1477,6 +1477,246 @@ There is no `base` or `trailingSlash` option in the MVP (§12); trailing-slash b
 - Built with esbuild and packaged with `vsce` (`--no-dependencies`: the bundle is self-contained) into a `.vsix`. A publish script for the VS Code Marketplace (`vsce publish`) and Open VSX (`ovsx publish`) as **`orbit-z.orbit`** (decided by coordinator), so VSCodium and Cursor users can install it; the user runs it with their own tokens (`VSCE_PAT`, `OVSX_PAT`), Claude never publishes (user decision).
 - The README includes a Neovim `vim.lsp.config('orbit', …)` snippet and a filetype detection line.
 - `editor-setup.md` warns that the VS Code Go extension runs its own gopls, which also reports errors in `orbit_gen/` files; Orbit doesn't suppress them. It advises against hiding them with a gopls `directoryFilters` entry (`-orbit_gen`): Orbit forwards the client's `gopls` settings to its own gopls, which needs `orbit_gen/`.
+
+## 9b. TypeScript in `<script>` blocks
+
+**Status: Proposed, (Q) points open** (spec 2026-10-26; nothing implemented). It's the item that follows the typed bridge (§5c (Q8)). It gives processed `<script>` blocks in `.orbit` files TypeScript completion, hover, diagnostics, definition, references, rename and signature help in the editor. Today they get highlighting only (§9 "Out of scope"), so the bridge's types only show up in `orbit check` and in separate `.ts` files. The measurements below come from a throwaway spike in `scratchpad/ts-lsp-spike/` (Ryzen 7 9700X, 16 threads, load average 0.4–1.6, the machine shared).
+
+**In short**: `orbit lsp` starts **TypeScript 7's native language server** (`tsc --lsp --stdio`, a static Go binary, no Node) as a second child next to gopls. It runs only when the project has a processed inline script. Each processed inline script becomes an **in-memory virtual `.ts` document** at `.orbit/lsp/<path>.orbit.<n>.ts`. That document is the `.orbit` file with everything outside the block blanked to spaces, so lines and UTF-16 columns are the same as in the `.orbit` file. It sits next to an **in-memory `tsconfig.json`**, the one `orbit check` generates, and both are sent with `didOpen`; nothing is written to disk. Requests whose cursor is in a script region go to that child. Results come back with the virtual URI swapped for the `.orbit` URI and the positions left alone. Locations in `orbit_gen/types/*.d.ts` are mapped back to the `orbit.JSON` attribute. The types the LSP generates in memory are sent to the child as overlays, so an unsaved Go change updates script completion. Without TypeScript 7 on the machine, the Go and template features work as they do today and the server shows a notice once.
+
+### End-to-end example
+`src/components/LikeButton.orbit` (from `examples/blog`; the frontmatter and template are abridged):
+
+```orbit
+---
+type like struct {
+	Slug  string `json:"slug"`
+	Likes int    `json:"likes"`
+}
+like := like{Slug: props.Slug, Likes: props.Likes}
+---
+<like-button data-like={orbit.JSON(like)}>…</like-button>
+<script>
+  import { plural } from "../scripts/util";
+  import { data } from "./LikeButton.orbit";
+  class LikeButton extends HTMLElement {
+    connectedCallback(): void {
+      const like = data(this, "like");
+      this.querySelector("button")!.title = plural(like.likes, "like");
+    }
+  }
+  customElements.define("like-button", LikeButton);
+</script>
+```
+
+What the editor shows, and where each request goes:
+
+| Cursor / action | Routed to | Result (measured on `examples/blog` in the spike unless noted) |
+|---|---|---|
+| `data(this, "▮` completion | TS child, virtual doc `.orbit/lsp/src/components/LikeButton.orbit.0.ts` | `like` (1 item, from `orbit_gen/types/src/components/LikeButton.orbit.d.ts`) |
+| hover on `like.likes` | TS child | `(property) LikeButton.like.likes: number` |
+| `data(this, "lik")` | TS child, pull diagnostics | `Argument of type '"lik"' is not assignable to parameter of type '"like"'.` at line 35, col 31 of the `.orbit` file; published with the `.orbit` file's other diagnostics (source `ts`) |
+| definition on `plural` | TS child | `src/scripts/util.ts:4:17`, passed through unchanged |
+| definition on `"like"` (the key) | TS child → Orbit maps the `.d.ts` location | the `data-like={orbit.JSON(like)}` attribute in `LikeButton.orbit` (not the `.d.ts`) |
+| definition on `.likes` | TS child → Orbit maps the `go.d.ts` member | the `Likes` field of `type like` in the frontmatter (Q4) |
+| `{like.Slug}` in the template, frontmatter | gopls (unchanged, §9) | Go features |
+| change `Likes int` to `Likes string` in the frontmatter, unsaved | Orbit regenerates the types in memory (Q5) and sends the `.d.ts` overlay to the TS child | `plural(like.likes, …)` turns red within ~0.3 s; nothing is written |
+
+### Which TypeScript engine (Q1)
+Research on 2026-10-26 (versions and dates from the npm registry):
+
+| | **TypeScript 7 native (`tsc --lsp`)** (recommended) | `typescript-language-server` + TypeScript 6 | Volar (Astro's approach) | VS Code's built-in TypeScript through virtual documents (the HTML extension's approach) | Bun |
+|---|---|---|---|---|---|
+| Version | `typescript` **7.0.2**, released 2026-07-08 (`latest`; 7.0.1-rc 2026-06-18; 7.1.0-beta 2026-10-20, too new and brings the new API) | 6.0.2 (2026-10-09) + `typescript` 6.0.3 (2026-04-16) | `@volar/language-server` 2.4.30 (2026-10-22, too new; 2.4.28 is from 2026-01-31); `@astrojs/language-server` 2.17.3 | VS Code / VSCodium 1.140 bundles `typescript` 6.0.3 (tsserver); TS 7 comes from a separate "TypeScript 7" extension (`typescript-go.executablePath`) | 1.4.4: `bun check` is a checker only; `bun lsp` doesn't exist ("Script not found"). Its binary appears to embed TypeScript 7.0.2's checker (the strings `7.0.2` and "checks types like TypeScript 7") |
+| Runtime needed | **none**: a 24 MB static Go binary in the platform package `@typescript/typescript-<os>-<arch>` (9.7 MB download, 28 MB unpacked, including the `lib.*.d.ts` files). The `typescript` package's `bin/tsc` is a Node shim that `execve`s it | Node ≥ 22.22.2 | Node + the TS 6 language-service API (TS 7.0 has **no programmatic API**, and the TS team says embedded-language tools should stay on 6.0) | VS Code only (Electron's Node) | — |
+| Protocol | standard LSP (TS 7 replaced the tsserver protocol); pull diagnostics; dynamic file-watcher registration | LSP over tsserver | LSP; TS plugin inside tsserver | `vscode.execute*Provider` commands on a virtual URI | — |
+| Spike: start → first completion | **27–35 ms** (`initialize` 2–3 ms) | 300–400 ms, and **wrong**: the in-memory file landed in an inferred project, so `./LikeButton.orbit` didn't resolve (`TS2307`, no completion, hover `any`) | not measured (would need Orbit to become a Node/Volar program) | — | — |
+| Edit → diagnostics | **2.5–3.9 ms** (pull) | 364 ms (push) | | | |
+| Warm completion (347 items) | **1.7–2.6 ms** | 16–77 ms | | | |
+| RSS | **57 MB** (1 process) | 590–600 MB (3 processes) | | VS Code's own | |
+| Editor coverage | every LSP client (Orbit proxies it) | every LSP client | every LSP client | VS Code only, not Neovim. A virtual `orbit-ts:` URI gets an inferred project in tsserver, without the user's tsconfig or `rootDirs` (the reason Vue and Astro moved to TS plugins) | — |
+| Maintenance | Microsoft's main line from 7.0 on | community; tied to tsserver, which TS 7 removed | tied to TS 6 until 7.x ships an API | VS Code's API | — |
+
+Recommended: **TypeScript 7 native**. It's the only option that needs no Node and is fast enough to stay out of the way: ~30 ms to the first answer against gopls's ~300 ms, 57 MB against gopls's ~180–300 MB. It speaks plain LSP, so Orbit proxies it the way it proxies gopls, and Neovim gets the same features as VS Code with no new config. It also matches `orbit check`, since Bun 1.4.4's checker appears to be the same TypeScript 7.0.2. The other options need Node at editing time, which Orbit has avoided so far (that's why `bun check` was chosen), use 10× the memory, or only help VS Code. Embedding TypeScript 7 as a Go library was ruled out: `github.com/microsoft/typescript-go` keeps everything under `internal/`, so it would need a fork, and it would add tens of MB and a large compile cost to the CLI (CLAUDE.md compile-speed goal).
+
+**Minimum version**: 7.0.2 (`tsc --version` prints `Version 7.0.2`). Older or TS 6 `tsc` binaries have no `--lsp`, so they're refused the way an old gopls is (§9 startup step 5), with a notice. The version is read once at spawn.
+
+### Finding the engine (Q2)
+Lookup order, like gopls's (§9 startup step 4):
+1. The **`typescriptPath`** initialization option (VS Code: the `orbit.typescriptPath` setting). It can point at a native `tsc` binary or at a `typescript` package directory.
+2. The project's **`node_modules/typescript`** at version 7 or later. This is for projects that already have a `package.json`, and is the place the TS team recommends. Orbit resolves the native binary the way the package's `lib/getExePath.js` does, `node_modules/@typescript/typescript-<platform>-<arch>/lib/tsc` (Go's `GOOS`/`GOARCH` mapped to Node's names: `darwin`, `linux`, `win32`; `x64`, `arm64`), so **Node is never run**.
+3. **`tsc` on PATH**, symlinks resolved. If it's the npm shim (`…/typescript/bin/tsc`, a Node script), Orbit runs the native binary next to it as in step 2. That covers `bun add -g typescript` and `npm i -g typescript`.
+4. **Bun present**: `bun x --package typescript@7.0.2 tsc --lsp --stdio`. The spike measured 0.62 s for the first download into Bun's cache and 10 ms after that; the shim `execve`s the native binary, so no Bun process stays alive. (Q2 option b.)
+5. Not found: a one-time `window/showMessage` notice, "TypeScript features in `<script>` blocks need TypeScript 7: …", with the install line and a pointer to `orbit doctor`. Shown only when an `.orbit` file with a processed inline script is opened.
+
+The **(Q2)** choice is how a user with nothing installed gets TypeScript:
+- (a) **Steps 1–3 and 5 only**: the docs say `bun add -g typescript@7` or `npm i -g typescript@7`. Simplest, but it pulls in a package manager.
+- (b) **(a) plus step 4 (`bun x`)** (recommended): users who have Bun for `orbit check`/`fmt` get the features with no extra step, and Bun stays optional. The cost is a network fetch on first use, from Bun, to Bun's cache, pinned to an exact version.
+- (c) **(b) plus Orbit downloading the platform tarball itself**: the npm registry's `@typescript/typescript-<os>-<arch>@7.0.2`, verified against a `sha512` integrity value pinned in Orbit's source, unpacked into `os.UserCacheDir()/orbit/typescript/7.0.2/` with stdlib `net/http`, `compress/gzip` and `archive/tar` (no new dependency). The LSP would offer it once through `window/showMessageRequest` ("Download TypeScript 7.0.2 (9.7 MB)?"; Neovim supports this request too). This is zero-install for everyone, but the language server would do network I/O and Orbit would own a download path, a pinned hash per platform and cache cleanup.
+
+Pin: Orbit's source names one TypeScript version (7.0.2 today) for the `bun x` fallback and the docs. It's raised with Orbit releases and is at least two weeks old (CLAUDE.md). A user's own TypeScript (steps 1–3) is used as found, if it's 7.0.2 or later.
+
+### Architecture
+**Process.** `internal/lsp/tsproxy.go` (new) reuses `jsonrpc.go`'s `Conn` and the patch-only `json.RawMessage` approach of §9: no typed protocol structs. The TS child starts **lazily**, on the first `didOpen` of an `.orbit` document that has a processed inline script, or on the first request that needs every script (references, rename; below). That keeps the 57 MB out of sessions that never edit a script; a cold start costs ~30 ms. Its `initialize` uses the project root as its only workspace folder (`zeroConfig` isn't a concept there). Orbit offers the client's capabilities with UTF-16 only, and checks the returned `positionEncoding`: TS 7 accepts `utf-16`, and any other encoding is converted at the edge like gopls's (§9). If the child exits, Orbit drops its virtual documents, restarts it once after the first crash (lazily, on the next request), and after a second crash shows a notice and stays off until `Restart Language Server`. Go features never depend on it.
+
+**Virtual documents.** For each processed inline script block `n` of `src/<path>.orbit` (§5's rule: `compiler.Scripts`, without `src`, the same set as `orbit check`'s `Extract`), Orbit builds one document:
+- **URI**: `<root>/.orbit/lsp/src/<path>.orbit.<n>.ts`, which mirrors `src/`. It's sent with `didOpen`, never written to disk, and named like `check.ExtractPath` but under `.orbit/lsp/` (Q3).
+- **Text**: the `.orbit` source with every character outside the block's content replaced by spaces: one space per UTF-16 unit, so two for an astral character. Line breaks (`\n`, `\r\n`) are kept, and `\nexport {};\n` is appended, as in `orbit check`, so every block is a module. **Lines and UTF-16 columns of the virtual document equal those of the `.orbit` file**, so a position needs no arithmetic in either direction. That's simpler than `orbit check`'s offset table, and the client's UTF-16 positions pass straight through. Each block of a file gets its own document, with the other blocks blanked.
+- **tsconfig**: an in-memory `<root>/.orbit/lsp/tsconfig.json`, also opened with `didOpen`. Its content is `check.Tsconfig(check.ReadUserTsconfig(root))`, the file `orbit check` writes: it `extends` the user's tsconfig, `rootDirs` is `["../..", ".", "../../orbit_gen/types"]`, and `include` adds the user's `src/**/*.ts` and `orbit_gen/types/*.d.ts`. So relative imports (`../scripts/util`), `./X.orbit` imports (through `rootDirs`), `orbit:client`/`orbit:types` and the user's compiler options resolve the way `orbit check` resolves them, **even in a project whose `tsconfig.json` wasn't migrated** (§5c). Measured: TS 7.0.2 honors an in-memory `tsconfig.json` for project discovery. With the user's tsconfig stripped of `rootDirs`, a virtual document next to it gave `TS2307`, while the same document under the in-memory `.orbit/check` tsconfig resolved `./LikeButton.orbit` and reported the type error. A test guards this behavior (Tests), with writing the file to `.orbit/lsp/` as the fallback if a later TypeScript drops it. When `tsconfig.json` changes (a watched-file event), the in-memory one is recomputed and sent with `didChange`.
+- **Sync**: on every `didOpen`/`didChange` of an `.orbit` document, Orbit re-parses it already (§9) and rebuilds the text of its blocks' documents. Each is sent as one full-text `didChange` (decided by rule: simplest; a 10 KB file costs nothing next to TypeScript's 2–4 ms recheck). It's sent only if that block's text changed, which also covers edits outside a block that shift its lines. When the number of blocks changes, documents are opened or closed. Script positions come from the tolerant parse. If the parse fails before the scripts, the previous documents stay as they are, as for overlays.
+- **Which documents are open**: the documents of the `.orbit` files open in the editor. References and rename first open the documents of **every** `.orbit` file with a script, once per session, built from the workspace's sources (buffers or disk), so reverse lookups don't miss closed files. This is the TypeScript equivalent of §9's readiness barrier: 200 scripts take ~0.3 s once (spike: 290 ms to the first completion with 200 open, 88 ms for their 200 diagnostics), and RSS grows from 62 to 120 MB (Q7). Documents opened that way stay open; their diagnostics are **not** published (only open `.orbit` documents get TS diagnostics; the whole project is `orbit check`'s job).
+
+**Request routing** (the §9 router gains a region): a cursor inside a processed inline script's content goes to the TS child; Go regions stay with gopls and template positions stay native. Methods routed: `completion` (plus `completionItem/resolve`, below), `hover`, `definition`, `typeDefinition`, `references`, `prepareRename`/`rename`, `signatureHelp`, `documentHighlight`, `codeAction` (Q4). Positions pass through unchanged and the URI is swapped. A script region with no TS child answers `null` (an empty list for completion).
+- **Results**: every URI is mapped generically along the known paths (the §9 mapper):
+  - a virtual document URI → its `.orbit` URI, with positions unchanged;
+  - `orbit_gen/types/<path>.orbit.d.ts` and `orbit_gen/types/go.d.ts` → mapped as described next;
+  - `orbit_gen/types/client.d.ts` and every other file (`src/**/*.ts`, `node_modules`, TypeScript's `lib.*.d.ts`) → passed through.
+- **`.d.ts` locations** (Q4): Orbit generates these files, so when it emits them in memory (Q5) it keeps a **side table** from each declaration's line to its source.
+  - A `data-*`/`set:json` key in `<path>.orbit.d.ts` maps to the attribute's position from the compiler's `JSONSites` (today's `.d.ts` comment `data-like (LikeButton.orbit:14:14)` names the same place).
+  - A member or interface in `go.d.ts` maps to the Go declaration from the type mapper's `types.Object` position: a frontmatter type through the typed source map into the `.orbit` file, a user `.go` file directly.
+  - Without an entry (stale disk types), the `.d.ts` location passes through.
+  
+  For `definition`, the mapped location replaces the `.d.ts` one. For `references`, `.d.ts` locations are dropped (they're generated).
+- **Edits** (rename, code actions, completion `additionalTextEdits`): an edit in a virtual document must lie inside its block's content, or it's dropped. The exception is TypeScript's import insertion at the top of the file (line 0, inside the blanked frontmatter), which is moved to the first line of the block's content, after any existing imports. An edit in a `.ts` file under `src/` passes through as a normal workspace edit. A **rename whose edits touch `orbit_gen/types/**` is refused** with a message: renaming `likes` means renaming the Go field (`Likes`, or its `json` tag), so rename it in Go. Like §9, the result uses `documentChanges` or `changes` depending on the client's capability.
+- **`completionItem/resolve`**: TS 7 returns items without documentation or auto-import edits and fills them in on resolve (`resolveProvider: true`). Orbit starts advertising `resolveProvider` and wraps each TS item's `data` as `{"orbit":"ts","d":<original>}`. A resolve with that marker goes to the child, and the edits it returns are mapped as above. gopls and native items have no `data` and resolve to themselves.
+- **Trigger characters**: TS's are `.`, `"`, `'`, `` ` ``, `/`, `@`, `<`, `#`, space and `*`; Orbit already has `.`, `<`, space, `:`, `"`, `'`, `{` and `/`. Orbit advertises the union. When a trigger character isn't one of the cursor region's own, the request answers an empty list without asking anyone (decided by rule: simplest; the alternative was a fixed subset).
+
+**Diagnostics.** TS 7 publishes no push diagnostics for documents unless the client supports pull diagnostics. The spike saw none when the client didn't declare `textDocument.diagnostic`. So Orbit, as its client, declares pull support and asks with `textDocument/diagnostic` for each changed open virtual document, debounced 50 ms after the last change (like gopls's `diagnosticsDelay`, §9). It asks again for every open virtual document on `workspace/diagnostic/refresh`, which the child sends when a `.ts` or `.d.ts` dependency changes. The results come back with `.orbit` positions already. Orbit labels them `source: "ts"`, merges them with Orbit's and gopls's diagnostics for the file (§9 `publish`), and **keeps the `unnecessary`/`deprecated` hints**: the editor fades an unused import, and `orbit check` doesn't print these hints. Diagnostics outside the block's range (which shouldn't happen, since the text there is blank) are dropped.
+
+**Acting as the TS child's client** (like §9's gopls rules; never answer with an error):
+- `workspace/configuration`: TS 7 asks for the sections `js/ts`, `typescript`, `javascript` and `editor`. Orbit forwards the client's answer, or `{}` for each.
+- `client/registerCapability`:
+  - `workspace/didChangeConfiguration` is forwarded.
+  - `workspace/didChangeWatchedFiles` is **not** forwarded: in the spike, TS 7 registered `<root>/**/*`, its own `lib/**/*`, and `/tmp/**/*` (an ancestor of the project, from failed lookups; in a home-directory project that would be `~/**/*`). Instead, Orbit registers one watcher of its own with the client, `**/*.{ts,mts,cts,d.ts,js,mjs,json}` under the root, and forwards every event under the root to the child (decided by rule: simplest; the child filters events itself). `orbit_gen/types/` events also close the `.d.ts` overlays that disk has caught up with (Q5), as for gopls.
+- `window/workDoneProgress/create` and `$/progress`: forwarded.
+- `window/showMessage` and `window/logMessage`: `logMessage` goes to Orbit's log; `showMessage` is forwarded.
+- `workspace/applyEdit`: mapped as edits, above.
+- Unknown requests get `null`.
+
+**Missing or broken engine.** Nothing about gopls changes. A missing or too-old engine gives the one-time notice (above). In script regions, completion answers an empty list and the other requests `null`. `orbit doctor` reports it (below).
+
+### Feature scope of the first release (Q4)
+Recommended in: diagnostics; completion with auto-imports (`completionItem/resolve`); hover; signature help; definition and type definition, including the `.d.ts` → `.orbit`/Go mapping; references; rename, refused for generated types; document highlight; code actions of kind `quickfix` (TS's "Add missing import", "Fix spelling", …), mapped like other edits.
+
+Recommended out:
+- **Formatting**: stays with `orbit fmt`/`bun fmt` (§6.1, user decision). The LSP's `textDocument/formatting` already formats scripts with `bun fmt`. Range and on-type formatting aren't advertised.
+- **Inlay hints, code lens, semantic tokens, call hierarchy, `source.*` code actions** (organize imports, fixAll): later. TextMate keeps colorizing.
+- **Linked editing and document symbols for scripts**.
+
+The cheaper alternative is a first release of diagnostics, completion and hover only, with definition, references and rename later. It's barely cheaper, because references and rename are what need the "open all" step and the edit mapping. Doing it all in one release follows the §6.1 precedent of one release with shared machinery.
+
+### Types fresh in the editor (Q5)
+`orbit_gen/types/` on disk changes only when `orbit dev` or `orbit generate` runs. On its own, then, a script's completion would only learn about a new `orbit.JSON` key or a changed Go field after a save with `orbit dev` running (or a manual generate).
+
+Recommended: **serve the types in memory**. Startup step 2's typed check (§9) already compiles a strict copy through `internal/project`'s pipeline, which since §5c also produces the types (`typecheck.go`, the `.d.ts` text that `GenFiles` writes); today the LSP discards them. Orbit compares each file with the disk the same way it compares Go files. Where they differ (or the file is missing), Orbit opens the in-memory text in the TS child as an overlay (`didOpen` of `orbit_gen/types/…`, measured: an overlay `.d.ts` changes the virtual documents' diagnostics in 2.2–4 ms). The overlay is closed once the disk matches.
+
+While typing, the `mdcheck.go` pattern applies (§9 "Markdown typed check while typing"). 300 ms after a change the types may depend on, a background goroutine:
+- clones the buffers in strict mode;
+- type-checks the `.orbit` files that have `orbit.JSON`/`set:json` sites;
+- re-emits their `<path>.orbit.d.ts` and `go.d.ts`;
+- adopts the result only if nothing changed in the meantime.
+
+The changes that trigger it are an `.orbit` buffer edit in a file that has, or had, `orbit.JSON`/`set:json` sites, or `.go`/`go.mod` events. It reuses the same resident `compiler.Checker` as the Markdown check, so the `go list -export` happens once. The cost is about what the Markdown check costs, ~20 ms CPU per run at 200 files (almost all the strict clone's `Front`) plus microseconds of TS emission (§5c Cost: 1.9–5.3 µs per use). It runs off the request path, and `.orbit` edits that don't touch data don't run it.
+
+The cheaper alternative is to use disk types only, with docs saying "keep `orbit dev` running". That's no work, but Go → script feedback then waits for a save and a dev rebuild, which is the gap this item exists to close.
+
+The user's own editor TypeScript (for `.ts` files) keeps reading the disk types. That's consistent with how gopls's `.go` view works.
+
+### Other scope decisions
+- **(Q6) `<script is:inline>` and other unprocessed scripts**: recommended **out** of the first release. Inline scripts are plain JavaScript in the page's global scope, not bundled modules. Their imports don't resolve, the bridge doesn't apply, and each would need a classic-script virtual document (`.js` with `checkJs` off), where the only value is DOM completion. Astro's language server does treat `is:inline` scripts as JavaScript, so rule 1 points the other way; the trade-off is small value for a second document kind. `type="application/ld+json"` blocks are JSON and stay out; `<script src="./x.ts">` is a `.ts` file (next point).
+- **`.ts` files under `src/`**: Orbit's server **leaves them alone** (decided by rule: Astro's language server leaves `.ts` files to the editor's TypeScript). The documentSelector doesn't change, and the user's TypeScript (VS Code's built-in TS 6 tsserver, the TS 7 extension, or `typescript-language-server`/`tsgo` in Neovim) keeps serving them through the user's `tsconfig.json`. Both servers read the same `.ts` files and the same `orbit_gen/types/*.d.ts` from disk, so they agree once types are on disk. Orbit's child also sees the unsaved overlays of Q5, and sees saved `.ts` changes through the watcher. It doesn't see **unsaved** `.ts` buffers (the same as gopls with user `.go` files, §9). One direction is missing: "find references" from a `.ts` file doesn't list uses inside `.orbit` scripts (Out of scope).
+- **Frontmatter and `{…}`**: Go, gopls; unchanged.
+- **Position encoding**: UTF-16 at both edges (§9). The blanking keeps UTF-16 columns, so no conversion happens in the TS path.
+
+### Editors and `orbit doctor`
+- **VS Code extension**:
+  - a new setting `orbit.typescriptPath` (`machine-overridable`, like `orbit.goplsPath`), passed as the `typescriptPath` init option; changing it restarts the server.
+  - The documentSelector doesn't change. The middleware already sends hover, completion, definition, references, signature help and rename of `.orbit` documents to Orbit, and `completionItem/resolve` and code actions need no middleware.
+  - `package.json`'s description mentions TypeScript.
+  - VS Code's built-in TypeScript doesn't see `.orbit` scripts, so features don't show up twice. Snippets of the `typescript` language that VS Code offers in embedded `source.ts` scopes may still appear next to Orbit's items, as today.
+- **Neovim**: no change to the `vim.lsp.config('orbit', …)` snippet; `init_options = { typescriptPath = "…" }` is documented as optional.
+- **`orbit doctor`**: a new **TypeScript** environment check, after Bun: ✓ `tsc 7.0.2 (path)`, or ✓ "TypeScript 7.0.2 through `bun x`" for option (b); ⚠ (never ✗: optional, like Bun) "not found (7.0.2 or later needed); TypeScript features in `<script>` blocks are off in the editor", with the fix line; ⚠ for a `tsc` older than 7 ("has no language server; 7.0.2 or later needed"). Inside a project, the check is a ⚠ only if some `.orbit` file has a processed inline script; otherwise it's informational (✓ "not needed").
+
+### (Q) points
+1. **(Q1) Engine**: TypeScript 7's native `tsc --lsp --stdio` (recommended: no Node, ~30 ms start, 57 MB, plain LSP, every editor, the same 7.0.2 checker as `bun check`) vs. `typescript-language-server` + TS 6 (Node ≥ 22, 10× slower and bigger, and tsserver put in-memory files in inferred projects) vs. Volar (Node + TS 6 API) vs. VS Code's built-in TS through virtual documents (VS Code only, no tsconfig).
+2. **(Q2) Install story**: (b) found locally (setting, project `node_modules`, `tsc` on PATH, resolved to the native binary, never through Node) plus `bun x --package typescript@7.0.2` when Bun is present (recommended) vs. (a) found locally only, vs. (c) (b) plus an opt-in download of the pinned platform tarball by the LSP (zero-install, but network I/O and a pinned hash per platform in Orbit).
+3. **(Q3) Where the virtual documents live**: in memory under `.orbit/lsp/` with an in-memory copy of `orbit check`'s generated tsconfig (recommended: works on unmigrated tsconfigs, agrees with `orbit check`, writes nothing, so `reference/cli.md`'s "It never writes files" stays true) vs. next to the `.orbit` file (`src/…/X.orbit.0.ts`, in memory, under the user's own tsconfig: measured to work in the starter's tsconfig, but `TS2307` when `include` or `rootDirs` doesn't cover it) vs. the LSP writing `.orbit/lsp/tsconfig.json` to disk (the fallback if TS stops honoring in-memory tsconfigs).
+4. **(Q4) First-release features**: diagnostics, completion with auto-imports, hover, signature help, definition (with `.d.ts` → `orbit.JSON` attribute / Go declaration), references, rename (refused for generated types), document highlight, quick fixes (recommended), vs. diagnostics + completion + hover first. Formatting stays `bun fmt`.
+5. **(Q5) Fresh types**: in-memory `.d.ts` overlays from the typed check at startup and a debounced background typed pass while typing, sharing the Markdown checker (recommended: ~20 ms CPU per run at 200 files, off the request path) vs. disk types only (`orbit dev` must run, and feedback waits for a save).
+6. **(Q6) `is:inline` scripts**: out of the first release (recommended; plain global JS, imports and bridge don't apply) vs. in, as JavaScript documents with completion and hover only (Astro does this).
+7. **(Q7) "Open all" for references and rename**: open every script's virtual document on the first references/rename request (recommended: ~0.3 s once at 200 scripts, +60 MB) vs. open documents only (rename would silently miss closed files, which is unsafe) vs. open all at startup (pays the 0.3 s and the memory in every session).
+
+Decided by rule (to log in `docs/DECISIONS.md`):
+- `.ts` files left to the editor's TypeScript (Astro).
+- Full-text `didChange` for virtual documents (simplest).
+- One Orbit watcher instead of forwarding TS's broad globs (simplest).
+- The union of trigger characters, with off-region triggers answered empty (simplest).
+- TS diagnostics only for open `.orbit` documents (Astro).
+- Lazy start of the TS child (simplest that keeps memory flat).
+- The pull-diagnostics debounce of 50 ms, as gopls's `diagnosticsDelay` (§9).
+- `⚠`, never `✗`, in doctor (Bun's precedent).
+- A crashed child is restarted once (simplest).
+
+### Cost
+- **Editing time**: no change for Go and template requests (separate child, separate routing). The TS child starts only with a script open: ~30 ms to the first answer, 57–62 MB RSS (1 open script; `examples/blog` and a 200-component synthetic project); 117–121 MB with 200 scripts open after references/rename. Per keystroke in a script: block text rebuild (µs), one `didChange`, a 2.5–3.9 ms recheck, 1.7–2.6 ms for a warm completion. Per keystroke elsewhere in an `.orbit` file with scripts: the same `didChange` when line numbers shift. The background typed pass (Q5): ~20 ms CPU per data-affecting edit, debounced.
+- **Install**: nothing new is required. Optional: TypeScript 7 (24 MB binary), or nothing with Bun under (Q2 b), which fetches 9.7 MB once into Bun's cache.
+- **Build and dev loop**: none. `orbit generate`, `dev`, `build` and `check` are untouched; no new Go dependency.
+- **Code**: about 1,000–1,500 lines in `internal/lsp` (`tsproxy.go`, `tsdocs.go`, router and mapper extensions, the side table in `internal/compiler`'s type emitter), plus tests.
+
+### Tests (what must exist)
+- **Unit** (no TypeScript needed):
+  - virtual document text: blanking keeps lines and UTF-16 columns (ASCII, BMP, astral and `\r\n`; a block that starts mid-line; several blocks; an unclosed block in tolerant mode);
+  - the in-memory tsconfig equals `check.Tsconfig`;
+  - URI mapping both ways;
+  - edit filtering and import-insertion relocation;
+  - rename refusal on `orbit_gen/types` edits;
+  - the `.d.ts` side table (key → attribute, `go.d.ts` member → frontmatter field and user `.go` field);
+  - `completionItem/resolve` data wrapping;
+  - trigger-character filtering;
+  - lookup order (setting, `node_modules` platform package, PATH shim resolved to the native binary, `bun x`), with fake binaries;
+  - version refusal.
+- **Stub-server tests** (as in `stub_test.go` for gopls): a fake TS child checks routing, the `configuration`/`registerCapability`/`diagnostic/refresh` handling, never answering with an error, crash and one restart, and the missing-engine notice shown once with Go features unaffected.
+- **Integration** (skipped with a notice when TypeScript 7 isn't found, like the Bun tests): on `examples/blog`:
+  - completion of `data(this, "`, hover of `like.likes`, a diagnostic at the right `.orbit` line:col;
+  - definition into `util.ts` and onto the `data-like` attribute;
+  - references and rename of a script-local symbol across two `.orbit` files, one of them closed;
+  - an unsaved frontmatter type change turning a script use red (Q5);
+  - a project whose `tsconfig.json` lacks `rootDirs` still resolving `./LikeButton.orbit` (guards Q3's in-memory tsconfig).
+- **Benchmark**: `bench/lsp` gains a script mode at 200 files (first TS completion, edit → diagnostics, references with the open-all step, RSS of both children), published in `performance.md`.
+- **VS Code**: the `orbit.typescriptPath` setting in `package.json`, and `bun check` of `extension.ts`.
+- **`orbit doctor`**: the TypeScript check's ✓/⚠ cases.
+
+### User-docs changes (with the implementation)
+- `editor-setup.md`:
+  - the "TypeScript" section rewritten: what works in `<script>` blocks, what's needed (TypeScript 7, how it's found, the `bun x` fallback), what doesn't (`is:inline`, references from `.ts` files into scripts), and that `.ts` files keep using the editor's TypeScript;
+  - the line "**TypeScript** in `<script>` gets syntax highlighting only" removed;
+  - the VS Code settings table (`orbit.typescriptPath`);
+  - the Neovim `init_options`.
+- `styles-and-scripts.md`: "Type checking with `orbit check`" says the editor now checks block scripts too, and that `orbit check` remains the CI gate. The advice to move logic into `.ts` files for editor checking is removed.
+- `reference/cli.md`: `orbit lsp` (the `typescriptPath` option, the TS child, "never writes files" still true); `orbit doctor` (the TypeScript check).
+- `troubleshooting.md`, "Editor": "No TypeScript completion in `<script>`" (doctor's line, TS 6 vs 7, `is:inline`) and "`Cannot find module './X.orbit'` in the editor" (run `orbit generate` once, or wait for the in-memory types).
+- `performance.md#editor-orbit-lsp`: the TS child's numbers.
+- `coming-from-astro.md`: the VS Code extension row (TS in scripts like Astro's, frontmatter is Go).
+- `components.md` "Passing data to client scripts": a sentence that the editor completes `data(this, "…")` keys.
+- `editors/vscode/README.md`: the setting and the requirement.
+
+**Plan updates on acceptance**: §9 (routing gains the script region, `completionItem/resolve`, trigger characters, the TS child among "Acting as … client"), §6 (the doctor check), §10 (new files), §13 (the integration check).
+
+### Out of scope
+- TypeScript in `is:inline` scripts (Q6) and in JSON blocks.
+- "Find references" or rename **from `.ts` files** reaching uses inside `.orbit` scripts. That would need a TypeScript plugin in the user's own TS server; TS 7.0 has no plugin API.
+- Unsaved `.ts` buffers seen by Orbit's TS child.
+- Inlay hints, code lens, semantic tokens, call hierarchy, organize imports and `source.fixAll` for scripts.
+- TS-in-`<style>` analogues (CSS language features in `<style>`), a separate item if wanted.
+- Workspace-wide TS diagnostics for closed `.orbit` files (that's `orbit check`), and `bun check` in `orbit dev` (§5c Q9).
+- Switching `orbit check` to the same blanked extraction (it would drop `Script.Position`'s offset table); possible later, not needed.
+
+### Risks
+- **In-memory tsconfig**: TS 7.0.2 honors it, but it's not documented behavior. If a later version stops, the fallback (Q3) is to write `.orbit/lsp/tsconfig.json`, and the integration test catches the change.
+- **TS 7 LSP maturity**: 7.0 is the first native release; the TS team reports 80% fewer failing language-server commands than 6.0, but a crash is possible. Orbit restarts the child once and keeps it isolated from gopls.
+- **Version skew**: `bun check` (Bun's embedded 7.0.2) and a user's newer `tsc` may disagree on edge cases. `orbit check` stays the gate.
+- **Broad watcher globs** from TS 7 (`/tmp/**/*`, or `~/**/*` for a project in the home directory) are why Orbit doesn't forward its registrations.
+- **TS 7.1's API** may later make a plugin approach possible (references from `.ts` files). That would be a follow-up, not a reason to wait.
 
 ## 10. Repository layout (framework)
 ```
@@ -1580,7 +1820,7 @@ Dependencies:
   - **Script/style**: piped through `bun fmt --stdin-filepath=<n>.ts|.css` (Bun ≥ 1.4.4's Prettier-compatible formatter; verified on TS and CSS). Skipped with a notice without Bun. The **HTML** template can't be passed to `bun fmt` directly: it rewrites `title={x}` to `title="{x}"` and merges control blocks onto one line. HTML formatting would need Orbit syntax masked first; evaluate it then.
   - **Tests**: idempotence (fmt∘fmt = fmt), AST equivalence, and rendered-output equality.
 - **Typed server→client bridge**: implemented (§5c).
-- **TypeScript editor support inside `.orbit` `<script>`** (user decision at the §5c checkpoint: a separate item, next after the bridge; own spec first): completion, hover and diagnostics for block scripts, likely by proxying a TypeScript language server over virtual documents (§9 "Out of scope").
+- **TypeScript editor support inside `.orbit` `<script>`**: specified in §9b (proposed, (Q) points open).
 - `{switch}` template blocks
 - esbuild code splitting (shared chunks between pages, and between page bundles and `client:*` lazy entries, §5)
 - **Cacheable server islands** (the MVP already makes island URLs deterministic and puts the build ID in the path, §3.4, so no URL format change is needed):
