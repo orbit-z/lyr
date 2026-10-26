@@ -524,11 +524,11 @@ if props.Featured {
 
 See [Combining and reserved namespaces](reference/template-syntax.md#combining-and-reserved-namespaces) and [Coming from Astro](coming-from-astro.md#templates).
 
-### `define:vars isn't supported; pass data with data-* attributes or set:json`
+### `define:vars isn't supported; pass data with orbit.JSON on a data-* attribute, or set:json`
 
 **Cause:** `define:vars` is an Astro directive, and `<script>` and `<style>` content can't see Go values.
 
-**Fix:** write per-element values into `data-*` attributes and read `el.dataset` in a custom element, or pass a block of data with `set:json` on a `<script type="application/json">`. See [Passing data to client scripts](components.md#passing-data-to-client-scripts).
+**Fix:** write the values into `data-*` attributes, with `orbit.JSON` for structured data (`data-post={orbit.JSON(props.Post)}`, read with `data(this, "post")` from `import { data } from "./Card.orbit"`), or pass a block of data with `set:json` on a `<script type="application/json">`. See [Passing data to client scripts](components.md#passing-data-to-client-scripts).
 
 ### `the frontmatter always returns here, so the template below is never rendered`
 

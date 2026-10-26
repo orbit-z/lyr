@@ -74,7 +74,7 @@ func (p *parser) checkTag(t *Tag, k tagKind, children []Node, raw *RawText) (def
 		case d == ClassList:
 			p.errorf(a.Span, "class:list isn't supported; build the class string in the frontmatter (e.g. strings.Join)")
 		case d == DefineVars:
-			p.errorf(a.Span, "define:vars isn't supported; pass data with data-* attributes or set:json")
+			p.errorf(a.Span, "define:vars isn't supported; pass data with orbit.JSON on a data-* attribute, or set:json")
 		case d == UnknownDirective:
 			p.unknownDirective(a)
 		case d == ServerDefer:

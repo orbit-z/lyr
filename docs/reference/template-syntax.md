@@ -474,7 +474,7 @@ type Props struct {
 
 ```text
 src/components/Card.orbit:6:10: class:list isn't supported; build the class string in the frontmatter (e.g. strings.Join)
-src/components/Card.orbit:9:9: define:vars isn't supported; pass data with data-* attributes or set:json
+src/components/Card.orbit:9:9: define:vars isn't supported; pass data with orbit.JSON on a data-* attribute, or set:json
 ```
 
 Other attributes with a colon, such as `xlink:href` or `xml:lang`, are ordinary HTML attributes.

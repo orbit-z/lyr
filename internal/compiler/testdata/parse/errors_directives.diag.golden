@@ -21,7 +21,7 @@ errors_directives.orbit:25:7: unknown directive "server:lazy" (server directives
 errors_directives.orbit:26:7: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
 errors_directives.orbit:27:7: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
 errors_directives.orbit:28:6: class:list isn't supported; build the class string in the frontmatter (e.g. strings.Join)
-errors_directives.orbit:28:27: define:vars isn't supported; pass data with data-* attributes or set:json
+errors_directives.orbit:28:27: define:vars isn't supported; pass data with orbit.JSON on a data-* attribute, or set:json
 errors_directives.orbit:29:6: unknown directive "set:foo" (set directives: set:html, set:text, set:json)
 errors_directives.orbit:29:18: unknown directive "is:raw" (is directives: is:inline, is:global)
 errors_directives.orbit:31:7: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
