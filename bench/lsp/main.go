@@ -32,11 +32,12 @@ func main() {
 	jsonOut := flag.String("json", "", "also write every sample to this JSON file")
 	verbose := flag.Bool("v", false, "print orbit lsp's log after each session")
 	trace := flag.String("trace", "", "run gopls with -rpc.trace, logging to this file (prefix; one file per session)")
+	typescript := flag.String("typescript", os.Getenv("ORBIT_BENCH_TYPESCRIPT"), "TypeScript 7 engine (the typescriptPath option; default: orbit lsp's own lookup)")
 	flag.Parse()
 	if quick {
 		*files, *runs, *starts = 50, 3, 1
 	}
-	cfg := config{files: *files, runs: *runs, starts: *starts, verbose: *verbose, trace: *trace}
+	cfg := config{files: *files, runs: *runs, starts: *starts, verbose: *verbose, trace: *trace, typescript: *typescript}
 	for _, m := range strings.Split(*modes, ",") {
 		if m != "overlay" && m != "disk" {
 			fmt.Fprintf(os.Stderr, "lsp: unknown mode %q (want overlay or disk)\n", m)
@@ -55,6 +56,7 @@ type config struct {
 	modes               []string
 	verbose             bool
 	trace               string // gopls -rpc.trace log prefix
+	typescript          string // typescriptPath, "" for orbit lsp's lookup
 	initOpts            map[string]any
 }
 
@@ -77,14 +79,19 @@ type startSample struct {
 	References      time.Duration `json:"references"`
 	LogGoplsReady   time.Duration `json:"log_gopls_ready"`
 	LogBarrier      time.Duration `json:"log_barrier"`
-	RefCount        int           `json:"reference_count"`
-	CompletionItems int           `json:"completion_items"`
-	HoverText       bool          `json:"hover_has_text"`
+	// FirstTSCompletion is a completion in the probe's <script>, answered
+	// by the TypeScript child (started lazily on the didOpen).
+	FirstTSCompletion time.Duration `json:"first_ts_completion"`
+	TSItems           int           `json:"ts_completion_items"`
+	RefCount          int           `json:"reference_count"`
+	CompletionItems   int           `json:"completion_items"`
+	HoverText         bool          `json:"hover_has_text"`
 }
 
 type memSample struct {
 	Orbit mem `json:"orbit_lsp_kib"`
 	Gopls mem `json:"gopls_kib"`
+	TS    mem `json:"typescript_kib"`
 }
 
 type modeResult struct {
@@ -93,6 +100,7 @@ type modeResult struct {
 	Latency    map[string][]time.Duration `json:"latency"`
 	MemBarrier memSample                  `json:"memory_after_barrier"`
 	MemAfter   memSample                  `json:"memory_after_runs"`
+	MemTSAll   mem                        `json:"typescript_after_open_all_kib"`
 	Rename     bool                       `json:"rename_provider"`
 	Warnings   []string                   `json:"warnings,omitempty"`
 }
@@ -108,6 +116,11 @@ var latencyRows = []struct{ key, label string }{
 	{"references-field", "references, `Props` field (used by importers)"},
 	{"prepareRename", "prepareRename, local variable"},
 	{"rename", "rename, local variable"},
+	{"ts-completion", "`<script>`: `didChange` + completion (`document.`)"},
+	{"ts-diagnostics", "`<script>`: `didChange` → TypeScript diagnostic published"},
+	{"ts-hover", "`<script>`: hover"},
+	{"ts-references-first", "`<script>`: first references (opens every script's document; 1 sample)"},
+	{"ts-references", "`<script>`: references, after that"},
 }
 
 func run(cfg config, orbitRoot, dir string, keep bool, jsonOut string) error {
@@ -150,6 +163,12 @@ func run(cfg config, orbitRoot, dir string, keep bool, jsonOut string) error {
 			return err
 		}
 		cfg.initOpts = map[string]any{"goplsPath": script}
+	}
+	if cfg.typescript != "" {
+		if cfg.initOpts == nil {
+			cfg.initOpts = map[string]any{}
+		}
+		cfg.initOpts["typescriptPath"] = cfg.typescript
 	}
 
 	// A fixed salt: every run sees the same content, so gopls's file cache
@@ -263,7 +282,7 @@ func runStart(cfg config, orbitBin, dir string, p probes, r *modeResult, measure
 	// What an editor sends right after opening a file: hover under the
 	// mouse, a completion, and (here) references, held for the barrier.
 	var wg sync.WaitGroup
-	var errs [3]error
+	var errs [4]error
 	wg.Go(func() {
 		res, _, err := sess.call("textDocument/hover", sess.textPos(p.comp, find(p.compText, "{upper} (", 1)))
 		smp.FirstHover, errs[0] = time.Since(sess.start), err
@@ -281,6 +300,13 @@ func runStart(cfg config, orbitBin, dir string, p probes, r *modeResult, measure
 		smp.References, errs[2] = time.Since(sess.start), err
 		smp.RefCount = countLocations(res)
 	})
+	if strings.Contains(p.compText, "document.querySelectorAll") {
+		wg.Go(func() {
+			res, _, err := sess.call("textDocument/completion", sess.textPos(p.comp, find(p.compText, "document.querySelectorAll", len("document."))))
+			smp.FirstTSCompletion, errs[3] = time.Since(sess.start), err
+			smp.TSItems = len(completionLabels(res))
+		})
+	}
 	wg.Wait()
 	for _, err := range errs {
 		if err != nil {
@@ -303,14 +329,17 @@ func runStart(cfg config, orbitBin, dir string, p probes, r *modeResult, measure
 	if !measure {
 		return nil
 	}
-	o, g := sess.memory()
-	r.MemBarrier = memSample{Orbit: o, Gopls: g}
+	o, g, ts := sess.memory()
+	r.MemBarrier = memSample{Orbit: o, Gopls: g, TS: ts}
 	r.Rename = sess.hasRename()
 	if err := measureLatency(cfg, sess, p, r); err != nil {
 		return fmt.Errorf("%w\n%s", err, sess.logText())
 	}
-	o, g = sess.memory()
-	r.MemAfter = memSample{Orbit: o, Gopls: g}
+	o, g, ts = sess.memory()
+	r.MemAfter = memSample{Orbit: o, Gopls: g, TS: ts}
+	if err := measureTS(cfg, sess, p, r); err != nil {
+		return fmt.Errorf("%w\n%s", err, sess.logText())
+	}
 	return nil
 }
 
@@ -412,6 +441,94 @@ func measureLatency(cfg config, sess *session, p probes, r *modeResult) error {
 			}
 			r.Latency[q.key] = append(r.Latency[q.key], d)
 		}
+	}
+	return nil
+}
+
+// measureTS measures the <script> requests (PLAN.md §9b): completion and
+// diagnostics after an edit, hover, and references, the first of which
+// opens every script's document.
+func measureTS(cfg config, sess *session, p probes, r *modeResult) error {
+	base := p.compText
+	anchor := strings.Index(base, "document.querySelectorAll")
+	if anchor < 0 {
+		r.Warnings = append(r.Warnings, "the probe component has no <script>: no TypeScript rows")
+		return nil
+	}
+	ls := strings.LastIndexByte(base[:anchor], '\n') + 1
+	for k := range cfg.runs + 1 {
+		ins := fmt.Sprintf("  const v%d = 1;\n  document.\n", k)
+		text := base[:ls] + ins + base[ls:]
+		pos := posAt(text, ls+strings.Index(ins, "document.")+len("document."))
+		t := time.Now()
+		sess.change(p.comp, text)
+		res, _, err := sess.call("textDocument/completion", map[string]any{"textDocument": map[string]any{"uri": sess.uri(p.comp)},
+			"position": pos, "context": map[string]any{"triggerKind": 2, "triggerCharacter": "."}})
+		d := time.Since(t)
+		if err != nil {
+			return fmt.Errorf("ts-completion: %w", err)
+		}
+		if k == 0 {
+			if labels := completionLabels(res); !slices.Contains(labels, "querySelector") {
+				r.Warnings = append(r.Warnings, fmt.Sprintf("ts-completion: no querySelector among %d items", len(labels)))
+			}
+			continue
+		}
+		r.Latency["ts-completion"] = append(r.Latency["ts-completion"], d)
+	}
+	for k := range cfg.runs + 1 {
+		name := fmt.Sprintf("missing%d", k)
+		sess.expectDiag(name, p.comp, func(ds []diag) bool {
+			return slices.ContainsFunc(ds, func(d diag) bool { return d.Source == "ts" && strings.Contains(d.Message, name) })
+		})
+		text := base[:ls] + "  " + name + "();\n" + base[ls:]
+		t := time.Since(sess.start)
+		sess.change(p.comp, text)
+		if !sess.waitFor(10*time.Second, func() bool { _, ok := sess.diagHit[name]; return ok }) {
+			r.Warnings = append(r.Warnings, "ts-diagnostics: no diagnostic for "+name)
+			break
+		}
+		if k == 0 {
+			continue
+		}
+		sess.mu.Lock()
+		hit := sess.diagHit[name]
+		sess.mu.Unlock()
+		r.Latency["ts-diagnostics"] = append(r.Latency["ts-diagnostics"], hit-t)
+	}
+	sess.change(p.comp, base)
+	time.Sleep(200 * time.Millisecond)
+	at := find(base, "twice(", 1)
+	refs := sess.textPos(p.comp, at)
+	refs["context"] = map[string]any{"includeDeclaration": true}
+	for k := range cfg.runs + 1 {
+		res, d, err := sess.call("textDocument/hover", sess.textPos(p.comp, at))
+		if err != nil {
+			return err
+		}
+		if k == 0 {
+			if !strings.Contains(string(res), "twice") {
+				r.Warnings = append(r.Warnings, "ts-hover: "+string(res))
+			}
+			continue
+		}
+		r.Latency["ts-hover"] = append(r.Latency["ts-hover"], d)
+	}
+	for k := range cfg.runs + 1 {
+		res, d, err := sess.call("textDocument/references", refs)
+		if err != nil {
+			return err
+		}
+		if k == 0 {
+			r.Latency["ts-references-first"] = []time.Duration{d}
+			if n := countLocations(res); n < 3 {
+				r.Warnings = append(r.Warnings, fmt.Sprintf("ts-references: %d locations of twice", n))
+			}
+			_, _, ts := sess.memory()
+			r.MemTSAll = ts
+			continue
+		}
+		r.Latency["ts-references"] = append(r.Latency["ts-references"], d)
 	}
 	return nil
 }

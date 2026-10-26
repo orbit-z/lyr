@@ -74,7 +74,7 @@ func (c *markdownCheck) run(ctx context.Context, mc *project.MarkdownChecker) er
 		c.mdTyped = typedMarkdownDiags(p, front)
 	}
 	if c.data {
-		c.known, c.units = typesOf(p)
+		c.known, c.units = typesOf(p, true)
 	}
 	return nil
 }
@@ -134,7 +134,7 @@ func (s *Server) runMarkdownCheck() {
 	}
 	s.mdInvalid = false
 	mc := s.mdChecker
-	c := &markdownCheck{edit: ws.mdEdit, tsEdit: ws.tsEdit, md: ws.hasMarkdownLayouts(), data: s.tsActive()}
+	c := &markdownCheck{edit: ws.mdEdit, tsEdit: ws.tsEdit, md: ws.hasMarkdownLayouts(), data: s.tsActive() && ws.anyData()}
 	if !c.md && !c.data {
 		s.mdRunning = false
 		s.mu.Unlock()

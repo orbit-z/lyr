@@ -85,7 +85,7 @@ func (c *diskCheck) run(ctx context.Context) error {
 		return err
 	}
 	c.mdTyped = typedMarkdownDiags(p, front)
-	c.known, c.units = typesOf(p)
+	c.known, c.units = typesOf(p, false)
 	c.typed = map[string]*compiler.GenFile{}
 	for _, f := range p.Files {
 		if f.Output == nil {

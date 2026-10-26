@@ -424,14 +424,18 @@ func comm(pid int) string {
 	return strings.TrimSpace(string(b))
 }
 
-// memory returns orbit lsp's and its gopls child's memory.
-func (s *session) memory() (orbit, gopls mem) {
+// memory returns orbit lsp's and its gopls and TypeScript (tsc) children's
+// memory.
+func (s *session) memory() (orbit, gopls, ts mem) {
 	pid := s.cmd.Process.Pid
 	orbit, _ = readMem(pid)
 	for _, c := range children(pid) {
-		if strings.HasPrefix(comm(c), "gopls") {
+		switch name := comm(c); {
+		case strings.HasPrefix(name, "gopls"):
 			gopls, _ = readMem(c)
+		case name == "tsc" || name == "tsgo":
+			ts, _ = readMem(c)
 		}
 	}
-	return orbit, gopls
+	return orbit, gopls, ts
 }

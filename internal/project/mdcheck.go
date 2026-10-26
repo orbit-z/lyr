@@ -6,6 +6,7 @@ import (
 	gotoken "go/token"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/orbit-z/orbit/internal/compiler"
 )
@@ -110,6 +111,23 @@ func (m *MarkdownChecker) TypecheckScope(ctx context.Context, p *Project, md, da
 	return len(files), loaded, nil
 }
 
+// HasData reports whether the .orbit file f (after Front) has a data
+// contract to type-check (PLAN.md §5c): a set:json block or a direct
+// orbit.JSON call in a data-* attribute, or another data-* attribute in a
+// file that calls JSON (its value may be an orbit.JSONValue from a
+// variable). Other data-* attributes carry no keys.
+func HasData(f *File) bool {
+	if f == nil || f.MD != nil || f.Pass1 == nil {
+		return false
+	}
+	for _, s := range f.Pass1.JSONSites {
+		if s.Block || s.Direct {
+			return true
+		}
+	}
+	return len(f.Pass1.JSONSites) > 0 && strings.Contains(f.Src, "JSON(")
+}
+
 // markdownUnits returns, in p.Files order, the Markdown files with a layout
 // (md), the .orbit files with JSON sites (data), and every file whose
 // generated decl package they import, directly or through other decl
@@ -133,7 +151,7 @@ func markdownUnits(p *Project, md, data bool) []*File {
 		if f.Pass1 == nil || f.Pass1.Decl == nil || byDecl[f.Pass1.Decl.ImportPath] != f {
 			continue
 		}
-		if md && f.MD != nil && f.MD.Layout != "" || data && f.MD == nil && len(f.Pass1.JSONSites) > 0 {
+		if md && f.MD != nil && f.MD.Layout != "" || data && HasData(f) {
 			add(f)
 		}
 	}
@@ -153,7 +171,7 @@ func markdownUnits(p *Project, md, data bool) []*File {
 		f := queue[0]
 		queue = queue[1:]
 		imports(f.Pass1.Decl)
-		if f.MD != nil || len(f.Pass1.JSONSites) > 0 {
+		if f.MD != nil || HasData(f) {
 			imports(f.Pass1.Impl) // the layout's (or the components') decl packages
 		}
 	}

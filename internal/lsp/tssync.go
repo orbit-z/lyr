@@ -385,27 +385,27 @@ func (s *Server) adoptTypes(ws *workspace, known map[string]bool, units map[stri
 }
 
 // typesOf collects a compiled project's data contracts for adoptTypes:
-// the .orbit files with a pass-1 output, and the contracts of those with
-// JSON sites.
-func typesOf(p *project.Project) (known map[string]bool, units map[string]*compiler.UnitTypes) {
+// the .orbit files it compiled (all with a pass-1 output, or with roots
+// only those with a data contract, the ones a scoped check type-checks),
+// and the contracts of those with data.
+func typesOf(p *project.Project, roots bool) (known map[string]bool, units map[string]*compiler.UnitTypes) {
 	known, units = map[string]bool{}, map[string]*compiler.UnitTypes{}
 	for _, f := range p.Files {
-		if f.MD != nil || f.Pass1 == nil {
+		if f.MD != nil || f.Pass1 == nil || roots && !project.HasData(f) {
 			continue
 		}
 		known[f.Path] = true
-		if len(f.Pass1.JSONSites) > 0 && f.Types != nil {
+		if project.HasData(f) && f.Types != nil {
 			units[f.Path] = f.Types
 		}
 	}
 	return known, units
 }
 
-// hasData reports whether the .orbit file f has orbit.JSON or set:json
-// sites (in its tolerant output).
-func hasData(f *project.File) bool {
-	return f != nil && f.Pass1 != nil && len(f.Pass1.JSONSites) > 0
-}
+// hasData reports whether the .orbit file f has a data contract (in its
+// tolerant output): edits of such a file (or of one that had one) rerun
+// the typed check while the TypeScript child runs.
+func hasData(f *project.File) bool { return project.HasData(f) }
 
 // tsWatched handles the watched-file events the child cares about (with
 // s.mu held): a root tsconfig.json change recomputes the in-memory one,
@@ -436,6 +436,20 @@ func (s *Server) tsWatched(ws *workspace, changes []any, rels []string) {
 	if types {
 		s.tsPushTypes(ws)
 	}
+}
+
+// anyData reports whether a data contract may need computing: some .orbit
+// file has JSON sites, or had them at the last typed check.
+func (ws *workspace) anyData() bool {
+	if len(ws.tsUnits) > 0 {
+		return true
+	}
+	for _, f := range ws.proj.Files {
+		if hasData(f) {
+			return true
+		}
+	}
+	return false
 }
 
 // isTSWatched reports whether a module-relative path is one Orbit's

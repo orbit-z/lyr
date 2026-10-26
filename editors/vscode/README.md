@@ -7,6 +7,7 @@ Language support for [Orbit](https://github.com/orbit-z/orbit) `.orbit` componen
 - **Syntax highlighting**: the frontmatter and `{…}` expressions (including `{if}`/`{else if}`/`{else}`/`{/if}`, `{for}`/`{/for}`, attribute values `a={…}`, the shorthand `{a}` and spreads `{...attrs}`) as Go, `<style>` as CSS, `<script>` as TypeScript (`<script type="application/json">` and `ld+json` as JSON), and the rest as HTML. Components (`<Card>`, `<Self>`, `<Fragment>`) and directives (`set:html`, `client:visible`, `server:defer`, `slot`, `is:inline`, …) get their own scopes. `{/* … */}` is a template comment; braces inside `<script>`, `<style>` and HTML comments aren't expressions.
 - **Editing**: bracket matching, comment toggling (`//` in the frontmatter, `<!-- -->` in the template) and auto-closing pairs.
 - **Language server**: the extension starts `orbit lsp`, which gives you Go completion, hover, diagnostics, go-to-definition, references and rename inside `.orbit` files (through gopls), plus completion of tags, component props, directives, slot names and import paths (`.orbit` and Markdown files), and formatting with `orbit fmt`'s rules ("Format Document"; the extension is the default formatter for `.orbit` files).
+- **TypeScript in `<script>` blocks**: completion (with auto-imports), hover, signature help, diagnostics, go-to-definition, references, rename and quick fixes, from TypeScript 7's language server, which `orbit lsp` starts for you. The types of `orbit.JSON` data (`import { data } from "./X.orbit"`) follow your unsaved Go edits, and go-to-definition on a data key or field jumps to the Go code that declares it. `is:inline` and other plain JavaScript scripts get the same features as JavaScript. Needs TypeScript 7 (below); without it, scripts keep their highlighting and everything else works.
 - **Markdown diagnostics**: for Markdown pages and imported `.md` files under `src/`, the language server reports Orbit's errors and warnings as you type (frontmatter, layout, links, routes). Highlighting, preview and every other Markdown feature stay VS Code's own; the extension sends Markdown files to `orbit lsp` for diagnostics only. See [Editor setup](https://github.com/orbit-z/orbit/blob/main/docs/editor-setup.md) for what it covers.
 
 ## Requirements
@@ -24,7 +25,13 @@ Language support for [Orbit](https://github.com/orbit-z/orbit) `.orbit` componen
   go install golang.org/x/tools/gopls@latest
   ```
 
-Run `orbit doctor` (or **Orbit: Run orbit doctor**) to check both.
+- Optional, for TypeScript features in `<script>` blocks: TypeScript 7.0.2 or later, its native `tsc` (no Node needed). `orbit lsp` finds the project's `node_modules/typescript`, or `tsc` on `PATH`, or runs `bun x --package typescript@7.0.2` if you have [Bun](https://bun.sh). To install it globally:
+
+  ```sh
+  bun add -g typescript@7.0.2   # or: npm i -g typescript@7.0.2
+  ```
+
+Run `orbit doctor` (or **Orbit: Run orbit doctor**) to check them.
 
 ## Settings
 
@@ -32,6 +39,7 @@ Run `orbit doctor` (or **Orbit: Run orbit doctor**) to check both.
 |---|---|---|
 | `orbit.path` | `orbit` | The `orbit` binary. A bare name is looked up on `PATH`, a relative path is resolved against the first workspace folder, `~/` is your home directory. |
 | `orbit.goplsPath` | (empty) | The gopls that `orbit lsp` starts (its `goplsPath` initialization option). Empty: `gopls` on `PATH`, then `go tool gopls` if `go.mod` pins it. |
+| `orbit.typescriptPath` | (empty) | The TypeScript 7 that `orbit lsp` starts for `<script>` blocks (its `typescriptPath` initialization option): a native `tsc` binary or a `typescript` package directory. Empty: the project's `node_modules/typescript`, `tsc` on `PATH`, then `bun x`. |
 
 ```json
 {
@@ -40,7 +48,7 @@ Run `orbit doctor` (or **Orbit: Run orbit doctor**) to check both.
 }
 ```
 
-Changing either setting restarts the language server.
+Changing any of these settings restarts the language server.
 
 ## Commands
 
@@ -66,6 +74,8 @@ vim.lsp.config('orbit', {
 })
 vim.lsp.enable('orbit')
 ```
+
+To choose the TypeScript 7 that gives `<script>` blocks their features (optional; the server looks for one itself), add `init_options = { typescriptPath = '/path/to/tsc' }` (as for `goplsPath`).
 
 The highlighting grammar is a TextMate grammar, which Neovim doesn't use. For Orbit's diagnostics in Markdown pages too, use `filetypes = { 'orbit', 'markdown' }`: the server ignores Markdown files Orbit doesn't compile, and answers other requests on Markdown files with nothing.
 
