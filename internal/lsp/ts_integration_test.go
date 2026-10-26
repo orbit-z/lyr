@@ -210,8 +210,15 @@ func TestTypeScript(t *testing.T) {
 
 	t.Run("definition into util.ts", func(t *testing.T) {
 		locs := c.locations(c.call("textDocument/definition", c.textPos(like, at(t, text, "plural(like", 0, 1))))
-		if len(locs) != 1 || !strings.HasSuffix(locs[0].URI, "src/scripts/util.ts") || locs[0].Range.Start.Line != 3 {
-			t.Errorf("definition of plural: %v", locs)
+		if len(locs) != 1 || !strings.HasSuffix(locs[0].URI, "src/scripts/util.ts") {
+			t.Fatalf("definition of plural: %v", locs)
+		}
+		src, err := os.ReadFile(strings.TrimPrefix(locs[0].URI, "file://"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := rangeText(string(src), locs[0].Range); got != "plural" {
+			t.Errorf("definition of plural is %q, want the declaration's name: %v", got, locs)
 		}
 	})
 
