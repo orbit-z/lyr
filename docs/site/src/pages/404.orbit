@@ -1,0 +1,13 @@
+---
+import Base "../layouts/Base.orbit"
+---
+<Base title="Page not found">
+  <h1>Page not found</h1>
+  <p>Nothing lives at <code>{ctx.URL.Path}</code>.</p>
+  <form action="/search" method="get" role="search">
+    <p>
+      <label>Search the docs instead: <input type="search" name="q" aria-label="Search the docs"></label>
+    </p>
+  </form>
+  <p><a href="/">Back to the docs home</a></p>
+</Base>

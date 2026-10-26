@@ -1,0 +1,57 @@
+{/*
+  The site-wide CSS: theme colors (light, dark via prefers-color-scheme, and
+  the theme toggle's data-theme override) and element defaults. It renders
+  nothing; Base.orbit imports it before any other component so these rules
+  come first in each page's stylesheet.
+*/}
+<style is:global>
+  :root {
+    color-scheme: light;
+    --bg: #ffffff;
+    --bg-soft: #f5f6f8;
+    --fg: #1d2129;
+    --muted: #5b6270;
+    --border: #e1e4ea;
+    --accent: #5b3fd6;
+    --accent-soft: #eeeafd;
+    --code-bg: #f3f4f7;
+    --mark: #fff1a8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #14161b;
+      --bg-soft: #1b1e25;
+      --fg: #e3e6ec;
+      --muted: #9aa2b1;
+      --border: #2b303a;
+      --accent: #a594ff;
+      --accent-soft: #272143;
+      --code-bg: #1d2129;
+      --mark: #5a4d00;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #14161b;
+    --bg-soft: #1b1e25;
+    --fg: #e3e6ec;
+    --muted: #9aa2b1;
+    --border: #2b303a;
+    --accent: #a594ff;
+    --accent-soft: #272143;
+    --code-bg: #1d2129;
+    --mark: #5a4d00;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  a { color: var(--accent); }
+  code, pre, kbd { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.9em; }
+  mark { background: var(--mark); color: inherit; border-radius: 2px; }
+</style>

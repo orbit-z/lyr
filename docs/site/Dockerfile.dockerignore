@@ -1,0 +1,9 @@
+.git
+**/.orbit
+**/dist
+**/orbit_gen
+**/node_modules
+bench/results
+spike
+docs/site/internal/content/md/*.md
+docs/site/internal/content/md/reference
