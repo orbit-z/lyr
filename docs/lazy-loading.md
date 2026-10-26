@@ -461,6 +461,20 @@ Typed data works the same in deferred and lazy components. A `data-post={orbit.J
 
 Lazy components are rendered on the server like any other, so their HTML is there. Only their scripts never run.
 
+## Which one: `server:defer` or `server:concurrent`
+
+Both help with slow components that fetch their own data, in different ways. (When the page can load the data itself, overlapping its fetches in the frontmatter and passing the results down as props is the recommended pattern; see [Slow components](rendering.md#slow-components).)
+
+| | `server:defer` | [`server:concurrent`](rendering.md#slow-components) |
+|---|---|---|
+| The part's HTML | arrives after the page, in a second request | is in the page's HTML |
+| The page's first byte | doesn't wait for the part | waits for the slowest marked part |
+| Several slow parts | each in its own request | overlap in the same response |
+| Costs | a second request, a fallback shown until it arrives, JSON-serializable props | about half a microsecond per marked component |
+| Good for | below the fold, personalized parts, slow third-party APIs | parts that must be in the HTML: SEO, above the fold, no layout shift |
+
+They combine on one page (some parts deferred, some concurrent), but not on one tag: `server:defer` and `server:concurrent` together are a compile error, because a deferred component already renders in its own request. A `server:defer` component inside a marked component's subtree works.
+
 ## Combining the two
 
 `server:defer` and `client:*` on the same tag is a compile error. With this tag in the post page:

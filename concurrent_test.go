@@ -759,3 +759,104 @@ func TestConcurrentServeAllocs(t *testing.T) {
 	}
 	t.Logf("%v allocs", allocs)
 }
+
+// benchCard is a small component, like a card in a list.
+func benchCard(c *Ctx, w *Writer, n int, s Slots) error {
+	if err := w.Enter("src/components/Card.orbit"); err != nil {
+		return err
+	}
+	defer w.Leave()
+	w.Raw(`<article class="card"><h2>Card `)
+	w.Int(int64(n))
+	w.Raw(`</h2>`)
+	w.Render(s.Default)
+	w.Raw(`</article>`)
+	return nil
+}
+
+// BenchmarkConcurrent serves pages of n small cards, in order and marked,
+// through Site.Handler with a reused ResponseWriter (PLAN.md §3.6, Cost).
+func BenchmarkConcurrent(b *testing.B) {
+	b.Setenv("ORBIT_STATIC", "")
+	b.Setenv("ORBIT_DEV", "")
+	page := func(n int, mark bool, filler string) func(*Ctx, *Writer) error {
+		return func(c *Ctx, w *Writer) error {
+			w.Raw("<!DOCTYPE html><html><head><title>t</title>")
+			w.HeadEnd()
+			w.Raw("</head><body>" + filler)
+			for i := range n {
+				if err := call(mark, c, w, benchCard, i, Slots{}); err != nil {
+					return err
+				}
+			}
+			w.Raw(filler + "</body></html>")
+			return nil
+		}
+	}
+	big := strings.Repeat("<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>", 270) // ~17 KB, twice
+	cases := []struct {
+		name   string
+		n      int
+		filler string
+		opts   []Option
+	}{
+		{"cards=3", 3, "", nil},
+		{"cards=20", 20, "", nil},
+		{"cards=500", 500, "", nil},
+		{"cards=500/nolimit", 500, "", []Option{WithConcurrencyLimit(-1)}},
+		{"page=34KB/cards=2", 2, big, nil},
+	}
+	for _, tc := range cases {
+		for _, mark := range []bool{false, true} {
+			name := tc.name + "/inorder"
+			if mark {
+				name = tc.name + "/concurrent"
+			}
+			b.Run(name, func(b *testing.B) {
+				s := NewSite([]Route{{Pattern: "/", File: "src/pages/index.orbit", Render: page(tc.n, mark, tc.filler),
+					Assets: []Asset{{Kind: "css", URL: "/_orbit/x.css"}}}}, nil, append([]Option{WithStaticDir(b.TempDir())}, tc.opts...)...)
+				h := s.Handler()
+				fw := newFakeResponseWriter()
+				r := httptest.NewRequest("GET", "/", nil)
+				b.ReportAllocs()
+				for b.Loop() {
+					fw.reset()
+					h.ServeHTTP(fw, r)
+				}
+			})
+		}
+	}
+}
+
+// BenchmarkCtxOf renders 500 components with capturing slot content, with
+// and without the CtxOf rebinding that codegen puts at the start of slot
+// content that calls a component.
+func BenchmarkCtxOf(b *testing.B) {
+	inner := func(c *Ctx, w *Writer, n int, s Slots) error {
+		w.Int(int64(n))
+		return nil
+	}
+	for _, rebind := range []bool{false, true} {
+		b.Run("ctxof="+strconv.FormatBool(rebind), func(b *testing.B) {
+			var buf bytes.Buffer
+			w := NewWriter(&buf)
+			c := acquireCtx(httptest.NewRequest("GET", "/", nil), nil, false)
+			defer releaseCtx(c)
+			b.ReportAllocs()
+			for b.Loop() {
+				buf.Reset()
+				for i := range 500 {
+					if err := benchCard(c, w, i, Slots{Default: func(orbit__w *Writer) error {
+						orbit__ctx := c
+						if rebind {
+							orbit__ctx = CtxOf(orbit__w, c)
+						}
+						return inner(orbit__ctx, orbit__w, i, Slots{})
+					}}); err != nil {
+						b.Fatal(err)
+					}
+				}
+			}
+		})
+	}
+}

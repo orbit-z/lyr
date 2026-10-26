@@ -386,6 +386,7 @@ Renders `r` (a slot such as `slots.Default` or `slots.Get("x")`, or any `Rendere
 - The capture continues the component stack of the request's writer, so the depth limit of 1000 counts through captures, and captures can nest. A `ctx` that no request renders with (built by hand) starts at depth 0.
 - A `</head>` inside the capture is a render error, `orbit: </head> can't be inside orbit.RenderHTML; keep the document head outside the captured content`: the page's asset tags go at the page's own `</head>`.
 - `ctx.SetStatus`, `ctx.Header()` and `locals` writes inside the captured content happen when it renders, so not when a cached copy is served.
+- `server:concurrent` components inside the captured content render in their own goroutines, and `RenderHTML` waits for them before it returns, so the HTML is complete. They count against a limit of their own (the request's limit, separately).
 
 See [Rendering a slot to a string](../components.md#rendering-a-slot-to-a-string) and [Caching fragments](../rendering.md#caching-fragments).
 
@@ -510,6 +511,13 @@ Sets `h` to answer the render errors that would otherwise get the built-in 500: 
 
 See [Answering errors yourself](../rendering.md#answering-errors-yourself-witherrorhandler).
 
+#### WithConcurrencyLimit
+
+```go
+func WithConcurrencyLimit(n int) Option
+```
+Sets how many `server:concurrent` components of one render may run at once, counted across nesting; the default is 16. Past the limit, a marked component renders in order on the goroutine that reaches it, with the same output (never a wait, which could deadlock a nested component on its own ancestor). `0` renders every marked component in order; a negative `n` means no limit. Each `RenderHTML` capture and each `RenderComponent` or `orbittest` render has its own count, with the default limit for the last two. See [Slow components](../rendering.md#slow-components).
+
 ### Generated wiring
 
 ```go
@@ -557,6 +565,20 @@ Generated at each `server:defer` call site. Encodes `props` as JSON, encrypts th
 ```
 
 The same props, component and build always give the same token, so the same URL. A JSON encoding error is a render error at the call site's `.orbit` position.
+
+## Concurrent rendering
+
+`server:concurrent` renders a component in its own goroutine, Writer and buffer (see [Slow components](../rendering.md#slow-components)). These names are used by generated code; you don't call them yourself.
+
+```go
+func Concurrent[P any](c *Ctx, w *Writer, render func(*Ctx, *Writer, P, Slots) error, props P, slots Slots) error
+```
+Generated at each `server:concurrent` call site, with the props literal and slot content evaluated in the parent. It starts `render` in a goroutine with a child `Writer` and a child `Ctx` (a copy of `c`'s request, URL, params and locals; its status and headers start empty), records the component's place in `w`'s output, and returns nil. The component's output, errors, status and headers come out when the entry point (the page, an island request, `RenderComponent`, `orbittest`, or a `RenderHTML` capture) joins, in source order. It returns `w`'s error, and starts nothing, when `w` has already failed. It renders inline, as a plain call, under a `Writer` from `NewWriter`, past the [limit](#withconcurrencylimit), and inside an attribute value. A panic in the goroutine becomes the render error, with the `.orbit` position of the panicking line; `http.ErrAbortHandler` is re-panicked on the request's goroutine after the join.
+
+```go
+func CtxOf(w *Writer, c *Ctx) *Ctx
+```
+Generated at the start of slot content that calls a component or uses `ctx`: slot content can run in a marked component's goroutine, so it takes that goroutine's `Ctx` from its `Writer`. It returns `c` for a `Writer` from `NewWriter`.
 
 ## Rendering from your handlers
 
@@ -650,6 +672,7 @@ Compares `html` with `testdata/<name>.golden` and fails the test, showing the di
 - [Server](../server.md): `Middleware`, `Handler`, `NotFound`, `RenderComponent`, `ListenAndServe`
 - [Middleware and locals](../middleware.md): `EnsureLocals` and typed `Locals`
 - [Lazy loading](../lazy-loading.md): `server:defer`, `Defer` and the island key
+- [Rendering](../rendering.md#slow-components): `server:concurrent`, `Concurrent` and the limit
 - [Testing](../testing.md): `orbittest`
 - [Template syntax](template-syntax.md)
 - [Client modules](client-modules.md): reading `orbit.JSON` and `set:json` data in scripts

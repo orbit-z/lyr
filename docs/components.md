@@ -1097,6 +1097,24 @@ Two directives on a component tag keep pages fast. They're covered in [Lazy load
 
 Both work only on `.orbit` components, and they can't be combined on one tag.
 
+## Fetching data in components
+
+The recommended pattern is to load a page's data in the page and pass it down as props (see [Slow components](rendering.md#slow-components)). A component can still fetch its own data in its frontmatter, as in Astro. Orbit renders components in order, so two slow components add up; mark each slow one with `server:concurrent` to render it in its own goroutine, overlapping the others (see [Slow components](rendering.md#slow-components)):
+
+```orbit
+<Weather server:concurrent city="Paris" />
+<LatestPosts server:concurrent limit={5} />
+```
+
+A marked component runs at the same time as the rest of the page, so the usual Go rules about data races apply to request data that's now shared:
+
+- **Props passed by reference** (slices, maps, pointers): don't change them in the page or in a marked component while the other may read them.
+- **`locals` fields**: every component of a request shares one `locals` value. A field that a marked component writes (`locals.Count++`) and that other components read or write needs a `sync` type, such as `sync.Mutex` or `atomic.Int64`, in your `Locals`.
+- **`ctx` in your own closures**: a frontmatter closure that captures `ctx` and calls `ctx.SetStatus` or `ctx.Header()` must not be called from a marked component's subtree.
+- **`ctx.Request.Body`**: read it in the page's frontmatter, not in components.
+
+Package-level variables were already shared between concurrent requests, so nothing changes for them. Run your tests with `go test -race` to catch races: `orbittest.Render` and `orbittest.Get` render marked components concurrently, as in production.
+
 ## Passing data to client scripts
 
 A component's `<script>` runs in the browser, so it can't read `props`. Pass it data in the HTML: as typed JSON with `orbit.JSON`, as plain `data-*` attributes, or as a JSON block with `set:json`. All three are escaped for you.

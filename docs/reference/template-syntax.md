@@ -72,6 +72,7 @@ tags := []string{"go", "web"}
 | `<Name …>`, capitalized | A component. `Name` must be the alias of an `.orbit` import; otherwise it's an error. |
 | `<Self …>` | The current component, rendered recursively. Same props and slots rules as any component. |
 | `<Name server:defer …>` | Deferred server rendering: the page gets a placeholder holding the `fallback` slot, and the browser fetches the component's HTML in a separate request. See [Lazy loading](../lazy-loading.md). |
+| `<Name server:concurrent …>` | Concurrent server rendering: the component renders in its own goroutine while the page goes on, and its HTML lands in its place. See [`server:concurrent`](#serverconcurrent). |
 | `<Name client:idle …>`, also `client:load`, `client:visible`, `client:media` | Controls when the `<script>` modules of the component and its subtree load. See [Lazy loading](../lazy-loading.md). |
 | `<slot />`, `<slot name="x">fallback</slot>` | A slot outlet, with optional fallback children. |
 | `<Fragment>` | Groups children without a wrapper element; mostly used as `<Fragment slot="x">`. |
@@ -429,6 +430,7 @@ A directive is an attribute with a namespace (`set:`, `is:`, `server:`, `client:
 | `is:inline` | `<script>`, `<style>` | Leaves the tag untouched: no extraction, bundling or scoping. |
 | `is:global` | `<style>` | Skips CSS scoping. |
 | `server:defer` | Component tag | Renders the component in a separate request after the page loads. See [`server:defer`](#serverdefer). |
+| `server:concurrent` | Component tag | Renders the component in its own goroutine, overlapping it with the rest of the page. See [`server:concurrent`](#serverconcurrent). |
 | `client:load`, `client:idle`, `client:visible`, `client:media` | Component tag | Controls when the scripts of the component and its subtree load. See [`client:*`](#client). |
 
 An element with a `set:` directive takes no children (whitespace aside); the directive replaces its content. `set:` directives on a component are a compile error.
@@ -506,6 +508,29 @@ For per-element data, use [`orbit.JSON`](#json-attributes) or plain `data-*` att
 | On an HTML element, `<slot>` or `<Fragment>` | `server:defer only works on .orbit components` |
 | With a value (`server:defer="x"`) | `server:defer takes no value` |
 
+### `server:concurrent`
+
+`server:concurrent` is a bare attribute on a component tag (`<Self>` included). The component, with its whole subtree and the slot content passed to it, renders in its own goroutine, while the page keeps rendering after it. When the page is done, Orbit waits for every marked component and assembles the response in source order, so the HTML is byte-identical to rendering in order. Two marked components that each wait 10 ms for their data take about 10 ms together instead of 20:
+
+```orbit
+<Weather server:concurrent city="Paris" />
+<LatestPosts server:concurrent limit={5} />
+```
+
+- The component starts when the render reaches the tag, after its props and slot content are evaluated, as for any call. Only marked components leave the goroutine: an unmarked slow component still blocks what follows it, so mark every slow component.
+- Errors come out in source order: the page fails with the error the in-order render would have given. A redirect or `orbit.ErrNotFound` from a marked component works as usual. Orbit doesn't cancel the others; the response waits for every marked component that started.
+- `ctx.SetStatus` and `ctx.Header()` in a marked component apply when the page is assembled, in source order, after the page's own.
+- It works with `client:*` on the same tag, in `{for}` loops, and on `<Self>`. At most 16 marked components of one render run at once (`orbit.WithConcurrencyLimit`); past that, they render in order, with the same output.
+- Outside a request (a `Writer` from `orbit.NewWriter` in your own Go code), it renders in order.
+
+See [Rendering](../rendering.md#slow-components) for when to use it, and [Components](../components.md#fetching-data-in-components) for the data-race rules.
+
+| Mistake | Compile error |
+|---|---|
+| On an HTML element, `<slot>` or `<Fragment>` | `server:concurrent only works on .orbit components` |
+| With a value (`server:concurrent="x"`) | `server:concurrent takes no value` |
+| Together with `server:defer` | `server:defer and server:concurrent can't be combined; a deferred component already renders in its own request` |
+
 ### `client:*`
 
 A `client:*` directive on a component tag controls when the `<script>` modules of the component, and of every component it renders, load in the browser. The HTML is always rendered on the server.
@@ -557,7 +582,7 @@ import Card "../components/Card.orbit"
 
 ```text
 src/pages/index.orbit:4:7: unknown directive "client:hover" (client directives: client:load, client:idle, client:visible, client:media)
-src/pages/index.orbit:5:7: unknown directive "server:lazy" (server directives: server:defer)
+src/pages/index.orbit:5:7: unknown directive "server:lazy" (server directives: server:defer, server:concurrent)
 ```
 
 Astro's `define:vars` isn't supported, and using it is a compile error with a hint, rather than being written out as a plain attribute:
@@ -726,6 +751,7 @@ Attribute values follow the same formatting, with the attribute rules for `true`
 
 - [Components](../components.md): frontmatter, props, slots, recursion, passing data to scripts and escaping, with examples
 - [Lazy loading](../lazy-loading.md): `server:defer` and `client:*` in depth
+- [Rendering](../rendering.md#slow-components): slow components and `server:concurrent`
 - [Styles and scripts](../styles-and-scripts.md): `<style>`, `<script>`, `is:inline` and `is:global`
 - [Runtime API](runtime-api.md): `orbit.HTML`, `orbit.URL`, `orbit.JSON`, `orbit.Attrs`, `orbit.Slots`, `orbit.Renderer`
 - [Client modules](client-modules.md): `data` and `json` in scripts, and the Go-to-TypeScript type mapping

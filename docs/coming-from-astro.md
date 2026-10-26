@@ -197,6 +197,7 @@ See [Using Tailwind](tailwind.md).
 | `ASTRO_KEY`, `astro create-key` | `ORBIT_KEY`, `orbit create-key` | Needed for rolling deploys. See [The key](lazy-loading.md#the-key-orbit_key-and-rolling-deploys). |
 | `client:load`, `client:idle`, `client:visible`, `client:media` | The same names, on `.orbit` component tags | Astro uses them to hydrate framework components. In Orbit they delay the vanilla `<script>`s of the component **and of its whole subtree**; the HTML is always rendered on the server. If the component is also rendered eagerly on the page, its scripts stay eager. See [`client:*`](lazy-loading.md#client-lazy-scripts). |
 | `client:only` | Not supported | It's for framework components, which Orbit doesn't have, and it's a compile error: `client:only is for framework components, which Orbit doesn't support; use client:load, client:idle, client:visible or client:media`. |
+| Async components (`await` in the frontmatter): siblings after the first one that awaits render at the same time | `server:concurrent` on each slow component | Astro overlaps awaiting siblings automatically. Orbit renders in order unless a call site is marked, because it can't know which components will block, and doing it for every component would slow every page down. Mark the components that fetch. See [Slow components](rendering.md#slow-components). |
 
 ### Rendering modes
 

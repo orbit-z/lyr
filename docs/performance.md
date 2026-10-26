@@ -137,6 +137,28 @@ What it costs:
 
 Lazy component scripts (`client:idle`, `client:visible`, `client:media`) cost nothing at render time: their wrapper elements are part of the precomputed static HTML. Pages that have them get the lazy loader script inline (about 1.3 KB, 0.8 KB gzipped).
 
+## Slow components in the same response: `server:concurrent`
+
+The recommended way to load a page's data is in the page itself, with the fetches overlapped there (goroutines and a `sync.WaitGroup`, or an `errgroup`), passing the results down as props. Components that fetch their own data, as Astro components often do (code ported from Astro, for example), are where `server:concurrent` helps. When such a slow part must be in the HTML (SEO, above the fold, no layout shift), `server:defer` doesn't fit. [`server:concurrent`](rendering.md#slow-components) renders each marked component in its own goroutine and buffer instead, and the response is assembled in source order once they're done: the page still waits for its slowest part, but slow parts no longer add up. Two components that each wait 10 ms take about 10 ms together, not 20.
+
+It's opt-in because it isn't free, and Go can't know in advance which components will block. Doing it for every component would cost each one a goroutine, a buffer and a copy, about 10 times the render of a small component.
+
+Measured on full requests through `Site.Handler` with a reused `ResponseWriter` (`BenchmarkConcurrent` in the runtime; small cards; Ryzen 7 9700X, Go 1.27.3, medians of 6, one core unless noted):
+
+| Page | In order | `server:concurrent` |
+|---|---|---|
+| 3 small cards | 0.17 µs, 1 alloc | 1.0 µs, 4 allocs (288 B) |
+| 20 small cards | 0.45 µs, 1 alloc | 4.2 µs, 17 allocs (16 forked, 4 inline past the limit) |
+| 500 small cards, limit 16 | 8.1 µs | 19.6 µs, 17 allocs |
+| 500 small cards, no limit | 8.2 µs | 123 µs, 501 allocs (40 KB) |
+| ~34 KB page with 2 marked cards | 3.9 µs | 5.0 µs (the assembly copy plus 2 goroutines) |
+
+So a marked component costs about 0.3 µs and one small allocation (the goroutine's arguments, ~80 bytes), nothing against the 10 ms it hides; a marked loop stays near the in-order cost thanks to the limit. The 16-thread runs are within 10% of these, except the 500-card loop (37 µs: goroutines on other cores wake up and steal work).
+
+- **Mark every slow component, and only those.** An unmarked slow component still blocks what follows it; a marked fast one costs more than it renders.
+- **At most 16 per render run at once** (`orbit.WithConcurrencyLimit`), counted across nesting; past that, a marked component renders in order. A marked component in a `{for}` loop hits the limit quickly and usually means one query in the page would beat one per item.
+- **Unmarked pages pay nothing**: no goroutine, no extra allocation, no atomic operation; the allocation tests (0 to render a typical page, 1 to serve it) are unchanged.
+
 ## Build and dev-loop speed
 
 Orbit is written in Go partly so that builds stay fast: each component is its own Go package, so a rebuild only recompiles what changed. Measured rebuild times are under [Dev loop](#dev-loop-benchdevloop) below.
