@@ -125,6 +125,7 @@ title := strings.ToUpper(props.Title)
 |---|---|
 | text | Anything except `{` and a `<` that starts a tag; emitted verbatim. `<` starts a tag only when followed by a letter, `/`, `!` or `>` (the fragment shorthand `<>`); any other `<` (`a < b`, `<3`, `<=`) is text. A literal brace is written `{"{"}`. |
 | `{expr}` | Any Go expression, escaped (typed writes, §3.3; `Expr` fallback, §4). The end is found with a Go-aware scanner that tracks `()[]{}` depth, strings, runes, raw strings and comments. |
+| `` {`text ${expr}`} `` | Template literal (proposed, §2.10): in the template every backtick string is a JavaScript template literal with `${…}` Go pieces (whole values lowered to typed writes, elsewhere a `string`); the frontmatter keeps Go raw strings. |
 | `{/* … */}` | Template comment, emits nothing. |
 | `{if c}` `{else if c}` `{else}` `{/if}` | Copied as a Go `if` chain. |
 | `{for clause}` `{/for}` | Any Go for clause (`range`, 3-clause, condition). Go 1.22 per-iteration variables make closures safe. |
@@ -914,6 +915,154 @@ func RestOf[A Attrs | AttrList](a A) RestAttrs     // was RestOf(m Attrs)
 - Spreading props onto components (unchanged from §2.5).
 - Lowering spread literals at codegen ((Q1) d) and `orbit.If` inside `A(…)`.
 - Struct spreads (`{...themeStruct}` with tags lowered by the typed pass): fastest and closest to the port's existing struct, but pass 1 would need reflection to render it, which the runtime rules out.
+
+---
+
+### 2.10 Template literals
+
+**Status: proposed — questions answered, ready to implement** (spec 2026-10-27; nothing implemented). User decisions it's designed within: (1) the syntax is a **JavaScript template literal inside braces**, Astro's own, so `` href={`/fiction/${book.Slug}`} `` and `` <Card title={`Chapter ${n}`} /> `` port unchanged (rejected: braces inside a quoted value, which is literal text in Astro and stays literal in Orbit); (2) on HTML attributes each piece is written straight to the buffer (typed writes, 0 allocations), on component props the literal is one string concatenation (1 allocation when a piece is dynamic, the same as `+` today), and an all-static literal is a constant; (3) **pieces of any type print exactly like `{…}` in text** (§3.3's table, `docs/reference/template-syntax.md` "How values render"), the write chosen at compile time by go/types, with the same fallback for other types. Answers to the (Q) points (user, 2026-10-27): **(Q1) b**, a backtick string is a template literal **anywhere in the template** (the user's principle: syntax that looks like it works everywhere must work everywhere; markup-only `&&`/`?:` was rejected for the same reason); **(Q2) a**, JavaScript's escapes, an unknown escape is an error; **(Q3) a**, content literals (follows from (Q1) b); **(Q4) a with a fix**, "inert pieces", where a number or `bool` piece counts only if its type has no `String`/`Error`/`Format` method; **(Q5)** as proposed, `Renderer` pieces are errors and slices concatenate like `{…}`; **(Q6) a**, `orbit fmt` formats each piece as a Go expression. Also decided: `{false}` in text keeps printing `false` (below).
+
+**Why**: string building in a template needs Go concatenation today: `` class={`card ${extra}`} `` becomes `class={"card " + extra}` (`coming-from-astro.md`, `components.md`, `migrating-from-astro.md`), and a number piece needs `strconv` (`` aria-label={`Chapter ${n}`} `` becomes `aria-label={"Chapter " + strconv.Itoa(n)}`), which also allocates where the typed writes wouldn't. In `nyth`'s 179 `.astro` files: **71 template literals as a whole attribute or prop value** (`href` 17, `id` 10, `aria-label` 10, `class` 6, `target` 4, `aria-controls` 3, `style` 3, `title` 3, `aria-labelledby` 2, `popovertarget` 2, component props `bookHref`, `hint`, `heading`, `path`, …; 75 pieces, 70 plain values and 5 calls), **7 as a whole content value** (`` {` · ${panel.size}`} ``, `` {` ${card.note}`} ``: a leading space that survives `compressHTML`, and one `` {`\n${…}`} ``), and a handful inside a larger expression (a call argument, `signinHref(`/fiction/${bookSlug}/`)`, and ternary branches, which port to `orbit.If`/`orbit.Cond` arguments: `` aria-label={c ? `Open ${x}` : undefined} `` → `` aria-label={orbit.If(c, `Open ${x}`)} ``). None span lines, none nest.
+
+#### End-to-end example
+```orbit
+---
+import Card "../components/Card.orbit"
+
+type Props struct {
+	Book  books.Book
+	Index int
+	Open  bool
+}
+---
+<a href={`/fiction/${props.Book.Slug}`} aria-label={`Chapter ${props.Index + 1} of ${props.Book.Title}`}>
+  <Card title={`Chapter ${props.Index + 1}`} />
+</a>
+<span>{` · ${props.Book.Words} words`}</span>
+<button aria-label={orbit.If(props.Open, `Close ${props.Book.Title}`)}>…</button>
+```
+renders `<a href="/fiction/the-hollow" aria-label="Chapter 3 of The Hollow &amp; Co">…</a><span> · 41200 words</span><button aria-label="Close The Hollow &amp; Co">…</button>` (with `Open` true).
+
+Generated code (typed pass, hook flavor; line directives omitted). For whole values, the static parts are pre-escaped into the `Raw` constants and each piece is the typed write its type gets as a whole value; `/fiction/` already settles the URL scheme, so no runtime filter runs. The literal inside `orbit.If` isn't a whole value, so it's a string expression:
+```go
+orbit__w.Raw(`<a href="/fiction/`)
+orbit__w.AttrValue(props.Book.Slug)          // attribute-escaped; the prefix settled the scheme, so no filter
+orbit__w.Raw(`" aria-label="Chapter `)
+orbit__w.Int(int64(props.Index + 1))
+orbit__w.Raw(` of `)
+orbit__w.AttrValue(props.Book.Title)
+orbit__w.Raw(`" data-o-1a2b3c4d>`)
+if err := card.Render(orbit__ctx, orbit__w, card.Props{
+	Title: string(strconv.AppendInt(append(orbit__tb1[:0], "Chapter "...), int64(props.Index+1), 10)), // var orbit__tb1 [64]byte above: 1 allocation
+}, orbit__rt.Slots{}); err != nil { … }
+orbit__w.Raw(`</a><span> · `)
+orbit__w.Int(int64(props.Book.Words))
+orbit__w.Raw(` words</span><button`)
+{
+	orbit__c, orbit__v := props.Open, "Close " + props.Book.Title // §2.6's If lowering; the literal is Go +: 1 allocation
+	if orbit__c { orbit__w.Raw(` aria-label="`); orbit__w.AttrValue(orbit__v); orbit__w.Raw(`"`) }
+}
+```
+
+#### Rules
+- **What is a template literal** ((Q1) b): in the template, **every backtick string is a JavaScript template literal**, wherever it appears in a template expression: attribute values (HTML elements, dynamic tags §2.8, components, pass-through attributes §2.5), content `{…}`, `set:text`/`set:html`/`set:json` values, `class:list` items and keys, spreads, control headers (`{if}`, `{else if}`, `{for}`, `{switch}`, `{case}`), and anywhere inside a larger Go expression (call arguments, `orbit.If`/`orbit.Cond` arguments, operands of `+` or `==`, composite literals, inside `${…}` of another literal). Template comments (`{/* … */}`) and Go comments inside expressions are untouched. The **frontmatter**, hoisted declarations and `.go` files are plain Go and **don't change**: a backtick there is always a Go raw string. `<script>`/`<style>` content is opaque, as today.
+- **Two lowerings, one meaning**:
+  - **Whole values** (the literal is the entire value of an element or dynamic-tag attribute, a content expression, `set:text`, `set:html`, a `class:list` item or key, a component prop or pass-through attribute, with only whitespace between it and the braces): the zero-allocation piece lowering for writes (below), and the concatenation for props.
+  - **Everywhere else**: a **string expression**. With no piece (or only constant pieces) it's an **untyped string constant** (so `{case `draft`}`, `` orbit.CSS(`display:none`) `` and constant folding behave as for `"…"`); otherwise a value of type `string`, one concatenation (1 allocation when dynamic). Converting it is ordinary Go: `` orbit.CSS(`width:${w}`) `` is an explicit conversion, the author vouching for the value as with `orbit.CSS("width:" + w)` today; assigning it to a named string type needs that conversion too, as for any `string` (Go's error otherwise).
+- **No Go raw strings in templates.** A Go raw string can't be written in a template expression any more; one without `${` or `\` means the same as a literal (so `` {`{raw}`} ``, `` {`}`} ``, `` strings.Join(x, `, `) `` and the existing fixtures render the same bytes). To write a literal `${` in a template string, escape it: `` `\${` `` (or use an interpreted string, `"${"`); a backslash is `\\` (or `"\\"`). A former raw string with backslashes, typically a regular expression (`` regexp.MustCompile(`\d+`) ``), gets (Q2)'s unknown-escape error with the hint to double the backslash or move the value to the frontmatter, where Go's raw strings still work.
+- **Lexical grammar** (JavaScript's): text up to the closing backtick; `${` starts a piece, a Go expression up to its matching `}` (the Go-aware rules of `scanBraced`: strings, runes, comments, brace depth), in which a backtick starts a **nested template literal** (`` `a ${f(`x ${y}`)}` ``; JavaScript's nesting, and the consequence of the "everywhere" rule). A `$` not followed by `{` is text. An empty piece (`${}` or `${ }`) is an error, `empty ${} in template literal`. Literals may span lines (as in JavaScript); the text keeps its newlines, which in an attribute value are written as they are (`compressHTML` never alters attribute values or `{expr}` output, §3.3). Errors, each at its position: `unterminated template literal` (at the opening backtick), `unterminated ${ in template literal` (at the `${`), the escape errors below.
+- **Escapes** ((Q2) a): processed at build time, as JavaScript does: `\\`, `` \` ``, `\$` (so `\${` is a literal `${`), `\n`, `\r`, `\t`, `\b`, `\f`, `\v`, `\0` (not followed by a digit), `\xHH`, `\uHHHH`, `\u{H…}` (written as UTF-8), `\'`, `\"`, and a backslash before a newline (a line continuation: both are dropped). Any other escape is an error at the backslash, `unknown escape \d in template literal; write \\d for a backslash` (JavaScript turns `\d` into `d` silently; Go rejects unknown escapes; decided by the user). A literal with no pieces is the constant string of its cooked text, exactly `{"…"}` (folded into the `Raw`, URL-filtered at build time in a URL attribute, §2.6's folding).
+- **How pieces print** (user decision 3): each piece prints like `{…}` in text, the typed write chosen from its static type (§3.3's table): strings, `[]byte`, ints, uints, `float64`/`float32` (shortest form), `bool` as `true`/`false` (never bare or omitted: inside a literal it's text, like JavaScript's `${false}`), `error` and `fmt.Stringer` text, named types like their underlying value, untyped `nil` and nil interfaces as nothing (JavaScript prints `null`/`undefined`: a documented difference), slices concatenated ((Q5); JavaScript joins with `,`: documented), anything else `fmt.Sprint` (the `Expr` fallback). Constant pieces (`${"x"}`, `${3}`) of types without `String`/`Error`/`Format` methods are folded into the static text at build time.
+  - **`{false}` in text** keeps printing `false`, in a piece and as a plain `{…}` (user decision 2026-10-27, a deliberate divergence from Astro, which renders nothing for `false`, `null`, `undefined`, `""` and `NaN` in content and `true` as `true`: `astro@7.3.8` `dist/runtime/server/render/any.js:33`, `if (!child && child !== 0) return;`). Inside a template literal Orbit and JavaScript agree (`${false}` is `false` in both).
+- **A literal is a string.** Its pieces lose any trust they had, as in JavaScript: an `orbit.HTML` piece is escaped like a string, an `orbit.URL` piece doesn't exempt the value from the URL filter (except by (Q4)'s rule for a marker target). **`orbit.Renderer` and `func(*orbit.Writer) error` pieces are compile errors** at the piece ((Q5)), `can't put slots.Get("x") (orbit.Renderer) in a template literal: it renders HTML, and a template literal is text`.
+- **Escaping per context, for whole values** (static parts at build time, pieces at render time, with the context's table: attribute values `& " < >`, text `& < > " '`; §4):
+  - **HTML attribute**: always written as `name="…"`, even when every piece is empty or nil (`title=""`; Astro writes `title=""` for an empty string too). The true/false-attribute rule and the boolean-attribute rule (§2.6 (Q3), §4) don't apply: the value is a string. A non-whole literal is a `string` value and follows the usual `string` rules (inside `orbit.If`, for instance).
+  - **URL attributes** (`href`, `src`, … `isURLAttr`): the `javascript:`/`vbscript:` filter applies to the **whole value**, decided at build time from the static prefix (the text before the first non-constant piece) when it can be: codegen runs `isUnsafeURL`'s scheme match over the prefix (leading spaces and controls skipped, tabs and newlines ignored, ASCII case folded):
+    - the prefix already diverges from both `javascript:` and `vbscript:` (`/…`, `#…`, `?…`, `./…`, `https://…`, `mailto:…`), whatever the pieces after it hold: **no runtime check**, pieces written as plain attribute pieces. This is `nyth`'s case for all 17 `href`s.
+    - the prefix is a complete unsafe scheme (`` `javascript:${x}` ``): the value is the constant `about:invalid#orbit`; the pieces are still evaluated (`_ = x`), in order, so panics and side effects match the unlowered form.
+    - the prefix is empty, whitespace or a proper prefix of a scheme (`` `${base}/x` ``, `` `java${x}` ``): **runtime check over the written bytes**: `orbit__m := orbit__w.URLMark()` before the value, the pieces written as usual, then `orbit__w.URLCheck(orbit__m)`, which runs `isUnsafeURL` over the bytes written since the mark and, if they're unsafe, truncates the buffer back to the mark and writes `about:invalid#orbit`. 0 allocations, a scan of at most ~12 bytes, and a scheme split across pieces (`` `${a}${b}` `` with `a = "java"`, `b = "script:…"`) is caught. Checking the escaped bytes gives the same answer as checking the raw value, since the attribute escaper never touches letters, `:`, tabs, newlines or spaces; the one difference is a leading NUL, which the escaper turns into U+FFFD (the browser does the same, and then sees no scheme): `Attr`'s raw check would filter `"\x00javascript:"`, the template-literal check leaves the harmless `�javascript:` (decided by rule: simplest; logged in `DECISIONS.md`).
+    - The check runs whatever the pieces' types (decided by rule: a literal is a string; it also keeps pass 1 and the typed pass identical, since pass 1 doesn't know types).
+  - **`class`**: alone, the literal is written as plain attribute pieces, exactly as written (no whitespace normalization, Astro behavior for `class`). Merged (with `class:list` on the same element, with `{...props.Attrs}`'s class, §2.5, or as a `class:list` item or key), it's one class item: built in a stack buffer and written with a new `Writer.ClassBytes(b)` (whitespace-normalized like any item, 0 allocations up to the buffer size). Piece boundaries aren't class boundaries (`` `btn-${size}` `` is one class).
+  - **`style` and `on*`**: the security warning (§2.3, §2.7) is computed by the typed pass as today; a whole-value literal is trusted (no warning) under (Q4)'s inert-pieces rule; a non-whole literal is a `string` (warns, unless converted to `orbit.CSS` explicitly).
+  - **`orbit.JSON`/`set:json`**: `` data-x={`…`} `` is a string attribute (not JSON); `` orbit.JSON(`…`) `` and `` set:json={`…`} `` encode the string.
+  - **Content**: pieces with the text table, static parts pre-escaped; the text is exactly what JavaScript would produce, so `` {` · ${n}`} ``'s leading space survives `compressHTML` (it's expression output).
+- **Inert pieces** ((Q4) a, with the user's fix): a piece is **inert** when its static type (go/types, never its runtime value) is
+  - a type whose underlying type is numeric (ints, uints, floats) or `bool`, **and** that has no `String() string`, `Error() string` or `Format(fmt.State, rune)` method in the method set of `T` or of `*T` (the printing rules use those methods, and a method can return arbitrary text: `type Count int` with a `String()` is not inert);
+  - a constant whose type has none of those methods (its value is known at build time and folded into the static text, which is checked like author-written text);
+  - or a value of the target marker type itself (`orbit.HTML` into `orbit.HTML`, …).
+
+  A whole-value literal **converts to an `orbit.HTML`, `orbit.URL` or `orbit.CSS` prop** (and is accepted by `set:html`, which needs `orbit.HTML`), and **doesn't trigger the `style`/`on*` warning** (as if it were `orbit.CSS`), only when every piece is inert for that marker. Otherwise it's an error at the first non-inert piece: `a string piece can't be part of an orbit.URL prop: make the prop a string (filtered where it's written) or convert the piece with orbit.URL(…)`, and for `style` the usual warning. `nyth`'s three `` style={`width:${card.track}%`} `` progress bars stop warning; `` <Link href={`/books/${id}`} /> `` into an `orbit.URL` prop works for an `int` id.
+- **Component props** (whole values):
+  - **Target types**: `string`, any named type whose underlying type is `string` (converted: `` slug={`${a}-${b}`} `` into a `type Slug string` field), and interface types (`any`: the field gets a `string`). Anything else is an Orbit error at the attribute, from the typed pass: `` src/pages/index.orbit:9:12: a template literal is a string; prop count of <Card> is int ``. When the field's type is visibly not a string in the target's parsed `Props` (a builtin number or `bool`, a slice, map, pointer, func or struct type), the same error comes from pass 1, without types, so it's reported even when another type error stops the typed pass.
+  - **Trust markers** `orbit.HTML`, `orbit.URL`, `orbit.CSS` as the target: the inert-pieces rule.
+  - **Lowering** (typed pass, also used for non-whole literals): all-constant → a constant (0 allocations); every piece a string → Go `+` (one allocation, Go's `concatstrings`; possibly 0 in the build flavor when the result doesn't escape, §3.5); otherwise `string(<append chain>)` on a 64-byte stack array per literal (`var orbit__tbN [64]byte`), with the runtime's own append helpers for numbers, `Stringer` and `error` (`orbit__rt.AppendFloat`, `AppendStringer`, …, sharing their code with `Writer.Float`, `Writer.Stringer`, … so the bytes are identical): one allocation up to 64 bytes, two beyond. Converted to the field's type when it's named.
+  - **Pass-through attributes** (§2.5) and a `class` prop: the same concatenation, then `RestString`/`RestStringURL` (filtered in a URL attribute) or the class item; 1 allocation when dynamic.
+  - **`server:defer`**: nothing new; the prop is a string field, JSON-encoded like any other (§3.4's generate-time check is on the field type).
+- **Inside other constructs**: `orbit.If(c, `…`)` and `orbit.Cond(c, `…`, `…`)` get the string (1 allocation when the literal is dynamic; both arguments still evaluated eagerly, §2.6; lowering the literal's pieces into the `If` branch would skip their evaluation when `c` is false, so it isn't done). Control headers (`{if s == `a-${b}`}`, `{case `x`}`), comparisons and calls see a `string` or an untyped constant.
+- **Pass 1 and the fallback** (no types: pass 1, tolerant mode, a package with type errors, unreadable export data):
+  - Whole-value attributes and content emit the same piece structure with untyped writes, a new `Writer.AttrPiece(v any)` (Expr's text of `v`, attribute-escaped) and `Writer.TextPiece(v any)` (Expr's text, escaped; `orbit.HTML` escaped too; a `Renderer` rendered into a scratch buffer and escaped, for the fallback only), plus `URLMark`/`URLCheck` exactly where the typed pass would put them (the decision depends only on the static prefix).
+  - Whole-value props emit `orbit__rt.TemplateAs(card.Props{}.Title, "Chapter ", n)`, `func TemplateAs[T any](witness T, pieces ...any) T`: the witness only fixes `T` from the field (Go doesn't infer type arguments from an assignment), so pass 1 type-checks for every field type; at render time it formats like `TextPiece` and converts (`string` and `HTML`/`URL`/`CSS` by a type switch, other named strings by `reflect.Value.SetString`, an interface by boxing; a non-string `T` is a render error with the attribute's position).
+  - **Non-whole literals**: the literal's span inside the expression is replaced by a constant Go string (no pieces: the cooked text, `strconv.Quote`d) or by `orbit__rt.TemplateString(p0, p1, …) string`, static parts as quoted constants and each piece an exact segment. The expression's exact segment splits into the parts before, between and after (the source map already allows several segments per expression). The typed pass replaces `TemplateString(…)` with the typed concatenation.
+  - Typed and fallback output are byte-identical, checked by `TestPipelineTypedVsFallback`.
+- **Errors and positions** (§3.3): each piece gets an inline `/*line file:L:C*/` before it and a reset after, so Go's errors inside `${…}` (undefined name, wrong type) point at the piece's own line and column, on whatever line of a multi-line literal it sits, nested literals included. Orbit's errors (lexical, escapes, prop types, inert pieces, `Renderer` pieces) are reported at their exact `.orbit` position. The CLI's name cleanup applies unchanged; Go's errors about a `TemplateString` result (`cannot use … (value of type string) as Slug value`) get the cleanup's rewrite to `template literal (string)`.
+- **Typed-pass machinery**: each whole-value piece is a call site of a new kind, `SitePiece` (attribute, URL-attribute, content, class item or prop context), classified by the existing `classify`/`classifyAttr` rules with the "inside a literal" overrides above (`bool` → `Bool` text, `orbit.HTML`/`orbit.URL`/`orbit.CSS` → their string write, `Renderer` → error); each `TemplateString` call is a site of kind `SiteConcat`, its pieces classified for the append chain. Pass 2 re-emits as today. Nothing differs between the hook flavor (`orbit dev`, `orbit_gen/`) and the build flavor (`orbit build`, §3.5): the lowering is inside a render body or a `Props` literal, which the two flavors share.
+- **LSP** (§9): the parser records each piece's span, and tolerant mode emits every literal as `orbit__rt.TemplateString(` with each piece on its own line as an **exact** segment, then `)` (a whole-value content or attribute literal wrapped in `orbit__w.Expr(…)`/`Attr(…)` as other expressions are; a whole-value prop `TemplateAs(witness, …)`); the static parts are quoted constants that map to nothing. So completion, hover, signature help, definition, references and rename work inside `${…}`, nested literals included, through gopls, with no new mapping kind; a cursor in the static text is no region (no completion, as in a quoted value). An empty `${|}` emits nothing between the commas, where gopls still completes. Region classification (`classify`) gains the literal: `${…}` is a Go region, the rest a string. An unterminated literal in tolerant mode ends at the end of the line, like an unterminated `{`.
+- **VS Code grammar** (`editors/vscode/syntaxes/orbit.tmLanguage.json`): inside every template `{…}` region, a backtick begins `string.template.orbit` (TypeScript's scopes for the punctuation: `punctuation.definition.string.template.begin/end`, `punctuation.definition.template-expression.begin/end`), whose `${…}` embeds `source.go` plus the same rule (nesting); the rule is listed before `source.go` so it wins over the Go grammar's raw string. Where the Go grammar opens one of its own begin/end regions, a literal nested in it may still highlight as a raw string (cosmetic; the snapshots show which). The frontmatter keeps Go's raw strings. A snapshot case, `editors/vscode/test/template-literal.orbit` (attributes, props, content, call arguments, control headers, `class:list` items, multi-line, escapes, nesting).
+- **Chroma `orbit` lexer** (`internal/markdown/orbitlexer.go`, used for the docs' code blocks): the same rule in template expressions (a state machine, so nesting is exact), `LiteralStringBacktick` with `${…}` lexed as Go (`LiteralStringInterpol` punctuation), and a lexer test.
+- **`orbit fmt`** (§6.1) ((Q6) a): static parts are kept byte for byte (never re-escaped, never re-quoted), each piece is formatted as a Go expression on one line (`${ a+b }` → `${a + b}`), recursively for nested literals. An expression containing literals is formatted with each literal replaced by a placeholder identifier (go/format can't parse a literal with pieces), then the literals are put back. A piece that doesn't parse leaves its literal untouched; a literal's line breaks are kept. The safety check (generated code compared before and after) covers it.
+- **Scanner and parser** (`internal/compiler/scanner.go`, `lexer.go`, `parser.go`): in template expressions, `scanBraced`'s backtick case scans a template literal (`scanTemplateLiteral`, mutually recursive with the Go-aware scan of a piece) instead of a raw string; the frontmatter splitter and Go parsing of the frontmatter are unchanged. The AST gets `TemplateLiteral{Parts []TLPart, Whole bool}` (static text, cooked, with source spans; pieces as Go code spans, each possibly holding nested literals), attached to `Attr` values, content expressions, directive values, `class:list` items and control headers, and recorded by span for non-whole occurrences inside expressions. The analyzer and the `go/parser` passes that read template expressions (object resolution, `class:list`'s composite-literal parse, dynamic-tag probes) see each non-whole literal as a placeholder call with its pieces as arguments, so `locals`/`ctx` uses inside pieces are found. Fuzzing: `FuzzParse`'s corpus gets literals; `scanBraced`'s go/scanner oracle is kept for inputs without backticks; a new `FuzzTemplateLiteral` checks that the parts reconstruct the source, that each piece ends where `scanBraced` of `{piece}` does, that nesting depth round-trips, and that the scanner never panics or loops.
+
+#### Runtime API (additions, stdlib only)
+```go
+// Generated code only.
+func (w *Writer) URLMark() int                 // buffer offset before a URL attribute's value
+func (w *Writer) URLCheck(mark int)            // replaces the value with about:invalid#orbit if it has an unsafe scheme
+func (w *Writer) ClassBytes(b []byte)          // one class item from bytes (a merged template literal)
+func (w *Writer) AttrPiece(v any)              // fallback: Expr's text of v, attribute-escaped
+func (w *Writer) TextPiece(v any)              // fallback: Expr's text of v, text-escaped (orbit.HTML too)
+func TemplateAs[T any](witness T, pieces ...any) T
+func TemplateString(pieces ...any) string      // pass 1, tolerant mode and the fallback for non-whole literals
+func AppendFloat(b []byte, f float64) []byte   // and AppendFloat32, AppendStringer, AppendError:
+                                               // the bytes of Writer.Float, … as an append
+```
+
+#### (Q) points (all decided, user 2026-10-27)
+- **(Q1) Where a backtick string is a template literal: (b), anywhere in a template expression.** Rejected: (a) whole values only with an error for `${` in raw strings elsewhere (forward compatible, but `orbit.If(c, `Open ${x}`)` wouldn't work); (c) whole values with no error (silent `${x}` output).
+- **(Q2) Backslash escapes: (a)**, JavaScript's escapes, an unknown one an error. Rejected: (b) all of JavaScript's rules (`\d` → `d`); (c) raw like Go (`` {`\n${x}`} `` in `nyth` would print `\n`).
+- **(Q3) Content values: (a) supported** (follows from (Q1) b), with the attribute lowering (0 allocations).
+- **(Q4) Trust markers and the `style`/`on*` warning: (a) inert pieces, with the user's fix**: a number or `bool` piece is inert only if its type has no `String`/`Error`/`Format` method on `T` or `*T`; constants are inert because they're folded and checked as static text; decided by static type, never by runtime value. Rejected: (b) strict (never trusted); (c) permissive (any conversion; `` set:html={`<p>${userInput}</p>`} `` would write raw input).
+- **(Q5) Piece conversions: as proposed**: `Renderer` pieces are errors; slices concatenate like `{…}`.
+- **(Q6) `orbit fmt`: (a)**, each piece formatted as a Go expression.
+
+#### Cost
+- **Render**: a whole-value literal on an element costs what its pieces cost written as separate typed writes, plus nothing when the static prefix settles the URL scheme, or a `URLCheck` scan (a few ns) when it doesn't; 0 allocations. A merged `class` adds a stack-buffer copy. A prop, a pass-through attribute or a non-whole literal: 1 allocation when dynamic (as `+` today, and one fewer than `"…" + strconv.Itoa(n)` for numbers ≥ 100), 0 when constant. The fallback (`AttrPiece`, `TemplateAs`, `TemplateString`) boxes each piece: only pass 1, tolerant mode and the unreadable-export-data case use it.
+- **Codegen and dev loop**: a different branch for backticks in `scanBraced` (no cost for expressions without one); the span replacement for non-whole literals; two call-site kinds and a per-piece classification in the typed pass. Expected unmeasurable. Measured at implementation with `bench/devloop -dev -kinds body` (200 files, 5 runs, before/after alternated, as §2.6 did) and a full `orbit build` at 200 files, plus a scanner benchmark (`BenchmarkScanBraced` with and without literals); a synthetic project variant with literals in every component (whole values and call arguments) shows the typed-pass cost.
+
+#### Tests (what must exist)
+- Scanner/parser: literals in every position (whole values; call arguments; `orbit.If`/`orbit.Cond` arguments; operands; control headers `{if}`, `{for}`, `{switch}`, `{case}`; `class:list` items and keys; spreads); nested literals (`` `a ${f(`x ${y}`)}` ``, three levels); `` `${f("}")}` ``, `` `${"`"}` ``, `${ /* } */ x}`; `\${`, `` \` ``, each escape, unknown escapes (including a former raw-string regex, with the hint), `\u{1F600}`, line continuation; multi-line literals with positions; empty `${}`; unterminated literal and piece; tolerant-mode recovery; frontmatter raw strings unchanged (with `${` and backslashes); existing fixtures with raw strings render the same. `FuzzTemplateLiteral`; `FuzzParse` seeds.
+- Compiler goldens (`testdata/codegen/tliteral`): attributes with string, int, float32, bool, Stringer, error, nil, `orbit.HTML`/`orbit.URL` pieces; constant pieces folded; URL attributes with a settling prefix (no check), an empty/partial prefix (`URLMark`/`URLCheck`), a constant unsafe prefix (pieces evaluated, constant written), a scheme split across pieces; `class` alone, merged with `class:list`, with `{...props.Attrs}`, as `class:list` items and keys; a dynamic tag; content and `set:text`/`set:html`/`set:json`; props into `string`, a named string, `any`, the markers (inert and non-inert pieces), a non-string field (pass-1 and typed-pass errors), a pass-through attribute, a `server:defer` prop; non-whole literals in `orbit.If` (lowered `If` with a concatenated value), `orbit.Cond`, a helper call, `{if}`/`{case}` headers (constant and dynamic), an explicit `orbit.CSS(`…`)` conversion. Typed vs fallback byte-identical (`TestPipelineTypedVsFallback`).
+- **Inert pieces** (typed pass, warnings golden and errors): `int`, `float64`, `bool`, `type Pct int` (no methods) are inert; **`type Count int` with a `String()` method (value receiver) and with `String()` on `*Count` are not inert** (`style` warns, an `orbit.URL`/`orbit.HTML` prop is an error); a named int with `Error()` or `Format` isn't either; an untyped constant and `const n = 3` are inert; `const c Count = 3` (a Stringer type) isn't; a piece of the marker type is inert for that marker only; a `string` piece is never inert.
+- Position test (`codegen_position_test.go`): Go errors inside a piece on the first and a later line of a multi-line literal, and inside a nested literal, report the piece's `.orbit` `L:C` in `go build` and `go vet`.
+- Runtime: `URLCheck` (safe, unsafe, split scheme, leading whitespace, `w.err` set), `ClassBytes`, `AttrPiece`/`TextPiece` match the typed writes for the value table, `TemplateAs` for each target kind, `TemplateString` matches the typed concatenation, the append helpers match `Writer.Float`/`Float32`/`Stringer`/`Error` bytes (fuzzed for floats).
+- `AllocsPerRun`: a page with whole-value literals in attributes, a URL attribute with a runtime check, a merged class and content: **0** in both flavors (`go test -overlay` for the build flavor, §3.5); a component prop or a non-whole literal with a dynamic piece: 1 per evaluation (≤ 1 asserted, since the build flavor may reach 0); constant: 0.
+- LSP: completion, hover and rename inside `${…}` (whole value, call argument, control header, nested, multi-line), no completion in static text; formatter golden (`internal/format/testdata/tliteral.*`, including literals inside larger expressions and nesting); grammar snapshot; Chroma lexer test.
+
+#### User-docs changes (with the implementation)
+- `reference/template-syntax.md`: a "Template literals" section (in the template every backtick string is one, the frontmatter keeps Go's raw strings; escapes, `\${`, the regex migration; how pieces print with a pointer to "How values render" and the differences from JavaScript: `nil` prints nothing, slices concatenate, `Renderer` is an error; `{false}` printing `false` as a documented difference from Astro; whole values vs string expressions and their cost; URL filtering of the whole value; `class`; props and target types; inert pieces); the attribute-values table gets the row.
+- `coming-from-astro.md` (the row at the `` class={`card ${extra}`} `` line): ports unchanged, ternary branches too (`orbit.If`/`orbit.Cond`); escapes; raw strings with backslashes in templates.
+- `components.md` (the "no interpolation inside quotes" bullet): show `` class={`card ${extra}`} `` next to the quoted-value rule.
+- `migrating-from-astro.md` (the "Template literals" bullet): nothing to change.
+- `performance.md`: whole-value literals on elements are free, props and other positions cost one allocation. `editor-setup.md`: nothing (it works through gopls).
+- `DECISIONS.md`: the decided-by-rule items (the leading-NUL URL check, interface props get a `string`, `title=""` for an empty literal, the pass-1 prop-type pre-check, no lazy pieces inside `orbit.If`).
+
+#### Out of scope
+- Tagged templates (`` html`…` ``) and `String.raw`.
+- Template literals in the frontmatter or `.go` files (Go code; a backtick is a raw string there, forever).
+- Format specifiers inside pieces (`${n:%.2f}`): call `strconv`/`fmt` in the piece.
+- Interpolation inside quoted attribute values (rejected by the user).
+- Lowering a literal's pieces lazily into `orbit.If`'s branch (it would change evaluation, §2.6).
+
+**Implementation size** (estimate): runtime ~140 lines; scanner, AST and parser ~450 (nesting, span recording, the analyzer's placeholders); codegen and the typed-pass lowering ~650; LSP ~150; `orbit fmt` ~150; grammar and Chroma lexer ~100; about 1.6k lines of production code, plus ~1.2k lines of tests and goldens and the docs.
 
 ---
 
@@ -2382,7 +2531,7 @@ They combine: a page can `orbit.All` its main data, warm the locals loader, and 
 - Unused, it costs nothing: `TestRenderAllocs` (0) and `TestServeAllocs` (1) unchanged; no codegen or `Ctx`/`Writer` field. The runtime package's build archive grew by 32 KB (1.89 → 1.93 MB, 1.7%: object code of `All`); `All` is neither generic nor inlinable, so generated packages' export data doesn't change.
 
 ## 4g. The matched route, for middleware and logging
-**Status: Implemented** (2026-10-27; accepted the same day). User answers: **(Q1) b, a field on the user's `Locals`** (user decision, not the recommended `EnsureRouteInfo` slot): `type Locals struct { Route orbit.RouteInfo; … }`, the type being the marker, found by the generator in `src/locals` and filled by Orbit through an accessor that `app.New()` passes; (Q2) a, pages, `/404` and islands; (Q3) a, no `r.Pattern`. The example and API below show the (Q1) a shape as proposed; the implementation notes record the shape built.
+**Status: Implemented** (2026-10-27; accepted the same day). User answers: **(Q1) b, a field on the user's `Locals`** (user decision, not the recommended `EnsureRouteInfo` slot): `type Locals struct { Route orbit.RouteInfo; … }`, the type being the marker, found by the generator in `src/locals` and filled by Orbit through an accessor that `app.New()` passes; (Q2) a, pages, `/404` and islands; (Q3) a, no `r.Pattern`. The example and API below show the (Q1) a shape as proposed; the implementation notes record the shape built. An addition, `site.Match(r)` for middleware that answers before Orbit (implemented 2026-10-27), is at the end of this section ("Matching before serving").
 
 #### Implementation notes (the shape built)
 - **API** (`route.go`): `RouteKind` (`RouteNone`, `RoutePage`, `RouteNotFound`, `RouteIsland`) and `RouteInfo{Kind, Pattern, File; names, n, buf [8]string, more []string}` with `(*RouteInfo).Param` and `Params() iter.Seq2`, as specified. No `EnsureRouteInfo` and no package-level flag: the user declares `Route orbit.RouteInfo` (any exported name) in `src/locals.Locals`, and the generated `app.New()` passes `orbit.WithLocalsRoute(func(l *locals.Locals) *orbit.RouteInfo { return &l.Route })` after `WithSite`/`WithTrailingSlash`, before `embedded` and the caller's options. `WithLocalsRoute[L]` stores a type-erased accessor on the `Site` (`Site.route`, nil without the field, so the serve path is today's behind one nil check).
@@ -2491,6 +2640,107 @@ func pageLog(next http.Handler) http.Handler {
 #### Out of scope
 - The route inside pages and components (Astro's `Astro.routePattern`): a cheap `ctx.RoutePattern()` later, since `Ctx` knows its route.
 - Setting `r.Pattern` ((Q3) b), route metrics helpers, and routes of the app's own mux (use its `r.Pattern`).
+
+#### Matching before serving
+**Status: Implemented** (2026-10-27; accepted by the user the same day with every recommended answer: (Q1) a `site.Match(r) RouteInfo`, (Q2) a `RouteNone` for no page, (Q3) a match again in `site.Middleware`, (Q4) a the app's own routes handled by the app through `r.Pattern`). User decision (2026-10-27): Orbit gets an API to match a request's route **without serving it**, so middleware placed before Orbit's knows the route. Additions only: everything above (`RouteInfo`, `RouteKind`, the `Locals` field and Orbit's fill) stays as it is.
+
+**Why**: Astro routes a request **before** any middleware runs, so `context.routePattern` and `context.params` are there for every request that matched a route, including the ones middleware answers itself. `nyth`'s page log (`src/lib/server/request.ts` `handleRequest`'s `finally`, `pageLog.ts`) relies on that: it records a line for each request that has a `routePattern`, whoever answered it. In the Orbit port (`apps/website-orbit/internal/server/request.go`), `Locals.Route` is filled only once the request reaches `site.Middleware`, so `recordPage` skips (`Kind == RouteNone`) every request answered earlier:
+- the sign-in and welcome gates' 303 (`welcome.Gate`, `gate.ApprovalGate` → `/signin/`, `/waiting/`);
+- the visitor refusal (`o.Visitors.Refused()`, a 303 or a bare 401/403), and `AnswerError`'s answers to the session check (403, 303, 503);
+- the 503 from the API contract check (`o.Check`);
+- requests answered by the app's own handlers in `cmd/server` (`GET /fiction/{bookSlug}/chapters.json`, an Astro endpoint `src/pages/fiction/[bookSlug]/chapters.json.ts` with its own `routePattern` in Astro; and the `redirects` entry `GET /fiction/{$}`).
+
+Astro logs all of these with their route; the port logs none. Re-matching the path in nyth would duplicate Orbit's router (its priorities, rest params, slash modes).
+
+#### End-to-end example (nyth's middleware, recommended shape (Q1) a)
+```go
+// cmd/server/main.go
+orbitSite := app.New(orbit.WithErrorHandler(server.AnswerError(logf)))
+// …
+server.Middleware(server.Options{ /* … */ Match: orbitSite.Match, PageLog: pages }, mux)
+
+// internal/server/request.go, in Middleware's handler
+r, l := orbit.EnsureLocals[locals.Locals](r)
+l.RequestID = requestID
+l.Route = o.Match(r) // the route Orbit would serve; Orbit fills it again if the request gets there
+if o.PageLog != nil {
+	start := o.Now()
+	defer func() { recordPage(o, r, l, start, fw.status()) }() // unchanged: skips RouteNone
+}
+// the gates, the contract check, then next.ServeHTTP(w, r)
+```
+`GET /fiction/the-long-way` from a visitor the gate sends to sign-in records `{"route":"/fiction/[bookSlug]","params":{"bookSlug":"the-long-way"},"status":303}`, as in Astro; the same request signed in records the same route with Orbit's status (Orbit's own fill overwrites the early value with the same route). A middleware can also act on the route before `next` (skip a gate for an island, `l.Cache.Disable()` for one pattern, §4h).
+
+#### Rules
+- **API** (runtime, stdlib only, in `route.go`):
+  ```go
+  // Match returns the route site.Middleware would serve r with, without
+  // serving it: RoutePage, RouteIsland, or RouteNone (a static file, a
+  // trailing-slash redirect, no page: passed to next).
+  func (s *Site) Match(r *http.Request) RouteInfo
+  ```
+  The same `RouteInfo` Orbit fills (Kind, Pattern, File, params through `Param`/`Params`), returned by value (the struct holds its params inline, ~230 bytes); `Kind != RouteNone` is the "found" test, so no second result. Precedent: `http.ServeMux.Handler(r)`, which returns the handler and pattern for a request without serving it.
+- **Mirrors `site.Middleware`'s order exactly** (one shared helper, so they can't drift), for every method:
+  | Request | `Match` returns | what `site.Middleware` then does |
+  |---|---|---|
+  | `/_orbit/island/<buildID>/<id>`, any method | `RouteIsland`, `/_orbit/island/[buildID]/[id]`, the component's file (or `""`), `buildID`/`id` | serves it (any status), fills the same |
+  | GET/HEAD of an existing `/_orbit/*` asset or `public/` file | `RouteNone` | serves the file |
+  | a page route | `RoutePage`, the route, the page, its params | renders it, fills the same |
+  | the other form of a page URL (§4e) | `RouteNone` | 308 |
+  | anything else | `RouteNone` | passes it to `next` |
+  Decided by rule (Astro): no route for static files and before the trailing-slash redirect (Astro answers both before routing middleware); the same values as the existing fill, so a request logs the same line whether middleware or Orbit answered. A path no page matches is `RouteNone`, not `RouteNotFound`, see (Q2).
+- **Pure**: reads `r.URL` and `r.Method` only, writes nothing (not `r`, not the locals, no `Ctx` taken from the pool), safe from any goroutine; the router and file tables are read-only. Dev and prod behave the same; in dev the `public/` check is the same `os.Root` open/stat that `serveFile` does (dev only), in prod a map lookup.
+- **What `Match` can't see**: routing in front of Orbit. If the app's mux sends a path an Orbit page would match to its own handler, or `http.StripPrefix` rewrites it, `Match` (on the request as it was) still reports the page. Orbit's own fill, when the request reaches it, overwrites the value (the §4g "last value wins" rule), so a request Orbit serves always ends with Orbit's answer; a request it never sees keeps `Match`'s. Call `Match` on the request as Orbit will get it (documented).
+- **With the existing fill** ((Q3)): `site.Middleware` doesn't read a pre-filled `Locals.Route`; it matches again (≈30–80 ns, `BenchmarkMatchRouteParam` 49–81 ns including a pooled `Ctx`) and fills as today. No change to the serve path, and the overwrite keeps it right after a rewrite.
+- **Route caching (§4h)**: unchanged. The cache lookup stays inside `site.Middleware` after the user's middleware and does its own match; `Match` neither looks up nor fills the cache. A HIT fills `Locals.Route` as today.
+- **`404.orbit`, `ServeError`, `NotFound()`**: unchanged. A request `site.NotFound()` answers ends `RouteNotFound` `/404` (the fill), whatever `Match` said; so does `ServeError(…, orbit.ErrNotFound)` from an app handler (nyth's `chapters.json` for an unknown book logs `/404` today).
+- **App handlers** (`chapters.json`, the `/fiction/` redirect): `Match` returns `RouteNone` for them (no Orbit page), and the app logs them itself ((Q4)).
+
+#### Alloc budget (asserted with `testing.AllocsPerRun`)
+- `Match`: **0 allocations** for a page with ≤ 8 params and an unescaped path, an island, a static file (prod), a slash redirect and `RouteNone`. The router extracts params straight into the result's inline `[8]string` (as `Ctx.matchRoute` does into `paramBuf`); a route with > 8 params allocates once (the values slice, as the existing fill), a percent-encoded param its decoded copy (as `ctx.Param` today).
+- `l.Route = site.Match(r)` in middleware: 0 beyond `EnsureLocals`'s 3.
+- Render and serve paths untouched: `TestRenderAllocs` (0), `TestServeAllocs` (1), `TestServeRouteInfoAllocs` unchanged.
+- No codegen, dev-loop or LSP change (runtime only).
+
+#### (Q) points
+- **(Q1) Shape.**
+  - (a) **Recommended**: `site.Match(r) orbit.RouteInfo`, a pure function; the caller assigns it (`l.Route = site.Match(r)`) or uses it without locals at all (a metrics middleware). Explicit, stdlib precedent (`ServeMux.Handler`), testable (nyth passes `orbitSite.Match` as a `func(*http.Request) orbit.RouteInfo` in its options), and fits nyth's middleware, which attaches locals and runs its gates in one handler.
+  - (b) `site.RouteMiddleware(next)`: a middleware that attaches the locals (`EnsureLocals` through the accessor `app.New()` already passes) and fills `Locals.Route` with `Match` before `next`. Closest to Astro's model (routing before all middleware): place it outermost and every later middleware sees the route. But it needs the `Route` field (a no-op or a panic without it), hides an `EnsureLocals`, and is a 5-line wrapper over (a); could come later on top of (a).
+  - (c) `site.FillRoute(r) bool`: fills the attached `Locals.Route` in place. Saves the assignment, but needs attached locals and is less obvious than a returned value.
+  - Name alternatives for (a): `Route(r)`, `Lookup(r)`, `MatchRoute(r)`; or `(RouteInfo, bool)`, redundant with `Kind`.
+- **(Q2) A path no page matches.**
+  - (a) **Recommended**: `RouteNone`. `site.Middleware` passes it to `next`, which is the app's (`site.NotFound()` only under `Handler()` or as the app's catch-all), so the site can't know it'll be a 404; the fill records `RouteNotFound` if `NotFound()` answers. Consequence: an unknown URL a gate answers first gets no line (Astro logs it as `/404`: its 404 route runs through middleware).
+  - (b) `RouteNotFound` (`/404`, `404.orbit`'s file) when no page matches and the path isn't static: Astro's value, but wrong whenever the app's mux serves the path (nyth's `chapters.json` would log as `/404`).
+- **(Q3) Reuse an early match in `site.Middleware`.**
+  - (a) **Recommended**: no; Orbit matches again (tens of ns) and overwrites. Simplest, right after a rewrite, no change to the serve path.
+  - (b) Yes: `RouteInfo` carries an unexported route pointer and the path it matched, and `site.Middleware` skips its match when the attached value matches `r.URL.EscapedPath()`. Saves one trie walk per request at the cost of a context lookup before matching (today it's after) and state to keep right.
+- **(Q4) Routes of the app's own handlers** (`chapters.json`).
+  - (a) **Recommended**: app-level, no Orbit API. ServeMux sets `r.Pattern` (`GET /fiction/{bookSlug}/chapters.json`) and `r.PathValue` on the request it was given, which is nyth's `r` after `EnsureLocals`, so `recordPage` can log a `RouteNone` request with `r.Pattern != "/"` (or a wrapper on the handler sets a nyth `Locals` field, its Astro-style pattern and params). Keeps Orbit's `RouteInfo` about Orbit's routes (§4g's out-of-scope rule: "routes of the app's own mux, use its `r.Pattern`").
+  - (b) An Orbit setter, `(*RouteInfo).SetHandler(pattern string, params ...string)` with a new `RouteHandler` kind, so one field covers both; more API, and a kind Orbit never fills itself.
+  - (c) `RouteInfo` from ServeMux: Orbit converts `r.Pattern` (`{x}` → `[x]`, `{x...}` → `[...x]`) and its values; ties Orbit to ServeMux's syntax.
+
+#### Tests (what must exist)
+- `Match` table: every row above, both slash modes, every method (GET/HEAD/POST on a page, a public file and an island), percent-decoded and rest params, > 8 params, an unknown island ID, a public file shadowing a page, dev (`dir`) and prod (`files`) file sets.
+- **Agreement**: for a corpus of paths × methods × slash modes, `Match(r)` equals the `Locals.Route` that `site.Middleware(next)` fills (with `next` a recorder: `RouteNone`), Kind, Pattern, File and params; so the two can't drift.
+- A pre-filled `Locals.Route` is overwritten by Orbit's fill (same route; and a different one after the path is rewritten between the two); a request `NotFound()` answers ends `RouteNotFound`; a route-cache HIT ends with the same value as `Match`.
+- `AllocsPerRun`: `Match` 0 for page/island/static/redirect/none, 1 for > 8 params; `TestServeAllocs`/`TestRenderAllocs`/`TestServeRouteInfoAllocs` unchanged; concurrent `Match` calls under `-race`.
+
+#### User-docs changes (with the implementation)
+- `middleware.md` "Logging the matched route": a subsection "Knowing the route before Orbit" (the gate example, the table, the overwrite rule, what `Match` can't see, app handlers via `r.Pattern`).
+- `reference/runtime-api.md`: `Site.Match`. `coming-from-astro.md`: the `context.routePattern` row mentions `site.Match` for middleware that answers before Orbit. `server.md`: one line next to the middleware order. `DECISIONS.md`: the decided-by-rule items above. `CHANGELOG.md`.
+
+#### Out of scope
+- `RouteMiddleware` ((Q1) b) and reusing the match ((Q3) b), unless chosen; routes of the app's mux in `RouteInfo` ((Q4) b/c); `r.Pattern` (§4g (Q3), unchanged).
+- Matching the 404 page for unmatched paths ((Q2) b); `ctx.RoutePattern()` in pages (as above).
+
+**Size**: runtime ~60–80 lines (`Match`, plus splitting `serveFile`'s lookup and `middleware.ServeHTTP`'s dispatch into a shared classifier), tests ~200 lines, docs ~40 lines; nyth: one `Options` field, one line in `Middleware`, `recordPage`'s app-route branch.
+
+**Implementation notes** (2026-10-27):
+- **Runtime**: `(*Site).Match` in `route.go`. `site.go`'s `classify(w, r)` is `site.Middleware`'s order (island prefix, then GET/HEAD static files, then pages) and both call it: with a `ResponseWriter` it serves a file (`serveFile`), with `nil` (Match) it only checks (`hasFile`). `static.go`'s `fileCandidate` holds `serveFile`'s checks up to the index lookup, shared by both. `island.go`'s `islandFile` gives both the island's `File`. Pages: `router.find` then `extract` into a stack `[8]string` copied by `setTo`; a route with more than 8 params extracts straight into the one slice `RouteInfo` keeps (1 allocation; going through `match` and `setTo` cost 2). The serve path is otherwise unchanged.
+- **Deviation** (minor, logged in `DECISIONS.md`): in production a file in the static index counts as served without opening it, so `Match` stays allocation-free; `site.Middleware` opens it and, if that fails (a file deleted from a `WithStaticDir` directory after startup), falls back to pages. In dev both open the file.
+- **Measured** (Go 1.27.3, `route_match_test.go`): `TestSiteMatchAllocs` 0 allocations for `/`, a param page, a rest page, POST, a public file, an asset, a slash redirect, no match and an island; 1 for the 9-param route; `l.Route = site.Match(r)` after `EnsureLocals` 0. `BenchmarkSiteMatch` ~50 ns (`/blog/hello`), ~31 ns (no match). `TestRenderAllocs`, `TestServeAllocs`, `TestServeRouteInfoAllocs` unchanged.
+- **Tests**: `TestSiteMatch` (the table, retained 9-param values), `TestSiteMatchAgrees` (31 paths × GET/HEAD/POST/DELETE × both slash modes × prod/dev: `Match` equals what `site.Middleware` fills), `TestSiteMatchThenServe` (same route, a rewrite between the two, no page then `/404`, a gate answering first), `TestSiteMatchCacheHit`, `TestSiteMatchConcurrent` (under `-race`), `TestSiteMatchAllocs`.
+- **Docs**: `middleware.md` "Knowing the route before Orbit" (a `cmd/server/gate.go` example built by docstest), `reference/runtime-api.md`, `server.md`, `coming-from-astro.md`, `DECISIONS.md`, `CHANGELOG.md`.
 
 ## 4h. Route caching
 **Status: Implemented** (2026-10-27; accepted the same day; see Implementation notes and Deviations at the end of this section). User answers, all as recommended: (Q1) the lookup sits inside `site.Middleware` after the user's middleware; (Q2) providers are a store or header writer driven by Orbit; (Q3) `orbit.WithCache` in `main.go`, `routeRules` in `orbit.json`; (Q4) a `Cache orbit.Cache` field on `Locals`, like `RouteInfo`; (Q6) one background revalidation per stale key; (Q8) GET islands go through the route cache (user decision, replacing "cacheable islands: HTTP caching only"); (Q9) `github.com/orbit-z/orbit/cache` with the route store and `Store[V]`. (Q5) automatic ETag and 304s, and (Q7) miss coalescing on routes known to cache: decided by the coordinator with the recommendations. The user asked for this on 2026-10-27: "We should support caching in a similar fashion as Astro (cache provider reference). We could port the nyth cache package to use as cache provider." This section replaces §12's "SSR response caching" and takes in its "Cacheable server islands" bullet. Prototype: `scratchpad/cache-spec/orbit/` (a patched copy of the runtime: `cache_proto.go`, `cache_proto_test.go`).
