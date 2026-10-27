@@ -11,7 +11,8 @@
     "allowJs": true,
     "allowImportingTsExtensions": true,
     "skipLibCheck": true,
-    "rootDirs": [".", "orbit_gen/types"]
+    "rootDirs": [".", "orbit_gen/types"],
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src/**/*.ts", "orbit_gen/types/*.d.ts"]
 }

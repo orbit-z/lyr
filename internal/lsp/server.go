@@ -411,7 +411,8 @@ func (s *Server) start(ws *workspace) {
 				"method": "workspace/didChangeWatchedFiles",
 				"registerOptions": map[string]any{
 					"watchers": []any{map[string]any{"globPattern": "**/*.orbit"},
-						map[string]any{"globPattern": "**/*.{md,markdown,mdown,mkdn,mkd,mdwn}"}},
+						map[string]any{"globPattern": "**/*.{md,markdown,mdown,mkdn,mkd,mdwn}"},
+						map[string]any{"globPattern": "**/tsconfig*.json"}},
 				},
 			}},
 		})
@@ -690,6 +691,13 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 				gens = append(gens, g)
 			}
 			s.mdInvalid = true // orbit dev rewrites it after .go edits too
+		case ws.proj.IsTsconfig(rel):
+			// Its paths aliases resolve the components' imports
+			// (PLAN.md §2.2); the TypeScript child gets it too
+			// (tsWatched).
+			ws.reloadAliases()
+			orbitChanged = true
+			continue
 		case invalidatesExports(rel):
 			s.mdInvalid, mdChanged, dataChanged = true, true, true
 		case isTSWatched(rel):

@@ -37,7 +37,7 @@ layout: ../layouts/Post.orbit
 ---
 Body.
 `
-	d := Parse("src/pages/blog/hello.md", src, Options{}, nil)
+	d := Parse("src/pages/blog/hello.md", src, Options{}, nil, nil)
 	if s := diags(d); s != "" {
 		t.Fatalf("diagnostics:\n%s", s)
 	}
@@ -92,14 +92,14 @@ func TestFrontmatterErrors(t *testing.T) {
 		{"unclosed", "---\ntitle: x\n", "1:1: the frontmatter has no closing --- line"},
 		{"layout not orbit", "---\nlayout: ./Post.md\n---\n", "2:9: layout ./Post.md must be an .orbit file"},
 		{"layout outside", "---\nlayout: ../../../X.orbit\n---\n", "2:9: layout ../../../X.orbit is outside src/"},
-		{"layout absolute", "---\nlayout: /src/X.orbit\n---\n", "2:9: layout /src/X.orbit must be a path relative to this file, starting with ./ or ../"},
+		{"layout absolute", "---\nlayout: /src/X.orbit\n---\n", `2:9: layout: no tsconfig.json paths alias matches "/src/X.orbit"; use a relative path, starting with ./ or ../`},
 		{"nested", "---\nauthor:\n  name:\n---\n", `3:8: frontmatter key "author.name" has no value; delete the line or give it a value`},
 		{"multibyte", "---\ntitré: x\n---\n", `2:1: frontmatter key "titré" can't become a Go field name; use letters, digits, - and _, starting with a letter`},
 		{"column after multibyte", "---\na: [é, !!str x]\n---\n", "2:9: YAML tags (!!str) aren't supported in frontmatter"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Parse("src/pages/x.md", tt.src, Options{}, nil)
+			d := Parse("src/pages/x.md", tt.src, Options{}, nil, nil)
 			if got := diags(d); got != tt.want {
 				t.Errorf("got:\n%s\nwant:\n%s", got, tt.want)
 			}
@@ -109,13 +109,13 @@ func TestFrontmatterErrors(t *testing.T) {
 
 func TestNoFrontmatter(t *testing.T) {
 	for _, src := range []string{"", "# Hi\n", "---\n---\n# Hi\n", "---\n# only a comment\n---\n"} {
-		d := Parse("src/pages/x.md", src, Options{}, nil)
+		d := Parse("src/pages/x.md", src, Options{}, nil, nil)
 		if len(d.Diagnostics) > 0 || len(d.Fields) > 0 {
 			t.Errorf("%q: %s %v", src, diags(d), d.Fields)
 		}
 	}
 	// A thematic break that isn't on the first line is Markdown.
-	d := Parse("src/pages/x.md", "Hi\n\n---\n\nThere\n", Options{}, nil)
+	d := Parse("src/pages/x.md", "Hi\n\n---\n\nThere\n", Options{}, nil, nil)
 	if d.HTML != "<p>Hi</p>\n<hr>\n<p>There</p>\n" {
 		t.Errorf("HTML %q", d.HTML)
 	}
@@ -151,7 +151,7 @@ func TestRender(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Parse("src/pages/x.md", tt.src, tt.o, nil)
+			d := Parse("src/pages/x.md", tt.src, tt.o, nil, nil)
 			if len(d.Diagnostics) > 0 {
 				t.Fatalf("diagnostics:\n%s", diags(d))
 			}
@@ -162,7 +162,7 @@ func TestRender(t *testing.T) {
 			}
 		})
 	}
-	d := Parse("src/pages/x.md", "# A *b* `c`\n## Don't\n", Options{}, nil)
+	d := Parse("src/pages/x.md", "# A *b* `c`\n## Don't\n", Options{}, nil, nil)
 	if fmt.Sprint(d.Headings) != "[{1 a-b-c A b c} {2 dont Don’t}]" {
 		t.Errorf("headings %v", d.Headings)
 	}
@@ -178,7 +178,7 @@ func TestLinks(t *testing.T) {
 	resolve := func(p string) (string, bool) { r, ok := files[p]; return r, ok }
 	src := "[routing](./routing-guide.md) [home](../index.md) [install](../docs/install.md#requirements)\n\n" +
 		"[q](routing-guide.md?x=1#a-b) [missing](./routing.md) [intro](../../content/intro.md) [self](#top)\n"
-	d := Parse("src/pages/blog/hello.md", src, Options{}, resolve)
+	d := Parse("src/pages/blog/hello.md", src, Options{}, resolve, nil)
 	for _, w := range []string{`<a href="/blog/routing-guide">routing</a>`, `<a href="/">home</a>`,
 		`<a href="/docs/install#requirements">install</a>`, `<a href="/blog/routing-guide?x=1#a-b">q</a>`,
 		`<a href="./routing.md">missing</a>`, `<a href="#top">self</a>`} {
@@ -223,7 +223,7 @@ func TestCanonicalURL(t *testing.T) {
 
 func TestHighlight(t *testing.T) {
 	src := "```go title=\"main.go\"\nfunc main() { fmt.Println(\"<hi>\") }\n```\n\n```orbit\n<p>{x}</p>\n```\n\n```mermaid\ngraph TD; A-->B\n```\n\n```\nplain & simple\n```\n\n    indented <code>\n"
-	d := Parse("src/pages/x.md", src, Options{}, nil)
+	d := Parse("src/pages/x.md", src, Options{}, nil, nil)
 	for _, w := range []string{
 		`<pre class="chroma" tabindex="0" data-language="go"><code><span class="kd">func</span> <span class="nf">main</span><span class="p">()</span>`,
 		`<span class="s">"&lt;hi&gt;"</span>`,
@@ -239,10 +239,10 @@ func TestHighlight(t *testing.T) {
 	if !d.Highlighted {
 		t.Error("Highlighted not set")
 	}
-	if d := Parse("src/pages/x.md", "```mermaid\nx\n```\n", Options{}, nil); d.Highlighted {
+	if d := Parse("src/pages/x.md", "```mermaid\nx\n```\n", Options{}, nil, nil); d.Highlighted {
 		t.Error("Highlighted set for an unknown language")
 	}
-	d = Parse("src/pages/x.md", "```go\nfunc main() {}\n```\n", Options{NoHighlight: true}, nil)
+	d = Parse("src/pages/x.md", "```go\nfunc main() {}\n```\n", Options{NoHighlight: true}, nil, nil)
 	if d.HTML != "<pre><code class=\"language-go\">func main() {}\n</code></pre>\n" || d.Highlighted {
 		t.Errorf("syntaxHighlight false: %q", d.HTML)
 	}

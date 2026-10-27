@@ -317,6 +317,8 @@ src/pages/index.orbit:5:2: unknown component <Crad>: no .orbit import with this 
 
 Only `.orbit` files can be imported as components. A `.tsx`, `.jsx`, `.svelte` or `.vue` import is an error (`framework components aren't supported; use a .orbit component with a <script>`), and so is any other relative path that doesn't end in `.orbit`. See [Components](../components.md#no-framework-components).
 
+An import path is relative (`./`, `../`) or a `tsconfig.json` `compilerOptions.paths` alias (`Card "@/components/Card.orbit"`), resolved as TypeScript and Astro do. A path that ends in `.orbit` or `.md` and doesn't start with `./` or `../` must match an alias. See [Import aliases](../components.md#import-aliases).
+
 Children of a component are passed as slots. A component with no children allocates nothing for slots, and neither do children in an `orbit build` binary, which calls components directly. In `orbit dev` and `go test`, children that use a variable of the caller allocate one small closure per slot ([Direct calls in production builds](../performance.md#direct-calls-in-production-builds)). Children that are only whitespace pass no slot.
 
 ### `<Self>`

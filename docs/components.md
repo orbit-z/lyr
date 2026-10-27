@@ -367,6 +367,48 @@ src/pages/index.orbit:2:8: component Card is imported but not used; remove the i
 
 The path must stay inside `src/` (`component path ../../X.orbit is outside src/`).
 
+#### Import aliases
+
+Instead of a relative path, you can use an alias from `compilerOptions.paths` in your `tsconfig.json`, as in Astro. `orbit new` sets up `@/` for `src/`:
+
+```json
+{
+  "compilerOptions": {
+    "paths": { "@/*": ["./src/*"] }
+  }
+}
+```
+
+```orbit file=src/pages/aliased.orbit
+---
+import (
+	Base "@/layouts/Base.orbit"
+)
+---
+<Base title="Aliased">
+  <h1>Hello</h1>
+</Base>
+```
+
+Aliases follow TypeScript's rules: a `*` in the key matches the rest of the path, the most specific key (the longest prefix) wins, and when an entry lists several targets, the first one that exists is used. Paths are relative to `baseUrl` when it's set, otherwise to the `tsconfig.json`. A path that no key matches resolves against `baseUrl`, if there is one. `extends` is followed for local files and for packages in `node_modules/`. Your `<script>` imports use the same aliases, because esbuild reads the same file.
+
+A path that doesn't start with `./` or `../` and ends in `.orbit` or `.md` is an alias, so it must match one, and the file it points to must be inside `src/`:
+
+```orbit file=src/pages/aliased.orbit expect-error
+---
+import (
+	Base "~/layouts/Base.orbit"
+)
+---
+<Base title="Aliased" />
+```
+
+```text
+src/pages/aliased.orbit:3:7: no tsconfig.json paths alias matches "~/layouts/Base.orbit"; use a relative path or add "~/*": ["./src/*"] to compilerOptions.paths
+```
+
+A component imported under two spellings (`"@/components/Card.orbit"` and `"../components/Card.orbit"`) is the same component. Go package paths such as `"strings"` never go through aliases, since they don't end in `.orbit` or `.md`.
+
 Components can import each other in cycles; see [Mutual recursion](#mutual-recursion).
 
 #### Importing Markdown

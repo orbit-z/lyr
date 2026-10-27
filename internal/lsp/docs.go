@@ -263,6 +263,17 @@ func (ws *workspace) remove(p string) {
 	ws.syncAll()
 }
 
+// reloadAliases re-reads tsconfig.json's import aliases (after it changed
+// on disk) and regenerates every file.
+func (ws *workspace) reloadAliases() {
+	if ws.proj.ReloadAliases() != nil {
+		return
+	}
+	ws.proj.Front()
+	ws.reindex()
+	ws.syncAll()
+}
+
 // reloadFromDisk makes the disk content the source of p (after the editor
 // closed it, or a watched-file event), or removes the file if it's gone.
 func (ws *workspace) reloadFromDisk(p string) {

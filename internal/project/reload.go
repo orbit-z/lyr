@@ -5,6 +5,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/orbit-z/orbit/internal/compiler"
@@ -55,7 +56,9 @@ func Reload(prev *Project, root string, paths []string) (*Project, bool, error) 
 			continue
 		}
 		switch {
-		case rel == "go.mod" || rel == config.FileName || rel == ".":
+		case rel == "go.mod" || rel == config.FileName || rel == "." || p.isTsconfig(rel):
+			// tsconfig.json (or a file it extends): its paths aliases
+			// may resolve any import differently (PLAN.md §2.2).
 			return full()
 		case strings.HasSuffix(rel, ".go") || rel == LocalsDir || strings.HasPrefix(rel, LocalsDir+"/") ||
 			strings.HasPrefix(LocalsDir, rel+"/"):
@@ -157,6 +160,15 @@ func Reload(prev *Project, root string, paths []string) (*Project, bool, error) 
 		for _, file := range discovered {
 			if compiler.IsMarkdown(file) {
 				p.mdPaths = append(p.mdPaths, file)
+			}
+		}
+	}
+	// A paths alias with several targets resolves to the first existing
+	// one: when files come or go, the alias imports resolve again.
+	if p.aliases.MultiTarget() && (mdSet || len(orbit) != len(byPath) || slices.ContainsFunc(orbit, func(f *File) bool { return byPath[f.Path] == nil })) {
+		for _, f := range orbit {
+			if hasAliasImport(f) {
+				dirty[f.Path] = true
 			}
 		}
 	}

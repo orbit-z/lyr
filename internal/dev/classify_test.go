@@ -30,6 +30,8 @@ func TestClassify(t *testing.T) {
 		{"src/styles/base.css", false, KindAsset},
 		{"src/img/logo.png", false, KindAsset},
 		{"tsconfig.json", false, KindAsset},
+		{"tsconfig.base.json", false, KindAsset}, // a base tsconfig.json may extend
+		{"config/tsconfig.json", false, KindIgnore},
 		{"package.json", false, KindAsset},
 		// Go: user packages, src/locals, go.mod.
 		{"internal/posts/posts.go", false, KindGo},
@@ -115,5 +117,12 @@ func TestChange(t *testing.T) {
 	}
 	if c := NewChange([]string{"README.md"}, nil); !c.Empty() || c.Only(KindGo) {
 		t.Errorf("ignored-only change: %+v", c)
+	}
+	// A tsconfig change also re-resolves import aliases: the front runs.
+	if c := NewChange([]string{"tsconfig.base.json", "src/a.ts"}, nil); !c.touchesTsconfig() {
+		t.Errorf("tsconfig change: %+v", c)
+	}
+	if c := NewChange([]string{"src/a.ts", "package.json"}, nil); c.touchesTsconfig() {
+		t.Errorf("non-tsconfig change: %+v", c)
 	}
 }

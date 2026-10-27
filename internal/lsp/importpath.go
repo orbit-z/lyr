@@ -15,9 +15,11 @@ import (
 // Import path completion (PLAN.md §9 Request routing): in a frontmatter
 // import spec whose path starts with "." (relative: an .orbit or Markdown
 // import, PLAN.md §2.2, §2.4), Orbit offers the project's .orbit files and
-// every Markdown file under src/, as paths relative to the file. Accepting
-// one in a spec with no alias also inserts the alias, derived from the
-// file name as for tag completion's auto-import.
+// every Markdown file under src/, as paths relative to the file; in one
+// whose path starts with a tsconfig.json paths alias ("@/" for "@/*"), or
+// with the start of one, it offers them as alias paths. Accepting one in a
+// spec with no alias also inserts the alias, derived from the file name as
+// for tag completion's auto-import.
 
 // kindFile is LSP's CompletionItemKind File.
 const kindFile = 17
@@ -31,6 +33,10 @@ type importPath struct {
 	closed     bool
 	// alias is set when the spec has an import name.
 	alias bool
+	// typed is the path typed so far; viaAlias is set when it's (the start
+	// of) a tsconfig.json paths alias rather than a relative path.
+	typed    string
+	viaAlias bool
 }
 
 // importBlock matches the opening of an import block.
@@ -39,8 +45,10 @@ var importBlock = regexp.MustCompile(`\bimport\s*\(`)
 // importPathAt returns the relative import path around offset off of f's
 // frontmatter: in an `import "./…"` or `import X "./…"` line, or in an
 // `X "./…"` or `"./…"` line of an import ( … ) block. It works on the text
-// of the line, so it also works while the frontmatter doesn't parse.
-func importPathAt(f *project.File, off int) (importPath, bool) {
+// of the line, so it also works while the frontmatter doesn't parse. A path
+// that starts with one of the alias prefixes, or with the start of one, is
+// an alias import path.
+func importPathAt(f *project.File, off int, prefixes []string) (importPath, bool) {
 	if f.AST == nil || !f.AST.Frontmatter.Present || !f.AST.Frontmatter.Code.Contains(off) || off > len(f.Src) {
 		return importPath{}, false
 	}
@@ -52,7 +60,11 @@ func importPathAt(f *project.File, off int) (importPath, bool) {
 		return importPath{}, false
 	}
 	q := strings.IndexByte(before, '"')
-	if !strings.HasPrefix(before[q+1:], ".") {
+	typed := before[q+1:]
+	viaAlias := !strings.HasPrefix(typed, ".") && typed != "" && slices.ContainsFunc(prefixes, func(p string) bool {
+		return p != "" && (strings.HasPrefix(typed, p) || strings.HasPrefix(p, typed))
+	})
+	if !strings.HasPrefix(typed, ".") && !viaAlias {
 		return importPath{}, false
 	}
 	head := strings.Fields(before[:q])
@@ -67,7 +79,7 @@ func importPathAt(f *project.File, off int) (importPath, bool) {
 	if len(head) > 1 || len(head) == 1 && !token.IsIdentifier(head[0]) {
 		return importPath{}, false
 	}
-	ip := importPath{quote: ls + q, end: off, alias: len(head) == 1}
+	ip := importPath{quote: ls + q, end: off, alias: len(head) == 1, typed: typed, viaAlias: viaAlias}
 	rest, _, _ := strings.Cut(src[off:], "\n")
 	if i := strings.IndexByte(rest, '"'); i >= 0 {
 		ip.end, ip.closed = off+i, true
@@ -84,7 +96,7 @@ func (ws *workspace) importPathItems(c cursor, trigger string) ([]any, bool) {
 	default:
 		return nil, false
 	}
-	ip, ok := importPathAt(c.f, c.off)
+	ip, ok := importPathAt(c.f, c.off, ws.proj.AliasPrefixes())
 	if !ok {
 		return nil, false
 	}
@@ -126,6 +138,11 @@ func (ws *workspace) importPathItems(c cursor, trigger string) ([]any, bool) {
 			continue
 		}
 		rel := relImport(c.f.Path, t)
+		if ip.viaAlias {
+			if rel = aliasSpelling(ws.proj.AliasSpellings(t), ip.typed); rel == "" {
+				continue
+			}
+		}
 		it := map[string]any{"label": rel, "kind": kindFile, "filterText": rel,
 			"sortText": fmt.Sprintf("%02d%s", strings.Count(rel, "../"), rel),
 			"textEdit": c.textEdit(span, rel+closing)}
@@ -147,4 +164,24 @@ func (ws *workspace) importPathItems(c cursor, trigger string) ([]any, bool) {
 		items = append(items, it)
 	}
 	return items, true
+}
+
+// aliasSpelling returns the shortest of a file's alias import paths
+// (shortest first) that agrees with the path typed so far, or "".
+func aliasSpelling(spellings []string, typed string) string {
+	for _, s := range spellings {
+		if strings.HasPrefix(s, typed) || strings.HasPrefix(typed, s) {
+			return s
+		}
+	}
+	// Typed past the alias's prefix ("@/comp" for "@/components/…"): the
+	// editor filters on the rest.
+	if i := strings.IndexByte(typed, '/'); i >= 0 {
+		for _, s := range spellings {
+			if strings.HasPrefix(s, typed[:i+1]) {
+				return s
+			}
+		}
+	}
+	return ""
 }

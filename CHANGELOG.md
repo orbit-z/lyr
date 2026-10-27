@@ -12,6 +12,7 @@ The first release of Orbit: Astro's developer experience, with Go on the server 
 - `orbit.If(cond, v)` and `orbit.Cond(cond, a, b)` for conditional attribute values and text (compiled to an `if`, no allocation), and a `bool` writes `"true"`/`"false"` on `aria-*` and the other true/false attributes.
 - File-based routing under `src/pages`, with dynamic and catch-all routes, typed route params (`params.Slug`), a custom `404.orbit` and no trailing slash by default (`"trailingSlash": "always"` mirrors it).
 - Markdown pages and imports (`.md`), with typed frontmatter checked against the layout's props and code blocks highlighted at build time.
+- Component imports and Markdown layouts can use `tsconfig.json` path aliases, as in Astro: `Card "@/components/Card.orbit"`.
 
 **Server**
 - Server rendering only: every page renders per request.
