@@ -117,6 +117,16 @@ const maxIslandBody = 1 << 20
 // serveIsland answers an island request; rest is the path after
 // islandPrefix.
 func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string) {
+	build, id, ok := strings.Cut(rest, "/")
+	isl := s.islands[id]
+	if s.route != nil {
+		file := ""
+		if isl != nil {
+			file = isl.file
+		}
+		vals := [2]string{build, id}
+		s.fillRouteOnly(r, RouteIsland, islandPattern, file, islandParamNames, vals[:])
+	}
 	switch r.Method {
 	case http.MethodGet, http.MethodHead, http.MethodPost:
 	default:
@@ -126,8 +136,6 @@ func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string) 
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	build, id, ok := strings.Cut(rest, "/")
-	isl := s.islands[id]
 	if !ok || build == "" || isl == nil {
 		emptyNotFound(w)
 		return
@@ -159,6 +167,15 @@ func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string) 
 
 	c := s.acquire(r)
 	defer releaseCtx(c)
+	if s.route != nil {
+		// For LocalsOf, when no middleware attached locals; the params
+		// stay out of ctx.Param (an island has none).
+		c.paramBuf[0], c.paramBuf[1] = build, id
+		c.route = routeRef{kind: RouteIsland, pattern: islandPattern, file: isl.file, names: islandParamNames, vals: c.paramBuf[:2], field: s.route.field}
+		if l, _ := s.route.attached(r); l != nil {
+			c.locals = l
+		}
+	}
 	wr := writerPool.Get().(*Writer)
 	wr.reset(buf)
 	c.w = wr

@@ -140,6 +140,7 @@ func fork(w *Writer, c *Ctx) *Writer {
 		locals:     c.locals,
 		dev:        c.dev,
 		keys:       c.keys,
+		route:      c.route,
 		header:     h,
 	}
 	cw := writerPool.Get().(*Writer)

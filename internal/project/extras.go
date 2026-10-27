@@ -111,6 +111,9 @@ func (p *Project) appGo() []byte {
 	fmt.Fprintf(&b, "\torbit %q\n\n", compiler.RuntimePath)
 	fmt.Fprintf(&b, "\t_ %q\n", p.Module+"/"+compiler.GenDir+"/link")
 	fmt.Fprintf(&b, "\t%q\n", p.Module+"/"+compiler.GenDir+"/manifest")
+	if p.localsRoute != "" {
+		fmt.Fprintf(&b, "\t%q\n", p.Options.Locals)
+	}
 	var pages []*File
 	for _, f := range p.Files {
 		if f.Info.Role == compiler.RolePage {
@@ -143,6 +146,10 @@ func (p *Project) appGo() []byte {
 	}
 	if p.Config.TrailingSlashAlways {
 		defaults = append(defaults, "orbit.WithTrailingSlash(orbit.TrailingSlashAlways)")
+	}
+	if p.localsRoute != "" {
+		// Orbit fills Locals' orbit.RouteInfo field (PLAN.md §4g).
+		defaults = append(defaults, "orbit.WithLocalsRoute(func(l *locals.Locals) *orbit.RouteInfo { return &l."+p.localsRoute+" })")
 	}
 	if len(defaults) > 0 {
 		fmt.Fprintf(&b, "\tdefaults := []orbit.Option{%s}\n", strings.Join(defaults, ", "))

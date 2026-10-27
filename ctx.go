@@ -26,6 +26,7 @@ type Ctx struct {
 	header     http.Header // nil until Header is first called on this Ctx
 	dev        bool        // running under orbit dev
 	keys       *keyring    // island key and build ID for Defer; nil: defaultKeyring
+	route      routeRef    // the request's route, when the site fills a RouteInfo
 	// w is the Writer rendering the request (set where the runtime pairs a
 	// Ctx with a Writer), or nil; RenderHTML points it at its capture
 	// writer while the capture runs.

@@ -1019,3 +1019,19 @@ Dynamic tags and optional wrappers (`PLAN.md` §2.8). A capitalized variable in 
 | Decoding keeps a JSON `false` as a bool (`aria-x` then writes `"false"`; elsewhere it's omitted), like `RestAttrs` | the existing `RestAttrs` rule | Drop `false` | [Runtime API](reference/runtime-api.md#values) |
 | In a `RestAttrs`, a merged `AttrList` is written after the tag's own attributes, in list order, skipping the names they set, as a merged `Attrs` is | the existing merge rule (§2.5) | — | [Components](components.md#passing-html-attributes-through) |
 | `isURLAttr` now matches by a lowercase switch instead of looping over the list (same names, `TestIsURLAttr`); spreads and `Attr` got faster (an `orbit.Attrs` of five: 295 → 250 ns) | the spec's "can tighten it" | Keep the loop | [Performance](performance.md#ordered-spreads) |
+
+## The matched route (`orbit.RouteInfo`)
+
+The matched route for middleware and logging (`PLAN.md` §4g). A field in the user's `Locals` (Q1 b), recording pages, `/404` and islands (Q2 a), and not setting `r.Pattern` (Q3 a) were the user's, not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| The option is `orbit.WithLocalsRoute[L](func(*L) *RouteInfo)`, passed by `app.New()` before the caller's options, after `WithSite`/`WithTrailingSlash`; it imports `src/locals` under its own name `locals` | simplest (the approved sketch) | A reflect-based lookup | [Runtime API](reference/runtime-api.md#generated-wiring) |
+| Without middleware attaching locals, the `Locals` a page allocates through `LocalsOf` is filled too, so `{locals.Route.Pattern}` works; Orbit never allocates one just to fill it (the fill happens inside `LocalsOf`'s own lazy allocation) | Astro (`Astro.routePattern` always works) and the allocation rule | Leave it zero without middleware; allocate a `Locals` per request | [Middleware](middleware.md#logging-the-matched-route) |
+| More than one `orbit.RouteInfo` field (`Locals has two orbit.RouteInfo fields (Route, Other); Orbit fills one`), an embedded one, an unexported one or a `*orbit.RouteInfo` is an error at the field, from `orbit generate`'s `src/locals` check | like `orbit.RestAttrs` (§2.5) | Fill the first; ignore pointers | [Middleware](middleware.md#logging-the-matched-route) |
+| The field is found by its type only: `orbit.RouteInfo` through the file's import of `github.com/orbit-z/orbit` under any name (a dot import too); a `Locals` alias isn't looked into | simplest (go/parser, no type checking, as for `Locals` itself) | Type-check `src/locals` | [Middleware](middleware.md#declare-the-struct) |
+| The 404 page rendered for a page's `orbit.ErrNotFound` keeps the page's route (`RoutePage`), in middleware and in the 404 page's own `locals.Route` | the spec's table (Astro reports the page's pattern) | Switch to `/404` | [Middleware](middleware.md#logging-the-matched-route) |
+| `site.ServeError(w, r, orbit.ErrNotFound)` from a custom handler records `RouteNotFound` (`/404`), with or without `404.orbit` | simplest (it answers as `NotFound()` does) | Leave it unchanged | — |
+| Island params are `buildID` and `id` from the path, recorded for every answer, a 405 included; `File` is `""` for an unknown ID. `ctx.Param` in the island stays `""` | the spec's table | — | [Middleware](middleware.md#logging-the-matched-route) |
+| `orbittest.Get` fills it (it serves through the real handler); `orbittest.Render` and `orbit.RenderComponent` don't (no route) | simplest | Fill a fake route in `Render` | [Runtime API](reference/runtime-api.md#the-matched-route-routeinfo) |
+| The values are copied into the struct (an inline `[8]string`, then one slice), so a copy of the struct stays valid and independent | Go value semantics | Point into the struct itself | [Runtime API](reference/runtime-api.md#the-matched-route-routeinfo) |

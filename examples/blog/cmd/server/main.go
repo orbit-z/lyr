@@ -85,14 +85,19 @@ func requestInfo(next http.Handler) http.Handler {
 	})
 }
 
-// logging logs each request with its status, duration and request ID.
+// logging logs each request with its status, duration and request ID, and
+// the route Orbit matched (/blog/[slug]), if any.
 func logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r, l := orbit.EnsureLocals[locals.Locals](r)
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		start := time.Now()
 		next.ServeHTTP(rec, r)
-		log.Printf("%s %s %d %s id=%s", r.Method, r.URL.Path, rec.status, time.Since(start), l.RequestID)
+		route := ""
+		if l.Route.Kind != orbit.RouteNone {
+			route = " route=" + l.Route.Pattern
+		}
+		log.Printf("%s %s %d %s id=%s%s", r.Method, r.URL.Path, rec.status, time.Since(start), l.RequestID, route)
 	})
 }
 
