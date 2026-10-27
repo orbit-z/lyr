@@ -159,6 +159,7 @@ func All(c *Ctx, loads ...func(context.Context) error) error
 - **Every load starts at once** and `All` **waits for all of them**, even after one fails, before it returns, so the template never reads a variable a load is still writing. A dynamic list works too: `orbit.All(ctx, loads...)`.
 - **The context**: each load gets `rc`, derived from the request's context. It's cancelled as soon as a load fails, and when `All` returns. Pass `rc` to your calls (not `ctx.Request.Context()`), and a page whose chapter call failed in 5 ms doesn't wait 100 ms for its book call. Don't start background work with `rc` that outlives the load.
 - **Name it `rc`**, not `ctx`: a parameter named `ctx` hides Orbit's `ctx` inside the load, so `ctx.Param` there no longer compiles.
+- **Orbit's `ctx` isn't a `context.Context`**: it's the `*orbit.Ctx` of the request. A call outside `orbit.All` (a single query in the frontmatter) takes `ctx.Request.Context()`: `post, err := locals.DB.Post(ctx.Request.Context(), params.Slug)`.
 - **No limit**: every load runs at once. One query that fetches what you need beats N loads; for a long list of calls, batch them, or use `errgroup.SetLimit` from `golang.org/x/sync` inside one load.
 
 ### Errors

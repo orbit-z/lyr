@@ -173,6 +173,49 @@ In `Card.orbit` above, the `import`, `type Props` and `func href` are hoisted, a
 
 For package-level state (caches, clients, configuration), use an ordinary Go package under `internal/` and import it.
 
+### Values computed once
+
+Because the render body runs on every render, a table built there, `var` included, is rebuilt (and allocated) every time the component renders, as code in an Astro frontmatter is. Frontmatter `var` declarations aren't hoisted, so a value you want built once goes in one of these places:
+
+- a **`const`**, for strings and numbers: hoisted, and free at runtime;
+- a **hoisted named `func`** with a `switch`, for a small fixed lookup: compiled code, nothing allocated;
+- a **package-level `var` in a Go package** of your own, for anything else (maps, slices, parsed templates, regular expressions): built once when the program starts.
+
+```orbit file=src/components/Icon.orbit
+---
+import "example.com/blog/internal/icons"
+
+type Props struct{ Name string }
+
+const size = "24"
+
+// Hoisted: compiled once, no allocation per render.
+func label(name string) string {
+	switch name {
+	case "home":
+		return "Home"
+	case "rss":
+		return "RSS feed"
+	}
+	return name
+}
+
+// Wrong: rebuilt on every render.
+// paths := map[string]string{"home": "M3 12…", "rss": "M4 11…"}
+---
+<svg width={size} height={size} aria-label={label(props.Name)}><path d={icons.Paths[props.Name]} /></svg>
+```
+
+```go file=internal/icons/icons.go
+// Package icons holds the SVG paths, built once at startup.
+package icons
+
+var Paths = map[string]string{
+	"home": "M3 12l9-9 9 9",
+	"rss":  "M4 11a9 9 0 0 1 9 9",
+}
+```
+
 ### What's available in the render body
 
 These names are provided in the render body and the template, without declaring or importing anything:
@@ -180,7 +223,7 @@ These names are provided in the render body and the template, without declaring 
 | Name | Type | What it is |
 |---|---|---|
 | `props` | `Props` | The values the parent passed. |
-| `ctx` | `*orbit.Ctx` | The request: `ctx.Request`, `ctx.URL`, `ctx.Site`, plus `ctx.Param`, `ctx.SetStatus`, `ctx.Header` and `ctx.Redirect`. See [Rendering](rendering.md) and [Runtime API](reference/runtime-api.md). |
+| `ctx` | `*orbit.Ctx` | The request: `ctx.Request`, `ctx.URL`, `ctx.Site`, plus `ctx.Param`, `ctx.SetStatus`, `ctx.Header` and `ctx.Redirect`. It isn't a `context.Context`: pass `ctx.Request.Context()` to database and API calls (or, inside an `orbit.All` load, the `rc` it gets; see [Loading data](data-loading.md)). See [Rendering](rendering.md) and [Runtime API](reference/runtime-api.md). |
 | `slots` | `orbit.Slots` | The children the parent passed. See [Slots](#slots). |
 | `params` | `Params` | **Pages only.** The route params, typed: `params.Slug` for `src/pages/blog/[slug].orbit`. Orbit generates the `Params` struct from the file path. Components read a route param with `ctx.Param("slug")` instead. See [Route params](routing.md#route-params-params). |
 | `locals` | `*locals.Locals` | Request-scoped data, typed by your `type Locals struct` in the package `src/locals`. Without one, it's `*orbit.NoLocals`. See [Middleware and locals](middleware.md). |
