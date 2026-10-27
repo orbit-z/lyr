@@ -141,6 +141,11 @@ func (e *tyEnv) classify(tv types.TypeAndValue) TypedWrite {
 		}
 		return TypedWrite{}
 	}
+	// An Opt (If's T, or an Opt[Opt[T]]'s): Expr's optValue case comes
+	// before its error and Stringer cases.
+	if _, ok := optElem(t); ok {
+		return TypedWrite{}
+	}
 	// A concrete named or composite type: Expr's method cases, in order.
 	if types.Implements(t, e.errorIface) {
 		return TypedWrite{Kind: WriteError}
@@ -272,16 +277,46 @@ func attrNumber(b *types.Basic) TypedWrite {
 	return w
 }
 
+// optElem returns T when t (after types.Unalias) is an instantiation of
+// the runtime's Opt: the exact type, so a type defined over an Opt isn't
+// one (PLAN.md §2.6, "Exact type").
+func optElem(t types.Type) (types.Type, bool) {
+	if t == nil {
+		return nil, false
+	}
+	n, ok := types.Unalias(t).(*types.Named)
+	if !ok || n.TypeArgs().Len() != 1 {
+		return nil, false
+	}
+	obj := n.Origin().Obj()
+	if obj.Name() != "Opt" || obj.Pkg() == nil || obj.Pkg().Path() != RuntimePath {
+		return nil, false
+	}
+	return n.TypeArgs().At(0), true
+}
+
 // classifyClass picks the write of a class:list item (PLAN.md §2.3): a
 // string kind is a Class write, []string (or a named slice of string) a
-// Classes write. ok is false for any other type, an error at the item.
-func classifyClass(tv types.TypeAndValue) (w TypedWrite, ok bool) {
+// Classes write, and an Opt of one of them the same write under its set
+// check (TypedWrite.Opt; on an element only: in a component's class prop,
+// prop set, it keeps ClassString, which unwraps it). ok is false for any
+// other type, an error at the item.
+func classifyClass(tv types.TypeAndValue, prop bool) (w TypedWrite, ok bool) {
 	t, nilv, valid := tyStatic(tv)
 	switch {
 	case !valid:
 		return TypedWrite{}, true // a type error, reported by Go
 	case nilv:
 		return TypedWrite{}, false
+	}
+	if et, isOpt := optElem(t); isOpt {
+		w, ok := classifyClass(types.TypeAndValue{Type: et}, prop)
+		if !ok || prop || w.Opt {
+			// A prop's ClassString, or an Opt[Opt[…]]: the fallback.
+			return TypedWrite{}, ok
+		}
+		w.Opt = true
+		return w, true
 	}
 	switch u := t.Underlying().(type) {
 	case *types.Basic:
@@ -329,6 +364,14 @@ func (e *tyEnv) classifyRest(tv types.TypeAndValue, urlAttr bool) TypedWrite {
 	if t, nilv, ok := tyStatic(tv); ok && !nilv && identical(t, e.url) {
 		return TypedWrite{Kind: WriteRestURL}
 	}
+	if _, isOpt := optElem(tv.Type); isOpt {
+		// RestOpt stores the value's typed write at run time (PLAN.md
+		// §2.6 (Q7)), orbit.If included.
+		if urlAttr {
+			return TypedWrite{Kind: WriteRestOptURL}
+		}
+		return TypedWrite{Kind: WriteRestOpt}
+	}
 	// RestBool applies the true/false rule itself (it knows the name).
 	w := e.classifyAttr(tv, urlAttr, false)
 	k, ok := restWrites[w.Kind]
@@ -337,3 +380,7 @@ func (e *tyEnv) classifyRest(tv types.TypeAndValue, urlAttr bool) TypedWrite {
 	}
 	return TypedWrite{Kind: k, Conv: w.Conv}
 }
+
+// OptElem returns T when t is an instantiation of the runtime's orbit.Opt
+// (after types.Unalias).
+func OptElem(t types.Type) (types.Type, bool) { return optElem(t) }

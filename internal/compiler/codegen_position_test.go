@@ -54,6 +54,7 @@ func TestLineDirectivePositions(t *testing.T) {
 		{"src/components/E12.orbit", `n}>x`, "non-boolean condition in if statement"},
 		{"src/components/E13.orbit", "N>x", "cannot use N (variable of type int) as string value in argument to orbit__w.TagOpen"},
 		{"src/components/E11.orbit", `n} depth`, "cannot use n (variable of type int) as bool value in class:list condition"},
+		{"src/components/E14.orbit", `"x"`, `cannot use "x" (untyped string constant) as int value in optional prop value`},
 		{"src/pages/alias.orbit", "Emb.Props{}", "cannot use Emb.Props{} (value of struct type Emb.Props) as int value in variable declaration"},
 		{"src/pages/index.orbit", "nmae", "unknown field Nmae in struct literal of type Emb.Props"},
 	}

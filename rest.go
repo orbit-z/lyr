@@ -139,6 +139,65 @@ func RestJSON(pre, name, pos string, v JSONValue) RestAttr {
 	return RestAttr{pre: pre, name: name, kind: restJSON, s: pos, v: v.v}
 }
 
+// RestOpt is a dynamic attribute whose value is an Opt: omitted when none,
+// else written as its value is (the common types stored unboxed, as the
+// typed constructors store them). Generated code calls it for an Opt-typed
+// pass-through attribute, orbit.If included; RestOptURL in a URL attribute.
+func RestOpt[T any](pre, name string, o Opt[T]) RestAttr { return restOpt(pre, name, o, false) }
+
+// RestOptURL is RestOpt in a URL attribute (href, src, …): a string value
+// is filtered as RestStringURL filters it.
+func RestOptURL[T any](pre, name string, o Opt[T]) RestAttr { return restOpt(pre, name, o, true) }
+
+func restOpt[T any](pre, name string, o Opt[T], url bool) RestAttr {
+	if !o.ok {
+		return RestAttr{pre: pre, name: name, kind: restAny} // nil: nothing
+	}
+	str := RestString
+	if url {
+		str = RestStringURL
+	}
+	switch x := any(o.v).(type) {
+	case string:
+		return str(pre, name, x)
+	case HTML:
+		return str(pre, name, string(x))
+	case CSS:
+		return str(pre, name, string(x))
+	case URL:
+		return RestURL(pre, name, x)
+	case bool:
+		return RestBool(pre, name, x)
+	case int:
+		return RestInt(pre, name, int64(x))
+	case int8:
+		return RestInt(pre, name, int64(x))
+	case int16:
+		return RestInt(pre, name, int64(x))
+	case int32:
+		return RestInt(pre, name, int64(x))
+	case int64:
+		return RestInt(pre, name, x)
+	case uint:
+		return RestUint(pre, name, uint64(x))
+	case uint8:
+		return RestUint(pre, name, uint64(x))
+	case uint16:
+		return RestUint(pre, name, uint64(x))
+	case uint32:
+		return RestUint(pre, name, uint64(x))
+	case uint64:
+		return RestUint(pre, name, x)
+	case float32:
+		return RestFloat32(pre, name, x)
+	case float64:
+		return RestFloat(pre, name, x)
+	case JSONValue:
+		return RestJSON(pre, name, "", x)
+	}
+	return RestAny(pre, name, any(o.v))
+}
+
 // RestOf wraps an Attrs or an AttrList as pass-through attributes, for Go
 // code that builds a component's Props. They're spread like Spread and
 // SpreadList spread them: an Attrs sorted by name, an AttrList in list
@@ -304,6 +363,12 @@ func mapClass(v any) string {
 		return v
 	case []string:
 		return strings.Join(v, " ")
+	case optValue:
+		x, ok := v.optAny()
+		if !ok {
+			return ""
+		}
+		return mapClass(x)
 	}
 	if s, ok := classValue(v); ok {
 		return s
@@ -402,6 +467,12 @@ func anyValue(name string, v any) (string, bool) {
 	switch v := v.(type) {
 	case nil:
 		return "", false
+	case optValue:
+		x, ok := v.optAny()
+		if !ok {
+			return "", false
+		}
+		return anyValue(name, x)
 	case bool:
 		if isTrueFalseAttr(name) {
 			return strconv.FormatBool(v), true
@@ -766,6 +837,10 @@ func (d *RestAttr) bare() bool {
 func isBare(name string, v any) bool {
 	if isTrueFalseAttr(name) {
 		return false
+	}
+	if o, ok := v.(optValue); ok {
+		x, ok := o.optAny()
+		return ok && isBare(name, x)
 	}
 	if b, ok := v.(bool); ok {
 		return b

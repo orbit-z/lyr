@@ -74,6 +74,9 @@ type Props struct {
 	Links    map[string]string
 	Meta     struct{ Lang string }
 	OnClick  func()
+	Subtitle orbit.Opt[string]
+	Rank     orbit.Opt[Kind]
+	Note     orbit.Opt[string]
 	Headings []orbit.Heading
 }
 `
@@ -83,7 +86,7 @@ func retype(t *testing.T, src string) (*compiler.Output, []compiler.Diagnostic, 
 	fset := token.NewFileSet()
 	imp := &fakeImporter{fset: fset, std: importer.ForCompiler(fset, "source", nil), pkgs: map[string]*types.Package{},
 		srcs: map[string]string{
-			compiler.RuntimePath:                           "package orbit\n\ntype Heading struct {\n\tDepth int\n\tSlug, Text string\n}\n\ntype HTML string\n",
+			compiler.RuntimePath:                           "package orbit\n\ntype Heading struct {\n\tDepth int\n\tSlug, Text string\n}\n\ntype HTML string\n\ntype Opt[T any] struct {\n\tv  T\n\tok bool\n}\n\nfunc Some[T any](v T) Opt[T] { return Opt[T]{v, true} }\n",
 			"example.com/blog/orbit_gen/decl/layouts/post": layoutDecl,
 		}}
 	d := Parse("src/pages/blog/hello.md", src, Options{}, nil, nil)
@@ -122,6 +125,9 @@ authors:
 links: {home: /}
 meta: {lang: en}
 section: Blog
+subtitle: Hello
+rank: post
+note: null
 layout: ../../layouts/Post.orbit
 ---
 ## One
@@ -145,12 +151,17 @@ layout: ../../layouts/Post.orbit
 		`p.Links = map[string]string{"home": "/"}`,
 		`p.Meta = struct{Lang string}{Lang: "en"}`,
 		`p.Section = "Blog"`,
+		`p.Subtitle = orbit__rt.Some[string]("Hello")`,
+		`p.Rank = orbit__rt.Some[Layout.Kind]("post")`,
 		"\np.Headings = Headings\n",
 		"\t\"time\"\n",
 	} {
 		if !strings.Contains(impl, w) {
 			t.Errorf("no %q in:\n%s", w, impl)
 		}
+	}
+	if strings.Contains(impl, "p.Note") {
+		t.Errorf("note: null sets p.Note:\n%s", impl)
 	}
 	// The reset directive names the line after it.
 	lines := strings.Split(impl, "\n")
@@ -175,9 +186,11 @@ func TestRetypeErrors(t *testing.T) {
 		{"author: {nme: Ada}", `2:10: frontmatter author: unknown key "nme" for Post.Props.Author (fields: name, url)`},
 		{"authors: [{name: 3}]", ""},
 		{"authors: [{name: [x]}]", "2:18: frontmatter authors[0].name: a list isn't a string (Post.Props.Authors[0].Name is string)"},
+		{"title: null", `2:8: frontmatter key "title" has no value; delete the line or give it a value`},
+		{"subtitle: [a]", "2:11: frontmatter subtitle: a list isn't a string (Post.Props.Subtitle is orbit.Opt[string])"},
 		{"on-click: x", "2:1: frontmatter on-click: Post.Props.OnClick is func(), which frontmatter can't set"},
 		{"headings: x", `2:1: frontmatter key "headings" can't be set: Orbit fills Post.Props.Headings with the page's headings; rename the key`},
-		{"subtitle: x", `2:1: unknown frontmatter key "subtitle" for layout Post (props: base, title, date, tags, draft, order, weight, kind, intro, author, authors, links, meta, onClick, headings, section)`},
+		{"subtitel: x", `2:1: unknown frontmatter key "subtitel" for layout Post (props: base, title, date, tags, draft, order, weight, kind, intro, author, authors, links, meta, onClick, subtitle, rank, note, headings, section)`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.yaml, func(t *testing.T) {

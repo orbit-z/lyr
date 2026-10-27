@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/orbit-z/orbit/internal/compiler"
 )
 
 // diags formats d's diagnostics as "L:C: message" lines.
@@ -86,8 +88,6 @@ func TestFrontmatterErrors(t *testing.T) {
 		name, src, want string
 	}{
 		{"bad YAML", "---\ntitle: a\n  b: c\n---\n", "3:1: invalid YAML in the frontmatter: mapping values are not allowed in this context"},
-		{"no value", "---\ntitle: Hi\nsubtitle:\n---\n", `3:10: frontmatter key "subtitle" has no value; delete the line or give it a value`},
-		{"null", "---\nsubtitle: null\n---\n", `2:11: frontmatter key "subtitle" has no value; delete the line or give it a value`},
 		{"anchor", "---\na: &x 1\nb: *x\n---\n", "2:4: YAML anchors (&x) aren't supported in frontmatter\n3:4: YAML aliases (*x) aren't supported in frontmatter; repeat the value"},
 		{"tag", "---\na: !!str 1\n---\n", "2:4: YAML tags (!!str) aren't supported in frontmatter"},
 		{"key name", "---\n1st: x\n---\n", `2:1: frontmatter key "1st" can't become a Go field name; use letters, digits, - and _, starting with a letter`},
@@ -111,6 +111,51 @@ func TestFrontmatterErrors(t *testing.T) {
 				t.Errorf("got:\n%s\nwant:\n%s", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestNullValue: a top-level key with no value leaves a layout prop of
+// type orbit.Opt none (PLAN.md §2.6), and is an error at generate time
+// anywhere else: no layout, or a prop of another type. It's not in
+// Frontmatter.
+func TestNullValue(t *testing.T) {
+	layout := &compiler.ComponentInfo{Path: "src/layouts/Post.orbit", Name: "Post", Pkg: compiler.GenPackage{Rel: "layouts/post", Name: "post"},
+		Props: compiler.PropsInfo{Declared: true, Listable: true, Fields: []compiler.PropField{
+			{Name: "Title", Type: "string"}, {Name: "Subtitle", Type: "orbit.Opt[ string ]"}, {Name: "Note", Type: "orbit.Opt[string]"}}}}
+	in := GenInput{
+		Info:    compiler.FileInfo{Path: "src/pages/x.md", Role: compiler.RolePage, Route: "/x"},
+		Pkg:     compiler.GenPackage{Rel: "pages/x_md", Name: "x_md"},
+		Options: compiler.Options{Module: "example.com/blog"},
+		Index:   compiler.ComponentIndex{"src/layouts/Post.orbit": layout},
+	}
+	for _, tt := range []struct{ src, want string }{
+		{"---\ntitle: Hi\nsubtitle:\n---\n", `3:10: frontmatter key "subtitle" has no value; delete the line or give it a value`},
+		{"---\nsubtitle: null\n---\n", `2:11: frontmatter key "subtitle" has no value; delete the line or give it a value`},
+		{"---\ntitle: ~\nlayout: ../layouts/Post.orbit\n---\n", `2:8: frontmatter key "title" has no value; delete the line or give it a value`},
+		{"---\nsubtitle: null\nnote: Hi\nlayout: ../layouts/Post.orbit\n---\n", ""},
+	} {
+		d := Parse("src/pages/x.md", tt.src, Options{}, nil, nil)
+		if s := diags(d); s != "" {
+			t.Fatalf("%q: parse: %s", tt.src, s)
+		}
+		out := Generate(d, in)
+		var got []string
+		for _, x := range out.Diagnostics {
+			p := d.Lines.Position(x.Start)
+			got = append(got, fmt.Sprintf("%d:%d: %s", p.Line, p.Col, x.Message))
+		}
+		if s := strings.Join(got, "\n"); s != tt.want {
+			t.Errorf("%q:\n got %s\nwant %s", tt.src, s, tt.want)
+		}
+		if strings.Contains(string(out.Decl.Content), "Subtitle") {
+			t.Errorf("%q: a null key in Frontmatter:\n%s", tt.src, out.Decl.Content)
+		}
+		if tt.want == "" {
+			impl := string(out.Impl.Content)
+			if strings.Contains(impl, "p.Subtitle") || !strings.Contains(impl, `p.Note = orbit__rt.Wrap(p.Note, "Hi")`) {
+				t.Errorf("impl:\n%s", impl)
+			}
+		}
 	}
 }
 

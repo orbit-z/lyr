@@ -132,7 +132,7 @@ func (g *cgGen) restSite(n *Component, a *Attr, pre string) {
 	o := g.o
 	cs := CallSite{Kind: SiteRest, Key: a.Code.Start, Node: n, Attr: a, Code: a.Code, AttrName: a.Name, URLAttr: IsURLAttr(a.Name)}
 	method, conv := "RestAny", ""
-	if tw, ok := g.in.Typed[a.Code.Start]; ok && tw.Kind >= WriteRestString && tw.Kind <= WriteRestJSON {
+	if tw, ok := g.in.Typed[a.Code.Start]; ok && (tw.Kind >= WriteRestString && tw.Kind <= WriteRestJSON || tw.Kind == WriteRestOpt || tw.Kind == WriteRestOptURL) {
 		method, conv = tw.Kind.Method(), tw.Conv
 	}
 	start := len(o.b)

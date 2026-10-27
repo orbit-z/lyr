@@ -151,7 +151,7 @@ src/pages/blog/hello.md:2:1: unknown frontmatter key "tilte" for layout Post (pr
 src/pages/blog/hello.md:6:9: layout ../layouts/Post.orbit: no such file
 ```
 
-A key with no value (`subtitle:`) is an error too: delete the line or give it a value.
+A key with no value (`subtitle:`, `subtitle: null`, `subtitle: ~`) is an error too, unless it sets a layout prop of type `orbit.Opt[T]` (below): delete the line or give it a value. Inside a nested map or a list, it's always an error.
 
 ## Layouts
 
@@ -176,6 +176,7 @@ The `layout` of a Markdown page is an ordinary `.orbit` component, so you can al
   | `[]T` | a list of values accepted by `T` |
   | `map[string]T` | a map whose values are accepted by `T` |
   | a struct | a map whose keys match its exported fields, by the same rules |
+  | `orbit.Opt[T]` ([optional props](components.md#optional-props)) | a value accepted by `T`, which sets it; no value (`key:`, `null`, `~`) leaves it unset, as a missing key does |
 
   Any other field type (`any`, pointers, interfaces, funcs) can't be set from frontmatter, and a key for it is an error at the key.
 - **The content** is the layout's **default slot**. Named slots stay empty.
@@ -267,7 +268,7 @@ import (
 | `[]` | `[]string` |
 | a nested map | a nested struct |
 
-Two Markdown files with the same keys and value types have the same `Frontmatter` type, so you can put them in one slice. The `layout` key isn't in it.
+Two Markdown files with the same keys and value types have the same `Frontmatter` type, so you can put them in one slice. The `layout` key isn't in it, and neither is a key with no value.
 
 ## What you can write
 

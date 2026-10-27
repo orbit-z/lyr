@@ -604,15 +604,43 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 		if site.Kind == SiteAttr || site.Kind == SiteContent {
 			if w, ok := env.lowerIf(tf, call.Args[len(call.Args)-1], site, info); ok {
 				writes[site.Key] = w
+				if w.If.Const && isSecuritySite(site) {
+					// orbit.If(c, "constant"): trusted like the constant.
+					if trusted == nil {
+						trusted = map[int]bool{}
+					}
+					trusted[site.Key] = true
+				}
+				return true
+			}
+			if et, isOpt := optElem(tv.Type); isOpt {
+				// An Opt value: lowered like If (PLAN.md §2.6).
+				etv := types.TypeAndValue{Type: et}
+				if site.Kind == SiteAttr {
+					w = env.classifyAttr(etv, site.URLAttr, IsTrueFalseAttr(site.AttrName))
+				} else {
+					w = env.classify(etv)
+				}
+				w.If = &IfWrite{Opt: true, Val: site.Code.Span}
+				writes[site.Key] = w
 				return true
 			}
 		}
 		switch site.Kind {
+		case SiteOptProp:
+			w, diag := env.optProp(tf, call, site, info)
+			if diag != nil {
+				diags = append(diags, *diag)
+			}
+			if w.Kind != WriteFallback {
+				writes[site.Key] = w
+			}
+			return true
 		case SiteAttr:
 			w = env.classifyAttr(tv, site.URLAttr, IsTrueFalseAttr(site.AttrName))
 		case SiteClass, SiteClassProp:
 			var ok bool
-			if w, ok = classifyClass(tv); !ok {
+			if w, ok = classifyClass(tv, site.Kind == SiteClassProp); !ok {
 				t := tv.Type // as written (any, not interface{}), unless untyped
 				if isUntyped(t) {
 					t, _, _ = tyStatic(tv)
@@ -658,7 +686,11 @@ func (e *tyEnv) trustedSite(name string, tv types.TypeAndValue) bool {
 	if !strings.EqualFold(name, "style") || tv.Type == nil {
 		return false
 	}
-	return identical(types.Unalias(tv.Type), e.css)
+	t := types.Unalias(tv.Type)
+	if et, ok := optElem(t); ok {
+		t = types.Unalias(et) // an Opt[orbit.CSS] writes an orbit.CSS
+	}
+	return identical(t, e.css)
 }
 
 // securityWarnings are the style and on* warnings of the candidate sites

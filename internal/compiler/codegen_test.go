@@ -213,8 +213,8 @@ func checkOutput(t *testing.T, r *cgResult) {
 		checkPositions(t, r, gf)
 	}
 	for _, cs := range r.out.CallSites {
-		if tw, ok := r.in.Typed[cs.Key]; ok && (tw.Kind == WriteSkip || tw.If != nil) {
-			continue // untyped nil: nothing emitted; a lowered orbit.If: Arg is its value
+		if tw, ok := r.in.Typed[cs.Key]; ok && (tw.Kind == WriteSkip || tw.If != nil || tw.Opt) {
+			continue // untyped nil: nothing emitted; a lowered orbit.If or Opt: Arg is its value
 		}
 		if got := string(r.out.Impl.Content[cs.Arg.Start:cs.Arg.End]); got != cs.Code.Text {
 			t.Errorf("call site %d: Arg %q != Code %q", cs.Key, got, cs.Code.Text)

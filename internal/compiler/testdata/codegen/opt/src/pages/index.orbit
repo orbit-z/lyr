@@ -1,0 +1,19 @@
+---
+import "strings"
+
+import Link "../components/Link.orbit"
+import Opt "../components/Opt.orbit"
+import Button "../components/Button.orbit"
+
+url, summary := "https://go.dev/blog", "Go & more"
+ext := strings.HasPrefix(url, "http")
+var describedBy orbit.Opt[string]
+n := 5
+---
+<Link href={url} rel={orbit.If(ext, "noopener")}>Go blog</Link>
+<Link href="/about" rel="author" id="me" n={3} f={2} on>About</Link>
+<Link href="/x" title={summary} id={Link.Slug("s")} rel={describedBy} n={n} on={ext} style={orbit.CSS("color: red")}>X</Link>
+<Link href="/y" id={orbit.If(ext, "c")} rel={orbit.NonZero(summary)} title={orbit.If(!ext, "never")} f={1.5}>Y</Link>
+<Opt on s="v" />
+<Opt />
+<Button aria-describedby={orbit.If(ext, "help")} aria-x={orbit.If(!ext, "no")} href={orbit.Some("javascript:x")} data-n={orbit.Some(n)} hidden={orbit.Some(true)} title={describedBy}>B</Button>

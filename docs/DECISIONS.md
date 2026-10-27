@@ -933,6 +933,27 @@ Keyword completion after `{` in template content (`internal/lsp/blocks.go`). Whe
 | The first lowered site of a file keeps a reference to the callee (`_ = orbit.If[bool]`, no code), so a file whose only use of `orbit` is a lowered `If` still compiles | simplest | Drop the implicit import when unused | — |
 | The type check records identifier uses (to identify the runtime's `If` by its object) only for files where an attribute or content expression contains `If` | measured choice: no cost for other files | Always record them | — |
 
+## Typed optional values
+
+`orbit.Opt[T]` (`PLAN.md` §2.6, "Typed optional values"). `If` returning an `Opt`, the hidden fields and method names, `NonZero`, wrapping a `T` passed to an `Opt` prop, `RestOpt`, none writing nothing in content, the JSON shape and the `String` method were the user's ((Q1)–(Q7)), not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| Only `orbit.Opt` itself, after resolving aliases, is an `Opt`: a type defined over it (`type MaybeRel orbit.Opt[string]`) is an ordinary struct, written by the generic path (`fmt.Sprint`); an alias is fine | the exact-type rule of `orbit.URL`/`orbit.CSS` | Match any struct with `Opt`'s shape | [Template syntax](reference/template-syntax.md#optional-values-orbitopt) |
+| An `Opt[orbit.CSS]` on `style` is trusted like an `orbit.CSS`, and `orbit.If(c, "constant")` on `style` like the constant | the value written is a `T`, so `T`'s rule applies | Warn on every `Opt` | [Template syntax](reference/template-syntax.md#optional-values-orbitopt) |
+| In Markdown frontmatter, only a top-level key may have no value (`key:`, `null`, `~`), and only for a layout prop of type `orbit.Opt[T]`; elsewhere it's still an error, now reported at generate time (nested: when the YAML is read); such a key isn't in `Frontmatter` | simplest (a nested `Opt` field would need the type while parsing) | `null` anywhere an `Opt` is | [Markdown](markdown.md#frontmatter) |
+| The runtime's case for an `Opt` in `Attr`, `Expr`, `Spread` and `RestAttrs` comes after the concrete types and before `error` and `fmt.Stringer`, so an `Opt`'s `String` method never decides how it's written | simplest (no cost on the existing paths) | Before every case | [Template syntax](reference/template-syntax.md#how-values-render) |
+| A `class:list` item of type `Opt[string]`/`Opt[[]string]` on an element is written with an `if` around `Class`/`Classes`; in a component's `class` prop it goes through `ClassString`, which unwraps it (one boxing allocation there) | simplest (the prop is an expression, with no room for an `if`) | A helper returning `""` for none in the prop | [Template syntax](reference/template-syntax.md#classlist) |
+| `set:html` still takes only an `orbit.HTML`: an `Opt[orbit.HTML]` is Go's type error, written `set:html={o.Or("")}` | simplest (`set:html` isn't a typed site; accepting an `Opt` there would also accept any `string`) | Make `set:html` a typed site | [Template syntax](reference/template-syntax.md#optional-values-orbitopt) |
+| Before the build's type check, an `Opt` prop's value goes through `OptOf`, which converts a value (or an `Opt`'s value) of `T`'s kind, or a number for a number, to `T`, so the unchecked output matches the checked one for untyped constants (`rel={c}`, `rel={orbit.If(c, "x")}` into `Opt[Slug]`) | simplest (the two outputs never differ for a valid program) | Leave such a value none until the type check | [Runtime API](reference/runtime-api.md#generated-code-hooks) |
+| A basic literal passed to an `Opt` prop (`n={3}`) is wrapped with `Wrap` directly, without waiting for the type check | simplest (an untyped constant then takes `T`) | Treat it as any expression | — |
+| `WrapIf` takes the `orbit.If` as written as an argument (`orbit.If[bool]`), so a file whose only use of `orbit` was that call still compiles | the `_ = orbit.If[bool]` reference of the `If` lowering, in an expression | A statement before the component call | [Runtime API](reference/runtime-api.md#generated-code-hooks) |
+| `nil` passed to an `Opt` prop is Go's type error (`OptOf` can't infer its type), not Orbit's message; not passing the prop is how to leave it unset | Go's rule | A special case for `nil` | — |
+| `RestOpt` of an `Opt[orbit.JSONValue]` has no `.orbit` position for an encoding error (its signature has none) | simplest | A `RestOptJSON` with a position | — |
+| `AttrPair.Value` of an `Opt` of a type `A` stores unboxed returns the `Opt`'s value, or `nil` for none | simplest (what's stored is the value) | Return the `Opt` | [Runtime API](reference/runtime-api.md#values) |
+| `A` keeps an `Opt` unboxed only for `string`, `URL`, `HTML`, `CSS`, `JSONValue`, `bool`, `int`, `int64` and `float64` (the other integer and float types are boxed, 1 allocation) | measured: each `Opt` type named in `A`'s switch instantiates its methods in the runtime package; all 19 of `A`'s kinds grew the runtime's object file by 1.9 MB (2.5 → 4.4 MB), these 9 by 0.6 MB with `-dwarf=false` | Every kind `A` stores | [Runtime API](reference/runtime-api.md#values) |
+| A Go error about a value passed to an `Opt` prop (`n={"x"}` for an `Opt[int]`) says `in optional prop value` instead of `in argument to orbit__rt.Wrap` | the `ErrorAt`/`ClassIf` cleanups | Leave the generated name | — |
+
 ## Port fixes (nyth)
 
 Fixes found porting the `nyth` Astro site (2026-10-27).

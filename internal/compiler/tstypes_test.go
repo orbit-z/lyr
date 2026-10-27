@@ -203,6 +203,13 @@ type Bad struct {
 	Ok     int
 	Notify func()
 }
+type OptS struct {
+	A orbit.Opt[string]
+	B orbit.Opt[int]    ` + "`json:\"b,omitzero\"`" + `
+	C orbit.Opt[*int]   ` + "`json:\"c,omitzero\"`" + `
+	D orbit.Opt[Status] ` + "`json:\"d,omitempty\"`" + `
+}
+type OptBad struct{ F orbit.Opt[func()] }
 type BadDeep struct{ Posts []Bad }
 type BadMap struct{ M map[[2]int]string }
 type BadC struct{ C complex128 }
@@ -376,6 +383,12 @@ func TestTSMap(t *testing.T) {
 		{"map[PTM]int", "Record<string, number> | null\nprob : map[PTM]int"},
 		{"Page[func()]", "p.Page<unknown>\np.Page<T> { items: T[] | null; next: Page<T> | null }\nprob Page.Items[]: func()"},
 		{"map[Status]Bad", "Record<string, p.Bad> | null\np.Bad { Ok: number; Notify: unknown }\nprob [].Notify: func()"},
+		// orbit.Opt (PLAN.md §2.6 (Q5)).
+		{"orbit.Opt[string]", "string | null"},
+		{"orbit.Opt[*int]", "number | null"},
+		{"[]orbit.Opt[bool]", "(boolean | null)[] | null"},
+		{"OptS", "p.OptS\np.OptS { A: string | null; b?: number; c?: number | null; d: Status | null }\np.Status = string"},
+		{"OptBad", "p.OptBad\np.OptBad { F: unknown }\nprob OptBad.F: func()"},
 		{"FnOK", "p.FnOK\np.FnOK { F: unknown; K: Record<string, number> | null; T: Record<string, number> | null }"},
 	}
 	for _, tt := range tests {

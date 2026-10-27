@@ -53,6 +53,8 @@ type Props struct {
 	Raw      []byte
 	Arr      [2]*int
 	Depth    int
+	OptOK    orbit.Opt[string]
+	OptFn    orbit.Opt[func()]
 }
 ---
 <p>{props.PostID}</p>
@@ -109,7 +111,7 @@ func TestDeferPropsJSONCheck(t *testing.T) {
 	const tail = ", which can't be sent to a deferred component; props must be JSON-serializable"
 	var want []string
 	for _, site := range []struct{ pos, tag string }{
-		{"src/components/Comments.orbit:49:27", "Self"},
+		{"src/components/Comments.orbit:51:27", "Self"},
 		{"src/pages/index.orbit:6:13", "Comments"},
 	} {
 		for _, f := range []string{
@@ -124,6 +126,7 @@ func TestDeferPropsJSONCheck(t *testing.T) {
 			"Props.ByPoint has type map[point]int",
 			"Props.Fs[] has type func()",
 			"Props.Inner.F has type chan bool",
+			"Props.OptFn has type func()",
 		} {
 			pos := site.pos
 			want = append(want, pos+": <"+site.tag+" server:defer>: "+f+tail)
@@ -191,7 +194,7 @@ func BenchmarkDeferPropsCheck(b *testing.B) {
 	site := p.files[2].pass1.DeferSites[0]
 	b.ReportAllocs()
 	for b.Loop() {
-		if len(deferPropsErrors(&site, props)) != 11 {
+		if len(deferPropsErrors(&site, props)) != 12 {
 			b.Fatal("wrong error count")
 		}
 	}

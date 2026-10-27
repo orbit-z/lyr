@@ -5,6 +5,7 @@ src/components/E10.orbit:8:13: duplicate case "a" (constant of type string) in e
 src/components/E11.orbit:9:39: cannot use n (variable of type int) as bool value in class:list condition
 src/components/E12.orbit:4:21: non-boolean condition in if statement
 src/components/E13.orbit:4:5: cannot use N (variable of type int) as string value in argument to orbit__w.TagOpen
+src/components/E14.orbit:6:31: cannot use "x" (untyped string constant) as int value in optional prop value
 src/components/E2.orbit:4:67: cannot use "n" (untyped string constant) as int value in argument to strconv.Itoa
 src/components/E3.orbit:4:8: undefined: intt
 src/components/E4.orbit:5:7: undefined: titel
@@ -22,6 +23,7 @@ src/components/E10.orbit:8:13: duplicate case "a" (constant of type string) in e
 src/components/E11.orbit:9:39: cannot use n (variable of type int) as bool value in class:list condition
 src/components/E12.orbit:4:21: non-boolean condition in if statement
 src/components/E13.orbit:4:5: cannot use N (variable of type int) as string value in argument to orbit__w.TagOpen
+src/components/E14.orbit:6:31: cannot use "x" (untyped string constant) as int value in optional prop value
 src/components/E2.orbit:4:67: cannot use "n" (untyped string constant) as int value in argument to strconv.Itoa
 src/components/E3.orbit:4:8: undefined: intt
 src/components/E4.orbit:5:7: undefined: titel

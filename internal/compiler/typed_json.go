@@ -69,6 +69,10 @@ type jsonWalker struct {
 // check returns the first problem under t, reached at path, or nil.
 func (w *jsonWalker) check(orig types.Type, path string) *jsonProblem {
 	t := types.Unalias(orig)
+	if elem, ok := optElem(t); ok {
+		// Opt's MarshalJSON writes null or the value's JSON: check T.
+		return w.check(elem, path)
+	}
 	if n, ok := t.(*types.Named); ok {
 		if w.stack[n] {
 			return nil

@@ -1,0 +1,21 @@
+orbit_gen/decl/components/link/decl.go (src/components/Link.orbit)
+  exact 2:1 "type Slug string" -> 189-205 "type Slug string"
+  exact 4:1 "type Props struct {\n\tHref  string\n\tRel   orbit.Opt[string] // unset = no rel attribute\n\tTitle orbit.Opt[string]\n\tID    orbit.Opt[Slug]\n\tN     orbit.Opt[int]\n\tF     orbit.Opt[float64]\n\tOn    orbit.Opt[bool]\n\tStyle orbit.Opt[orbit.CSS]\n}" -> 276-511 "type Props struct {\n\tHref  string\n\tRel   orbit.Opt[string] // unset = no rel attribute\n\tTitle orbit.Opt[string]\n\tID    orbit.Opt[Slug]\n\tN     orbit.Opt[int]\n\tF     orbit.Opt[float64]\n\tOn    orbit.Opt[bool]\n\tStyle orbit.Opt[orbit.CSS]\n}"
+orbit_gen/impl/components/link/render.go (src/components/Link.orbit)
+  exact 15:10 "props.Href" -> 677-687 "props.Href"
+  exact 15:27 "props.Rel" -> 790-799 "props.Rel"
+  exact 15:45 "props.Title" -> 904-915 "props.Title"
+  exact 15:62 "props.ID" -> 1017-1025 "props.ID"
+  exact 15:80 "props.N" -> 1131-1138 "props.N"
+  exact 15:97 "props.F" -> 1244-1251 "props.F"
+  exact 15:114 "props.On" -> 1358-1366 "props.On"
+  exact 15:131 "props.Style" -> 1472-1483 "props.Style"
+call sites
+  attr href (url) key=271 "props.Href" call="orbit__w.Attr(\"href\",\n/*line ../../../../src/components/Link.orbit:15:10*/props.Href/*line render.go:21:87*/,\n\t)"
+  attr rel key=288 "props.Rel" call="orbit__w.Attr(\"rel\",\n/*line ../../../../src/components/Link.orbit:15:27*/props.Rel/*line render.go:24:86*/,\n\t)"
+  attr title key=306 "props.Title" call="orbit__w.Attr(\"title\",\n/*line ../../../../src/components/Link.orbit:15:45*/props.Title/*line render.go:27:88*/,\n\t)"
+  attr id key=323 "props.ID" call="orbit__w.Attr(\"id\",\n/*line ../../../../src/components/Link.orbit:15:62*/props.ID/*line render.go:30:85*/,\n\t)"
+  attr data-n key=341 "props.N" call="orbit__w.Attr(\"data-n\",\n/*line ../../../../src/components/Link.orbit:15:80*/props.N/*line render.go:33:84*/,\n\t)"
+  attr data-f key=358 "props.F" call="orbit__w.Attr(\"data-f\",\n/*line ../../../../src/components/Link.orbit:15:97*/props.F/*line render.go:36:84*/,\n\t)"
+  attr hidden key=375 "props.On" call="orbit__w.Attr(\"hidden\",\n/*line ../../../../src/components/Link.orbit:15:114*/props.On/*line render.go:39:86*/,\n\t)"
+  attr style key=392 "props.Style" call="orbit__w.Attr(\"style\",\n/*line ../../../../src/components/Link.orbit:15:131*/props.Style/*line render.go:42:89*/,\n\t)"

@@ -261,6 +261,7 @@ func depthError(stack []string) error {
 //   - []byte: HTML-escaped, as a string
 //   - ints, floats, bools: strconv (float32 as a float32)
 //   - Renderer, func(*Writer) error: called
+//   - Opt: nothing when none, else its value by these rules
 //   - error: Error(), escaped
 //   - fmt.Stringer: String(), escaped
 //   - an unnamed slice: each element in turn, by these rules
@@ -331,6 +332,8 @@ func (w *Writer) value(v any, escape bool) {
 		w.Render(v)
 	case func(*Writer) error:
 		w.Render(v)
+	case optValue:
+		v.optText(w, escape)
 	case error:
 		w.text(errorString(v), escape)
 	case fmt.Stringer:
@@ -417,7 +420,8 @@ func nilPanic(v any, r any) string {
 // Attr writes the attribute name with value v, with a leading space:
 //
 //   - true: the bare attribute ( name)
-//   - false, nil: nothing
+//   - false, nil, a none Opt: nothing
+//   - a set Opt: its value, by these rules
 //   - a bool on an attribute whose values are the keywords true and false
 //     (every aria-* attribute, contenteditable, draggable, spellcheck and
 //     writingsuggestions, in any case): name="true" or name="false"
@@ -463,6 +467,8 @@ func (w *Writer) attr(name string, v any, urlAttr bool) {
 		w.attrOpen(name)
 		w.Float(v)
 		w.buf.WriteByte('"')
+	case optValue:
+		v.optAttr(w, name)
 	default:
 		// A named bool (type Flag bool) behaves like bool, so the generic
 		// path matches the AttrBool that codegen emits for it.
