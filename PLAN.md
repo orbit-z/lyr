@@ -133,6 +133,7 @@ title := strings.ToUpper(props.Title)
 | `<tag …>` lowercase or containing `-` | HTML or custom element. |
 | `<Name …>` capitalized | Component. Must match a `.orbit` import alias, otherwise it's an error: `unknown component <Crad>: no .orbit import with this alias`. |
 | `<Self …>` | The current component, rendered recursively. Same props and slots rules. |
+| `<Name {...x} …>` | On a component: a struct `x` sets its props by field name (proposed, §2.11); an `orbit.Attrs`/`AttrList`/`RestAttrs` merges into its pass-through attributes (§2.5). |
 | `<Name server:defer …>` | Deferred server rendering (Astro's server islands): the page gets a placeholder holding the `fallback` slot, and the browser fetches the component's HTML in a separate request (§3.4, §5b). |
 | `<Name client:idle …>` (also `client:load`, `client:visible`, `client:media`) | Controls when the component's `<script>` modules load (§3.4, §5). |
 | `<slot />`, `<slot name="x">fallback</slot>` | Slot outlet, with fallback children. |
@@ -1267,6 +1268,179 @@ func AppendFloat(b []byte, f float64) []byte   // and AppendFloat32, AppendStrin
 - Lowering a literal's pieces lazily into `orbit.If`'s branch (it would change evaluation, §2.6).
 
 **Implementation size** (estimate): runtime ~140 lines; scanner, AST and parser ~450 (nesting, span recording, the analyzer's placeholders); codegen and the typed-pass lowering ~650; LSP ~150; `orbit fmt` ~150; grammar and Chroma lexer ~100; about 1.6k lines of production code, plus ~1.2k lines of tests and goldens and the docs.
+
+### 2.11 Spreading props into a component
+
+**Status: proposed** (spec 2026-10-27; nothing implemented). User decision it's designed within (2026-10-27): spec Astro's `<NovelCard {...card} />`, a spread whose value **sets the component's declared props**, found in the `nyth` port (§12.1: `BookCards.orbit:20`, where `<NovelCard {...novelcard.BookCard(…)} />` fails with `{...} spread on <NovelCard> needs an orbit.RestAttrs field in its Props, to pass HTML attributes through`; the workaround passes the struct as one prop, `card={…}`, and `NovelCard` reads `props.Card.X`). Since §2.5 a spread on a component tag only merges `orbit.Attrs`/`AttrList`/`RestAttrs` into pass-through attributes; §2.5 and §2.9 list "spreading declared props onto a component" as out of scope ("typed fields can't be set from a map without reflection"). This section sets them from a **struct**, whose fields the typed pass knows at build time: no map, no reflection.
+
+**Why** (counted 2026-10-27 in `nyth/apps/website/src`, 30 `{...x}` in `.astro` files): 20 are on HTML elements (§2.5's `...rest` ×8, §2.9's "parts" ×9 and `<html {...theme}>` ×3) and **10 tags, 11 spreads, are on components** (8 spreads on 7 tags in the site, 3 in test fixtures):
+| Kind | Spreads | Sites |
+|---|---|---|
+| a helper's result holding all the props | 2 (+1 fixture) | `<NovelCard {...bookCard(book, { credits, lines }, MEDIA_BASE)} />` (`ListedCard`), `<ReaderSettingsForm {...props} />` (`props = readerSettingsFormProps(id, settings)`), fixture `<NovelCard {...card.props} />` |
+| pass-through of the wrapper's own props | 1 | `<ReaderNavBar {...Astro.props} />` (`ReaderNav`, `type Props = ReaderNavProps`) |
+| a subset of the props, from a local object or a shared constant | 5 (+2 fixture) | `<CachedCard {...ref} {...options} />` (`BookCards`: `{slug, version}` and `CardOptions`; `CachedCard`'s `Props extends CardOptions`), `<CachedCard slug={…} version={…} {...BROWSE_CARDS} />`, `<BookActions {...actions} questionId=… shelfId=… class=… />` ×2 (book page, `actions = { bookSlug, startHref, readHref, mine }`), fixture `<BookComments target={…} {...c.comments} />` ×2 |
+
+So 5 of the 7 site tags (and 4 of them together with explicit props) spread **part** of the props, and one tag has two spreads; an "exactly the component's `Props`" rule would cover 3. None spreads a rest object into a component (that's §2.5's forwarding, `<Input {...props.Attrs} />`). The Orbit port works around all of them: `card={…}` (1 site, plus `NovelCard` reading `props.Card`), and `BookActions`' four shared props written out at both call sites.
+
+#### End-to-end example (recommended shape: (Q1) a, (Q2) a, (Q3) a, (Q4) a)
+A helper returns the card's props (`nyth`'s `bookCard`), and the component takes that struct as its `Props`:
+```go
+// internal/novelcard/novelcard.go
+type Props struct {
+	Href, Slug, Title string
+	TitleNote         *string
+	Lines             int
+	// …
+}
+func BookCard(book *catalog.ListedBook, o Options, mediaBase string) Props
+```
+```orbit
+---
+// src/components/NovelCard.orbit
+import "example.com/nyth/internal/novelcard"
+
+type Props = novelcard.Props
+---
+<article data-slug={props.Slug}>…</article>
+```
+```orbit
+---
+// src/components/BookCards.orbit
+import NovelCard "./NovelCard.orbit"
+---
+{for _, book := range props.Books}
+  <NovelCard {...novelcard.BookCard(book, props.Options, locals.MediaBase)} />
+{/for}
+```
+A subset plus explicit props: the caller builds part of the callee's own `Props` (reachable through the import alias, `BookActions.Props`, §3.1) and overrides after the spread:
+```orbit
+---
+import BookActions "../../../components/BookActions.orbit"
+
+actions := BookActions.Props{BookSlug: book.ID, StartHref: startHref, ReadHref: readHref, Mine: mine}
+---
+<BookActions {...actions} questionID="start-over-question-top" shelfID="shelf-top" class="mt-5 basis-full desk:hidden" />
+<BookActions {...actions} questionID="start-over-question" shelfID="shelf-bottom" class="mt-8 hidden desk:block" />
+```
+Two disjoint partial structs (`CachedCard`'s `Props` embeds `novelcard.Options`, like `Props extends CardOptions`):
+```orbit
+<CachedCard {...ref} {...props.Options} />   {/* ref is a catalog.BookRef{Slug, Version} */}
+```
+Generated (typed pass; hook flavor; line directives and field-key directives omitted; the build flavor differs only in the callee, §3.5):
+```go
+for _, book := range props.Books {
+	{
+		orbit__p := novelcard.BookCard(book, props.Options, locals.MediaBase) // same type as NovelCard.Props: one copy
+		if orbit__err := NovelCard.Render(orbit__ctx, orbit__w, orbit__p, orbit__rt.Slots{}); orbit__err != nil {
+			return orbit__err
+		}
+	}
+}
+{
+	orbit__p := actions
+	orbit__p.QuestionID = "start-over-question-top"
+	orbit__p.ShelfID = "shelf-top"
+	orbit__p.Class = "mt-5 basis-full desk:hidden"
+	if orbit__err := BookActions.Render(orbit__ctx, orbit__w, orbit__p, orbit__rt.Slots{}); orbit__err != nil {
+		return orbit__err
+	}
+}
+{
+	var orbit__p CachedCard.Props
+	orbit__p.Slug = ref.Slug // a spread operand without calls is read in place; otherwise it's evaluated once into a temporary
+	orbit__p.Version = ref.Version
+	orbit__p.Credits = props.Options.Credits // promoted through the embedded novelcard.Options
+	orbit__p.Lines = props.Options.Lines
+	if orbit__err := CachedCard.Render(orbit__ctx, orbit__w, orbit__p, orbit__rt.Slots{}); orbit__err != nil {
+		return orbit__err
+	}
+}
+```
+All 0 allocations: the props are a stack value passed by value, as with today's literal.
+
+#### Rules
+- **What a spread sets** ((Q1) a): on a component tag (`<Self>` included), `{...x}` whose type is a **struct** or a **pointer to a struct** sets props: each exported field of `x` (fields promoted through embedded structs included, a field shadowed by a shallower one excluded: `encoding/json`'s field set, tags ignored) sets the callee's `Props` field of the **same Go name** (exact, case-sensitive; decided by rule: Go's struct conversion matches names exactly; no attribute-style folding, both sides are Go identifiers). The callee's settable fields are its direct fields and those promoted through embedded non-pointer structs, so a `Props` with embedded fields or `type Props = other.T` works (the typed pass sees the full type; unlike §2.3's attribute mapping, nothing needs pass 1's parse). Unexported fields of `x` are skipped (decided by rule: `encoding/json`).
+- **Dispatch by type**, in the typed pass: an `orbit.Attrs`, `orbit.AttrList` or `orbit.RestAttrs` keeps §2.5/§2.9's meaning (merged into the `RestAttrs` field; without one, today's error, now from the typed pass); a struct or pointer to struct is a props spread; anything else is an error. One tag may hold both kinds.
+- **Missing and extra fields**: a callee field that no spread or attribute sets keeps its zero value, as today (Orbit has no required props, `components.md`). A field of `x` that matches no callee field is an error ((Q2) a), listing them.
+- **Types**: each field's value must be assignable to the callee's field type (Go's assignability), with one widening: a `T` into an `orbit.Opt[T]` prop becomes `orbit.Some(v)` ((Q4) a, the §2.6 `Opt` (Q3) rule for an expression of type `T`). An `Opt[T]` into a `T` prop is an error (no unwrap; use `Or` in the helper).
+- **Order and overrides** ((Q3) a): attributes and spreads apply in source order, so a later one wins, as in JSX/Astro. Since a Go struct sets every field (there's no `undefined` key), a value that is always overwritten is an error instead of silent dead code: an attribute **before** a spread that sets the same field, and two spreads that set the same field. An attribute **after** a spread overrides it (the `<BookActions {...actions} questionID=…>` idiom). Evaluation is in source order too (each spread operand once).
+- **Pointers**: a nil pointer spreads nothing (decided by rule: Astro, `{...undefined}` and `{...null}` are no-ops); the generated code is an `if orbit__s != nil { … }` around its fields.
+- **Slots and children**: a spread sets only `Props` fields; slots come from children, as today (decided by rule: Astro, where slots aren't props). A field of type `orbit.Renderer` is an ordinary prop.
+- **`class`**: a spread's `Class` field sets a `Class` prop like any field, under the order rules (a `class="…"` on the tag after the spread overrides; before it, the error). On a callee without a class prop, a tag's `class`/`class:list` still goes into its `RestAttrs` (§2.5). Not merged with the spread's value (decided by rule: Astro, where a later `class` replaces the spread's).
+- **Pass-through attributes** (§2.5): on a callee with a `RestAttrs` field, the tag's unmatched attributes are collected as today; a props spread never feeds the rest (its fields aren't attribute names: `AriaLabel` isn't `aria-label`), so an `x` field matching no prop is (Q2)'s error, not an attribute. When `x` itself has a field of the rest's name and type (forwarding a whole `Props`), it's merged with the collected attributes by §2.5 (Q4)'s rule (attributes written on the tag win), not an overlap error; an explicit `attrs={…}` together with it is the order rule's overlap.
+- **`server:defer`**: the props value is built the same way and passed to `Defer`; the generate-time JSON check walks the callee's `Props` as today (§3.4), so nothing new. **`server:concurrent`** and **`client:*`**: unchanged (`Concurrent` takes the built value, §3.6).
+- **Markdown imports** (§2.4) take no props: a struct spread on one is the unknown-prop error.
+- **`orbit fmt`**, the TextMate grammar and the Chroma lexer: nothing new (a spread on a component tag already parses and formats, §2.5).
+
+#### Lowering (§3.3)
+- **Pass 1 can't lower it**: it sees the callee's parsed `Props` (field names and spelled types, §2.3), not the type of `x` (a Go package type, a function result, a frontmatter variable), so it can't list the fields to copy, nor tell a struct spread from an attribute spread. The **typed pass** (§3.3 pass 2) does both: it type-checks the caller's impl package against the callee's decl package (memoized importer), so `types.Info.Types[x]` and the callee's `Props` are both full types. A new site kind, `SiteSpread`, recorded by pass 1 per component spread.
+- **Pass 1's output must still type-check**, because the typed pass checks pass 1's source (a unit with a type error falls back whole, §3.3). So pass 1 emits forms valid for any `x`:
+  - on a callee with a `RestAttrs` field, the spread stays in the rest value as today, through `any`-constrained variants of `RestFrom`/`RestMerge` (same type switch, same bytes for `Attrs`/`AttrList`/`RestAttrs`);
+  - before the call, `orbit__rt.SpreadCheck(orbit__w, "<pos>", x, rest)` (generic over `any`, inlined), which is a no-op for an attribute type on a `RestAttrs` callee and otherwise records a positioned render error: `{...card} on <NovelCard> sets props, which needs Orbit's type check; it was skipped (see the warning above)`.
+
+  Pass 1's output is only served when the type check can't run (unreadable export data, with a warning, §3.3), so a struct spread then fails loudly at render; attribute spreads keep working. In tolerant mode (LSP) the same code gives gopls a Go region for `x` (completion, hover, definition, rename of `x`).
+- **The typed pass** re-emits the call as a block (the shapes in the example): `orbit__p` starts as a copy of `x` when its type is identical to the callee's `Props` (after `types.Unalias`) and it's the first item, else as the zero `Props`; then, in source order, one assignment per explicit attribute (today's field keys and values, typed sites unchanged) and per spread field (`orbit__p.F = s.F`, `orbit.Some(s.F)` for the `Opt` widening, the rest field through `RestMerge`); a spread operand with a call, or a pointer, is evaluated once into `orbit__sN`. Every generated statement carries a line directive to its attribute or spread, so a stray Go error lands there. The call passes `orbit__p` (`Render`, `Orbit__RenderImpl`, `Defer`, `Concurrent`). The typed-vs-fallback byte-identity test skips struct spreads (the fallback is the render error above).
+- **No spread, no change**: a call site without a component spread keeps its literal form, byte for byte.
+- **Source map**: the generated field reads `s.F`/`orbit__p.F` map to the spread's whole span (`kind=span`, so definition and diagnostics land on `{...x}`), and are marked **dropped on rename** like `echo` regions (§3.3, §9): renaming a field of `novelcard.Props` makes gopls edit the typed `render.go` on disk; those edits are dropped (the next generate re-emits them) instead of making Orbit refuse the rename.
+
+#### Errors (each at its `.orbit` position, from the typed pass)
+- Extra fields ((Q2) a), at the spread: `{...card} on <NovelCard>: novelcard.Summary has fields that aren't props of NovelCard (Blurb, Rank); spread a struct whose fields are all props, or pass them one by one (props: href, slug, title, …)`.
+- A type mismatch, at the spread: `{...card} sets Lines of <NovelCard>: card.Lines is int, the prop is orbit.Opt[string]`.
+- Overwritten values ((Q3) a): at the attribute, `questionID={…} is overwritten by {...actions} after it (it sets QuestionID); move it after the spread to override`; at the second spread, `{...ref} and {...options} both set Slug of <CachedCard>; a spread can't override another`.
+- A value of another type, at the spread: `{...n} on <Card>: n is int; spread a struct (its fields set props) or an orbit.Attrs, orbit.AttrList or orbit.RestAttrs (pass-through attributes)`. An attribute type on a callee without a `RestAttrs` field keeps §2.5's message.
+- A callee field promoted through an embedded pointer, at the spread: `{...x} can't set Lines of <CachedCard>: it's promoted through the embedded pointer *Options`.
+- A component spread (any kind) on a `.md` import: the existing unknown-prop error.
+
+#### (Q) points
+- **(Q1) What a spread value may be.**
+  - (a) **Recommended**: **any struct, or pointer to struct, whose fields are props** (structural, by Go field name, assignability checked by the typed pass). Covers all 8 of `nyth`'s component spreads: helper results, a wrapper's own props (`{...props}` when the wrapper declares the same fields or aliases the same type), subsets (`{...ref} {...options}`) and the callee's own `Props` built partially in the caller. Cost: the typed pass does the lowering (a site kind, ~350 lines), and pass 1 can't render it (above).
+  - (b) **Only the callee's `Props` type** (or a type convertible to it): pass 1 can lower it alone (`orbit__p := Card.Props(x)`), gopls reports a mismatch in the editor for free, no typed-pass work. But it covers 3 of the 8 (no subsets, no two spreads), and a Go helper can't return a component's `Props` (a decl package isn't importable from the user package `Props` imports), so it needs `type Props = novelcard.Props` (attribute mapping by initialism fallback, no unknown-prop pre-check, §2.3) or field-for-field identical structs.
+  - (c) (a) plus **maps** (`orbit.Attrs` setting declared props): the typed pass could emit `if v, ok := m["title"]; ok { p.Title = v.(string) }` per field, without reflection; but values are boxed, a wrong type panics at render, and an `orbit.Attrs` spread already means pass-through attributes (§2.5): one syntax, two meanings by callee. Not recommended.
+- **(Q2) Fields of the value that the callee doesn't declare.**
+  - (a) **Recommended**: an error listing them. Go-like (a struct conversion and Orbit's unknown-prop pre-check are both strict), and it catches drift: renaming a callee prop turns the old field into an error instead of a silently dropped value. `nyth`'s 8 spreads have no extra fields. Cost: spreading a wide domain struct (`{...book}` into a 3-prop component) isn't possible; the docs say to pass the fields or build the callee's `Props`.
+  - (b) Ignore them, like TypeScript (spread attributes get no excess-property check): `{...book}` works with any struct, but a typo'd or renamed prop is silently dropped.
+- **(Q3) Mixing with explicit props and other spreads.**
+  - (a) **Recommended**: source order, later wins (JSX/Astro), plus an error for any value that's always overwritten (an attribute before a spread setting the same field; two spreads setting one field). Byte-compatible with Astro wherever it compiles, and the remaining cases are exactly where Go's "every field is set" differs from JavaScript's absent keys (a spread after `title="x"` would silently write `""`).
+  - (b) Pure later wins, no error: Astro's rule as is; the dead attribute or the zeroing spread goes unnoticed.
+  - (c) Attributes written on the tag always win, wherever they are, and of two spreads the first wins: §2.5's merge rule for pass-through attributes, so one rule for both kinds of spread; but `<C title="x" {...a} />` then means the opposite of Astro.
+- **(Q4) A `T` field into an `orbit.Opt[T]` prop** (§2.6 `Opt`, being implemented).
+  - (a) **Recommended**: `Some(v)`, as for an attribute expression of type `T` (§2.6 `Opt` (Q3) a), so a spread and the same value written as an attribute mean the same; a helper that wants "none" gives its field type `Opt[T]` (then passed as is).
+  - (b) `NonZero(v)` (a zero field is none): convenient for helpers that use `""` for absent, but the same value then means two things depending on how it's passed.
+  - (c) An error unless the field types match exactly: no widening rule to learn, but `Lines int` into `Lines orbit.Opt[int]` needs the helper changed.
+- **(Q5) Spread errors in the editor.** Pass 1 (what gopls sees) can't produce them.
+  - (a) **Recommended**: run the spread checks in the LSP's existing debounced background typed pass (the one behind fresh `.d.ts` types and `.md` diagnostics, §9, §9b (Q5)), for open `.orbit` files that have a component spread, and publish them like the `.md` typed diagnostics (tied to the spread's text). ~20 ms CPU per run, debounced, off the request path; ~100 lines.
+  - (b) Only in `orbit dev` (overlay), `orbit check` and `orbit build`; the editor shows gopls's checks on `x` itself (undefined names) and the startup typed check's results for unedited files. No LSP work, but a mismatch shows up only on save in `orbit dev`.
+
+#### Differences from Astro (docs, `coming-from-astro.md`)
+- Astro spreads any object, and keys that aren't declared props still reach `Astro.props` (and, through the callee's `{...rest}`, become HTML attributes). Orbit spreads structs only, and an extra field is an error ((Q2)); attributes come from the tag or an `orbit.Attrs`/`AttrList`/`RestAttrs` spread.
+- A JavaScript object can leave a key out; a Go struct can't, so the overlaps that Astro resolves silently are errors ((Q3)), and "absent" is an `Opt` none ((Q4)).
+- Names match exactly (`QuestionID`, not `questionId`); attributes keep §2.3's folding.
+- `{...Astro.props}` (pass everything through) is `{...props}` when the wrapper's `Props` has the same fields (or `type Props = Inner.Props`, the same type: one copy); there's no `Astro.props` of undeclared keys.
+
+#### Cost
+- **Render**: 0 allocations in both flavors (a stack `Props` passed by value, as today's literal; temporaries are values; a pointer spread is a nil check plus field loads). One field assignment per spread field, the cost of the literal's; an identical type is one struct copy. `TestSpreadAllocs` (build flavor and hooks) asserts 0 on a page with each form of the example (in a `{for}`), `server:defer` and `server:concurrent` aside (their own costs, §3.4, §3.6).
+- **Codegen and dev loop**: pass 1 adds one statement per spread; the typed pass one site per spread (a field-set walk of two struct types, microseconds). A call site's generated code now depends on the field set of `x`'s type, which can live in a user `.go` package; a `.go` edit already re-checks everything and re-emits what changes (§3.3: typed writes depend on Go types the same way), and a `Props` edit re-checks importers. No new pass, no new `go list`. Expected: no measurable change; checked with `bench/devloop -dev -kinds body,props` (before/after/before/after).
+
+#### Tests (what must exist)
+- Compiler goldens (`testdata/codegen/propspread`): identical type (one copy), the callee's own `Props` built partially plus overrides after, a subset into an embedded-struct `Props` (promoted fields), two disjoint spreads, a pointer (nil and set), an operand with a call (evaluated once, source order: a side-effect counter), `Opt` widening, a struct with a rest field forwarded and merged with collected attributes, a struct spread next to an `orbit.Attrs` spread on a `RestAttrs` callee, `<Self {...props}>`, `server:defer`, `server:concurrent`, `client:visible`; each also in the build flavor (`go test -overlay`); a call site without spreads unchanged.
+- Errors, each at its position: extra fields, type mismatch, `Opt[T]` into `T`, attribute before a spread, two overlapping spreads, a non-struct value, an attribute type on a callee without `RestAttrs` (message unchanged), a field promoted through an embedded pointer, a `.md` import.
+- Pass 1: the output type-checks with struct and attribute spreads; served without the typed pass, a struct spread is the positioned render error and an attribute spread renders as today.
+- LSP: completion and hover inside `{...x}`; rename of a `Props` field and of a Go struct field used by a spread succeeds (generated edits dropped); with (Q5) a, a spread error appears after an edit.
+- `examples/blog`: one spread call site (a card from a helper), so the integration build covers it.
+
+#### User-docs changes (with the implementation)
+- `components.md`: "Spreading props" (the three example shapes, the order rule, missing fields are zero, extra fields are errors, nil pointers, `Opt` widening), next to "Passing HTML attributes through" with one sentence on which spread is which.
+- `reference/template-syntax.md`: spreads on component tags (struct vs attribute types), the new error messages.
+- `coming-from-astro.md`, `migrating-from-astro.md`: `{...obj}` and `{...Astro.props}` on components; the differences above; the `nyth` `bookCard` example replacing the `card={…}` workaround.
+- `performance.md`: 0 allocations. `DECISIONS.md`: the decided-by-rule items (exact names, json's field set, unexported fields skipped, nil pointer no-op, slots not settable, no `class` merge, `.md` imports).
+
+#### Out of scope
+- Map spreads setting props ((Q1) c), and extra struct fields becoming pass-through attributes.
+- Spreads that set slots, and spreads into `.md` layouts' frontmatter.
+- Attribute completion on the tag that leaves out the props a spread sets (needs types in the completion path); the LSP keeps listing every prop.
+- Destructuring with a rest in the frontmatter (`const { a, ...rest } = props`): Go has no such syntax; `RestAttrs` (§2.5) covers the attribute case.
+
+**Implementation size** (estimate): runtime ~40 lines (`SpreadCheck`, the `any` variants of `RestFrom`/`RestMerge`); pass 1 ~80 (emission, moving §2.5's spread error to the typed pass); typed pass ~350 (site kind, field sets with promotion, matching, `Opt` widening, overlap checks, block re-emission with directives, the rename-dropped source-map marking); LSP ~30 for rename, ~100 more with (Q5) a; about 0.6k lines of production code, plus ~0.6k lines of tests and goldens and ~150 lines of docs.
 
 ---
 
