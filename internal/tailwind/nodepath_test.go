@@ -113,8 +113,8 @@ func TestProcessorNodePath(t *testing.T) {
 // 'tailwindcss'"). It skips without Bun; the first run downloads the CLI
 // into Bun's cache.
 func TestBunxReal(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping the bun x Tailwind test in -short mode")
+	if os.Getenv("ORBIT_TEST_BUNX") == "" {
+		t.Skip("set ORBIT_TEST_BUNX=1 to run the bun x Tailwind test (it may download @tailwindcss/cli)")
 	}
 	if _, err := exec.LookPath("bun"); err != nil {
 		t.Skip("NOTICE: bun not found; skipping the bun x Tailwind test")

@@ -235,7 +235,9 @@ func TestAllPanics(t *testing.T) {
 
 func TestAllNested(t *testing.T) {
 	var done atomic.Int32
-	const d = 10 * time.Millisecond
+	// Concurrent: 2d; in order: 4d. The 3d bound leaves d of slack for a
+	// loaded machine.
+	const d = 30 * time.Millisecond
 	c := loadCtx("/")
 	var book, author, reviews string
 	start := time.Now()
