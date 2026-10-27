@@ -2492,6 +2492,278 @@ func pageLog(next http.Handler) http.Handler {
 - The route inside pages and components (Astro's `Astro.routePattern`): a cheap `ctx.RoutePattern()` later, since `Ctx` knows its route.
 - Setting `r.Pattern` ((Q3) b), route metrics helpers, and routes of the app's own mux (use its `r.Pattern`).
 
+## 4h. Route caching
+**Status: Proposed** (2026-10-27; (Q) points open). The user asked for this on 2026-10-27: "We should support caching in a similar fashion as Astro (cache provider reference). We could port the nyth cache package to use as cache provider." This section replaces §12's "SSR response caching" and takes in its "Cacheable server islands" bullet. Prototype: `scratchpad/cache-spec/orbit/` (a patched copy of the runtime: `cache_proto.go`, `cache_proto_test.go`).
+
+**Why**: an Orbit render costs about 0.2 to 60 µs, but a page that waits on data (nyth's catalogue API, a database) costs whatever the data costs. Astro 7 has route caching: a page says how long its response stays fresh (`Astro.cache.set({ maxAge, swr, tags })`), and a **provider** either serves the response from memory (`memoryCache()`) or turns the options into CDN headers. `invalidate({ tags })` purges entries. Orbit has only the primitive for fragment caches (`orbit.RenderHTML`, §4d) and HTTP headers the app sets itself. nyth uses a data and fragment cache today (`packages/cache`: `memoryCache.ts`, `singleFlight.ts`, used by `htmlCache.ts`/`<Cacher>` and `dataCache.ts`, with cross-instance invalidation over Redis streams in `invalidationBus.ts`/`cacheBus.ts`). It doesn't use Astro route caching.
+
+### Astro 7's behavior (verified in `astro@7.3.2`'s `dist/`, nyth's `node_modules/.bun/astro@7.3.2…/`; docs: guides/caching, reference/cache-provider-reference, api-reference `cache`)
+- **Placement** (`core/routing/handler.js` `render`, `core/cache/handler.js` `handleCache`): the provider's `onRequest(context, next)` wraps **the whole middleware chain** (`next` = `handleMiddleware` + page). The trailing-slash redirect, unmatched routes (404) and thrown errors (`renderErrorFromState`, 500) are handled outside it, so they're never cached. **A HIT skips the user's middleware entirely**, and a `context.cache.set(false)` in middleware runs *after* the lookup: it stops a store, not a HIT (a signed-in visitor gets the anonymous copy).
+- **Request handle** (`core/cache/runtime/cache.js` `AstroCache`): `set(opts)` merges: `maxAge`, `swr` and `etag` take the last write; `lastModified` takes the latest date; `tags` are a set that accumulates. `set(false)` clears everything and disables the handle, and a later `set({...})` enables it again. `options` and `tags` are read-only snapshots. `invalidate(opts)` calls the provider's. The handle is active when it's not disabled and has a `maxAge` or tags.
+- **Route rules** (`core/cache/runtime/route-matching.js`, `core/cache/utils.js`): `routeRules: { "/blog/[slug]": { maxAge, swr, tags } }` are compiled with the router's own `getPattern` and sorted with `routeComparator` (the file-route priority). The first match is applied as `cache.set(rule)` when the handle is created, before middleware runs, so later `set` calls merge over it. The rules match the *pathname*, so they cover endpoints and the server-island route too. They're inert without a provider.
+- **Headers** (`applyCacheHeaders`, `runtime/utils.js` `defaultSetHeaders`): after the response, an active handle calls `provider.setHeaders(options, request)`, or uses the default: `CDN-Cache-Control: max-age=N, stale-while-revalidate=M`, `Cache-Tag: a, b`, `Last-Modified`, `ETag`. If the response has `ETag`/`Last-Modified` but no `Cache-Control`/`Expires`, Astro adds `Cache-Control: no-cache`. When the provider has `onRequest`, `CDN-Cache-Control` and `Cache-Tag` are deleted from the final response, so they act as an internal channel. Durations are whole seconds.
+- **Without a provider** (`runtime/noop.js`): `enabled` is false, `set()` warns once ("caching is not enabled"), and `invalidate()` throws `CacheNotEnabled`. **In dev**: `enabled` is false and `set`/`invalidate` do nothing (`NoopAstroCache`).
+- **`memoryCache()`** (`core/cache/memory-provider.js`):
+  - **Requests**: only GET (HEAD and POST always render).
+  - **Key**: `origin + pathname + query`. The query is sorted, and tracking parameters (`utm_*`, `fbclid`, `gclid`, `ref` and others) are dropped. Its `query` option takes `include`/`exclude` globs (case-insensitive) and `sort`; giving both `include` and `exclude` is an error.
+  - **Size**: an LRU of `max` entries (default 1000). There's no byte bound and no timer: expiry is lazy.
+  - **What's stored**: any status, but only when `CDN-Cache-Control` has `max-age > 0` (tags alone store nothing). A response with `Set-Cookie` (Astro cookies included) isn't stored, and neither is one with `Vary: Cookie` or `Vary: *`; both log a warning **on every request**. Other `Vary` headers become part of the key (a per-URL map of vary names). `Set-Cookie` is never kept in an entry.
+  - **Serving**: `X-Astro-Cache: HIT`, `MISS` (only when it stored) or `STALE`. A stale request serves the old copy and starts `next()` in the background, with **no single-flight** (every stale request starts its own revalidation), and none for misses either. No `Age` header.
+  - **Conditional requests**: Astro never answers 304 itself; `If-None-Match` appears nowhere in `dist/core`.
+  - **Invalidation**: `invalidate({ path })` matches the exact `pathname + normalized query`. `invalidate({ tags })` is a linear scan of every entry.
+  - **CDN providers** (Netlify, Vercel, Cloudflare) also tag every response with `astro-path:<path>`, so a path purge works where the platform only supports tags (`core/cache/provider-utils.js`).
+- **Server islands**: the island route (`/_server-islands/[name]`, GET or POST) goes through the same `render`, so a GET island response is cached like a page when the component calls `Astro.cache.set`.
+
+### End-to-end example (recommended shape: (Q1) a, (Q2) a, (Q3) a, (Q4) a, (Q5) a)
+`cmd/server/main.go` configures the provider:
+```go
+site := app.New(orbit.WithCache(cache.Memory(cache.MemoryOptions{MaxEntries: 5000, MaxBytes: 256 << 20})))
+```
+`orbit.json` sets defaults per route, in Astro's units (seconds):
+```json
+{ "routeRules": { "/blog/[...path]": { "maxAge": 300, "swr": 3600, "tags": ["blog"] } } }
+```
+A page adds its own options:
+```orbit
+---
+post, err := posts.Get(ctx.Request.Context(), params.Slug)
+if err != nil {
+	return err
+}
+ctx.Cache().Set(orbit.CacheOptions{MaxAge: time.Hour, Tags: []string{"post:" + post.ID}})
+---
+<Layout title={post.Title}>…</Layout>
+```
+Middleware keeps signed-in visitors out of the cache, before the lookup:
+```go
+r, l := orbit.EnsureLocals[locals.Locals](r) // type Locals struct { Cache orbit.Cache; User *User; … }
+if l.User = session.User(r); l.User != nil {
+	l.Cache.Disable()
+}
+```
+An admin handler purges by tag:
+```go
+if err := site.InvalidateCache(r.Context(), orbit.InvalidateOptions{Tags: []string{"post:" + id}}); err != nil { … }
+```
+The first `GET /blog/hello` renders and stores the page (`X-Orbit-Cache: MISS`). Later requests get the stored bytes without a render (`HIT`). After an hour they get the old copy while one background render refreshes it (`STALE`), for up to the rule's `swr` of an hour. A signed-in visitor always gets a fresh render and no `X-Orbit-Cache` header.
+
+### Rules
+**Runtime API** (package `orbit`, stdlib only):
+```go
+type CacheOptions struct {
+	MaxAge, SWR  time.Duration // whole seconds on the wire (CDN headers); sub-second values are truncated
+	Tags         []string
+	ETag         string        // a quoted entity tag, `"v1"` or `W/"v1"`
+	LastModified time.Time
+}
+type Cache struct{ /* unexported: merged options, a disabled flag, inline tag storage */ }
+func (c *Ctx) Cache() *Cache                 // the request's handle; the Locals field when there is one ((Q4))
+func (k *Cache) Set(o CacheOptions)          // Astro's merge rules
+func (k *Cache) Disable()                    // Astro's set(false): clears options and tags, skips lookup and store
+func (k *Cache) Enabled() bool               // a provider is configured, not in dev, not disabled
+func (k *Cache) Options() CacheOptions       // a snapshot; Tags is a copy
+func (k *Cache) Invalidate(ctx context.Context, o InvalidateOptions) error
+type InvalidateOptions struct { Tags []string; Path string }
+var ErrCacheNotEnabled error                 // Invalidate without a provider
+func WithCache(p CacheProvider) Option       // (Q3)
+func WithRouteRules(rules ...RouteRule) Option // generated by app.New() from orbit.json
+type RouteRule struct { Pattern string; Options CacheOptions }
+func (s *Site) InvalidateCache(ctx context.Context, o InvalidateOptions) error
+func (s *Site) CacheHandler(h http.Handler) http.Handler // caches a custom handler's GET responses ((Q4))
+```
+
+**Provider interface** ((Q2) a): Orbit runs the request flow (key, freshness, swr, Vary, `Set-Cookie`, 304s, `X-Orbit-Cache`), so every provider gets the safety rules and the 0-allocation hit path for free. A provider is a store, a header writer, or both:
+```go
+type CacheProvider interface {
+	Invalidate(ctx context.Context, o InvalidateOptions) error
+}
+type CacheHeaderWriter interface { // CDN providers (Astro's setHeaders): headers stay on the response
+	CacheProvider
+	WriteCacheHeaders(h http.Header, o *CacheOptions, r *http.Request)
+}
+type CacheStore interface { // runtime providers (Astro's onRequest)
+	CacheProvider
+	Get(key CacheKey) *CachedResponse         // nil: miss; Orbit checks freshness
+	Put(key CacheKey, e *CachedResponse)
+}
+type CacheKey struct{ /* Hash() uint64; String() string, valid only during the call */ }
+type CachedResponse struct {
+	Status   int
+	Header   http.Header // immutable once Put; its values are shared with responses
+	Body     []byte      // immutable
+	Stored   time.Time
+	MaxAge, SWR time.Duration
+	Tags     []string
+	// unexported: vary names and values, revalidation flag
+}
+```
+A provider that implements neither `CacheHeaderWriter` nor `CacheStore` gets Astro's default headers (`CDN-Cache-Control`, `Cache-Tag`, `Last-Modified`, `ETag`). With a store, `CDN-Cache-Control`/`Cache-Tag` are never written (Astro deletes them). One provider per site (decided by rule: Astro); a provider that wants two tiers composes them itself.
+
+**Where the cache sits** ((Q1) a): inside `site.Middleware`, after the route matches and before the render, for pages and GET island requests. So the user's middleware runs on every request, HITs included (auth, logging, session refresh, `RouteInfo`), and a `Disable()` in middleware skips the lookup as well as the store. That closes Astro's gap where `set(false)` can't stop a HIT. Static files, trailing-slash redirects (§4e), unmatched paths and `next` never reach it (decided by rule: Astro).
+
+**What's looked up**: GET requests only (decided by rule: Astro; HEAD always renders) with a provider configured, outside dev, when the handle isn't disabled, and on a route that has stored before or matches a rule (one atomic load per route, so pages that never cache pay nothing for the lookup; decided by rule: simplest).
+
+**Key** (decided by rule: Astro): `r.Host` + escaped path + query. The query is sorted, Astro's tracking-parameter list is dropped, and the memory provider's `Query{Include, Exclude, NoSort}` options apply (globs per `path.Match`, case-insensitive; `Include` with `Exclude` panics in `cache.Memory`, decided by rule: Go stdlib constructor convention, as `WithSite`). The key is built in a stack buffer and hashed with `hash/maphash`, so it allocates nothing up to 16 parameters and 512 bytes, and the string is compared on a hash match. Astro's scheme is left out: behind a proxy, Go doesn't see it (decided by rule: simplest). For `Vary` values, see below.
+
+**What's stored** (decided by rule: Astro unless noted): the response of a successful render whose handle isn't disabled and has `MaxAge > 0`, at any status the page set (200, 404 through `SetStatus`, 410…). A `ctx.Redirect` answer is stored too, since Astro caches a redirect a page returns. These are **never stored**:
+- render errors and panics, and `WithErrorHandler` answers;
+- `ErrNotFound`'s 404 page (decided by rule: simplest; unmatched URLs are an unbounded key space);
+- a response with `Set-Cookie`, whether the page or the middleware set it (Astro checks the whole response);
+- a response with `Vary: Cookie` or `Vary: *`.
+
+The two refusals log a warning **once per route and reason** per process: Astro logs on every request, which floods logs (decided by rule: simplest; noted in DECISIONS). The entry holds the page's own headers (`ctx.Header()`) plus `Content-Type` and the `Content-Length` value. Headers the middleware set on `w` aren't stored; they're set again on every request because the middleware runs every time.
+
+**Serving a HIT**: copies the entry's header values into `w.Header()` (shared, immutable slices, the precomputed `Content-Length` included), adds `X-Orbit-Cache: HIT`, and writes the stored body: **0 allocations**, one fewer than a render. `MISS` is set only when the response was stored, and `STALE` when a stale copy was served; a response that didn't touch the store gets no header (decided by rule: Astro). No `Age` header (decided by rule: Astro).
+
+**Stale-while-revalidate** ((Q6) a): from `MaxAge` to `MaxAge + SWR`, the stale copy is served and **one** background render per key refreshes it (an atomic flag on the entry). The background render runs on its own goroutine with a pooled `Ctx`, the triggering request's values (`context.WithoutCancel`, so the same locals pointer) and the matched route. Its errors and panics are logged (`orbit: revalidating GET /blog/hello: …`), and the old entry is kept until `MaxAge + SWR` runs out. Past that, it's a miss.
+
+**Miss coalescing** ((Q7) a): concurrent misses on a key whose route is known to cache (it has stored before, or a rule matches) wait for one render. If that render was stored, the waiters are served the result as a HIT. If not (it set `Set-Cookie`, or turned out per-user and called `Disable()`), each waiter renders its own page. First-ever requests and pages that never cache never wait.
+
+**`Vary`** (decided by rule: Astro): the names in a stored response's `Vary` (minus `Set-Cookie`) are kept per primary key, and the request's values for them are appended to the key. So `Vary: Accept-Language` stores one entry per language.
+
+**Conditional requests** ((Q5) a): a stored entry gets a strong `ETag` (the base64 of a 64-bit maphash of the body, computed once at store time) unless the page set one. Orbit answers `If-None-Match` (weak comparison, RFC 9110) and then `If-Modified-Since` against `Last-Modified` with a 304, with no body and the entry's headers, for HITs, STALEs and any successful page or island response that carries an `ETag` or `Last-Modified` (from `Set` or `ctx.Header()`). A page that sets `ETag`/`Last-Modified` without `Cache-Control` gets `Cache-Control: no-cache` (Astro's rule).
+
+**`Cache-Control` for browsers**: Orbit never derives it from `MaxAge` with a store provider (Astro). The page sets it (`ctx.Header()`), and the stored entry repeats it. Islands keep their default `private, no-store` unless the component sets one (§5b). A header provider writes what its CDN reads (`CDN-Cache-Control`, `Surrogate-Control`, `Cache-Tag`…).
+
+**Route rules** (decided by rule: Astro, mapped to Orbit's router):
+- `orbit.json` `"routeRules": { "<pattern>": { "maxAge": s, "swr": s, "tags": [...] } }`, with whole seconds as in Astro. Patterns use Orbit's route syntax (`[param]`, `[...rest]`, no globs), have Orbit's priority (§4: static, then param, then rest), and match the request path. So `/blog/[...path]` covers every page under `/blog`, whichever file serves it.
+- Validated when `orbit.json` loads: an invalid pattern, a negative or fractional number, or an unknown key in a rule is an error (`orbit.json: routeRules["/blog/[slug"]: …`).
+- The generated `app.New()` passes them as `orbit.WithRouteRules(...)` Go literals, so nothing is parsed at runtime. A project without rules generates a byte-identical `app.go`.
+- `NewSite` compiles them into a second segment trie, matched on a miss before the render (0 allocations), and applied as the first `Set`, so the page's `Set`/`Disable` merge over the rule.
+- Rules never match `/_orbit/` paths (islands set their own options), match nothing in Orbit-first setups' `next`, and are inert without a provider (Astro: no warning).
+
+**Islands** ((Q8)): GET island requests (`/_orbit/island/<buildID>/<id>?p=…`) go through the cache like pages. The URL is deterministic and holds the build ID (§3.4), so a deploy changes every key. The component opts in with `ctx.Cache().Set` and keeps its `private, no-store` browser default unless it sets `Cache-Control`. POST islands are never cached. This replaces §12's HTTP-only plan; the ETag/304 bullet comes from (Q5).
+
+**Where options can be set**:
+- **Pages, layouts, components and slots**: `ctx.Cache()`, one handle per request.
+- **`server:concurrent` children**: they set on their own copy, merged into the parent's at the join, in source order (§3.6).
+- **Content captured by `orbit.RenderHTML`** (§4d): sets only when it renders. A fragment served from a fragment cache must re-apply its tags (`cache.Store` returns them, (Q9)), or a tag purge misses the page. Documented.
+- **Middleware and custom handlers**: through the `Locals` field ((Q4) a). `Set` records even before Orbit sees the request; the warning when no provider is configured is given once, at the end of the first request that set options (decided by rule: Astro's warn-once).
+- **`RenderComponent`**: uses the handle from the request's locals, so a fragment served through `site.CacheHandler` can set options; without the field, its `Set` calls are dropped.
+
+**Dev and tests** (decided by rule: Astro): under `orbit dev` (`ORBIT_DEV=1`), `Enabled()` is false, nothing is stored or served from the store, `Invalidate` returns nil, and no cache headers are written, header providers included. `orbittest.Get` through a site built with `WithCache` caches like production, which is how users test caching (Astro: build and preview).
+
+**Invalidation**:
+- `ctx.Cache().Invalidate(rc, o)` and `site.InvalidateCache(rc, o)` call the provider. Without a provider they return `ErrCacheNotEnabled` (Astro throws `CacheNotEnabled`).
+- `Tags` drops every entry carrying any of them.
+- `Path` is an escaped path such as `/blog/hello`. It drops every query variant and host of that path (decided by rule: Astro's CDN providers' `astro-path:` tag, so every provider behaves the same; Astro's memory provider matches the path plus the normalized query exactly). The memory provider implements it as an implicit path tag.
+
+**Safety: what Orbit enforces vs documents.**
+- **Enforced**:
+  - the `Set-Cookie` and `Vary: Cookie`/`*` refusals;
+  - GET only;
+  - no store in dev, on errors or for unmatched URLs;
+  - the middleware runs on every HIT, so its auth checks always run;
+  - `Disable()` before the lookup.
+- **Documented, not enforced** (Orbit can't see into `locals`, decided as §4d (Q3)): a page that calls `Set` or matches a rule must not read cookies, the session or per-user `locals`. A MISS (and a background revalidation) renders with whichever visitor's request triggered it, and that copy is served to everyone. The guide gives the patterns:
+  - the middleware's `Disable()` for signed-in visitors;
+  - per-user parts as `server:defer` islands, which load with each visitor's cookies;
+  - nyth's shared-scope guard, from §4d.
+
+### `orbit/cache`: the memory provider and a data cache ((Q9) a)
+A new stdlib-only subpackage, `github.com/orbit-z/orbit/cache`. It's imported only by `cmd/server` and app code, never by generated packages, so it adds nothing to the dev loop's per-package compiles (§4b, "exported runtime types stay light"). It's a Go port of what fits from nyth's `packages/cache`:
+- **One engine**:
+  - A sharded map (64 shards) keyed by maphash, with **CLOCK eviction**: an "accessed" bit set on read under a read lock, and a second chance on eviction. It approximates nyth's linked-list LRU, which moves the entry under a write lock on every hit; in the prototype that contended on a hot key (67 vs 26 ns per HIT at 16 threads).
+  - **Bounds**: `MaxEntries` (default 1000, Astro's `max`) and an optional `MaxBytes` (nyth's), checked per shard, so they're approximate. A value bigger than the byte budget is refused, and an earlier value under that key is dropped (nyth).
+  - **Expiry and tags**: lazy expiry with no timer (nyth, Astro), and a tag reverse index pruned on every removal (nyth's `tagCount` invariant).
+  - An injectable `Now func() time.Time` for tests (nyth's `Clock`).
+- **`cache.Memory(MemoryOptions) *MemoryProvider`**: the route cache's `CacheStore`. It also has `OnInvalidate func(ctx, orbit.InvalidateOptions) error`, called after a local `Invalidate`, so an app forwards purges to other instances, and `InvalidateLocal(o)` for the subscriber to apply them. nyth keeps its Redis streams bus (`invalidationBus.ts` → its own Go code) and calls these two.
+- **`cache.Store[V]`**: the same engine as a general in-process data and fragment cache. `New[V](Options)`, `Get(key) (V, bool)`, `Set(key, v, ttl, tags...)`, `Load(ctx, key, ttl, tags, load func(context.Context) (V, error)) (V, []string, error)`, `Delete`, `InvalidateTags`, `Clear`, `Len`, `Bytes`.
+  - `Load` is single-flight per key (nyth's `singleFlight.ts`). The load runs once with `context.WithoutCancel` of the first caller's context; each caller waits under its own context. Errors are shared with the callers waiting on that load and nothing is stored. A panic is re-panicked in the leader and returned as an error to the waiters (§4f's rule).
+  - It returns the entry's tags, so a fragment hit can re-apply them to `ctx.Cache()`.
+  - This replaces the hand-written cache in `rendering.md`'s "Caching fragments" (`<Cacher>` becomes `cache.Store[orbit.HTML]` plus `RenderHTML`).
+- **Not ported**:
+  - `invalidationBus.ts` (Redis; needs a client dependency; the hook above covers it);
+  - `cache.ts`'s `TieredCache` with its L2 version stamps (an L2 is a provider or `Store` wrapper the app writes);
+  - `deadline.ts` (`context.Context` does it);
+  - `duration.ts` (`time.Duration`);
+  - `utf8Length.ts` (`len` is UTF-8 in Go);
+  - JSON normalisation and deep-freeze (Go values are stored as given, documented "don't mutate a cached value");
+  - nyth's "caller's own" refusal re-run in `htmlCache.ts` (app policy; its `Load` wrapper does it);
+  - the `<script>` check (§4d: can't happen in Orbit).
+
+### (Q) points
+- **(Q1) Where the cache sits.**
+  - (a) **Recommended**: inside `site.Middleware`, after the user's middleware. Auth, logging and session refresh run on every HIT, and `Disable()` in middleware skips the lookup. It fits "Orbit is a middleware, `main.go` decides the chain" (§5b). Cost: the middleware's own work on every HIT (a HIT itself is 0.17 µs).
+  - (b) Astro's placement: an outer `site.CacheMiddleware(next)` that the app puts first, so a HIT skips everything. That's fastest, but a HIT bypasses auth and `set(false)` can't stop a HIT, which is Astro's gap.
+- **(Q2) Provider interface.**
+  - (a) **Recommended**: Orbit drives the flow, and providers are stores (`Get`/`Put`) and/or header writers. The safety rules, 304s, swr, coalescing and `X-Orbit-Cache` live in one place, and the HIT path stays at 0 allocations.
+  - (b) Astro's shape: `Serve(w, r, next http.Handler)`. It's the most flexible (a provider could front another server), but each provider re-implements the rules, and the fast path is the provider's problem.
+- **(Q3) Configuring the provider.**
+  - (a) **Recommended**: `orbit.WithCache(p)` passed to `app.New()` in `main.go`, with only `routeRules` in `orbit.json`. A provider is Go code with its own dependencies (a Redis client, a CDN token), which `orbit.json` can't name.
+  - (b) Also `orbit.json` `"cache": {"provider": "memory", "maxEntries": 1000}` for the built-in, with `WithCache` for others. It's closer to `astro.config`, but there would be two places, and an option in the file can't be overridden from `main.go`.
+- **(Q4) Middleware and custom handlers.**
+  - (a) **Recommended**: a `Cache orbit.Cache` field on the user's `Locals`, detected by the generator and filled through an accessor that `app.New()` passes (`orbit.WithLocalsCache`), as for `RouteInfo` (§4g, the user's choice there). It costs 0 allocations. `ctx.Cache()` is `&locals.Cache` when attached, else the `Ctx`'s own. Plus `site.CacheHandler(h)` for custom handlers (it buffers `h`'s GET responses on the same flow; `RenderComponent` fragments included).
+  - (b) `r, k := orbit.EnsureCache(r)`, a slot like `EnsureLocals`. It works without locals but costs 3 allocations in the middleware.
+  - (c) Only a predicate, `orbit.WithCacheBypass(func(*http.Request) bool)`. It costs 0 and has no new types, but middleware can't add tags or a `maxAge`, and custom handlers aren't covered.
+- **(Q5) Conditional requests.**
+  - (a) **Recommended**: an automatic `ETag` on stored entries, and 304s for HITs and for any response that carries `ETag`/`Last-Modified`. This takes in §12's island bullet, and repeat views cost a header-only response.
+  - (b) 304s only for ETags the page sets; no automatic ETag.
+  - (c) Astro exactly: headers only, no 304 from Orbit (the CDN does it).
+- **(Q6) Background revalidation.**
+  - (a) **Recommended**: a goroutine per stale key, with the triggering request's context values (the same `locals` pointer), single-flight. The stale request returns at once (Astro's timing). The risk: a page that writes to `locals` (a memoizing loader) while the outer middleware reads them after `next` returns is a data race, so it's documented, and `-race` tests catch it.
+  - (b) Inline: write the stale response, `http.ResponseController.Flush`, then render on the request goroutine before returning. There's no race, but the middleware's "after `next`" code waits for the render, and a wrapping gzip writer may not flush.
+  - (c) No swr in the memory provider: a stale copy is a miss (header providers keep `stale-while-revalidate`).
+- **(Q7) Miss coalescing** (Astro has none).
+  - (a) **Recommended**: only on routes known to cache (stored before, or a rule matches); waiters re-render when the result isn't stored. This prevents a stampede after a purge or expiry, and per-user pages never wait.
+  - (b) All GET misses. It also covers cold-start stampedes, but concurrent visitors to a per-user URL each wait for a render they can't use (double latency).
+  - (c) None, as Astro.
+- **(Q8) Islands in the route cache.** The user decided "cacheable islands: HTTP caching only, headers set by the component, docs-only safety" (CLAUDE.md, §12).
+  - (a) **Recommended**: GET islands go through the same cache when the component calls `Set` (Astro does this). The browser default stays `private, no-store`, so the HTTP-only plan is a subset.
+  - (b) Keep the user's decision: islands never touch the store; only 304s ((Q5)) and docs.
+- **(Q9) What the `nyth` port becomes.**
+  - (a) **Recommended**: the subpackage `orbit/cache` with both the route provider (`cache.Memory`) and the generic `cache.Store[V]` (nyth's `memoryCache` + `singleFlight`), replacing `rendering.md`'s hand-written fragment cache. Cross-instance invalidation stays app code through `OnInvalidate`/`InvalidateLocal`.
+  - (b) Only the route provider; data and fragment caches stay app code, as §4d decided (the docs' pattern).
+  - (c) Everything in the runtime package. That avoids an import, but generic exported types in package `orbit` weigh on every generated package's compile (§4b).
+
+### Cost (prototype `scratchpad/cache-spec/orbit/`: a patched copy of the runtime with a cache state in `Ctx`, a sharded memory store, the lookup in `servePage` and the background render; the 1.1 KB `allocPage` from `site_alloc_test.go` with `Set(CacheOptions{MaxAge: time.Hour, SWR: time.Hour, Tags: []string{"posts", "home"}})`; `Middleware` with a reused `ResponseWriter`; Ryzen 7 9700X, 16 threads, Go 1.27.3, `-cpu 1` unless noted, 5 runs, medians; load average 0.3–3.6)
+| Case | ns/op | allocs |
+|---|---|---|
+| no provider, plain page (`TestServeAllocs` path); real repo / prototype | 611 / 612 (`/`), 247 / 241 (`/blog/[slug]`) | 1 / 1 |
+| no provider, page calls `Set` with two constant tags | +45 | 1 (+0) |
+| provider, page doesn't `Set` (lookup miss, nothing stored) | +35 (0 with the per-route bit, Rules) | 1 |
+| **HIT** (no render; headers and stored bytes written) | **165** | **0** |
+| HIT with a query to normalize (`?b=2&a=1&utm_source=x`) | 194 | 0 |
+| HIT on one hot key, 16 threads (ns per op, aggregate): mutex LRU / CLOCK + RWMutex | 67 / 26 | 0 |
+| 304 on a HIT (`If-None-Match`) | – | 0 |
+| STALE (foreground: stale copy served; goroutine start not counted) | 222 | 0 |
+| MISS that stores (render + key copy, header clone, body copy, entry, tags) | 1440 (+~850) | 11 (+10) |
+| background revalidation (render + store, synchronous) | 1300 | 11 |
+- `Set` costs 0 allocations only because it doesn't keep the `CacheOptions` value: escape analysis is field-insensitive, so storing `o.ETag` or `o.LastModified` (a `*time.Location`) directly would make the caller's `Tags` literal escape (measured: 1 alloc). The implementation keeps that property: `LastModified` as Unix nanoseconds, `ETag` cloned when set, tags copied into inline storage (4, then a pooled slice). `AllocsPerRun` asserts it.
+- `Ctx` grows by about 120 bytes (the handle with inline tags); `releaseCtx` zeroes it with the rest, and the serve benchmarks are unchanged within noise.
+- Codegen and the dev loop: no per-file change. `routeRules` and the `Locals` field only change the generated `app.go` (which an `orbit.json` change regenerates today), and the `orbit/cache` package isn't imported by generated code. In dev, the cache is off.
+- Memory per entry: the body plus about 0.5 KB (headers, key, tags, index).
+
+### Tests (what must exist)
+- `cache_test.go` (runtime, with a fake store): merge rules (last write wins, latest `LastModified`, tag union, `Disable` then `Set`); rule + page merge; key normalization (sorting, the tracking list, `Include`/`Exclude`, host, escaped path); GET only; never stored for errors, panics, the error handler, `ErrNotFound`, `Set-Cookie` on the page or on `w`, `Vary: Cookie`/`*`; `ctx.Redirect` stored; `Vary: Accept-Language` variants; `X-Orbit-Cache` values; dev off; no provider: warn once, `ErrCacheNotEnabled`; `Disable()` in middleware skips the lookup; middleware runs on HITs; the islands path ((Q8)); `CacheHandler`.
+- Conditional requests: `If-None-Match` (strong, weak, `*`, lists), `If-Modified-Since`, 304 without body, the automatic ETag stable for the same body, `Cache-Control: no-cache` added.
+- swr: exactly one background render per key under concurrency; old copy kept on error and panic; past `MaxAge + SWR` a miss. Coalescing ((Q7)): N concurrent misses render once; non-storable results make waiters render.
+- `site_alloc_test.go`: `TestServeAllocs` unchanged without a provider; HIT 0, 304 0, STALE 0; `Set` with constant tags 0; `TestRenderAllocs` unchanged.
+- `-race`: concurrent HIT/MISS/STALE/Invalidate on one key.
+- `orbit/cache`: nyth's `memoryCache.test.ts` cases ported (bounds, oversize refusal drops the old value, tag index pruning, expiry at the instant, overwrite keeps the slot); CLOCK second chance; `Store.Load` single-flight, cancellation per caller, error and panic sharing; `OnInvalidate`/`InvalidateLocal`; benchmarks (hit, miss, parallel hot key).
+- `internal/config`: `routeRules` validation (bad pattern, negative/fractional seconds, unknown keys); `internal/project` goldens for `app.go` with rules and with the `Locals` field (and byte-identical without).
+- `orbittest`: `Get` through a site with `WithCache` gives MISS then HIT.
+- Integration (`examples/blog` or a testdata project built with `orbit build`): `X-Orbit-Cache` over HTTP, a tag purge from a handler.
+
+### User-docs changes (with the implementation)
+- New `docs/caching.md`:
+  - the flow (HIT/MISS/STALE);
+  - `ctx.Cache()`, `routeRules`, providers (`cache.Memory`, header providers, writing one);
+  - invalidation, conditional requests, islands;
+  - dev and testing;
+  - the safety rules, with what Orbit enforces and the patterns;
+  - multi-instance invalidation with `OnInvalidate`.
+- `configuration.md` (`routeRules`); `middleware.md` (the `Locals` `Cache` field, `Disable` before the lookup); `rendering.md` ("Caching fragments" rewritten on `cache.Store`, replacing "Orbit doesn't cache rendered pages"); `lazy-loading.md` (cached islands, 304s); `data-loading.md` (`cache.Store.Load` for data).
+- `reference/runtime-api.md` (the API above and `orbit/cache`); `performance.md` (HIT numbers; a cached-page benchmark scenario); `deploy.md` (CDN header providers, several instances).
+- `coming-from-astro.md` / `migrating-from-astro.md`: `Astro.cache` → `ctx.Cache()`, `set(false)` → `Disable()`, seconds vs `time.Duration`, `X-Astro-Cache` → `X-Orbit-Cache`, and the Q1 difference (middleware runs on HITs).
+- `DECISIONS.md`: the decided-by-rule items above.
+
+### Out of scope
+- A persistent or shared provider (Redis, disk) and built-in CDN providers. The interfaces allow both, and they live in other modules or app code.
+- Caching POST/HEAD, `Range` requests, an `Age` header, `Cache-Control` request directives (`no-cache` from the client).
+- Astro's live-content `cacheHint` (Orbit has no content collections, §12) and a timer sweep.
+- Streaming (responses stay buffered) and storing compressed variants (gzip stays the user's middleware, which runs after the cache on every request).
+
 ## 5. Assets (scripts and styles)
 - **Scope ID**: `o-` + the first 8 hex chars of sha256 of the file's project-relative path with `/` separators (`src/components/Card.orbit`), so IDs are the same on every OS. It's added as an attribute to every HTML element in the template, but only when the component has a scoped `<style>`.
 - **Scoped CSS**: parse with `tdewolff/parse/v2/css`. Add the attribute selector `[data-o-xxxx]` to the last compound of each selector (Astro's default `scopedStyleStrategy: "attribute"`, user decision at the dogfood checkpoint): +1 attribute specificity, so scoped rules beat global rules with the same selector whatever the bundle order. Within the compound it goes before the first pseudo-class or pseudo-element (`a:hover` → `a[data-o-…]:hover`), as in Astro.
@@ -3963,7 +4235,7 @@ Dependencies:
 - `{switch}` template blocks: implemented (§2.3): compiler, `orbit fmt`, the LSP's Go regions, the VS Code grammar and the docs' Chroma lexer; user docs `docs/reference/template-syntax.md#switch`.
 - `class:list`: implemented (§2.3): runtime (`classlist.go`), compiler, typed pass, `orbit fmt`, the LSP, the VS Code grammar; user docs `docs/reference/template-syntax.md#classlist`.
 - **Concurrent rendering of slow components** (user decision, 2026-10-26, from the `nyth` port: Astro 7 overlaps awaiting sibling components, Orbit renders in order): an opt-in call-site directive (working name `server:concurrent`) runs a slow component in its own goroutine and buffer, copied back in source order at the end of the render; automatic concurrency rejected (it charges every component). Specified in §3.6 (proposed, (Q) points open).
-- **Cacheable server islands** (the MVP already makes island URLs deterministic and puts the build ID in the path, §3.4, so no URL format change is needed):
+- **Cacheable server islands**: taken into route caching, §4h (proposed; (Q5) conditional requests, (Q8) islands in the store, which would revise the HTTP-only plan below). The original plan (the MVP already makes island URLs deterministic and puts the build ID in the path, §3.4, so no URL format change is needed):
   - an `ETag` on island responses (a hash of the buffered body), answering `If-None-Match` with a 304;
   - docs on opting into public caching by setting `Cache-Control` from the component (`ctx.Header().Set("Cache-Control", "public, max-age=60, stale-while-revalidate=600")`), with a clear warning that an island cached as `public` must not depend on cookies, locals or the user (docs only, no checks);
   - a benchmark of repeat-view TTFB with a cached island.
@@ -3984,7 +4256,7 @@ Dependencies:
 - **Trusted CSS values** (nice-to-have, from the `nyth` assessment): `orbit.CSS`, a marker type that silences the `style={…}` warning, which moves to the typed pass and exempts constants. Specified in §2.7 (accepted 2026-10-27).
 - **The matched route for middleware** (nice-to-have, from the `nyth` assessment: its page log records the route pattern and params): an `orbit.RouteInfo` field on the user's `Locals`, filled by Orbit (pattern, file, params). Specified in §4g (accepted 2026-10-27).
 - **Loading data concurrently** (user direction 2026-10-26, from the `nyth` assessment: "load all the data at the page level"): page-level loading becomes the documented main pattern, with a runtime helper `orbit.All(ctx, loads...)` (first error in time, a cancellable context per call, the failing load's position, panics re-panicked on the caller) and a documented per-request memoizing loader in `locals`; `server:concurrent` (§3.6) stays the porting escape hatch. Specified and implemented in §4f.
-- SSR response caching
+- SSR response caching: specified in §4h (route caching modeled on Astro 7's, proposed, (Q) points open; user request 2026-10-27).
 - The docs dogfood site (`docs/site/`, docs built with Orbit)
 - **Typed form actions** (user idea, like Astro Actions): a typed, validated handler for a form or `fetch` call, declared next to the page or in `src/actions`, with an input struct decoded and validated (a Zod-like Go validator such as Zog, or struct tags, chosen then; ask before adding a dependency), errors returned to the page, and progressive enhancement without JS. Until then, users write a plain handler in `cmd/server` and render the response with `orbit.RenderComponent`.
 
