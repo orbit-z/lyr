@@ -1543,7 +1543,47 @@ src/components/Promo.orbit:8:11: warning: onclick={…} is escaped for HTML, not
 src/components/Promo.orbit:9:6: warning: style={…} is escaped for HTML, not for CSS; don't put untrusted values here
 ```
 
-There's no switch to silence these warnings. Static values you write yourself (`onclick="toggle()"`, `style="color: red"`) don't warn. To pass data to a script, use `orbit.JSON`, a `data-*` attribute or `set:json`; see [Passing data to client scripts](#passing-data-to-client-scripts).
+There's no switch to silence these warnings, but two kinds of values don't warn:
+
+- **Constants**: values you write yourself, whether static (`onclick="toggle()"`, `style="color: red"`) or a Go constant expression (`style={"display: none"}`, a `const`, `"a" + "b"`).
+- **`orbit.CSS` values** on `style`: an `orbit.CSS` is CSS declarations (or a CSS value) that your code vouches for. Convert to it where you build the value from data you've validated, typically in a helper, and the trust travels with the value:
+
+```go file=internal/reader/style.go
+package reader
+
+import (
+	"strconv"
+
+	"github.com/orbit-z/orbit"
+)
+
+type Settings struct {
+	Size    int
+	Leading float64
+}
+
+// Style is the reader settings as CSS custom properties. Every value is a
+// number, so the declarations are trusted.
+func Style(s Settings) orbit.CSS {
+	return orbit.CSS("--reader-size:" + strconv.Itoa(s.Size) + "px;--reader-leading:" +
+		strconv.FormatFloat(s.Leading, 'f', 2, 64))
+}
+```
+
+```orbit file=src/layouts/Reader.orbit
+---
+import "example.com/blog/internal/reader"
+
+type Props struct{ Settings reader.Settings }
+---
+<div class="reader" style={reader.Style(props.Settings)}><slot /></div>
+```
+
+With `Settings{Size: 18, Leading: 1.6}`, this renders `<div class="reader" style="--reader-size:18px;--reader-leading:1.60">`, with no warning. An `orbit.CSS` is written escaped like any string (`"` and `&` become `&quot;` and `&amp;`, which the browser decodes before the CSS parser runs), and Orbit never filters it, so **never put untrusted input into one without validating it**: a user-supplied color could close the declaration and add its own. Only `orbit.CSS` itself counts (`type MyCSS orbit.CSS` warns), and it means nothing to a URL attribute, which still filters `javascript:` URLs. There's no trusted type for `on*` attributes: pass data to a script with `orbit.JSON`, a `data-*` attribute or `set:json`; see [Passing data to client scripts](#passing-data-to-client-scripts).
+
+The same rules apply to `style={…}` and `on*={…}` passed to a component with an [`orbit.RestAttrs`](#passing-html-attributes-through) field, which end up on an HTML element: the warning is at the call site's attribute. A component that declares a `Style orbit.CSS` prop instead takes only trusted values, and its own `style={props.Style}` doesn't warn.
+
+The warnings come from the type check that picks typed writes, so a component whose Go code doesn't type-check (the build then fails anyway) warns on every `style={…}` and `on*={…}` attribute. In the editor, they appear once the language server's background type check has run (at startup, and after `orbit dev` or `orbit generate` rewrites `orbit_gen/`), and one goes away as soon as you edit its attribute.
 
 ## How it compiles
 

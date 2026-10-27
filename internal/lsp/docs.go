@@ -54,6 +54,9 @@ type workspace struct {
 	// mdTyped are the latest typed check's diagnostics of Markdown files
 	// (mdtyped.go), by project path.
 	mdTyped map[string][]mdTypedDiag
+	// secTyped are the latest typed check's style and on* warnings of
+	// .orbit files (sectyped.go), by project path.
+	secTyped map[string][]secTypedDiag
 	// mdEdit counts the changes to what the typed diagnostics of Markdown
 	// files depend on (mdcheck.go): a typed check's Markdown result is
 	// adopted only when none happened since its snapshot.

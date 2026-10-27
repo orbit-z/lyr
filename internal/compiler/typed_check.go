@@ -524,6 +524,9 @@ func (s *tyState) checkUnits(ctx context.Context, units []*tyUnit, generate func
 
 func (s *tyState) checkUnit(u *tyUnit, generate func(*Input) *Output) TypedUnit {
 	fallback := TypedUnit{Output: u.unit.Pass1, Types: uncheckedTypes(u.unit)}
+	if u.unit.Pass1 != nil {
+		fallback.Diagnostics = securityWarnings(u.unit.Pass1.CallSites, nil)
+	}
 	if u.parseErr || s.loadWarn != "" {
 		return fallback
 	}
@@ -553,10 +556,11 @@ func (s *tyState) checkUnit(u *tyUnit, generate func(*Input) *Output) TypedUnit 
 	if n > 0 {
 		return fallback
 	}
-	writes, cds := siteWrites(s.fset, u.implFile, u.unit.Pass1.CallSites, info, env)
+	writes, cds, trusted := siteWrites(s.fset, u.implFile, u.unit.Pass1.CallSites, info, env)
 	ts, jds := s.bridgeTypes(u, info, env)
+	ds := append(append(checkDeferProps(s.fset, u.implFile, u.unit.Pass1.DeferSites, info), jds...), cds...)
 	res := TypedUnit{Output: u.unit.Pass1, Writes: writes, Checked: true, Types: ts,
-		Diagnostics: append(append(checkDeferProps(s.fset, u.implFile, u.unit.Pass1.DeferSites, info), jds...), cds...)}
+		Diagnostics: append(ds, securityWarnings(u.unit.Pass1.CallSites, trusted)...)}
 	if len(writes) > 0 {
 		in := *u.unit.Input
 		in.Typed = writes
@@ -567,15 +571,16 @@ func (s *tyState) checkUnit(u *tyUnit, generate func(*Input) *Output) TypedUnit 
 
 // siteWrites finds each call site's write call in the impl file by its Go
 // offset and classifies its last argument (the expression). The
-// diagnostics are the class:list items of a wrong type.
-func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *types.Info, env *tyEnv) (TypedWrites, []Diagnostic) {
-	var diags []Diagnostic
+// diagnostics are the class:list items of a wrong type; trusted holds the
+// keys of the style and on* sites that don't get a security warning
+// (trustedSite).
+func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *types.Info, env *tyEnv) (writes TypedWrites, diags []Diagnostic, trusted map[int]bool) {
 	byStart := make(map[int]*CallSite, len(sites))
 	for i := range sites {
 		byStart[sites[i].Call.Start] = &sites[i]
 	}
 	tf := fset.File(f.Pos())
-	writes := TypedWrites{}
+	writes = TypedWrites{}
 	ast.Inspect(f, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
 		if !ok || len(call.Args) == 0 {
@@ -588,6 +593,12 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 		tv, ok := info.Types[call.Args[len(call.Args)-1]]
 		if !ok {
 			return true
+		}
+		if isSecuritySite(site) && env.trustedSite(site.AttrName, tv) {
+			if trusted == nil {
+				trusted = map[int]bool{}
+			}
+			trusted[site.Key] = true
 		}
 		var w TypedWrite
 		if site.Kind == SiteAttr || site.Kind == SiteContent {
@@ -627,7 +638,42 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 		}
 		return true
 	})
-	return writes, diags
+	return writes, diags, trusted
+}
+
+// isSecuritySite reports whether site is a candidate for the style and on*
+// warnings (PLAN.md §2.3, §2.7): name={expr} or {name} on an HTML element,
+// or passed through an orbit.RestAttrs field.
+func isSecuritySite(site *CallSite) bool {
+	return (site.Kind == SiteAttr || site.Kind == SiteRest) && SecurityWarning(site.AttrName) != ""
+}
+
+// trustedSite reports whether the value tv of a style or on* attribute
+// gets no warning: a constant ("display: none", a const, "a" + "b"), or on
+// style an orbit.CSS (the exact type, after types.Unalias).
+func (e *tyEnv) trustedSite(name string, tv types.TypeAndValue) bool {
+	if tv.Value != nil {
+		return true
+	}
+	if !strings.EqualFold(name, "style") || tv.Type == nil {
+		return false
+	}
+	return identical(types.Unalias(tv.Type), e.css)
+}
+
+// securityWarnings are the style and on* warnings of the candidate sites
+// whose key isn't trusted: every candidate of a unit that wasn't
+// type-checked (trusted nil).
+func securityWarnings(sites []CallSite, trusted map[int]bool) []Diagnostic {
+	var out []Diagnostic
+	for i := range sites {
+		site := &sites[i]
+		if !isSecuritySite(site) || trusted[site.Key] || site.Attr == nil {
+			continue
+		}
+		out = append(out, Diagnostic{SeverityWarning, site.Attr.Span, SecurityWarning(site.AttrName)})
+	}
+	return out
 }
 
 // warnings collects the load and export-data warnings.

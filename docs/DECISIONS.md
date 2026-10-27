@@ -970,3 +970,20 @@ Fixes found porting the `nyth` Astro site (2026-10-27).
 | The LSP watches `**/tsconfig*.json` and re-resolves every file on a change to the chain; import-path completion offers alias paths when the typed path starts with an alias's prefix (or the start of one, such as `"@`), the shortest alias spelling per file; relative completion after `.` is unchanged; after `"/` it offers root-relative paths (`/src/…`) | simplest | — | [Editor setup](editor-setup.md) |
 | Tag auto-import inserts the file's shortest alias spelling when an alias covers it (including a bare `baseUrl` path, which TypeScript's auto-import also uses), otherwise the relative path | user decision (2026-10-27): like TypeScript's auto-import in aliased projects | Always relative (the first version) | [Editor setup](editor-setup.md) |
 | Two spellings of one file are one component: everything is keyed by the resolved path | the brief | — | [Components](components.md#import-aliases) |
+
+## Trusted CSS (`orbit.CSS`)
+
+`orbit.CSS` and where the `style`/`on*` warnings come from (`PLAN.md` §2.7). The marker type with constants exempt (Q1) and the editor showing the warnings from the language server's typed check (Q2) were the user's, not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| Only `orbit.CSS` itself (after `types.Unalias`) is trusted: `type MyCSS orbit.CSS` warns, an alias doesn't | the existing exact-type rule (`orbit.URL`, §3.3) | Any type defined from it | [Template syntax](reference/template-syntax.md#directives) |
+| A constant value never warns, on `style` and `on*` alike (`"display: none"`, a `const`, `"a" + "b"`, and a constant conversion such as `MyCSS("x")`) | `set:html`'s precedent (constants are accepted since the author wrote them) | Constants warn on `on*` | [Components](components.md#event-handler-and-style-attributes) |
+| A unit that isn't type-checked (type errors, unreadable export data) warns for every candidate, constants included | simplest (never silent) | No warnings for it | [Template syntax](reference/template-syntax.md#directives) |
+| A project with parse or analysis errors stops before the typed pass, so it shows no `style`/`on*` warnings next to its errors | simplest (errors come first; the warnings return once they're fixed) | Keep a syntactic warning for that case | — |
+| `style={…}` and `on*={…}` passed through an `orbit.RestAttrs` field warn at the call site's attribute, with the same rules; a declared prop (`Style orbit.CSS`, or any other) never warns | they're written as HTML attributes | No warning for components (the earlier gap) | [Components](components.md#event-handler-and-style-attributes) |
+| `orbit.CSS` is valid on any attribute and in content, written like a string; in a URL attribute it's still scheme-filtered | simplest; it isn't a trusted URL | A CSS-only attribute list | [Runtime API](reference/runtime-api.md#values) |
+| No CSS sanitizer for plain strings | Go stdlib (`template.CSS` is an unfiltered marker; a `cssValueFilter`-style filter would blank real declaration strings) | Filter plain strings at runtime (Q1 b) | [Runtime API](reference/runtime-api.md#values) |
+| `orbit.CSS` on `on*` still warns: there's no trusted JavaScript type | simplest (§2.7 out of scope: `template.JS`) | Accept it on `on*` too | [Components](components.md#event-handler-and-style-attributes) |
+| The candidate sites are the pass-1 call sites of `style`/`on*` attributes with an expression (`SiteAttr`, `SiteRest`), rather than a separate list recorded by the parser | simplest (the call sites already carry the attribute, and cover pass-through attributes, which the parser can't tell from props) | A parser-recorded list | — |
+| The language server keeps each warning with its attribute's source text (and its index among attributes with the same text), showing it at that attribute's current position; a check runs at startup and after `orbit_gen/` changes (now also without gopls overlays, when a file has candidates) | the Markdown typed diagnostics' approach (§9) | Re-run the typed check while typing | [Components](components.md#event-handler-and-style-attributes) |

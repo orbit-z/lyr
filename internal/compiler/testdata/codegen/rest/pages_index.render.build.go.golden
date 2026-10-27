@@ -121,6 +121,12 @@ func Orbit__RenderImpl(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, or
 			),
 			orbit__rt.RestAny("", "shelf",
 /*line ../../../../../src/pages/index.orbit:24:41*/shelf/*line render.go:123:82*/,
+			),
+			orbit__rt.RestAny("", "style",
+/*line ../../../../../src/pages/index.orbit:24:55*/orbit.CSS(`content:"&"`)/*line render.go:126:102*/,
+			),
+			orbit__rt.RestAny("", "src",
+/*line ../../../../../src/pages/index.orbit:24:86*/orbit.CSS("javascript:css")/*line render.go:129:105*/,
 			)),
 	}, orbit__rt.Slots{
 		Default: func(orbit__w *orbit__rt.Writer) error {
@@ -131,12 +137,12 @@ func Orbit__RenderImpl(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, or
 		return orbit__err
 	}
 	orbit__w.Raw("\n")
-	if orbit__err := /*line ../../../../../src/pages/index.orbit:25:2*/orbit__Button.Orbit__RenderImpl/*line render.go:134:126*/(orbit__ctx, orbit__w, Button.Props{
-		/*line ../../../../../src/pages/index.orbit:25:9*/Variant/*line render.go:135:85*/: /*line ../../../../../src/pages/index.orbit:25:17*/"link"/*line render.go:135:170*/,
+	if orbit__err := /*line ../../../../../src/pages/index.orbit:25:2*/orbit__Button.Orbit__RenderImpl/*line render.go:140:126*/(orbit__ctx, orbit__w, Button.Props{
+		/*line ../../../../../src/pages/index.orbit:25:9*/Variant/*line render.go:141:85*/: /*line ../../../../../src/pages/index.orbit:25:17*/"link"/*line render.go:141:170*/,
 		Attrs: orbit__rt.Rest(orbit__rt.JoinClasses("a", orbit__rt.ClassIf(
-/*line ../../../../../src/pages/index.orbit:25:59*/on/*line render.go:137:79*/,
+/*line ../../../../../src/pages/index.orbit:25:59*/on/*line render.go:143:79*/,
 			"b"), orbit__rt.ClassString(
-/*line ../../../../../src/pages/index.orbit:25:63*/cls/*line render.go:139:80*/,
+/*line ../../../../../src/pages/index.orbit:25:63*/cls/*line render.go:145:80*/,
 			)), " href=\"/docs\" data-o-81707d2a"),
 	}, orbit__rt.Slots{
 		Default: func(orbit__w *orbit__rt.Writer) error {
@@ -147,10 +153,10 @@ func Orbit__RenderImpl(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, or
 		return orbit__err
 	}
 	orbit__w.Raw("\n")
-	if orbit__err := /*line ../../../../../src/pages/index.orbit:26:2*/orbit__Button.Orbit__RenderImpl/*line render.go:150:126*/(orbit__ctx, orbit__w, Button.Props{
-		/*line ../../../../../src/pages/index.orbit:26:9*/Variant/*line render.go:151:85*/: /*line ../../../../../src/pages/index.orbit:26:17*/"lone"/*line render.go:151:170*/,
+	if orbit__err := /*line ../../../../../src/pages/index.orbit:26:2*/orbit__Button.Orbit__RenderImpl/*line render.go:156:126*/(orbit__ctx, orbit__w, Button.Props{
+		/*line ../../../../../src/pages/index.orbit:26:9*/Variant/*line render.go:157:85*/: /*line ../../../../../src/pages/index.orbit:26:17*/"lone"/*line render.go:157:170*/,
 		Attrs: orbit__rt.Rest(orbit__rt.JoinClasses(orbit__rt.ClassString(
-/*line ../../../../../src/pages/index.orbit:26:31*/cls/*line render.go:153:80*/,
+/*line ../../../../../src/pages/index.orbit:26:31*/cls/*line render.go:159:80*/,
 			)), " aria-label=\"lone\" data-o-81707d2a"),
 	}, orbit__rt.Slots{
 		Default: func(orbit__w *orbit__rt.Writer) error {
@@ -161,44 +167,44 @@ func Orbit__RenderImpl(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, or
 		return orbit__err
 	}
 	orbit__w.Raw("\n")
-	if orbit__err := /*line ../../../../../src/pages/index.orbit:27:2*/orbit__Input.Orbit__RenderImpl/*line render.go:164:125*/(orbit__ctx, orbit__w, Input.Props{
-		/*line ../../../../../src/pages/index.orbit:27:8*/Label/*line render.go:165:83*/: /*line ../../../../../src/pages/index.orbit:27:14*/"spread"/*line render.go:165:170*/,
-		Attrs: orbit__rt.RestMerge(orbit__rt.Rest("", " data-o-81707d2a"), /*line ../../../../../src/pages/index.orbit:27:27*/extra/*line render.go:166:152*/),
+	if orbit__err := /*line ../../../../../src/pages/index.orbit:27:2*/orbit__Input.Orbit__RenderImpl/*line render.go:170:125*/(orbit__ctx, orbit__w, Input.Props{
+		/*line ../../../../../src/pages/index.orbit:27:8*/Label/*line render.go:171:83*/: /*line ../../../../../src/pages/index.orbit:27:14*/"spread"/*line render.go:171:170*/,
+		Attrs: orbit__rt.RestMerge(orbit__rt.Rest("", " data-o-81707d2a"), /*line ../../../../../src/pages/index.orbit:27:27*/extra/*line render.go:172:152*/),
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("\n")
-	if orbit__err := /*line ../../../../../src/pages/index.orbit:28:2*/orbit__Input.Orbit__RenderImpl/*line render.go:171:125*/(orbit__ctx, orbit__w, Input.Props{
-		/*line ../../../../../src/pages/index.orbit:28:8*/Label/*line render.go:172:83*/: /*line ../../../../../src/pages/index.orbit:28:14*/"merged"/*line render.go:172:170*/,
-		Attrs: orbit__rt.RestMerge(orbit__rt.Rest("own", " name=\"tag\" data-o-81707d2a"), /*line ../../../../../src/pages/index.orbit:28:27*/extra/*line render.go:173:168*/),
+	if orbit__err := /*line ../../../../../src/pages/index.orbit:28:2*/orbit__Input.Orbit__RenderImpl/*line render.go:177:125*/(orbit__ctx, orbit__w, Input.Props{
+		/*line ../../../../../src/pages/index.orbit:28:8*/Label/*line render.go:178:83*/: /*line ../../../../../src/pages/index.orbit:28:14*/"merged"/*line render.go:178:170*/,
+		Attrs: orbit__rt.RestMerge(orbit__rt.Rest("own", " name=\"tag\" data-o-81707d2a"), /*line ../../../../../src/pages/index.orbit:28:27*/extra/*line render.go:179:168*/),
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("\n")
-	if orbit__err := /*line ../../../../../src/pages/index.orbit:29:2*/orbit__Input.Orbit__RenderImpl/*line render.go:178:125*/(orbit__ctx, orbit__w, Input.Props{
-		/*line ../../../../../src/pages/index.orbit:29:8*/Label/*line render.go:179:83*/: /*line ../../../../../src/pages/index.orbit:29:14*/"fwd"/*line render.go:179:167*/,
-		/*line ../../../../../src/pages/index.orbit:29:20*/Attrs/*line render.go:180:84*/: /*line ../../../../../src/pages/index.orbit:29:27*/fwd/*line render.go:180:166*/,
+	if orbit__err := /*line ../../../../../src/pages/index.orbit:29:2*/orbit__Input.Orbit__RenderImpl/*line render.go:184:125*/(orbit__ctx, orbit__w, Input.Props{
+		/*line ../../../../../src/pages/index.orbit:29:8*/Label/*line render.go:185:83*/: /*line ../../../../../src/pages/index.orbit:29:14*/"fwd"/*line render.go:185:167*/,
+		/*line ../../../../../src/pages/index.orbit:29:20*/Attrs/*line render.go:186:84*/: /*line ../../../../../src/pages/index.orbit:29:27*/fwd/*line render.go:186:166*/,
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("\n")
-	if orbit__err := /*line ../../../../../src/pages/index.orbit:30:2*/orbit__Field.Orbit__RenderImpl/*line render.go:185:125*/(orbit__ctx, orbit__w, Field.Props{
-		/*line ../../../../../src/pages/index.orbit:30:8*/Label/*line render.go:186:83*/: /*line ../../../../../src/pages/index.orbit:30:14*/"field"/*line render.go:186:169*/,
+	if orbit__err := /*line ../../../../../src/pages/index.orbit:30:2*/orbit__Field.Orbit__RenderImpl/*line render.go:191:125*/(orbit__ctx, orbit__w, Field.Props{
+		/*line ../../../../../src/pages/index.orbit:30:8*/Label/*line render.go:192:83*/: /*line ../../../../../src/pages/index.orbit:30:14*/"field"/*line render.go:192:169*/,
 		Attrs: orbit__rt.Rest("mt-2", " data-o-81707d2a",
 			orbit__rt.RestAny("", "data-x",
-/*line ../../../../../src/pages/index.orbit:30:43*/n/*line render.go:189:78*/,
+/*line ../../../../../src/pages/index.orbit:30:43*/n/*line render.go:195:78*/,
 			)),
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("\n")
-	if orbit__err := /*line ../../../../../src/pages/index.orbit:31:2*/orbit__Wrap.Orbit__RenderImpl/*line render.go:195:124*/(orbit__ctx, orbit__w, Wrap.Props{
-		Attrs: orbit__rt.RestMerge(orbit__rt.Rest("", " data-o-81707d2a"), /*line ../../../../../src/pages/index.orbit:31:11*/fwd/*line render.go:196:150*/),
+	if orbit__err := /*line ../../../../../src/pages/index.orbit:31:2*/orbit__Wrap.Orbit__RenderImpl/*line render.go:201:124*/(orbit__ctx, orbit__w, Wrap.Props{
+		Attrs: orbit__rt.RestMerge(orbit__rt.Rest("", " data-o-81707d2a"), /*line ../../../../../src/pages/index.orbit:31:11*/fwd/*line render.go:202:150*/),
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("\n")
-	if orbit__err := /*line ../../../../../src/pages/index.orbit:32:2*/orbit__Wrap.Orbit__RenderImpl/*line render.go:201:124*/(orbit__ctx, orbit__w, Wrap.Props{
+	if orbit__err := /*line ../../../../../src/pages/index.orbit:32:2*/orbit__Wrap.Orbit__RenderImpl/*line render.go:207:124*/(orbit__ctx, orbit__w, Wrap.Props{
 		Attrs: orbit__rt.Rest("", " data-o-81707d2a"),
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err

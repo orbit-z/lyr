@@ -1,5 +1,0 @@
-warnings.orbit:1:9: warning: onclick={…} is escaped for HTML, not for JavaScript; don't put untrusted values here
-warnings.orbit:2:6: warning: style={…} is escaped for HTML, not for CSS; don't put untrusted values here
-warnings.orbit:2:18: warning: onMouseOver={…} is escaped for HTML, not for JavaScript; don't put untrusted values here
-warnings.orbit:5:6: warning: onclick={…} is escaped for HTML, not for JavaScript; don't put untrusted values here
-warnings.orbit:5:16: warning: style={…} is escaped for HTML, not for CSS; don't put untrusted values here

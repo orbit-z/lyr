@@ -18,6 +18,14 @@ type HTML string
 // that URL attributes otherwise get.
 type URL string
 
+// CSS is CSS declarations (or a CSS value) from a trusted source, for a
+// style={…} attribute: the compiler doesn't warn about it. Orbit writes it
+// escaped like any string and never filters it, except that a URL
+// attribute still filters a javascript: or vbscript: URL (only URL skips
+// that). Like html/template's template.CSS, it's a promise by the code
+// that builds it: never put unvalidated input into one.
+type CSS string
+
 // Attrs is a set of attributes for a spread ({...attrs}) on an HTML element.
 type Attrs map[string]any
 

@@ -257,7 +257,7 @@ func depthError(stack []string) error {
 //   - nil: nothing
 //   - HTML: raw
 //   - JSONValue: its JSON text, HTML-escaped
-//   - string, URL: HTML-escaped
+//   - string, URL, CSS: HTML-escaped
 //   - []byte: HTML-escaped, as a string
 //   - ints, floats, bools: strconv (float32 as a float32)
 //   - Renderer, func(*Writer) error: called
@@ -290,6 +290,8 @@ func (w *Writer) value(v any, escape bool) {
 	case string:
 		w.text(v, escape)
 	case URL:
+		w.text(string(v), escape)
+	case CSS:
 		w.text(string(v), escape)
 	case []byte:
 		if escape {
@@ -445,6 +447,8 @@ func (w *Writer) attr(name string, v any, urlAttr bool) {
 		w.attrValue(name, v, urlAttr)
 	case URL:
 		w.attrValue(name, string(v), false)
+	case CSS:
+		w.attrValue(name, string(v), urlAttr)
 	case HTML:
 		w.attrValue(name, string(v), urlAttr)
 	case int:

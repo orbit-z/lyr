@@ -144,6 +144,8 @@ func (s *Server) publish(ws *workspace, p string) {
 			// fallback assignments aren't what orbit generate checks), so
 			// the typed check's diagnostics stand in for them.
 			own = append(own, ws.mdTypedDiagnostics(p, lines, spans)...)
+		} else {
+			own = append(own, ws.secTypedDiagnostics(p, lines)...)
 		}
 		for _, d := range own {
 			b, _ := json.Marshal(d)

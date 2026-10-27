@@ -162,9 +162,6 @@ func (p *parser) checkTag(t *Tag, k tagKind, children []Node, raw *RawText) (def
 				p.errorf(a.Span, "attribute %s isn't allowed on <Fragment>; it takes only slot, set:html and set:text", a.Name)
 				continue
 			}
-			if (k == tkElement || k == tkScript || k == tkStyle) && a.IsExpr() {
-				p.securityWarning(a)
-			}
 		}
 	}
 	if deferAttr != nil && client != nil {
@@ -234,15 +231,20 @@ func (p *parser) unknownDirective(a *Attr) {
 	p.errorf(a.Span, "unknown directive %q (%s directives: %s)", a.Name, reservedNamespace(a.Name), valid)
 }
 
-// securityWarning warns about on*={expr} and style={expr} on HTML elements.
-func (p *parser) securityWarning(a *Attr) {
-	lower := strings.ToLower(a.Name)
+// SecurityWarning is the warning for name={expr} (an HTML attribute, or
+// one passed through an orbit.RestAttrs field) when name is an event
+// handler (on*) or style, whose values attribute escaping doesn't make
+// safe; "" for every other name. The typed pass emits it (PLAN.md §2.7),
+// except for a constant value and, on style, an orbit.CSS one.
+func SecurityWarning(name string) string {
+	lower := strings.ToLower(name)
 	switch {
 	case len(lower) > 2 && strings.HasPrefix(lower, "on"):
-		p.warnf(a.Span, "%s={…} is escaped for HTML, not for JavaScript; don't put untrusted values here", a.Name)
+		return name + "={…} is escaped for HTML, not for JavaScript; don't put untrusted values here"
 	case lower == "style":
-		p.warnf(a.Span, "%s={…} is escaped for HTML, not for CSS; don't put untrusted values here", a.Name)
+		return name + "={…} is escaped for HTML, not for CSS; don't put untrusted values here"
 	}
+	return ""
 }
 
 func isJSONScript(t *Tag) bool {

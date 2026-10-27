@@ -112,6 +112,11 @@ type URL string
 A trusted URL. In URL attributes (`href`, `src`, …), Orbit replaces `javascript:` and `vbscript:` URLs with `about:invalid#orbit`; a value of type `URL` skips that check. It's still HTML-escaped.
 
 ```go
+type CSS string
+```
+CSS declarations (or a CSS value) from a trusted source, for `style={…}`: the compiler doesn't warn about a `style` attribute whose value has this type. Orbit writes it escaped like any string and never filters it, except that a URL attribute still filters a `javascript:` URL (only `URL` skips that). Like `html/template`'s `template.CSS`, it's a promise: convert only values you built from validated data, `orbit.CSS("width:" + strconv.Itoa(pct) + "%")`. See [Event handler and style attributes](../components.md#event-handler-and-style-attributes).
+
+```go
 type Attrs map[string]any
 ```
 Attributes to spread onto an HTML element with `{...attrs}`. Each value follows the [attribute rules](#attribute-values); each name must be a valid attribute name.
@@ -265,7 +270,7 @@ Which write an expression gets depends on its static type:
 | constants | by their default type (may be merged into the static HTML) |
 | `orbit.HTML` | `HTML` |
 | `string` | `String` |
-| `orbit.URL` | `String` |
+| `orbit.URL`, `orbit.CSS` | `String` |
 | `[]byte` | `Bytes` |
 | ints, runes | `Int` |
 | uints, `byte` | `Uint` |
@@ -286,7 +291,7 @@ Which write an expression gets depends on its static type:
 |---|---|
 | `nil` | nothing |
 | `orbit.HTML` | raw |
-| `string`, `orbit.URL` | HTML-escaped |
+| `string`, `orbit.URL`, `orbit.CSS` | HTML-escaped |
 | `[]byte` | HTML-escaped, as a string |
 | ints, floats, bools | formatted with `strconv` (`float32` as a float32) |
 | `Renderer`, `func(*Writer) error` | called |
@@ -318,7 +323,7 @@ func (w *Writer) JSONAttr(pos string, v JSONValue) // only the value, for name={
 - **A `bool` on a true/false attribute** writes `name="true"` or `name="false"`: every `aria-*` attribute (any case), `contenteditable`, `draggable`, `spellcheck` and `writingsuggestions`, the HTML attributes whose values are the keywords `true` and `false`. It applies to `Attr`, `Spread`, `SpreadRest` (and `RestBool`, `RestOf`, a `RestAttrs`'s JSON) and the typed writes; only the name counts, so it's the same on a custom element. `AttrBool` itself always writes the bare attribute or nothing.
 - Anything else is attribute-escaped and quoted.
 - **URL attributes** (`action`, `background`, `cite`, `codebase`, `data`, `formaction`, `href`, `icon`, `longdesc`, `manifest`, `poster`, `profile`, `src`, `usemap`, `xmlns` and `xlink:href`: the list Go's `html/template` uses, plus `xlink:href`): a value whose scheme is `javascript:` or `vbscript:` (ignoring case, and after trimming whitespace and control characters) is replaced with `about:invalid#orbit`, unless it has type `orbit.URL`. This applies to `Attr`, `AttrURL`, `URL` and `Spread`.
-- **`AttrValue`** and **`URL`** write just the value: generated code writes `title={s}` (a `string`) as the static ` title="`, `w.AttrValue(s)` and the closing `"`, the same bytes as `AttrString("title", s)`, and `href={url}` as ` href="`, `w.URL(url)` and `"`, the same bytes as `AttrURL("href", url)`. An `orbit.URL` value is written with `AttrValue` instead, unfiltered.
+- **`AttrValue`** and **`URL`** write just the value: generated code writes `title={s}` (a `string`) as the static ` title="`, `w.AttrValue(s)` and the closing `"`, the same bytes as `AttrString("title", s)`, and `href={url}` as ` href="`, `w.URL(url)` and `"`, the same bytes as `AttrURL("href", url)`. An `orbit.URL` value is written with `AttrValue` instead, unfiltered; an `orbit.CSS` value is written like a string (with `URL` in a URL attribute).
 - **`Spread`** checks each name against `[A-Za-z_:][-A-Za-z0-9_:.]*`. An invalid name (with spaces, quotes, `>`, `/` or `=`) is a render error.
 - **`SpreadRest`** writes a [`RestAttrs`](#restattrs): the call site's attributes in source order (dynamic values by the rules above), the caller's scope attribute, then any merged spread's attributes the call site doesn't set (an `Attrs` checked like `Spread`). With `withClass`, it also writes a `class` attribute holding their class, or none when it's empty. Generated code passes `false` when the element has its own class, and writes the pass-through class inside it with `RestClass` (each class after a space, as `Class` does).
 - **A `JSONValue`** is always written (even when it encodes as `false` or `null`), single-quoted, as described in [JSON](#json). This applies to `Attr` and `Spread`. `Expr` writes it as HTML-escaped text.

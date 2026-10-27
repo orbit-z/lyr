@@ -46,6 +46,9 @@ type diskCheck struct {
 	// mdTyped are the typed pass's diagnostics of Markdown files
 	// (mdtyped.go; set by run).
 	mdTyped map[string][]mdTypedDiag
+	// secTyped are the style and on* warnings of .orbit files
+	// (sectyped.go; set by run).
+	secTyped map[string][]secTypedDiag
 	// edit is ws.mdEdit at the snapshot: mdTyped is adopted only if no
 	// Markdown-relevant change happened since (mdcheck.go).
 	edit uint64
@@ -85,6 +88,7 @@ func (c *diskCheck) run(ctx context.Context) error {
 		return err
 	}
 	c.mdTyped = typedMarkdownDiags(p, front)
+	c.secTyped = typedSecurityDiags(p)
 	c.known, c.units = typesOf(p, false)
 	c.typed = map[string]*compiler.GenFile{}
 	for _, f := range p.Files {
@@ -153,10 +157,11 @@ func (s *Server) startupCheck(ws *workspace) {
 	if ws.genMissing {
 		// Nothing on disk to match, so requests needn't wait; the check
 		// still runs for the typed diagnostics of Markdown files that
-		// have a layout.
+		// have a layout, and the security warnings of style and on*
+		// attributes.
 		s.markMapped()
 		s.mu.Lock()
-		need := ws.hasMarkdownLayouts()
+		need := ws.hasMarkdownLayouts() || ws.hasSecuritySites()
 		s.mu.Unlock()
 		if !need {
 			return
@@ -188,7 +193,8 @@ func (s *Server) startupCheck(ws *workspace) {
 		if md {
 			ws.mdTyped = c.mdTyped
 		}
-		if late && n > 0 || md && len(c.mdTyped) > 0 {
+		sec := ws.adoptSecurity(c.secTyped)
+		if late && n > 0 || md && len(c.mdTyped) > 0 || sec {
 			s.publishAll(ws)
 		}
 		if c.tsEdit == ws.tsEdit {
@@ -232,11 +238,11 @@ func (ws *workspace) hasOverlays() bool {
 }
 
 // scheduleDiskCheck runs a typed check soon (debounced), after orbit_gen/
-// changed on disk, when gopls has overlays it could close (with s.mu
-// held).
+// changed on disk, when gopls has overlays it could close or an .orbit
+// file may have security warnings (with s.mu held).
 func (s *Server) scheduleDiskCheck() {
 	ws := s.ws
-	if ws == nil || ws.gopls == nil || !ws.hasOverlays() {
+	if ws == nil || !(ws.gopls != nil && ws.hasOverlays() || ws.hasSecuritySites() || len(ws.secTyped) > 0) {
 		return
 	}
 	if s.diskTimer != nil {
@@ -250,7 +256,7 @@ func (s *Server) scheduleDiskCheck() {
 func (s *Server) runDiskCheck() {
 	s.mu.Lock()
 	ws := s.ws
-	if ws == nil || ws.gopls == nil || s.shutdown {
+	if ws == nil || s.shutdown {
 		s.mu.Unlock()
 		return
 	}
@@ -270,13 +276,16 @@ func (s *Server) runDiskCheck() {
 	s.mu.Lock()
 	s.diskRunning = false
 	n := 0
-	if err == nil && s.ws == ws && ws.gopls != nil {
-		n = ws.adopt(c, false)
+	if err == nil && s.ws == ws {
+		if ws.gopls != nil {
+			n = ws.adopt(c, false)
+		}
 		md := c.edit == ws.mdEdit && (len(ws.mdTyped) > 0 || len(c.mdTyped) > 0)
 		if c.edit == ws.mdEdit {
 			ws.mdTyped = c.mdTyped
 		}
-		if n > 0 || md {
+		sec := ws.adoptSecurity(c.secTyped)
+		if n > 0 || md || sec {
 			s.publishAll(ws)
 		}
 		if c.tsEdit == ws.tsEdit {

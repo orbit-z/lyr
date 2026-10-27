@@ -11,6 +11,7 @@ The first release of Orbit: Astro's developer experience, with Go on the server 
 - Compiled to type-checked Go: errors point at the `.orbit` line, and each expression is written by its type, with no reflection.
 - `orbit.If(cond, v)` and `orbit.Cond(cond, a, b)` for conditional attribute values and text (compiled to an `if`, no allocation), and a `bool` writes `"true"`/`"false"` on `aria-*` and the other true/false attributes.
 - File-based routing under `src/pages`, with dynamic and catch-all routes, typed route params (`params.Slug`), a custom `404.orbit` and no trailing slash by default (`"trailingSlash": "always"` mirrors it).
+- `orbit.CSS` marks trusted CSS: a `style={…}` value of that type, or a constant, no longer warns (pass-through `style`/`on*` attributes now warn too, at the call site).
 - `set:html` and `set:text` on `<script>` and `<style>` write the content in place, unprocessed, as in Astro (for example a theme script that must run before paint).
 - Markdown pages and imports (`.md`), with typed frontmatter checked against the layout's props and code blocks highlighted at build time.
 - Component imports and Markdown layouts can use `tsconfig.json` path aliases, as in Astro: `Card "@/components/Card.orbit"`.

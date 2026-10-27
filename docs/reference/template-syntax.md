@@ -378,6 +378,7 @@ An expression value may contain `>`, quotes and braces; the scanner finds the cl
 | `true`/`false` on a true/false attribute | `="true"` or `="false"`: `<button aria-pressed="false">`. These are the attributes whose values are the keywords `true` and `false`: every `aria-*` attribute (any case), and `contenteditable`, `draggable`, `spellcheck` and `writingsuggestions`. |
 | a string | The escaped value in quotes. |
 | `orbit.URL` | The escaped value in quotes, without URL filtering. |
+| `orbit.CSS` | The escaped value in quotes, like a string (URL attributes still filter it). On `style`, it doesn't warn. |
 | `orbit.HTML` | Escaped like any string; attribute values are never raw. |
 | `orbit.JSON(v)` (an `orbit.JSONValue`) | `v` encoded as JSON, always written (`false` and `null` too), single-quoted: `data-post='{"id":42}'`. See [JSON attributes](#json-attributes). |
 | any other value | Formatted exactly as in [How values render](#how-values-render), then escaped and quoted. A slice concatenates its elements with no separator, so build lists such as class names with [`class:list`](#classlist) or `strings.Join(classes, " ")`. |
@@ -471,7 +472,7 @@ themeInit := orbit.HTML(`document.documentElement.dataset.theme = localStorage.t
 
 The content isn't escaped for JavaScript or CSS: `set:html` writes it as is, so it must be trusted (and must not contain `</script>` or `</style>`), and `set:text` HTML-escapes it like any text (`<` becomes `&lt;`, which a script or style doesn't decode), as Astro does. For data, use `set:json` instead.
 
-The compiler **warns** (without failing) on `on*={expr}` attributes such as `onclick={…}` and on `style={expr}`: escaping makes a value safe in HTML, not in JavaScript or CSS. See [Escaping and security](../components.md#escaping-and-security).
+The compiler **warns** (without failing) on `on*={expr}` attributes such as `onclick={…}` and on `style={expr}`, on HTML elements and when passed through an `orbit.RestAttrs` field: escaping makes a value safe in HTML, not in JavaScript or CSS. A constant value (`style={"display: none"}`, a `const`) doesn't warn, and neither does a `style` value of type `orbit.CSS` (exactly that type; a type defined from it warns). A component whose Go code doesn't type-check warns on every such attribute. See [Event handler and style attributes](../components.md#event-handler-and-style-attributes).
 
 ### `class:list`
 
@@ -759,6 +760,7 @@ The same name twice is an error even in another case (`name` and `NAME`). A `cla
 | `string` | escaped text | `{"a < b"}` → `a &lt; b` |
 | `orbit.HTML` | raw, unescaped | `{orbit.HTML("<b>hi</b>")}` → `<b>hi</b>` |
 | `orbit.URL` | escaped text | `{orbit.URL("/a?b=1&c=2")}` → `/a?b=1&amp;c=2` |
+| `orbit.CSS` | escaped text | `{orbit.CSS(`a:"b"`)}` → `a:&quot;b&quot;` |
 | `[]byte` | escaped text, not a list of numbers | `{[]byte("hi")}` → `hi` |
 | `int`, `int8`…`int64`, `rune` | decimal | `{42}` → `42`, `{'a'}` → `97` |
 | `uint`, `uint8`…`uint64`, `byte` | decimal | `{byte(65)}` → `65` |

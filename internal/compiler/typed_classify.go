@@ -14,6 +14,7 @@ import (
 // importer's view of the runtime package.
 type tyEnv struct {
 	html, url, renderer types.Type // orbit.HTML, orbit.URL, orbit.Renderer
+	css                 types.Type // orbit.CSS
 	jsonValue           types.Type // orbit.JSONValue
 	renderFunc          types.Type // func(*orbit.Writer) error
 	stringer            *types.Interface
@@ -40,6 +41,7 @@ func newTyEnv(rt *types.Package) *tyEnv {
 	e := &tyEnv{
 		html:       lookup("HTML"),
 		url:        lookup("URL"),
+		css:        lookup("CSS"),
 		jsonValue:  lookup("JSONValue"),
 		renderer:   lookup("Renderer"),
 		stringer:   str,
@@ -108,7 +110,7 @@ func (e *tyEnv) classify(tv types.TypeAndValue) TypedWrite {
 		return TypedWrite{Kind: WriteHTML}
 	case types.Identical(t, types.Typ[types.String]):
 		return TypedWrite{Kind: WriteString}
-	case identical(t, e.url):
+	case identical(t, e.url), identical(t, e.css):
 		return TypedWrite{Kind: WriteString, Conv: "string"}
 	case types.Identical(t, e.byteSlice):
 		return TypedWrite{Kind: WriteBytes}
@@ -186,7 +188,8 @@ func basicWrite(b *types.Basic) (TypedWrite, bool) {
 // mirroring Writer.Attr: string, HTML and named strings without
 // error/String/Format methods are written as their text in Raw pieces
 // (String, or URL in a URL attribute, which filters javascript: like Attr),
-// URL unfiltered (String pieces), bools and
+// URL unfiltered (String pieces), CSS like a string (filtered in a URL
+// attribute: it isn't a trusted URL), bools and
 // named bools (Attr tests the reflect kind) as AttrBool, numbers (and named
 // numbers without error/String/Format methods, which fmt prints as their
 // value) as Raw pieces around Int, Uint, Float or Float32, untyped nil as
@@ -215,6 +218,8 @@ func (e *tyEnv) classifyAttr(tv types.TypeAndValue, urlAttr, tfAttr bool) TypedW
 		return TypedWrite{Kind: text, Conv: "string"}
 	case identical(t, e.url):
 		return TypedWrite{Kind: WriteAttrString, Conv: "string"}
+	case identical(t, e.css):
+		return TypedWrite{Kind: text, Conv: "string"} // trusted CSS, not a trusted URL
 	case types.Identical(t, types.Typ[types.Bool]):
 		return TypedWrite{Kind: boolKind}
 	}

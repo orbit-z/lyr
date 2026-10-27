@@ -1,0 +1,10 @@
+src/components/Unchecked.orbit:4:6: warning: style={…} is escaped for HTML, not for CSS; don't put untrusted values here
+src/components/Unchecked.orbit:4:30: warning: onclick={…} is escaped for HTML, not for JavaScript; don't put untrusted values here
+src/components/Warn.orbit:19:6: warning: style={…} is escaped for HTML, not for CSS; don't put untrusted values here
+src/components/Warn.orbit:22:6: warning: style={…} is escaped for HTML, not for CSS; don't put untrusted values here
+src/components/Warn.orbit:28:6: warning: style={…} is escaped for HTML, not for CSS; don't put untrusted values here
+src/components/Warn.orbit:30:9: warning: onclick={…} is escaped for HTML, not for JavaScript; don't put untrusted values here
+src/components/Warn.orbit:30:27: warning: onMouseOver={…} is escaped for HTML, not for JavaScript; don't put untrusted values here
+src/components/Warn.orbit:31:9: warning: onclick={…} is escaped for HTML, not for JavaScript; don't put untrusted values here
+src/components/Warn.orbit:33:9: warning: style={…} is escaped for HTML, not for CSS; don't put untrusted values here
+src/components/Warn.orbit:33:19: warning: onclick={…} is escaped for HTML, not for JavaScript; don't put untrusted values here

@@ -32,6 +32,10 @@ func TestSpreadRestMatchesAttr(t *testing.T) {
 		{"x", RestAny("", "x", flag(true)), flag(true)},
 		{"x", RestAny("", "x", flag(false)), flag(false)},
 		{"src", RestAny("", "src", "javascript:x"), "javascript:x"},
+		{"style", RestAny("", "style", CSS(`content:"&"`)), CSS(`content:"&"`)},
+		{"src", RestAny("", "src", CSS("javascript:x")), CSS("javascript:x")},
+		{"style", RestString("", "style", `content:"&"`), CSS(`content:"&"`)},
+		{"src", RestStringURL("", "src", "javascript:x"), CSS("javascript:x")},
 		{"x", RestAny("", "x", []int{1, 2}), []int{1, 2}},
 	}
 	for _, tt := range tests {

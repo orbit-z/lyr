@@ -29,6 +29,8 @@ var u64 uint64 = 1 << 63
 f64, f32 := 0.1, float32(0.1)
 html := orbit.HTML("<b>bold</b>")
 url := orbit.URL("javascript:x")
+css := orbit.CSS(`content:"a&b";color:red`)
+jscss := orbit.CSS("javascript:css")
 r := orbit.Renderer(func(w *orbit.Writer) error { w.Raw("<i>r</i>"); return nil })
 fn := func(w *orbit.Writer) error { w.Raw("<u>fn</u>"); return nil }
 err := errors.New("e<rr")
@@ -48,3 +50,5 @@ t := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
 </ul>
 <a href={slug} title={s} data-h={html} data-u={url} data-b={Flag(false)} data-t={true} data-n={Count(4)} data-f={f32} data-s={Status(1)}>x</a>
 <img src={"javascript:img"} alt={slug} hidden={false} />
+<p style={css} title={jscss} data-c={css}>{css}|{jscss}</p>
+<a href={jscss}>css</a>
