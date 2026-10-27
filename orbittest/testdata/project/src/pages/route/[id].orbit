@@ -1,0 +1,1 @@
+<p>route={locals.Route.Pattern} id={locals.Route.Param("id")} file={locals.Route.File}</p>

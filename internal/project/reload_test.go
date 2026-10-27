@@ -227,6 +227,10 @@ func TestReloadMatchesFront(t *testing.T) {
 			p.write("src/locals/locals.go", "package locals\n\n// Locals are the request's.\ntype Locals struct{ User string }\n")
 			return []string{"src/locals/locals.go"}
 		}, false},
+		{"locals RouteInfo field added", func() []string {
+			p.write("src/locals/locals.go", "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct {\n\tUser  string\n\tRoute orbit.RouteInfo\n}\n")
+			return []string{"src/locals/locals.go"}
+		}, false},
 		{"locals import error", func() []string {
 			p.write("src/locals/locals.go", "package locals\n\nimport _ \"example.com/blog/internal/y\"\n\ntype Locals struct{ User string }\n")
 			p.write("internal/y/y.go", "package y\n")
@@ -319,6 +323,9 @@ func compareFront(t *testing.T, step string, got, want *Project) {
 	}
 	if !reflect.DeepEqual(got.Index, want.Index) {
 		t.Errorf("%s: component index differs", step)
+	}
+	if got.localsRoute != want.localsRoute {
+		t.Errorf("%s: RouteInfo field %q, want %q", step, got.localsRoute, want.localsRoute)
 	}
 	if got.Options != want.Options || got.ServerEntry != want.ServerEntry || got.GeneratedServer != want.GeneratedServer {
 		t.Errorf("%s: options or server entry differ: %+v %s vs %+v %s", step, got.Options, got.ServerEntry, want.Options, want.ServerEntry)

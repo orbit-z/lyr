@@ -234,6 +234,35 @@ The type of `locals` when your project has no `src/locals` package declaring `Lo
 
 Island requests pass through your middleware like any other request, so deferred components see the locals your middleware sets for that request. Nothing carries over from the page request.
 
+### The matched route: RouteInfo
+
+```go
+type RouteKind uint8
+
+const (
+	RouteNone     RouteKind = iota // Orbit rendered nothing: a static file, a slash redirect, next, or never reached Orbit
+	RoutePage                      // a page route matched, whatever the outcome (200, redirect, error, ErrNotFound)
+	RouteNotFound                  // site.NotFound() answered: 404.orbit or the empty 404
+	RouteIsland                    // a /_orbit/island/ request
+)
+
+type RouteInfo struct {
+	Kind    RouteKind
+	Pattern string // "/blog/[slug]"; "/404"; "/_orbit/island/[buildID]/[id]"
+	File    string // "src/pages/blog/[slug].orbit"; the deferred component's file; "" if none
+	// unexported: the param names and values
+}
+
+func (ri *RouteInfo) Param(name string) string               // like Ctx.Param: "" when absent
+func (ri *RouteInfo) Params() iter.Seq2[string, string]      // name, value, in the route's order
+```
+The route that answered a request, for logging and metrics. Declare a field of this type in your `Locals`, with any exported name: `Route orbit.RouteInfo`. The type is the marker. Orbit fills it as soon as the request is matched, before rendering, so a redirect, an error or a panic still leaves it set. Middleware reads it after `next.ServeHTTP` returns; pages and components read `locals.Route`. See [Logging the matched route](../middleware.md#logging-the-matched-route) for what each kind of request records.
+
+- Params are percent-decoded, like `Ctx.Param`. The values are copied into the `RouteInfo` itself (up to 8 without allocating; a route with more allocates once), so they stay valid after the request and a copy of the struct may be kept.
+- More than one `orbit.RouteInfo` field, an embedded one, an unexported one or a `*orbit.RouteInfo` is an error at the field.
+- Read it on the request's goroutine, or after `next` returns: it isn't synchronized.
+- A project whose `Locals` has no such field pays nothing for it.
+
 ## Writer
 
 A `Writer` writes HTML straight into a pooled `bytes.Buffer`. Generated code calls its methods; you use it when you write an `orbit.Renderer` in Go.
@@ -609,6 +638,11 @@ type Asset struct {
 }
 ```
 Used by the generated `app.New()`. You don't build routes by hand. A route's assets are in `<head>` order: its stylesheets, its module, its `lazy` entries, then one `modulepreload` asset per [shared chunk](../styles-and-scripts.md#shared-chunks-and-import) the module imports. `css` gives a `<link rel="stylesheet">`, `js` a `<script type="module">`, `modulepreload` a `<link rel="modulepreload">` after the script; the tags are computed once per route, when the site is created. A route with `Islands` set, or with `lazy` assets, also gets the inline loader in its `<head>`. Unknown kinds are ignored.
+
+```go
+func WithLocalsRoute[L any](field func(*L) *RouteInfo) Option
+```
+Tells the site where the [`RouteInfo` field](#the-matched-route-routeinfo) of your `Locals` is. The generated `app.New()` passes it before your options when `src/locals` declares such a field: `orbit.WithLocalsRoute(func(l *locals.Locals) *orbit.RouteInfo { return &l.Route })`. You don't call it yourself.
 
 ```go
 func ErrorAt(pos string, err error) error

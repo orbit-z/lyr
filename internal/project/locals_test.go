@@ -15,6 +15,7 @@ func TestDetectLocals(t *testing.T) {
 		name  string
 		files map[string]string
 		want  string
+		route string // the orbit.RouteInfo field
 		diags []string
 	}{
 		{name: "no src/locals", files: map[string]string{"src/pages/index.orbit": ""}},
@@ -67,13 +68,44 @@ func TestDetectLocals(t *testing.T) {
 			"internal/a/a.go":      "package a\n\nimport _ \"example.com/blog/internal/b\"\n",
 			"internal/b/b.go":      "package b\n\nimport _ \"example.com/blog/internal/a\"\nimport _ \"example.com/blog/src/locals\"\n",
 		}, want: self},
+		{name: "RouteInfo field", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct {\n\tUser  string\n\tRoute orbit.RouteInfo\n}\n",
+		}, want: self, route: "Route"},
+		{name: "RouteInfo field, any name, aliased import", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport o \"github.com/orbit-z/orbit\"\n\ntype Locals struct{ Matched o.RouteInfo }\n",
+		}, want: self, route: "Matched"},
+		{name: "RouteInfo field, dot import", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport . \"github.com/orbit-z/orbit\"\n\ntype Locals struct{ R RouteInfo }\n",
+		}, want: self, route: "R"},
+		{name: "another package's RouteInfo", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"example.com/blog/internal/orbit\"\n\ntype Locals struct{ Route orbit.RouteInfo }\n",
+			"internal/orbit/o.go":  "package orbit\n\ntype RouteInfo struct{}\n",
+		}, want: self},
+		{name: "two RouteInfo fields", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct {\n\tRoute orbit.RouteInfo\n\tOther orbit.RouteInfo\n}\n",
+		}, diags: []string{"src/locals/locals.go:7:2: Locals has two orbit.RouteInfo fields (Route, Other); Orbit fills one"}},
+		{name: "two RouteInfo names in one field", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct{ A, B orbit.RouteInfo }\n",
+		}, diags: []string{"src/locals/locals.go:5:24: Locals has two orbit.RouteInfo fields (A, B); Orbit fills one"}},
+		{name: "embedded RouteInfo", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct {\n\torbit.RouteInfo\n}\n",
+		}, diags: []string{"src/locals/locals.go:6:2: Locals can't embed orbit.RouteInfo: give the field a name, such as Route orbit.RouteInfo"}},
+		{name: "pointer RouteInfo", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct{ Route *orbit.RouteInfo }\n",
+		}, diags: []string{"src/locals/locals.go:5:21: Locals field Route must be an orbit.RouteInfo, not a pointer: Orbit fills it in place"}},
+		{name: "unexported RouteInfo", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct{ route orbit.RouteInfo }\n",
+		}, diags: []string{"src/locals/locals.go:5:21: Locals field route must be exported for Orbit to fill it, such as Route orbit.RouteInfo"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := newTestProject(t, tt.files)
-			got, ds := detectLocals(p.Dir, testModule)
+			got, route, ds := detectLocals(p.Dir, testModule)
 			if got != tt.want {
 				t.Errorf("import path %q, want %q", got, tt.want)
+			}
+			if route != tt.route {
+				t.Errorf("route field %q, want %q", route, tt.route)
 			}
 			if g, w := joinLines(diagStrings(ds)), joinLines(tt.diags); g != w {
 				t.Errorf("diagnostics:\n%s\nwant:\n%s", g, w)
@@ -135,7 +167,7 @@ func TestDetectLocalsTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	start := time.Now()
-	got, ds := detectLocals(p.Dir, testModule)
+	got, _, ds := detectLocals(p.Dir, testModule)
 	d := time.Since(start)
 	if got == "" || len(ds) > 0 {
 		t.Fatalf("%q %v", got, diagStrings(ds))

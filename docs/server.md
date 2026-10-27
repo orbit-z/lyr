@@ -253,6 +253,8 @@ Any ecosystem middleware works, because Orbit is a plain `http.Handler`.
 
 To hand request data, such as a request ID or the visitor's theme, to your pages, set typed locals from a middleware outside Orbit with `orbit.EnsureLocals`. Pages read them as `locals.Theme`, and your handlers with `orbit.LocalsFromRequest`. See [Middleware and locals](middleware.md).
 
+A middleware outside Orbit can also learn which route answered, to log `/blog/[slug]` rather than the URL: Orbit fills an `orbit.RouteInfo` field of your locals before rendering, and the middleware reads it after `next.ServeHTTP` returns. Middleware after Orbit, and your own handlers behind `site.Middleware`, never see it filled, since Orbit didn't answer those requests. See [Logging the matched route](middleware.md#logging-the-matched-route).
+
 ## The island endpoint
 
 A component rendered with `server:defer` is sent as a placeholder, and the browser fetches its HTML afterwards from `/_orbit/island/<buildID>/<id>`. That endpoint lives inside `site.Middleware`, so:

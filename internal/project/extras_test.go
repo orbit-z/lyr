@@ -16,17 +16,27 @@ import (
 // rewrites them). The extras are gofmt-clean.
 func TestExtrasGolden(t *testing.T) {
 	for _, tt := range []struct {
-		name string
-		json string
+		name  string
+		json  string
+		extra map[string]string
 	}{
-		{"site", `{"site": "https://blog.example.com"}`},
-		{"nosite", `{}`},
-		{"always", `{"trailingSlash": "always"}`},
-		{"sitealways", `{"site": "https://blog.example.com", "trailingSlash": "always"}`},
+		{"site", `{"site": "https://blog.example.com"}`, nil},
+		{"nosite", `{}`, nil},
+		{"always", `{"trailingSlash": "always"}`, nil},
+		{"sitealways", `{"site": "https://blog.example.com", "trailingSlash": "always"}`, nil},
+		// Locals without a RouteInfo field: app.go as without src/locals.
+		{"locals", `{}`, map[string]string{"src/locals/locals.go": "package locals\n\ntype Locals struct{ User string }\n"}},
+		// A RouteInfo field: app.New() passes WithLocalsRoute (PLAN.md §4g).
+		{"route", `{"site": "https://blog.example.com"}`, map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct {\n\tUser    string\n\tMatched orbit.RouteInfo\n}\n",
+		}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			files := map[string]string{}
 			for k, v := range siteFiles {
+				files[k] = v
+			}
+			for k, v := range tt.extra {
 				files[k] = v
 			}
 			files["orbit.json"] = tt.json
@@ -56,8 +66,12 @@ func TestExtrasGolden(t *testing.T) {
 				if tt.name != "site" && path != AppFile {
 					continue
 				}
-				golden := filepath.Join("testdata", "extras", tt.name+"."+strings.ReplaceAll(strings.TrimPrefix(path, "orbit_gen/"), "/", "_")+".golden")
-				if *update {
+				name := tt.name
+				if name == "locals" {
+					name = "nosite" // byte-identical
+				}
+				golden := filepath.Join("testdata", "extras", name+"."+strings.ReplaceAll(strings.TrimPrefix(path, "orbit_gen/"), "/", "_")+".golden")
+				if *update && name == tt.name {
 					if err := os.MkdirAll(filepath.Dir(golden), 0o755); err != nil {
 						t.Fatal(err)
 					}

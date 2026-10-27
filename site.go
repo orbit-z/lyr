@@ -39,6 +39,9 @@ type Site struct {
 	onError errorHandler
 	// limit is the server:concurrent limit (WithConcurrencyLimit).
 	limit int32
+	// route is WithLocalsRoute's accessor, or nil: then no RouteInfo is
+	// filled and the serve path is today's (PLAN.md §4g).
+	route *localsRoute
 }
 
 // Option configures a Site. Pass options to app.New().
@@ -53,6 +56,7 @@ type siteOptions struct {
 	slash     TrailingSlash
 	concLimit int32 // WithConcurrencyLimit, when concSet
 	concSet   bool
+	route     *localsRoute // WithLocalsRoute
 }
 
 // NewSite is called by the generated orbit_gen/app.New(). It compiles the
@@ -84,6 +88,7 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 
 		onError: o.onError,
 		limit:   o.concurrencyLimit(),
+		route:   o.route,
 	}
 	s.keys.warnIfRandom(len(islands))
 	s.islands = make(map[string]*Island, len(islands))
@@ -201,7 +206,7 @@ func (s *Site) ServeError(w http.ResponseWriter, r *http.Request, err error) {
 	if err == nil {
 		return
 	}
-	s.renderFailed(w, r, err, nil, false)
+	s.renderFailed(w, r, err, nil, nil, false)
 }
 
 // Middleware serves the requests Orbit owns and passes the rest to next,
@@ -264,6 +269,9 @@ func (h notFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Site) serveNotFound(w http.ResponseWriter, r *http.Request) {
 	route := s.router.notFound
 	if route == nil {
+		if s.route != nil {
+			s.fillRouteOnly(r, RouteNotFound, notFoundRoutePattern, "", nil, nil)
+		}
 		emptyNotFound(w)
 		return
 	}
@@ -293,7 +301,20 @@ var writerPool = sync.Pool{New: func() any { return &Writer{head: -1} }}
 
 // servePage renders route with c, writes the response and releases c.
 // notFound is set when route is the 404 page.
+//
+// When the site fills a RouteInfo (WithLocalsRoute), c.route is set from
+// route unless the caller set it already (the 404 page rendered for a
+// page's ErrNotFound keeps the page's route).
 func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *Route, notFound bool) {
+	if s.route != nil {
+		if c.route.kind == RouteNone {
+			c.route = routeRef{kind: RoutePage, pattern: route.Pattern, file: route.File, names: c.paramNames, vals: c.paramVals}
+			if notFound {
+				c.route.kind, c.route.pattern = RouteNotFound, notFoundRoutePattern
+			}
+		}
+		s.fillRoute(r, c)
+	}
 	buf := getBuffer()
 	wr := writerPool.Get().(*Writer)
 	wr.reset(buf)
@@ -318,7 +339,7 @@ func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *
 		wr.reset(nil)
 		writerPool.Put(wr)
 		putBuffer(buf)
-		s.renderFailed(w, r, err, c.responseHeader(), notFound)
+		s.renderFailed(w, r, err, c.responseHeader(), &c.route, notFound)
 		releaseCtx(c)
 		return
 	}
@@ -445,9 +466,11 @@ func relativeFile(file string) string {
 }
 
 // renderFailed answers a render that returned err. head holds the headers
-// the page set, kept for a redirect; notFound is set when the 404 page itself
-// failed. Any other error goes to the error handler first, then the 500.
-func (s *Site) renderFailed(w http.ResponseWriter, r *http.Request, err error, head http.Header, notFound bool) {
+// the page set, kept for a redirect; prev is the failed render's route (nil
+// from ServeError), which the 404 page rendered for ErrNotFound keeps;
+// notFound is set when the 404 page itself failed. Any other error goes to
+// the error handler first, then the 500.
+func (s *Site) renderFailed(w http.ResponseWriter, r *http.Request, err error, head http.Header, prev *routeRef, notFound bool) {
 	var re *RedirectError
 	switch {
 	case errors.As(err, &re):
@@ -458,10 +481,17 @@ func (s *Site) renderFailed(w http.ResponseWriter, r *http.Request, err error, h
 		http.Redirect(w, r, re.Location, re.Code)
 	case errors.Is(err, ErrNotFound):
 		if notFound || s.router.notFound == nil {
+			if prev == nil && s.route != nil {
+				s.fillRouteOnly(r, RouteNotFound, notFoundRoutePattern, "", nil, nil)
+			}
 			emptyNotFound(w)
 			return
 		}
-		s.servePage(w, r, s.acquire(r), s.router.notFound, true)
+		c := s.acquire(r)
+		if prev != nil && s.route != nil {
+			c.route = *prev
+		}
+		s.servePage(w, r, c, s.router.notFound, true)
 	default:
 		if s.onError != nil && s.onError(w, r, err) {
 			return

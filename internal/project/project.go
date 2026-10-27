@@ -55,6 +55,9 @@ type Project struct {
 	// localsDiags are the problems with src/locals found by Load; Front
 	// reports them.
 	localsDiags []Diagnostic
+	// localsRoute is the name of Locals' orbit.RouteInfo field, or "":
+	// app.New() then passes orbit.WithLocalsRoute (PLAN.md §4g).
+	localsRoute string
 	// markdown holds the source of every Markdown file under src/, by path,
 	// and mdPaths their sorted paths (set by Load). Front compiles the
 	// pages and the imported ones (PLAN.md §2.4); mdDiags are its link
@@ -128,7 +131,7 @@ func Load(root string) (*Project, error) {
 		Options: compiler.Options{Module: module, Mode: compiler.Strict, CompressHTML: cfg.CompressHTML},
 	}
 	p.ServerEntry, p.GeneratedServer = cfg.ServerEntry(root)
-	p.Options.Locals, p.localsDiags = detectLocals(root, module)
+	p.Options.Locals, p.localsRoute, p.localsDiags = detectLocals(root, module)
 	if err := p.loadAliases(); err != nil {
 		return nil, err
 	}

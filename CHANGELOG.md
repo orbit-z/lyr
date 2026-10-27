@@ -26,6 +26,7 @@ The first release of Orbit: Astro's developer experience, with Go on the server 
 - Responses are buffered from pooled buffers: rendering a typical page allocates nothing in Orbit's code.
 - `orbit.All` loads a page's data concurrently, `server:concurrent` renders slow components in parallel, and `server:defer` sends a page at once and fetches a slow component afterwards (props encrypted).
 - An error handler hook maps your errors to your own responses; production 500s log the `.orbit` position.
+- The matched route for request logs, like Astro's `context.routePattern`: an `orbit.RouteInfo` field in your `Locals` (`Route orbit.RouteInfo`) is filled with the page, 404 or island route and its params before rendering, so middleware logs `/blog/[slug]` instead of the URL. No allocation.
 
 **Styles and scripts**
 - Scoped CSS, global styles and Tailwind CSS v4 (through its standalone CLI, no Node).

@@ -30,6 +30,12 @@ func LocalsOf[L any](c *Ctx) *L {
 	}
 	if l == nil {
 		l = new(L)
+		if c.route.field != nil {
+			// The site fills a RouteInfo field (WithLocalsRoute).
+			if f, ok := c.route.field.(func(*L) *RouteInfo); ok {
+				f(l).set(&c.route)
+			}
+		}
 	}
 	c.locals = l
 	return l

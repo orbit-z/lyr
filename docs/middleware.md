@@ -6,9 +6,12 @@ Orbit has one middleware model, plain `net/http` middleware in `cmd/server/main.
 // Package locals declares the request-scoped data that middleware hands to pages.
 package locals
 
+import "github.com/orbit-z/orbit"
+
 type Locals struct {
 	RequestID string
-	Theme     string // "light" or "dark"
+	Theme     string          // "light" or "dark"
+	Route     orbit.RouteInfo // filled by Orbit: see Logging the matched route
 }
 ```
 
@@ -154,7 +157,7 @@ Locals carry request-scoped data, such as a request ID or the visitor's theme, f
 
 Put `type Locals struct` in the Go package `src/locals` (package `locals`), as in `src/locals/locals.go` above. Orbit finds it by name. Without one, `locals` in pages is an `*orbit.NoLocals`, an empty struct.
 
-`Locals` may also be an alias of a struct declared elsewhere (`type Locals = auth.Session`). A `src/locals` whose package isn't named `locals`, or whose `Locals` is a defined type that isn't a struct (`type Locals map[string]any`), is an error at that line.
+`Locals` may also be an alias of a struct declared elsewhere (`type Locals = auth.Session`); Orbit then doesn't see a `RouteInfo` field in it ([Logging the matched route](#logging-the-matched-route)). A `src/locals` whose package isn't named `locals`, or whose `Locals` is a defined type that isn't a struct (`type Locals map[string]any`), is an error at that line.
 
 ### Set locals from middleware
 
@@ -222,6 +225,83 @@ func withCatalog(api *catalog.Client, next http.Handler) http.Handler {
 ```
 
 A loader shared by concurrent loads and `server:concurrent` components needs a mutex; [Loading data](data-loading.md#share-data-without-props-drilling-a-loader-in-locals) has the 20-line `Loader` and its one rule (it uses the request's context, not a load's).
+
+## Logging the matched route
+
+A request log usually wants the route that answered, `/blog/[slug]` with `slug=hello`, rather than the URL: one line per route instead of per URL, and nothing private from the path or its query in the log. Orbit knows the route only inside `site.Middleware`, so it hands it back through your locals: give `Locals` a field of type `orbit.RouteInfo`, as `Route` in `src/locals/locals.go` above, and Orbit fills it. The type is the marker; any exported field name works.
+
+```go file=cmd/server/pagelog.go
+package main
+
+import (
+	"log/slog"
+	"net/http"
+	"time"
+
+	"github.com/orbit-z/orbit"
+
+	"example.com/blog/src/locals"
+)
+
+// pageLog logs one line per page request: the route pattern and its params,
+// never the URL or its query.
+func pageLog(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		r, l := orbit.EnsureLocals[locals.Locals](r)
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		if l.Route.Kind != orbit.RoutePage {
+			return // static files, slash redirects, islands, 404s, your own handlers
+		}
+		params := map[string]string{}
+		for name, value := range l.Route.Params() {
+			params[name] = value
+		}
+		slog.Info("page", "method", r.Method, "route", l.Route.Pattern, "params", params,
+			"status", rec.status, "duration", time.Since(start))
+	})
+}
+```
+
+Wrap it around the mux like `logging`: `logging(pageLog(requestInfo(mux)))`. `GET /blog/the-long-way` (the page `src/pages/blog/[slug].orbit`) logs `route=/blog/[slug] params=map[slug:the-long-way] status=200`.
+
+Orbit fills the field as soon as the request is matched, before rendering, so a page that redirects, returns an error or panics still leaves it set, and a 500 is logged with its route. What each request records:
+
+| Request | `Kind` | `Pattern` | `File` | params |
+|---|---|---|---|---|
+| a page route (any outcome, `orbit.ErrNotFound` included) | `orbit.RoutePage` | the route's, `/blog/[slug]` | the page | the route's |
+| `site.NotFound()`, with `404.orbit` or the empty 404 | `orbit.RouteNotFound` | `/404` | `src/pages/404.orbit`, or `""` | none |
+| `/_orbit/island/…`, whatever the answer | `orbit.RouteIsland` | `/_orbit/island/[buildID]/[id]` | the deferred component, or `""` if the ID is unknown | `buildID`, `id` |
+| static files (`/_orbit/*`, `public/`), trailing-slash redirects, requests passed to `next` | unchanged (`orbit.RouteNone`) | | | |
+
+- **Params** are percent-decoded, like `ctx.Param`. `l.Route.Param("slug")` reads one; `Params()` gives every name and value in the route's order. The strings stay valid after the request, so you can keep them or the whole struct.
+- **A request through Orbit twice** (`site.Middleware` passes it to your mux, whose catch-all is `site.NotFound()`) keeps the last value, `/404`.
+- **Pages and components** can read it too: `{locals.Route.Pattern}`. That works even without middleware attaching locals, because the `Locals` Orbit allocates for the page is filled the same way.
+- **Your error handler** (`orbit.WithErrorHandler`) runs after the fill, so `orbit.LocalsFromRequest[locals.Locals](r).Route` there is the failing page's route.
+- **Concurrency**: Orbit writes it on the request's goroutine before rendering. Read it there or after `next.ServeHTTP` returns, not from another goroutine during the request.
+- **Cost**: filling it adds no allocation (a route with more than 8 params allocates once), and a project without the field pays nothing.
+
+A `Locals` with two `orbit.RouteInfo` fields is an error, since Orbit fills one:
+
+```go file=src/locals/locals.go expect-error
+package locals
+
+import "github.com/orbit-z/orbit"
+
+type Locals struct {
+	RequestID string
+	Theme     string
+	Route     orbit.RouteInfo
+	Previous  orbit.RouteInfo
+}
+```
+
+```text
+src/locals/locals.go:9:2: Locals has two orbit.RouteInfo fields (Route, Previous); Orbit fills one
+```
+
+An embedded, unexported or pointer `RouteInfo` field is an error at the field too.
 
 ## Short-circuit responses
 
