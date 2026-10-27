@@ -24,7 +24,7 @@ Orbit looks for the CLI in this order, only when a stylesheet uses Tailwind:
 
 1. the project's `node_modules/.bin/tailwindcss` (from `@tailwindcss/cli`), run with Node, or with Bun when Node isn't installed;
 2. `tailwindcss` on your `PATH`;
-3. with [Bun](https://bun.sh) installed: `bun x --package @tailwindcss/cli@4.3.3 tailwindcss` (Bun downloads it into its cache the first time).
+3. with [Bun](https://bun.sh) installed: `bun x --package @tailwindcss/cli@4.3.3 tailwindcss` (Bun downloads it into its cache the first time). Your project needs no `node_modules` for this: Orbit points Tailwind at the `tailwindcss` package Bun installed with the CLI, so `@import "tailwindcss"` resolves.
 
 Tailwind v3 isn't supported: a v3 CLI is skipped, with a message if nothing else is found. A v3-style `tailwind.config.js` still works through v4's [`@config`](https://tailwindcss.com/docs/functions-and-directives#config-directive). Run `orbit doctor` to see which CLI Orbit uses:
 

@@ -271,6 +271,13 @@ func (p *Processor) run(ctx context.Context, e *entry) {
 	cmd := exec.CommandContext(ctx, cli.Bin, args...)
 	cmd.Dir = e.in.Dir
 	cmd.Env = append(os.Environ(), "NO_COLOR=1", "FORCE_COLOR=0")
+	if cli.NodePath != "" {
+		np := cli.NodePath
+		if old := os.Getenv("NODE_PATH"); old != "" {
+			np = old + string(os.PathListSeparator) + np
+		}
+		cmd.Env = append(cmd.Env, "NODE_PATH="+np)
+	}
 	// The standalone CLI (a Bun executable) extracts its native addon to
 	// $TMPDIR under a fixed name, and concurrent runs race on that file
 	// ("cannot open shared object file"): each run gets its own TMPDIR.

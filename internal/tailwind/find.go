@@ -50,6 +50,12 @@ type CLI struct {
 	Via string
 	// Path is the tailwindcss file found (Bin, or the script Bin runs).
 	Path string
+	// NodePath is the node_modules directory that holds the CLI's own
+	// packages, tailwindcss among them, added to NODE_PATH for each run:
+	// Tailwind resolves @import "tailwindcss" from the stylesheet's
+	// directory, where bun x's install (or a pnpm one) isn't found. ""
+	// for the standalone binary, which has tailwindcss built in.
+	NodePath string
 }
 
 // Describe is the CLI for humans: "tailwindcss 4.3.3 (/path)" or
@@ -67,13 +73,25 @@ type Env struct {
 	LookPath func(string) (string, error)
 	// Help runs bin with args and --help, and returns its output.
 	Help func(ctx context.Context, bin string, args []string) ([]byte, error)
+	// Output runs bin with args and returns its standard output; Find uses
+	// it to locate bun x's install. nil skips that (NodePath stays "").
+	Output func(ctx context.Context, bin string, args []string) ([]byte, error)
 	// GOOS and GOARCH select the release binary in the install lines.
 	GOOS, GOARCH string
 }
 
 // DefaultEnv is the real environment.
 func DefaultEnv() Env {
-	return Env{LookPath: exec.LookPath, Help: runHelp, GOOS: runtime.GOOS, GOARCH: runtime.GOARCH}
+	return Env{LookPath: exec.LookPath, Help: runHelp, Output: runOutput, GOOS: runtime.GOOS, GOARCH: runtime.GOARCH}
+}
+
+func runOutput(ctx context.Context, bin string, args []string) ([]byte, error) {
+	// The first bun x run downloads the CLI.
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd.Env = append(os.Environ(), "NO_COLOR=1")
+	return cmd.Output()
 }
 
 func runHelp(ctx context.Context, bin string, args []string) ([]byte, error) {
@@ -155,6 +173,7 @@ func Find(ctx context.Context, env Env, root string) (CLI, error) {
 			}
 			if c.Bin != "" {
 				c.Via, c.Path = "node_modules", p
+				c.NodePath = packageNodeModules(p)
 				if c, ok := try(c); ok {
 					return c, nil
 				}
@@ -168,9 +187,42 @@ func Find(ctx context.Context, env Env, root string) (CLI, error) {
 	}
 	if bun, err := env.LookPath("bun"); err == nil {
 		v, _ := ParseVersion("tailwindcss v" + Pinned)
-		return CLI{Bin: bun, Args: []string{"x", "--package", "@tailwindcss/cli@" + Pinned, "tailwindcss"}, Version: v, Via: "bun x", Path: bun}, nil
+		c := CLI{Bin: bun, Args: []string{"x", "--package", "@tailwindcss/cli@" + Pinned, "tailwindcss"}, Version: v, Via: "bun x", Path: bun}
+		// bun x installs the CLI and its dependencies outside the project
+		// (~/.bun/install/cache/.bunx-…/node_modules) and puts that .bin
+		// first on the command's PATH: ask Bun where tailwindcss is there.
+		if env.Output != nil {
+			out, err := env.Output(ctx, bun, []string{"x", "--package", "@tailwindcss/cli@" + Pinned, "bun", "-e", `process.stdout.write(Bun.which("tailwindcss") ?? "")`})
+			if p := strings.TrimSpace(string(out)); err == nil && p != "" {
+				c.NodePath = packageNodeModules(p)
+			}
+		}
+		return c, nil
 	}
 	return CLI{}, nf
+}
+
+// packageNodeModules returns the node_modules directory that the
+// tailwindcss bin at bin belongs to, "" when it has no tailwindcss
+// package: the nearest node_modules above the file the bin links to
+// (node_modules/@tailwindcss/cli/dist/index.mjs; with pnpm,
+// node_modules/.pnpm/@tailwindcss+cli@…/node_modules), where the package
+// manager put the CLI's dependencies.
+func packageNodeModules(bin string) string {
+	real, err := filepath.EvalSymlinks(bin)
+	if err != nil {
+		real = bin
+	}
+	for d := filepath.Dir(real); filepath.Dir(d) != d; d = filepath.Dir(d) {
+		if filepath.Base(d) != "node_modules" {
+			continue
+		}
+		if fi, err := os.Stat(filepath.Join(d, "tailwindcss", "package.json")); err == nil && !fi.IsDir() {
+			return d
+		}
+		return ""
+	}
+	return ""
 }
 
 // isNodeScript reports whether path is a script run by Node (#!… node),
