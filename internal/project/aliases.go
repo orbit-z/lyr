@@ -87,7 +87,7 @@ func hasAliasImport(f *File) bool {
 		return false
 	}
 	for _, im := range f.Analysis.OrbitImports {
-		if !compiler.IsRelativeImport(im.Path) {
+		if !compiler.IsPathImport(im.Path) {
 			return true
 		}
 	}

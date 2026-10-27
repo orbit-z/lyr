@@ -16,6 +16,7 @@ import (
 // import spec whose path starts with "." (relative: an .orbit or Markdown
 // import, PLAN.md §2.2, §2.4), Orbit offers the project's .orbit files and
 // every Markdown file under src/, as paths relative to the file; in one
+// whose path starts with "/", as root-relative paths ("/src/…"); in one
 // whose path starts with a tsconfig.json paths alias ("@/" for "@/*"), or
 // with the start of one, it offers them as alias paths. Accepting one in a
 // spec with no alias also inserts the alias, derived from the file name as
@@ -37,6 +38,8 @@ type importPath struct {
 	// of) a tsconfig.json paths alias rather than a relative path.
 	typed    string
 	viaAlias bool
+	// root is set when it's a root-relative path ("/src/…").
+	root bool
 }
 
 // importBlock matches the opening of an import block.
@@ -61,10 +64,11 @@ func importPathAt(f *project.File, off int, prefixes []string) (importPath, bool
 	}
 	q := strings.IndexByte(before, '"')
 	typed := before[q+1:]
-	viaAlias := !strings.HasPrefix(typed, ".") && typed != "" && slices.ContainsFunc(prefixes, func(p string) bool {
+	root := strings.HasPrefix(typed, "/")
+	viaAlias := !root && !strings.HasPrefix(typed, ".") && typed != "" && slices.ContainsFunc(prefixes, func(p string) bool {
 		return p != "" && (strings.HasPrefix(typed, p) || strings.HasPrefix(p, typed))
 	})
-	if !strings.HasPrefix(typed, ".") && !viaAlias {
+	if !strings.HasPrefix(typed, ".") && !viaAlias && !root {
 		return importPath{}, false
 	}
 	head := strings.Fields(before[:q])
@@ -79,7 +83,7 @@ func importPathAt(f *project.File, off int, prefixes []string) (importPath, bool
 	if len(head) > 1 || len(head) == 1 && !token.IsIdentifier(head[0]) {
 		return importPath{}, false
 	}
-	ip := importPath{quote: ls + q, end: off, alias: len(head) == 1, typed: typed, viaAlias: viaAlias}
+	ip := importPath{quote: ls + q, end: off, alias: len(head) == 1, typed: typed, viaAlias: viaAlias, root: root}
 	rest, _, _ := strings.Cut(src[off:], "\n")
 	if i := strings.IndexByte(rest, '"'); i >= 0 {
 		ip.end, ip.closed = off+i, true
@@ -138,7 +142,9 @@ func (ws *workspace) importPathItems(c cursor, trigger string) ([]any, bool) {
 			continue
 		}
 		rel := relImport(c.f.Path, t)
-		if ip.viaAlias {
+		if ip.root {
+			rel = "/" + t
+		} else if ip.viaAlias {
 			if rel = aliasSpelling(ws.proj.AliasSpellings(t), ip.typed); rel == "" {
 				continue
 			}

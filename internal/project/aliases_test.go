@@ -36,8 +36,8 @@ func TestAliasImports(t *testing.T) {
 		}
 	}
 	want := []string{
-		`src/pages/bad.md:2:9: layout: no tsconfig.json paths alias matches "~/layouts/Post.orbit"; use a relative path or add "~/*": ["./src/*"] to compilerOptions.paths`,
-		`src/pages/errors.orbit:3:4: no tsconfig.json paths alias matches "~/components/Card.orbit"; use a relative path or add "~/*": ["./src/*"] to compilerOptions.paths`,
+		`src/pages/bad.md:2:9: layout: no tsconfig.json paths alias matches "~/layouts/Post.orbit"; use a relative or root-relative path ("/src/…"), or add "~/*": ["./src/*"] to compilerOptions.paths`,
+		`src/pages/errors.orbit:3:4: no tsconfig.json paths alias matches "~/components/Card.orbit"; use a relative or root-relative path ("/src/…"), or add "~/*": ["./src/*"] to compilerOptions.paths`,
 		`src/pages/errors.orbit:4:4: component path @lib/X.orbit is outside src/`,
 		`src/pages/errors.orbit:5:4: framework components aren't supported; use a .orbit component with a <script>`,
 		`src/pages/errors.orbit:6:4: no such component: src/components/Nope.orbit`,
@@ -81,6 +81,74 @@ func TestAliasBuild(t *testing.T) {
 		"src/pages/index.orbit": "---\nimport (\n\tCard \"@/components/Card.orbit\"\n\tSame \"../components/Card.orbit\"\n)\n---\n" +
 			"<Card Title=\"a\" /><Same Title=\"b\" />\n",
 		"src/pages/post.md": "---\nlayout: '@/layouts/Post.orbit'\ntitle: Hi\n---\n# Hi\n",
+	})
+	if res := p.generate(); HasErrors(res.Diagnostics) {
+		t.Fatalf("diagnostics: %v", diagStrings(res.Diagnostics))
+	}
+	if out, err := p.goCmd("build", "./..."); err != nil {
+		t.Fatalf("go build: %v\n%s", err, out)
+	}
+}
+
+// TestRootImports: a root-relative import path ("/src/…", like Astro and
+// Vite) in an .orbit import and a Markdown layout resolves from the
+// project root, without any tsconfig.json, and gets the same checks as a
+// relative path.
+func TestRootImports(t *testing.T) {
+	p := newTestProject(t, map[string]string{
+		"src/components/Card.orbit": "---\ntype Props struct{ Title string }\n---\n<p>{props.Title}</p>\n",
+		"src/components/Tag.tsx":    "",
+		"src/layouts/Post.orbit":    mdLayout,
+		"src/content/intro.md":      "Intro.\n",
+		"lib/X.orbit":               "<p>x</p>\n",
+		"src/pages/index.orbit": "---\nimport (\n\tCard \"/src/components/Card.orbit\"\n\tSame \"../components/Card.orbit\"\n" +
+			"\tIntro \"/src/content/intro.md\"\n)\n---\n<Card Title=\"a\" /><Same Title=\"b\" /><Intro />\n",
+		"src/pages/post.md": "---\nlayout: /src/layouts/Post.orbit\ntitle: Hi\n---\n# Hi\n",
+		"src/pages/errors.orbit": "---\nimport (\n\tA \"/lib/X.orbit\"\n\tB \"/src/components/Nope.orbit\"\n\tC \"/src/components/Tag.tsx\"\n" +
+			"\tD \"/src/../../x/Card.orbit\"\n\t\"strings\"\n)\n---\n<A /><B /><D />{strings.ToUpper(\"x\")}\n",
+		"src/pages/bad.md": "---\nlayout: /layouts/Post.orbit\n---\n# Bad\n",
+	})
+	proj, err := Load(p.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proj.Front()
+	var got []string
+	for _, d := range diagStrings(proj.Diagnostics) {
+		if !strings.Contains(d, "unknown component") {
+			got = append(got, d)
+		}
+	}
+	want := []string{
+		`src/pages/bad.md:2:9: layout /layouts/Post.orbit is outside src/`,
+		`src/pages/errors.orbit:3:4: component path /lib/X.orbit is outside src/`,
+		`src/pages/errors.orbit:4:4: no such component: src/components/Nope.orbit`,
+		`src/pages/errors.orbit:5:4: framework components aren't supported; use a .orbit component with a <script>`,
+		`src/pages/errors.orbit:6:4: component path /src/../../x/Card.orbit is outside src/`,
+	}
+	if joinLines(got) != joinLines(want) {
+		t.Errorf("diagnostics:\n%s\nwant:\n%s", joinLines(got), joinLines(want))
+	}
+	idx := proj.byPath()["src/pages/index.orbit"]
+	for i, wantPath := range []string{"src/components/Card.orbit", "src/components/Card.orbit", "src/content/intro.md"} {
+		if im := idx.Analysis.OrbitImports[i]; im.Resolved != wantPath {
+			t.Errorf("import %s resolved to %s, want %s", im.Path, im.Resolved, wantPath)
+		}
+	}
+	if md := proj.byPath()["src/pages/post.md"]; md == nil || md.MD.Layout != "src/layouts/Post.orbit" {
+		t.Errorf("post.md layout: %+v", md)
+	}
+}
+
+// TestRootImportBuild generates and builds a project whose page and
+// Markdown page use root-relative paths.
+func TestRootImportBuild(t *testing.T) {
+	needGo(t)
+	p := newTestProject(t, map[string]string{
+		"src/components/Card.orbit": "---\ntype Props struct{ Title string }\n---\n<p>{props.Title}</p>\n",
+		"src/layouts/Post.orbit":    mdLayout,
+		"src/pages/index.orbit":     "---\nimport Card \"/src/components/Card.orbit\"\n---\n<Card Title=\"a\" />\n",
+		"src/pages/post.md":         "---\nlayout: /src/layouts/Post.orbit\ntitle: Hi\n---\n# Hi\n",
 	})
 	if res := p.generate(); HasErrors(res.Diagnostics) {
 		t.Fatalf("diagnostics: %v", diagStrings(res.Diagnostics))

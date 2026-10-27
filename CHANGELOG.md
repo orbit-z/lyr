@@ -14,6 +14,7 @@ The first release of Orbit: Astro's developer experience, with Go on the server 
 - `set:html` and `set:text` on `<script>` and `<style>` write the content in place, unprocessed, as in Astro (for example a theme script that must run before paint).
 - Markdown pages and imports (`.md`), with typed frontmatter checked against the layout's props and code blocks highlighted at build time.
 - Component imports and Markdown layouts can use `tsconfig.json` path aliases, as in Astro: `Card "@/components/Card.orbit"`.
+- Import paths starting with `/` resolve from the project root, as in Astro and Vite: `Card "/src/components/Card.orbit"`. Accepting an unimported component in tag completion now uses its `tsconfig.json` alias when one covers it.
 
 **Server**
 - Server rendering only: every page renders per request.

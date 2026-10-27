@@ -76,3 +76,79 @@ func TestAliasImports(t *testing.T) {
 		t.Errorf("after restoring the alias: %v", ds)
 	}
 }
+
+// TestRootImports: root-relative import paths ("/src/…", PLAN.md §2.2):
+// completion after `"/` offers them, and definition goes to the file.
+func TestRootImports(t *testing.T) {
+	const page = "src/pages/index.orbit"
+	pageSrc := "---\nimport Card \"/src/components/Card.orbit\"\n---\n<Card />\n"
+	ws := memWorkspace(t, map[string]string{
+		"src/components/Card.orbit": "<p>card</p>\n",
+		"src/components/Box.orbit":  "<p>box</p>\n",
+		"src/content/note.md":       "# Note\n",
+		page:                        pageSrc,
+	})
+	if ds := ws.proj.Diagnostics; len(ds) != 0 {
+		t.Fatalf("diagnostics: %v", ds)
+	}
+	src := "---\nimport Card \"/src/components/Card.orbit\"\nimport Box \"/\"\n---\n<Card /><Box />\n"
+	ws.setSource(page, src)
+	f := ws.byPath[page]
+	off := strings.Index(src, `Box "/`) + len(`Box "/`)
+	items, ok := ws.importPathItems(cursor{ws: ws, f: f, lines: ws.lines[page], path: page, off: off}, "/")
+	if !ok {
+		t.Fatal(`"/: not an import path`)
+	}
+	var got []string
+	for _, it := range items {
+		got = append(got, it.(map[string]any)["label"].(string))
+	}
+	if !slices.Contains(got, "/src/components/Box.orbit") || !slices.Contains(got, "/src/content/note.md") || slices.Contains(got, "/src/components/Card.orbit") {
+		t.Errorf(`"/: %v, want Box and note.md, not the imported Card`, got)
+	}
+
+	ws.setSource(page, pageSrc)
+	f = ws.byPath[page]
+	loc, ok := ws.nativeDefinition(f, classify(f, strings.Index(pageSrc, "/src/")+1))
+	if !ok || loc == nil || !strings.HasSuffix(loc.URI, "/src/components/Card.orbit") {
+		t.Errorf("definition on the root-relative path: %+v %v", loc, ok)
+	}
+}
+
+// TestTagAutoImportAlias: accepting an unimported component's tag inserts
+// its shortest tsconfig.json alias spelling when an alias covers it, as
+// TypeScript's auto-import does, and a relative path otherwise.
+func TestTagAutoImportAlias(t *testing.T) {
+	const page = "src/pages/index.orbit"
+	for _, tc := range []struct {
+		name, tsconfig, want string
+	}{
+		{"alias", `{"compilerOptions": {"paths": {"@/*": ["./src/*"], "@ui/*": ["./src/components/*"]}}}`, `import Card "@ui/Card.orbit"`},
+		{"none", `{}`, `import Card "../components/Card.orbit"`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := "---\n---\n<Ca\n"
+			ws := memWorkspace(t, map[string]string{
+				"tsconfig.json":             tc.tsconfig,
+				"src/components/Card.orbit": "<p>card</p>\n",
+				page:                        src,
+			})
+			f := ws.byPath[page]
+			off := strings.Index(src, "<Ca") + 3
+			c := cursor{ws: ws, f: f, lines: ws.lines[page], path: page, off: off, reg: classify(f, off)}
+			var detail, edit string
+			for _, it := range ws.tagItems(c) {
+				m := it.(map[string]any)
+				if m["label"] == "Card" {
+					detail, _ = m["detail"].(string)
+					if e, ok := m["additionalTextEdits"].([]jsonRaw); ok && len(e) == 1 {
+						edit = string(e[0])
+					}
+				}
+			}
+			if detail != tc.want || !strings.Contains(edit, strings.ReplaceAll(tc.want, `"`, `\"`)) {
+				t.Errorf("Card: detail %q, edit %s; want %s", detail, edit, tc.want)
+			}
+		})
+	}
+}

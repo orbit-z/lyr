@@ -535,7 +535,13 @@ func (ws *workspace) tagItems(c cursor) []any {
 			continue
 		}
 		taken[alias] = true
-		spec := alias + " " + strconv.Quote(relImport(c.f.Path, p))
+		// The shortest tsconfig.json paths alias spelling when one covers
+		// the file, as TypeScript's auto-import does; else a relative path.
+		imp := relImport(c.f.Path, p)
+		if sp := ws.proj.AliasSpellings(p); len(sp) > 0 {
+			imp = sp[0]
+		}
+		spec := alias + " " + strconv.Quote(imp)
 		it := item(alias, kindClass, "1", "import "+spec, componentDoc(info))
 		if e := ws.importEdit(c.f.Path, []string{spec}); e != nil {
 			it["additionalTextEdits"] = []jsonRaw{e}

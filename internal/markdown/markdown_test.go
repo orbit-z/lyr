@@ -73,6 +73,12 @@ Body.
 	if d.HTML != "<p>Body.</p>\n" {
 		t.Errorf("HTML %q", d.HTML)
 	}
+
+	// A root-relative layout resolves from the project root.
+	d = Parse("src/pages/blog/hello.md", "---\nlayout: /src/layouts/Post.orbit\n---\n", Options{}, nil, nil)
+	if s := diags(d); s != "" || d.Layout != "src/layouts/Post.orbit" {
+		t.Errorf("root-relative layout %q, diagnostics:\n%s", d.Layout, s)
+	}
 }
 
 func TestFrontmatterErrors(t *testing.T) {
@@ -92,7 +98,8 @@ func TestFrontmatterErrors(t *testing.T) {
 		{"unclosed", "---\ntitle: x\n", "1:1: the frontmatter has no closing --- line"},
 		{"layout not orbit", "---\nlayout: ./Post.md\n---\n", "2:9: layout ./Post.md must be an .orbit file"},
 		{"layout outside", "---\nlayout: ../../../X.orbit\n---\n", "2:9: layout ../../../X.orbit is outside src/"},
-		{"layout absolute", "---\nlayout: /src/X.orbit\n---\n", `2:9: layout: no tsconfig.json paths alias matches "/src/X.orbit"; use a relative path, starting with ./ or ../`},
+		{"layout root-relative outside", "---\nlayout: /layouts/X.orbit\n---\n", "2:9: layout /layouts/X.orbit is outside src/"},
+		{"layout no alias", "---\nlayout: ~/X.orbit\n---\n", `2:9: layout: no tsconfig.json paths alias matches "~/X.orbit"; use a relative or root-relative path ("/src/…"), or add "~/*": ["./src/*"] to compilerOptions.paths`},
 		{"nested", "---\nauthor:\n  name:\n---\n", `3:8: frontmatter key "author.name" has no value; delete the line or give it a value`},
 		{"multibyte", "---\ntitré: x\n---\n", `2:1: frontmatter key "titré" can't become a Go field name; use letters, digits, - and _, starting with a letter`},
 		{"column after multibyte", "---\na: [é, !!str x]\n---\n", "2:9: YAML tags (!!str) aren't supported in frontmatter"},

@@ -410,6 +410,23 @@ src/pages/index.orbit:2:8: component Card is imported but not used; remove the i
 
 The path must stay inside `src/` (`component path ../../X.orbit is outside src/`).
 
+#### Root-relative imports
+
+A path that starts with `/` is resolved from the project root, as in Astro and Vite, so the same import works from any file:
+
+```orbit file=src/pages/rooted.orbit
+---
+import (
+	Base "/src/layouts/Base.orbit"
+)
+---
+<Base title="Rooted">
+  <h1>Hello</h1>
+</Base>
+```
+
+The same rules apply as for a relative path: the file must exist and be inside `src/` (`"/lib/X.orbit"` is outside it), and a `.tsx`, `.jsx`, `.svelte` or `.vue` file is an error. A Markdown `layout` and a Markdown import can be root-relative too.
+
 #### Import aliases
 
 Instead of a relative path, you can use an alias from `compilerOptions.paths` in your `tsconfig.json`, as in Astro. `orbit new` sets up `@/` for `src/`:
@@ -435,7 +452,7 @@ import (
 
 Aliases follow TypeScript's rules: a `*` in the key matches the rest of the path, the most specific key (the longest prefix) wins, and when an entry lists several targets, the first one that exists is used. Paths are relative to `baseUrl` when it's set, otherwise to the `tsconfig.json`. A path that no key matches resolves against `baseUrl`, if there is one. `extends` is followed for local files and for packages in `node_modules/`. Your `<script>` imports use the same aliases, because esbuild reads the same file.
 
-A path that doesn't start with `./` or `../` and ends in `.orbit` or `.md` is an alias, so it must match one, and the file it points to must be inside `src/`:
+A path that doesn't start with `./`, `../` or `/` and ends in `.orbit` or `.md` is an alias, so it must match one, and the file it points to must be inside `src/`:
 
 ```orbit file=src/pages/aliased.orbit expect-error
 ---
@@ -447,10 +464,10 @@ import (
 ```
 
 ```text
-src/pages/aliased.orbit:3:7: no tsconfig.json paths alias matches "~/layouts/Base.orbit"; use a relative path or add "~/*": ["./src/*"] to compilerOptions.paths
+src/pages/aliased.orbit:3:7: no tsconfig.json paths alias matches "~/layouts/Base.orbit"; use a relative or root-relative path ("/src/…"), or add "~/*": ["./src/*"] to compilerOptions.paths
 ```
 
-A component imported under two spellings (`"@/components/Card.orbit"` and `"../components/Card.orbit"`) is the same component. Go package paths such as `"strings"` never go through aliases, since they don't end in `.orbit` or `.md`.
+A component imported under several spellings (`"@/components/Card.orbit"`, `"/src/components/Card.orbit"` and `"../components/Card.orbit"`) is the same component. Go package paths such as `"strings"` never go through aliases, since they don't end in `.orbit` or `.md`.
 
 Components can import each other in cycles; see [Mutual recursion](#mutual-recursion).
 

@@ -196,7 +196,7 @@ func (s *anState) parseImports() {
 			full.Start = nameSpan.Start
 		}
 		ext := strings.ToLower(path.Ext(p))
-		relative := IsRelativeImport(p)
+		relative := IsPathImport(p)
 		switch {
 		case ext == ".orbit" || IsMarkdown(ext):
 			s.orbitImport(name, nameSpan, p, pathSpan, full)
