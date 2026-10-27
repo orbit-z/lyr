@@ -4956,6 +4956,8 @@ Dependencies:
 - **Typed form actions** (user idea, like Astro Actions): a typed, validated handler for a form or `fetch` call, declared next to the page or in `src/actions`, with an input struct decoded and validated (a Zod-like Go validator such as Zog, or struct tags, chosen then; ask before adding a dependency), errors returned to the page, and progressive enhancement without JS. Until then, users write a plain handler in `cmd/server` and render the response with `orbit.RenderComponent`.
 
 
+- **`orbit.A` without per-type cases** (postponed by the user, 2026-10-27): `A[T]` (and `Opt[T]`) could read a value's underlying kind with `reflect.TypeFor[T]().Kind()` and copy its bits into a numeric/bool/string slot with `unsafe`, making every kind 0-alloc in an `AttrList` with one shared code path (instead of today's 9 unboxed `Opt` kinds; all 19 as cases cost +1.9 MB and ~3–4 ms per props edit, §2.6). Types with `String`/`Error`/`Format` methods would still box. Needs a table test over every kind and measurements (allocs, binary size, `bench/devloop`).
+
 ### 12.1 nyth dogfood log
 One line per friction point the `nyth` port (`~/Projects/nyth`, branch `orbit-port`) hits in Orbit: what hurt, where, and the outcome (**fixed**, **specced**, **accepted** as a deliberate difference, **workaround**, **open**). Added by the coordinator from each port batch's "Orbit friction" report; skimmed by the user at checkpoints to pick what becomes a feature. Older items (before 2026-10-27) live in the sections they produced (§2.5–§2.9, §3.6, §4c–§4h, §5d, §5e).
 
