@@ -63,6 +63,7 @@ When independent tasks can run in parallel, launch them in **one message**. If p
 - If it deviates from the plan, either fix it (small) or send it back to the same agent with concrete feedback (SendMessage).
 - Keep `PLAN.md` accurate when a design decision changes. Ask the user before changing anything they explicitly decided (listed below).
 - Give the user short progress updates per milestone.
+- After each `nyth` port batch, add its "Orbit friction" items to the dogfood log, PLAN §12.1 (one row each: friction, where, outcome).
 
 ## User decisions (don't change without asking)
 - **Files**: custom `.orbit` format: Go frontmatter between `---` lines, then the template. Components are imported with `Alias "./X.orbit"`.
