@@ -67,7 +67,7 @@ func TestFiles(t *testing.T) {
 	if !strings.Contains(string(files["src/layouts/Base.orbit"]), "<style>") {
 		t.Error("Base.orbit has no <style>")
 	}
-	for _, s := range []string{`"allowImportingTsExtensions": true`, `"moduleResolution": "Bundler"`, `"include": ["src/**/*.ts", "orbit_gen/types/*.d.ts"]`, `"rootDirs": [".", "orbit_gen/types"]`} {
+	for _, s := range []string{`"allowImportingTsExtensions": true`, `"moduleResolution": "Bundler"`, `"include": ["src/**/*.ts", "orbit_gen/types/*.d.ts"]`, `"rootDirs": [".", "orbit_gen/types"]`, `"paths": { "@/*": ["./src/*"] }`} {
 		if !strings.Contains(string(files["tsconfig.json"]), s) {
 			t.Errorf("tsconfig.json lacks %s", s)
 		}

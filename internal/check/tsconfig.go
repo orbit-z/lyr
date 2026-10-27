@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/orbit-z/orbit/internal/tsconfig"
 )
 
 // UserTsconfig is what the generated tsconfig needs from the user's root
@@ -38,56 +40,8 @@ func ReadUserTsconfig(root string) (*UserTsconfig, error) {
 		return nil, err
 	}
 	u := &UserTsconfig{}
-	_ = json.Unmarshal(stripJSONC(data), u)
+	_ = json.Unmarshal(tsconfig.StripJSONC(data), u)
 	return u, nil
-}
-
-// stripJSONC removes // and /* */ comments and trailing commas outside
-// strings.
-func stripJSONC(data []byte) []byte {
-	out := make([]byte, 0, len(data))
-	for i := 0; i < len(data); i++ {
-		c := data[i]
-		switch {
-		case c == '"':
-			j := i + 1
-			for j < len(data) && data[j] != '"' {
-				if data[j] == '\\' {
-					j++
-				}
-				j++
-			}
-			j = min(j, len(data)-1)
-			out = append(out, data[i:j+1]...)
-			i = j
-		case c == '/' && i+1 < len(data) && data[i+1] == '/':
-			for i < len(data) && data[i] != '\n' {
-				i++
-			}
-			if i < len(data) {
-				out = append(out, '\n')
-			}
-		case c == '/' && i+1 < len(data) && data[i+1] == '*':
-			end := strings.Index(string(data[i+2:]), "*/")
-			if end < 0 {
-				return out
-			}
-			i += end + 3
-		case c == ']' || c == '}':
-			// Drop a trailing comma before the closer.
-			k := len(out) - 1
-			for k >= 0 && (out[k] == ' ' || out[k] == '\t' || out[k] == '\n' || out[k] == '\r') {
-				k--
-			}
-			if k >= 0 && out[k] == ',' {
-				out = append(out[:k], out[k+1:]...)
-			}
-			out = append(out, c)
-		default:
-			out = append(out, c)
-		}
-	}
-	return out
 }
 
 // fromCheckDir rewrites a root-relative tsconfig glob to be relative to

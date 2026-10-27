@@ -202,7 +202,7 @@ With an up-to-date `orbit_gen/`, gopls reads the generated code of every file yo
 
 **Diagnostics** appear at their position in the `.orbit` file as you type, with no save needed: Orbit's own (template syntax errors, unknown props, misused directives) and gopls's Go type errors. Changes are visible across files before you save: add a field to `Card`'s `Props`, and the new attribute is accepted in a page right away.
 
-**Import paths**: inside the quotes of a frontmatter import, once you type `./` or `../`, completion offers the project's `.orbit` files and the Markdown files under `src/`, as paths relative to the file you're in (the file itself and those you've already imported aren't offered). In an import with no alias, `import "./`, accepting one also adds the alias: `import Post "./post.md"`.
+**Import paths**: inside the quotes of a frontmatter import, once you type `./` or `../`, completion offers the project's `.orbit` files and the Markdown files under `src/`, as paths relative to the file you're in (the file itself and those you've already imported aren't offered). In an import with no alias, `import "./`, accepting one also adds the alias: `import Post "./post.md"`. After a `tsconfig.json` alias prefix such as `"@/`, it offers the same files as alias paths (`"@/components/Card.orbit"`); go to definition and hover work on alias paths as on relative ones (see [Import aliases](components.md#import-aliases)).
 
 **TypeScript** in `<script>` blocks, through TypeScript 7: see [TypeScript in `<script>` blocks](#typescript-in-script-blocks).
 

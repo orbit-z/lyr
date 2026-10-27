@@ -41,8 +41,10 @@ func (d *Doc) errorf(off int, format string, args ...any) {
 // frontmatter, its layout path (not checked against the project) and its
 // body, converted to HTML with options o. resolve tells it about the
 // project's other Markdown files, for links (nil: every link to a .md file
-// is missing). It never fails: problems are d.Diagnostics.
-func Parse(p, src string, o Options, resolve Resolver) *Doc {
+// is missing); aliases resolves a layout path that isn't relative
+// (tsconfig.json paths, PLAN.md §2.2; nil: none). It never fails: problems
+// are d.Diagnostics.
+func Parse(p, src string, o Options, resolve Resolver, aliases compiler.ImportResolver) *Doc {
 	d := &Doc{Path: p, Src: src, Lines: compiler.NewLineIndex(src)}
 	ySpan, block, unclosed := splitFrontmatter(src)
 	body := []byte(src)
@@ -53,7 +55,7 @@ func Parse(p, src string, o Options, resolve Resolver) *Doc {
 			fp := &fmParser{src: src, lines: d.Lines}
 			fields := fp.parse(ySpan)
 			d.Diagnostics = append(d.Diagnostics, fp.diags...)
-			d.setFields(fields)
+			d.setFields(fields, aliases)
 		}
 		// Blank the frontmatter out, keeping line breaks: goldmark sees
 		// blank lines, and its offsets stay file offsets.
@@ -70,7 +72,7 @@ func Parse(p, src string, o Options, resolve Resolver) *Doc {
 }
 
 // setFields takes the layout key out of the frontmatter.
-func (d *Doc) setFields(fields []*Field) {
+func (d *Doc) setFields(fields []*Field, aliases compiler.ImportResolver) {
 	for _, f := range fields {
 		if f.Key != "layout" {
 			d.Fields = append(d.Fields, f)
@@ -82,18 +84,19 @@ func (d *Doc) setFields(fields []*Field) {
 			continue
 		}
 		d.LayoutRaw, d.LayoutPos = v.Raw, v.Pos
-		switch {
-		case !strings.HasPrefix(v.Raw, "./") && !strings.HasPrefix(v.Raw, "../"):
-			d.errorf(v.Pos, "layout %s must be a path relative to this file, starting with ./ or ../", v.Raw)
-		case path.Ext(v.Raw) != ".orbit":
+		if path.Ext(v.Raw) != ".orbit" {
 			d.errorf(v.Pos, "layout %s must be an .orbit file", v.Raw)
+			continue
+		}
+		// A relative path, or a tsconfig.json paths alias (PLAN.md §2.2).
+		resolved, ok := compiler.ResolveImportPath(d.Path, v.Raw, aliases)
+		switch {
+		case !ok:
+			d.errorf(v.Pos, "layout: %s", compiler.NoAliasError(v.Raw))
+		case !strings.HasPrefix(resolved, "src/"):
+			d.errorf(v.Pos, "layout %s is outside src/", v.Raw)
 		default:
-			resolved := path.Join(path.Dir(d.Path), v.Raw)
-			if !strings.HasPrefix(resolved, "src/") {
-				d.errorf(v.Pos, "layout %s is outside src/", v.Raw)
-			} else {
-				d.Layout = resolved
-			}
+			d.Layout = resolved
 		}
 	}
 }

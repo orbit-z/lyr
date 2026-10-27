@@ -116,6 +116,7 @@ title := strings.ToUpper(props.Title)
 - **Unused component import** (user decision): an `.orbit` import whose alias the template never uses is an Orbit error at the alias: `src/pages/index.orbit:3:5: component Card is imported but not used; remove the import`.
 - **`.orbit` imports**: the alias is required, and the path is relative to the file. An import without one, or with `_`, is an error suggesting one from the file name: `a component import needs an alias: Card "./Card.orbit"` (decided by rule: simplest). The alias must start with an uppercase letter, because a lowercase tag is always an HTML element: `src/pages/index.orbit:5:5: component alias card must start with an uppercase letter (rename it to Card)` (decided by rule: simplest). It's rewritten to the component's generated *declaration* package (`orbit_gen/decl/...`, §3.1), so other components are ordinary Go imports. Components may import each other in cycles (mutual recursion), because calls go through the declaration package (§3.1). The one remaining cycle error is two `Props` types referencing each other's packages (e.g. `A.Props` has a `B.Props` field and vice versa); it's rare because declaration packages hold only `Props` and its dependencies, and it's reported with the full chain.
 - **No framework components.** A frontmatter import of a `.tsx`, `.jsx`, `.svelte` or `.vue` file is an error at the import path: `src/pages/index.orbit:4:5: framework components aren't supported; use a .orbit component with a <script>`. Orbit has no framework islands, by design (§12). Any other relative path (`./`, `../`) that doesn't end in `.orbit`, such as `"./util.ts"`, is an error too: `only .orbit components can be imported by relative path; import client modules from a <script>` (decided by rule: simplest; the framework message would mislead for a plain `.ts` file). Go packages are imported by their import paths, as usual.
+- **Import aliases** (user decision 2026-10-27, **implemented**; minor choices in `docs/DECISIONS.md` "Import aliases"): an `.orbit` or Markdown import path (and a Markdown `layout`, §2.4) that ends in `.orbit`/a Markdown extension and doesn't start with `./`/`../` is a `tsconfig.json` `compilerOptions.paths` alias, like Astro: `Card "@/components/Card.orbit"` with `"paths": { "@/*": ["./src/*"] }`. TypeScript's semantics: exact keys, then the longest prefix; targets in order, the first existing file wins; relative to `baseUrl` (relative to the config that sets it), else to the config that sets `paths`; with `baseUrl`, an unmatched path resolves against it. `extends` (string or array) is followed for local files and `node_modules/<pkg>` packages. Read by `internal/tsconfig` (JSONC; `check` reuses its `StripJSONC`) once per `project.Load`, passed to the analyzer as `FileInfo.Aliases` (`compiler.ImportResolver`); `OrbitImport.Resolved` is the resolved path, so two spellings are one component (unused/cycle/index logic unchanged). No match: `no tsconfig.json paths alias matches "@/x.orbit"; use a relative path or add "@/*": ["./src/*"] to compilerOptions.paths` at the path; the result must be inside `src/`; a missing file is `no such component: …`; `.tsx`… stays the framework error. `orbit dev`: a change to the root `tsconfig.json` or a file in its `extends` chain is a full project reload (root `tsconfig.*.json` files are watched). `orbit new` scaffolds the `@/*` path (starter imports stay relative).
 - **Recursion**: inside a component, `<Self …>` renders the component itself, like Astro's `<Astro.self>`, e.g. a tree or nested comments. Mutual recursion (`A` renders `B`, which renders `A`) also works. Termination is the user's responsibility (usually an `{if}` around the recursive call). The render-depth guard is **always on**, in dev and prod: a Go stack overflow is fatal and can't be recovered, so a depth over 1000 returns an error naming the component stack instead. It costs an int increment per component render.
 
 ### 2.3 Template grammar
@@ -190,7 +191,7 @@ title := strings.ToUpper(props.Title)
 - Elsewhere under `src/` it's compiled **only when imported** (Astro behavior), so a stray `README.md` never breaks generate.
 - Imported from an `.orbit` frontmatter as `Post "./post.md"`: the same alias, relative-path, inside-`src/` and unused-import rules as `.orbit` imports (§2.2). The relative-import error becomes `only .orbit and .md files can be imported by relative path; …` (update `components.md`/`troubleshooting.md` with the implementation, since docstest asserts the current wording). A `.md` can't import anything; `layout` is its only dependency.
 
-**Frontmatter (Q: format).** YAML between `---` lines, parsed with `go.yaml.in/yaml/v3` (the YAML organization's maintained continuation of `gopkg.in/yaml.v3`; CLI-only dependency, to be approved), using `yaml.Node` so every key and value has a line:col. Positions are offset by the opening fence, so errors read `src/pages/blog/hello.md:L:C`. Anchors/aliases, tags and multi-document streams are errors (simplest). `layout` is consumed by Orbit: a path relative to the `.md`, ending in `.orbit`, inside `src/` (`layout ../layouts/Post.orbit: no such file` at the value). A key with no value is an error. Keys become Go field names with the route-param rules (§2.2: PascalCase plus initialisms, `[A-Za-z][A-Za-z0-9_-]*`, collisions are errors at the second key).
+**Frontmatter (Q: format).** YAML between `---` lines, parsed with `go.yaml.in/yaml/v3` (the YAML organization's maintained continuation of `gopkg.in/yaml.v3`; CLI-only dependency, to be approved), using `yaml.Node` so every key and value has a line:col. Positions are offset by the opening fence, so errors read `src/pages/blog/hello.md:L:C`. Anchors/aliases, tags and multi-document streams are errors (simplest). `layout` is consumed by Orbit: a path relative to the `.md` (or a `tsconfig.json` alias, §2.2, implemented 2026-10-27), ending in `.orbit`, inside `src/` (`layout ../layouts/Post.orbit: no such file` at the value). A key with no value is an error. Keys become Go field names with the route-param rules (§2.2: PascalCase plus initialisms, `[A-Za-z][A-Za-z0-9_-]*`, collisions are errors at the second key).
 
 **Generated packages.** A `.md` gets the usual decl/impl pair (§3.1), with an `_md` suffix on the last segment so it never collides with a sibling `.orbit`: `src/pages/blog/hello.md` → `orbit_gen/{decl,impl}/pages/blog/hello_md` (packages `hello_md`, `hello_md_impl`); `404.md` → `p_404_md`. Component ID `<Name>-<hash8>` as usual (§3.4).
 
@@ -587,7 +588,7 @@ type Props struct {
 - **Measured** (Ryzen 7 9700X, 16 threads, Go 1.27.3, load average 3–4): `BenchmarkIf` (`GOMAXPROCS=1`, dynamic string): lowered 9.4 ns / 0 allocs (condition false: 0.6 ns) vs `Attr("rel", If(c, s))` 35 ns / 1 alloc (16 B) (false: 12.8 ns, 0). `bench/devloop -dev -kinds body` (200 files, 5 runs, median binary ready; before, after, before, after): 195, 179, 176, 179 ms; the check stage 0.9 ms in all: no measurable change (the synthetic project has no `If`, so no `Uses` map).
 
 ### 2.7 Trusted CSS values (`orbit.CSS`)
-**Status: Proposed** (2026-10-26, from the `nyth` assessment; (Q) points open).
+**Status: Accepted** (2026-10-27; user answers, as recommended: (Q1) a, the `orbit.CSS` marker type with constants exempt; (Q2) a, the LSP shows the warning from its background typed check). Prompted again by the `nyth` book-page port (`style={…}` warnings on every build).
 
 **Why**: the compiler warns on every `style={expr}` (§2.3, "Security warnings"), because attribute escaping doesn't make a value safe as CSS. `nyth` has 6 `style={…}` expressions, all trusted: `--reader-*` custom properties built by `readerStyle(settings)` from validated reader settings (2 layouts), `background-color:${shown.color}` on a media placeholder, and 3 progress bars (`` `width:${card.track}%` ``). Each would print a warning on every `orbit build`, `orbit dev` regenerate and `orbit check`, with no way to say "this one is fine". `set:html` has `orbit.HTML` and URL attributes have `orbit.URL` for the same purpose. Also, the check is syntactic today (`securityWarning` in `internal/compiler/validate.go`, at parse time): even a constant, `style={"display: none"}`, warns.
 
@@ -651,6 +652,245 @@ renders `<html lang="en" style="--reader-size:18px;--reader-leading:1.60">`, wit
 #### Out of scope
 - A trusted JavaScript type for `on*={…}` (`html/template` has `template.JS`); scripts and `orbit.JSON` stay the recommended way to pass data.
 - A CSS sanitizer or builder API; Astro's `style` object form.
+
+### 2.8 Dynamic tags and optional wrappers
+
+**Status: Accepted** (2026-10-27, from the `nyth` port). User answers, as recommended: (Q1) a, a capitalized variable in scope is a dynamic tag (Astro's form); (Q2) a, `orbit.Fragment` renders no element; (Q3) the rejected-name list decided by rule as written below.
+
+**Why**: Astro renders a capitalized variable that holds a string as an HTML element (`const Tag = href ? "a" : "button"; <Tag …>`), and one that holds `Fragment` as no element at all (`const Wrap = cond ? "div" : Fragment`). Orbit has neither: a capitalized tag must be an import alias (§2.3), so ports copy the markup into `{if}…{else}…{/if}`. In `nyth`:
+- **2 explicit dynamic tags**, both ported by duplication: `EmptyState` (`const Heading = \`h${level}\``, ported as two copies of the heading, `h3`/`h2`) and `Choice` (`const Wrap = wrapped ? "div" : Fragment`, ported by duplicating the whole `<label>`/`<input>`/`<span>` block, 9 lines, in both branches of a 77-line component).
+- **4 ternaries that pick between two tags around the same content**, which a dynamic tag would collapse: `Button` (`<button>`/`<a>` around `<slot />`, duplicated in Astro too and in the port), `TagPill` (`<a>`/`<span>`, duplicated in the port), `ReaderNavBar` (`<a>`/`<span>` around `{body}`), `BookActions` (`<button>`/`<a>` around the same icon). Two more are an optional wrapper with an extra child (`NovelCard` and the book page: `<h1>` vs `<hgroup><h1/><p/></hgroup>`).
+- **1 dynamic component** (`MediaBlock`: `const Renderer = RENDERERS[item.kind]`, a one-row kind → component table). Out of scope, see the end.
+
+The cost of the duplication is maintenance (two copies of the attributes and children drift), not speed: duplicated static markup is the fastest form (below).
+
+#### End-to-end example (recommended shape: (Q1) a, (Q2) a)
+`src/components/Button.orbit` (the port today has an `{if}` with two copies):
+```orbit
+---
+type Props struct {
+	Variant, Size, Class, Type string
+	Attrs                      orbit.RestAttrs
+}
+
+link := props.Attrs.Has("href")
+Tag := orbit.Cond(link, "a", "button")
+kind := cmp.Or(props.Type, "button")
+---
+<Tag {...props.Attrs} type={orbit.If(!link, kind)} class:list={ui.ButtonClass(props.Variant, props.Size, link), props.Class}>
+  <slot />
+</Tag>
+```
+`src/components/EmptyState.orbit`: `Heading := orbit.Cond(props.Level == 3, "h3", "h2")`, then `<Heading class="font-serif text-lg font-semibold">{props.Heading}</Heading>`.
+
+`src/components/Choice.orbit` (optional wrapper):
+```orbit
+Wrap := orbit.Cond(wrapped, "div", orbit.Fragment)
+---
+<Wrap class={props.Class}>
+  <label {...props.RowAttrs} class:list={classes.Row, props.Class: !wrapped}>
+    …
+  </label>
+  {if parts.Error}<p …>…</p>{/if}
+</Wrap>
+```
+With `wrapped` false, `<Wrap>`'s own tags and attributes are not written; its children are (Astro's `Fragment` behavior: its props are dropped).
+
+Generated code for `<Tag …>` (hook flavor; line directives omitted). The tag expression is a call site, evaluated once at the start tag; static attributes stay pre-escaped `Raw` constants, typed writes and lowered `orbit.If` work as on any element:
+```go
+orbit__t1 := orbit__w.TagOpen(Tag, true) // validates, writes "<a" or "<button"; true: the tag has content
+if orbit__t1.Attrs() {                   // false for orbit.Fragment (and after an error)
+	orbit__w.SpreadRest(&props.Attrs, false)
+	{ orbit__c, orbit__v := !link, kind; if orbit__c { orbit__w.Raw(` type="`); orbit__w.String(orbit__v); orbit__w.Raw(`"`) } }
+	orbit__w.Raw(` class="`) … orbit__w.RestClass(&props.Attrs) … orbit__w.Raw(`" data-o-5c7d1e2f>`)
+}
+… children …
+orbit__w.TagClose(orbit__t1) // "</a>"; nothing for a void element or a fragment
+```
+
+#### Rules
+- **What is a dynamic tag** ((Q1) a): a capitalized tag name (`<Tag>`, `</Tag>`) that is **not** an import alias, `Self` or `Fragment`, and that names a variable or constant **in scope**: declared in the frontmatter (a statement or a hoisted `const`/`var`) or by an enclosing `{for}`/`{if}`/`{switch}` header. Orbit decides this syntactically, from the object resolution of the analyzer's existing parse of body plus template (the same parse that finds `locals` and `ctx` uses, §3.3), so pass 1, tolerant mode and the dev loop need no type information. A name that resolves to nothing keeps today's error, with a hint: `unknown component <Crad>: no .orbit import with this alias (or declare a variable Crad for a dynamic tag)`. A name that is both an import alias and a variable is an Orbit error at the variable: `Card is both a component import and a variable; rename one`. Dotted names (`<props.As>`) aren't dynamic tags (decided by rule: simplest; Astro's docs show the capitalized-variable form only); write `Tag := props.As`.
+- **Type**: the operand must be a `string` (untyped string constants included; `orbit.Cond` returns `string`). Anything else is Go's own error at the tag name, through its line directive (`cannot use Tag (variable of type int) as string value in argument to orbit__w.TagOpen`), not rewritten (decided by rule: simplest, like `set:html`'s `orbit.HTML` error, §2.3). A named string type needs a conversion (`string(t)`).
+- **Evaluated once**, at the start tag, in source order with the attributes (Astro evaluates it once when building the call).
+- **Runtime check of the name** (`TagOpen`), a render error at the tag's `.orbit` position when it fails, nothing written (decided by rule: Orbit's own `Spread` rejects invalid attribute names the same way, §4; Astro instead silently truncates at the first unsafe character, which hides injection attempts):
+  - Valid: an ASCII letter, then ASCII letters, digits, `-`, `_`, `.`, `:` (covers HTML, SVG/MathML and custom-element names). `""` is an error: `dynamic tag Tag is empty; use orbit.Fragment for no element` (Astro behavior: an empty or undefined tag throws "Unable to render Tag").
+  - **Rejected** names (any ASCII case), error `<script> can't be a dynamic tag`: `script`, `style` (Orbit extracts and bundles them at build time, §5, and their content is raw text), `textarea`, `title` (RCDATA: the children were compiled as markup), `head` (head injection is placed at the static `</head>`, §4), and the other raw-text elements `xmp`, `iframe`, `noembed`, `noframes`, `plaintext`. Decided by rule (simplest): exactly the names whose content Orbit's parser or the HTML parser treats differently from normal children.
+  - **Void** names (the §2.3 list): written with no end tag. When the template gives the tag content (non-whitespace children, or `set:html`/`set:text`), codegen passes `true` and a void name is a render error: `dynamic tag <img> is a void element and can't have children` (Astro writes `<img>…</img>`, which the browser repairs into something else; decided by rule: simplest correct). A self-closed or empty `<Tag />` with a non-void name renders `<div></div>`, as for static tags.
+  - Written as given (no case folding), like Astro.
+- **`orbit.Fragment`** ((Q2) a): an untyped string constant, a sentinel that is not a valid tag name (value `"#fragment"`, unexported in meaning: compare with `==`, don't print it). With it, the start tag, the attributes and the end tag are skipped, and the children render. The attribute expressions are **not evaluated** (they're inside the `if`; decided by rule: simplest, like `{if}`; in Astro they are evaluated then dropped, a difference only for expressions with side effects or panics; documented).
+- **Attributes**: everything an HTML element takes (§2.3): static (pre-escaped at build time), `{expr}` (typed writes), shorthand, `{...spread}` (`orbit.Attrs`, `orbit.AttrList` from §2.9, `{...props.Attrs}` with the §2.5 class merge), `class:list` (merged with `class`), `orbit.If` lowering (§2.6), `orbit.JSON`, the URL filter and the true/false rule (both by attribute name, so unchanged). `slot="x"` routes it to a named slot like an element. `set:html`/`set:text` work. `server:*`/`client:*` are errors as on elements (`server:defer only works on .orbit components`); `is:inline`/`is:global`/`set:json` are errors (they're for static `<script>`/`<style>`).
+- **Scoped CSS**: the file's scope attribute is always written last, as on elements, whatever the runtime name (decided by rule: Astro behavior; verified with `@astrojs/compiler-rs` 0.4.0, which passes `data-astro-cid-*` to every dynamic tag). So `h2 { … }` in the component's `<style>` matches `<Heading>`. The static "never scoped" list (`meta`, `link`, …) isn't applied (the name is unknown at build time).
+- **Whitespace** (`compressHTML`): the children get the inline, non-verbatim context, the HTML-safe choice in `"html"` mode; `"jsx"` mode doesn't depend on the element. A dynamic `pre` therefore gets no verbatim treatment (decided by rule: Astro behavior, its compiler can't see the name either); the docs say: use a static `<pre>`.
+- **`<head>`**: rejected above, so `HeadEnd` stays static.
+- **Typed pass**: one new call-site kind (`SiteTag`) so the operand is a Go region with a line directive; no lowering. Pass 1 and the typed pass emit the same code, so the byte-identical test needs only new cases.
+- **Build flavor** (§3.5): nothing changes (no call).
+- **LSP**: the name in `<Tag` is a Go region: hover, definition, references and rename go to the variable through gopls. Tolerant mode also emits `_ = Tag` at the end tag so a rename edits `</Tag>` too (no cost outside the editor). Attribute completion on a dynamic tag offers the global HTML attributes (as for an unknown element). Completion after `<` offering in-scope capitalized variables: later (out of scope).
+- **`orbit fmt`**: nothing new (tag names are kept as written; the operand is an identifier).
+- **VS Code grammar and the docs Chroma lexer**: nothing new: a capitalized tag is already highlighted as a component, which is how Astro's tooling shows it too. A grammar snapshot case is added.
+- **Errors in `{for}`**: a loop variable works (`{for _, T := range tags}<T>…</T>{/for}`).
+
+#### Runtime API (additions, stdlib only)
+```go
+// Fragment is the dynamic-tag value for "no element": <Wrap> with Wrap ==
+// orbit.Fragment writes its children only (Astro's Fragment).
+const Fragment = "#fragment"
+
+// DynTag is a dynamic tag between TagOpen and TagClose (generated code only).
+type DynTag struct{ /* name, kind */ }
+func (t DynTag) Attrs() bool                                 // write the attributes and ">"
+func (w *Writer) TagOpen(name string, content bool) DynTag  // validates, writes "<name"
+func (w *Writer) TagClose(t DynTag)                         // writes "</name>" for a non-void element
+```
+
+#### (Q) points
+- **(Q1) Syntax.**
+  - (a) **Recommended**: Astro's form, a capitalized variable (`Tag := …; <Tag>…</Tag>`). Ports are literal, editor highlighting and `orbit fmt` need nothing, and the variable is a normal Go identifier for gopls. Costs: capitalized locals are unusual Go style (legal, and unexported in a function body); the "unknown component" check has to look at declarations (cheap, the analyzer already resolves identifiers); a user can't tell from the tag alone whether `<Card>` is an import or a variable (the alias/variable clash is an error, so it's always one of them).
+  - (b) An expression in the tag, `<{tag} …>…</{tag}>` (lowercase Go variables, any expression, no scope check). Unambiguous, but new grammar everywhere (parser: `<{` is text today; `orbit fmt`; the LSP's regions; the VS Code grammar; the Chroma lexer), the end tag repeats an expression, and no Astro counterpart.
+  - (c) A built-in element, `<orbit:element tag={t}>` (Svelte's `<svelte:element this>`, Vue's `<component :is>`): no new grammar beyond a reserved name, explicit, but verbose, `tag` becomes a reserved attribute on it, and still not Astro.
+  - (d) Docs only: keep `{if}`/`{else}` (fastest, below; the duplication stays).
+- **(Q2) The optional wrapper.**
+  - (a) **Recommended**: a sentinel constant `orbit.Fragment` (Astro's spelling), and `""` is an error (Astro throws for an empty/undefined tag). A missing default (`Tag := props.As` with `As` unset) is caught instead of silently dropping the element and its attributes.
+  - (b) `""` means no element (Go's "useful zero value"; `orbit.Fragment = ""` as a readable alias). Simpler, but the trap above renders the children bare with no error.
+  - (c) No wrapper support: dynamic tags must name an element; optional wrappers stay `{if}`s (`Choice` keeps its duplication).
+- **(Q3) Rejected names.** (a) **Recommended**: the list above (raw-text, RCDATA and `head`), a render error. (b) Allow them with their static meaning lost (a dynamic `<script>` wouldn't be bundled): a trap. (c) Allow only a fixed allowlist (`a button div span h1…h6 p section article li …`): safer, but custom elements and SVG need an escape hatch.
+
+#### Cost (prototype `proto_tag.go`, `proto_test.go`, `proto2_test.go`: hand-written generated code with the real `Writer`)
+| Shape | ns/op | allocs |
+|---|---|---|
+| `Button`: duplicated markup in `{if}`/`{else}` (the port today) | 21 | 0 |
+| `Button`: `<Tag>` with `TagOpen` (one-pass check + `switch`) and two lowered `orbit.If` attributes | 38 | 0 |
+| same, naive check (`EqualFold` loops over both lists) | 48 | 0 |
+| `EmptyState` heading, `{if}` with two copies | 12.5 | 0 |
+| `Heading := "h" + strconv.Itoa(level)` then `<Heading>` | 29 | 0 (1 alloc / 2 B if the name escapes; see below) |
+| `<Wrap>` as `div` / `orbit.Fragment`, alternating | 17 | 0 |
+
+- **0 allocations**, in dev and build. One trap, found by the prototype: if `TagOpen` passes `name` to `fmt.Errorf` on its error path, the name escapes and a concatenated tag (`"h" + strconv.Itoa(level)`) allocates on every call. The error path must copy it (`string([]byte(name))`); `TestDynTagAllocs` asserts 0 for a concatenated name.
+- About 10–17 ns per dynamic tag over static markup: the name check and the `Attrs()` branch. A typed-pass fold of `orbit.Cond(c, "a", "button")` with constant names into two static branches would remove it; not proposed (pay-at-build-time would say yes, but nothing measured asks for it; possible later like `RestIf`).
+- **Codegen and dev loop**: one node kind in codegen and one call-site kind; the scope check reuses the analyzer's parse. No measurable change expected; checked with `bench/devloop -dev -kinds body` at implementation.
+
+#### Tests (what must exist)
+- Compiler goldens: `<Tag>` from a frontmatter variable, a hoisted `const`, a `{for}` variable; static, dynamic, shorthand and lowered `orbit.If` attributes; `class:list` merged with `class`; `{...props.Attrs}` with the class merge; `{...orbit.Attrs}`; the scope attribute; self-closed `<Tag />`; `set:html`/`set:text`; `slot="x"` inside a component; nested dynamic tags.
+- Errors, each at its `.orbit` position: unknown name (with the new hint), alias/variable clash, `server:defer`/`client:*`/`is:inline` on a dynamic tag, a non-string operand (Go's error at the tag).
+- Runtime: valid/invalid names, `""`, rejected names in any case, void with and without content, `Fragment` (no tags, no attributes, children written), the error positions; `AllocsPerRun`: 0, including a concatenated name.
+- Typed/fallback byte-identical (`TestPipelineTypedVsFallback`) with dynamic-tag cases.
+- LSP: hover/definition on `<Tag`, rename edits both tags; formatter golden; grammar snapshot.
+- `examples/blog`: one component using it (a `Button` that renders `<a>` or `<button>`).
+
+#### User-docs changes (with the implementation)
+- `reference/template-syntax.md`: "Dynamic tags" (the rule, the type, the checks, `orbit.Fragment`, scoping, whitespace).
+- `components.md`: the `Button` and optional-wrapper examples.
+- `coming-from-astro.md`: `const Tag = …` ports as-is (`Tag := …`); differences: `""` is an error like Astro's `undefined`, rejected names, void elements with children are errors, attributes on a `Fragment` tag aren't evaluated, no dynamic components (use `{switch}`).
+- `reference/runtime-api.md`: `Fragment`, `TagOpen`/`TagClose`/`DynTag`. `performance.md`: the per-tag cost vs static markup. `DECISIONS.md`: the decided-by-rule items.
+
+#### Out of scope
+- **Dynamic components** (`const C = cond ? A : B; <C />`): 1 use in `nyth` (`MediaBlock`'s one-row table). Each Orbit component has its own `Props` type in its own package, so a variable can't hold "a component" without an interface over props (a closure per call, allocations) or reflection. `{switch item.Kind}{case "picture"}<PictureFigure item={item} />{default}<MediaGone text="Media unavailable" />{/switch}` is the typed equivalent, already supported. Revisit if a port shows real demand.
+- Dotted tag names (`<props.As>`), completion of in-scope tag variables after `<`, folding constant `orbit.Cond` tags into static branches.
+
+---
+
+### 2.9 Ordered spreads (`orbit.AttrList`)
+
+**Status: Accepted** (2026-10-27, from the `nyth` port). User answers, as recommended: (Q1) a, `orbit.AttrList` built with `orbit.A(name, v)`, `orbit.Attrs` stays a sorted map; (Q2) the names `AttrList`/`AttrPair`/`A`; (Q3) a duplicate name in one list is a render error (ASCII case ignored).
+
+**Why**: `{...attrs}` with an `orbit.Attrs` (a `map[string]any`) writes the attributes **sorted by name** (§4: Go maps have no order, so sorting is the only deterministic choice). Astro writes an object's attributes in insertion order. `orbit.RestAttrs` already keeps the call site's order (§2.5). In `nyth`, 26 spreads:
+- 8 are `...rest` on the element (`Button` ×2, `Choice`, `ChoiceGroup`, `Input`, `Select`, `Textarea`, `Switch`): `orbit.RestAttrs`, ordered already.
+- 9 are "hooks on the parts" props (`rowAttrs`, `textAttrs`, `labelAttrs`, `hintAttrs`, `errorAttrs` in `Choice`, `Field`, `ChoiceGroup`), passed at 18 call sites: 16 with one attribute, 2 with two (`{ "data-error": "", role: "alert" }`, `{ "data-err": "email", role: "alert" }`), which happen to be sorted already. Order doesn't matter for these.
+- **2 are `<html {...theme}>`** (`DefaultLayout`, `ReaderLayout`): five attributes from `themeAttributes(choices, store)` in the order `data-theme`, `data-theme-pref`, `data-dark-theme`, `data-day-theme`, `data-theme-store`; sorted, they become `data-dark-theme`, `data-day-theme`, `data-theme`, …. The port writes them out one by one (`DefaultLayout.orbit`: "a spread is sorted by name, and Astro keeps this order"), because the port's black-box oracle (`blackbox/bookpage.test.ts`) compares the Orbit HTML with Astro's.
+- 7 are spreads of props onto components (`{...props}`, `{...actions}`, `{...options}`): out of scope since §2.5 (typed fields can't be set from a map without reflection).
+
+So the gap is small in count (2 sites, 1 helper) but it is a byte-parity trap for every port, and it shows up exactly where a helper returns attributes, the case that can't be written inline.
+
+#### End-to-end example (recommended shape: (Q1) a)
+```go
+// internal/theme/theme.go
+// Attributes are <html>'s theme attributes, in Astro's order.
+func Attributes(c Choices, store string) orbit.AttrList {
+	return orbit.AttrList{
+		orbit.A("data-theme", Resolve(c, ServerGuess)),
+		orbit.A("data-theme-pref", c.Theme),
+		orbit.A("data-dark-theme", c.DarkTheme),
+		orbit.A("data-day-theme", c.DayTheme),
+		orbit.A("data-theme-store", store),
+	}
+}
+```
+```orbit
+<html lang="en" style={style} {...theme.Attributes(choices, store)}>
+```
+renders `<html lang="en" style="…" data-theme="dark" data-theme-pref="auto" data-dark-theme="dark" data-day-theme="mist" data-theme-store="browser">`, Astro's bytes. The generated call is `orbit__rt.SpreadOf(orbit__w, <expr>)`, generic over `Attrs | AttrList`, so pass 1 needs no type information (as `RestMerge` does, §2.5); `Writer.Spread(Attrs)` stays for Go code.
+
+#### Rules
+- **Type** ((Q1) a, names (Q2)): `type AttrList []AttrPair`, an ordered list. An `AttrPair` is built with `orbit.A[T any](name string, v T) AttrPair`, which stores common value types **unboxed** (`string`, `bool`, the int/uint/float kinds, `URL`, `HTML`, `JSONValue`), and anything else as `any` (boxed, written by `Attr`'s rules, so `fmt.Stringer` and friends still work). Fields are unexported; `p.Name() string` and `p.Value() any` read them (decided by rule: simplest; `Value` boxes only when called). An `AttrList` is a plain slice: `append`, `range`, `len`, `slices.*` work.
+- **Writing** (`{...list}` on an HTML element or a dynamic tag, §2.8): in list order, at the spread's position, each value by `Attr`'s rules (§4): `nil`/`false` omitted, `true` bare (or `"true"`/`"false"` on true/false attributes, §2.6 (Q3)), URL attributes scheme-filtered unless `orbit.URL`, everything escaped. Attributes the element also writes are both written, the browser keeping the first (unchanged from `Spread`; Astro behavior).
+- **Names** are checked at render time as in `Spread` (`[A-Za-z_:][-A-Za-z0-9_:.]*`), a render error at the spread's position; nothing of the list is written.
+- **Duplicates** ((Q3) a): the same name twice in one list (ASCII case ignored) is a render error, `attribute "role" twice in spread` (decided by rule: Orbit's own precedent, the duplicate-name error of §2.5, and a duplicate attribute is an HTML parse error; Astro can't produce one, since object keys are unique).
+- **`orbit.Attrs` is unchanged**: still a map, still sorted, still the shorter literal for order-insensitive cases (the 18 "parts" call sites). Docs: "use `AttrList` when order matters (byte parity with Astro, or a test asserting the HTML)".
+- **Pass-through attributes** (§2.5 Q4): `{...list}` on a component tag with an `orbit.RestAttrs` field merges like an `Attrs` (`RestFrom`/`RestMerge` gain `AttrList` in their constraint): stored by reference, no allocation, list order kept, attributes written on the tag win. `orbit.RestOf` becomes generic, `RestOf[A Attrs | AttrList](a A) RestAttrs` (decided by rule: simplest, one name; existing calls still infer), and `RestOf(list)` spreads in list order.
+- **JSON** (`server:defer` props): `AttrList` implements `json.Marshaler`/`json.Unmarshaler` as a JSON object in list order (decoding with `json.Decoder.Token` keeps the order), with `RestAttrs`' value rules: name → string, `true` for a bare attribute, `false`/`nil` omitted, values as they'd be written (an `orbit.URL` loses its trust and is filtered after the round trip). Decided by rule: the existing `RestAttrs` rule (§2.5).
+- **`orbit.If`** in an `A(…)` value: `orbit.A("aria-current", orbit.If(c, "page"))` stores an `any` (boxed when non-nil; not lowered, like `If` in `orbit.Attrs`, §2.6).
+- **Codegen**: `{...x}` on an element emits `orbit__rt.SpreadOf(orbit__w, x)` instead of `orbit__w.Spread(x)`; the `{...props.<Rest>}` spelling rule (§2.5) is unchanged. No typed-pass change.
+- **LSP, `orbit fmt`, grammar, lexer**: nothing new (ordinary Go in a Go region).
+
+#### Runtime API (additions, stdlib only)
+```go
+type AttrList []AttrPair
+type AttrPair struct{ /* name, kind, unboxed value, boxed value */ }
+func A[T any](name string, v T) AttrPair
+func (p AttrPair) Name() string
+func (p AttrPair) Value() any
+func (l AttrList) MarshalJSON() ([]byte, error)
+func (l *AttrList) UnmarshalJSON(b []byte) error
+func (w *Writer) SpreadList(l AttrList)
+func SpreadOf[A Attrs | AttrList](w *Writer, a A) // generated code
+func RestOf[A Attrs | AttrList](a A) RestAttrs     // was RestOf(m Attrs)
+```
+
+#### (Q) points
+- **(Q1) The ordered form.**
+  - (a) **Recommended**: a new ordered type, `orbit.AttrList`, built with the typed constructor `orbit.A(name, v)`. Order as written, **0 allocations** when the list is built in the frontmatter or template, 1 (the backing array) when a helper in another package returns it; 2–3× faster than the map today (below). `orbit.Attrs` keeps working unchanged. Cost: a second attribute type to learn, and `orbit.A(…)` per entry is wordier than a map literal.
+  - (b) The same list with exported fields, `orbit.AttrList{{"data-theme", t}, …}` (`Name string; Value any`): the shortest literal, but every non-constant value is boxed: 1 allocation per dynamic attribute (5 for `theme`), ~2× slower than (a).
+  - (c) Change `orbit.Attrs` itself to an ordered slice: one type, but breaks every `orbit.Attrs{"k": v}` map literal (docs, `examples/`, `nyth`'s port: a slice literal can't have string keys).
+  - (d) Order a **composite literal** written in the spread at codegen time (`{...orbit.Attrs{"b": x, "a": y}}` written in source order as typed writes, 0 allocations, the fastest form). Doesn't help `nyth`: its spreads are function results, and a literal can already be written as attributes; and the same map would render differently inline and through a variable.
+  - (e) A user type with a `WriteAttrs(*orbit.Writer)` method, spread through an interface: 0 allocations and the speed of hand-written attributes (measured 67 ns for 5), but it makes `Writer`'s low-level writes the public extension API (names unchecked, escaping rules the user's job), and an interface can't join the `Attrs | AttrList` constraint, so pass 1 would need the type.
+  - (f) Docs only: keep writing the attributes one by one (`nyth`'s workaround; fastest, 5 lines per site).
+- **(Q2) Names.** (a) **Recommended**: `AttrList`, `AttrPair`, `A`. `A` is short because a list repeats it; alternatives: `orbit.Pair`, `orbit.KV`, `orbit.Attr` (taken in spirit by `Writer.Attr`, and a type `RestAttr` exists). Also possible: `orbit.OrderedAttrs`.
+- **(Q3) Duplicate names in a list.** (a) **Recommended**: a render error (above). (b) JavaScript object semantics: the first position, the last value (`{a:1, b:2, a:3}` → `a=3 b=2`), a quadratic scan over ≤ a few entries. (c) Write both (no check, the browser keeps the first): the cheapest, but invalid HTML.
+
+#### Cost (prototype `proto_spread.go`, `proto_test.go`; values are five dynamic strings from a struct, as in `theme`; "helper" = a `//go:noinline` function returning the value, `nyth`'s shape; validation and the duplicate check included in the list forms)
+| Option | 3 attributes | 5 attributes |
+|---|---|---|
+| `orbit.Attrs` map built in place (today; sorted) | 225 ns, 3 allocs / 48 B | 375 ns, 5 allocs / 80 B |
+| `orbit.Attrs` map returned by a helper (today; sorted) | 278 ns, 5 allocs / 384 B | 430 ns, 7 allocs / 416 B |
+| (b) `[]{Name, Value any}` built in place | 116 ns, 3 allocs / 48 B | 195 ns, 5 allocs / 80 B |
+| (b) returned by a helper | 145–160 ns, 4 allocs / 144 B | 229 ns, 6 allocs / 240 B |
+| **(a) `AttrList` of `A(…)`, built in place** | **87 ns, 0** | **144–158 ns, 0** |
+| **(a) returned by a helper** | **131 ns, 1 alloc / 192 B** | **207 ns, 1 alloc / 320 B** |
+| (e) user type with `WriteAttrs`, through an interface | – | 67 ns, 0 |
+| (d)/(f) attributes written one by one (`AttrString` ×n) | 41 ns, 0 | 67 ns, 0 |
+
+- The map's cost is the boxing of each value (an allocation per dynamic value) plus the sort; `A`'s generic type switch on `any(v)` doesn't allocate (the interface doesn't escape), measured with `AllocsPerRun`. Non-generic constructors (`AS(name, s string)`) measured the same, so the generic one is kept.
+- The remaining gap between (a) and hand-written attributes (~15 ns per attribute) is the name check, the duplicate check and the URL-attribute lookup per entry; the implementation can tighten it (one pass for validity and the URL lookup), not required.
+- The helper case's one allocation is the slice's backing array escaping to the caller; a helper that's inlined or a list built in the page costs none. So the zero-allocation rule (§4b) holds for in-page lists; a helper returning a list costs 1 alloc vs 7 for today's map.
+- **Codegen and dev loop**: one call changes name (`SpreadOf`); a generic function instantiated twice in the runtime. No measurable change expected.
+
+#### Tests (what must exist)
+- Runtime: list order, every value kind through `A` matches `Attr`'s bytes (escaping, URL filter, `orbit.URL` trust, `nil`/`false`, true/false attributes), invalid names, duplicates (any case), `nil` list; JSON round trip keeping order; `RestOf(list)` and a merge into `RestAttrs` keep order; `AllocsPerRun`: 0 for an in-page list of strings, ints and bools.
+- Compiler goldens: `{...list}` on an element and on a dynamic tag, on a component with a `RestAttrs` field, next to `{...props.Attrs}`; `orbit.Attrs` spreads unchanged (sorted).
+- `server:defer` with an `AttrList` prop: the generate-time JSON check passes and the island renders the same attributes in order.
+
+#### User-docs changes (with the implementation)
+- `reference/template-syntax.md` (spreads): `Attrs` sorted vs `AttrList` ordered; the duplicate and name errors.
+- `reference/runtime-api.md`: `AttrList`, `AttrPair`, `A`, `SpreadList`, `RestOf`'s new signature.
+- `coming-from-astro.md`: "`{...obj}` where order matters → `orbit.AttrList`"; the `<html {...theme}>` example.
+- `performance.md`: the table's map vs list rows. `DECISIONS.md`: the decided-by-rule items.
+
+#### Out of scope
+- Spreading props onto components (unchanged from §2.5).
+- Lowering spread literals at codegen ((Q1) d) and `orbit.If` inside `A(…)`.
+- Struct spreads (`{...themeStruct}` with tags lowered by the typed pass): fastest and closest to the port's existing struct, but pass 1 would need reflection to render it, which the runtime rules out.
+
+---
+
 
 ## 3. Compilation
 
@@ -3280,7 +3520,7 @@ There is no `base` option (§12).
   - Outside rename, edits that land in unmapped regions are dropped. The exception is auto-import `additionalTextEdits`, which are rewritten as insertions into the frontmatter import block, or into a new `import` line at the top of the frontmatter.
   - **Control blocks** (implemented 2026-10-26, `internal/lsp/blocks.go`): right after `{` in template content, or after `{` plus `/` or an identifier prefix → native keyword items: `if`, `for`, `switch` (snippets that insert the closer), the enclosing block's branches (`else if`/`else` inside an `{if}`, `case`/`default` inside a `{switch}`), the innermost open block's closer (only `{/…}` after `{/`); none of the context items with an element open inside the block. Where the cursor is also a Go region (`{i`), gopls's items follow (Orbit's sort first); the edit also swallows an auto-closed `}`. Small choices in `docs/DECISIONS.md` ("Control block completion").
   - **Tag name** after `<` → native: imported component aliases first, then unimported components (with an additionalTextEdit that adds the `.orbit` import), then HTML tag names.
-  - **Import path** (implemented 2026-10-26): inside the string of a frontmatter import spec whose path starts with `.` (an `import [X] "…"` line, or an `[X] "…"` line in an `import ( … )` block; found on the line's text, so it works while the frontmatter doesn't parse) → native, taking precedence over gopls: every `.orbit` file and every `.md` under `src/` (`Project.MarkdownPaths`), minus the file itself and those already imported, as paths relative to the file, sorted nearest first. With no alias, accepting one also inserts the alias (`compiler.FieldName` of the base name, made unique as for tag auto-imports). `/` is a completion trigger character for it (ignored elsewhere).
+  - **Import path** (implemented 2026-10-26): inside the string of a frontmatter import spec whose path starts with `.` (an `import [X] "…"` line, or an `[X] "…"` line in an `import ( … )` block; found on the line's text, so it works while the frontmatter doesn't parse) → native, taking precedence over gopls: every `.orbit` file and every `.md` under `src/` (`Project.MarkdownPaths`), minus the file itself and those already imported, as paths relative to the file, sorted nearest first. After an alias prefix (`"@/`, or the start of one such as `"@`; implemented 2026-10-27, §2.2) it offers the same files as their shortest alias spelling instead. A `tsconfig*.json` file event re-reads the aliases and re-resolves every file; definition and hover work on alias paths (they use `Resolved`). With no alias, accepting one also inserts the alias (`compiler.FieldName` of the base name, made unique as for tag auto-imports). `/` is a completion trigger character for it (ignored elsewhere).
   - **Attribute position**:
     - On a component: Orbit asks gopls for completion inside a synthetic `Card.Props{|}` literal (implemented, milestone 12: in an overlay-only scratch package per target component, `orbit_gen/orbit__lsp/<pkg>/props.go`, opened once and never written or edited, so the user's overlay isn't touched; gopls sees unsaved `Props` changes through the decl overlay). gopls returns the unset fields first, then deep completions and every in-scope identifier (58 items in the spike). Orbit **keeps only kind 5 (Field) items with no `.` in the label**, maps the field names to attribute names, uses their inline `documentation` (merged with the native index's doc comments), and replaces gopls's `Field: ${1:}` snippet with attribute insert text (`post={$1}`). Fields already set are excluded by Orbit (the scratch literal is always empty). This handles embedded fields and type aliases; the native index is the fallback.
     - On an HTML element: global and element attributes from an embedded dataset, Orbit's own: a hand-curated subset of the WHATWG element index (`internal/lsp/htmldata.go`; `docs/DECISIONS.md`), no third-party data.
@@ -3595,6 +3835,7 @@ internal/build/              build pipeline (§6), Go error output cleanup (§3.
 internal/dev/                watcher, proxy, SSE, overlay
 internal/lsp/                jsonrpc.go server.go docs.go proxy.go native.go htmldata.json
                              tsdocs.go tsproxy.go tssync.go tsroute.go   §9b: virtual documents, the TypeScript child, sync, routing
+internal/tsconfig/           §2.2: tsconfig.json paths/baseUrl aliases for component imports (JSONC, extends)
 internal/tsengine/           §9b: finding TypeScript 7's native tsc (typescriptPath, node_modules, PATH, bun x)
 internal/tailwind/           §5d: detection, CSS import inlining + url() rewriting, CLI lookup, cached runs, the dev token gate; tailwindtest/ (fake and real CLI for tests)
 internal/doctor/             orbit doctor's checks (tailwind.go: §5d)
@@ -3700,7 +3941,8 @@ Dependencies:
 - **`trailingSlash` option** (user decision, 2026-10-26, prompted by porting `nyth`, an Astro site with `trailingSlash: "always"`): `orbit.json` `"trailingSlash": "never"` (default, today's behavior, §4) or `"always"` (`/x` gets a 308 to `/x/`, query kept; `/` unchanged; files and paths with a file extension never redirected); no `"ignore"` mode (two URLs per page). Reaches the router, generated URLs (`.md` `Post.URL`, rewritten `.md` links), dev and docs. Spec: §4e. **Implemented** (308 for every method, user decision; `orbit.WithTrailingSlash` passed by `app.New()` before the caller's options).
 - **From the `nyth` assessment** (user decisions 2026-10-26; specs first, (Q) points open): pass-through attributes (§2.5, an `orbit.RestAttrs` field collects a call site's undeclared attributes, spread with `{...props.Attrs}`), an error → response hook (§4c, `orbit.WithErrorHandler`, before the built-in 500), and rendering a slot to a string (§4d, `orbit.RenderHTML(ctx, slots.Default)`, for fragment caches).
 - **Conditional attribute values** (nice-to-have, from the `nyth` assessment): `orbit.If(cond, v)` (nil omits the attribute; lowered to an `if` by the typed pass) and `orbit.Cond(c, a, b)`, plus `"true"`/`"false"` for booleans on `aria-*` and the true/false enumerated attributes (`aria-pressed={false}` → `"false"`). Specified in §2.6 (accepted 2026-10-26).
-- **Trusted CSS values** (nice-to-have, from the `nyth` assessment): `orbit.CSS`, a marker type that silences the `style={…}` warning, which moves to the typed pass and exempts constants. Specified in §2.7 (proposed, (Q) points open).
+- **Dynamic tags** (`<Tag>` from a capitalized variable, `orbit.Fragment` for no element; §2.8) and **ordered spreads** (`orbit.AttrList`; §2.9): accepted 2026-10-27, from the `nyth` port.
+- **Trusted CSS values** (nice-to-have, from the `nyth` assessment): `orbit.CSS`, a marker type that silences the `style={…}` warning, which moves to the typed pass and exempts constants. Specified in §2.7 (accepted 2026-10-27).
 - **The matched route for middleware** (nice-to-have, from the `nyth` assessment: its page log records the route pattern and params): `r, route := orbit.EnsureRouteInfo(r)` before `next`, filled by Orbit (pattern, file, params). Specified in §4g (proposed, (Q) points open).
 - **Loading data concurrently** (user direction 2026-10-26, from the `nyth` assessment: "load all the data at the page level"): page-level loading becomes the documented main pattern, with a runtime helper `orbit.All(ctx, loads...)` (first error in time, a cancellable context per call, the failing load's position, panics re-panicked on the caller) and a documented per-request memoizing loader in `locals`; `server:concurrent` (§3.6) stays the porting escape hatch. Specified and implemented in §4f.
 - SSR response caching

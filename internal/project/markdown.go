@@ -103,9 +103,9 @@ func (p *Project) frontMarkdown() []*File {
 // parseMarkdown parses the Markdown files, in parallel, and sets their
 // stand-in AST and Analysis.
 func (p *Project) parseMarkdown(files []*File) {
-	resolve := p.resolver()
+	resolve, aliases := p.resolver(), p.importResolver()
 	parallel(files, func(f *File) {
-		f.MD = markdown.Parse(f.Path, f.Src, p.Config.Markdown, resolve)
+		f.MD = markdown.Parse(f.Path, f.Src, p.Config.Markdown, resolve, aliases)
 		f.AST = &compiler.File{Src: f.Src, Lines: f.MD.Lines, Template: &compiler.Template{}, Diagnostics: f.MD.Diagnostics}
 		f.Analysis = &compiler.Analysis{Info: f.Info, Props: compiler.PropsInfo{Listable: true}}
 		if f.MD.Layout != "" {

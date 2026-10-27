@@ -52,7 +52,7 @@ A page or component imports another with a relative path and an alias:
 import Card "../components/Card.orbit"
 ```
 
-See [Components](components.md).
+or with an alias from `tsconfig.json`'s `compilerOptions.paths`. The starter `tsconfig.json` maps `@/` to `src/` (`"paths": { "@/*": ["./src/*"] }`), so `Card "@/components/Card.orbit"` works from any directory. Scripts use the same aliases. See [Components](components.md) and [Import aliases](components.md#import-aliases).
 
 Orbit finds every `.orbit` and Markdown file under `src/`. It skips files and directories whose names start with `.`, and follows symlinked directories, except a link that leads back to a directory it's already in. A project without a `src/` directory is an error, so running `orbit generate` in the wrong module doesn't leave an `orbit_gen/` there:
 

@@ -144,7 +144,7 @@ func Classify(rel string, isDir bool) Kind {
 		return KindOrbit
 	case strings.HasPrefix(rel, "src/"):
 		return KindAsset
-	case dir == "." && (base == "tsconfig.json" || base == "package.json"):
+	case dir == "." && (base == "package.json" || isTsconfigName(base)):
 		return KindAsset
 	}
 	return KindIgnore
@@ -212,4 +212,17 @@ func (c Change) Only(kinds ...Kind) bool {
 		}
 	}
 	return true
+}
+
+// isTsconfigName reports whether a root file's name is tsconfig.json or
+// tsconfig.<name>.json (a file tsconfig.json may extend): a change to one
+// also re-resolves the components' import aliases (PLAN.md §2.2).
+func isTsconfigName(base string) bool {
+	return base == "tsconfig.json" || strings.HasPrefix(base, "tsconfig.") && strings.HasSuffix(base, ".json")
+}
+
+// touchesTsconfig reports whether the change has a root tsconfig file: the
+// front runs then (not just esbuild), to re-resolve import aliases.
+func (c Change) touchesTsconfig() bool {
+	return slices.ContainsFunc(c.Paths, func(p string) bool { return path.Dir(p) == "." && isTsconfigName(p) })
 }
