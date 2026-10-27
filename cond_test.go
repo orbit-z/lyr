@@ -34,7 +34,7 @@ func TestIfMatchesTypedWrites(t *testing.T) {
 			{"string", func(w *Writer) { w.Attr("rel", If(c, s)) }, func(w *Writer) {
 				if c {
 					w.Raw(` rel="`)
-					w.String(s)
+					w.AttrValue(s)
 					w.Raw(`"`)
 				}
 			}},
@@ -103,7 +103,7 @@ func TestIfAllocs(t *testing.T) {
 		{"lowered", 0, func() {
 			if c {
 				w.Raw(` rel="`)
-				w.String(s)
+				w.AttrValue(s)
 				w.Raw(`"`)
 			}
 		}},

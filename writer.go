@@ -481,7 +481,7 @@ func (w *Writer) attr(name string, v any, urlAttr bool) {
 				s = []byte(invalidURL)
 			}
 			w.attrOpen(name)
-			escapeBytes(w.buf, s)
+			escapeAttrBytes(w.buf, s)
 			w.buf.WriteByte('"')
 		}
 		putBuffer(scratch)
@@ -506,6 +506,17 @@ func (w *Writer) AttrURL(name, s string) {
 	w.attrValue(name, s, true)
 }
 
+// AttrValue writes s as an attribute's value, the bytes AttrString writes
+// between the quotes: & and " as &amp; and &quot;, < and > as &lt; and
+// &gt;, and ' as is. Codegen writes ` title="`, AttrValue(s) and `"` for a
+// typed string in an attribute.
+func (w *Writer) AttrValue(s string) {
+	if w.err != nil {
+		return
+	}
+	escapeAttrString(w.buf, s)
+}
+
 // URL writes s as a URL attribute's value, the bytes AttrURL writes between
 // the quotes: s attribute-escaped, with a javascript: or vbscript: URL
 // replaced with about:invalid#orbit. Codegen writes ` href="`, URL(s) and `"`
@@ -517,7 +528,7 @@ func (w *Writer) URL(s string) {
 	if isUnsafeURL(s) {
 		s = invalidURL
 	}
-	escapeString(w.buf, s)
+	escapeAttrString(w.buf, s)
 }
 
 // attrBool writes a bool attribute by Attr's rules: name="true" or
@@ -575,7 +586,7 @@ func (w *Writer) attrValue(name, s string, filter bool) {
 		s = invalidURL
 	}
 	w.attrOpen(name)
-	escapeString(w.buf, s)
+	escapeAttrString(w.buf, s)
 	w.buf.WriteByte('"')
 }
 

@@ -111,7 +111,7 @@ func foldIf(w TypedWrite, v constant.Value, site *CallSite) (string, bool) {
 		if v.Kind() != constant.String {
 			return "", false
 		}
-		return classEscaper.Replace(val), true
+		return textEscaper.Replace(val), true
 	case WriteHTML:
 		if v.Kind() != constant.String {
 			return "", false
@@ -126,7 +126,7 @@ func foldIf(w TypedWrite, v constant.Value, site *CallSite) (string, bool) {
 		if v.Kind() != constant.String {
 			return "", false
 		}
-		return open + classEscaper.Replace(val) + `"`, true
+		return open + attrValueEscaper.Replace(val) + `"`, true
 	case WriteAttrURL:
 		if v.Kind() != constant.String {
 			return "", false
@@ -134,7 +134,7 @@ func foldIf(w TypedWrite, v constant.Value, site *CallSite) (string, bool) {
 		if isUnsafeURL(val) {
 			val = invalidURL
 		}
-		return open + classEscaper.Replace(val) + `"`, true
+		return open + attrValueEscaper.Replace(val) + `"`, true
 	case WriteAttrInt, WriteAttrUint, WriteAttrBoolText:
 		if v.Kind() == constant.String {
 			return "", false

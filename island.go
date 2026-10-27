@@ -78,7 +78,7 @@ func Defer(c *Ctx, w *Writer, id string, props any, fallback Renderer) error {
 	b.WriteString(`<orbit-island src="/_orbit/island/`)
 	b.WriteString(kr.buildID)
 	b.WriteByte('/')
-	escapeString(b, id)
+	escapeAttrString(b, id)
 	b.WriteString(`" props="`)
 	// The token is base64url: nothing in it needs escaping.
 	b.Grow(len(data)*4/3 + 64)

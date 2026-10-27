@@ -69,7 +69,7 @@ func TestExpr(t *testing.T) {
 		{"nil", nil, ""},
 		{"HTML raw", HTML("<b>hi</b>"), "<b>hi</b>"},
 		{"string", "a < b", "a &lt; b"},
-		{"string all escapes", "&<>\"'+\x00", "&amp;&lt;&gt;&#34;&#39;+\uFFFD"},
+		{"string all escapes", "&<>\"'+\x00", "&amp;&lt;&gt;&quot;&#39;+\uFFFD"},
 		{"string unicode", "héllo ★", "héllo ★"},
 		{"URL", URL("/a?b=1&c=2"), "/a?b=1&amp;c=2"},
 		{"URL javascript is text", URL("javascript:x"), "javascript:x"},
@@ -319,7 +319,7 @@ func TestAttr(t *testing.T) {
 		{"nil omitted", "title", nil, "", ""},
 		{"named bool true", "data-on", flag(true), " data-on", ""},
 		{"named bool false", "data-on", flag(false), "", ""},
-		{"string", "title", `a"b<c>&'`, ` title="a&#34;b&lt;c&gt;&amp;&#39;"`, ""},
+		{"string", "title", `a"b<c>&'`, ` title="a&quot;b&lt;c&gt;&amp;'"`, ""},
 		{"empty string", "alt", "", ` alt=""`, ""},
 		{"HTML is escaped", "title", HTML("<b>"), ` title="&lt;b&gt;"`, ""},
 		{"int", "n", 3, ` n="3"`, ""},
@@ -330,7 +330,7 @@ func TestAttr(t *testing.T) {
 		{"float32", "n", float32(0.1), ` n="0.1"`, ""},
 		{"bytes", "n", []byte("<"), ` n="&lt;"`, ""},
 		{"Stringer", "n", time.Second, ` n="1s"`, ""},
-		{"error", "n", errors.New(`"x"`), ` n="&#34;x&#34;"`, ""},
+		{"error", "n", errors.New(`"x"`), ` n="&quot;x&quot;"`, ""},
 		{"slice concatenated", "class", []string{"a", " b<"}, ` class="a b&lt;"`, ""},
 		{"nested slice", "class", []any{"a", []string{" ", "b"}, 1}, ` class="a b1"`, ""},
 		{"named string", "title", slug("<"), ` title="&lt;"`, ""},
@@ -355,7 +355,7 @@ func TestAttr(t *testing.T) {
 		{"Stringer filtered", "href", fakeStringer("javascript:x"), bad, ""},
 		{"slice filtered as a whole", "href", []string{"java", "script:x"}, bad, ""},
 		{"orbit.URL passes", "href", URL("javascript:ok()"), ` href="javascript:ok()"`, ""},
-		{"orbit.URL still escaped", "href", URL(`/a?b=1&c="2"`), ` href="/a?b=1&amp;c=&#34;2&#34;"`, ""},
+		{"orbit.URL still escaped", "href", URL(`/a?b=1&c="2"`), ` href="/a?b=1&amp;c=&quot;2&quot;"`, ""},
 		{"safe URL", "href", "https://example.com/?a=1&b=2", ` href="https://example.com/?a=1&amp;b=2"`, ""},
 		{"relative URL", "href", "/javascript:x", ` href="/javascript:x"`, ""},
 		{"not a scheme", "href", "javascript", ` href="javascript"`, ""},
@@ -408,7 +408,7 @@ func TestTypedAttrs(t *testing.T) {
 		f    func(w *Writer)
 		want string
 	}{
-		{"AttrString", func(w *Writer) { w.AttrString("title", `<"x">`) }, ` title="&lt;&#34;x&#34;&gt;"`},
+		{"AttrString", func(w *Writer) { w.AttrString("title", `<"x">`) }, ` title="&lt;&quot;x&quot;&gt;"`},
 		{"AttrString no filter", func(w *Writer) { w.AttrString("href", "javascript:x") }, ` href="javascript:x"`},
 		{"AttrURL safe", func(w *Writer) { w.AttrURL("href", "/a&b") }, ` href="/a&amp;b"`},
 		{"AttrURL filtered", func(w *Writer) { w.AttrURL("href", " JaVaScRiPt:alert(1)") }, ` href="about:invalid#orbit"`},
@@ -417,7 +417,7 @@ func TestTypedAttrs(t *testing.T) {
 		{"URL filtered", func(w *Writer) { w.URL(" JaVaScRiPt:alert(1)") }, `about:invalid#orbit`},
 		{"URL vbscript", func(w *Writer) { w.URL("vbscript:x") }, `about:invalid#orbit`},
 		{"URL control", func(w *Writer) { w.URL("\x01javascript:") }, `about:invalid#orbit`},
-		{"URL escaped", func(w *Writer) { w.URL(`/q?a="<'>"`) }, `/q?a=&#34;&lt;&#39;&gt;&#34;`},
+		{"URL escaped", func(w *Writer) { w.URL(`/q?a="<'>"`) }, `/q?a=&quot;&lt;'&gt;&quot;`},
 		{"AttrBool true", func(w *Writer) { w.AttrBool("hidden", true) }, " hidden"},
 		{"AttrBool false", func(w *Writer) { w.AttrBool("hidden", false) }, ""},
 	}
@@ -703,14 +703,30 @@ func FuzzEscape(f *testing.F) {
 		if out != b.String() {
 			t.Fatalf("escapeString = %q, escapeBytes = %q", out, b.String())
 		}
-		checkEscaped(t, out)
-		if want := strings.ReplaceAll(s, "\x00", "\uFFFD"); html.UnescapeString(out) != want {
+		checkEscaped(t, out, "<>\"'")
+		want := strings.ReplaceAll(s, "\x00", "\uFFFD")
+		if html.UnescapeString(out) != want {
 			t.Fatalf("unescape(%q) = %q, want %q", out, html.UnescapeString(out), want)
 		}
 
+		// Attribute values: the same, with ' left as is.
+		var av, bv bytes.Buffer
+		escapeAttrString(&av, s)
+		escapeAttrBytes(&bv, []byte(s))
+		val := av.String()
+		if val != bv.String() {
+			t.Fatalf("escapeAttrString = %q, escapeAttrBytes = %q", val, bv.String())
+		}
+		checkEscaped(t, val, "<>\"")
+		if html.UnescapeString(val) != want {
+			t.Fatalf("unescape(%q) = %q, want %q", val, html.UnescapeString(val), want)
+		}
 		attr, _ := render(func(w *Writer) { w.AttrString("x", s) })
-		if want := ` x="` + out + `"`; attr != want {
+		if want := ` x="` + val + `"`; attr != want {
 			t.Fatalf("AttrString = %q, want %q", attr, want)
+		}
+		if pieces, _ := render(func(w *Writer) { w.Raw(` x="`); w.AttrValue(s); w.Raw(`"`) }); pieces != attr {
+			t.Fatalf("AttrValue pieces = %q, AttrString = %q", pieces, attr)
 		}
 		// URL pieces are byte-identical to AttrURL, filter included.
 		pieces, _ := render(func(w *Writer) { w.Raw(` href="`); w.URL(s); w.Raw(`"`) })
@@ -718,13 +734,15 @@ func FuzzEscape(f *testing.F) {
 			t.Fatalf("URL pieces = %q, AttrURL = %q", pieces, want)
 		}
 		expr, _ := render(func(w *Writer) { w.Attr("x", []any{s, []byte(s)}) })
-		checkEscaped(t, strings.TrimSuffix(strings.TrimPrefix(expr, ` x="`), `"`))
+		checkEscaped(t, strings.TrimSuffix(strings.TrimPrefix(expr, ` x="`), `"`), "<>\"")
 	})
 }
 
-func checkEscaped(t *testing.T, out string) {
+// checkEscaped fails if out has one of the bytes in raw, or a & that
+// doesn't start one of the references Orbit writes.
+func checkEscaped(t *testing.T, out, raw string) {
 	t.Helper()
-	if strings.ContainsAny(out, "<>\"'") {
+	if strings.ContainsAny(out, raw) {
 		t.Fatalf("unescaped character in %q", out)
 	}
 	for i := 0; i < len(out); i++ {
@@ -733,7 +751,7 @@ func checkEscaped(t *testing.T, out string) {
 		}
 		rest := out[i:]
 		ok := false
-		for _, e := range []string{"&amp;", "&lt;", "&gt;", "&#34;", "&#39;"} {
+		for _, e := range []string{"&amp;", "&lt;", "&gt;", "&quot;", "&#39;"} {
 			if strings.HasPrefix(rest, e) {
 				ok = true
 				break

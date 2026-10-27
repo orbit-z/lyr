@@ -51,7 +51,7 @@ func TestClassWrites(t *testing.T) {
 			w.Class(`a"b <c> &d`)
 			w.ClassEnd()
 			w.Raw(`>`)
-		}, `<p class="a&#34;b &lt;c&gt; &amp;d">`},
+		}, `<p class="a&quot;b &lt;c&gt; &amp;d">`},
 		{"any", func(w *Writer) {
 			w.Raw(`<p`)
 			w.ClassStart()

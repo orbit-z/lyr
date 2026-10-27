@@ -71,7 +71,7 @@ func TestJSONContent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := `{&#34;a&#34;:&#34;it&#39;s \u003cb\u003e&#34;}`; got != want {
+	if want := `{&quot;a&quot;:&quot;it&#39;s \u003cb\u003e&quot;}`; got != want {
 		t.Errorf("Expr(JSON) = %s, want %s", got, want)
 	}
 	// set:json unwraps a JSONValue.

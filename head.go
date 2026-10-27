@@ -65,13 +65,13 @@ func headTags(loader string, assets []Asset) string {
 	return tags.String()
 }
 
-// attrEscape returns s HTML-escaped.
+// attrEscape returns s escaped for a double-quoted attribute value.
 func attrEscape(s string) string {
-	if firstEsc(s) < 0 {
+	if firstEsc(attrTable, s) < 0 {
 		return s
 	}
 	var b bytes.Buffer
-	escapeString(&b, s)
+	escapeAttrString(&b, s)
 	return b.String()
 }
 

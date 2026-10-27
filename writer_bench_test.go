@@ -112,6 +112,18 @@ func BenchmarkEscapeLongEscaped(b *testing.B) {
 	bench(b, func(w *Writer) { w.String(s) })
 }
 
+func BenchmarkEscapeAttrLongClean(b *testing.B) {
+	s := strings.Repeat(benchClean, 100)
+	b.SetBytes(int64(len(s)))
+	bench(b, func(w *Writer) { w.AttrValue(s) })
+}
+
+func BenchmarkEscapeAttrLongEscaped(b *testing.B) {
+	s := strings.Repeat(benchEscaped, 100)
+	b.SetBytes(int64(len(s)))
+	bench(b, func(w *Writer) { w.AttrValue(s) })
+}
+
 // BenchmarkInjectHead inserts the head tags of a page without </head>
 // after its doctype, which moves the whole page.
 func BenchmarkInjectHead(b *testing.B) {

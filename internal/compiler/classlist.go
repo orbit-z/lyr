@@ -91,10 +91,6 @@ func isClassSpace(r rune) bool {
 // classFields splits s into its classes.
 func classFields(s string) []string { return strings.FieldsFunc(s, isClassSpace) }
 
-// classEscaper escapes a class for a double-quoted attribute exactly as the
-// runtime's Writer.Class does (escape.go).
-var classEscaper = strings.NewReplacer("\x00", "�", `"`, "&#34;", "&", "&amp;", "'", "&#39;", "<", "&lt;", ">", "&gt;")
-
 // clItem is one item of a class list as codegen sees it: a class:list
 // item, or the value of a class attribute merged into it.
 type clItem struct {
@@ -120,7 +116,7 @@ func (it *clItem) htmlText() string {
 		if it.html {
 			f[i] = attrEscaper.Replace(c)
 		} else {
-			f[i] = classEscaper.Replace(c)
+			f[i] = attrValueEscaper.Replace(c)
 		}
 	}
 	return strings.Join(f, " ")

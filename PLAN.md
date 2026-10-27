@@ -1366,6 +1366,7 @@ func (w *Writer) Render(r Renderer)
 func (w *Writer) Attr(name string, v any)  // fallback
 func (w *Writer) AttrString(name, s string)
 func (w *Writer) AttrURL(name, s string)   // scheme-filtered
+func (w *Writer) AttrValue(s string)       // an attribute's value only (codegen writes name=" and " as Raw): attribute-escaped
 func (w *Writer) URL(s string)             // a URL attribute's value only (codegen writes name=" and " as Raw): escaped, scheme-filtered
 func (w *Writer) AttrBool(name string, b bool)
 func (w *Writer) Spread(a Attrs)
@@ -1476,6 +1477,7 @@ func Snapshot(t testing.TB, name, html string)              // compares with tes
   - `fmt.Stringer` → escaped string
   - slices of these → each element
   - anything else → `fmt.Sprint`, escaped
+- **Escaping is spelled like Astro's** (user decision, 2026-10-27, from the nyth port; before, Orbit used `html/template`'s `&#34;`/`&#39;` for both): **HTML-escaped** text is `&` `<` `>` `"` `'` → `&amp;` `&lt;` `&gt;` `&quot;` `&#39;` (Astro's `escapeHTML`, the `html-escaper` 3.0.3 table); **attribute-escaped** (double-quoted) values are `&` → `&amp;`, `"` → `&quot;` (Astro's `toAttributeString`) **plus** `<` → `&lt;`, `>` → `&gt;`, which Astro leaves raw (kept by the user as an Orbit safety choice; the one difference), and `'` stays raw. NUL → U+FFFD in both (Orbit's, from `html/template`). `orbit.JSON`'s single-quoted values keep their own escaper (`'` `&` `<` `>`), and `set:json`'s script-data escaping is unchanged. The build-time copies in `internal/compiler/escape.go` are checked byte for byte against the runtime. Typed string attributes are written as pieces around the new `Writer.AttrValue` (they used `String`, the text escaper, when both were one table).
 - **`Attr`**:
   - `true` → bare attribute
   - `false` / `nil` → omitted

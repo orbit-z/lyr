@@ -738,7 +738,7 @@ func (a *RestAttrs) UnmarshalJSON(data []byte) error {
 			tail.WriteByte(' ')
 			tail.WriteString(name)
 			tail.WriteString(`="`)
-			escapeString(&tail, v)
+			escapeAttrString(&tail, v)
 			tail.WriteByte('"')
 		case bool:
 			switch {

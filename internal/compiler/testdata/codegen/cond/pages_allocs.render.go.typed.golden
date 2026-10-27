@@ -51,7 +51,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 /*line ../../../../src/pages/allocs.orbit:13:97*/it.Rel/*line render.go:51:80*/
 			if orbit__c {
 				orbit__w.Raw(" rel=\"")
-				orbit__w.String(orbit__v)
+				orbit__w.AttrValue(orbit__v)
 				orbit__w.Raw("\"")
 			}
 		}
@@ -105,7 +105,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 		}
 	}
 	orbit__w.Raw(" title=\"")
-	orbit__w.String(
+	orbit__w.AttrValue(
 /*line ../../../../src/pages/allocs.orbit:15:77*/orbit.Cond(saved, "Remove from library", "Add to library")/*line render.go:109:134*/,
 	)
 	orbit__w.Raw("\">\n")

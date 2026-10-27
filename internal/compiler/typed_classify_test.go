@@ -75,21 +75,21 @@ var tyCases = []struct{ attr, expr, want string }{
 	{"", `myHTML`, "String/string"}, // type MyHTML orbit.HTML: not HTML to Expr, escaped
 	{"", `nilRend`, "Render"},       // nil Renderer writes nothing either way
 
-	{"title", `s`, "attr:String"},
+	{"title", `s`, "attr:AttrValue"},
 	{"href", `s`, "attr:URL"},
 	{"href", `"javascript:alert(1)"`, "attr:URL"},
 	{"src", `" VbScript:x()"`, "attr:URL"},
-	{"href", `"/q?a=\"<'>\"&b"`, "attr:URL"},                      // needs escaping
-	{"href", `orbit.URL("/a?x=\"<y>\"&z")`, "attr:String/string"}, // escaped, unfiltered
-	{"title", `"a<b\"c&d"`, "attr:String"},
-	{"title", `slug`, "attr:String/string"},
+	{"href", `"/q?a=\"<'>\"&b"`, "attr:URL"},                         // needs escaping
+	{"href", `orbit.URL("/a?x=\"<y>\"&z")`, "attr:AttrValue/string"}, // escaped, unfiltered
+	{"title", `"a<b\"c&d"`, "attr:AttrValue"},
+	{"title", `slug`, "attr:AttrValue/string"},
 	{"href", `jsSlug`, "attr:URL/string"}, // a named string is filtered too
 	{"title", `tag`, "Attr"},              // named string with String()
 	{"title", `code`, "Attr"},             // named string with Error()
 	{"title", `fmts`, "Attr"},             // named string with Format()
-	{"title", `h`, "attr:String/string"},
+	{"title", `h`, "attr:AttrValue/string"},
 	{"href", `orbit.HTML("javascript:x()")`, "attr:URL/string"},
-	{"href", `orbit.URL("javascript:ok()")`, "attr:String/string"}, // trusted: unfiltered
+	{"href", `orbit.URL("javascript:ok()")`, "attr:AttrValue/string"}, // trusted: unfiltered
 	{"hidden", `ok`, "AttrBool"},
 	{"hidden", `!ok`, "AttrBool"},
 	{"hidden", `true`, "AttrBool"},
@@ -113,7 +113,7 @@ var tyCases = []struct{ attr, expr, want string }{
 	{"data-f", `ratio`, "attr:Float32/float32"},
 	{"data-f", `c128`, "Attr"},
 	{"title", `anyV`, "Attr"},
-	{"title", `alias`, "attr:String"},
+	{"title", `alias`, "attr:AttrValue"},
 	{"title", `tags`, "Attr"},
 }
 

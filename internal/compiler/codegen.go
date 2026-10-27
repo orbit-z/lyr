@@ -226,9 +226,10 @@ const (
 
 // writeMethods is the Writer method each kind calls. WriteAttrString,
 // WriteAttrURL and the number attributes are attribute pieces (see
-// attrPieces), so they call a value-only method (URL for WriteAttrURL).
+// attrPieces), so they call a value-only method (AttrValue, URL for
+// WriteAttrURL).
 var writeMethods = [...]string{"Expr", "", "String", "Int", "Uint", "Float", "Float32", "Bool",
-	"HTML", "Bytes", "Error", "Stringer", "Render", "String", "URL", "AttrBool",
+	"HTML", "Bytes", "Error", "Stringer", "Render", "AttrValue", "URL", "AttrBool",
 	"Int", "Uint", "Float", "Float32", "JSONAttr", "Class", "Classes",
 	"RestString", "RestStringURL", "RestURL", "RestBool", "RestInt", "RestUint", "RestFloat", "RestFloat32", "RestJSON",
 	"Bool"}

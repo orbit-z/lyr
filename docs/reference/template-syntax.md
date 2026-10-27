@@ -429,6 +429,8 @@ HTML attribute names are written to the output exactly as you spell them; only c
 
 Each name must match `[A-Za-z_:][-A-Za-z0-9_:.]*`. A name with a space, quote, `>`, `/` or `=` is a render error, so a map built from user input can't inject markup.
 
+**Coming from Astro**: Astro writes a spread object's entries in its key order; an `orbit.Attrs` is a Go map, which has none, so its entries are **sorted by name** (`{...orbit.Attrs{"role": "tab", "id": "t1"}}` writes `id="t1" role="tab"`). Attribute order doesn't change what the browser does, but a snapshot test or a CSS selector on the exact markup can differ after a port. Pass-through attributes (below) keep the caller's order.
+
 Attributes are written in source order, with a spread's entries at the spread's position. Orbit doesn't merge duplicates: if a spread repeats an attribute written on the same element, both are written, and browsers use the first one.
 
 **Pass-through attributes**: in a component whose `Props` has an `orbit.RestAttrs` field, `{...props.Attrs}` (the field itself, spelled `props.<Field>`) writes the attributes the caller passed ([Pass-through attributes](#pass-through-attributes)): in the caller's order, then the caller's scope attribute. Their `class` is merged into the element's own `class` or `class:list` (`<button class="btn" {...props.Attrs}>` renders `class="btn mt-2"`, wherever the spread is written), or written as a `class` attribute on an element without one. Other duplicates are written twice, as above.

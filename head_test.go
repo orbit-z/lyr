@@ -23,7 +23,7 @@ func TestHeadTags(t *testing.T) {
 		}, `<link rel="stylesheet" href="/_orbit/a.css"><script type="module" src="/_orbit/a.js"></script>` +
 			`<link rel="modulepreload" href="/_orbit/chunk-B.js"><link rel="modulepreload" href="/_orbit/chunk-A.js">`},
 		{"escaped URL", []Asset{{Kind: "modulepreload", URL: `/_orbit/a"&<.js`}},
-			`<link rel="modulepreload" href="/_orbit/a&#34;&amp;&lt;.js">`},
+			`<link rel="modulepreload" href="/_orbit/a&quot;&amp;&lt;.js">`},
 		{"unknown kind ignored", []Asset{{Kind: "prefetch", URL: "/x.js"}}, ``},
 	}
 	for _, tt := range tests {

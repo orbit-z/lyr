@@ -46,7 +46,7 @@ func (w *Writer) Class(s string) {
 	}
 	if classNormalized(s) { // the common case: one escape call
 		w.classSep()
-		escapeString(w.buf, s)
+		escapeAttrString(w.buf, s)
 		return
 	}
 	for i := 0; i < len(s); {
@@ -59,7 +59,7 @@ func (w *Writer) Class(s string) {
 		}
 		if j > i {
 			w.classSep()
-			escapeString(w.buf, s[i:j])
+			escapeAttrString(w.buf, s[i:j])
 		}
 		i = j
 	}

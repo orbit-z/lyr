@@ -55,7 +55,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 /*line ../../../../src/components/Cond.orbit:24:70*/props.Rel/*line render.go:55:86*/
 		if orbit__c {
 			orbit__w.Raw(" rel=\"")
-			orbit__w.String(orbit__v)
+			orbit__w.AttrValue(orbit__v)
 			orbit__w.Raw("\"")
 		}
 	}
@@ -281,7 +281,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 /*line ../../../../src/components/Cond.orbit:33:38*/val("v1")/*line render.go:281:87*/
 		if orbit__c {
 			orbit__w.Raw(" title=\"")
-			orbit__w.String(orbit__v)
+			orbit__w.AttrValue(orbit__v)
 			orbit__w.Raw("\"")
 		}
 	}
@@ -299,7 +299,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 /*line ../../../../src/components/Cond.orbit:34:5*/strings.Join(order, ",")/*line render.go:299:102*/,
 	)
 	orbit__w.Raw("</p><p title=\"")
-	orbit__w.String(
+	orbit__w.AttrValue(
 /*line ../../../../src/components/Cond.orbit:35:11*/fmt.Sprint(orbit.If(props.On, "a"))/*line render.go:303:114*/,
 	)
 	orbit__w.Raw("\"")
@@ -311,11 +311,11 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 /*line ../../../../src/components/Cond.orbit:35:101*/[]any{orbit.If(props.On, "x"), "y"}/*line render.go:311:115*/,
 	)
 	orbit__w.Raw("</p><p title=\"")
-	orbit__w.String(
+	orbit__w.AttrValue(
 /*line ../../../../src/components/Cond.orbit:36:11*/orbit.Cond(props.On, "yes", "no")/*line render.go:315:112*/,
 	)
 	orbit__w.Raw("\" aria-selected=\"")
-	orbit__w.String(
+	orbit__w.AttrValue(
 /*line ../../../../src/components/Cond.orbit:36:61*/orbit.Cond(props.On, "true", "false")/*line render.go:319:116*/,
 	)
 	orbit__w.Raw("\">")
@@ -386,15 +386,15 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 /*line ../../../../src/components/Cond.orbit:38:76*/props.On/*line render.go:386:86*/,
 	)
 	orbit__w.Raw(">c</div>\n<a download=\"")
-	orbit__w.String(
+	orbit__w.AttrValue(
 /*line ../../../../src/components/Cond.orbit:39:14*/"file.txt"/*line render.go:390:88*/,
 	)
 	orbit__w.Raw("\" hidden=\"")
-	orbit__w.String(
+	orbit__w.AttrValue(
 /*line ../../../../src/components/Cond.orbit:39:34*/"until-found"/*line render.go:394:91*/,
 	)
 	orbit__w.Raw("\" popover=\"")
-	orbit__w.String(
+	orbit__w.AttrValue(
 /*line ../../../../src/components/Cond.orbit:39:58*/"manual"/*line render.go:398:86*/,
 	)
 	orbit__w.Raw("\">s</a>\n<my-el aria-pressed=\"")

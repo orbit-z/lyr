@@ -163,7 +163,7 @@ func JSON(v any) JSONValue
 
 - **As an attribute value** (`data-post={orbit.JSON(post)}`): always written, `false` and `null` included, **single-quoted**, with `'` as `&#39;` and `&`, `<`, `>` as character references (inside strings, `encoding/json` has already written them as `\u003c`-style escapes): `data-post='{"id":42,"title":"Hello \u003cworld\u003e"}'`. The browser decodes the attribute back to the exact JSON text. On a `data-*` attribute of an HTML element, a direct `orbit.JSON(…)` call is typed for the component's scripts; see [Client modules](client-modules.md).
 - **In a spread** (`orbit.Attrs{"data-x": orbit.JSON(v)}`): written the same way, but untyped.
-- **In content** (`<pre>{orbit.JSON(cfg)}</pre>`): the JSON text, HTML-escaped like a string (`"` becomes `&#34;`).
+- **In content** (`<pre>{orbit.JSON(cfg)}</pre>`): the JSON text, HTML-escaped like a string (`"` becomes `&quot;`).
 - **In `set:json`**: written as its value (`set:json={orbit.JSON(x)}` writes `x`).
 - **On a component tag**, it's an ordinary Go value of type `orbit.JSONValue` passed to a prop.
 
@@ -295,12 +295,15 @@ Which write an expression gets depends on its static type:
 | a slice of these | each element in turn |
 | anything else | `fmt.Sprint`, escaped |
 
+"HTML-escaped" is spelled as in Astro: `&`, `<`, `>`, `"` and `'` become `&amp;`, `&lt;`, `&gt;`, `&quot;` and `&#39;`. A NUL byte becomes U+FFFD; everything else is copied as is. Attribute values ("attribute-escaped" below, always double-quoted) escape `&` and `"` as Astro does, and also `<` and `>` (Astro leaves those two raw), and leave `'` as is.
+
 ### Attributes
 
 ```go
 func (w *Writer) Attr(name string, v any)       // generic path
 func (w *Writer) AttrString(name, s string)
 func (w *Writer) AttrURL(name, s string)        // for URL attributes: scheme-filtered
+func (w *Writer) AttrValue(s string)            // only the value AttrString writes between the quotes
 func (w *Writer) URL(s string)                  // only the value AttrURL writes between the quotes
 func (w *Writer) AttrBool(name string, b bool)  // bare or nothing, on any attribute
 func (w *Writer) Spread(a Attrs)                // {...attrs}
@@ -315,7 +318,7 @@ func (w *Writer) JSONAttr(pos string, v JSONValue) // only the value, for name={
 - **A `bool` on a true/false attribute** writes `name="true"` or `name="false"`: every `aria-*` attribute (any case), `contenteditable`, `draggable`, `spellcheck` and `writingsuggestions`, the HTML attributes whose values are the keywords `true` and `false`. It applies to `Attr`, `Spread`, `SpreadRest` (and `RestBool`, `RestOf`, a `RestAttrs`'s JSON) and the typed writes; only the name counts, so it's the same on a custom element. `AttrBool` itself always writes the bare attribute or nothing.
 - Anything else is attribute-escaped and quoted.
 - **URL attributes** (`action`, `background`, `cite`, `codebase`, `data`, `formaction`, `href`, `icon`, `longdesc`, `manifest`, `poster`, `profile`, `src`, `usemap`, `xmlns` and `xlink:href`: the list Go's `html/template` uses, plus `xlink:href`): a value whose scheme is `javascript:` or `vbscript:` (ignoring case, and after trimming whitespace and control characters) is replaced with `about:invalid#orbit`, unless it has type `orbit.URL`. This applies to `Attr`, `AttrURL`, `URL` and `Spread`.
-- **`URL`** writes just the value: generated code writes `href={url}` (a `string`) as the static ` href="`, `w.URL(url)` and the closing `"`, the same bytes as `AttrURL("href", url)`. An `orbit.URL` value is written with `String` instead, unfiltered.
+- **`AttrValue`** and **`URL`** write just the value: generated code writes `title={s}` (a `string`) as the static ` title="`, `w.AttrValue(s)` and the closing `"`, the same bytes as `AttrString("title", s)`, and `href={url}` as ` href="`, `w.URL(url)` and `"`, the same bytes as `AttrURL("href", url)`. An `orbit.URL` value is written with `AttrValue` instead, unfiltered.
 - **`Spread`** checks each name against `[A-Za-z_:][-A-Za-z0-9_:.]*`. An invalid name (with spaces, quotes, `>`, `/` or `=`) is a render error.
 - **`SpreadRest`** writes a [`RestAttrs`](#restattrs): the call site's attributes in source order (dynamic values by the rules above), the caller's scope attribute, then any merged spread's attributes the call site doesn't set (an `Attrs` checked like `Spread`). With `withClass`, it also writes a `class` attribute holding their class, or none when it's empty. Generated code passes `false` when the element has its own class, and writes the pass-through class inside it with `RestClass` (each class after a space, as `Class` does).
 - **A `JSONValue`** is always written (even when it encodes as `false` or `null`), single-quoted, as described in [JSON](#json). This applies to `Attr` and `Spread`. `Expr` writes it as HTML-escaped text.

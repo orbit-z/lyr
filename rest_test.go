@@ -188,7 +188,7 @@ func TestRestJSON(t *testing.T) {
 	}
 	got, _ := render(func(w *Writer) { w.SpreadRest(&back, true) })
 	// The URL lost its trust: filtered after the round trip.
-	if want := ` id="i" href="about:invalid#orbit" f="0.5" name="a&#34;b" required data-o-x class="mt-2"`; got != want {
+	if want := ` id="i" href="about:invalid#orbit" f="0.5" name="a&quot;b" required data-o-x class="mt-2"`; got != want {
 		t.Errorf("round trip = %s\nwant %s", got, want)
 	}
 	for _, bad := range []string{`[]`, `{"a b":"x"}`, `{"a":1}`} {
