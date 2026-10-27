@@ -1,5 +1,7 @@
 # Coming from Astro
 
+Porting a site? [Migrating from Astro](migrating-from-astro.md) walks through it step by step.
+
 If you know Astro, you already know most of Orbit; this page maps your Astro knowledge to Orbit, shows what's different, and lists what doesn't exist and why.
 
 Orbit keeps Astro's component model and its file-based routing: a frontmatter fence, then a template with `{expressions}`, slots, scoped `<style>` and bundled `<script>` tags, with pages in `src/pages/`. What changes is the server side. The frontmatter is **Go**, not JavaScript, and Orbit compiles every `.orbit` file to Go, so your components, your Go packages and your `cmd/server/main.go` become **one server binary**. Orbit is **SSR-only**: every page renders per request, and there's no static build. The reasons: server rendering designed to do as little work per request as possible (precomputed static HTML, typed writes, no reflection; see [Performance](performance.md) for the benchmarks against Astro), the Go compiler checking your props and templates, and a single binary to deploy, with no Node.js at build time or at runtime.
