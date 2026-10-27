@@ -5,7 +5,7 @@ import (
 	Comments "../../components/Comments.orbit"
 	LikeButton "../../components/LikeButton.orbit"
 	ShareButtons "../../components/ShareButtons.orbit"
-	Base "../../layouts/Base.orbit"
+	Base "@/layouts/Base.orbit"
 	"example.com/blog/internal/posts"
 )
 

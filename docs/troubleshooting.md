@@ -350,9 +350,15 @@ src/pages/blog/[slug].orbit:4:12: params.Slg undefined (type Params has no field
 
 ### `no such component: src/components/Crad.orbit`
 
-**Cause:** an `.orbit` import points at a file that doesn't exist. The error is at the import path, which Orbit resolves relative to the importing file and prints from the project root.
+**Cause:** an `.orbit` import points at a file that doesn't exist. The error is at the import path, which Orbit resolves relative to the importing file (or through a `tsconfig.json` alias) and prints from the project root.
 
 **Fix:** fix the path or the file name. See [Importing components](components.md#importing-components).
+
+### `no tsconfig.json paths alias matches "@/components/Card.orbit"; use a relative path or add "@/*": ["./src/*"] to compilerOptions.paths`
+
+**Cause:** an `.orbit` or `.md` import path (or a Markdown `layout`) doesn't start with `./` or `../`, so Orbit reads it as an alias, but no key of `compilerOptions.paths` in `tsconfig.json` (or a file it `extends`) matches it. A path with no `/`, such as `"Card.orbit"`, is an alias too: write `"./Card.orbit"`.
+
+**Fix:** use a relative path, or add the alias to `tsconfig.json`. `orbit dev` and the editor pick up a `tsconfig.json` change without a restart. See [Import aliases](components.md#import-aliases).
 
 ### `orbit: can't read export data for example.com/blog/internal/posts: …; using Expr fallbacks`
 

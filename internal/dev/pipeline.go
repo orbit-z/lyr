@@ -208,7 +208,7 @@ func (pl *pipeline) run(ctx context.Context, c Change, appRunning bool) (out out
 	}
 
 	// Only files the bundles read: rebuild them from the last input.
-	if !full && c.Only(KindAsset, KindPublic) {
+	if !full && c.Only(KindAsset, KindPublic) && !c.touchesTsconfig() {
 		pl.tr("esbuild")
 		mark := time.Now()
 		f, err := pl.bundle(pl.lastInput, pl.assetKey)

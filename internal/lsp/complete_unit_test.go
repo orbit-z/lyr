@@ -256,11 +256,14 @@ func TestImportPathAt(t *testing.T) {
 		{`import A B "./|"`, false, false, false},       // not a spec
 		{"x := `\nimport \"./|\"", true, false, true},   // line-based: a raw string isn't seen
 		{`import Card "./a.orbit" // "./|`, false, false, false},
+		{`import Card "@/|"`, true, true, true}, // a tsconfig.json paths alias
+		{`import "@|`, true, false, false},      // the start of one
+		{`import "@x/|"`, false, false, false},  // another prefix: gopls
 	} {
 		at := strings.Index(tc.fm, "|")
 		src := "---\n" + strings.Replace(tc.fm, "|", "", 1) + "\n---\n<p>x</p>\n"
 		ws := memWorkspace(t, map[string]string{"src/pages/index.orbit": src})
-		ip, ok := importPathAt(ws.byPath["src/pages/index.orbit"], len("---\n")+at)
+		ip, ok := importPathAt(ws.byPath["src/pages/index.orbit"], len("---\n")+at, []string{"@/"})
 		if ok != tc.ok || ok && (ip.alias != tc.alias || ip.closed != tc.closed) {
 			t.Errorf("%q: %+v %v, want ok %v alias %v closed %v", tc.fm, ip, ok, tc.ok, tc.alias, tc.closed)
 		}

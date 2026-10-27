@@ -26,6 +26,7 @@ import (
 	"github.com/orbit-z/orbit/internal/compiler"
 	"github.com/orbit-z/orbit/internal/config"
 	"github.com/orbit-z/orbit/internal/markdown"
+	"github.com/orbit-z/orbit/internal/tsconfig"
 )
 
 // Project is a loaded Orbit project.
@@ -61,6 +62,9 @@ type Project struct {
 	markdown map[string]string
 	mdPaths  []string
 	mdDiags  []Diagnostic
+	// aliases are tsconfig.json's import aliases (set by Load; PLAN.md
+	// §2.2).
+	aliases *tsconfig.Aliases
 }
 
 // File is one .orbit or Markdown file of the project, through the
@@ -125,6 +129,9 @@ func Load(root string) (*Project, error) {
 	}
 	p.ServerEntry, p.GeneratedServer = cfg.ServerEntry(root)
 	p.Options.Locals, p.localsDiags = detectLocals(root, module)
+	if err := p.loadAliases(); err != nil {
+		return nil, err
+	}
 	p.markdown = map[string]string{}
 	srcs := make([][]byte, len(paths))
 	errs := make([]error, len(paths))
@@ -200,7 +207,7 @@ func (p *Project) front(parsed func()) bool {
 // parse parses and analyzes the .orbit file f.
 func (p *Project) parse(f *File) {
 	f.AST = compiler.Parse(f.Src, p.Options.Mode)
-	f.Analysis = compiler.Analyze(f.AST, f.Info)
+	p.analyze(f)
 	f.callList, f.callsDone = nil, false
 }
 
@@ -253,7 +260,7 @@ func (p *Project) Refresh(paths []string) []*File {
 			continue
 		}
 		f.AST = compiler.Parse(f.Src, p.Options.Mode)
-		f.Analysis = compiler.Analyze(f.AST, f.Info)
+		p.analyze(f)
 		f.callList, f.callsDone = nil, false
 		info := compiler.NewComponentInfo(f.AST, f.Analysis)
 		if !sameInfo(p.Index[f.Path], info) {

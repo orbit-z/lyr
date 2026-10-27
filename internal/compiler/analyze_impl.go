@@ -196,7 +196,7 @@ func (s *anState) parseImports() {
 			full.Start = nameSpan.Start
 		}
 		ext := strings.ToLower(path.Ext(p))
-		relative := strings.HasPrefix(p, "./") || strings.HasPrefix(p, "../") || p == "." || p == ".."
+		relative := IsRelativeImport(p)
 		switch {
 		case ext == ".orbit" || IsMarkdown(ext):
 			s.orbitImport(name, nameSpan, p, pathSpan, full)
@@ -227,7 +227,11 @@ func (s *anState) orbitImport(alias string, aliasSpan Span, p string, pathSpan, 
 		s.errorf(at, "a component import needs an alias: %s %s", base, strconv.Quote(p))
 		return
 	}
-	resolved := path.Join(path.Dir(s.a.Info.Path), p)
+	resolved, ok := ResolveImportPath(s.a.Info.Path, p, s.a.Info.Aliases)
+	if !ok {
+		s.errorf(pathSpan, "%s", NoAliasError(p))
+		return
+	}
 	if !strings.HasPrefix(resolved, "src/") {
 		s.errorf(pathSpan, "component path %s is outside src/", p)
 		return

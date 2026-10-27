@@ -26,6 +26,9 @@ type FileInfo struct {
 	// whole-segment params are read from it; malformed routes (mixed
 	// segments, a non-final rest) are reported by milestone 5.
 	Route string
+	// Aliases resolves the component imports that aren't relative
+	// (tsconfig.json paths, PLAN.md §2.2); nil: none.
+	Aliases ImportResolver
 }
 
 // Placement says which generated package(s) a hoisted declaration or an
@@ -119,8 +122,10 @@ type OrbitImport struct {
 	Path           string
 	Span, PathSpan Span
 	// Resolved is the project-relative target, path.Join(path.Dir(file),
-	// Path): "src/components/Card.orbit". Codegen looks it up in the
-	// ComponentIndex.
+	// Path) or, for an alias ("@/components/Card.orbit"), what
+	// FileInfo.Aliases resolves it to: "src/components/Card.orbit". Codegen
+	// looks it up in the ComponentIndex; two spellings of one file are the
+	// same component.
 	Resolved string
 	// Place is where the alias is used: PlaceImpl for template tags and impl
 	// Go code, PlaceDecl when decl code uses it (Props: B.Item). Unused is

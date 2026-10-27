@@ -137,7 +137,7 @@ layout: ../../layouts/Post.orbit
 ---
 ```
 
-`layout` is special: it's the path of an `.orbit` layout, relative to the Markdown file, and it must stay inside `src/`. Orbit uses it to compile the page and doesn't pass it on. Every other key goes to the layout (see [Layouts](#layouts)) and to files that import this one (see [`Post.Frontmatter`](#postfrontmatter)).
+`layout` is special: it's the path of an `.orbit` layout, relative to the Markdown file or through a `tsconfig.json` alias (`layout: "@/layouts/Post.orbit"`, quoted because YAML reserves `@`; see [Import aliases](components.md#import-aliases)), and it must stay inside `src/`. Orbit uses it to compile the page and doesn't pass it on. Every other key goes to the layout (see [Layouts](#layouts)) and to files that import this one (see [`Post.Frontmatter`](#postfrontmatter)).
 
 Keys become Go field names with the same rules as props and route params: `title` → `Title`, `post-id` and `postId` → `PostID`, `url` → `URL`. So a key must start with a letter and use only letters, digits, `-` and `_`, and two keys that become the same field are an error. The keys of nested maps follow the same rules.
 
@@ -229,7 +229,7 @@ posts := []entry{
 </Base>
 ```
 
-The same rules apply as for `.orbit` imports: the alias is required and starts with an uppercase letter, the path is relative and stays inside `src/`, and an import that's never used is an error. The import gives you:
+The same rules apply as for `.orbit` imports: the alias is required and starts with an uppercase letter, the path is relative (or a `tsconfig.json` alias, such as `"@/content/intro.md"`) and stays inside `src/`, and an import that's never used is an error. The import gives you:
 
 | Name | What it is |
 |---|---|

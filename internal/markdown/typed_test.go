@@ -86,7 +86,7 @@ func retype(t *testing.T, src string) (*compiler.Output, []compiler.Diagnostic, 
 			compiler.RuntimePath:                           "package orbit\n\ntype Heading struct {\n\tDepth int\n\tSlug, Text string\n}\n\ntype HTML string\n",
 			"example.com/blog/orbit_gen/decl/layouts/post": layoutDecl,
 		}}
-	d := Parse("src/pages/blog/hello.md", src, Options{}, nil)
+	d := Parse("src/pages/blog/hello.md", src, Options{}, nil, nil)
 	if len(d.Diagnostics) > 0 {
 		t.Fatalf("parse: %s", diags(d))
 	}
@@ -182,7 +182,7 @@ func TestRetypeErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.yaml, func(t *testing.T) {
 			src := "---\n" + tt.yaml + "\nlayout: ../../layouts/Post.orbit\n---\n"
-			d := Parse("src/pages/blog/hello.md", src, Options{}, nil)
+			d := Parse("src/pages/blog/hello.md", src, Options{}, nil, nil)
 			if len(d.Diagnostics) > 0 {
 				if got := diags(d); got != tt.want {
 					t.Errorf("parse:\n%s\nwant:\n%s", got, tt.want)
@@ -204,7 +204,7 @@ func TestRetypeErrors(t *testing.T) {
 
 func TestGenerate(t *testing.T) {
 	src := "---\ntitle: Hi\ntilte: typo\nlayout: ../layouts/Post.orbit\n---\n# Hi\n"
-	d := Parse("src/pages/hi.md", src, Options{}, nil)
+	d := Parse("src/pages/hi.md", src, Options{}, nil, nil)
 	layout := &compiler.ComponentInfo{Path: "src/layouts/Post.orbit", Name: "Post", Pkg: compiler.GenPackage{Rel: "layouts/post", Name: "post"},
 		Props: compiler.PropsInfo{Declared: true, Listable: true, Fields: []compiler.PropField{{Name: "Title", Type: "string"}, {Name: "Headings", Type: "[]orbit.Heading"}}}}
 	in := GenInput{
