@@ -1,0 +1,9 @@
+---
+items := []string{"a", "b"}
+---
+<>
+  <h1>{len(items)}</h1>
+</>
+<ul>{for _, x := range items}<><li>{x}</li><li>sep</li></>{/for}</ul>
+<Fragment slot="x"><>{items[0] + "!"}</></Fragment>
+<></>

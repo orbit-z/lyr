@@ -1,0 +1,5 @@
+errors_fragment.orbit:1:4: unexpected </div>: no <div> is open
+errors_fragment.orbit:2:7: unexpected </>: <div> opened at 2:1 isn't closed
+errors_fragment.orbit:3:7: unexpected </p>: <> opened at 3:4 isn't closed
+errors_fragment.orbit:4:1: unexpected </>: no <> is open
+errors_fragment.orbit:6:1: <> isn't closed; add </>

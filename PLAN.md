@@ -123,7 +123,7 @@ title := strings.ToUpper(props.Title)
 ### 2.3 Template grammar
 | Construct | Meaning |
 |---|---|
-| text | Anything except `{` and a `<` that starts a tag; emitted verbatim. `<` starts a tag only when followed by a letter, `/` or `!`; any other `<` (`a < b`, `<3`, `<=`) is text. A literal brace is written `{"{"}`. |
+| text | Anything except `{` and a `<` that starts a tag; emitted verbatim. `<` starts a tag only when followed by a letter, `/`, `!` or `>` (the fragment shorthand `<>`); any other `<` (`a < b`, `<3`, `<=`) is text. A literal brace is written `{"{"}`. |
 | `{expr}` | Any Go expression, escaped (typed writes, §3.3; `Expr` fallback, §4). The end is found with a Go-aware scanner that tracks `()[]{}` depth, strings, runes, raw strings and comments. |
 | `{/* … */}` | Template comment, emits nothing. |
 | `{if c}` `{else if c}` `{else}` `{/if}` | Copied as a Go `if` chain. |
@@ -135,7 +135,7 @@ title := strings.ToUpper(props.Title)
 | `<Name server:defer …>` | Deferred server rendering (Astro's server islands): the page gets a placeholder holding the `fallback` slot, and the browser fetches the component's HTML in a separate request (§3.4, §5b). |
 | `<Name client:idle …>` (also `client:load`, `client:visible`, `client:media`) | Controls when the component's `<script>` modules load (§3.4, §5). |
 | `<slot />`, `<slot name="x">fallback</slot>` | Slot outlet, with fallback children. |
-| `<Fragment>` | Grouping with no wrapper element; mostly used for `<Fragment slot="x">`. As in Astro, it takes only `slot`, `set:html` and `set:text` (`<Fragment set:html={body} />` writes raw HTML with no wrapper); any other attribute is a compile error. |
+| `<Fragment>`, `<>…</>` | Grouping with no wrapper element; mostly used for `<Fragment slot="x">`. As in Astro, it takes only `slot`, `set:html` and `set:text` (`<Fragment set:html={body} />` writes raw HTML with no wrapper); any other attribute is a compile error. `<>…</>` is Astro's shorthand: the parser builds the same `Fragment` node (with an empty tag name), so codegen is identical; it takes no attributes (write `<Fragment slot="x">`), `<>` closes only with `</>` and `</>` closes only a `<>` (other mismatches are the usual end-tag errors), and the two forms nest and mix freely. `orbit fmt` keeps the form as written. |
 | `<!DOCTYPE …>`, `<!-- … -->` | Passed through. `{…}` inside an HTML comment isn't evaluated. |
 
 `{switch}` blocks (**implemented** 2026-10-26 as specified here; the error wordings and other small details are in `docs/DECISIONS.md` "Switch blocks"; user decision 2026-10-26: keyword `switch`, not `match`, since the header is copied as Go like `{if}`/`{for}` and `match` would promise patterns and exhaustiveness Go can't check):

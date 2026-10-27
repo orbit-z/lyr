@@ -177,7 +177,7 @@ func FuzzParse(f *testing.F) {
 		f.Add(string(src))
 	}
 	for _, s := range []string{
-		"", "{", "}", "<", "</", "<!", "<!-", "<a", "<a b", "<a b=", `<a b="`, "<a {", "<a {...", "{if", "{else}",
+		"", "{", "}", "<", "</", "<>", "</>", "<><", "<!", "<!-", "<a", "<a b", "<a b=", `<a b="`, "<a {", "<a {...", "{if", "{else}",
 		"{/if}", "<script>", "<title>{", "---", "---\n", "---\n---\n<", "<Card server:defer client:idle=x>",
 		"<p>{/*</p>", "<textarea></textarea>", "<style is:global is:inline>", "\xff<\xff{\xff",
 	} {

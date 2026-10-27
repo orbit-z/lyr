@@ -19,7 +19,8 @@ import (
 //   - The template is HTML, with its own rules rather than Chroma's HTML
 //     lexer (which can't be taught {…}): tags, attributes, comments,
 //     entities. Component tags (<Card>, <Self>, <Fragment>, capitalized
-//     like in the compiler) are NameClass, other tags NameTag.
+//     like in the compiler) are NameClass, other tags NameTag; the fragment
+//     shorthand <>…</> is tag punctuation.
 //   - {…} in content, as an attribute value and in a start tag (spreads) is
 //     matched up to its closing brace by braceRe, then split by braceTokens
 //     as the compiler's lexBrace does: {/* comment */}, {if …}, {else if …},
@@ -102,6 +103,7 @@ func orbitRules() chroma.Rules {
 			{Pattern: `(<)([A-Za-z][\w:.-]*)`, Type: chroma.ByGroups(chroma.Punctuation, chroma.NameTag), Mutator: chroma.Push("tag")},
 			{Pattern: `(<)(/)(\s*)([A-Z][\w.]*)(\s*)(>)`, Type: chroma.ByGroups(chroma.Punctuation, chroma.Punctuation, chroma.Text, chroma.NameClass, chroma.Text, chroma.Punctuation)},
 			{Pattern: `(<)(/)(\s*)([A-Za-z][\w:.-]*)(\s*)(>)`, Type: chroma.ByGroups(chroma.Punctuation, chroma.Punctuation, chroma.Text, chroma.NameTag, chroma.Text, chroma.Punctuation)},
+			{Pattern: `</?>`, Type: chroma.Punctuation}, // the fragment shorthand <>…</>
 			{Pattern: `&(?:[A-Za-z][A-Za-z0-9]*|#[0-9]+|#[xX][0-9A-Fa-f]+);`, Type: chroma.NameEntity},
 			{Pattern: `[<&}]`, Type: chroma.Text}, // "a < b", a lone "&" or "}"
 		},

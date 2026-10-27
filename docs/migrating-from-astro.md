@@ -166,7 +166,7 @@ Step by step:
 - **Template literals**: `` class={`card ${extra}`} `` is `class={"card " + extra}`. A quoted attribute value is literal text.
 - **`x ?? y`** is `cmp.Or(x, y)`, and optional chaining (`a?.b`) is an explicit `nil` check in the frontmatter.
 
-`<Fragment>` (Astro's `<>` is written `<Fragment>`), `<slot />`, named slots, `slot="x"` and `<Self />` (Astro's `<Astro.self />`) work as in Astro. See [Slots](components.md#slots) and [`<Fragment>`](components.md#fragment).
+`<Fragment>` and its `<>…</>` shorthand, `<slot />`, named slots, `slot="x"` and `<Self />` (Astro's `<Astro.self />`) work as in Astro. See [Slots](components.md#slots) and [`<Fragment>`](components.md#fragment).
 
 ### Pass-through attributes: `...rest`
 

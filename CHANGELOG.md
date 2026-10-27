@@ -11,6 +11,7 @@ The first release of Orbit: Astro's developer experience, with Go on the server 
 - Compiled to type-checked Go: errors point at the `.orbit` line, and each expression is written by its type, with no reflection.
 - `orbit.If(cond, v)` and `orbit.Cond(cond, a, b)` for conditional attribute values and text (compiled to an `if`, no allocation), and a `bool` writes `"true"`/`"false"` on `aria-*` and the other true/false attributes.
 - File-based routing under `src/pages`, with dynamic and catch-all routes, typed route params (`params.Slug`), a custom `404.orbit` and no trailing slash by default (`"trailingSlash": "always"` mirrors it).
+- The fragment shorthand `<>…</>`, as in Astro: the same as `<Fragment>…</Fragment>`, without attributes.
 - Dynamic tags, as in Astro: `Tag := orbit.Cond(link, "a", "button")`, then `<Tag …>…</Tag>` renders the element the variable names, and `orbit.Fragment` renders no element (an optional wrapper). The name is checked at render time; no allocation.
 - `orbit.AttrList`, an ordered spread built with `orbit.A(name, value)`: `{...list}` writes its attributes in list order (an `orbit.Attrs` map stays sorted), for Astro's byte order, with no allocation for a list built in the page. It also passes through `orbit.RestAttrs` and `server:defer`.
 - `orbit.CSS` marks trusted CSS: a `style={…}` value of that type, or a constant, no longer warns (pass-through `style`/`on*` attributes now warn too, at the call site).

@@ -844,7 +844,7 @@ The template is HTML plus a few constructs. The full grammar is in [Template syn
 - To build a `class` from parts and conditions, use `class:list`, as in Astro: `class:list={"card", extra, "featured": props.Featured}` writes `card`, the classes in `extra`, and `featured` when `props.Featured` is true. Static classes are joined at build time, so it costs no more than writing the attribute by hand. On a component tag, it sets the `class` prop. See [`class:list`](reference/template-syntax.md#classlist).
 - `true` writes a bare attribute and `false` or `nil` omits it, so `data-featured={props.Featured}` renders `data-featured` or nothing. On `aria-*` attributes and the few HTML attributes whose values are the words `true` and `false` (`contenteditable`, `draggable`, `spellcheck`, `writingsuggestions`), a `bool` is written as text instead: `aria-pressed={props.Saved}` renders `aria-pressed="false"`, which is what ARIA expects.
 - Every element must be closed (`<p>…</p>`, `<li>…</li>`), or self-closed (`<div />`); void elements such as `<br>` and `<img>` take no closing tag. Orbit doesn't auto-close tags.
-- A `<` starts a tag only when a letter, `/` or `!` follows it; otherwise it's text, so `{a} < {b}` works. To write a literal `{`, use `{"{"}`.
+- A `<` starts a tag only when a letter, `/`, `!` or `>` (the fragment shorthand `<>`) follows it; otherwise it's text, so `{a} < {b}` works. To write a literal `{`, use `{"{"}`.
 
 ### Conditional attributes
 

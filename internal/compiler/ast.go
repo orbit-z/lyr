@@ -247,7 +247,8 @@ type Slot struct {
 	Children []Node
 }
 
-// Fragment is <Fragment>: children without a wrapper element.
+// Fragment is <Fragment>, or its shorthand <>…</> (Tag.Name "" and no
+// attributes): children without a wrapper element.
 type Fragment struct {
 	Span
 	Tag

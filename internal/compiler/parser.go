@@ -381,7 +381,7 @@ func (p *parser) startTag(tok token) {
 	case name == "slot":
 		s := &Slot{Span: sp, Tag: tag}
 		n, kids = s, &s.Children
-	case name == "Fragment":
+	case name == "Fragment" || name == "": // "" is the shorthand <>
 		s := &Fragment{Span: sp, Tag: tag}
 		n, kids = s, &s.Children
 	case isComponentName(name):

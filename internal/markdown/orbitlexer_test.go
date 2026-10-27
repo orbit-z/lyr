@@ -116,6 +116,8 @@ func TestOrbitLexerEdges(t *testing.T) {
 		// A // comment needs a newline before the }.
 		{"{x // y}\n", "err  \"{\"\n-    \"x // y}\\n\"\n"},
 		{"{x // y\n}", "p    \"{\"\nnx   \"x\"\nc1   \"// y\"\np    \"}\"\n"},
+		// The fragment shorthand <>…</> is tag punctuation.
+		{"<><b>x</b></>", "p    \"<><\"\nnt   \"b\"\np    \">\"\n-    \"x\"\np    \"</\"\nnt   \"b\"\np    \"></>\"\n"},
 		// {switch} blocks: keywords, with the header and case lists as Go.
 		{"{switch x}{case 1, 2}{default}{/switch}", "p    \"{\"\nk    \"switch\"\nnx   \"x\"\np    \"}{\"\nk    \"case\"\nmi   \"1\"\np    \",\"\nmi   \"2\"\np    \"}{\"\nk    \"default\"\np    \"}{\"\nk    \"/switch\"\np    \"}\"\n"},
 	} {

@@ -1,25 +1,25 @@
-Template @0-167
+Template @0-168
   Element @0-47
     <p> name=@1-2 start=@0-3 end=@43-47
     Text @3-43 "Use a < b, or <= for \"at most\". I <3 Go."
   Text @47-48 "\n"
-  Element @48-84
-    <p> name=@49-50 start=@48-51 end=@80-84
+  Element @48-85
+    <p> name=@49-50 start=@48-51 end=@81-85
     Expr @51-54 code=@52-53 "a"
     Text @54-57 " < "
     Expr @57-60 code=@58-59 "b"
-    Text @60-80 " and a <> b and << 2"
-  Text @84-85 "\n"
-  Element @85-113
-    <code> name=@86-90 start=@85-91 end=@106-113
-    Text @91-103 "func main() "
-    Expr @103-106 code=@105-105 ""
-  Text @113-114 "\n"
-  Element @114-148
-    <p> name=@115-116 start=@114-117 end=@144-148
-    Text @117-144 "&amp; &lt; } lone braces }}"
-  Text @148-149 "\n"
-  Element @149-166
-    <p> name=@150-151 start=@149-152 end=@162-166
-    Text @152-162 "trailing <"
-  Text @166-167 "\n"
+    Text @60-81 " and a < > b and << 2"
+  Text @85-86 "\n"
+  Element @86-114
+    <code> name=@87-91 start=@86-92 end=@107-114
+    Text @92-104 "func main() "
+    Expr @104-107 code=@106-106 ""
+  Text @114-115 "\n"
+  Element @115-149
+    <p> name=@116-117 start=@115-118 end=@145-149
+    Text @118-145 "&amp; &lt; } lone braces }}"
+  Text @149-150 "\n"
+  Element @150-167
+    <p> name=@151-152 start=@150-153 end=@163-167
+    Text @153-163 "trailing <"
+  Text @167-168 "\n"

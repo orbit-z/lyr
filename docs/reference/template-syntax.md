@@ -62,7 +62,7 @@ tags := []string{"go", "web"}
 
 | Construct | Meaning |
 |---|---|
-| text | Anything except `{` and a `<` that starts a tag; emitted verbatim. `<` starts a tag only when followed by a letter, `/` or `!`; any other `<` (`a < b`, `<3`, `<=`) is text. A literal brace is written `{"{"}`. |
+| text | Anything except `{` and a `<` that starts a tag; emitted verbatim. `<` starts a tag only when followed by a letter, `/`, `!` or `>` (the fragment shorthand `<>`); any other `<` (`a < b`, `<3`, `<=`) is text. A literal brace is written `{"{"}`. |
 | `{expr}` | Any Go expression, escaped (see [How values render](#how-values-render)). Its end is found with a Go-aware scanner that tracks `()[]{}` depth, strings, runes, raw strings and comments. |
 | `{/* … */}` | Template comment; emits nothing. |
 | `{if c}` `{else if c}` `{else}` `{/if}` | A Go `if` chain. |
@@ -75,7 +75,7 @@ tags := []string{"go", "web"}
 | `<Name server:concurrent …>` | Concurrent server rendering: the component renders in its own goroutine while the page goes on, and its HTML lands in its place. See [`server:concurrent`](#serverconcurrent). |
 | `<Name client:idle …>`, also `client:load`, `client:visible`, `client:media` | Controls when the `<script>` modules of the component and its subtree load. See [Lazy loading](../lazy-loading.md). |
 | `<slot />`, `<slot name="x">fallback</slot>` | A slot outlet, with optional fallback children. |
-| `<Fragment>` | Groups children without a wrapper element; mostly used as `<Fragment slot="x">`. |
+| `<Fragment>`, `<>…</>` | Groups children without a wrapper element; mostly used as `<Fragment slot="x">`. `<>…</>` is the shorthand, as in Astro. |
 | `<!DOCTYPE …>`, `<!-- … -->` | Passed through to the output. |
 
 ## Text
@@ -388,6 +388,18 @@ In the frontmatter and in expressions, `slots.Has("footer")` reports whether a s
 ```
 
 As in Astro, `<Fragment>` takes only `slot`, `set:html` and `set:text`. `<Fragment set:html={body} />` writes raw HTML with no wrapper element. Any other attribute on a `<Fragment>` is a compile error.
+
+`<>…</>` is the shorthand, as in Astro: it compiles to exactly the same code as `<Fragment>…</Fragment>`, and the two nest and mix freely. The shorthand takes no attributes, so a fragment sent to a named slot is written `<Fragment slot="x">`:
+
+```orbit
+<dl>
+  {for _, item := range items}
+    <><dt>{item.Term}</dt><dd>{item.Definition}</dd></>
+  {/for}
+</dl>
+```
+
+A `<>` must be closed by `</>`, and a `</>` closes only a `<>`: `<>…</div>` and `<div>…</>` are errors, like any other mismatched end tag.
 
 ### Doctype and HTML comments
 

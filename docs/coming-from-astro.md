@@ -110,7 +110,7 @@ Using it looks the same, apart from Go literals: `<Card title="Hello" tags={[]st
 | `await Astro.slots.render("default")` | `orbit.RenderHTML(ctx, slots.Default)` | Returns `(orbit.HTML, error)`, written with `set:html`; `slots.Get("x")` for a named slot. Unlike Astro, a slot you don't render isn't built at all, so a fragment cache skips the work on a hit. See [Rendering a slot to a string](components.md#rendering-a-slot-to-a-string) and [Caching fragments](rendering.md#caching-fragments). |
 | `Astro.slots.render("default", [item])` (a slot as a function) | No equivalent | Slots take no arguments. Pass the data as props to a component instead, or call a component's `Render` from Go code. |
 | `const [book, chapters] = await Promise.all([getBook(slug), getChapters(slug)])` in the frontmatter | `err := orbit.All(ctx, func(rc context.Context) (err error) { book, err = getBook(rc, params.Slug); return err }, …)` | Declare the variables with `var`, assign each from one load, check `err` once. The first error in time is returned, positioned at its load's line, the other loads' `rc` is cancelled, and a panic in a load fails the request like one in the frontmatter. A load that needs another's result chains the calls inside one load. See [Loading data](data-loading.md). |
-| `<Fragment>` | `<Fragment>` | As in Astro, it takes only `slot`, `set:html` and `set:text`. See [`<Fragment>`](components.md#fragment). |
+| `<Fragment>`, `<>…</>` | `<Fragment>`, `<>…</>` | As in Astro, `<Fragment>` takes only `slot`, `set:html` and `set:text`, and the `<>` shorthand takes no attributes. See [`<Fragment>`](components.md#fragment). |
 
 ### Templates
 

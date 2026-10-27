@@ -82,8 +82,8 @@ func (l *lexer) next() token {
 	return l.lexText()
 }
 
-// startsTag reports whether the '<' at i starts markup: a letter, '/' or '!'
-// follows it. In RCDATA only the matching end tag does.
+// startsTag reports whether the '<' at i starts markup: a letter, '/', '!'
+// or '>' (the fragment shorthand <>) follows it. In RCDATA only the matching end tag does.
 func (l *lexer) startsTag(i int) bool {
 	if l.rcdata != "" {
 		return l.isEndTagOf(i, l.rcdata)
@@ -92,7 +92,7 @@ func (l *lexer) startsTag(i int) bool {
 		return false
 	}
 	c := l.src[i+1]
-	return isASCIILetter(c) || c == '/' || c == '!'
+	return isASCIILetter(c) || c == '/' || c == '!' || c == '>'
 }
 
 // isEndTagOf reports whether src[i:] starts with </name (case-sensitive,
@@ -312,6 +312,10 @@ func (l *lexer) lexMarkup() token {
 		l.pos = end
 		b := Span{start + 2, bodyEnd}
 		return token{kind: tokDoctype, span: Span{start, end}, body: RawText{b, l.src[b.Start:b.End]}}
+	case s[1] == '>':
+		// <>: the fragment shorthand, a start tag with no name.
+		l.pos = start + 2
+		return token{kind: tokStartTag, span: Span{start, start + 2}, nameSpan: Span{start + 1, start + 1}}
 	case s[1] == '/':
 		return l.lexEndTag()
 	}
@@ -321,6 +325,11 @@ func (l *lexer) lexMarkup() token {
 func (l *lexer) lexEndTag() token {
 	start := l.pos
 	i := start + 2
+	if i < len(l.src) && l.src[i] == '>' {
+		// </>: the end of a fragment shorthand.
+		l.pos = i + 1
+		return token{kind: tokEndTag, span: Span{start, i + 1}, nameSpan: Span{i, i}}
+	}
 	if i >= len(l.src) || !isASCIILetter(l.src[i]) {
 		l.errorf(Span{start, start + 2}, "expected a tag name after </")
 		l.pos = start + 2

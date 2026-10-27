@@ -331,8 +331,16 @@
     },
 
     "component-tag": {
-      "comment": "Capitalized tags are components (PLAN.md §2.3); <Self> and <Fragment> are built in.",
+      "comment": "Capitalized tags are components (PLAN.md §2.3); <Self> and <Fragment> are built in, and <>…</> is the shorthand for <Fragment>.",
       "patterns": [
+        {
+          "name": "meta.tag.component.orbit",
+          "match": "(</?)(>)",
+          "captures": {
+            "1": { "name": "punctuation.definition.tag.begin.html" },
+            "2": { "name": "punctuation.definition.tag.end.html" }
+          }
+        },
         {
           "name": "meta.tag.component.orbit",
           "begin": "(<)(?:(Self)|(Fragment)|([A-Z][A-Za-z0-9_]*))(?=[\\s/>]|$)",
@@ -464,8 +472,8 @@
     },
 
     "text-lt": {
-      "comment": "A < that doesn't start a tag (a < b, <3, <=) is text (PLAN.md §2.3).",
-      "match": "<(?![A-Za-z/!])"
+      "comment": "A < that doesn't start a tag (a < b, <3, <=) is text; <> is a fragment (PLAN.md §2.3).",
+      "match": "<(?![A-Za-z/!>])"
     }
   }
 }
