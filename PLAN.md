@@ -589,6 +589,210 @@ type Props struct {
 - **Tests**: codegen case `testdata/codegen/cond` (lowered attribute and content sites of every kind, folded constants, a `javascript:` constant filtered, `orbit.JSON`, inside a `{for}`, evaluation order, not lowered in larger expressions/spreads/props/pass-through attributes, a user `If` and a shadowed `orbit`, the (Q3) attributes on elements, custom elements, spreads and pass-through attributes), run through `TestPipelineTypedVsFallback` (typed and fallback HTML byte-identical, and `want.html`), `TestCondTypedGolden` (typed goldens, which sites are lowered/folded), `TestCondAllocs` (the `allocs` page, both helpers: 0 allocations), `TestIfPanicSame` (a nil-pointer argument panics the same lowered and not); runtime `cond_test.go` (`TestIfMatchesTypedWrites`, `TestIfAllocs`, `TestTrueFalseAttrs` through `Attr`, `Spread`, `RestBool`, `RestOf`, `RestAny` and the JSON round trip).
 - **Measured** (Ryzen 7 9700X, 16 threads, Go 1.27.3, load average 3–4): `BenchmarkIf` (`GOMAXPROCS=1`, dynamic string): lowered 9.4 ns / 0 allocs (condition false: 0.6 ns) vs `Attr("rel", If(c, s))` 35 ns / 1 alloc (16 B) (false: 12.8 ns, 0). `bench/devloop -dev -kinds body` (200 files, 5 runs, median binary ready; before, after, before, after): 195, 179, 176, 179 ms; the check stage 0.9 ms in all: no measurable change (the synthetic project has no `If`, so no `Uses` map).
 
+#### Typed optional values (`orbit.Opt[T]`)
+**Status: accepted** (spec 2026-10-27; nothing implemented yet). User answers (2026-10-27): every recommended answer that shapes the API: (Q1) hidden fields + `Some`/`None`/`Get`/`Or`/`IsSome`/`IsZero`; (Q2) `orbit.NonZero`; (Q3) a, full auto-wrap of `Opt[T]` props; (Q7) `RestOpt[T]`. (Q4)–(Q6) as recommended (a none writes nothing in content; JSON `null`/value with `IsZero`; a `String` method). User decision it's designed within (2026-10-27): `orbit.If` returning `any` "is not great"; it returns a **typed optional**, `func If[T any](cond bool, v T) Opt[T]`, a small value struct (no pointer). This is §2.6 (Q1) c, rejected on 2026-10-26 for its interface boxing and the lowering it needs; the shape below answers both (an unexported method set for the untyped paths, the existing lowering generalized to every `Opt`-typed value). Breaking change accepted in principle; counted below.
+
+**Why**:
+- **Typed optional props.** Astro's `rel?: string` passed `undefined` (or `cond ? x : undefined`) leaves the attribute out where the component spreads or writes it. In Orbit today a prop that may be "absent" is either a `string` with `""` meaning absent (then every use needs `orbit.If(props.Rel != "", props.Rel)`), or an `any` (no type checking, and every value is boxed). `nyth` has 25 `orbit.If(x != "", x)`/`orbit.If(x != 0, x)` of 39 `orbit.If` calls.
+- **Frontmatter variables keep their type.** `nyth`'s form components declare `var control, describedBy, hintID, errorID any` (12 variables in `Choice`, `ChoiceGroup`, `Select`, `Input`) to hold `orbit.If` results; `MediaPicture` (`var src, srcset, style, class any`), `DefaultLayout` (`var style any`) and `AccountDeletion` (`var at any`) use `any` for the same "maybe absent" reason. Each `any` loses the type, defeats the typed writes (§3.3: `Attr`'s fallback, 1 allocation per dynamic value) and, for `style`, the `orbit.CSS` trust (§2.7: an `any` warns).
+- **Pass-through attributes and spreads** (§2.5, §2.9) see `orbit.If` as `RestAny`/`any`: boxed, 1 allocation each.
+
+##### End-to-end example (recommended shape)
+`src/components/Link.orbit`:
+```orbit
+---
+type Props struct {
+	Href  string
+	Rel   orbit.Opt[string]   // unset = no rel attribute
+	Title orbit.Opt[string]
+}
+---
+<a href={props.Href} rel={props.Rel} title={props.Title}><slot /></a>
+```
+Call sites:
+```orbit
+---
+import Link "../components/Link.orbit"
+
+ext := strings.HasPrefix(post.URL, "http")
+var describedBy orbit.Opt[string]      // zero value: none
+if hint != "" {
+	describedBy = orbit.Some(hint)
+}
+---
+<Link href={post.URL} rel={orbit.If(ext, "noopener")}>{post.Title}</Link>
+<Link href="/about" rel="author">About</Link>             {/* static value: wrapped (Q3) */}
+<Link href="/x" title={post.Summary}>X</Link>               {/* string expression: wrapped (Q3) */}
+<input id="email" aria-describedby={describedBy} />
+<p id={orbit.NonZero(post.Slug)}>{orbit.If(post.Draft, " · draft")}</p>
+```
+renders, for an external post with no hint and an empty slug:
+```html
+<a href="https://go.dev/blog" rel="noopener">Go blog</a><a href="/about" rel="author">About</a><a href="/x" title="…">X</a><input id="email"><p></p>
+```
+Generated code (typed pass, build flavor, directives omitted):
+```go
+Link.Render(orbit__ctx, orbit__w, Link.Props{Href: post.URL, Rel: orbit.If(ext, "noopener")}, …)
+Link.Render(orbit__ctx, orbit__w, Link.Props{Href: "/about", Rel: orbit__rt.Wrap(Link.Props{}.Rel, "author")}, …)
+Link.Render(orbit__ctx, orbit__w, Link.Props{Href: "/x", Title: orbit__rt.Wrap(Link.Props{}.Title, post.Summary)}, …)
+// in Link: rel={props.Rel}
+{
+	orbit__v, orbit__c := (props.Rel).Get()
+	if orbit__c {
+		orbit__w.Raw(` rel="`)
+		orbit__w.AttrValue(orbit__v)
+		orbit__w.Raw(`"`)
+	}
+}
+```
+All of it 0 allocations: `Opt[string]` is a 24-byte value, `Wrap` and `Get` inline, and the writes are the typed writes of `T` (§3.3).
+
+##### API (runtime, stdlib only; new file `opt.go`, `cond.go` changes `If`)
+```go
+// Opt is an optional value of type T: either some value, or none. The zero
+// Opt is none. As an attribute value, none omits the attribute and some(v)
+// is written as v; in content, none writes nothing.
+type Opt[T any] struct {
+	v  T    // the zero T when none, so == compares as expected
+	ok bool
+}
+
+func Some[T any](v T) Opt[T]                // some(v), even for a zero v
+func None[T any]() Opt[T]                   // Opt[T]{}
+func If[T any](cond bool, v T) Opt[T]       // Some(v) if cond, else None; both arguments evaluated (unchanged)
+func NonZero[T comparable](v T) Opt[T]      // Some(v) unless v is T's zero value (Q2)
+func Cond[T any](cond bool, a, b T) T       // unchanged
+
+func (o Opt[T]) Get() (T, bool)             // the value and whether it's set; the zero T when none
+func (o Opt[T]) Or(def T) T                 // the value, or def when none (Astro's `x ?? def`)
+func (o Opt[T]) IsSome() bool               // whether it's set (Q1 names)
+func (o Opt[T]) IsZero() bool               // !IsSome(); makes `json:",omitzero"` omit a none
+func (o Opt[T]) String() string             // (Q6) fmt.Sprint(v), or "" when none
+func (o Opt[T]) MarshalJSON() ([]byte, error)      // (Q5) null, or json.Marshal(v)
+func (o *Opt[T]) UnmarshalJSON(b []byte) error     // null → none, else some(decoded)
+```
+- **Unexported method set** (how the untyped paths see an `Opt` without knowing `T`): `Opt[T]` implements an unexported interface,
+  ```go
+  type optValue interface {
+  	optAttr(w *Writer, name string, urlAttr bool) // nothing when none, else the Attr rules for v
+  	optText(w *Writer, escape bool)               // nothing when none, else the Expr rules for v
+  	optAny() (any, bool)                           // v boxed, for the slow paths (anyValue, isBare, JSON of a rest)
+  }
+  ```
+  `optAttr`/`optText` switch on `any(o.v)` with concrete cases (`string`, `URL`, `CSS`, `HTML`, `JSONValue`, `bool`, the int/uint/float kinds) and a separate `any(o.v)` conversion in the default case, `A`'s pattern (§2.9), so the switch's conversion doesn't escape and the common types are written without a second box. User types can't implement `optValue` (unexported methods), so only `orbit.Opt` values match.
+- **Exact type** (decided by rule: the `orbit.URL`/`orbit.CSS` exact-type rule, §3.3/§2.7): after `types.Unalias`, only instantiations of `orbit.Opt` count. A `type MaybeRel orbit.Opt[string]` is a new struct type without `Opt`'s methods: written by the `Expr` fallback like any struct (documented; an alias, `type MaybeRel = orbit.Opt[string]`, is fine).
+- **Comparable** when `T` is: `o == orbit.None[string]()`, `o == orbit.Some("x")`, map keys, `cmp.Or(a, b)` (the first set one, since a set `Opt` is never the zero value) all work.
+- **Eager evaluation** stays `If`'s trap (§2.6). `NonZero(x)` evaluates `x` once, so the common `orbit.If(x != "", x)` loses its repetition and has no guard to forget.
+
+##### Where an `Opt` can be written
+| Place | none | some(v) | How (typed pass) | allocs |
+|---|---|---|---|---|
+| HTML element attribute, dynamic tag (§2.8) | attribute omitted | `v` by the attribute rules for `T` (URL filter, `orbit.URL` trust, `orbit.JSON`, true/false attributes, `bool` presence) | lowered: `Get()` then `T`'s typed write | 0 |
+| content `{…}`, `set:text` | nothing | `v` by the content rules for `T` | lowered | 0 |
+| `set:html` | nothing | `v` as `set:html` writes `T` (`orbit.HTML` raw, `string` escaped…) | lowered | 0 |
+| `set:json` | `null` | `json.Marshal(v)` | `MarshalJSON` (Q5) | as today |
+| `class={…}` merged, `class:list` item (§2.3) | no class | `v` as a class item (`T` a string kind or `[]string`) | lowered: `if ok { Class(v) }` | 0 |
+| template-literal piece (§2.10) | nothing | `v` printed like `{…}` | pieces: lowered; string context: the piece's string conversion for `T`, or `""` | 0 / as §2.10 |
+| component prop of type `Opt[T]` | — | — | (Q3) | 0 |
+| component prop of type `any` | holds the `Opt` (boxed) | | as today: Go's assignment | 1 (the box) |
+| pass-through attribute (§2.5) | omitted | as on an element | (Q7): `RestOpt` | 0 build / dev as today |
+| `orbit.A(name, o)` (§2.9) | omitted | as `A(name, v)` | runtime: concrete `Opt[string]`, `Opt[int]`, … cases in `A`'s switch store `v` unboxed with a "none" kind | 0 for the listed `T`s, 1 otherwise |
+| `orbit.Attrs{"x": o}`, `var x any = o`, any other `any` | omitted / nothing | as `v` | runtime: `case optValue` in `Attr`, `Writer.value`, `anyValue`, `isBare`, `Spread` | 1 (the user's box, unavoidable) |
+| `orbit.JSON(o)`, `server:defer` props | `null` (or omitted with `omitzero`) | `v`'s JSON | `MarshalJSON` (Q5) | as today |
+| `.md` layout frontmatter (§2.4) on an `Opt[T]` field | key absent or `null` | key present, checked against `T` | generate time: `orbit.Some(lit)` in the generated literal | 0 |
+
+- `Opt[bool]`: some(true) is bare (or `"true"` on a true/false attribute), some(false) is omitted (or `"false"`), none is omitted: `v`'s own rule after the `ok` check. `Opt[Opt[T]]` writes the inner one by the same rules.
+- **`style`/`on*` security warnings** (§2.7): a value whose type is `Opt[orbit.CSS]` is trusted like `orbit.CSS` (so `style={orbit.If(dark, theme.CSS)}` stops warning, where today's `any` result warns); `orbit.If(c, "constant")` on `style` is trusted as a constant, as today. Decided by rule: the value written is a `T`, so `T`'s rule applies.
+- **The typed bridge** (§5c): `Opt[T]` maps to `T | null`, and with `omitzero` to `name?: T` (`IsZero` is what `omitzero` calls). The §3.4/§5c JSON walkers descend into `T` (`Opt` implements the marshaler pair, which would otherwise accept it whatever `T` is, so `Opt[func()]` gets the usual error).
+
+##### Typed-pass lowering (§3.3)
+- **`If` as a whole value** (attribute, content): unchanged (`lowerIf`, `ifSite`, constant folding, both arguments in temporaries). `T` still comes from the callee's signature.
+- **Any other `Opt`-typed whole value** (a variable, a prop, `NonZero(x)`, `Some(x)`, a user function returning `Opt[T]`): new case in site classification, by type (`isOpt(t)`: a `*types.Named` whose `Origin()` is the runtime's `Opt`), no `Uses` map needed. Emitted as a block, as `ifSite` does (one line per part, so a trailing `//` comment can't break it):
+  ```go
+  {
+  	orbit__v, orbit__c := (<expr>).Get()
+  	if orbit__c {
+  		<T's typed write of orbit__v, or Attr/Expr when T has none>
+  	}
+  }
+  ```
+  `IfWrite` gets an `Opt bool` (Cond/Val spans replaced by the expression span). No folding (a constant `Opt` doesn't exist in Go).
+- **Pass 1 and tolerant mode** (LSP, unchecked units) keep `orbit__w.Attr("rel", x)`/`Expr(x)`: the `optValue` case gives the same bytes (the typed-vs-fallback identity test gets `Opt` cases).
+- **Pass-through attributes**: (Q7).
+- **Component props**: (Q3).
+- **`class` items**: `classifyClass` accepts `Opt[T]` for the `T`s it accepts, lowered to `if ok { Class(v) }` (`ClassString` for `SiteClassProp`).
+- **Template literals** (§2.10, when implemented): an `Opt[T]` piece is `T`'s piece under `if ok`. A follow-up worth measuring, not in this spec: `orbit.If(c, `Open ${x}`)` as a whole value could write the literal's pieces inside the `if` (pieces still evaluated first, into temporaries) instead of concatenating, which removes §2.10's 1 allocation there.
+
+##### (Q) points
+- **(Q1) Names and shape.**
+  - (a) **Recommended**: unexported fields; `Some`, `None[T]()`, `Get`, `Or`, `IsSome`, plus `IsZero` (needed by `omitzero`). Keeps the invariant that a none holds the zero `T` (so `==` and `cmp.Or` mean what they say); `Get` is Go's comma-ok form. Alternatives for `IsSome`: `Ok()`, `IsSet()`.
+  - (b) Exported fields like the standard library's `sql.Null[T]{V T; Valid bool}`: `orbit.Opt[string]{V: s, OK: s != ""}` works without helpers and Go users know the shape, but `Opt{V: "x"}` (forgetting `OK`) silently means none, and a none can hold a non-zero `V` (breaking `==`).
+  - (c) Drop `None` (the zero value, `orbit.Opt[string]{}`, is enough). One less name; `None[string]()` reads better in `Cond(c, orbit.Some(a), orbit.None[string]())`.
+- **(Q2) `orbit.NonZero(v)`** (an addition).
+  - (a) **Recommended**: ship `func NonZero[T comparable](v T) Opt[T]`. It replaces 25 of `nyth`'s 39 `orbit.If` calls (`orbit.If(ids.Control != "", ids.Control)` → `orbit.NonZero(ids.Control)`), is Astro's `x || undefined` / `x ? x : undefined`, evaluates `x` once, and needs no codegen (an ordinary `Opt`-typed call, lowered by the case above; inlined, 0 allocations). Name alternatives: `orbit.Present`, `orbit.OrNone`, `orbit.Truthy` (not quite: Go has no truthiness, and a non-nil empty slice isn't comparable).
+  - (b) Not shipped: `orbit.If(x != "", x)` stays the idiom.
+- **(Q3) Passing a prop of type `Opt[T]`.** Astro: an optional `rel?: string` takes `rel="x"`, `rel={s}` and `rel={c ? s : undefined}` alike.
+  - (a) **Recommended**: **auto-wrap a `T`**. A static value (`rel="x"`), a bare attribute (`Opt[bool]`) or an expression of a type assignable to `T` becomes `Some(…)`; an expression of type `Opt[T]` (`orbit.If`, `NonZero`, a variable, another prop) is passed as is; anything else is an Orbit error at the attribute: `prop rel of <Link> is orbit.Opt[string]; got int`. Codegen: pass 1 sees the field's type in the target's parsed `Props` (spelled `<orbit import>.Opt[…]`, as §2.10 reads field types) and emits `orbit__rt.OptOf(Link.Props{}.Rel, x)`, a generic `func OptOf[T, V any](_ Opt[T], v V) Opt[T]` that returns `v` when `V` is `Opt[T]` and `Some(v)` when `V` is `T` (a type switch on `any(v)` that doesn't escape: 0 allocations); a basic literal or a static value is emitted as `orbit__rt.Wrap(Link.Props{}.Rel, "x")` (`func Wrap[T any](_ Opt[T], v T) Opt[T]`), so an untyped constant takes `T` (`Opt[Slug]`). The typed pass (a new site kind, `SiteOptProp`) checks `V` and emits `x` (an `Opt[T]`), `Wrap(…, x)` (assignable to `T`), `WrapIf(…, c, v)` for an `orbit.If` call whose value is an untyped constant (so `rel={orbit.If(c, "x")}` works for `Opt[Slug]`), or the error. Cost: one site kind and a few lines of classification; pass 1's output differs only for an untyped constant that isn't a literal (`rel={someConst}` into `Opt[Slug]`), never served (a unit with typed-pass errors fails the build, §3.3). An `Opt` field reached through an alias declared in a Go package (`type MaybeRel = orbit.Opt[string]`) isn't visible to pass 1, so it gets Go's rule ((b)), documented.
+  - (b) Static values only: `rel="x"` and bare attributes are wrapped (always constants, so pass 1 alone is exact); expressions must be `Opt`-typed (`rel={orbit.Some(s)}`, `orbit.If`, `orbit.NonZero`), and a plain `string` is Go's own type error (cleaned up by the CLI). Much less codegen (no site kind, no `OptOf`), but `title={post.Summary}` needs `orbit.Some(…)`, unlike Astro.
+  - (c) No wrapping: every value is an `Opt` expression (`rel={orbit.Some("x")}`). Plain Go, the least Astro-like.
+- **(Q4) A none in content.**
+  - (a) **Recommended**: writes nothing, like `nil` and like `orbit.If` today (§2.6), so `{orbit.If(c, "↗")}` keeps working and a migration changes no output.
+  - (b) A compile error unless written `{o.Or("")}`/`{o.Or("fallback")}`: forces a decision for text, but breaks today's documented `{orbit.If(c, " · draft")}` idiom (1 use in `nyth`, 2 in the docs) and differs from attributes.
+- **(Q5) JSON shape** (`server:defer` props, `orbit.JSON`, `set:json`, the typed bridge).
+  - (a) **Recommended**: none is `null`, some(v) is `v`'s JSON; decoding `null` gives none, anything else some; `IsZero` lets `json:",omitzero"` drop a none. The shape of `*T` and of json/v2's conventions; TS `T | null` (or `?: T`). Lossy edge, documented: some(a nil pointer/slice/map) encodes as `null` and comes back none.
+  - (b) An object, `{"ok":true,"v":…}`: lossless, but every consumer (scripts reading `data(el, key)`, the bridge's types, other services) sees an Orbit-specific shape.
+- **(Q6) `fmt` printing** (`fmt.Sprint(o)`, logs, `%v` in a user `Stringer`).
+  - (a) **Recommended**: a `String()` method: `fmt.Sprint(v)` when set, `""` when none. `fmt.Sprint(orbit.If(c, "a"))` keeps printing `a` (today's fixture), and a log line shows the value. The writer and the typed pass check `Opt` before `fmt.Stringer`, so it never decides how Orbit writes one. Trade-off: `%v` can't tell none from some(`""`); `%#v` still shows the struct.
+  - (b) No method: `fmt` prints the struct, `{a true}` and `{ false}`. Honest, but noisy, and today's `fmt.Sprint(orbit.If(…))` output changes (`a` → `{a true}`, `<nil>` → `{ false}`).
+- **(Q7) Pass-through attributes (does `Opt` replace `any` in `RestAny`?).**
+  - (a) **Recommended**: a typed constructor, `func RestOpt[T any](pre, name string, o Opt[T]) RestAttr` (and `RestOptURL` for URL attributes, chosen at build time like `RestStringURL`), picked by `classifyRest` for any `Opt`-typed value, `orbit.If` included: it stores `v` unboxed for the common `T`s (`A`'s concrete cases) with a "none" kind that writes only the static run before it (`pre`). `<Button aria-describedby={orbit.If(asksAge, "adult-help")}>` (nyth's `welcome.orbit`) goes from 1 allocation to 0 in `orbit build`. `RestAny` stays for values with no typed write and for pass 1 (it unwraps through `optValue`).
+  - (b) Keep `RestAny`: the `Opt` is boxed (1 allocation per dynamic pass-through attribute, as §2.6 documents for `If` today); simplest.
+
+##### Breaking changes (counted 2026-10-27)
+`If` now returns `Opt[T]`, not `any`. What compiles today and stops compiling: comparing the result with `nil` or another `any`, a type assertion on it (`orbit.If(…).(string)`), passing it where a non-`any` interface is expected. What changes output: only through the untyped paths if the runtime didn't know `Opt` (it does: `optValue`), and `fmt` printing ((Q6)).
+| Where | `orbit.If` calls | Break at compile time | Change output |
+|---|---|---|---|
+| `examples/blog` | 1 (`Button.orbit`, whole attribute value on a dynamic tag) | 0 | 0 |
+| `docs/site` | 1 (`Sidebar.orbit`, `aria-current`) | 0 | 0 |
+| `bench/` | 0 | – | – |
+| `docs/*.md` (prose and examples) | 24 mentions in 7 files | 0 | wording: 5 sentences say "`v` or `nil`" / "gives an `any`, so the prop must have type `any`" (`template-syntax.md:450,455`, `runtime-api.md:143`, `components.md:851`, `coming-from-astro.md:121`, `migrating-from-astro.md:162`) |
+| `nyth/apps/website-orbit` | 39 in 20 files: 25 whole attribute values, 1 content value, 1 pass-through attribute (`<Button aria-describedby=…>`), 12 assigned to `any` frontmatter variables (`Choice`, `ChoiceGroup`, `Select`, `Input`) | 0 (an `Opt` assigns to `any`) | 0 |
+| Orbit's own tests | `cond_test.go` (`If(…) != "page"`, `!= nil`: rewritten with `Get`), the `cond` fixture (`fmt.Sprint(orbit.If(…))`: same output with (Q6) a; the `Button` fixture's `Label any` prop keeps working) | 3 lines | 0 with (Q6) a |
+
+So: **no user-visible compile break** in any repo checked; the break is theoretical (`== nil`, type assertions). Recommended cleanup in the `nyth` port (not required): the 12 `any` variables become `orbit.Opt[string]` with `orbit.NonZero` (`var control, describedBy orbit.Opt[string]` … `control = orbit.NonZero(ids.Control)`), removing 1 allocation per written value; `MediaPicture`'s `var src, srcset, style, class any` and `DefaultLayout`'s `var style any` (an `orbit.CSS`, which as `any` also loses §2.7's trust and warns) become `Opt`s too.
+
+##### Cost
+| Site | today | target (`AllocsPerRun`) |
+|---|---|---|
+| `rel={orbit.If(c, s)}` lowered | 0 | 0 (unchanged) |
+| `rel={o}`, `{o}`, `rel={orbit.NonZero(s)}` with `o orbit.Opt[string]` | – (today an `any`: 1) | 0 |
+| `Attr("rel", any(o))`, `Expr(any(o))` (pass 1, `any` variables) | 1 | 1 for some (the user's box; ≤1 for none, measured), no second box for the listed `T`s |
+| prop `rel={s}`/`rel="x"` into `Opt[string]` (Q3 a), build and hook | – | 0 |
+| pass-through `aria-x={orbit.If(c, s)}` (Q7 a), build / hook | 1 / 1 + list | 0 / list only (as `RestString`) |
+| `orbit.A("rel", o)` for `T` in `A`'s list | 1 (`If` boxed) | 0 |
+| a page using every form above (`TestOptAllocs`, build flavor) | – | 0 |
+- Size: `Opt[string]` is 24 B (a `string` field is 16), `Opt[int]` 16 B: a `Props` grows by 8 B per `Opt` field, copied per call (no measurable cost expected; benchmark the `Link` page).
+- **Dev loop and build**: the typed pass gets one type check per site (`isOpt`: a pointer comparison of the named type's origin) and, with (Q3) a, one site kind for `Opt` props only (pass 1 reads field types it already parses for §2.3's pre-check). No new pass, no `Uses` map for `Opt` (only `If`'s existing one). Expected: no measurable change; checked with `bench/devloop -dev -kinds body,props` (before/after/before/after, as §2.6).
+- Runtime: `opt.go` (~120 lines with the `optValue` methods), a `case optValue` in `Attr`/`value`/`anyValue`/`isBare` (after the concrete cases, before `error`/`fmt.Stringer`: no cost on today's typed paths), concrete `Opt` cases in `A`, `RestOpt`.
+
+##### Tests (what must exist)
+- Runtime (`opt_test.go`): constructors, `Get`/`Or`/`IsSome`/`IsZero`, `==`, `String`; `Attr`/`Expr`/`Spread`/`SpreadList`/`SpreadRest` of an `Opt` (boxed) equal the writes of `v` or nothing, for every `T` in the attribute table (URL filter, `Opt[URL]` trusted, `Opt[JSONValue]`, `Opt[bool]` on presence and true/false attributes, a named `T`, `Opt[any]`, `Opt[Opt[string]]`); JSON round trip (`null`, `omitzero`, nested in a struct, the nil-pointer edge); `RestAttrs` JSON with an `Opt` value; `AllocsPerRun` for the table above.
+- Compiler goldens (extend `testdata/codegen/cond`, or a new `opt` case): lowered `Opt` attributes/content/`set:text`/`set:html`/class items of each kind, inside a `{for}`; `NonZero`; a defined type over `Opt` not lowered; (Q3) every prop form (static, bare, `T` expression, untyped constant into `Opt[Slug]`, `orbit.If` with a constant into `Opt[Slug]`, `Opt` variable, wrong type error at its position, the alias case); (Q7) pass-through `Opt`/`If`; `style={Opt[orbit.CSS]}` without a warning; typed vs fallback byte identity with `Opt` cases; `TestIfPanicSame` still passing.
+- `server:defer` with `Opt` props (generate-time check accepts `Opt[string]`, rejects `Opt[func()]`; the island renders the same); typed bridge goldens (`T | null`, `?: T` with `omitzero`); a `.md` layout with an `Opt` field set and unset.
+- `examples/blog`: the `Button`'s `Type` becomes `orbit.Opt[string]` (or a new optional prop), so the integration build covers a prop call site.
+
+##### User-docs changes (with the implementation)
+- `reference/template-syntax.md`: "Conditional values" (`If` returns an `orbit.Opt`; `NonZero`; the "prop must be `any`" sentence replaced by optional props), the attribute value table and "How values render" (an `Opt` row).
+- `components.md`: "Optional props" (the `Link` example, (Q3)'s forms, `Or` for defaults next to `cmp.Or`); "Conditional attributes" wording.
+- `reference/runtime-api.md`: `Opt`, `Some`, `None`, `NonZero`, methods, JSON; `If`'s new signature; `A`/`RestAttrs` notes.
+- `coming-from-astro.md`, `migrating-from-astro.md`: `rel?: string` → `Rel orbit.Opt[string]`; `x || undefined` → `orbit.NonZero(x)`; `x ?? d` → `o.Or(d)` or `cmp.Or`.
+- `lazy-loading.md` (JSON of `Opt` props), the typed-bridge page (`T | null`), `markdown.md` (`Opt` layout fields), `performance.md` ("Conditional values": `Opt` values lowered too; `any` boxes), `CHANGELOG.md` (the `If` signature change), `DECISIONS.md` (the decided-by-rule items: exact type, security trust, `.md` mapping, order of the `optValue` case).
+
+##### Out of scope
+- Methods with their own type parameters (`Map`, `AndThen`): Go doesn't allow them; plain functions can come later if asked for.
+- A lazy `If` (§2.6 (Q1) d), and lowering `If`/`Opt` inside `orbit.Attrs` map literals.
+- `Opt` for `Locals` fields or route params (nothing new is needed: it's a Go type).
+
 ### 2.7 Trusted CSS values (`orbit.CSS`)
 **Status: Implemented** (2026-10-27; accepted the same day with the user's answers, as recommended: (Q1) a, the `orbit.CSS` marker type with constants exempt; (Q2) a, the LSP shows the warning from its background typed check). Prompted again by the `nyth` book-page port (`style={…}` warnings on every build).
 
