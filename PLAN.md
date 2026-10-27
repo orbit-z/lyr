@@ -4759,6 +4759,23 @@ Dependencies:
 - The docs dogfood site (`docs/site/`, docs built with Orbit)
 - **Typed form actions** (user idea, like Astro Actions): a typed, validated handler for a form or `fetch` call, declared next to the page or in `src/actions`, with an input struct decoded and validated (a Zod-like Go validator such as Zog, or struct tags, chosen then; ask before adding a dependency), errors returned to the page, and progressive enhancement without JS. Until then, users write a plain handler in `cmd/server` and render the response with `orbit.RenderComponent`.
 
+
+### 12.1 nyth dogfood log
+One line per friction point the `nyth` port (`~/Projects/nyth`, branch `orbit-port`) hits in Orbit: what hurt, where, and the outcome (**fixed**, **specced**, **accepted** as a deliberate difference, **workaround**, **open**). Added by the coordinator from each port batch's "Orbit friction" report; skimmed by the user at checkpoints to pick what becomes a feature. Older items (before 2026-10-27) live in the sections they produced (§2.5–§2.9, §3.6, §4c–§4h, §5d, §5e).
+
+| Date | Friction | Where | Outcome |
+|---|---|---|---|
+| 2026-10-27 | Middleware answering before Orbit (gate redirects, refusals, contract 503) can't know the route, so the page log misses them | page log | **fixed**: `site.Match(r)` (§4g) |
+| 2026-10-27 | `orbit.If` returns `any`: optional props must be `any`, frontmatter variables lose their type, dynamic values box | 39 `orbit.If` calls in 20 files | **specced**: `orbit.Opt[T]` (§2.6), being implemented |
+| 2026-10-27 | Template literals need rewriting as Go concatenation, and `strconv` for numbers | 71 attribute/prop values, 7 content values | **specced**: §2.10 (after `Opt[T]`) |
+| 2026-10-27 | `{if}`/`{for}` blocks read differently from Astro's `&&`/`?:`/`.map()` | every page | **accepted**: markup-only conditionals would look general but aren't (CLAUDE.md) |
+| 2026-10-27 | `data-*` and custom-element booleans are bare in Orbit, `="true"` in Astro | `Button data-ask`, `local-time data-day` | **accepted** (§2.6 Q3); ported templates spell `="true"` |
+| 2026-10-27 | `{false}` prints `false` (Astro prints nothing) | none hit yet | **accepted** (user decision) |
+| 2026-10-27 | `set:html` takes only `orbit.HTML`, so `x ?? ""` becomes a few frontmatter lines | book page | **accepted** |
+| 2026-10-27 | Astro `partial = true` fragment pages have no Orbit equivalent | `browse/cards`, `comments/`, `takedown/[id]/parts` | **workaround** (user decision): Go handlers with `orbit.RenderComponent` |
+| 2026-10-27 | A page can't return an arbitrary non-HTML body (plain-text 400, empty 429) | partials, takedown | **workaround**: typed errors through the app's error handler (§4c) |
+| 2026-10-27 | `<Cacher>` HTML fragment cache | chapter page reader, book page | **accepted**: dropped, data cache + route cache (§12 "No component cache"); revisit if a measurement asks |
+
 ## 13. Verification
 - `go test ./...` covers:
   - runtime escaping and router tests, including `ctx.Param` (`""` for an absent name, rest values, percent-decoding) and a 0-alloc param match (`testing.AllocsPerRun`), and the param storage reset when a `Ctx` returns to the pool
