@@ -1626,7 +1626,7 @@ With `Settings{Size: 18, Leading: 1.6}`, this renders `<div class="reader" style
 
 The same rules apply to `style={…}` and `on*={…}` passed to a component with an [`orbit.RestAttrs`](#passing-html-attributes-through) field, which end up on an HTML element: the warning is at the call site's attribute. A component that declares a `Style orbit.CSS` prop instead takes only trusted values, and its own `style={props.Style}` doesn't warn.
 
-The warnings come from the type check that picks typed writes, so a component whose Go code doesn't type-check (the build then fails anyway) warns on every `style={…}` and `on*={…}` attribute. In the editor, they appear once the language server's background type check has run (at startup, and after `orbit dev` or `orbit generate` rewrites `orbit_gen/`), and one goes away as soon as you edit its attribute.
+The warnings come from the type check that picks typed writes, so a component whose Go code doesn't type-check (the build then fails anyway) warns on every `style={…}` and `on*={…}` attribute. In the editor, they come from the language server's background type check, which runs at startup, after `orbit dev` or `orbit generate` rewrites `orbit_gen/`, and 300 ms after you stop typing in a file that has such an attribute (or just lost one) or change a Go file. A warning goes away as soon as you edit its attribute, and comes back after that check if the new value still warns.
 
 ## How it compiles
 

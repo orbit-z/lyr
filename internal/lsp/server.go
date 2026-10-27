@@ -497,7 +497,7 @@ func (s *Server) didOpen(params jsonRaw) {
 			s.markdownChanged(ws) // an unsaved buffer
 		}
 	} else {
-		had := hasData(ws.byPath[path])
+		had, hadSec := hasData(ws.byPath[path]), hasSecurity(ws.byPath[path])
 		src := ""
 		if f := ws.byPath[path]; f != nil {
 			src = f.Src
@@ -505,6 +505,9 @@ func (s *Server) didOpen(params jsonRaw) {
 		ws.setSource(path, p.TextDocument.Text)
 		if f := ws.byPath[path]; f != nil && f.Src != src && (had || hasData(f)) {
 			s.dataChanged(ws) // an unsaved buffer
+		}
+		if f := ws.byPath[path]; f != nil && f.Src != src && (hadSec || hasSecurity(f)) {
+			s.securityChanged(ws)
 		}
 		s.tsSyncFile(ws, path)
 		for _, d := range ws.vdocs[path] {
@@ -565,13 +568,18 @@ func (s *Server) didChange(params jsonRaw) {
 	if layout && f.Pass1 != nil && f.Pass1.Decl != nil {
 		decl = f.Pass1.Decl.Content
 	}
-	had := hasData(f)
+	had, hadSec := hasData(f), hasSecurity(f)
 	ws.setSource(path, applyChanges(f.Src, p.ContentChanges))
 	if f := ws.byPath[path]; layout && (f == nil || f.Pass1 == nil || f.Pass1.Decl == nil || !bytes.Equal(decl, f.Pass1.Decl.Content)) {
 		s.markdownChanged(ws)
 	}
 	if had || hasData(ws.byPath[path]) {
 		s.dataChanged(ws)
+	}
+	// And the security warnings' check, only for a file that has or had
+	// candidates (sectyped.go).
+	if hadSec || hasSecurity(ws.byPath[path]) {
+		s.securityChanged(ws)
 	}
 	s.tsSyncFile(ws, path)
 	s.publishAll(ws)
@@ -625,10 +633,13 @@ func (s *Server) didClose(params jsonRaw) {
 			s.markdownChanged(ws) // closed without saving
 		}
 	} else {
-		had := hasData(ws.byPath[path])
+		had, hadSec := hasData(ws.byPath[path]), hasSecurity(ws.byPath[path])
 		ws.reloadFromDisk(path)
 		if had || hasData(ws.byPath[path]) {
 			s.dataChanged(ws) // closed without saving, maybe
+		}
+		if hadSec || hasSecurity(ws.byPath[path]) {
+			s.securityChanged(ws)
 		}
 		s.tsSyncFile(ws, path)
 	}
@@ -659,7 +670,7 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 	ws := s.ws
 	var forward []any
 	var gens []*genFile
-	orbitChanged, mdChanged, dataChanged := false, false, false
+	orbitChanged, mdChanged, dataChanged, secChanged := false, false, false, false
 	all := make([]any, len(p.Changes))
 	rels := make([]string, len(p.Changes))
 	for i, c := range p.Changes {
@@ -673,10 +684,11 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 		switch {
 		case isOrbitSource(rel):
 			if ws.docs[rel] == nil {
-				had := hasData(ws.byPath[rel])
+				had, hadSec := hasData(ws.byPath[rel]), hasSecurity(ws.byPath[rel])
 				ws.reloadFromDisk(rel)
 				orbitChanged = true
 				dataChanged = dataChanged || had || hasData(ws.byPath[rel])
+				secChanged = secChanged || hadSec || hasSecurity(ws.byPath[rel])
 				s.tsSyncFile(ws, rel)
 			}
 			continue
@@ -699,7 +711,7 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 			orbitChanged = true
 			continue
 		case invalidatesExports(rel):
-			s.mdInvalid, mdChanged, dataChanged = true, true, true
+			s.mdInvalid, mdChanged, dataChanged, secChanged = true, true, true, true
 		case isTSWatched(rel):
 			continue // Orbit's TypeScript watcher's: the child's (tsWatched), not gopls's
 		}
@@ -710,6 +722,9 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 	}
 	if dataChanged && ws != nil {
 		s.dataChanged(ws)
+	}
+	if secChanged && ws != nil {
+		s.securityChanged(ws)
 	}
 	if len(forward) > 0 && ws != nil && ws.gopls != nil {
 		ws.gopls.Notify("workspace/didChangeWatchedFiles", map[string]any{"changes": forward})

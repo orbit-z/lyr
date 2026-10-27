@@ -13,6 +13,14 @@ import (
 // a candidate attribute with that text (the n-th one of that text, for
 // repeats), at the attribute's current position: it follows edits elsewhere
 // and goes away when the attribute is edited, until the next typed check.
+//
+// The typed check while typing (mdcheck.go) refreshes them too (user
+// decision, 2026-10-27): an edit of an .orbit file that has or had
+// candidates, or a Go file change, counts in ws.secEdit and schedules it,
+// and it type-checks the files with candidates and the decl packages they
+// import (project.CheckScope.Security). A typed check's warnings are
+// adopted only if ws.secEdit hasn't moved since its snapshot. Edits of
+// other .orbit files run nothing.
 
 // secTypedDiag is one security warning of the typed check.
 type secTypedDiag struct {
@@ -80,11 +88,33 @@ func typedSecurityDiags(p *project.Project) map[string][]secTypedDiag {
 // security warnings.
 func (ws *workspace) hasSecuritySites() bool {
 	for _, f := range ws.proj.Files {
-		if attrs, _, _ := securityCandidates(f); len(attrs) > 0 {
+		if project.HasSecurity(f) {
 			return true
 		}
 	}
 	return false
+}
+
+// hasSecurity reports whether the .orbit file f has a security warning
+// candidate (in its tolerant output): edits of such a file (or of one that
+// had one) rerun the typed check.
+func hasSecurity(f *project.File) bool { return project.HasSecurity(f) }
+
+// securityChanged records a change that the security warnings may depend
+// on (an edit of an .orbit file that has or had candidates, a Go file
+// change) and schedules the typed check while typing (with s.mu held).
+// Without candidates left, there's nothing to check and no warning to
+// show.
+func (s *Server) securityChanged(ws *workspace) {
+	ws.secEdit++
+	if !ws.hasSecuritySites() {
+		ws.secTyped = nil
+		return
+	}
+	if !s.started || s.shutdown {
+		return
+	}
+	s.scheduleTypedCheck()
 }
 
 // secTypedDiagnostics returns the typed check's security warnings of the

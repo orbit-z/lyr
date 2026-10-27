@@ -32,6 +32,11 @@ import (
 // orbit.JSON or set:json sites too, after an edit of one that has or had
 // sites or a Go file change, and its contracts (dataChanged, ws.tsEdit)
 // are re-emitted in memory and sent to the child.
+//
+// It also refreshes the style and on* security warnings (sectyped.go):
+// while an .orbit file has a candidate, it type-checks the files with
+// candidates too, after an edit of one that has or had candidates or a Go
+// file change (securityChanged, ws.secEdit).
 
 // mdCheckDelay debounces the Markdown typed check after edits.
 var mdCheckDelay = 300 * time.Millisecond
@@ -41,11 +46,15 @@ var mdCheckDelay = 300 * time.Millisecond
 type markdownCheck struct {
 	proj *project.Project
 	edit uint64
-	// md and data are the scope: Markdown files with a layout, .orbit
-	// files with JSON sites (at tsEdit).
-	md, data bool
-	tsEdit   uint64
-	mdTyped  map[string][]mdTypedDiag
+	// md, data and sec are the scope: Markdown files with a layout,
+	// .orbit files with JSON sites (at tsEdit), .orbit files with
+	// security warning candidates (at secEdit).
+	md, data, sec bool
+	tsEdit        uint64
+	secEdit       uint64
+	mdTyped       map[string][]mdTypedDiag
+	// secTyped are the security warnings (sec; typedSecurityDiags).
+	secTyped map[string][]secTypedDiag
 	// known and units are the data contracts (data; typesOf).
 	known   map[string]bool
 	units   map[string]*compiler.UnitTypes
@@ -65,7 +74,7 @@ func (c *markdownCheck) run(ctx context.Context, mc *project.MarkdownChecker) er
 	p := c.proj
 	p.Front()
 	front := slices.Clone(p.Diagnostics)
-	n, loaded, err := mc.TypecheckScope(ctx, p, c.md, c.data)
+	n, loaded, err := mc.TypecheckScope(ctx, p, project.CheckScope{Markdown: c.md, Data: c.data, Security: c.sec})
 	c.checked, c.loaded = n, loaded
 	if err != nil {
 		return err
@@ -75,6 +84,9 @@ func (c *markdownCheck) run(ctx context.Context, mc *project.MarkdownChecker) er
 	}
 	if c.data {
 		c.known, c.units = typesOf(p, true)
+	}
+	if c.sec {
+		c.secTyped = typedSecurityDiags(p)
 	}
 	return nil
 }
@@ -134,8 +146,9 @@ func (s *Server) runMarkdownCheck() {
 	}
 	s.mdInvalid = false
 	mc := s.mdChecker
-	c := &markdownCheck{edit: ws.mdEdit, tsEdit: ws.tsEdit, md: ws.hasMarkdownLayouts(), data: s.tsActive() && ws.anyData()}
-	if !c.md && !c.data {
+	c := &markdownCheck{edit: ws.mdEdit, tsEdit: ws.tsEdit, secEdit: ws.secEdit,
+		md: ws.hasMarkdownLayouts(), data: s.tsActive() && ws.anyData(), sec: ws.hasSecuritySites()}
+	if !c.md && !c.data && !c.sec {
 		s.mdRunning = false
 		s.mu.Unlock()
 		return
@@ -154,12 +167,18 @@ func (s *Server) runMarkdownCheck() {
 	s.mu.Lock()
 	s.mdRunning = false
 	current := err == nil && s.ws == ws && c.md && c.edit == ws.mdEdit
+	publish := false
 	if current {
 		had := len(ws.mdTyped) > 0
 		ws.mdTyped = c.mdTyped
-		if had || len(c.mdTyped) > 0 {
-			s.publishAll(ws)
-		}
+		publish = had || len(c.mdTyped) > 0
+	}
+	secCurrent := err == nil && s.ws == ws && c.sec && c.secEdit == ws.secEdit
+	if secCurrent && ws.adoptSecurity(c.secTyped) {
+		publish = true
+	}
+	if publish {
+		s.publishAll(ws)
 	}
 	if err == nil && s.ws == ws && c.data && c.tsEdit == ws.tsEdit {
 		s.adoptTypes(ws, c.known, c.units)
@@ -172,13 +191,13 @@ func (s *Server) runMarkdownCheck() {
 		s.logf("markdown typed check: %v", err)
 	default:
 		what := "markdown typed check"
-		if c.data {
-			what = "typed check (markdown " + fmt.Sprint(c.md) + ", data true)"
+		if c.data || c.sec {
+			what = fmt.Sprintf("typed check (markdown %v, data %v, security %v)", c.md, c.data, c.sec)
 		}
-		s.logf("%s: %d files, go list %v, current %v (%v)", what, c.checked, c.loaded, current, c.took.Round(time.Millisecond))
+		s.logf("%s: %d files, go list %v, current %v (%v)", what, c.checked, c.loaded, current || secCurrent, c.took.Round(time.Millisecond))
 	}
 	if hooks != nil {
-		hooks.done(current)
+		hooks.done(current || secCurrent)
 	}
 	if again {
 		s.runMarkdownCheck()
@@ -186,8 +205,8 @@ func (s *Server) runMarkdownCheck() {
 }
 
 // mdHooks are the test hooks of an in-process server: run is called when
-// a Markdown typed check has taken its snapshot, before it runs, and done
-// after it, with whether its result was adopted.
+// a typed check while typing has taken its snapshot, before it runs, and
+// done after it, with whether its Markdown or security result was adopted.
 var mdHooks atomic.Pointer[mdTestHooks]
 
 type mdTestHooks struct {

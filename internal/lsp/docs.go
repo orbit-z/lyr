@@ -57,6 +57,10 @@ type workspace struct {
 	// secTyped are the latest typed check's style and on* warnings of
 	// .orbit files (sectyped.go), by project path.
 	secTyped map[string][]secTypedDiag
+	// secEdit counts the changes to what the security warnings depend on
+	// (securityChanged): a typed check's warnings are adopted only when
+	// none happened since its snapshot.
+	secEdit uint64
 	// mdEdit counts the changes to what the typed diagnostics of Markdown
 	// files depend on (mdcheck.go): a typed check's Markdown result is
 	// adopted only when none happened since its snapshot.

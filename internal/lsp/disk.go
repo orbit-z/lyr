@@ -52,6 +52,9 @@ type diskCheck struct {
 	// edit is ws.mdEdit at the snapshot: mdTyped is adopted only if no
 	// Markdown-relevant change happened since (mdcheck.go).
 	edit uint64
+	// secEdit is ws.secEdit at the snapshot: secTyped is adopted only if
+	// no change of a file with security candidates happened since.
+	secEdit uint64
 	// tsEdit is ws.tsEdit at the snapshot, and known and units the data
 	// contracts (typesOf): adopted for the TypeScript child only if no
 	// data-relevant change happened since (PLAN.md §9b Q5).
@@ -65,7 +68,7 @@ type diskCheck struct {
 // newDiskCheck snapshots ws for a typed check (with s.mu held).
 func (ws *workspace) newDiskCheck() *diskCheck {
 	c := &diskCheck{proj: ws.proj.Clone(compiler.Strict), pass1: make(map[string]*compiler.Output, len(ws.proj.Files)),
-		edit: ws.mdEdit, tsEdit: ws.tsEdit}
+		edit: ws.mdEdit, secEdit: ws.secEdit, tsEdit: ws.tsEdit}
 	for _, f := range ws.proj.Files {
 		c.pass1[f.Path] = f.Pass1
 	}
@@ -193,7 +196,7 @@ func (s *Server) startupCheck(ws *workspace) {
 		if md {
 			ws.mdTyped = c.mdTyped
 		}
-		sec := ws.adoptSecurity(c.secTyped)
+		sec := c.secEdit == ws.secEdit && ws.adoptSecurity(c.secTyped)
 		if late && n > 0 || md && len(c.mdTyped) > 0 || sec {
 			s.publishAll(ws)
 		}
@@ -284,7 +287,7 @@ func (s *Server) runDiskCheck() {
 		if c.edit == ws.mdEdit {
 			ws.mdTyped = c.mdTyped
 		}
-		sec := ws.adoptSecurity(c.secTyped)
+		sec := c.secEdit == ws.secEdit && ws.adoptSecurity(c.secTyped)
 		if n > 0 || md || sec {
 			s.publishAll(ws)
 		}

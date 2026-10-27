@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // TestSecurityWarnings: the style and on* warnings come from the typed
@@ -56,4 +58,73 @@ func TestSecurityWarnings(t *testing.T) {
 	fixed := strings.Replace(moved, "style={s}", "style={orbit.CSS(s)}", 1)
 	c.change(index, fixed)
 	c.waitDiag(index, func(ds []map[string]any) bool { return len(ds) == 0 })
+}
+
+// TestSecurityTypedCheck: the typed check while typing refreshes the
+// style and on* warnings (user decision, 2026-10-27), with no orbit_gen/
+// change: a newly typed style={s} warns after the debounce, an orbit.CSS
+// value or a frontmatter change of s's type clears it, and an edit of a
+// file without candidates runs no check. The server runs in process, for
+// its hooks.
+func TestSecurityTypedCheck(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping in -short mode")
+	}
+	const index, other = "src/pages/index.orbit", "src/pages/other.orbit"
+	plain := "---\ns := \"color: red\"\n---\n<div>a</div>\n"
+	dir := writeProject(t, map[string]string{index: plain, other: "<p>other</p>\n"})
+	var runs atomic.Int32
+	mdHooks.Store(&mdTestHooks{run: func() { runs.Add(1) }, done: func(bool) {}})
+	t.Cleanup(func() { mdHooks.Store(nil) })
+	stub, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(stubEnv, "record:"+filepath.Join(t.TempDir(), "rec"))
+	c := startInProcess(t, dir, map[string]any{"goplsPath": stub})
+	c.open(index)
+	c.open(other)
+	isWarn := func(ds []map[string]any) bool {
+		if len(ds) != 1 {
+			return false
+		}
+		m, _ := ds[0]["message"].(string)
+		return strings.Contains(m, "style={…} is escaped for HTML, not for CSS")
+	}
+	none := func(ds []map[string]any) bool { return len(ds) == 0 }
+	// settle waits until the checks of the edits so far are done.
+	settle := func() {
+		c.call("textDocument/hover", c.textPos(index, Position{}))
+		time.Sleep(3 * mdCheckDelay)
+	}
+
+	// A new style={s}, s a string: the warning comes from the check.
+	warned := strings.Replace(plain, "<div>", "<div style={s}>", 1)
+	c.change(index, warned)
+	c.waitDiag(index, isWarn)
+
+	// orbit.CSS(s): no warning, and none after the check either.
+	c.change(index, strings.Replace(warned, "style={s}", "style={orbit.CSS(s)}", 1))
+	c.waitDiag(index, none)
+	settle()
+	c.waitDiag(index, none)
+
+	// Back to style={s}: the warning is the next check's (the last one
+	// found none).
+	c.change(index, warned)
+	c.waitDiag(index, isWarn)
+
+	// s becomes an orbit.CSS, the attribute's text unchanged: the check
+	// clears the warning.
+	c.change(index, strings.Replace(warned, `s := "color: red"`, `s := orbit.CSS("color: red")`, 1))
+	c.waitDiag(index, none)
+
+	// An edit of a file without candidates runs no check.
+	settle()
+	n := runs.Load()
+	c.change(other, "<p>edited</p>\n")
+	settle()
+	if got := runs.Load(); got != n {
+		t.Errorf("an edit of a file without candidates ran %d typed checks", got-n)
+	}
 }

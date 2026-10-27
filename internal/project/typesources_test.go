@@ -106,7 +106,7 @@ func TestTypeSources(t *testing.T) {
 		c := proj.Clone(compiler.Strict)
 		c.Front()
 		mc := NewMarkdownChecker(&compiler.GoListLoader{Dir: p.Dir})
-		n, _, err := mc.TypecheckScope(context.Background(), c, false, true)
+		n, _, err := mc.TypecheckScope(context.Background(), c, CheckScope{Data: true})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -117,7 +117,7 @@ func TestTypeSources(t *testing.T) {
 		// Again, through Update.
 		c = proj.Clone(compiler.Strict)
 		c.Front()
-		if _, _, err := mc.TypecheckScope(context.Background(), c, false, true); err != nil {
+		if _, _, err := mc.TypecheckScope(context.Background(), c, CheckScope{Data: true}); err != nil {
 			t.Fatal(err)
 		}
 		check(t, c.TypeFiles())

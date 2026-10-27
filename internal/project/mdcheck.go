@@ -13,9 +13,10 @@ import (
 
 // MarkdownChecker is the language server's typed pass while the user types
 // (PLAN.md §9, §9b): it type-checks only the Markdown files that have a
-// layout and, with TypecheckScope's data set, the .orbit files with
-// orbit.JSON or set:json sites (whose Types the editor's TypeScript reads),
-// plus the files whose generated decl packages they import (transitively),
+// layout and, with TypecheckScope's Data and Security scopes, the .orbit
+// files with orbit.JSON or set:json sites (whose Types the editor's
+// TypeScript reads) and those with style or on* warning candidates (whose
+// warnings the editor shows, PLAN.md §2.7), plus the files whose generated decl packages they import (transitively),
 // and keeps its
 // compiler.Checker between runs, so the go list -export of the first run
 // is reused until Invalidate. It is not safe for concurrent use.
@@ -49,14 +50,21 @@ func (m *MarkdownChecker) Invalidate() { m.checker = nil }
 // only for ctx cancellation; after one, or after load warnings, the next
 // run starts afresh.
 func (m *MarkdownChecker) Typecheck(ctx context.Context, p *Project) (checked int, loaded bool, err error) {
-	return m.TypecheckScope(ctx, p, true, false)
+	return m.TypecheckScope(ctx, p, CheckScope{Markdown: true})
 }
 
-// TypecheckScope is Typecheck over the Markdown files with a layout (md)
-// and the files with JSON sites (data), and their dependencies. The files
-// checked get their Types set too.
-func (m *MarkdownChecker) TypecheckScope(ctx context.Context, p *Project, md, data bool) (checked int, loaded bool, err error) {
-	files := markdownUnits(p, md, data)
+// CheckScope is what a MarkdownChecker run type-checks (with the files
+// those depend on).
+type CheckScope struct {
+	Markdown bool // the Markdown files with a layout
+	Data     bool // the .orbit files with a data contract (HasData)
+	Security bool // the .orbit files with style or on* warning candidates (HasSecurity)
+}
+
+// TypecheckScope is Typecheck over the files of scope and their
+// dependencies. The files checked get their Types set too.
+func (m *MarkdownChecker) TypecheckScope(ctx context.Context, p *Project, scope CheckScope) (checked int, loaded bool, err error) {
+	files := markdownUnits(p, scope)
 	if len(files) == 0 {
 		return 0, false, nil
 	}
@@ -128,11 +136,33 @@ func HasData(f *File) bool {
 	return len(f.Pass1.JSONSites) > 0 && strings.Contains(f.Src, "JSON(")
 }
 
-// markdownUnits returns, in p.Files order, the Markdown files with a layout
-// (md), the .orbit files with JSON sites (data), and every file whose
-// generated decl package they import, directly or through other decl
-// packages: what their Retype or impl check needs.
-func markdownUnits(p *Project, md, data bool) []*File {
+// HasSecurity reports whether the .orbit file f (after Front) has a
+// candidate for a style or on* security warning (PLAN.md §2.7): such an
+// attribute with an expression value on an HTML element, or passed through
+// to a component's orbit.RestAttrs field (its pass-1 call sites). Only then
+// can the typed pass warn in f.
+func HasSecurity(f *File) bool {
+	if f == nil || f.MD != nil || f.Pass1 == nil {
+		return false
+	}
+	for i := range f.Pass1.CallSites {
+		cs := &f.Pass1.CallSites[i]
+		if (cs.Kind == compiler.SiteAttr || cs.Kind == compiler.SiteRest) && cs.Attr != nil && compiler.SecurityWarning(cs.AttrName) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// root reports whether f is in scope itself (not as a dependency).
+func (s CheckScope) root(f *File) bool {
+	return s.Markdown && f.MD != nil && f.MD.Layout != "" || s.Data && HasData(f) || s.Security && HasSecurity(f)
+}
+
+// markdownUnits returns, in p.Files order, the files of scope and every
+// file whose generated decl package they import, directly or through other
+// decl packages: what their Retype or impl check needs.
+func markdownUnits(p *Project, scope CheckScope) []*File {
 	byDecl := map[string]*File{}
 	for _, f := range p.Files {
 		if f.Pass1 != nil && f.Pass1.Decl != nil && f.Pass1.Impl != nil {
@@ -151,7 +181,7 @@ func markdownUnits(p *Project, md, data bool) []*File {
 		if f.Pass1 == nil || f.Pass1.Decl == nil || byDecl[f.Pass1.Decl.ImportPath] != f {
 			continue
 		}
-		if md && f.MD != nil && f.MD.Layout != "" || data && HasData(f) {
+		if scope.root(f) {
 			add(f)
 		}
 	}
@@ -171,7 +201,7 @@ func markdownUnits(p *Project, md, data bool) []*File {
 		f := queue[0]
 		queue = queue[1:]
 		imports(f.Pass1.Decl)
-		if f.MD != nil || HasData(f) {
+		if f.MD != nil || HasData(f) || HasSecurity(f) {
 			imports(f.Pass1.Impl) // the layout's (or the components') decl packages
 		}
 	}
