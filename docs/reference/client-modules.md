@@ -152,6 +152,7 @@ Types follow what `encoding/json` writes (Go's `json.Marshal`), by the **static 
 | `[N]T` | `T[]` | |
 | `map[K]V` (K a string or integer kind, or a `TextMarshaler`) | `Record<string, V> \| null` | JSON object keys are always strings |
 | `*T` | `T \| null` | |
+| `orbit.Opt[T]` | `T \| null` | none encodes as `null`; with `omitzero`, the field is `name?: T` |
 | struct | `interface` (named) or `{ … }` (anonymous) | see [Struct fields](#struct-fields) |
 | interfaces (`any`, `error`, others) | `unknown` | |
 | `time.Time` | `string` | RFC 3339 |
@@ -173,7 +174,7 @@ Fields follow `encoding/json`'s rules:
 - Only exported fields are written, plus embedded structs (exported or not). `json:"-"` skips a field; `json:"-,"` names it `-`.
 - The tag name renames a field. Names that aren't TypeScript identifiers are quoted (`"my-field": string`). Tag names are parsed as your Go version's `encoding/json` parses them (Go 1.27's follows the json/v2 engine on malformed tags).
 - `omitempty` makes a field optional (`name?: T`), except on a non-pointer struct type, where `omitempty` has no effect. On a pointer, slice or map it also drops `| null`, since a nil value is left out (on a named type that includes `null`, the field is `NonNullable<IDs>`).
-- `omitzero` makes a field optional, and drops `| null` the same way (nil is the zero value; an empty non-nil slice or map is still written).
+- `omitzero` makes a field optional, and drops `| null` the same way (nil is the zero value; an empty non-nil slice or map is still written). On an `orbit.Opt[T]`, it leaves out a none, so the field is `name?: T` (`T | null` stays when `T` itself can be `null`, such as a pointer).
 - Fields of embedded structs are promoted with Go's visibility rules and `encoding/json`'s tie-breaks: the shallowest field wins; at equal depth, a tagged field wins; otherwise the conflicting fields are all left out, as `encoding/json` does, silently. Fields promoted through an embedded **pointer** are optional (a nil pointer leaves them out). An embedded field with a tag name, or of a non-struct type, is an ordinary field.
 
 To get a non-null array from a Go slice, tag the field `omitempty` or `omitzero` (it's then optional), or make sure it's never nil and check for `null` anyway.

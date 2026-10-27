@@ -269,6 +269,10 @@ func (g *cgGen) classSite(kind SiteKind, node Node, cl *Attr, code GoCode) {
 	cs := CallSite{Kind: kind, Key: code.Start, Node: node, Attr: cl, Code: code, AttrName: cl.Name}
 	tw, typed := g.in.Typed[code.Start]
 	typed = typed && (tw.Kind == WriteClass || tw.Kind == WriteClasses)
+	if kind == SiteClass && typed && tw.Opt {
+		g.classOptSite(cs, tw)
+		return
+	}
 	open, closing := "", ""
 	switch {
 	case kind == SiteClass && typed:
@@ -300,6 +304,40 @@ func (g *cgGen) classSite(kind SiteKind, node Node, cl *Attr, code GoCode) {
 	if kind == SiteClass {
 		o.str("\n")
 	}
+	g.sites = append(g.sites, cs)
+}
+
+// classOptSite emits the typed write of a class:list item of type
+// orbit.Opt[T] on an element (PLAN.md §2.6): T's Class or Classes write of
+// its value when it's set.
+func (g *cgGen) classOptSite(cs CallSite, tw TypedWrite) {
+	o := g.o
+	o.flush()
+	o.ln("{")
+	o.depth++
+	o.ind()
+	o.str("orbit__o :=\n")
+	o.exact(cs.Code.Span)
+	o.str("\n")
+	o.ln("if orbit__v, orbit__c := orbit__o.Get(); orbit__c {")
+	o.depth++
+	o.ind()
+	start := len(o.b)
+	o.str(NameW + "." + tw.Kind.Method() + "(")
+	arg := "orbit__v"
+	if tw.Conv != "" {
+		arg = tw.Conv + "(" + arg + ")"
+	}
+	argStart := len(o.b)
+	o.str(arg)
+	cs.Arg = Span{argStart, len(o.b)}
+	o.str(")")
+	cs.Call = Span{start, len(o.b)}
+	o.str("\n")
+	o.depth--
+	o.ln("}")
+	o.depth--
+	o.ln("}")
 	g.sites = append(g.sites, cs)
 }
 

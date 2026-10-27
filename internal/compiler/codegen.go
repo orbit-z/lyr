@@ -134,6 +134,11 @@ const (
 	// SiteTag is the name of a dynamic tag (PLAN.md §2.8):
 	// orbit__w.TagOpen(pos, "Tag", Tag, content). It has no typed write.
 	SiteTag
+	// SiteOptProp is an expression passed to a component prop of type
+	// orbit.Opt[T] (PLAN.md §2.6 (Q3)):
+	// orbit__rt.OptOf(Alias.Props{}.Field, x). The typed pass checks x and
+	// passes it as is (an Opt[T]), wraps it (a T), or reports an error.
+	SiteOptProp
 )
 
 // CallSite records one write emitted with the Expr/Attr fallback, for the
@@ -225,6 +230,20 @@ const (
 	// draggable, …, IsTrueFalseAttr; PLAN.md §2.6 (Q3)): pieces ` name="`
 	// and `"` around Bool, as Attr writes it.
 	WriteAttrBoolText
+	// WriteRestOpt and WriteRestOptURL are an Opt-typed pass-through
+	// attribute (PLAN.md §2.6 (Q7)): orbit__rt.RestOpt(pre, "a", x), or
+	// RestOptURL in a URL attribute.
+	WriteRestOpt
+	WriteRestOptURL
+	// The writes of a SiteOptProp (PLAN.md §2.6 (Q3)): WriteOptAsIs is an
+	// Opt[T] passed as is, WriteOptWrap a T wrapped with
+	// orbit__rt.Wrap(Alias.Props{}.Field, x), and WriteOptWrapIf an
+	// orbit.If call whose value is an untyped constant,
+	// orbit__rt.WrapIf(Alias.Props{}.Field, <If>[bool], c, v)
+	// (TypedWrite.If holds its spans).
+	WriteOptAsIs
+	WriteOptWrap
+	WriteOptWrapIf
 )
 
 // writeMethods is the Writer method each kind calls. WriteAttrString,
@@ -235,7 +254,7 @@ var writeMethods = [...]string{"Expr", "", "String", "Int", "Uint", "Float", "Fl
 	"HTML", "Bytes", "Error", "Stringer", "Render", "AttrValue", "URL", "AttrBool",
 	"Int", "Uint", "Float", "Float32", "JSONAttr", "Class", "Classes",
 	"RestString", "RestStringURL", "RestURL", "RestBool", "RestInt", "RestUint", "RestFloat", "RestFloat32", "RestJSON",
-	"Bool"}
+	"Bool", "RestOpt", "RestOptURL", "", "Wrap", "WrapIf"}
 
 // attrPieces reports whether k writes its attribute as pieces: the static
 // ` name="` and `"` join the neighbouring Raw constants, and the call writes
@@ -259,9 +278,13 @@ type TypedWrite struct {
 	// Codegen emits Method(Conv(<expr>,)) with the same line layout.
 	Conv string
 	// If is set when the site's expression is a call of the runtime's
-	// orbit.If, lowered (PLAN.md §2.6): Kind and Conv are then the write of
-	// its value argument, and may be WriteFallback (Attr or Expr of it).
+	// orbit.If, or a value of type orbit.Opt[T] (If.Opt), lowered (PLAN.md
+	// §2.6): Kind and Conv are then the write of its value, and may be
+	// WriteFallback (Attr or Expr of it).
 	If *IfWrite
+	// Opt is set on a class:list item of type orbit.Opt[T] on an element:
+	// Kind and Conv write its value when it's set.
+	Opt bool
 }
 
 // IfWrite is a lowered orbit.If(cond, v) call site. Codegen emits
@@ -276,12 +299,23 @@ type TypedWrite struct {
 // which evaluates both arguments in order, as the call does, and writes the
 // same bytes as Attr or Expr of its result. With Folded, v is a constant
 // and the body is Raw(Text) (Text "" writes nothing).
+//
+// With Opt, the site's expression is a value of type orbit.Opt[T] (not an
+// If call; Val is its span, the others are empty), and the block starts
+//
+//	orbit__o :=
+//		x
+//	orbit__v, orbit__c := orbit__o.Get()
 type IfWrite struct {
+	Opt bool
 	// Fun, Cond and Val are the .orbit spans of the callee (orbit.If, with
 	// its type arguments if written), the condition and the value.
 	Fun, Cond, Val Span
 	// Inst is true when Fun includes explicit type arguments.
-	Inst   bool
+	Inst bool
+	// Const is set when the If's value is a constant (a style or on*
+	// attribute is then trusted, as for the constant).
+	Const  bool
 	Folded bool
 	Text   string
 }

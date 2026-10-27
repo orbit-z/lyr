@@ -140,7 +140,7 @@ An ordered list of attributes to spread with `{...list}`, written **in list orde
 
 - Each name must be a valid attribute name, and appear once (ignoring ASCII case): `attribute "role" twice in spread` is a render error, and nothing of the list is written.
 - **JSON**: a JSON object in list order, each name mapped to its value as written or `true` for a bare attribute (`false` and `nil` left out), so a `Props` with an `AttrList` field can be sent to a [`server:defer`](../lazy-loading.md) component. Decoding keeps the order; an `orbit.URL` loses its trust, as for `RestAttrs`.
-- `orbit.If` in an `A` value works (`orbit.A("aria-current", orbit.If(cur, "page"))`); it's kept as an `any`.
+- An [`Opt`](#optional-values) of a string, `bool`, `int`, `int64`, `float64`, `URL`, `HTML`, `CSS` or `JSONValue` is kept without boxing too, as its value, or as nothing when it's none: `orbit.A("aria-current", orbit.If(cur, "page"))` allocates nothing. `Value` returns the `Opt`'s value, or `nil` for none. An `Opt` of another type is kept as an `any`.
 
 ```go
 const Fragment = "#fragment"
@@ -148,10 +148,35 @@ const Fragment = "#fragment"
 The [dynamic tag](template-syntax.md#dynamic-tags) value for no element: `<Wrap>` with `Wrap == orbit.Fragment` writes only its children (Astro's `Fragment`). Compare with `==`; don't print it.
 
 ```go
-func If[T any](cond bool, v T) any
+func If[T any](cond bool, v T) Opt[T]
+func NonZero[T comparable](v T) Opt[T]
 func Cond[T any](cond bool, a, b T) T
 ```
-Conditional values, for Astro's `cond ? v : undefined` and `c ? a : b` ([Conditional values](template-syntax.md#conditional-values-orbitif-and-orbitcond)). `If` returns `v` when `cond` is true and `nil` otherwise, so as an attribute value it omits the attribute when `cond` is false, and in content it writes nothing. `Cond` returns `a` or `b`. Both arguments are evaluated, as for any call. `If` is generic so that a false condition boxes nothing. When an `If` call is the whole value of an HTML element attribute or of a content `{…}`, generated code writes it as an `if` around the typed write of `v`, with the same output ([Performance](../performance.md#conditional-values)).
+Conditional values, for Astro's `cond ? v : undefined`, `x || undefined` and `c ? a : b` ([Conditional values](template-syntax.md#conditional-values-orbitif-and-orbitcond)). `If` returns `Some(v)` when `cond` is true and none otherwise, so as an attribute value it omits the attribute when `cond` is false, and in content it writes nothing. `NonZero` returns `Some(v)` unless `v` is its type's zero value. `Cond` returns `a` or `b`. Both arguments are evaluated, as for any call. When an `If` call, or any `Opt` value, is the whole value of an HTML element attribute or of a content `{…}`, generated code writes it as an `if` around the typed write of its value, with the same output ([Performance](../performance.md#conditional-values)).
+
+### Optional values
+
+```go
+type Opt[T any] struct{ /* unexported */ }
+
+func Some[T any](v T) Opt[T]
+func None[T any]() Opt[T]
+func (o Opt[T]) Get() (T, bool)
+func (o Opt[T]) Or(def T) T
+func (o Opt[T]) IsSome() bool
+func (o Opt[T]) IsZero() bool
+func (o Opt[T]) String() string
+func (o Opt[T]) MarshalJSON() ([]byte, error)
+func (o *Opt[T]) UnmarshalJSON(b []byte) error
+```
+An optional value of type `T`: some value (even `T`'s zero value, with `Some`), or none. The zero `Opt` is none, so `var rel orbit.Opt[string]` is unset ([Optional values](template-syntax.md#optional-values-orbitopt), [Optional props](../components.md#optional-props)).
+
+- **As an attribute value**, none omits the attribute and a set value is written by the [attribute rules](#attribute-values) for `T`; **in content**, none writes nothing. `Attr`, `Expr`, `Spread`, `SpreadList`, `SpreadRest` and `ClassAny` see an `Opt` passed as an `any` too, at the cost of that box.
+- **`Get`** returns the value and whether it's set (the zero `T` when none); **`Or`** the value or a default, Astro's `x ?? def`; **`IsSome`** whether it's set; **`IsZero`** is `!IsSome()`, for `json:",omitzero"`.
+- **Comparable** when `T` is: `o == orbit.Some("x")` and `o == orbit.None[string]()` work, and `cmp.Or(a, b)` returns the first one that's set.
+- **`String`** is `fmt.Sprint` of the value, or `""` for none, so logs show the value. It can't tell none from `Some("")`; `%#v` shows both fields.
+- **JSON**: none encodes as `null` and a set value as its own JSON; `null` decodes as none, anything else as set. With `json:",omitzero"`, a none field is left out. A set nil pointer, slice or map also encodes as `null`, so it comes back none.
+- Only `Opt` itself counts: a type defined over it (`type MaybeRel orbit.Opt[string]`) is an ordinary struct to Orbit. An alias is fine.
 
 ### RestAttrs
 
@@ -384,7 +409,7 @@ func (w *Writer) JSONAttr(pos string, v JSONValue) // only the value, for name={
 
 #### Attribute values
 
-- `true` writes the bare attribute (`disabled`); `false` and `nil` omit it.
+- `true` writes the bare attribute (`disabled`); `false`, `nil` and a none `Opt` omit it. A set `Opt` is written as its value.
 - **A `bool` on a true/false attribute** writes `name="true"` or `name="false"`: every `aria-*` attribute (any case), `contenteditable`, `draggable`, `spellcheck` and `writingsuggestions`, the HTML attributes whose values are the keywords `true` and `false`. It applies to `Attr`, `Spread`, `SpreadRest` (and `RestBool`, `RestOf`, a `RestAttrs`'s JSON) and the typed writes; only the name counts, so it's the same on a custom element. `AttrBool` itself always writes the bare attribute or nothing.
 - Anything else is attribute-escaped and quoted.
 - **URL attributes** (`action`, `background`, `cite`, `codebase`, `data`, `formaction`, `href`, `icon`, `longdesc`, `manifest`, `poster`, `profile`, `src`, `usemap`, `xmlns` and `xlink:href`: the list Go's `html/template` uses, plus `xlink:href`): a value whose scheme is `javascript:` or `vbscript:` (ignoring case, and after trimming whitespace and control characters) is replaced with `about:invalid#orbit`, unless it has type `orbit.URL`. This applies to `Attr`, `AttrURL`, `URL` and `Spread`.
@@ -422,10 +447,18 @@ func ClassString(v any) string
 func Rest(class, tail string, dyn ...RestAttr) RestAttrs
 func RestString(pre, name, s string) RestAttr // also RestStringURL, RestURL, RestBool, RestInt,
 func RestAny(pre, name string, v any) RestAttr //   RestUint, RestFloat, RestFloat32, RestJSON
+func RestOpt[T any](pre, name string, o Opt[T]) RestAttr // also RestOptURL
 func RestFrom[T Attrs | AttrList | RestAttrs](x T) RestAttrs
 func RestMerge[T Attrs | AttrList | RestAttrs](own RestAttrs, x T) RestAttrs
 ```
-The call site of a component with an `orbit.RestAttrs` field: `Rest` takes the joined class, the escaped static attributes after the last dynamic one, and the dynamic ones, each with the static attributes before it and a typed value (`RestAny` when the build didn't check its type). `RestFrom` and `RestMerge` handle `{...x}` on the tag: a spread alone is passed as is; merging it with other attributes costs one allocation when it's a `RestAttrs`.
+The call site of a component with an `orbit.RestAttrs` field: `Rest` takes the joined class, the escaped static attributes after the last dynamic one, and the dynamic ones, each with the static attributes before it and a typed value (`RestAny` when the build didn't check its type; `RestOpt`, or `RestOptURL` in a URL attribute, for an `Opt`, stored unboxed for the common types, nothing when none). `RestFrom` and `RestMerge` handle `{...x}` on the tag: a spread alone is passed as is; merging it with other attributes costs one allocation when it's a `RestAttrs`.
+
+```go
+func Wrap[T any](_ Opt[T], v T) Opt[T]
+func WrapIf[T any](_ Opt[T], _ func(bool, bool) Opt[bool], cond bool, v T) Opt[T]
+func OptOf[T, V any](_ Opt[T], v V) Opt[T]
+```
+The value of a component prop of type `Opt[T]` ([Optional props](../components.md#optional-props)); the first argument is the prop's zero value, which gives `T`. `Wrap` sets a static value or a `T` expression; `WrapIf` is an `orbit.If` whose value is an untyped constant (the second argument is the `If` as written, so its package stays used); `OptOf` is the value before the build has checked its type: an `Opt[T]` as is, a `T` (or a value of the same kind, for an untyped constant) set.
 
 ```go
 func SpreadOf[T Attrs | AttrList](w *Writer, pos string, a T)

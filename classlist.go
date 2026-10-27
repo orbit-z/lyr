@@ -95,6 +95,10 @@ func (w *Writer) ClassAny(v any) {
 		w.Class(v)
 	case []string:
 		w.Classes(v)
+	case optValue:
+		if x, ok := v.optAny(); ok {
+			w.ClassAny(x)
+		}
 	default:
 		s, ok := classValue(v)
 		if !ok {
@@ -218,6 +222,12 @@ func ClassString(v any) string {
 		return v
 	case []string:
 		return strings.Join(v, " ")
+	case optValue:
+		x, ok := v.optAny()
+		if !ok {
+			return ""
+		}
+		return ClassString(x)
 	}
 	s, ok := classValue(v)
 	if !ok {

@@ -629,6 +629,53 @@ type Props struct {
 src/components/Card.orbit:5:2: Props field post must be exported, since a parent sets it (rename it to Post)
 ```
 
+### Optional props
+
+Astro's optional prop, `rel?: string`, leaves the attribute out when the caller doesn't pass it. In Orbit, give the field the type **`orbit.Opt[T]`**, a [typed optional value](reference/template-syntax.md#optional-values-orbitopt): its zero value is "none", and none omits the attribute where the component writes it.
+
+```orbit file=src/components/Link.orbit
+---
+type Props struct {
+	Href  string
+	Rel   orbit.Opt[string] // unset: no rel attribute
+	Title orbit.Opt[string]
+}
+---
+<a href={props.Href} rel={props.Rel} title={props.Title}><slot /></a>
+```
+
+```orbit file=src/pages/links.orbit
+---
+import "strings"
+
+import Link "../components/Link.orbit"
+
+url, summary := "https://go.dev/blog", "News from the Go team"
+ext := strings.HasPrefix(url, "http")
+---
+<Link href={url} rel={orbit.If(ext, "noopener")}>Go blog</Link>
+<Link href="/about" rel="author">About</Link>
+<Link href="/x" title={summary}>X</Link>
+<Link href="/y">Y</Link>
+```
+
+renders `<a href="https://go.dev/blog" rel="noopener">Go blog</a><a href="/about" rel="author">About</a><a href="/x" title="News from the Go team">X</a><a href="/y">Y</a>`.
+
+- **What a caller can pass**: a static value (`rel="author"`), a bare attribute (for an `orbit.Opt[bool]`) or an expression of type `T` (`title={summary}`) is set; an expression that's already an `orbit.Opt[T]` (`orbit.If`, `orbit.NonZero`, a variable, another component's prop) is passed as it is, so `rel={orbit.If(ext, "noopener")}` is unset when `ext` is false. Not passing the prop leaves it unset.
+- **Any other value** is an error at the value, as for a prop of type `T`:
+
+```orbit file=src/pages/links.orbit expect-error at=10
+<Link href="/z" rel={len(url)}>Z</Link>
+```
+
+```text
+src/pages/links.orbit:10:22: prop rel of <Link> is orbit.Opt[string]; got int
+```
+
+- **Defaults**: `props.Rel.Or("nofollow")` is the value or a default, Astro's `rel ?? "nofollow"`. For a plain `string` prop where `""` means unset, the standard library's `cmp.Or(props.Rel, "nofollow")` does the same.
+- **In Go code**, read it with `v, ok := props.Rel.Get()` or `props.Rel.IsSome()`, and build one with `orbit.Some("x")`, `orbit.None[string]()` or `orbit.NonZero(s)`. In a `server:defer` component's props, none is sent as JSON `null`.
+- Orbit recognizes the field by its type as written in `Props`, `orbit.Opt[…]`. A field whose type is an alias declared in a Go package (`type MaybeRel = orbit.Opt[string]`) takes only `orbit.Opt[string]` values, as Go's assignment rule says.
+
 ### Passing HTML attributes through
 
 A component that wraps an HTML element, such as a button or an input, usually lets the caller add any attribute to it: `name`, `form`, `disabled`, `aria-*`, `data-*`. In Astro, that's `const { variant, ...rest } = Astro.props` and `<button {...rest}>`. In Orbit, declare a `Props` field of type **`orbit.RestAttrs`**: it collects every attribute of the call site that matches no other field, and `{...props.Attrs}` writes them on an element.
@@ -638,18 +685,13 @@ A component that wraps an HTML element, such as a button or an input, usually le
 type Props struct {
 	Variant string
 	// Type is a prop, not a passed attribute, because the component sets
-	// the attribute itself.
-	Type string
+	// the attribute itself; "button" when unset.
+	Type orbit.Opt[string]
 	// Attrs holds every other attribute of the call site.
 	Attrs orbit.RestAttrs
 }
-
-typ := props.Type
-if typ == "" {
-	typ = "button"
-}
 ---
-<button {...props.Attrs} type={typ} class:list={"btn", "btn-" + props.Variant}><slot /></button>
+<button {...props.Attrs} type={props.Type.Or("button")} class:list={"btn", "btn-" + props.Variant}><slot /></button>
 ```
 
 ```orbit file=src/pages/settings.orbit
@@ -692,17 +734,16 @@ A capitalized variable used as a tag renders the element it names, as Astro's `c
 
 ```orbit file=src/components/Action.orbit
 ---
-import "cmp"
-
 type Props struct {
-	Variant, Type string
-	Attrs         orbit.RestAttrs
+	Variant string
+	Type    orbit.Opt[string]
+	Attrs   orbit.RestAttrs
 }
 
 link := props.Attrs.Has("href")
 Tag := orbit.Cond(link, "a", "button")
 ---
-<Tag {...props.Attrs} type={orbit.If(!link, cmp.Or(props.Type, "button"))} class:list={"btn", "btn-" + props.Variant}>
+<Tag {...props.Attrs} type={orbit.If(!link, props.Type.Or("button"))} class:list={"btn", "btn-" + props.Variant}>
   <slot />
 </Tag>
 ```
@@ -842,13 +883,13 @@ The template is HTML plus a few constructs. The full grammar is in [Template syn
 - `{expr}` is any Go expression. Its value is escaped and written; how each type prints (numbers, `nil`, errors, `fmt.Stringer`, …) is in [How values render](reference/template-syntax.md#how-values-render).
 - An attribute is static (`class="title"`) or an expression (`href={url}`). There's no interpolation inside quotes: `class="card {extra}"` is the literal text `card {extra}`.
 - To build a `class` from parts and conditions, use `class:list`, as in Astro: `class:list={"card", extra, "featured": props.Featured}` writes `card`, the classes in `extra`, and `featured` when `props.Featured` is true. Static classes are joined at build time, so it costs no more than writing the attribute by hand. On a component tag, it sets the `class` prop. See [`class:list`](reference/template-syntax.md#classlist).
-- `true` writes a bare attribute and `false` or `nil` omits it, so `data-featured={props.Featured}` renders `data-featured` or nothing. On `aria-*` attributes and the few HTML attributes whose values are the words `true` and `false` (`contenteditable`, `draggable`, `spellcheck`, `writingsuggestions`), a `bool` is written as text instead: `aria-pressed={props.Saved}` renders `aria-pressed="false"`, which is what ARIA expects.
+- `true` writes a bare attribute and `false`, `nil` or an unset [`orbit.Opt`](#optional-props) omits it, so `data-featured={props.Featured}` renders `data-featured` or nothing. On `aria-*` attributes and the few HTML attributes whose values are the words `true` and `false` (`contenteditable`, `draggable`, `spellcheck`, `writingsuggestions`), a `bool` is written as text instead: `aria-pressed={props.Saved}` renders `aria-pressed="false"`, which is what ARIA expects.
 - Every element must be closed (`<p>…</p>`, `<li>…</li>`), or self-closed (`<div />`); void elements such as `<br>` and `<img>` take no closing tag. Orbit doesn't auto-close tags.
 - A `<` starts a tag only when a letter, `/`, `!` or `>` (the fragment shorthand `<>`) follows it; otherwise it's text, so `{a} < {b}` works. To write a literal `{`, use `{"{"}`.
 
 ### Conditional attributes
 
-Go has no `?:`, so Orbit has two helpers for values that depend on a condition: `orbit.If(cond, v)` is `v` or `nil` (and `nil` omits the attribute), and `orbit.Cond(cond, a, b)` is `a` or `b`:
+Go has no `?:`, so Orbit has helpers for values that depend on a condition: `orbit.If(cond, v)` is an `orbit.Opt` set to `v` when `cond` is true and unset otherwise (unset omits the attribute), `orbit.NonZero(x)` is `x` unless it's empty or zero (Astro's `x || undefined`), and `orbit.Cond(cond, a, b)` is `a` or `b`:
 
 ```orbit file=src/components/TopBar.orbit
 ---
@@ -875,8 +916,8 @@ type Props struct {
 With `current="fiction"` and two items, this renders `<a href="/fiction" aria-current="page">Fiction</a><a href="/news">News</a>`, then `<button aria-pressed="false" title="Add to library">Save</button>`.
 
 - Both arguments are evaluated, as for any Go call: `orbit.If(user != nil, user.Name)` panics when `user` is nil. Guard it in the frontmatter, or use `{if}`.
-- For a default value, Astro's `x ?? "fallback"`, use the standard library's `cmp.Or(x, "fallback")`.
-- `orbit.If` as the whole value of an attribute or a `{…}` costs no allocation: Orbit compiles it to an `if`. The details are in [Conditional values](reference/template-syntax.md#conditional-values-orbitif-and-orbitcond).
+- For a default value, Astro's `x ?? "fallback"`, use the standard library's `cmp.Or(x, "fallback")`, or `o.Or("fallback")` on an `orbit.Opt`.
+- `orbit.If`, or any `orbit.Opt` value, as the whole value of an attribute or a `{…}` costs no allocation: Orbit compiles it to an `if`. The details are in [Conditional values](reference/template-syntax.md#conditional-values-orbitif-and-orbitcond).
 
 ### Control flow
 

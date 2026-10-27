@@ -366,6 +366,14 @@ func (m *tsMapper) namedUncached(n *types.Named) tsType {
 	if s, ok := tsSpecial(n); ok {
 		return s
 	}
+	if elem, ok := optElem(n); ok {
+		// orbit.Opt[T]: null when none, else T's JSON (PLAN.md §2.6 (Q5)).
+		e := m.typ(elem)
+		if !e.unknown {
+			e.null, e.nullRef = true, false
+		}
+		return e
+	}
 	nullRef := false
 	switch u := n.Underlying().(type) {
 	case *types.Interface, *types.Signature, *types.Chan:
@@ -523,7 +531,12 @@ func (m *tsMapper) field(f *jsonField) TSField {
 	if f.omitZero {
 		opt = true
 		// nil is the zero value, unless an IsZero method decides (it's
-		// always called with a nil check for a pointer).
+		// always called with a nil check for a pointer). An orbit.Opt's
+		// IsZero drops a none: its only null, unless T's value can be one.
+		if elem, isOpt := optElem(ft); isOpt {
+			e := m.typ(elem)
+			drop = drop || !e.null && !e.nullRef
+		}
 		drop = drop || isPtr || (isSlice || isMap) && !hasIsZero(ft)
 	}
 	if drop && !t.unknown {
@@ -813,6 +826,9 @@ func jsonTagName(tag string) (name, opts string) {
 func (m *tsMapper) walk(orig types.Type) (*jsonProblem, int) {
 	const noHit = int(^uint(0) >> 1)
 	t := types.Unalias(orig)
+	if elem, ok := optElem(t); ok {
+		return m.walk(elem) // null, or T's JSON
+	}
 	n, isNamed := t.(*types.Named)
 	if !isNamed {
 		if m.methodsOf(t).any() {

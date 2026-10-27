@@ -53,6 +53,12 @@ func Retype(d *Doc, in GenInput, pass1 *compiler.Output) func(types.Importer) (*
 				c.errorf(f.KeyPos, "unknown frontmatter key %q for layout %s (%s)", f.Key, layout.Name, fieldList("props", layout.Name, fields))
 				continue
 			}
+			if f.Value.Kind == KindNull {
+				if _, isOpt := compiler.OptElem(field.Type()); !isOpt {
+					c.diags = append(c.diags, noValueDiag(f))
+				}
+				continue // none: the zero Opt
+			}
 			code, ok := c.convert(f.Value, field.Type(), f.KeyPos, f.Key, layout.Name+".Props."+field.Name())
 			if ok {
 				assigns = append(assigns, assign{pos: f.KeyPos, code: "p." + field.Name() + " = " + code})
@@ -74,8 +80,11 @@ type converter struct {
 	layoutPkg *types.Package
 	layout    string // the layout's name in messages ("Post")
 	aliases   map[*types.Package]string
-	imports   []string
-	diags     []compiler.Diagnostic
+	// shown is the type messages name for the value being converted: the
+	// orbit.Opt[T] around T (PLAN.md §2.6), taken by the next convert.
+	shown   types.Type
+	imports []string
+	diags   []compiler.Diagnostic
 }
 
 func (c *converter) errorf(off int, format string, args ...any) {
@@ -120,13 +129,26 @@ func (c *converter) msgType(t types.Type) string    { return types.TypeString(t,
 // frontmatter key (for errors about the field type), label the field as a
 // message names it ("Post.Props.Tags").
 func (c *converter) convert(v *Value, t types.Type, keyPos int, key, label string) (string, bool) {
+	shown := t
+	if c.shown != nil {
+		shown, c.shown = c.shown, nil
+	}
 	mismatch := func(want string) (string, bool) {
-		c.errorf(v.Pos, "frontmatter %s: %s isn't %s (%s is %s)", key, describe(v), want, label, c.msgType(t))
+		c.errorf(v.Pos, "frontmatter %s: %s isn't %s (%s is %s)", key, describe(v), want, label, c.msgType(shown))
 		return "", false
 	}
 	unsupported := func() (string, bool) {
-		c.errorf(keyPos, "frontmatter %s: %s is %s, which frontmatter can't set", key, label, c.msgType(t))
+		c.errorf(keyPos, "frontmatter %s: %s is %s, which frontmatter can't set", key, label, c.msgType(shown))
 		return "", false
+	}
+	if elem, ok := compiler.OptElem(t); ok {
+		// An orbit.Opt[T]: some(the value as a T) (PLAN.md §2.6).
+		c.shown = shown
+		code, ok := c.convert(v, elem, keyPos, key, label)
+		if !ok {
+			return "", false
+		}
+		return compiler.NameRuntime + ".Some[" + c.typeString(elem) + "](" + code + ")", true
 	}
 	if isNamed(t, "time", "Time") {
 		if v.Kind != KindTime {
@@ -153,7 +175,7 @@ func (c *converter) convert(v *Value, t types.Type, keyPos int, key, label strin
 				return mismatch("an integer")
 			}
 			if !intFits(v.Int, u.Kind()) {
-				c.errorf(v.Pos, "frontmatter %s: %s overflows %s (%s is %s)", key, v.Raw, u.Name(), label, c.msgType(t))
+				c.errorf(v.Pos, "frontmatter %s: %s overflows %s (%s is %s)", key, v.Raw, u.Name(), label, c.msgType(shown))
 				return "", false
 			}
 			return strconv.FormatInt(v.Int, 10), true
@@ -163,7 +185,7 @@ func (c *converter) convert(v *Value, t types.Type, keyPos int, key, label strin
 				return strconv.FormatInt(v.Int, 10), true
 			case KindFloat:
 				if u.Kind() == types.Float32 && math.Abs(v.Float) > math.MaxFloat32 {
-					c.errorf(v.Pos, "frontmatter %s: %s overflows float32 (%s is %s)", key, v.Raw, label, c.msgType(t))
+					c.errorf(v.Pos, "frontmatter %s: %s overflows float32 (%s is %s)", key, v.Raw, label, c.msgType(shown))
 					return "", false
 				}
 				return floatLit(v.Float), true

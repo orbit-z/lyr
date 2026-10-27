@@ -327,17 +327,15 @@ A capitalized tag that names a **variable or constant in scope** renders the HTM
 
 ```orbit file=src/components/Button.orbit
 ---
-import "cmp"
-
 type Props struct {
-	Type  string
+	Type  orbit.Opt[string]
 	Attrs orbit.RestAttrs
 }
 
 link := props.Attrs.Has("href")
 Tag := orbit.Cond(link, "a", "button")
 ---
-<Tag {...props.Attrs} type={orbit.If(!link, cmp.Or(props.Type, "button"))} class="btn">
+<Tag {...props.Attrs} type={orbit.If(!link, props.Type.Or("button"))} class="btn">
   <slot />
 </Tag>
 ```
@@ -426,6 +424,7 @@ An expression value may contain `>`, quotes and braces; the scanner finds the cl
 |---|---|
 | `true` | The bare attribute: `<input disabled>` |
 | `false`, `nil` | Nothing: the attribute is omitted. |
+| an `orbit.Opt[T]` ([optional values](#optional-values-orbitopt)) | None: nothing, the attribute is omitted. Some `v`: written as `v` is, by the rules of this table for `T` (so `orbit.Opt[bool]` set to `true` is bare, set to `false` is omitted, or `"false"` on a true/false attribute). |
 | `true`/`false` on a true/false attribute | `="true"` or `="false"`: `<button aria-pressed="false">`. These are the attributes whose values are the keywords `true` and `false`: every `aria-*` attribute (any case), and `contenteditable`, `draggable`, `spellcheck` and `writingsuggestions`. |
 | a string | The escaped value in quotes. |
 | `orbit.URL` | The escaped value in quotes, without URL filtering. |
@@ -438,7 +437,7 @@ On every other attribute, a `bool` is a presence flag: HTML boolean attributes (
 
 #### Conditional values: `orbit.If` and `orbit.Cond`
 
-Go has no ternary. Two small runtime helpers stand in for Astro's `cond ? v : undefined` and `c ? a : b`:
+Go has no ternary. Small runtime helpers stand in for Astro's `cond ? v : undefined`, `x || undefined` and `c ? a : b`:
 
 ```orbit
 <a href={item.Href} aria-current={orbit.If(item.Section == props.Current, "page")}>{item.Label}</a>
@@ -447,12 +446,35 @@ Go has no ternary. Two small runtime helpers stand in for Astro's `cond ? v : un
 </button>
 ```
 
-- `orbit.If(cond, v)` is `v` when `cond` is true, and `nil` otherwise. As an attribute value, `nil` omits the attribute; in content, it writes nothing. `orbit.If(c, nil)` doesn't compile: write nothing instead.
+- `orbit.If(cond, v)` is an [optional value](#optional-values-orbitopt), an `orbit.Opt[T]`: set to `v` when `cond` is true, and none otherwise. As an attribute value, none omits the attribute; in content, it writes nothing. `orbit.If(c, nil)` doesn't compile: write nothing instead.
+- `orbit.NonZero(x)` is set to `x` unless `x` is its type's zero value (`""`, `0`, `false`, `nil`): Astro's `x || undefined`. `rel={orbit.NonZero(post.Rel)}` is `orbit.If(post.Rel != "", post.Rel)`, with `post.Rel` written once.
 - `orbit.Cond(cond, a, b)` is `a` or `b`, with their type, so it's written like any value of that type.
 - For text, `{if}…{else}…{/if}` works too, and writes static text; `orbit.Cond` is shorter for a word.
 - Astro's `x ?? "fallback"` is the standard library's `cmp.Or(x, "fallback")`: the first argument that isn't the zero value (`""`, `0`, `nil`).
 - **Both arguments are always evaluated**, as for any Go call: `orbit.If(viewer != nil, viewer.Email)` panics when `viewer` is nil, unlike Astro's `viewer ? viewer.email : undefined`. Guard it in the frontmatter (`email := ""` then `if viewer != nil { email = viewer.Email }`), or use `{if viewer != nil}…{/if}`.
-- They're plain Go functions, so they work in the frontmatter, in `orbit.Attrs` values and in Go code. When `orbit.If(…)` is the whole value of an HTML element attribute or of a `{…}` in content, `orbit build` and `orbit dev` compile it to an `if` with no boxing and no allocation (see [Performance](../performance.md#conditional-values)); elsewhere it's an ordinary call. Either way the output is the same. As a component prop, `orbit.If` gives an `any`, so the prop must have type `any`; for a `string` prop use `orbit.Cond` or a variable.
+- They're plain Go functions, so they work in the frontmatter, in `orbit.Attrs` values and in Go code. When `orbit.If(…)` is the whole value of an HTML element attribute or of a `{…}` in content, `orbit build` and `orbit dev` compile it to an `if` with no boxing and no allocation (see [Performance](../performance.md#conditional-values)); elsewhere it's an ordinary call. Either way the output is the same. As a component prop, pass it to a prop of type `orbit.Opt[T]` ([Optional props](../components.md#optional-props)); for a `string` prop use `orbit.Cond` or a variable.
+
+#### Optional values: `orbit.Opt`
+
+`orbit.Opt[T]` is a value of type `T` that may be absent: Astro's `undefined`. Its zero value is none. Build one with `orbit.Some(v)`, `orbit.None[T]()`, `orbit.If(cond, v)` or `orbit.NonZero(v)`, and read it with `Get()` (the value and whether it's set), `Or(def)` (Astro's `x ?? def`) or `IsSome()`:
+
+```orbit
+---
+var describedBy orbit.Opt[string] // none
+if hint != "" {
+	describedBy = orbit.Some(hint)
+}
+---
+<input id="email" aria-describedby={describedBy} />
+<p id={orbit.NonZero(post.Slug)}>{orbit.If(post.Draft, " · draft")}</p>
+```
+
+- **Written as its value**: on an HTML element attribute, none omits the attribute and a set value is written by the rules for `T` (the URL filter, `orbit.URL` and `orbit.CSS`, `orbit.JSON`, booleans). In content (`{…}`, `set:text`), none writes nothing. A frontmatter variable keeps its type, unlike an `any`, so the value gets the typed writes and no allocation.
+- **`class`**: an `orbit.Opt[string]` or `orbit.Opt[[]string]` works as a `class:list` item, and an `orbit.Opt[string]` as a `class={…}` value; none adds no class.
+- **`style`**: an `orbit.Opt[orbit.CSS]` is trusted like an `orbit.CSS`, with no warning.
+- **`set:html`** still needs an `orbit.HTML`: an `orbit.Opt[orbit.HTML]` is Go's type error. Write `set:html={body.Or("")}`.
+- **Only `orbit.Opt` itself counts**: a type defined over it (`type MaybeRel orbit.Opt[string]`) is a new struct type, written like any struct. An alias (`type MaybeRel = orbit.Opt[string]`) is fine.
+- In Go code and logs, `fmt.Sprint(o)` prints the value, or `""` for none. In JSON, none is `null`; see [`orbit.Opt`](runtime-api.md#optional-values).
 
 #### JSON attributes
 
@@ -498,7 +520,7 @@ func Attributes(c Choices) orbit.AttrList {
 
 `<html lang="en" {...theme.Attributes(choices)}>` then renders `<html lang="en" data-theme="dark" data-dark-theme="dark" data-day-theme="mist">`, in that order.
 
-- `orbit.A` keeps strings, bools, numbers, `orbit.URL`, `orbit.HTML`, `orbit.CSS` and `orbit.JSONValue` without boxing them, so a list built in the page costs no allocation (a list a helper returns costs one, its backing array). Any other value is kept as an `any`. Values are written as above.
+- `orbit.A` keeps strings, bools, numbers, `orbit.URL`, `orbit.HTML`, `orbit.CSS` and `orbit.JSONValue`, and an `orbit.Opt` of a string, `bool`, `int`, `int64`, `float64`, `orbit.URL`, `orbit.HTML`, `orbit.CSS` or `orbit.JSONValue` (`orbit.If(cur, "page")`), without boxing them, so a list built in the page costs no allocation (a list a helper returns costs one, its backing array). Any other value is kept as an `any`. Values are written as above.
 - An `AttrList` is a plain slice: `append`, `range`, `len` and the `slices` package work on it.
 - The same name twice in one list (ignoring ASCII case) is a render error: `attribute "role" twice in spread`.
 - `orbit.Attrs` stays the shorter literal when the order doesn't matter.
@@ -592,7 +614,7 @@ All of these allocate nothing on an HTML element. `orbit.Cond` and `orbit.If` ev
 - **Escaping**: classes are escaped like any attribute value.
 - **A `class` attribute on the same element is merged in**, first, wherever it's written: `<p class="card" class:list={"featured": on}>` renders `<p class="card featured">`, at the position of `class:list`. An `orbit.Attrs` spread's `class` isn't merged: both are written, and browsers use the first. [Pass-through attributes](#pass-through-attributes)' class is merged, after the list's classes.
 - **On a component tag**, the classes are joined into its `class` prop, so the component's `Props` needs a `Class string` field, or an `orbit.RestAttrs` field, which takes the joined classes as its class ([Pass-through attributes](#pass-through-attributes)). Without either, it's an error at `class:list`: `class:list sets the class prop, which <Card> doesn't have (props: title)`.
-- **Types**: an item of any other type is a build error at the item, `class:list items must be a string or []string, not int`. A condition that isn't a `bool` is Go's error at the condition.
+- **Types**: an item is a string kind or a `[]string`, or an `orbit.Opt` of one (none adds nothing: `class:list={"card", props.Extra}` with `Extra orbit.Opt[string]`). An item of any other type is a build error at the item, `class:list items must be a string or []string, not int`. A condition that isn't a `bool` is Go's error at the condition.
 - **Syntax**: a nested list (`{"a", {"b": on}}`) is an error, `class:list items can't be nested lists; list the classes directly, or use a []string`; so is a value that isn't in braces, `class:list takes a list in braces, e.g. class:list={"card", "active": active}`. A tag takes one `class:list`; `<slot>`, `<Fragment>`, `<script>` and `<style>` take none.
 - **Cost**: static classes are joined into the surrounding HTML at build time and each condition becomes an `if`, so a `class:list` renders as fast as hand-written markup and, on an HTML element, allocates nothing. On a component, joining items that aren't all static allocates the prop's string (nothing when a single item is already clean).
 
@@ -855,6 +877,7 @@ The same name twice is an error even in another case (`name` and `NAME`). A `cla
 | `error` | its escaped `Error()` text; a nil error renders nothing | `{err}` → `file not found` |
 | `fmt.Stringer` | its escaped `String()` text | `{time.Second}` → `1s` |
 | `orbit.Renderer`, `func(*orbit.Writer) error` | called; whatever it writes is output | `{slots.Get("footer")}` |
+| `orbit.Opt[T]` | nothing when none; else its value, by these rules for `T` (before the `error` and `fmt.Stringer` rows: an `Opt[orbit.HTML]` is raw) | `{orbit.If(draft, " · draft")}` → ` · draft` or `` |
 | a slice of the above | each element in order, no separator | `{[]string{"a", "b"}}` → `ab` |
 | anything else | `fmt.Sprint`, escaped | `{struct{ X int }{1}}` → `{1}` |
 
@@ -868,7 +891,7 @@ Details that are easy to trip over:
 - **Floats** use the shortest exact form, which switches to exponent notation for large and small values (`1e+06`, `1e-07`). For a fixed format, call `strconv.FormatFloat` or `fmt.Sprintf("%.2f", x)`.
 - **`time.Time`** is a `fmt.Stringer`, so `{date}` prints `2026-10-01 00:00:00 +0000 UTC`. Use `{date.Format("2 Jan 2006")}` for a readable date.
 
-Attribute values follow the same formatting, with the attribute rules for `true`, `false`, `nil` and URLs on top (see [Attribute values](#attribute-values-on-html-elements)).
+Attribute values follow the same formatting, with the attribute rules for `true`, `false`, `nil`, a none `orbit.Opt` and URLs on top (see [Attribute values](#attribute-values-on-html-elements)).
 
 ## See also
 

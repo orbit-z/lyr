@@ -1,0 +1,15 @@
+---
+type Slug string
+
+type Props struct {
+	Href  string
+	Rel   orbit.Opt[string] // unset = no rel attribute
+	Title orbit.Opt[string]
+	ID    orbit.Opt[Slug]
+	N     orbit.Opt[int]
+	F     orbit.Opt[float64]
+	On    orbit.Opt[bool]
+	Style orbit.Opt[orbit.CSS]
+}
+---
+<a href={props.Href} rel={props.Rel} title={props.Title} id={props.ID} data-n={props.N} data-f={props.F} hidden={props.On} style={props.Style}><slot /></a>

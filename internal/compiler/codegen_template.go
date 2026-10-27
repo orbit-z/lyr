@@ -219,6 +219,25 @@ func (g *cgGen) ifSite(cs CallSite, a *Attr, tw TypedWrite) {
 	o := g.o
 	iw := tw.If
 	o.flush()
+	if iw.Opt {
+		// An orbit.Opt value: its expression stays, so nothing to keep.
+		o.ln("{")
+		o.depth++
+		o.ind()
+		o.str("orbit__o :=\n")
+		o.exact(iw.Val)
+		o.str("\n")
+		o.ln("orbit__v, orbit__c := orbit__o.Get()")
+		o.ln("if orbit__c {")
+		o.depth++
+		g.ifWrite(&cs, a, tw)
+		o.depth--
+		o.ln("}")
+		o.depth--
+		o.ln("}")
+		g.sites = append(g.sites, cs)
+		return
+	}
 	if !g.ifRef {
 		// The lowering drops the call, which may be the file's only use
 		// of the package; keep one (an instantiation, no code).
@@ -649,6 +668,10 @@ type cgField struct {
 	node   Node
 	// rest is the value of the target's RestAttrs field (attr is nil).
 	rest *cgRest
+	// opt is set for a field of type orbit.Opt[T] (PLAN.md §2.6 (Q3)):
+	// the field's zero value, "Alias.Props{}.Field", which the wrapping
+	// helpers take first.
+	opt string
 }
 
 type cgSlot struct {
@@ -762,7 +785,11 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 		if key == restField {
 			explicitRest = a
 		}
-		fields = append(fields, cgField{key: key, attr: a})
+		f := cgField{key: key, attr: a, node: n}
+		if isOptProp(props, key) {
+			f.opt = qual + "Props{}." + key
+		}
+		fields = append(fields, f)
 	}
 	switch {
 	case restField == "":
@@ -872,6 +899,11 @@ func (g *cgGen) propFields(fields []cgField) {
 		}
 		o.inline(a.NameSpan, f.key, SegSpan)
 		o.str(": ")
+		if f.opt != "" && a.Directive != ClassList {
+			g.optProp(f)
+			o.str(",\n")
+			continue
+		}
 		switch {
 		case a.Directive == ClassList:
 			g.classProp(f.node, a, f.merged)

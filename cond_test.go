@@ -7,15 +7,15 @@ import (
 )
 
 func TestIfCond(t *testing.T) {
-	if v := If(true, "page"); v != "page" {
-		t.Errorf("If(true) = %v", v)
+	if v, ok := If(true, "page").Get(); v != "page" || !ok {
+		t.Errorf("If(true) = %v, %v", v, ok)
 	}
-	if v := If(false, "page"); v != nil {
-		t.Errorf("If(false) = %v", v)
+	if v, ok := If(false, "page").Get(); v != "" || ok {
+		t.Errorf("If(false) = %v, %v", v, ok)
 	}
 	var err error
-	if v := If(true, err); v != nil { // a nil interface value is nil
-		t.Errorf("If(true, nil error) = %v", v)
+	if v, ok := If(true, err).Get(); v != nil || !ok { // some(a nil interface value)
+		t.Errorf("If(true, nil error) = %v, %v", v, ok)
 	}
 	if Cond(true, "a", "b") != "a" || Cond(false, 1, 2) != 2 {
 		t.Error("Cond")
@@ -85,7 +85,9 @@ func TestIfMatchesTypedWrites(t *testing.T) {
 	}
 }
 
-// TestIfAllocs: PLAN.md §2.6's cost table.
+// TestIfAllocs: PLAN.md §2.6's cost table. If returns an Opt (a struct),
+// so passing it unlowered to Attr boxes it: 1 allocation, the untyped
+// path's cost ("Typed optional values", Cost); the lowered forms stay 0.
 func TestIfAllocs(t *testing.T) {
 	var buf bytes.Buffer
 	w := NewWriter(&buf)
@@ -96,10 +98,10 @@ func TestIfAllocs(t *testing.T) {
 		want float64
 		f    func()
 	}{
-		{"constant", 0, func() { w.Attr("aria-current", If(c, "page")) }},
-		{"dynamic false", 0, func() { w.Attr("rel", If(!c, s)) }},
-		{"int constant", 0, func() { w.Attr("tabindex", If(c, -1)) }},
-		{"bool", 0, func() { w.Attr("aria-pressed", If(c, false)) }},
+		{"constant", 1, func() { w.Attr("aria-current", If(c, "page")) }},
+		{"dynamic false", 1, func() { w.Attr("rel", If(!c, s)) }},
+		{"int constant", 1, func() { w.Attr("tabindex", If(c, -1)) }},
+		{"bool", 1, func() { w.Attr("aria-pressed", If(c, false)) }},
 		{"lowered", 0, func() {
 			if c {
 				w.Raw(` rel="`)

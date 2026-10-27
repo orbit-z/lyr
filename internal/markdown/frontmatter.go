@@ -31,7 +31,16 @@ const (
 	KindTime
 	KindList
 	KindMap
+	// KindNull is a top-level key with no value (key:, key: null, key: ~):
+	// it leaves a layout prop of type orbit.Opt none, and is an error
+	// anywhere else (noValueError). It's not in Frontmatter.
+	KindNull
 )
+
+// noValueError is the error for a key with no value.
+func noValueError(key string) string {
+	return fmt.Sprintf("frontmatter key %q has no value; delete the line or give it a value", key)
+}
 
 // Value is one frontmatter value.
 type Value struct {
@@ -279,7 +288,13 @@ func (p *fmParser) value(n *yaml.Node, key string) *Value {
 	v.Quoted = n.Style&(yaml.DoubleQuotedStyle|yaml.SingleQuotedStyle|yaml.LiteralStyle|yaml.FoldedStyle) != 0
 	switch n.ShortTag() {
 	case "!!null":
-		p.errorf(pos, "frontmatter key %q has no value; delete the line or give it a value", key)
+		if !strings.ContainsAny(key, ".[") {
+			// A top-level key: none for a layout prop of type orbit.Opt
+			// (PLAN.md §2.6), else noValueError at generate time.
+			v.Kind = KindNull
+			return v
+		}
+		p.errorf(pos, "%s", noValueError(key))
 		return nil
 	case "!!bool":
 		v.Kind = KindBool

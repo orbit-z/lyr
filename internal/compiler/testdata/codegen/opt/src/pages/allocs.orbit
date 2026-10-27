@@ -1,0 +1,20 @@
+---
+import Link "../components/Link.orbit"
+import Button "../components/Button.orbit"
+
+type item struct {
+	Href, Label, Rel, Title string
+	ID                      int
+}
+
+items := []item{{"/fiction", "Fiction", "", "", 1}, {"https://example.com", "Out", "noopener", "Out there", 2}}
+current := "/fiction"
+---
+<nav>
+  {for _, it := range items}
+    <a href={it.Href} aria-current={orbit.If(it.Href == current, "page")} rel={orbit.NonZero(it.Rel)} data-id={orbit.NonZero(it.ID)}>{orbit.NonZero(it.Title)}{it.Label}</a>
+    <Link href={it.Href} rel={orbit.NonZero(it.Rel)} title={it.Title} n={it.ID} on>{it.Label}</Link>
+    <Link href="/s" rel="author" id="me">Static</Link>
+    <Button aria-describedby={orbit.If(it.ID == 2, "help")} data-rel={orbit.NonZero(it.Rel)}>B</Button>
+  {/for}
+</nav>

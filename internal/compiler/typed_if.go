@@ -19,7 +19,7 @@ import (
 // need them.
 func mayCallIf(sites []CallSite) bool {
 	for i := range sites {
-		if k := sites[i].Kind; (k == SiteAttr || k == SiteContent) && strings.Contains(sites[i].Code.Text, "If") {
+		if k := sites[i].Kind; (k == SiteAttr || k == SiteContent || k == SiteOptProp) && strings.Contains(sites[i].Code.Text, "If") {
 			return true
 		}
 	}
@@ -30,36 +30,8 @@ func mayCallIf(sites []CallSite) bool {
 // the pass-1 file tf) is a call of the runtime's If, identified by its
 // types.Object, so a user's own If or a shadowed orbit is left alone.
 func (e *tyEnv) lowerIf(tf *gotoken.File, expr ast.Expr, site *CallSite, info *types.Info) (TypedWrite, bool) {
-	if info.Uses == nil {
-		return TypedWrite{}, false
-	}
-	call, ok := ast.Unparen(expr).(*ast.CallExpr)
-	if !ok || len(call.Args) != 2 || call.Ellipsis.IsValid() {
-		return TypedWrite{}, false
-	}
-	fun := ast.Unparen(call.Fun)
-	inst := false
-	switch f := fun.(type) {
-	case *ast.IndexExpr:
-		fun, inst = ast.Unparen(f.X), true
-	case *ast.IndexListExpr:
-		fun, inst = ast.Unparen(f.X), true
-	}
-	var id *ast.Ident
-	switch f := fun.(type) {
-	case *ast.Ident:
-		id = f
-	case *ast.SelectorExpr:
-		id = f.Sel
-	default:
-		return TypedWrite{}, false
-	}
-	fn, ok := info.Uses[id].(*types.Func)
-	if !ok || fn.Name() != "If" || fn.Pkg() == nil || fn.Pkg().Path() != RuntimePath {
-		return TypedWrite{}, false
-	}
-	sig, ok := info.Types[call.Fun].Type.(*types.Signature)
-	if !ok || sig.Params().Len() != 2 {
+	call, sig, inst, ok := ifCall(expr, info)
+	if !ok {
 		return TypedWrite{}, false
 	}
 	vtv, ok := info.Types[call.Args[1]]
@@ -79,12 +51,50 @@ func (e *tyEnv) lowerIf(tf *gotoken.File, expr ast.Expr, site *CallSite, info *t
 	span := func(n ast.Node) Span {
 		return Span{tf.Offset(n.Pos()) - site.Arg.Start + site.Code.Start, tf.Offset(n.End()) - site.Arg.Start + site.Code.Start}
 	}
-	iw := &IfWrite{Fun: span(call.Fun), Cond: span(call.Args[0]), Val: span(call.Args[1]), Inst: inst}
+	iw := &IfWrite{Fun: span(call.Fun), Cond: span(call.Args[0]), Val: span(call.Args[1]), Inst: inst, Const: vtv.Value != nil}
 	if text, ok := foldIf(w, tv.Value, site); ok {
 		iw.Folded, iw.Text = true, text
 	}
 	w.If = iw
 	return w, true
+}
+
+// ifCall returns expr (through parentheses) when it's a 2-argument call
+// of the runtime's If, identified by its types.Object, with its
+// instantiated signature and whether type arguments are written.
+func ifCall(expr ast.Expr, info *types.Info) (call *ast.CallExpr, sig *types.Signature, inst, ok bool) {
+	if info.Uses == nil {
+		return nil, nil, false, false
+	}
+	call, ok = ast.Unparen(expr).(*ast.CallExpr)
+	if !ok || len(call.Args) != 2 || call.Ellipsis.IsValid() {
+		return nil, nil, false, false
+	}
+	fun := ast.Unparen(call.Fun)
+	switch f := fun.(type) {
+	case *ast.IndexExpr:
+		fun, inst = ast.Unparen(f.X), true
+	case *ast.IndexListExpr:
+		fun, inst = ast.Unparen(f.X), true
+	}
+	var id *ast.Ident
+	switch f := fun.(type) {
+	case *ast.Ident:
+		id = f
+	case *ast.SelectorExpr:
+		id = f.Sel
+	default:
+		return nil, nil, false, false
+	}
+	fn, isFunc := info.Uses[id].(*types.Func)
+	if !isFunc || fn.Name() != "If" || fn.Pkg() == nil || fn.Pkg().Path() != RuntimePath {
+		return nil, nil, false, false
+	}
+	sig, ok = info.Types[call.Fun].Type.(*types.Signature)
+	if !ok || sig.Params().Len() != 2 {
+		return nil, nil, false, false
+	}
+	return call, sig, inst, true
 }
 
 // foldIf is the HTML a constant value v writes with w, when it's one Orbit

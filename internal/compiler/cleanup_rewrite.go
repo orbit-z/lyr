@@ -209,6 +209,10 @@ func cleanGoOutput(out []byte, names *ErrorNames) []byte {
 		line = strings.ReplaceAll(line, " in argument to "+NameRuntime+".ErrorAt", " in return statement")
 		// A component's keyed class:list item: "c": cond.
 		line = strings.ReplaceAll(line, " in argument to "+NameRuntime+".ClassIf", " in class:list condition")
+		// A value passed to a prop of type orbit.Opt[T] (PLAN.md §2.6).
+		for _, f := range [...]string{".WrapIf", ".Wrap", ".OptOf"} { // WrapIf before its prefix
+			line = strings.ReplaceAll(line, " in argument to "+NameRuntime+f, " in optional prop value")
+		}
 		if cur != nil {
 			line = rewriteNames(line, cur)
 		}

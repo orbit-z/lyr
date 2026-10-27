@@ -56,11 +56,14 @@ const (
 	pairUintptr
 	pairFloat32
 	pairFloat64
+	pairNone // a none Opt: written as nothing
 )
 
 // A returns the attribute name with value v, for an AttrList. Strings,
-// bools, numbers, URL, HTML, CSS and JSONValue are stored without boxing;
-// any other type is stored as an any (boxed). The value is written as Attr
+// bools, numbers, URL, HTML, CSS and JSONValue are stored without boxing,
+// and so is an Opt of string, URL, HTML, CSS, JSONValue, bool, int, int64
+// or float64 (stored as its value, or as nothing when none); any other
+// type is stored as an any (boxed). The value is written as Attr
 // writes it: nil and false omitted, true bare (or "true" on aria-* and the
 // other true/false attributes), a URL attribute scheme-filtered unless v
 // is a URL, everything escaped.
@@ -108,16 +111,48 @@ func A[T any](name string, v T) AttrPair {
 		p.kind, p.n = pairFloat32, uint64(math.Float32bits(x))
 	case float64:
 		p.kind, p.n = pairFloat64, math.Float64bits(x)
+	// The common Opts, stored as their value (each case instantiates the
+	// Opt type's methods in this package, so the list stays short).
+	case Opt[string]:
+		p.kind, p.s = optKind(x.ok, pairString), x.v
+	case Opt[URL]:
+		p.kind, p.s = optKind(x.ok, pairURL), string(x.v)
+	case Opt[HTML]:
+		p.kind, p.s = optKind(x.ok, pairHTML), string(x.v)
+	case Opt[CSS]:
+		p.kind, p.s = optKind(x.ok, pairCSS), string(x.v)
+	case Opt[JSONValue]:
+		p.kind, p.v = optKind(x.ok, pairJSON), x.v.v
+	case Opt[bool]:
+		p.kind = optKind(x.ok, pairBool)
+		if x.v {
+			p.n = 1
+		}
+	case Opt[int]:
+		p.kind, p.n = optKind(x.ok, pairInt), uint64(x.v)
+	case Opt[int64]:
+		p.kind, p.n = optKind(x.ok, pairInt64), uint64(x.v)
+	case Opt[float64]:
+		p.kind, p.n = optKind(x.ok, pairFloat64), math.Float64bits(x.v)
 	default:
 		p.v = any(v)
 	}
 	return p
 }
 
+// optKind is k for a set Opt, pairNone for a none.
+func optKind(ok bool, k pairKind) pairKind {
+	if !ok {
+		return pairNone
+	}
+	return k
+}
+
 // Name returns the attribute's name.
 func (p AttrPair) Name() string { return p.name }
 
-// Value returns the attribute's value as given to A (boxed).
+// Value returns the attribute's value as given to A (boxed). For an Opt of
+// a type A stores unboxed, it's the Opt's value, or nil when none.
 func (p AttrPair) Value() any {
 	switch p.kind {
 	case pairString:
@@ -189,6 +224,7 @@ func (w *Writer) writePair(p *AttrPair) {
 		w.attrOpen(p.name)
 		w.Float(math.Float64frombits(p.n))
 		w.buf.WriteByte('"')
+	case pairNone:
 	default:
 		w.attr(p.name, p.v, isURLAttr(p.name))
 	}

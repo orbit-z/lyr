@@ -239,6 +239,14 @@ func IsRestAttrsType(typ string) bool {
 	return strings.Join(strings.Fields(typ), "") == "orbit.RestAttrs"
 }
 
+// IsOptType reports whether a Props field's type expression, as written,
+// is an orbit.Opt instantiation (orbit.Opt[string]): a prop that wraps a
+// T passed to it (PLAN.md §2.6 (Q3)). An alias declared in a Go package
+// isn't seen.
+func IsOptType(typ string) bool {
+	return strings.HasPrefix(strings.Join(strings.Fields(typ), ""), "orbit.Opt[")
+}
+
 // placeImports places Go and .orbit imports by their uses, and reports
 // unused .orbit imports.
 func (s *anState) placeImports() {

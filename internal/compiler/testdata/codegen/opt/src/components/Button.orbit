@@ -1,0 +1,6 @@
+---
+type Props struct {
+	Attrs orbit.RestAttrs
+}
+---
+<button {...props.Attrs}><slot /></button>

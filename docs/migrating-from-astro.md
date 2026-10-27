@@ -135,7 +135,7 @@ func price(cents int) string {
 
 Tag := orbit.Cond(props.Href != "", "a", "div")
 ---
-<Tag href={orbit.If(props.Href != "", props.Href)} class:list={"card", "featured": props.Featured}>
+<Tag href={orbit.NonZero(props.Href)} class:list={"card", "featured": props.Featured}>
   <h3>{props.Book.Title}</h3>
   <p>{props.Book.Author} · {price(props.Book.Price)}</p>
   {if props.Book.InStock}
@@ -157,14 +157,14 @@ Tag := orbit.Cond(props.Href != "", "a", "div")
 Step by step:
 
 - **Imports**: Go packages and components share one `import (…)` block. A component import needs an alias: `Card "./Card.orbit"`. An unused component import is an error, like an unused Go import.
-- **`interface Props` → `type Props struct`**, with exported fields. `Astro.props.book` is `props.Book`; attributes match fields ignoring case, so callers still write `<BookCard book={b} featured />`. There are no optional props: an unset field is Go's zero value, so `featured = false` needs nothing, and other defaults are a line of code (`title := cmp.Or(props.Title, "Untitled")`). See [Props](components.md#props).
+- **`interface Props` → `type Props struct`**, with exported fields. `Astro.props.book` is `props.Book`; attributes match fields ignoring case, so callers still write `<BookCard book={b} featured />`. An unset field is Go's zero value, so `featured = false` needs nothing, and other defaults are a line of code (`title := cmp.Or(props.Title, "Untitled")`). A prop whose absence leaves an attribute out (`rel?: string`) is `Rel orbit.Opt[string]`, and `rel ?? "x"` is `props.Rel.Or("x")`. See [Props](components.md#props) and [Optional props](components.md#optional-props).
 - **Helpers**: a named `func` (and `import`, `type`, `const`) is hoisted to package level, where it can't see `props` or `ctx`: pass it what it needs. Everything else runs on every render. See [The frontmatter](components.md#the-frontmatter).
-- **Ternaries**: `cond ? v : undefined` on an attribute is `orbit.If(cond, v)`, and `a ? b : c` on a value is `orbit.Cond(a, b, c)`. When the branches are different markup, use `{if}…{else}…{/if}`. See [Conditional attributes](components.md#conditional-attributes).
+- **Ternaries**: `cond ? v : undefined` on an attribute is `orbit.If(cond, v)` (an `orbit.Opt`, set or none, and none omits the attribute), `x || undefined` is `orbit.NonZero(x)`, and `a ? b : c` on a value is `orbit.Cond(a, b, c)`. When the branches are different markup, use `{if}…{else}…{/if}`. See [Conditional attributes](components.md#conditional-attributes).
 - **`&&` and `.map()`** become `{if}` and `{for}` blocks. `.filter()` becomes an `if` inside the loop, or a filtered slice built in the frontmatter. A chain of conditions on one value is a `{switch}`. See [Control flow](components.md#control-flow).
 - **Dynamic tags** port as they are, with `orbit.Cond` for the ternary: `Tag := orbit.Cond(props.Href != "", "a", "div")`. `orbit.Fragment` as the value renders only the children, for optional wrappers. See [Dynamic tags](components.md#one-element-or-another-dynamic-tags).
 - **`class:list`** is one flat list without `[…]` and `{…}`: `{"card", "featured": props.Featured}`. `cond && "x"` becomes `"x": cond`, and a ternary `orbit.Cond(c, "a", "b")`. See the side-by-side table in [`class:list`](reference/template-syntax.md#classlist).
 - **Template literals**: `` class={`card ${extra}`} `` is `class={"card " + extra}`. A quoted attribute value is literal text.
-- **`x ?? y`** is `cmp.Or(x, y)`, and optional chaining (`a?.b`) is an explicit `nil` check in the frontmatter.
+- **`x ?? y`** is `cmp.Or(x, y)` (or `o.Or(y)` for an `orbit.Opt`), and optional chaining (`a?.b`) is an explicit `nil` check in the frontmatter.
 
 `<Fragment>` and its `<>…</>` shorthand, `<slot />`, named slots, `slot="x"` and `<Self />` (Astro's `<Astro.self />`) work as in Astro. See [Slots](components.md#slots) and [`<Fragment>`](components.md#fragment).
 

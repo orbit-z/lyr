@@ -1,0 +1,5 @@
+orbit_gen/decl/components/button/decl.go (src/components/Button.orbit)
+  exact 2:1 "type Props struct {\n\tAttrs orbit.RestAttrs\n}" -> 193-237 "type Props struct {\n\tAttrs orbit.RestAttrs\n}"
+orbit_gen/impl/components/button/render.go (src/components/Button.orbit)
+  exact 6:13 "props.Attrs" -> 689-700 "props.Attrs"
+call sites

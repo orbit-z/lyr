@@ -70,14 +70,33 @@ func Generate(d *Doc, in GenInput) *compiler.Output {
 					Message: fmt.Sprintf("unknown frontmatter key %q for layout %s (%s)", f.Key, layout.Name, compiler.PropList(layout.Name, &layout.Props))})
 				continue
 			}
+			opt := optField(&layout.Props, name)
+			switch {
+			case f.Value.Kind == KindNull && opt:
+				continue // none: the zero Opt
+			case f.Value.Kind == KindNull:
+				out.Diagnostics = append(out.Diagnostics, noValueDiag(f))
+				continue
+			}
 			usesTime = usesTime || usesTimeOf(f.Value)
-			assigns = append(assigns, assign{pos: f.KeyPos, code: "p." + name + " = " + goLit(f.Value, false)})
+			code := goLit(f.Value, false)
+			if opt {
+				// An orbit.Opt[T] prop: Wrap gives an untyped constant T.
+				code = compiler.NameRuntime + ".Wrap(p." + name + ", " + code + ")"
+			}
+			assigns = append(assigns, assign{pos: f.KeyPos, code: "p." + name + " = " + code})
 		}
 		if headings {
 			assigns = append(assigns, assign{pos: -1, code: "p.Headings = Headings"})
 		}
 		if usesTime {
 			imports = append(imports, `"time"`)
+		}
+	} else {
+		for _, f := range d.Fields {
+			if f.Value.Kind == KindNull {
+				out.Diagnostics = append(out.Diagnostics, noValueDiag(f))
+			}
 		}
 	}
 	out.Decl = genDecl(d, in)
@@ -113,6 +132,24 @@ func headingsField(p *compiler.PropsInfo) bool {
 	return false
 }
 
+// optField reports whether the layout's Props field name has a type
+// written as orbit.Opt[…] (pass 1's view; the typed pass reads the type).
+func optField(p *compiler.PropsInfo, name string) bool {
+	for _, f := range p.Fields {
+		if f.Name == name {
+			return compiler.IsOptType(f.Type)
+		}
+	}
+	return false
+}
+
+// noValueDiag is the error for a top-level key with no value that doesn't
+// set an orbit.Opt prop.
+func noValueDiag(f *Field) compiler.Diagnostic {
+	return compiler.Diagnostic{Severity: compiler.SeverityError,
+		Span: compiler.Span{Start: f.Value.Pos, End: f.Value.Pos}, Message: noValueError(f.Key)}
+}
+
 func headingsConflict(f *Field, layout string) compiler.Diagnostic {
 	return compiler.Diagnostic{Severity: compiler.SeverityError,
 		Span:    compiler.Span{Start: f.KeyPos, End: f.KeyPos + len(f.Key)},
@@ -142,11 +179,15 @@ func genDecl(d *Doc, in GenInput) *compiler.GenFile {
 	fmt.Fprintf(&b, "// Frontmatter holds the frontmatter values of %s. Read-only.\n", in.Info.Path)
 	b.WriteString("var Frontmatter = struct {\n")
 	for _, f := range d.Fields {
-		b.WriteString("\t" + f.Name + " " + goType(f.Value) + "\n")
+		if f.Value.Kind != KindNull {
+			b.WriteString("\t" + f.Name + " " + goType(f.Value) + "\n")
+		}
 	}
 	b.WriteString("}{\n")
 	for _, f := range d.Fields {
-		b.WriteString("\t" + f.Name + ": " + goLit(f.Value, false) + ",\n")
+		if f.Value.Kind != KindNull {
+			b.WriteString("\t" + f.Name + ": " + goLit(f.Value, false) + ",\n")
+		}
 	}
 	b.WriteString("}\n\n")
 	fmt.Fprintf(&b, "// Headings are the headings of %s. Read-only.\n", in.Info.Path)
