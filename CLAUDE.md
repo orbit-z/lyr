@@ -66,14 +66,14 @@ When independent tasks can run in parallel, launch them in **one message**. If p
 
 ## User decisions (don't change without asking)
 - **Files**: custom `.orbit` format: Go frontmatter between `---` lines, then the template. Components are imported with `Alias "./X.orbit"`.
-- **Rendering**: **SSR only**. No `Prerender`, no `StaticPaths`, no static output. The only static files are `/_orbit/*` assets and `public/`. SSR caching comes after the MVP.
+- **Rendering**: **SSR only**. No `Prerender`, no `StaticPaths`, no static output. The only static files are `/_orbit/*` assets and `public/`. SSR caching comes after the MVP: route caching like Astro 7's, PLAN §4h (accepted 2026-10-27).
 - **Client JS**: vanilla `<script>` only, TypeScript by default. **No framework islands, ever** (importing `.tsx`/`.svelte`/… is an error).
 - **Lazy loading (MVP)**:
   - `server:defer` deferred server rendering (Astro server islands): props encrypted, a fallback slot, served through the user's middleware chain.
   - `client:load|idle|visible|media` for lazy component scripts. A directive covers the **whole subtree** (eager uses elsewhere win). The loader is tested with `bun test` + happy-dom.
   - **Island props** are encrypted with stdlib synthetic-nonce AES-256-GCM: the nonce is an HMAC-SHA256 of the input, and both keys come from `ORBIT_KEY` via HKDF. Deterministic, tamper-proof, 3–4.5× faster than pure-Go GCM-SIV, no vendored code, FIPS-approved primitives.
   - **Island URLs are cache-ready in the MVP**: a deterministic nonce (same props give the same URL), the build ID in the URL, and GET up to ~8 KB of props. Default `Cache-Control: private, no-store`.
-  - **Cacheable islands come after the MVP**: ETag/304, public-caching guidance, the cache benchmark. HTTP caching only, with headers set by the component and docs-only safety.
+  - **Cacheable islands**: now part of route caching (PLAN §4h, user decision 2026-10-27): GET islands go through the route cache when the component calls `Cache().Set`, plus ETag/304. Replaces the earlier "HTTP caching only" plan.
 - **Locals helper**: `r, l := orbit.EnsureLocals[L](r)` in middleware.
 - **Dev server**: no HMR; full-page live reload.
 - **HTTP**: stdlib `net/http` only, no web framework. Orbit is a middleware (`site.Middleware(next)`), and the user's `cmd/server/main.go` decides where it sits in the chain and its precedence.
@@ -95,7 +95,7 @@ When independent tasks can run in parallel, launch them in **one message**. If p
   - **Slots**: a value struct `orbit.Slots{Default, Named []NamedSlot}`, not a map. No allocation without children. Slot content that captures parent variables costs 1 alloc per slot today. **Revised by the user (2026-10-26)**: remove it with **direct calls in `orbit build` only** (impl → impl calls, so escape analysis keeps slot closures on the stack; `orbit dev` keeps the hook calls so a save stays fast; components in an import cycle keep the hook). PLAN §3.5 (implemented; every recommended answer, except that the hook flavor stays byte-identical to before and only the build flavor exports `Orbit__RenderImpl`, because exporting it in dev slowed `orbit dev` by ~16 ms (the dev-speed rule), and `.md` callees keep the hook): build flavor via `go build -overlay` from `.orbit/build/` (`orbit_gen/` keeps the hook flavor), `<Self>` a direct self-call, `go test -overlay` to measure it, no depth cap; measured −10% render and 0 allocs on the 500-card page, +8–17% on a full `orbit build` of a typical 200-file project. Measured: 500 capturing slots, hook 13.0 µs / 500 allocs / 24 KB vs direct 7.6 µs / 0.
   - **Zero allocations in Orbit's own render path** for a typical page, asserted by `AllocsPerRun` tests (serving adds exactly 1: the `Content-Length` value). `net/http`'s own ~14–19 allocs/request is the floor.
     - No fixed target number: we measure and publish the results.
-  - SSR caching is not in the MVP.
+  - **Route caching** (PLAN §4h, accepted 2026-10-27, user decisions): Astro 7's model in Go: `ctx.Cache().Set(orbit.CacheOptions{MaxAge, SWR, Tags, …})`, `routeRules` in `orbit.json`, `orbit.WithCache(provider)` in `main.go`; the lookup inside `site.Middleware` after the user's middleware (a hit still runs auth); providers are stores/header writers driven by Orbit; middleware reaches it through a `Cache orbit.Cache` field on `Locals`; one background revalidation per stale key; GET islands cacheable; nyth's cache package ported as `github.com/orbit-z/orbit/cache` (route store + `Store[V]`), its Redis bus stays app code.
   - **Milestone 9 checkpoint**: URL attribute values are written as pieces through a public `Writer.URL(s)`; `locals` is declared only in components that reference it (truly lazy); the dev-loop worst case (a Go package every `Props` imports, ~1.5 s on 4 cores) is accepted and documented, with M10 mitigations.
 - **MVP additions**:
   - `orbit doctor` (environment and project checks).
