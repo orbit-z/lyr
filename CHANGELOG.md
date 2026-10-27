@@ -27,6 +27,8 @@ The first release of Orbit: Astro's developer experience, with Go on the server 
 - `orbit.All` loads a page's data concurrently, `server:concurrent` renders slow components in parallel, and `server:defer` sends a page at once and fetches a slow component afterwards (props encrypted).
 - An error handler hook maps your errors to your own responses; production 500s log the `.orbit` position.
 - The matched route for request logs, like Astro's `context.routePattern`: an `orbit.RouteInfo` field in your `Locals` (`Route orbit.RouteInfo`) is filled with the page, 404 or island route and its params before rendering, so middleware logs `/blog/[slug]` instead of the URL. No allocation.
+- Route caching, like Astro 7's: a page calls `ctx.Cache().Set(orbit.CacheOptions{MaxAge: time.Hour, Tags: …})` or matches a `routeRules` entry in `orbit.json`, and `app.New(orbit.WithCache(cache.Memory(…)))` stores its response and serves it again without rendering (`X-Orbit-Cache: HIT`, about 0.15 µs and no allocation), with stale-while-revalidate, tag and path purges, automatic `ETag`s and 304s. Unlike Astro, your middleware runs on every HIT, and an `orbit.Cache` field in your `Locals` lets it `Disable()` caching for signed-in visitors before the lookup. GET `server:defer` islands can be cached too. CDN providers write headers instead (`orbit.CacheHeaderWriter`). Off in `orbit dev`.
+- `github.com/orbit-z/orbit/cache`: the in-memory route cache provider (`cache.Memory`, with byte bounds and a hook to forward purges to other instances) and `cache.Store[V]`, a data and fragment cache with single-flight `Load`.
 
 **Styles and scripts**
 - Scoped CSS, global styles and Tailwind CSS v4 (through its standalone CLI, no Node).

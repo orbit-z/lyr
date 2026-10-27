@@ -21,6 +21,7 @@ type Island struct {
 	id     string
 	file   string
 	render func(c *Ctx, w *Writer, props []byte) error // decode, then render
+	cache  *cacheState                                 // set by NewSite
 }
 
 // NewIsland is one entry of the island table that the generated
@@ -115,11 +116,11 @@ var (
 const maxIslandBody = 1 << 20
 
 // serveIsland answers an island request; rest is the path after
-// islandPrefix.
-func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string) {
+// islandPrefix. bg is set for a background revalidation (PLAN.md §4h).
+func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string, bg *cacheReq) {
 	build, id, ok := strings.Cut(rest, "/")
 	isl := s.islands[id]
-	if s.route != nil {
+	if s.route != nil && bg == nil { // a revalidation leaves the trigger's RouteInfo alone
 		file := ""
 		if isl != nil {
 			file = isl.file
@@ -167,13 +168,29 @@ func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string) 
 
 	c := s.acquire(r)
 	defer releaseCtx(c)
-	if s.route != nil {
+	if s.route != nil && bg == nil {
 		// For LocalsOf, when no middleware attached locals; the params
 		// stay out of ctx.Param (an island has none).
 		c.paramBuf[0], c.paramBuf[1] = build, id
 		c.route = routeRef{kind: RouteIsland, pattern: islandPattern, file: isl.file, names: islandParamNames, vals: c.paramBuf[:2], field: s.route.field}
 		if l, _ := s.route.attached(r); l != nil {
 			c.locals = l
+		}
+	}
+	var p *cacheReq
+	if sc := s.cache; sc != nil {
+		var local cacheReq
+		p = &local
+		if bg != nil {
+			p = bg
+		}
+		p.buf, p.path, p.state = &c.keyBuf, r.URL.EscapedPath(), isl.cache
+		p.k = sc.attach(r, c, p)
+		if sc.begin(w, r, p, false) {
+			return
+		}
+		if p.flight != nil {
+			defer sc.finishFlight(p, nil)
 		}
 	}
 	wr := writerPool.Get().(*Writer)
@@ -191,8 +208,23 @@ func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string) 
 	wr.reset(nil)
 	writerPool.Put(wr)
 	if err != nil {
+		if p != nil {
+			if p.bg {
+				logRevalidation(r, err)
+				return
+			}
+			s.cache.finishFlight(p, nil)
+		}
 		s.islandFailed(w, r, err, c.responseHeader())
 		return
+	}
+	if p != nil {
+		p.k = c.Cache() // LocalsOf may have moved it into the Locals
+		s.cache.respond(w, r, c.responseHeader(), p, c.responseStatus(), buf.Bytes(), kindIsland)
+		return
+	}
+	if c.cache.state&cacheSet != 0 && s.cacheProv == nil && !s.dev {
+		warnNoProvider()
 	}
 
 	h := w.Header()

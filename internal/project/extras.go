@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/orbit/internal/config"
 )
 
 // GenFile is one file to write under orbit_gen/.
@@ -108,10 +109,13 @@ func (p *Project) appGo() []byte {
 	fmt.Fprintf(&b, "// Package app wires the pages of %s into an orbit.Site: the\n", p.Module)
 	b.WriteString("// route table, the import that links every component, and New.\n")
 	b.WriteString("package app\n\nimport (\n")
+	if slices.ContainsFunc(p.Config.RouteRules, func(r config.RouteRule) bool { return r.MaxAge != 0 || r.SWR != 0 }) {
+		b.WriteString("\t\"time\"\n\n")
+	}
 	fmt.Fprintf(&b, "\torbit %q\n\n", compiler.RuntimePath)
 	fmt.Fprintf(&b, "\t_ %q\n", p.Module+"/"+compiler.GenDir+"/link")
 	fmt.Fprintf(&b, "\t%q\n", p.Module+"/"+compiler.GenDir+"/manifest")
-	if p.localsRoute != "" {
+	if p.localsFields != (localsFields{}) {
 		fmt.Fprintf(&b, "\t%q\n", p.Options.Locals)
 	}
 	var pages []*File
@@ -147,9 +151,38 @@ func (p *Project) appGo() []byte {
 	if p.Config.TrailingSlashAlways {
 		defaults = append(defaults, "orbit.WithTrailingSlash(orbit.TrailingSlashAlways)")
 	}
-	if p.localsRoute != "" {
+	if f := p.localsFields.Route; f != "" {
 		// Orbit fills Locals' orbit.RouteInfo field (PLAN.md §4g).
-		defaults = append(defaults, "orbit.WithLocalsRoute(func(l *locals.Locals) *orbit.RouteInfo { return &l."+p.localsRoute+" })")
+		defaults = append(defaults, "orbit.WithLocalsRoute(func(l *locals.Locals) *orbit.RouteInfo { return &l."+f+" })")
+	}
+	if f := p.localsFields.Cache; f != "" {
+		// Locals' orbit.Cache field is the request's cache handle (PLAN.md §4h).
+		defaults = append(defaults, "orbit.WithLocalsCache(func(l *locals.Locals) *orbit.Cache { return &l."+f+" })")
+	}
+	if rules := p.Config.RouteRules; len(rules) > 0 {
+		// orbit.json "routeRules" (PLAN.md §4h).
+		var rb strings.Builder
+		rb.WriteString("orbit.WithRouteRules(")
+		for _, r := range rules {
+			fmt.Fprintf(&rb, "\n\t\torbit.RouteRule{Pattern: %s, Options: orbit.CacheOptions{", strconv.Quote(r.Pattern))
+			var fs []string
+			if r.MaxAge != 0 {
+				fs = append(fs, fmt.Sprintf("MaxAge: %d * time.Second", r.MaxAge))
+			}
+			if r.SWR != 0 {
+				fs = append(fs, fmt.Sprintf("SWR: %d * time.Second", r.SWR))
+			}
+			if len(r.Tags) > 0 {
+				q := make([]string, len(r.Tags))
+				for i, t := range r.Tags {
+					q[i] = strconv.Quote(t)
+				}
+				fs = append(fs, "Tags: []string{"+strings.Join(q, ", ")+"}")
+			}
+			rb.WriteString(strings.Join(fs, ", ") + "}},")
+		}
+		rb.WriteString("\n\t)")
+		defaults = append(defaults, rb.String())
 	}
 	if len(defaults) > 0 {
 		fmt.Fprintf(&b, "\tdefaults := []orbit.Option{%s}\n", strings.Join(defaults, ", "))

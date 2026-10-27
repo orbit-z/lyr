@@ -49,6 +49,9 @@ type Config struct {
 	// Markdown is the "markdown" key (PLAN.md §2.4, §8); the zero value is
 	// the default.
 	Markdown markdown.Options
+	// RouteRules are the "routeRules": default cache options per route
+	// pattern (PLAN.md §4h), sorted by pattern.
+	RouteRules []RouteRule
 }
 
 // Load reads dir/orbit.json. A missing file gives the defaults.
@@ -76,6 +79,7 @@ func Parse(data []byte) (*Config, error) {
 		Slash        json.RawMessage `json:"trailingSlash"`
 		Watch        json.RawMessage `json:"watch"`
 		Markdown     json.RawMessage `json:"markdown"`
+		RouteRules   json.RawMessage `json:"routeRules"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		var syn *json.SyntaxError
@@ -147,6 +151,12 @@ func Parse(data []byte) (*Config, error) {
 	if isSet(raw.Markdown) {
 		var err error
 		if c.Markdown, err = parseMarkdown(raw.Markdown); err != nil {
+			return nil, err
+		}
+	}
+	if isSet(raw.RouteRules) {
+		var err error
+		if c.RouteRules, err = parseRouteRules(raw.RouteRules); err != nil {
 			return nil, err
 		}
 	}

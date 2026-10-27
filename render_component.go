@@ -30,6 +30,9 @@ import (
 func RenderComponent[P any](w http.ResponseWriter, r *http.Request, render func(*Ctx, *Writer, P, Slots) error, props P) error {
 	c := acquireCtx(r, nil, os.Getenv("ORBIT_DEV") == "1")
 	c.keys = defaultKeyring()
+	if ch, ok := w.(cacheHolder); ok {
+		c.cacheP = ch.orbitCache() // under Site.CacheHandler (PLAN.md §4h)
+	}
 	buf := getBuffer()
 	wr := writerPool.Get().(*Writer)
 	wr.reset(buf)

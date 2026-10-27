@@ -22,16 +22,16 @@ const LocalsDir = "src/locals"
 // detectLocals looks for type Locals in the Go package at src/locals, with
 // go/parser and no type checking (PLAN.md §5b "Typed locals"). It returns
 // the package's import path when the package declares Locals, else "" (the
-// generated code then uses orbit.NoLocals); the name of Locals' field of
-// type orbit.RouteInfo, which Orbit fills (PLAN.md §4g), or ""; and the
-// problems found:
+// generated code then uses orbit.NoLocals); the names of Locals' fields of
+// type orbit.RouteInfo, which Orbit fills (PLAN.md §4g), and orbit.Cache,
+// the request's cache handle (PLAN.md §4h); and the problems found:
 //
 //   - a package name other than locals;
 //   - a Locals that's a defined type but not a struct (an alias is
 //     accepted: its target can't be checked without types, and it has no
 //     RouteInfo field);
-//   - more than one orbit.RouteInfo field, an embedded or unexported one, or
-//     a *orbit.RouteInfo;
+//   - more than one orbit.RouteInfo (or orbit.Cache) field, an embedded or
+//     unexported one, or a pointer to one;
 //   - an import of orbit_gen/app or an implementation package, directly or
 //     through the module's own packages: the implementation package of
 //     every component that uses locals imports src/locals, so that would be
@@ -39,12 +39,12 @@ const LocalsDir = "src/locals"
 //
 // A src/locals without Go files, or whose files don't declare Locals, is
 // ignored, as Astro ignores an undeclared App.Locals.
-func detectLocals(root, module string) (path, route string, _ []Diagnostic) {
+func detectLocals(root, module string) (path string, fields localsFields, _ []Diagnostic) {
 	dir := filepath.Join(root, filepath.FromSlash(LocalsDir))
 	fset := token.NewFileSet()
 	files := parseGoDir(fset, dir, 0)
 	if len(files) == 0 {
-		return "", "", nil
+		return "", localsFields{}, nil
 	}
 	var ds []Diagnostic
 	found := false
@@ -70,7 +70,9 @@ func detectLocals(root, module string) (path, route string, _ []Diagnostic) {
 				}
 				if isStruct {
 					var rds []Diagnostic
-					route, rds = routeField(fset, rel, pf.f, st)
+					fields.Route, rds = markerField(fset, rel, pf.f, st, "RouteInfo", "Route", "fills")
+					ds = append(ds, rds...)
+					fields.Cache, rds = markerField(fset, rel, pf.f, st, "Cache", "Cache", "uses")
 					ds = append(ds, rds...)
 				}
 			}
@@ -78,16 +80,24 @@ func detectLocals(root, module string) (path, route string, _ []Diagnostic) {
 	}
 	ds = append(ds, checkLocalsImports(fset, root, module, files)...)
 	if !found || len(ds) > 0 {
-		return "", "", ds
+		return "", localsFields{}, ds
 	}
-	return module + "/" + LocalsDir, route, nil
+	return module + "/" + LocalsDir, fields, nil
 }
 
-// routeField returns the name of the field of type orbit.RouteInfo in the
-// Locals struct st of file f, or "" (PLAN.md §4g). The type is the marker:
-// any exported name works. Two such fields, an embedded or unexported one,
-// and a *orbit.RouteInfo are errors.
-func routeField(fset *token.FileSet, rel string, f *ast.File, st *ast.StructType) (string, []Diagnostic) {
+// localsFields are the names of Locals' fields that Orbit knows by type, or
+// "".
+type localsFields struct {
+	Route string // orbit.RouteInfo (PLAN.md §4g)
+	Cache string // orbit.Cache (PLAN.md §4h)
+}
+
+// markerField returns the name of the field of type orbit.<typ> in the
+// Locals struct st of file f, or "" (PLAN.md §4g, §4h). The type is the
+// marker: any exported name works. Two such fields, an embedded or
+// unexported one, and a pointer are errors; example is the field name the
+// messages suggest, verb what Orbit does with the field.
+func markerField(fset *token.FileSet, rel string, f *ast.File, st *ast.StructType, typ, example, verb string) (string, []Diagnostic) {
 	orbitName := ""
 	for _, im := range f.Imports {
 		if p, err := strconv.Unquote(im.Path.Value); err != nil || p != compiler.RuntimePath {
@@ -101,13 +111,13 @@ func routeField(fset *token.FileSet, rel string, f *ast.File, st *ast.StructType
 	if orbitName == "" || orbitName == "_" {
 		return "", nil
 	}
-	isRouteInfo := func(e ast.Expr) bool {
+	isMarker := func(e ast.Expr) bool {
 		if orbitName == "." {
 			id, ok := e.(*ast.Ident)
-			return ok && id.Name == "RouteInfo"
+			return ok && id.Name == typ
 		}
 		sel, ok := e.(*ast.SelectorExpr)
-		if !ok || sel.Sel.Name != "RouteInfo" {
+		if !ok || sel.Sel.Name != typ {
 			return false
 		}
 		x, ok := sel.X.(*ast.Ident)
@@ -115,26 +125,28 @@ func routeField(fset *token.FileSet, rel string, f *ast.File, st *ast.StructType
 	}
 	var name string
 	var ds []Diagnostic
+	full := "orbit." + typ
+	verbBase := strings.TrimSuffix(verb, "s")
 	for _, fld := range st.Fields.List {
-		typ, ptr := fld.Type, false
-		if star, ok := typ.(*ast.StarExpr); ok {
-			typ, ptr = star.X, true
+		ft, ptr := fld.Type, false
+		if star, ok := ft.(*ast.StarExpr); ok {
+			ft, ptr = star.X, true
 		}
-		if !isRouteInfo(typ) {
+		if !isMarker(ft) {
 			continue
 		}
 		if len(fld.Names) == 0 {
-			ds = append(ds, goError(fset, rel, fld.Type.Pos(), "Locals can't embed orbit.RouteInfo: give the field a name, such as Route orbit.RouteInfo"))
+			ds = append(ds, goError(fset, rel, fld.Type.Pos(), "Locals can't embed "+full+": give the field a name, such as "+example+" "+full))
 			continue
 		}
 		for _, id := range fld.Names {
 			switch {
 			case ptr:
-				ds = append(ds, goError(fset, rel, id.Pos(), "Locals field "+id.Name+" must be an orbit.RouteInfo, not a pointer: Orbit fills it in place"))
+				ds = append(ds, goError(fset, rel, id.Pos(), "Locals field "+id.Name+" must be an "+full+", not a pointer: Orbit "+verb+" it in place"))
 			case !id.IsExported():
-				ds = append(ds, goError(fset, rel, id.Pos(), "Locals field "+id.Name+" must be exported for Orbit to fill it, such as Route orbit.RouteInfo"))
+				ds = append(ds, goError(fset, rel, id.Pos(), "Locals field "+id.Name+" must be exported for Orbit to "+verbBase+" it, such as "+example+" "+full))
 			case name != "":
-				ds = append(ds, goError(fset, rel, id.Pos(), "Locals has two orbit.RouteInfo fields ("+name+", "+id.Name+"); Orbit fills one"))
+				ds = append(ds, goError(fset, rel, id.Pos(), "Locals has two "+full+" fields ("+name+", "+id.Name+"); Orbit "+verb+" one"))
 			default:
 				name = id.Name
 			}

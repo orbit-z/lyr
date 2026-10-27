@@ -31,6 +31,13 @@ type Ctx struct {
 	// Ctx with a Writer), or nil; RenderHTML points it at its capture
 	// writer while the capture runs.
 	w *Writer
+	// cache is the Ctx's own cache handle; cacheP, when set, is the
+	// request's handle instead (the Locals field, a CacheHandler's), and
+	// cacheField is WithLocalsCache's accessor, for LocalsOf (PLAN.md §4h).
+	cache      Cache
+	cacheP     *Cache
+	cacheField any
+	keyBuf     []byte // the cache key's storage, kept across requests
 }
 
 // Param returns the percent-decoded value of the route parameter name, such
@@ -51,13 +58,13 @@ func (c *Ctx) Param(name string) string {
 
 // matchRoute matches path (r.URL.EscapedPath()) and stores the route's
 // params on c. It returns nil if no page matches.
-func (c *Ctx) matchRoute(rt *router, path string) *Route {
+func (c *Ctx) matchRoute(rt *router, path string) *compiledRoute {
 	cr, vals := rt.match(path, c.paramBuf[:0])
 	if cr == nil {
 		return nil
 	}
 	c.paramNames, c.paramVals = cr.names, vals
-	return cr.route
+	return cr
 }
 
 // SetStatus sets the response status code (default 200).
@@ -136,6 +143,13 @@ func acquireCtx(r *http.Request, site *url.URL, dev bool) *Ctx {
 func releaseCtx(c *Ctx) {
 	h := c.header
 	clear(h)
-	*c = Ctx{header: h}
+	kb := c.keyBuf[:0]
+	if cap(kb) > maxKeyBuf {
+		kb = nil
+	}
+	releaseCache(&c.cache)
+	more := c.cache.more
+	*c = Ctx{header: h, keyBuf: kb}
+	c.cache.more = more
 	ctxPool.Put(c)
 }

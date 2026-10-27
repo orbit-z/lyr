@@ -143,6 +143,8 @@ func fork(w *Writer, c *Ctx) *Writer {
 		route:      c.route,
 		header:     h,
 	}
+	pk := c.Cache()
+	cc.cache.mode, cc.cache.site = pk.mode, pk.site
 	cw := writerPool.Get().(*Writer)
 	cw.reset(getBuffer())
 	cw.stack = append(cw.stack, w.stack...)
@@ -239,6 +241,9 @@ func mergeResponse(w *Writer, root *Ctx) {
 		cc := h.w.ctx
 		if cc.status != 0 {
 			root.status = cc.status
+		}
+		if cc.cache.state != 0 {
+			mergeCache(root.Cache(), &cc.cache)
 		}
 		if len(cc.header) > 0 {
 			rh := root.Header()

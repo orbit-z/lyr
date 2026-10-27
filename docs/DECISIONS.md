@@ -1036,3 +1036,25 @@ The matched route for middleware and logging (`PLAN.md` §4g). A field in the us
 | Island params are `buildID` and `id` from the path, recorded for every answer, a 405 included; `File` is `""` for an unknown ID. `ctx.Param` in the island stays `""` | the spec's table | — | [Middleware](middleware.md#logging-the-matched-route) |
 | `orbittest.Get` fills it (it serves through the real handler); `orbittest.Render` and `orbit.RenderComponent` don't (no route) | simplest | Fill a fake route in `Render` | [Runtime API](reference/runtime-api.md#the-matched-route-routeinfo) |
 | The values are copied into the struct (an inline `[8]string`, then one slice), so a copy of the struct stays valid and independent | Go value semantics | Point into the struct itself | [Runtime API](reference/runtime-api.md#the-matched-route-routeinfo) |
+
+## Route caching
+
+Route caching (`PLAN.md` §4h). The lookup inside `site.Middleware` after the user's middleware (Q1), stores and header writers driven by Orbit (Q2), `WithCache` in `main.go` with `routeRules` in `orbit.json` (Q3), the `Locals` `Cache` field (Q4), one background revalidation per stale key (Q6), GET islands in the route cache (Q8) and the `orbit/cache` package (Q9) were the user's; automatic ETags and 304s (Q5) and miss coalescing on routes known to cache (Q7) were the coordinator's, with the recommendations. None are rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| The key is the host, the escaped path and the normalized query, without the scheme (behind a proxy, Go doesn't see it) | simplest | Astro's `origin` (scheme included), from `X-Forwarded-Proto` | [Caching](caching.md#the-key) |
+| `cache.Memory` panics when `Query` sets both `Include` and `Exclude` | Go stdlib (a constructor panics on a contradictory configuration, as `WithSite` does) | Return an error; let `Include` win | [Caching](caching.md#the-memory-provider-cachememory) |
+| The `Set-Cookie` and `Vary: Cookie`/`*` refusals are logged once per route and reason, not on every request | simplest (Astro logs every request, which floods logs) | Astro's every-request warning | [Caching](caching.md#whats-stored) |
+| The `404.orbit` page answered for `orbit.ErrNotFound`, and unmatched URLs, are never stored | simplest (unmatched URLs are an unbounded key space) | Store a page's 404 like any status | [Caching](caching.md#whats-stored) |
+| `InvalidateOptions.Path` drops every query variant and host of the path | Astro (its CDN providers' `astro-path:` tag), so every provider behaves the same | Astro's memory provider: the exact path and normalized query | [Caching](caching.md#invalidation) |
+| Caching is off under `orbit dev` (nothing stored, no headers, `Enabled()` false, `Invalidate` nil); `orbittest.Get` through a site built with `WithCache` caches like production | Astro (no caching in `astro dev`; tested with build and preview) | Cache in dev too | [Caching](caching.md#in-orbit-dev-and-in-tests) |
+| Only `GET` is looked up and stored; `HEAD` always renders | Astro (`memoryCache` caches GET only) | Serve `HEAD` from a stored `GET` | [Caching](caching.md#whats-looked-up) |
+| A stored response's `Vary` headers (minus `Set-Cookie`) key its variants | Astro | Refuse responses with `Vary` | [Caching](caching.md#the-key) |
+| The automatic `ETag` is the base64 of a CRC-64 of the body, so every instance gives the same one | simplest (correctness across instances; a per-process `maphash` seed would differ between instances) | `hash/maphash`, as the spec first said; SHA-256 | [Caching](caching.md#conditional-requests-and-etag) |
+| Orbit answers conditional requests with 304s only when a provider is configured, so a site without one keeps its current serve path | simplest | 304s on every site | [Caching](caching.md#conditional-requests-and-etag) |
+| `RenderComponent` under `site.CacheHandler` sets options on the handler's handle, even without a `Locals` `Cache` field | simplest | Require the field | [Runtime API](reference/runtime-api.md#rendering-from-your-handlers) |
+| The "caching is not enabled" warning covers `Set` in pages and islands, not options set only on a `Locals` field in middleware | simplest | Also warn for middleware's `Set` | [Caching](caching.md#without-a-provider) |
+| `Set` with a zero `MaxAge` (or any zero field) doesn't reset it; `Disable()` is the way to turn caching off | Astro (an `undefined` field is unset) | Zero resets the field | [Caching](caching.md#setting-options-ctxcache) |
+| A request disabled before the lookup stays out of the cache even if the page calls `Set` later (no store, no CDN headers), and the cookie and `Vary` refusals also withhold a header provider's CDN headers | simplest (safety: a CDN would otherwise cache a signed-in visitor's page) | Astro: a later `set({…})` enables the handle again | [Caching](caching.md#safety-what-orbit-checks-and-what-you-check) |
+| A provider that is both a `CacheStore` and a `CacheHeaderWriter` is used as a store | simplest | Store and write headers | [Caching](caching.md#providers) |

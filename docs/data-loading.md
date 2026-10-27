@@ -2,7 +2,7 @@
 
 The recommended way to get data into a page is to **load it in the page's frontmatter, all at once, and pass it down as props**. Components then stay fast, plain and easy to test, and the page owns its queries. `orbit.All` runs a page's loads concurrently, so the page waits for its slowest load, not for the sum of them.
 
-This page covers `orbit.All`, loads that depend on each other, sharing data between components without passing it through every layer (a per-request loader in `locals`), what code in a load may touch, and when to reach for `server:concurrent` or `server:defer` instead.
+This page covers `orbit.All`, loads that depend on each other, sharing data between components without passing it through every layer (a per-request loader in `locals`), caching data across requests, what code in a load may touch, and when to reach for `server:concurrent` or `server:defer` instead.
 
 ## Load the page's data with `orbit.All`
 
@@ -339,6 +339,47 @@ if err != nil {
 
 Orbit ships no helper for this on purpose: the key types, the context rule and what to memoize are your app's decisions, and it's short.
 
+## Cache data across requests: `cache.Store`
+
+The loader above lives for one request. For data that every request may share for a while (a book changes rarely), keep it in a `cache.Store` from `github.com/orbit-z/orbit/cache`, an in-process cache with a time to live, tags and size bounds:
+
+```go file=internal/catalog/cached.go
+package catalog
+
+import (
+	"context"
+	"time"
+
+	"github.com/orbit-z/orbit/cache"
+)
+
+// books holds up to 10,000 books, shared by every request.
+var books = cache.New(cache.Options[Book]{MaxEntries: 10_000})
+
+// CachedBook is Book, served from the process's cache for up to five
+// minutes. Concurrent misses for one slug make one call.
+func (c *Client) CachedBook(ctx context.Context, slug string) (Book, error) {
+	b, _, err := books.Load(ctx, slug, 5*time.Minute, nil, func(lc context.Context) (Book, error) {
+		return c.Book(lc, slug)
+	})
+	return b, err
+}
+
+// ForgetBook drops a book from the cache, after it changed.
+func ForgetBook(slug string) { books.Delete(slug) }
+```
+
+A page calls `locals.Catalog.CachedBook(rc, params.Slug)` in a load like any other call.
+
+- **One call per key**: requests that miss the same key at the same time wait for one load. The first caller runs it with `context.WithoutCancel` of its context, so the load finishes for the others even if that client goes away; each waiting caller gets its own `ctx.Err()` if its context ends first.
+- **Errors aren't stored**: an error goes to every caller waiting on that load, and the next call tries again. So `ErrNotFound` isn't cached either; store a "not found" value yourself if unknown keys are frequent.
+- **Values are shared, not copied**: every hit returns the same value, so don't change it (a slice's elements, the fields behind a pointer).
+- **Tags**: pass tags to `Load` or `Set`, and `books.InvalidateTags("author:herbert")` drops every book with that tag.
+- **Per process**: each instance has its own store, so a change must reach every instance (see [Several instances](caching.md#several-instances) for the pattern).
+- **Cost**: a hit takes about 46 ns and allocates nothing.
+
+To cache whole pages instead, see [Caching](caching.md).
+
 ## What's safe inside a load
 
 Loads run on other goroutines while the frontmatter waits in `All`, so they share the render's state:
@@ -362,6 +403,8 @@ Orbit doesn't check these at run time. Run your tests with `go test -race`: `orb
 | **A loader in `locals`** | several components (or the page and its components) need the same data; no props drilling; dedupe | for the slowest load | a mutex and a map entry per key |
 | **[`server:concurrent`](rendering.md#slow-components)** | components that fetch their own data, such as code ported from Astro, or a component reused on many pages with its own data | for the slowest marked component | about half a microsecond and 1 allocation per marked component |
 | **[`server:defer`](lazy-loading.md)** | the part can arrive after the page: below the fold, per-user parts, slow third parties | no | a second request, a fallback, sealed props |
+| **[`cache.Store`](#cache-data-across-requests-cachestore)** | the same data serves many requests for a while | only on a miss | about 46 ns per hit |
+| **[Route caching](caching.md)** | the whole page is the same for every visitor for a while | only on a miss | about 0.15 µs per cached response |
 
 They combine: a page can load its main data with `orbit.All`, warm the loader, and still have a `server:concurrent` sidebar and a `server:defer` recommendations block.
 
@@ -369,5 +412,6 @@ They combine: a page can load its main data with `orbit.All`, warm the loader, a
 
 - [Rendering](rendering.md): the request lifecycle, errors, `WithErrorHandler`
 - [Middleware and locals](middleware.md): setting up `locals`
+- [Caching](caching.md): whole pages, and `cache.Store` for data and fragments
 - [Runtime API](reference/runtime-api.md#loading-data-all): `orbit.All`
 - [Performance](performance.md#loading-data-concurrently-orbitall): the numbers

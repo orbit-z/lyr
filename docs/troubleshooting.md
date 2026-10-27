@@ -687,6 +687,24 @@ import _ "example.com/blog/orbit_gen/app"
 
 **Fix:** keep the layout outside: render `<Base>` in the page and put the cached component inside its body. See [Caching fragments](rendering.md#caching-fragments).
 
+### `orbit: GET /blog/hello: not cached because it sets a cookie (Set-Cookie); later refusals for this route aren't logged`
+
+**Cause:** the page asked to be cached (`ctx.Cache().Set` with a `MaxAge`, or a `routeRules` entry), but its response sets a cookie, from the page or from your middleware, so Orbit didn't store it: a stored copy would hand one visitor's cookie to everyone. The same warning names `Vary: Cookie` or `Vary: *` when the response varies on them. It's logged once per route and reason.
+
+**Fix:** set cookies only when they change (a session middleware that refreshes its cookie on every request keeps every page out of the cache), or keep the route out of the cache with `Disable()` for the requests that set one. See [What's stored](caching.md#whats-stored).
+
+### `orbit: ctx.Cache().Set was called, but caching is not enabled: configure a provider with orbit.WithCache in app.New()`
+
+**Cause:** a page or island calls `ctx.Cache().Set`, but the site has no cache provider, so nothing is stored. It's logged once per process.
+
+**Fix:** pass a provider in `cmd/server/main.go`, such as `app.New(orbit.WithCache(cache.Memory(cache.MemoryOptions{})))`, or remove the `Set` calls. See [Caching](caching.md).
+
+### A cached page shows another visitor's data
+
+**Cause:** a page that's cached (it calls `ctx.Cache().Set` with a `MaxAge` or matches a `routeRules` entry) read cookies, the session or per-user `locals`. The visitor whose request rendered it set what everyone else gets. Orbit can't see into `locals`, so it can't refuse this.
+
+**Fix:** call `l.Cache.Disable()` in your middleware for signed-in visitors, or move the per-user part into a `server:defer` island, which each visitor's browser loads with its own cookies. Then purge the bad copy (`site.InvalidateCache` with the page's `Path`). See [Safety](caching.md#safety-what-orbit-checks-and-what-you-check).
+
 ### A URL answers 404
 
 Check which case you're in:

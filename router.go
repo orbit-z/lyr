@@ -29,6 +29,8 @@ type routeSeg struct {
 // compiledRoute is a Route with its parsed pattern.
 type compiledRoute struct {
 	route *Route
+	idx   int        // the route's index in newRouter's routes
+	cache cacheState // the route cache's per-route state (PLAN.md §4h)
 	segs  []routeSeg
 	names []string // param names in path order; nil when there are none
 	// ext is set for an extension route: its last segment is static and has
@@ -82,7 +84,7 @@ func newRouter(routes []Route) (*router, error) {
 			continue
 		}
 		seen[key] = r
-		rt.insert(&compiledRoute{route: r, segs: segs, names: paramNames(segs), ext: isExtRoute(segs, r.Pattern)})
+		rt.insert(&compiledRoute{route: r, idx: i, segs: segs, names: paramNames(segs), ext: isExtRoute(segs, r.Pattern)})
 	}
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)

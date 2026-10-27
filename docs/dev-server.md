@@ -99,6 +99,7 @@ With `ORBIT_DEV=1`, `app.New()`:
 - serves `/_orbit/*` from `ORBIT_STATIC` and every other file path from `ORBIT_PUBLIC` (so `ORBIT_STATIC` serves only `/_orbit/*`), all with `Cache-Control: no-cache`, looking files up on every request so new files appear without a restart;
 - shows render errors in an error overlay instead of a plain 500 page;
 - answers a failing `server:defer` island with the error text and its `.orbit` position, which the loader logs to the browser console.
+- turns [route caching](caching.md) off: nothing is stored or served from the cache and no cache headers are written, so every save shows at once.
 
 Everything else, including routing, the trailing-slash redirect, status codes and your middleware, behaves as in production.
 

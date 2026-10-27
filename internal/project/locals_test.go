@@ -16,6 +16,7 @@ func TestDetectLocals(t *testing.T) {
 		files map[string]string
 		want  string
 		route string // the orbit.RouteInfo field
+		cache string // the orbit.Cache field
 		diags []string
 	}{
 		{name: "no src/locals", files: map[string]string{"src/pages/index.orbit": ""}},
@@ -93,6 +94,19 @@ func TestDetectLocals(t *testing.T) {
 		{name: "pointer RouteInfo", files: map[string]string{
 			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct{ Route *orbit.RouteInfo }\n",
 		}, diags: []string{"src/locals/locals.go:5:21: Locals field Route must be an orbit.RouteInfo, not a pointer: Orbit fills it in place"}},
+		{name: "Cache and RouteInfo fields", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct {\n\tRoute orbit.RouteInfo\n\tC     orbit.Cache\n}\n",
+		}, want: self, route: "Route", cache: "C"},
+		{name: "two Cache fields", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct{ A, B orbit.Cache }\n",
+		}, diags: []string{"src/locals/locals.go:5:24: Locals has two orbit.Cache fields (A, B); Orbit uses one"}},
+		{name: "pointer and embedded Cache", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct {\n\torbit.Cache\n\tK *orbit.Cache\n\tk orbit.Cache\n}\n",
+		}, diags: []string{
+			"src/locals/locals.go:6:2: Locals can't embed orbit.Cache: give the field a name, such as Cache orbit.Cache",
+			"src/locals/locals.go:7:2: Locals field K must be an orbit.Cache, not a pointer: Orbit uses it in place",
+			"src/locals/locals.go:8:2: Locals field k must be exported for Orbit to use it, such as Cache orbit.Cache",
+		}},
 		{name: "unexported RouteInfo", files: map[string]string{
 			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct{ route orbit.RouteInfo }\n",
 		}, diags: []string{"src/locals/locals.go:5:21: Locals field route must be exported for Orbit to fill it, such as Route orbit.RouteInfo"}},
@@ -100,12 +114,12 @@ func TestDetectLocals(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := newTestProject(t, tt.files)
-			got, route, ds := detectLocals(p.Dir, testModule)
+			got, fields, ds := detectLocals(p.Dir, testModule)
 			if got != tt.want {
 				t.Errorf("import path %q, want %q", got, tt.want)
 			}
-			if route != tt.route {
-				t.Errorf("route field %q, want %q", route, tt.route)
+			if fields.Route != tt.route || fields.Cache != tt.cache {
+				t.Errorf("fields %+v, want route %q, cache %q", fields, tt.route, tt.cache)
 			}
 			if g, w := joinLines(diagStrings(ds)), joinLines(tt.diags); g != w {
 				t.Errorf("diagnostics:\n%s\nwant:\n%s", g, w)

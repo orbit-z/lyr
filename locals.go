@@ -36,6 +36,10 @@ func LocalsOf[L any](c *Ctx) *L {
 				f(l).set(&c.route)
 			}
 		}
+		if c.cacheField != nil {
+			// The Cache field becomes the request's handle (WithLocalsCache).
+			moveCacheToLocals(c, l)
+		}
 	}
 	c.locals = l
 	return l

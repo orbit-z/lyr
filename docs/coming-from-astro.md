@@ -217,6 +217,21 @@ See [Using Tailwind](tailwind.md).
 | `output: "server"` | The only mode | Every page, `404.orbit` included, renders per request. See [Rendering](rendering.md#one-mode-server-rendering). |
 | `output: "static"`, `getStaticPaths()`, `export const prerender = true` | Not supported | Orbit is SSR-only, by design. For a static site, Astro is the better tool. Files you want served as-is go in `public/`. |
 
+### Route caching
+
+| Astro | Orbit | Notes |
+|---|---|---|
+| `Astro.cache.set({ maxAge: 3600, swr: 60, tags: ["blog"] })` | `ctx.Cache().Set(orbit.CacheOptions{MaxAge: time.Hour, SWR: time.Minute, Tags: []string{"blog"}})` | Durations are `time.Duration`, not seconds. The same merge rules: the last `maxAge`/`swr`/`etag` wins, the latest `lastModified`, tags accumulate. See [Caching](caching.md#setting-options-ctxcache). |
+| `Astro.cache.set(false)` | `ctx.Cache().Disable()` | |
+| `Astro.cache.invalidate({ tags, path })` | `ctx.Cache().Invalidate(rc, orbit.InvalidateOptions{Tags: …, Path: …})`, or `site.InvalidateCache` in your handlers | A path purge drops every query variant of the path. |
+| `context.cache` in middleware | An `orbit.Cache` field in `Locals`: `l.Cache.Disable()` | See [Keeping requests out of the cache](middleware.md#keeping-requests-out-of-the-cache). |
+| `routeRules` in `astro.config` | `routeRules` in `orbit.json` | Still whole seconds; patterns use Orbit's route syntax. See [`routeRules`](configuration.md#routerules). |
+| `cache: { provider: memoryCache() }` | `app.New(orbit.WithCache(cache.Memory(cache.MemoryOptions{…})))` in `cmd/server/main.go` | `github.com/orbit-z/orbit/cache`; CDN providers implement `orbit.CacheHeaderWriter`. |
+| `X-Astro-Cache: HIT` / `MISS` / `STALE` | `X-Orbit-Cache: HIT` / `MISS` / `STALE` | |
+| Caching is off in `astro dev` | Off in `orbit dev` | Test it with `orbittest.Get` on a site built with `WithCache`. |
+
+The big difference: **Orbit's cache sits after your middleware**, so a HIT still runs it (authentication, logging), and a `Disable()` there keeps a signed-in visitor from getting the cached copy. Astro's wraps the middleware, so a HIT skips it. Orbit also answers `304`s, and refreshes a stale key with one background render, not one per request.
+
 ### Build, config and tooling
 
 | Astro | Orbit | Notes |
@@ -229,7 +244,7 @@ See [Using Tailwind](tailwind.md).
 | `astro add tailwind` | Nothing to add | Tailwind v4 works out of the box once its CLI is installed. See [Using Tailwind](tailwind.md). |
 | `astro add`, integrations, adapters | None | The output is a Go binary, not a Node app, so there's nothing to adapt. `orbit build --embed` makes it one self-contained file, and `orbit new` scaffolds a Dockerfile. See [Deploy](deploy.md). |
 | Content collections, `astro:assets` images | Not supported yet | Import Markdown files one by one (see [Markdown](markdown.md)), or load content from your own Go package under `internal/` and render trusted HTML with `orbit.HTML`. |
-| `astro.config.mjs` | `orbit.json` (optional) | Plain JSON: `site`, `server`, `embed`, `compressHTML`, `trailingSlash`, `sourcemap`, `watch` and `markdown`. No `base` yet. See [Configuration](configuration.md). |
+| `astro.config.mjs` | `orbit.json` (optional) | Plain JSON: `site`, `server`, `embed`, `compressHTML`, `trailingSlash`, `sourcemap`, `watch`, `routeRules` and `markdown`. The cache provider is Go code, passed to `app.New()`. No `base` yet. See [Configuration](configuration.md). |
 | `compressHTML: 'jsx'`, `true`, `false` | `"compressHTML": "jsx"`, `"html"` (or `true`), `false` | The same three behaviors, and `true` is accepted as `"html"`. The default is `"jsx"`, as in Astro v7, with the same JSX rules: `{" "}` keeps a space across lines. Two edge cases differ: under `"jsx"`, Astro leaves text that's a direct child of a component (or `<Fragment>`) as written, while Orbit applies the JSX rules there too; and Orbit's `"html"` collapses every whitespace run and drops whitespace between block tags, where Astro's `true` keeps runs inside multi-line text and a space between blocks. See [Whitespace](reference/template-syntax.md#whitespace). |
 | The Astro VS Code extension | The Orbit extension, `orbit-z.orbit` | On the Marketplace and Open VSX. It starts `orbit lsp`, which works with gopls for Go completion, diagnostics and rename in `.orbit` files (the frontmatter is Go), and with TypeScript 7 for TypeScript in `<script>` blocks, as Astro's does; `is:inline` scripts get JavaScript features, as in Astro. See [Editor setup](editor-setup.md). |
 
@@ -249,6 +264,7 @@ See [Using Tailwind](tailwind.md).
 - **Escaping matches Astro, except `<` and `>` in attribute values.** Text is escaped as Astro does (`&amp;`, `&lt;`, `&gt;`, `&quot;`, `&#39;`), and attribute values escape `&` and `"` as `&amp;` and `&quot;` and leave `'` alone, as Astro does; Orbit also writes `<` and `>` in attribute values as `&lt;` and `&gt;`, which Astro leaves raw. Browsers read both the same; only a byte-for-byte comparison of the HTML sees it.
 - **Spread attributes of a map are sorted by name.** `{...attrs}` with an `orbit.Attrs` (a Go map) writes its entries sorted by name, where Astro keeps the object's key order. **Where the order matters, use an `orbit.AttrList`**: a helper returning `orbit.AttrList{orbit.A("data-theme", t), orbit.A("data-theme-pref", pref)}` makes `<html {...theme.Attributes(choices)}>` render Astro's bytes, in that order. See [Spread attributes](reference/template-syntax.md#spread-attributes).
 - **Every element must be closed.** Orbit doesn't auto-close `<p>` or `<li>`; a missing closing tag is a parse error with its position. `<div />` works, as in Astro.
+- **Cached pages still run your middleware.** Orbit looks a page up in the route cache after your middleware, so authentication and logging run on every HIT, and `Disable()` in middleware stops a HIT. See [Caching](caching.md).
 - **Your server is your code.** `cmd/server/main.go` is an ordinary Go `main`: add routes, middleware and other handlers there, with any `net/http` package. See [Server](server.md).
 
 ## See also
@@ -259,5 +275,6 @@ See [Using Tailwind](tailwind.md).
 - [Routing](routing.md) and [Rendering](rendering.md): pages, `ctx` and the request lifecycle
 - [Middleware and locals](middleware.md): `net/http` middleware and typed `Locals`
 - [Lazy loading](lazy-loading.md): `server:defer` and `client:*`, with their own Astro comparison
+- [Caching](caching.md): route caching, with its own Astro comparison
 - [Styles and scripts](styles-and-scripts.md): scoping, bundling and TypeScript
 - [Performance](performance.md): why Orbit's SSR is fast, and the benchmarks against Astro

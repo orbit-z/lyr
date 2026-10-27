@@ -1,6 +1,6 @@
 # Runtime API
 
-This page lists the API of the `orbit` package (`github.com/orbit-z/orbit`), the runtime your pages, components and server use, plus the `orbittest` helpers.
+This page lists the API of the `orbit` package (`github.com/orbit-z/orbit`), the runtime your pages, components and server use, plus the `orbit/cache` package and the `orbittest` helpers.
 
 ```go
 import "github.com/orbit-z/orbit"
@@ -58,6 +58,11 @@ Returns the response headers, to set or change before the page is sent. Pages an
 func (c *Ctx) Redirect(to string, code int) error
 ```
 Returns a `*RedirectError` for `to` with status `code`. Return it from the frontmatter: `return ctx.Redirect("/login", 302)`.
+
+```go
+func (c *Ctx) Cache() *Cache
+```
+Returns the request's [cache handle](#route-caching), shared by every component of the request: `ctx.Cache().Set(orbit.CacheOptions{MaxAge: time.Hour})`. When your `Locals` has an `orbit.Cache` field and middleware attached the locals, it's that field. See [Caching](../caching.md).
 
 ## Errors and control flow
 
@@ -262,6 +267,10 @@ The route that answered a request, for logging and metrics. Declare a field of t
 - More than one `orbit.RouteInfo` field, an embedded one, an unexported one or a `*orbit.RouteInfo` is an error at the field.
 - Read it on the request's goroutine, or after `next` returns: it isn't synchronized.
 - A project whose `Locals` has no such field pays nothing for it.
+
+### The cache handle: a `Cache` field
+
+A field of type [`orbit.Cache`](#route-caching) in your `Locals`, with any exported name (`Cache orbit.Cache`), is the request's cache handle: middleware calls `l.Cache.Disable()` or `l.Cache.Set(…)` on it before Orbit's lookup, and `ctx.Cache()` returns it in pages and components. The generated `app.New()` wires it with [`WithLocalsCache`](#generated-wiring). As for `RouteInfo`, more than one such field, an embedded one, an unexported one or a `*orbit.Cache` is an error at the field. See [Keeping requests out of the cache](../middleware.md#keeping-requests-out-of-the-cache).
 
 ## Writer
 
@@ -485,7 +494,7 @@ Renders `r` (a slot such as `slots.Default` or `slots.Get("x")`, or any `Rendere
 - The render's error is returned, not kept by the page, and the partial output is dropped. A panic isn't recovered here; the request's recovery handles it.
 - The capture continues the component stack of the request's writer, so the depth limit of 1000 counts through captures, and captures can nest. A `ctx` that no request renders with (built by hand) starts at depth 0.
 - A `</head>` inside the capture is a render error, `orbit: </head> can't be inside orbit.RenderHTML; keep the document head outside the captured content`: the page's asset tags go at the page's own `</head>`.
-- `ctx.SetStatus`, `ctx.Header()` and `locals` writes inside the captured content happen when it renders, so not when a cached copy is served.
+- `ctx.SetStatus`, `ctx.Header()`, `ctx.Cache().Set` and `locals` writes inside the captured content happen when it renders, so not when a cached copy is served: a fragment cache re-applies the tags it stored (`cache.Store.Load` returns them).
 - `server:concurrent` components inside the captured content render in their own goroutines, and `RenderHTML` waits for them before it returns, so the HTML is complete. They count against a limit of their own (the request's limit, separately).
 
 See [Rendering a slot to a string](../components.md#rendering-a-slot-to-a-string) and [Caching fragments](../rendering.md#caching-fragments).
@@ -525,9 +534,9 @@ func (s *Site) Middleware(next http.Handler) http.Handler
 ```
 The integration point with your server. For a request that Orbit owns, Orbit answers it, in this order:
 
-1. **Island requests**, `/_orbit/island/<buildID>/<id>`, for `GET`, `HEAD` and `POST`; any other method gets a 405 with `Allow: GET, HEAD, POST`. See [Lazy loading](../lazy-loading.md).
+1. **Island requests**, `/_orbit/island/<buildID>/<id>`, for `GET`, `HEAD` and `POST`; any other method gets a 405 with `Allow: GET, HEAD, POST`. With a cache provider, a `GET` goes through the route cache like a page. See [Lazy loading](../lazy-loading.md).
 2. **Static files**, `/_orbit/*` assets and `public/` files, for `GET` and `HEAD` only; other methods fall through to `next`. Files are served with `http.ServeContent` (`Range`, conditional requests). `/_orbit/*` files get `Cache-Control: public, max-age=31536000, immutable`, `public/` files `Cache-Control: public, max-age=0`, and both get `no-cache` in `orbit dev`. A directory is never served (not even its `index.html`), a file path is never redirected, and `/_orbit/island/` is never a file. In production, the static directory is indexed once at startup, so files added later are served after a restart; `orbit dev` looks them up per request.
-3. **Pages**, for every method. A path with a trailing slash whose slash-less form is a page gets a 308 redirect to it, keeping the query string (`/blog/hello/` → `/blog/hello`).
+3. **Pages**, for every method. With a [cache provider](#withcache), a `GET` for a page is looked up in the route cache first, and may be answered from it (see [Caching](../caching.md)). A path with a trailing slash whose slash-less form is a page gets a 308 redirect to it, keeping the query string (`/blog/hello/` → `/blog/hello`).
 
 Anything else goes to `next`, untouched: Orbit writes nothing and sets no header.
 
@@ -547,6 +556,16 @@ Renders `404.orbit` with a 404 status (a status the page sets with `ctx.SetStatu
 func (s *Site) ServeError(w http.ResponseWriter, r *http.Request, err error)
 ```
 Answers `err` the way a page's render error is answered: a `*RedirectError` (found with `errors.As`) redirects, `ErrNotFound` renders `404.orbit`, and any other error goes to the [error handler](#witherrorhandler), then to the built-in 500 with its log line. For custom handlers: `if err := orbit.RenderComponent(w, r, card.Render, props); err != nil { site.ServeError(w, r, err) }`. A nil `err` writes nothing.
+
+```go
+func (s *Site) InvalidateCache(ctx context.Context, o InvalidateOptions) error
+```
+Drops stored responses through the cache provider: every response carrying one of `o.Tags`, and every variant of `o.Path` (any query, any host). Returns `ErrCacheNotEnabled` without a provider, `nil` under `orbit dev`, and otherwise the provider's error. Use it in admin handlers and webhooks: `site.InvalidateCache(r.Context(), orbit.InvalidateOptions{Tags: []string{"post:" + id}})`.
+
+```go
+func (s *Site) CacheHandler(h http.Handler) http.Handler
+```
+Returns a handler that puts `h`'s `GET` responses on the route cache's flow, as for pages: lookup and store, route rules matched against the request path, 304s. `h` sets options through your `Locals`' `orbit.Cache` field, or through `ctx.Cache()` in a component it renders with `RenderComponent`. `h`'s response is buffered, and its `Content-Type` is sniffed when it sets none. Without a provider, or under `orbit dev`, it returns `h` itself. See [Custom handlers](../caching.md#custom-handlers-sitecachehandler).
 
 ### Options
 
@@ -595,6 +614,13 @@ Sets the 32-byte island key that encrypts `server:defer` props. Without it, the 
 Under `go test`, the fixed test key replaces steps 3 and 4, and the build ID is `0000000000000000`. A key that isn't 32 bytes long makes `WithKey` panic.
 
 All instances of one build share its embedded key. For rolling deploys, or several builds behind one load balancer, set the same `ORBIT_KEY` everywhere. See [Deploy](../deploy.md).
+
+#### WithCache
+
+```go
+func WithCache(p CacheProvider) Option
+```
+Sets the site's [route cache](#route-caching) provider: a store such as `cache.Memory` from [`orbit/cache`](#orbitcache), a CDN header writer, or a plain provider for Astro's default headers. Pass it to `app.New()` in `cmd/server/main.go`. With several `WithCache` options, the last one wins. Under `orbit dev`, caching is off whatever the provider. See [Caching](../caching.md).
 
 #### WithErrorHandler
 
@@ -645,9 +671,127 @@ func WithLocalsRoute[L any](field func(*L) *RouteInfo) Option
 Tells the site where the [`RouteInfo` field](#the-matched-route-routeinfo) of your `Locals` is. The generated `app.New()` passes it before your options when `src/locals` declares such a field: `orbit.WithLocalsRoute(func(l *locals.Locals) *orbit.RouteInfo { return &l.Route })`. You don't call it yourself.
 
 ```go
+func WithLocalsCache[L any](field func(*L) *Cache) Option
+```
+Tells the site where the [`orbit.Cache` field](#the-cache-handle-a-cache-field) of your `Locals` is. The generated `app.New()` passes it before your options when `src/locals` declares such a field: `orbit.WithLocalsCache(func(l *locals.Locals) *orbit.Cache { return &l.Cache })`. You don't call it yourself.
+
+```go
+type RouteRule struct {
+	Pattern string       // Orbit's route syntax: "/blog/[...path]"
+	Options CacheOptions // MaxAge, SWR and Tags from orbit.json
+}
+
+func WithRouteRules(rules ...RouteRule) Option
+```
+Sets default cache options per route pattern, from `orbit.json`'s [`routeRules`](../configuration.md#routerules): the generated `app.New()` passes them as Go literals, so nothing is parsed at run time. Patterns use Orbit's route syntax and priority, match the request path whichever page serves it, and never match `/_orbit/` paths. The first matching rule is applied before the page renders, as a first `Set` under what middleware set. Rules do nothing without a provider. An invalid pattern panics in `NewSite` (`orbit.json` is checked before that).
+
+```go
 func ErrorAt(pos string, err error) error
 ```
 Generated around the result of every frontmatter `return`: `return x` compiles to `return orbit.ErrorAt("src/pages/blog/[slug].orbit:14:5", x)`, the position of the `return`. A non-nil error comes back as an error whose text is `pos + ": " + err.Error()` and which unwraps to `err`, so `errors.Is` and `errors.As` still match it; that's the position in the [500 log line](../rendering.md#status-codes-and-errors). `nil`, `ErrNotFound`, a `*RedirectError` and an error that already carries a position are returned unchanged, so a redirect or 404 keeps working and an error from a component isn't prefixed twice. Only the failing case allocates.
+
+## Route caching
+
+Stores rendered responses and serves them again without rendering. See [Caching](../caching.md) for the flow and the safety rules.
+
+```go
+type CacheOptions struct {
+	MaxAge       time.Duration // how long a stored response stays fresh; stored only when > 0
+	SWR          time.Duration // how long after MaxAge a stale copy is served while one background render refreshes it
+	Tags         []string      // labels for InvalidateOptions.Tags
+	ETag         string        // a quoted entity tag, `"v1"` or `W/"v1"`; without one, a stored response gets an automatic one
+	LastModified time.Time     // sent as Last-Modified
+}
+```
+A response's cache options, Astro's `CacheOptions`. CDN headers carry whole seconds, so sub-second durations are truncated there.
+
+```go
+type Cache struct { /* unexported: merged options, a disabled flag, inline tag storage */ }
+
+func (k *Cache) Set(o CacheOptions)
+func (k *Cache) Disable()
+func (k *Cache) Enabled() bool
+func (k *Cache) Options() CacheOptions
+func (k *Cache) Invalidate(ctx context.Context, o InvalidateOptions) error
+```
+A request's cache handle: `ctx.Cache()` in pages and components, or a [`Cache` field](#the-cache-handle-a-cache-field) in your `Locals` for middleware. The zero value is ready to use. It belongs to one request: don't share it between goroutines.
+
+- **`Set`** merges `o` with Astro's rules: `MaxAge`, `SWR` and `ETag` take the last non-zero value, `LastModified` the latest time, and `Tags` accumulate without duplicates. A zero field changes nothing. It cancels an earlier `Disable`. A route rule is applied before the page runs, so the page's `Set` merges over it. Without a provider, `Set` records the options and Orbit logs a warning once per process. It doesn't allocate for up to 4 tags.
+- **`Disable`** is Astro's `set(false)`: it clears the options and tags, and Orbit neither looks the request up nor stores its response. Called in middleware, it runs before the lookup, and the request isn't stored even if the page calls `Set` later.
+- **`Enabled`** reports whether the request can be cached: a provider is configured, the site isn't under `orbit dev`, and `Disable` wasn't called (or a later `Set` cancelled it). On a `Locals` field, it's `false` until Orbit has seen the request.
+- **`Options`** returns a snapshot of the merged options; `Tags` is a copy.
+- **`Invalidate`** is `Site.InvalidateCache`. It returns `ErrCacheNotEnabled` without a provider, and `nil` under `orbit dev`. On a `Locals` field, it reaches the provider only once Orbit has seen the request; in middleware, use `site.InvalidateCache`.
+
+`server:concurrent` components set on their own copy, merged into the page's when the page joins them. Content captured by `RenderHTML` sets options only when it renders.
+
+```go
+type InvalidateOptions struct {
+	Tags []string // drops every response carrying any of them
+	Path string   // an escaped request path, /blog/hello: drops every variant of it (any query, any host)
+}
+
+var ErrCacheNotEnabled error // "orbit: caching is not enabled; configure a provider with orbit.WithCache"
+```
+
+### Providers
+
+```go
+type CacheProvider interface {
+	Invalidate(ctx context.Context, o InvalidateOptions) error
+}
+
+type CacheHeaderWriter interface {
+	CacheProvider
+	WriteCacheHeaders(h http.Header, o *CacheOptions, r *http.Request)
+}
+
+type CacheStore interface {
+	CacheProvider
+	Get(key CacheKey) *CachedResponse
+	Put(key CacheKey, e *CachedResponse)
+}
+```
+The kinds of provider [`WithCache`](#withcache) takes. Orbit runs the request flow (keys, freshness, stale-while-revalidate, `Vary`, the `Set-Cookie` refusal, 304s, `X-Orbit-Cache`) for every one of them.
+
+- **`CacheStore`** (Astro's runtime providers, such as `memoryCache`): Orbit looks each cacheable `GET` up with `Get` (`nil` is a miss; Orbit checks freshness) and stores with `Put`, replacing any earlier response under the key. With a store, Orbit never writes `CDN-Cache-Control` or `Cache-Tag`. A store may also implement `CacheQuery() CacheQuery`, read once by `NewSite`, to choose the query parameters of keys. A provider that implements both `CacheStore` and `CacheHeaderWriter` is used as a store.
+- **`CacheHeaderWriter`** (CDN providers, Astro's `setHeaders`): Orbit calls `WriteCacheHeaders` on a response whose options are active (a `MaxAge` or tags, not disabled), after the page's own headers are set. `o` is read-only. It writes every cache header it wants, `ETag` and `Last-Modified` included.
+- **Neither**: Orbit writes Astro's default headers on active responses: `CDN-Cache-Control: max-age=N, stale-while-revalidate=M`, `Cache-Tag: a, b`, `Last-Modified` and `ETag`.
+
+Under `orbit dev`, no provider is called and no cache header is written.
+
+```go
+type CacheKey struct { /* unexported */ }
+
+func (k CacheKey) Hash() uint64
+func (k CacheKey) String() string
+func NewCacheKey(s string) CacheKey
+```
+A cache key: the request's host, escaped path and normalized query, plus the values of the stored response's `Vary` headers. `Hash` is for sharding and map lookups, stable within a process only. The string from `String` is valid only during the call the key was passed to: copy it (`strings.Clone`) to keep it. `NewCacheKey` returns the key for `s` with the hash Orbit gives it, for a store's own tests.
+
+```go
+type CachedResponse struct {
+	Status int
+	Header http.Header   // the page's own headers, with Content-Type, Content-Length and ETag
+	Body   []byte
+	Stored time.Time
+	MaxAge time.Duration
+	SWR    time.Duration
+	Tags   []string
+	Path   string        // the escaped request path, for InvalidateOptions.Path
+	Vary   []string      // set on a Vary marker
+	// unexported: the revalidation flag
+}
+```
+A stored response. Orbit builds it; a store keeps it as given and must not change it, since its header values and body are shared with the responses served from it. Keep it at least until `Stored + MaxAge + SWR`. A **Vary marker** is an entry stored under a URL's own key when its response has a `Vary` header: it has no body, is never served, and holds the lowercased header names (`Cookie` excluded) whose request values key the variants. Store it like any other entry.
+
+```go
+type CacheQuery struct {
+	Include []string // keep only the parameters matching these
+	Exclude []string // drop the parameters matching these; replaces the default list
+	NoSort  bool     // keep the parameters in request order
+}
+```
+Which query parameters are part of a key, Astro's `memoryCache` `query` option. Patterns are `path.Match` patterns, matched case-insensitively against parameter names. Without `Include` or `Exclude`, Astro's tracking parameters (`utm_*`, `fbclid`, `gclid`, `ref` and others) are dropped. Giving both, or a bad pattern, panics in `NewSite`; `cache.Memory` already panics on both when it's created. Parameters are sorted by name unless `NoSort` is set.
 
 ## Deferred islands
 
@@ -706,6 +850,8 @@ The fragment is buffered like a page: on success it's written once, with the sta
 
 A fragment may contain `server:defer` placeholders; they're sealed with the same key as the site's (without `WithKey`). They load only if the page the fragment lands in already has the islands loader.
 
+Under [`site.CacheHandler`](#site), the component's `ctx.Cache()` is the handler's cache handle, so a fragment can be cached like a page; elsewhere, its `Set` calls are dropped unless your `Locals` has a `Cache` field.
+
 Rendering a full page (with its assets) from your own handler is not yet supported.
 
 ## Serving
@@ -728,6 +874,84 @@ It returns `nil` after a graceful shutdown, and otherwise the error that stopped
 | `IdleTimeout` | 120 s |
 | `ReadTimeout`, `WriteTimeout` | none, so slow uploads and long-running handlers aren't cut off |
 | Shutdown grace period | 5 s, then remaining connections are closed |
+
+## orbit/cache
+
+The `github.com/orbit-z/orbit/cache` package holds in-process caches: `Memory`, a route cache provider for `WithCache`, and `Store`, a general cache for data and rendered fragments. It depends only on the standard library and the `orbit` package, and generated code never imports it. See [Caching](../caching.md).
+
+```go
+import "github.com/orbit-z/orbit/cache"
+```
+
+Both use one engine: a map split into shards, bounded by an entry count and optionally by bytes. When a shard is full, it evicts with CLOCK, an approximation of least recently used: a read marks an entry, and eviction gives a marked entry a second chance. The bounds are checked per shard, so they're approximate. Expiry is lazy: an expired entry is dropped when it's read or evicted, with no timer. Entries carry tags, and dropping a tag drops every entry carrying it.
+
+```go
+const DefaultMaxEntries = 1000
+```
+
+### Memory
+
+```go
+type MemoryOptions struct {
+	MaxEntries   int               // stored responses; 0 means DefaultMaxEntries
+	MaxBytes     int64             // when positive: bodies, headers, keys and tags, plus a fixed overhead per entry
+	Query        orbit.CacheQuery  // the query parameters of keys
+	Now          func() time.Time  // the clock; nil means time.Now
+	OnInvalidate func(ctx context.Context, o orbit.InvalidateOptions) error
+}
+
+func Memory(o MemoryOptions) *MemoryProvider
+```
+Returns an in-process route cache, an `orbit.CacheStore`, safe for concurrent use. Responses are kept until `Stored + MaxAge + SWR` (Orbit decides whether one is fresh or stale) and evicted roughly least recently used first when a bound is reached. `Vary` markers and variants count as one entry each. A response bigger than `MaxBytes` divided by the number of shards isn't stored. It panics if `o.Query` sets both `Include` and `Exclude`, or if a bound is negative.
+
+`OnInvalidate`, when set, is called by `Invalidate` after the local purge, so an app can forward the purge to its other instances; its error is `Invalidate`'s.
+
+```go
+func (m *MemoryProvider) Get(key orbit.CacheKey) *orbit.CachedResponse
+func (m *MemoryProvider) Put(key orbit.CacheKey, e *orbit.CachedResponse)
+func (m *MemoryProvider) Invalidate(ctx context.Context, o orbit.InvalidateOptions) error
+func (m *MemoryProvider) InvalidateLocal(o orbit.InvalidateOptions)
+func (m *MemoryProvider) CacheQuery() orbit.CacheQuery
+func (m *MemoryProvider) Clear()
+func (m *MemoryProvider) Len() int
+func (m *MemoryProvider) Bytes() int64
+```
+- **`Get`** doesn't allocate. **`Put`** replaces the response stored under the key; a response with no lifetime (`MaxAge + SWR` not positive), or one over the byte budget, isn't stored, and the earlier one is dropped.
+- **`Invalidate`** applies `InvalidateLocal`, then calls `OnInvalidate`. **`InvalidateLocal`** drops every response carrying one of `o.Tags`, and every response whose `Path` is `o.Path` (all its hosts, queries, variants and its `Vary` marker), without calling `OnInvalidate`: use it to apply a purge received from another instance.
+- **`CacheQuery`** returns `MemoryOptions.Query`; Orbit calls it once, in `NewSite`.
+- **`Clear`** drops everything, without calling `OnInvalidate`. **`Len`** counts the stored responses, expired ones not yet dropped included, and **`Bytes`** the approximate bytes held.
+
+### Store
+
+```go
+type Options[V any] struct {
+	MaxEntries int                // 0 means DefaultMaxEntries
+	MaxBytes   int64              // when positive: Size of each value plus its key's length
+	Size       func(V) int64      // nil: the length of a string, []byte or orbit.HTML, else 0
+	Now        func() time.Time   // the clock; nil means time.Now
+}
+
+func New[V any](o Options[V]) *Store[V]
+```
+Returns an empty in-process cache of values of type `V`, with a time to live and tags per value, safe for concurrent use. It panics if a bound is negative. A value bigger than `MaxBytes` divided by the number of shards isn't stored. Values are stored as given and every hit returns the same value: don't change a value once it's stored, or one you got from the store.
+
+```go
+func (s *Store[V]) Get(key string) (V, bool)
+func (s *Store[V]) Set(key string, v V, ttl time.Duration, tags ...string)
+func (s *Store[V]) Load(ctx context.Context, key string, ttl time.Duration, tags []string,
+	load func(context.Context) (V, error)) (V, []string, error)
+func (s *Store[V]) Delete(key string)
+func (s *Store[V]) InvalidateTags(tags ...string)
+func (s *Store[V]) Clear()
+func (s *Store[V]) Len() int
+func (s *Store[V]) Bytes() int64
+
+var ErrLoadPanicked error
+```
+- **`Get`** returns the value under `key` if it hasn't expired. It doesn't allocate.
+- **`Set`** stores `v` for `ttl` with `tags`, replacing the value stored before. A `ttl` that isn't positive, or a value over the byte budget, stores nothing and drops the earlier value.
+- **`Load`** returns the stored value and its tags. On a miss it calls `load` once, however many callers ask for `key` meanwhile, and stores the result for `ttl` with `tags` (nothing is stored when `ttl` isn't positive, or when a `Delete`, `InvalidateTags` or `Clear` ran during the load). The returned tags are the stored ones on a hit and the first caller's after a load, so a fragment cache can re-apply them to `ctx.Cache()`; don't change them. The first caller to miss runs `load` on its own goroutine with `context.WithoutCancel(ctx)`, and waits for it whatever happens to `ctx`, so `load` may use that caller's `*orbit.Ctx`, as `orbit.RenderHTML` does. The other callers wait under their own `ctx`: when it's done, `Load` returns `ctx.Err()` and the load goes on. A load's error is returned to every caller waiting on it, and nothing is stored. A panic in `load` goes on in the first caller, and the others get an error wrapping `ErrLoadPanicked`.
+- **`Delete`**, **`InvalidateTags`** and **`Clear`** drop values. **`Len`** counts the values held, expired ones not yet dropped included; **`Bytes`** is `Size` plus each key's length.
 
 ## orbittest
 
@@ -777,6 +1001,7 @@ Compares `html` with `testdata/<name>.golden` and fails the test, showing the di
 - [Server](../server.md): `Middleware`, `Handler`, `NotFound`, `RenderComponent`, `ListenAndServe`
 - [Middleware and locals](../middleware.md): `EnsureLocals` and typed `Locals`
 - [Lazy loading](../lazy-loading.md): `server:defer`, `Defer` and the island key
+- [Caching](../caching.md): route caching, providers and `cache.Store`
 - [Rendering](../rendering.md#slow-components): `server:concurrent`, `Concurrent` and the limit
 - [Testing](../testing.md): `orbittest`
 - [Template syntax](template-syntax.md)

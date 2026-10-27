@@ -141,11 +141,13 @@ Request → logging → requestInfo → http.ServeMux
                                         → site.Handler()
                                            ├─ /_orbit/island/…    → deferred component
                                            ├─ /_orbit/*, public/  → file
-                                           ├─ page route          → page
+                                           ├─ page route          → cached copy or page
                                            └─ no match            → 404.orbit
 ```
 
 Inside `site.Handler()`, Orbit picks up the `*locals.Locals` that `EnsureLocals` attached to the request, and the page, its components and `404.orbit` all render with it. Responses come back out through `requestInfo` and `logging`.
+
+With [route caching](caching.md), a page request may be answered from the cache instead of rendering. That happens inside `site.Handler()` too, so `logging` and `requestInfo` run for cached responses as well.
 
 **Island requests** take the same path. A component rendered with `server:defer` is fetched by the browser in its own request to `/_orbit/island/…`, after the page has loaded. That request goes through `logging` and `requestInfo` like any other, so the deferred component sees the visitor's cookies and its own `locals`, with a new request ID. Nothing from the page's request carries over. See [Lazy loading](lazy-loading.md).
 
@@ -157,7 +159,7 @@ Locals carry request-scoped data, such as a request ID or the visitor's theme, f
 
 Put `type Locals struct` in the Go package `src/locals` (package `locals`), as in `src/locals/locals.go` above. Orbit finds it by name. Without one, `locals` in pages is an `*orbit.NoLocals`, an empty struct.
 
-`Locals` may also be an alias of a struct declared elsewhere (`type Locals = auth.Session`); Orbit then doesn't see a `RouteInfo` field in it ([Logging the matched route](#logging-the-matched-route)). A `src/locals` whose package isn't named `locals`, or whose `Locals` is a defined type that isn't a struct (`type Locals map[string]any`), is an error at that line.
+`Locals` may also be an alias of a struct declared elsewhere (`type Locals = auth.Session`); Orbit then doesn't see a `RouteInfo` or `Cache` field in it ([Logging the matched route](#logging-the-matched-route), [Keeping requests out of the cache](#keeping-requests-out-of-the-cache)). A `src/locals` whose package isn't named `locals`, or whose `Locals` is a defined type that isn't a struct (`type Locals map[string]any`), is an error at that line.
 
 ### Set locals from middleware
 
@@ -303,6 +305,40 @@ src/locals/locals.go:9:2: Locals has two orbit.RouteInfo fields (Route, Previous
 
 An embedded, unexported or pointer `RouteInfo` field is an error at the field too.
 
+## Keeping requests out of the cache
+
+With [route caching](caching.md), a page's response can be stored and served to every visitor. Orbit looks the request up inside `site.Middleware`, after your middleware has run, so middleware decides first. It reaches the request's cache handle through a field of type `orbit.Cache` in your `Locals` (any exported name; the type is the marker):
+
+```go
+type Locals struct {
+	User  *auth.User
+	Cache orbit.Cache // the request's cache handle
+}
+```
+
+The usual use is to keep signed-in visitors out of the cache, so their pages can show their name:
+
+```go
+func withSession(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r, l := orbit.EnsureLocals[locals.Locals](r)
+		if l.User = auth.FromCookie(r); l.User != nil {
+			l.Cache.Disable() // a fresh render, never stored
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+```
+
+- **`Disable()` runs before the lookup.** The request is neither served from the cache nor stored, even if the page calls `ctx.Cache().Set` afterwards. In Astro, the cache sits outside the middleware, so `set(false)` there can't stop a cached copy; in Orbit it can.
+- **Your middleware runs on every request, cached ones included**: authentication, redirects, logging and session refresh always run. A cached response costs what your middleware costs, plus about 0.15 µs.
+- **`Set` works too**: middleware can add tags or a `MaxAge` (`l.Cache.Set(orbit.CacheOptions{Tags: []string{"tenant:" + id}})`). A [route rule](configuration.md#routerules) applies under those values, and the page's own `Set` merges over both.
+- **`ctx.Cache()` is the same field**: in pages and components, `ctx.Cache()` returns it when your middleware attached the locals.
+- **Before Orbit has seen the request**, `l.Cache.Enabled()` reports `false` and `l.Cache.Invalidate` returns `orbit.ErrCacheNotEnabled`. To purge from middleware or a handler, use `site.InvalidateCache`.
+- **A cookie stops storing.** A response that has `Set-Cookie`, from the page or from your middleware, is never stored, so middleware that refreshes a session cookie on every request keeps those pages out of the cache. Set cookies only when they change.
+
+Two `orbit.Cache` fields (`Locals has two orbit.Cache fields (A, B); Orbit uses one`), an embedded one, an unexported one or a `*orbit.Cache` is an error at the field. See [Caching](caching.md#safety-what-orbit-checks-and-what-you-check) for what a cached page must not read.
+
 ## Short-circuit responses
 
 A middleware short-circuits the usual `net/http` way: it writes a response and doesn't call `next`.
@@ -426,5 +462,6 @@ The same goes for the generated component packages under `orbit_gen/impl/`. `orb
 - [Server](server.md): where Orbit and your middleware sit in `main.go`
 - [Rendering](rendering.md): redirects, `orbit.ErrNotFound` and errors from the frontmatter
 - [Lazy loading](lazy-loading.md): island requests and your middleware
+- [Caching](caching.md): route caching, and what a cached page must not read
 - [Components](components.md): `locals`, `ctx` and `props` in the frontmatter
 - [Testing](testing.md): rendering with `orbittest.WithLocals`

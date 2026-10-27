@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,21 +43,29 @@ type Site struct {
 	// route is WithLocalsRoute's accessor, or nil: then no RouteInfo is
 	// filled and the serve path is today's (PLAN.md §4g).
 	route *localsRoute
+	// cache is the route cache (PLAN.md §4h): nil without a provider and
+	// in dev, and then the serve path is the one without a cache.
+	cache *siteCache
+	// cacheProv is WithCache's provider, also in dev (InvalidateCache).
+	cacheProv CacheProvider
 }
 
 // Option configures a Site. Pass options to app.New().
 type Option func(*siteOptions)
 
 type siteOptions struct {
-	site      *url.URL
-	staticDir string
-	staticFS  fs.FS
-	key       []byte // WithKey
-	onError   errorHandler
-	slash     TrailingSlash
-	concLimit int32 // WithConcurrencyLimit, when concSet
-	concSet   bool
-	route     *localsRoute // WithLocalsRoute
+	site       *url.URL
+	staticDir  string
+	staticFS   fs.FS
+	key        []byte // WithKey
+	onError    errorHandler
+	slash      TrailingSlash
+	concLimit  int32 // WithConcurrencyLimit, when concSet
+	concSet    bool
+	route      *localsRoute  // WithLocalsRoute
+	cache      CacheProvider // WithCache
+	rules      []RouteRule   // WithRouteRules
+	cacheField *localsCache  // WithLocalsCache
 }
 
 // NewSite is called by the generated orbit_gen/app.New(). It compiles the
@@ -90,13 +99,22 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 		limit:   o.concurrencyLimit(),
 		route:   o.route,
 	}
+	rules := compileRules(o.rules, rt.always)
+	if o.cache != nil {
+		s.cacheProv = o.cache
+		if !s.dev {
+			s.cache = newSiteCache(s, &o, rules)
+		}
+	}
 	s.keys.warnIfRandom(len(islands))
+	islands = slices.Clone(islands) // the Site owns its entries (their cache state)
 	s.islands = make(map[string]*Island, len(islands))
 	for i := range islands {
 		isl := &islands[i]
 		if prev, ok := s.islands[isl.id]; ok {
 			panic(fmt.Sprintf("orbit: island %s is registered twice (%s and %s)", isl.id, prev.file, isl.file))
 		}
+		isl.cache = new(cacheState)
 		s.islands[isl.id] = isl
 	}
 	for i := range routes {
@@ -236,7 +254,7 @@ type middleware struct {
 func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s := m.site
 	if rest, ok := strings.CutPrefix(r.URL.Path, islandPrefix); ok {
-		s.serveIsland(w, r, rest)
+		s.serveIsland(w, r, rest, nil)
 		return
 	}
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
@@ -246,8 +264,12 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	path := r.URL.EscapedPath()
 	c := s.acquire(r)
-	if route := c.matchRoute(s.router, path); route != nil {
-		s.servePage(w, r, c, route, false)
+	if cr := c.matchRoute(s.router, path); cr != nil {
+		if s.cache != nil {
+			s.serveCachedPage(w, r, c, cr, path, nil)
+			return
+		}
+		s.servePage(w, r, c, cr.route, false)
 		return
 	}
 	releaseCtx(c)
@@ -365,6 +387,9 @@ func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *
 	w.WriteHeader(status)
 	if r.Method != http.MethodHead {
 		w.Write(buf.Bytes())
+	}
+	if c.cache.state&cacheSet != 0 && s.cacheProv == nil && !s.dev {
+		warnNoProvider()
 	}
 	putBuffer(buf)
 	releaseCtx(c)

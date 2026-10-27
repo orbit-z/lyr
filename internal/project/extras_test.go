@@ -30,6 +30,13 @@ func TestExtrasGolden(t *testing.T) {
 		{"route", `{"site": "https://blog.example.com"}`, map[string]string{
 			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct {\n\tUser    string\n\tMatched orbit.RouteInfo\n}\n",
 		}},
+		// A Cache field: app.New() passes WithLocalsCache (PLAN.md §4h).
+		{"cache", `{}`, map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct {\n\tRoute orbit.RouteInfo\n\tCache orbit.Cache\n}\n",
+		}},
+		// routeRules: WithRouteRules with Go literals (PLAN.md §4h).
+		{"rules", `{"routeRules": {"/blog/[...path]": {"maxAge": 300, "swr": 3600, "tags": ["blog", "posts"]}, "/about": {"tags": ["static"]}, "/": {"maxAge": 60}}}`, nil},
+		{"tagrules", `{"routeRules": {"/about": {"tags": ["static"]}}}`, nil},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			files := map[string]string{}

@@ -69,11 +69,11 @@ func Reload(prev *Project, root string, paths []string) (*Project, bool, error) 
 		changed = append(changed, rel)
 	}
 	if locals {
-		l, route, ds := detectLocals(p.Root, p.Module)
+		l, fields, ds := detectLocals(p.Root, p.Module)
 		if l != p.Options.Locals {
 			return full() // every file's codegen options changed
 		}
-		p.localsRoute, p.localsDiags = route, ds // app.go follows the route field
+		p.localsFields, p.localsDiags = fields, ds // app.go follows the fields
 	}
 	// cmd/server can appear or go away.
 	p.ServerEntry, p.GeneratedServer = p.Config.ServerEntry(p.Root)

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 // Allocation tests for Orbit's own render and serve path (PLAN.md §4b): a
@@ -318,4 +319,140 @@ func BenchmarkRenderPage(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+// Route caching (PLAN.md §4h): a HIT, a 304 and a STALE cost 0
+// allocations; a page that doesn't call Set costs the same as without a
+// provider, and Set with constant tags costs 0 without a provider.
+
+func allocCachedPage(c *Ctx, w *Writer) error {
+	c.Cache().Set(CacheOptions{MaxAge: time.Hour, SWR: time.Hour, Tags: []string{"posts", "home"}})
+	return allocPage(c, w)
+}
+
+var allocCacheRoutes = []Route{
+	{Pattern: "/", File: "src/pages/index.orbit", Render: allocCachedPage},
+	{Pattern: "/plain", File: "src/pages/plain.orbit", Render: allocPage},
+	{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].orbit", Render: allocPostPage},
+}
+
+func TestCacheAllocs(t *testing.T) {
+	if testing.Short() || raceEnabled {
+		t.Skip("allocation counts (not under -short or -race)")
+	}
+	clock := useClock(t)
+	st := newFakeStore()
+	s := testSite(t, allocCacheRoutes, WithCache(st))
+	h := s.Middleware(http.NotFoundHandler())
+	allocs := func(r *http.Request, want int, wantState string, wantStatus int) {
+		t.Helper()
+		fw := newFakeResponseWriter()
+		n := testing.AllocsPerRun(1000, func() {
+			fw.reset()
+			h.ServeHTTP(fw, r)
+		})
+		if fw.status != wantStatus || fw.h.Get("X-Orbit-Cache") != wantState {
+			t.Fatalf("%s %s: %d %q, want %d %q", r.Method, r.URL, fw.status, fw.h.Get("X-Orbit-Cache"), wantStatus, wantState)
+		}
+		if n != float64(want) {
+			t.Errorf("%s %s (%s %d): %v allocs, want %d", r.Method, r.URL, wantState, wantStatus, n, want)
+		}
+	}
+	warm := httptest.NewRecorder()
+	h.ServeHTTP(warm, httptest.NewRequest("GET", "/", nil))
+	if warm.Header().Get("X-Orbit-Cache") != "MISS" {
+		t.Fatalf("warm-up: %v", warm.Header())
+	}
+	allocs(httptest.NewRequest("GET", "/", nil), 0, "HIT", 200)
+
+	inm := httptest.NewRequest("GET", "/", nil)
+	inm.Header.Set("If-None-Match", `"other", `+warm.Header().Get("Etag"))
+	allocs(inm, 0, "HIT", 304)
+
+	q := "/?b=2&a=1&utm_source=x"
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", q, nil))
+	allocs(httptest.NewRequest("GET", q, nil), 0, "HIT", 200)
+
+	// STALE while a revalidation runs (the one that starts it allocates
+	// its goroutine and request copy).
+	clock.add(90 * time.Minute)
+	st.entry("example.com/").revalidating.Store(true)
+	allocs(httptest.NewRequest("GET", "/", nil), 0, "STALE", 200)
+
+	// A page that never calls Set: the per-route bit skips the lookup.
+	allocs(httptest.NewRequest("GET", "/plain", nil), 1, "", 200)
+	allocs(httptest.NewRequest("GET", "/blog/hello-world", nil), 1, "", 200)
+
+	// Without a provider, Set with constant tags adds nothing.
+	s = testSite(t, allocCacheRoutes)
+	h = s.Middleware(http.NotFoundHandler())
+	warnedNoProvider.Store(true) // the one-time warning isn't counted
+	t.Cleanup(func() { warnedNoProvider.Store(false) })
+	allocs(httptest.NewRequest("GET", "/", nil), 1, "", 200)
+}
+
+// missStore never finds anything and drops what it's given: every request
+// to a known route is a miss that stores.
+type missStore struct{ fakeStore }
+
+func (*missStore) Get(CacheKey) *CachedResponse  { return nil }
+func (*missStore) Put(CacheKey, *CachedResponse) {}
+
+func BenchmarkCache(b *testing.B) {
+	b.Setenv("ORBIT_DEV", "")
+	b.Setenv("ORBIT_STATIC", b.TempDir())
+	serve := func(b *testing.B, h http.Handler, r *http.Request) {
+		fw := newFakeResponseWriter()
+		b.ReportAllocs()
+		for b.Loop() {
+			fw.reset()
+			h.ServeHTTP(fw, r)
+		}
+	}
+	st := newFakeStore()
+	h := NewSite(allocCacheRoutes, nil, WithCache(st)).Middleware(http.NotFoundHandler())
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/?b=2&a=1&utm_source=x", nil))
+	b.Run("hit", func(b *testing.B) { serve(b, h, httptest.NewRequest("GET", "/", nil)) })
+	b.Run("hit-query", func(b *testing.B) { serve(b, h, httptest.NewRequest("GET", "/?b=2&a=1&utm_source=x", nil)) })
+	b.Run("304", func(b *testing.B) {
+		r := httptest.NewRequest("GET", "/", nil)
+		r.Header.Set("If-None-Match", st.entry("example.com/").Header.Get("Etag"))
+		serve(b, h, r)
+	})
+	b.Run("hit-parallel", func(b *testing.B) {
+		b.ReportAllocs()
+		b.RunParallel(func(pb *testing.PB) {
+			fw := newFakeResponseWriter()
+			r := httptest.NewRequest("GET", "/", nil)
+			for pb.Next() {
+				fw.reset()
+				h.ServeHTTP(fw, r)
+			}
+		})
+	})
+	b.Run("stale", func(b *testing.B) {
+		st := newFakeStore()
+		h := NewSite(allocCacheRoutes, nil, WithCache(st)).Middleware(http.NotFoundHandler())
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+		e := st.entry("example.com/")
+		e.revalidating.Store(true)
+		e.Stored = e.Stored.Add(-90 * time.Minute)
+		serve(b, h, httptest.NewRequest("GET", "/", nil))
+	})
+	b.Run("miss-store", func(b *testing.B) {
+		h := NewSite(allocCacheRoutes, nil, WithCache(&missStore{})).Middleware(http.NotFoundHandler())
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil)) // the route is known
+		serve(b, h, httptest.NewRequest("GET", "/", nil))
+	})
+	b.Run("provider-no-set", func(b *testing.B) { serve(b, h, httptest.NewRequest("GET", "/plain", nil)) })
+	b.Run("no-provider", func(b *testing.B) {
+		h := NewSite(allocCacheRoutes, nil).Middleware(http.NotFoundHandler())
+		serve(b, h, httptest.NewRequest("GET", "/plain", nil))
+	})
+	b.Run("no-provider-set", func(b *testing.B) {
+		warnedNoProvider.Store(true)
+		h := NewSite(allocCacheRoutes, nil).Middleware(http.NotFoundHandler())
+		serve(b, h, httptest.NewRequest("GET", "/", nil))
+	})
 }

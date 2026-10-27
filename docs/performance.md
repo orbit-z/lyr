@@ -113,7 +113,32 @@ JSON attribute values are single-quoted, so the quotes inside need no escaping: 
 
 **Compression**: Orbit never gzips responses. Add the compression middleware of your choice around Orbit in `cmd/server/main.go`. See [Server](server.md).
 
-Caching rendered SSR responses isn't built in yet.
+**Browser caching**: `Cache-Control` on pages is yours to set, with `ctx.Header()`. Orbit can keep rendered pages on the server, though: see below.
+
+## Cached pages: route caching
+
+A page that waits on data costs whatever the data costs, however fast the render. With [route caching](caching.md), a page that calls `ctx.Cache().Set` (or matches a `routeRules` entry) is stored after its first render, and later requests get the stored bytes without a render or a fetch. Measured with the runtime's benchmarks on an AMD Ryzen 7 9700X with Go 1.27.3, at `-cpu 1`, on a 1.1 KB page through `site.Middleware`, with `cache.Memory`:
+
+| Case | Time | Allocations |
+|---|---:|---:|
+| HIT (the stored response written, no render) | 154 ns | 0 |
+| `304 Not Modified` on a HIT | 181 ns | 0 |
+| HIT with a query to normalize (`?b=2&a=1&utm_source=x`) | 228 ns | 0 |
+| STALE (the stale copy served; the background render runs apart) | 155 ns | 0 |
+| MISS that stores the response | ~1.9 µs | 13 |
+| the same page rendered, no provider | ~620 ns | 1 |
+| a page that doesn't call `Set`, on a site with a provider | +~25 ns | 1 |
+| HIT on one hot key, 16 threads (aggregate, per request) | ~30 ns | 0 |
+| `cache.Memory` `Get`, a hit | 43 ns | 0 |
+| `cache.Store` `Get`, a hit | 46 ns | 0 |
+
+- **A HIT is cheaper than rendering even this small page**, and it allocates nothing (a render allocates the `Content-Length` value). For a page that waits 10 ms on a fetch, like `/fetch` [below](#page-with-a-10-ms-data-fetch-fetch), a HIT doesn't wait at all.
+- **Your middleware still runs** on every HIT, so a HIT costs what your middleware costs plus the numbers above. `net/http`'s own ~14–19 allocations per request remain the floor.
+- **A MISS pays once** for the copies it keeps: the key, the headers, the body and the entry.
+- **Sites without a provider pay nothing.** On a site with one, a page that never caches pays about 25 ns: its route has never stored and matches no rule, so it isn't looked up.
+- **Hot keys scale**: eviction uses CLOCK, so a hit takes a read lock and sets a bit instead of moving the entry under a write lock (a mutex LRU measured 67 ns per HIT at 16 threads in the prototype).
+
+The HTTP benchmark against Astro (`bench/run.sh`, [Results](#results)) doesn't have a cached-page scenario yet; the numbers above are the runtime's Go benchmarks.
 
 ## Slow data and the first byte: `server:defer`
 
@@ -447,6 +472,7 @@ Findings in `.orbit` frontmatter types point at the `.orbit` line, such as `src/
 
 - [Rendering](rendering.md): the request lifecycle and buffered responses
 - [Lazy loading](lazy-loading.md): `server:defer` and `client:*`
+- [Caching](caching.md): route caching and `cache.Store`
 - [Server](server.md): where to add compression and other middleware
 - [Dev server](dev-server.md): rebuild times in development
 - [Runtime API](reference/runtime-api.md): the `Writer` and its typed writes

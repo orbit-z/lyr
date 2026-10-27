@@ -393,6 +393,28 @@ func answerError(w http.ResponseWriter, r *http.Request, err error) bool {
 
 There's one middleware model, and Orbit ships no auth: sessions, cookies and security headers are your middleware's job, with the standard library or the Go packages you pick. See [Middleware and locals](middleware.md) and [Server](server.md).
 
+### Route caching
+
+If your Astro site uses `Astro.cache` or `routeRules`, the port is mostly mechanical:
+
+- **The provider**: Astro's `cache: { provider: memoryCache({ max: 5000 }) }` becomes `app.New(orbit.WithCache(cache.Memory(cache.MemoryOptions{MaxEntries: 5000})))` in `cmd/server/main.go`, with `github.com/orbit-z/orbit/cache`.
+- **`routeRules`** move from `astro.config` to `orbit.json` under the same name, still in whole seconds. Patterns use Orbit's route syntax: `/blog/[...path]` covers `/blog` and everything under it. See [`routeRules`](configuration.md#routerules).
+- **`Astro.cache.set({ maxAge: 3600, tags: ["post:" + id] })`** becomes `ctx.Cache().Set(orbit.CacheOptions{MaxAge: time.Hour, Tags: []string{"post:" + id}})`: durations are `time.Duration` (`3600` seconds is `time.Hour`), not numbers. `Astro.cache.set(false)` becomes `ctx.Cache().Disable()`, and `invalidate` becomes `ctx.Cache().Invalidate` or `site.InvalidateCache` in your handlers.
+- **`context.cache` in middleware** becomes a field of type `orbit.Cache` in your `Locals`:
+
+  ```go
+  type Locals struct {
+  	Shop  *shop.Client
+  	Cache orbit.Cache
+  }
+  ```
+
+  Middleware then calls `l.Cache.Disable()` for a signed-in visitor. In Astro that only kept their response out of the store, and they could still get a cached copy; in Orbit, the lookup runs after your middleware, so they never do. If your Astro middleware worked around that, the workaround can go.
+- **Your middleware runs on HITs.** Anything it does (logging, a session refresh, auth redirects) now happens for cached requests too. A middleware that sets a cookie on every request keeps every page out of the cache: Orbit never stores a response with `Set-Cookie`.
+- **`X-Astro-Cache`** checks in tests or monitoring become `X-Orbit-Cache`, with the same `HIT`, `MISS` and `STALE` values.
+
+See [Caching](caching.md) for the whole flow and the safety rules.
+
 ## 7. Map errors to responses
 
 Astro middleware that catches a typed error around `next()` and turns it into a redirect or a 503 becomes an error handler, as `answerError` above: Orbit answers a page's error before `next` returns, so middleware can't catch it. The handler gets every error that would become the 500, from the page, any component, deferred islands and panics, before anything is written, and returns `false` for the ones it leaves to Orbit. `orbit.ErrNotFound` and redirects never reach it. See [Answering errors yourself](rendering.md#answering-errors-yourself-witherrorhandler).

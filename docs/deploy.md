@@ -38,7 +38,7 @@ To deploy, copy the binary and the directory together:
 rsync -a dist/server dist/client deploy@example.com:/srv/blog/
 ```
 
-Files under `/_orbit/` (page bundles, [shared chunks and `import()` chunks](styles-and-scripts.md#shared-chunks-and-import), lazy entries, fonts and images) have content hashes in their names and are served with `Cache-Control: public, max-age=31536000, immutable`, so a CDN in front of the server can cache them indefinitely. You can also upload `dist/client/` to a CDN directly. With [`"sourcemap": true`](configuration.md#sourcemap), `dist/client/_orbit/` also holds a `.map` file per bundle; nothing links to them, but they're served like the bundles if someone asks for their URL, so delete them before deploying if your sources are private. Pages and [`server:defer`](lazy-loading.md) island responses are rendered per request; islands default to `Cache-Control: private, no-store`, so shared caches don't store them.
+Files under `/_orbit/` (page bundles, [shared chunks and `import()` chunks](styles-and-scripts.md#shared-chunks-and-import), lazy entries, fonts and images) have content hashes in their names and are served with `Cache-Control: public, max-age=31536000, immutable`, so a CDN in front of the server can cache them indefinitely. You can also upload `dist/client/` to a CDN directly. With [`"sourcemap": true`](configuration.md#sourcemap), `dist/client/_orbit/` also holds a `.map` file per bundle; nothing links to them, but they're served like the bundles if someone asks for their URL, so delete them before deploying if your sources are private. Pages and [`server:defer`](lazy-loading.md) island responses are rendered per request, unless the [route cache](#caching-in-production) has a copy; islands default to `Cache-Control: private, no-store`, so shared caches don't store them.
 
 ### How static files are served
 
@@ -180,6 +180,17 @@ A `.dockerignore` only applies at the root of the build context, so the project'
 
 Orbit's own docs site is built this way: see [`docs/site/Dockerfile`](https://github.com/orbit-z/orbit/blob/main/docs/site/Dockerfile), its `Dockerfile.dockerignore`, and the deploy notes in [`docs/site/README.md`](https://github.com/orbit-z/orbit/blob/main/docs/site/README.md).
 
+## Caching in production
+
+With [route caching](caching.md), what you deploy decides where the cache lives:
+
+- **One instance with `cache.Memory`**: the cache is in the server's memory. Size it with `MaxEntries` and `MaxBytes` (a stored response costs its body plus about half a kilobyte). A restart or a deploy starts it empty, and the first request for each page renders again; a rolling deploy spreads that over time.
+- **Several instances with `cache.Memory`**: each has its own copy, filled by the requests it serves, so the same page may be a HIT on one and a MISS on another. A purge (`site.InvalidateCache`) reaches only the instance that ran it: forward it with `MemoryOptions.OnInvalidate`, over something your instances already share (Redis, NATS, a database), and apply what arrives with `InvalidateLocal`. See [Several instances](caching.md#several-instances).
+- **A CDN in front**: give `orbit.WithCache` a provider that writes your CDN's headers (`orbit.CacheHeaderWriter`), or a provider with just `Invalidate` to get Astro's default `CDN-Cache-Control` and `Cache-Tag` headers, and purge through the CDN's API in `Invalidate`. The CDN then does the caching, and your server sees only its misses. See [CDN header providers](caching.md#cdn-header-providers).
+- **`cache.Memory` and a CDN**: with a store, Orbit writes no CDN headers. Set `Cache-Control` (or `CDN-Cache-Control`) on the pages yourself with `ctx.Header()` for the CDN to keep them too, and purge both on a change.
+
+`X-Orbit-Cache: HIT`, `MISS` or `STALE` on a response tells you what the server's store did; add it to your access logs to measure the hit rate. Island URLs hold the build ID, so a deploy changes every cached island's key, and the old entries age out.
+
 ## Island key: `ORBIT_KEY`
 
 Components rendered with [`server:defer`](lazy-loading.md) load in a separate request after the page, at a URL such as `/_orbit/island/ee678fa277a9c2c3/Comments-9b1e44a2?p=…`. The `p` token holds the component's props, encrypted and authenticated with the **island key**, and the path holds the **build ID**. You don't need to do anything for a single server, or for several instances of the same build: they share the key that `orbit build` embedded.
@@ -278,6 +289,7 @@ site := app.New(orbit.WithKey(key)) // key is a []byte of length 32
 
 - [Rendering](rendering.md): per-request rendering and the `dist/` layout
 - [Lazy loading](lazy-loading.md): `server:defer` islands, their tokens and the key
+- [Caching](caching.md): route caching, providers and purges
 - [Server](server.md): `cmd/server/main.go`, `ListenAndServe` and `Addr`
 - [Configuration](configuration.md): `server` and `embed`
 - [CLI reference](reference/cli.md): `orbit build`, `orbit preview` and `orbit create-key`

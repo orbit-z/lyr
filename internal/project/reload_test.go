@@ -324,8 +324,8 @@ func compareFront(t *testing.T, step string, got, want *Project) {
 	if !reflect.DeepEqual(got.Index, want.Index) {
 		t.Errorf("%s: component index differs", step)
 	}
-	if got.localsRoute != want.localsRoute {
-		t.Errorf("%s: RouteInfo field %q, want %q", step, got.localsRoute, want.localsRoute)
+	if got.localsFields != want.localsFields {
+		t.Errorf("%s: Locals fields %+v, want %+v", step, got.localsFields, want.localsFields)
 	}
 	if got.Options != want.Options || got.ServerEntry != want.ServerEntry || got.GeneratedServer != want.GeneratedServer {
 		t.Errorf("%s: options or server entry differ: %+v %s vs %+v %s", step, got.Options, got.ServerEntry, want.Options, want.ServerEntry)

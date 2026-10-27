@@ -40,6 +40,7 @@ orbit: orbit.json:3:1: invalid character '}' looking for beginning of object key
 | [`trailingSlash`](#trailingslash) | `"never"` or `"always"` | `"never"` | Whether page URLs end in `/`. |
 | [`sourcemap`](#sourcemap) | bool | `false` | Write source maps for the production CSS and JS bundles. |
 | [`watch`](#watch) | array of strings | `[]` | Extra files whose changes restart your server in `orbit dev`. |
+| [`routeRules`](#routerules) | object | none | Default cache options per route. |
 | [`markdown`](#markdown) | object | GFM and smart punctuation on, `github` / `github-dark` highlighting | How Markdown files are converted. |
 
 ## `site`
@@ -196,6 +197,47 @@ and friends</li></ul><p>
 ```
 
 With `false`, the output is the template as written.
+
+## `routeRules`
+
+Default [route caching](caching.md) options per route, so pages are cached without calling `ctx.Cache().Set` themselves. Each key is a route pattern, and each value has up to three keys:
+
+```json
+{
+  "routeRules": {
+    "/blog/[...path]": { "maxAge": 300, "swr": 3600, "tags": ["blog"] },
+    "/products/[id]": { "maxAge": 60 }
+  }
+}
+```
+
+| Key | Type | Effect |
+|---|---|---|
+| `maxAge` | whole seconds | How long a stored response stays fresh. Nothing is stored without it. |
+| `swr` | whole seconds | How long after `maxAge` a stale copy is still served while one background render refreshes it. |
+| `tags` | array of strings | Tags for [invalidation](caching.md#invalidation). |
+
+- **Patterns** use Orbit's route syntax (`[param]`, `[...rest]`) and priority, and match the request path, whichever page serves it: `/blog/[...path]` covers `/blog` and everything under it. They never match `/_orbit/` paths.
+- **Seconds**, as in Astro, where `ctx.Cache().Set` takes `time.Duration` values.
+- **The rule comes first**: it's applied before the page renders, under what your middleware set, so the middleware's values and then the page's `Set` win over it, and tags accumulate.
+- **Without a cache provider** (`orbit.WithCache` in `cmd/server/main.go`), rules do nothing.
+- **`orbit dev`** turns caching off, so rules change nothing there.
+
+The rules are compiled into the generated `app.New()`, so nothing is parsed at run time. They're checked when `orbit.json` loads: an invalid pattern, a negative or fractional number, an unknown key in a rule (unlike unknown top-level keys) or two patterns that match the same paths is an error:
+
+```json file=orbit.json expect-error
+{
+  "routeRules": {
+    "/blog/[slug": { "maxAge": 300 }
+  }
+}
+```
+
+```text
+orbit: orbit.json: routeRules["/blog/[slug"]: segment "[slug" must be text, [param] or [...rest]
+```
+
+See [Caching](caching.md) for the whole flow.
 
 ## `markdown`
 

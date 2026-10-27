@@ -331,7 +331,27 @@ Island responses carry:
 - `Cache-Control: private, no-store`. A component can set its own through `ctx.Header()`.
 - `X-Robots-Tag: noindex`, so search engines don't index the fragments.
 
-The island URLs are already deterministic, with the build ID in the path. HTTP caching of islands (`ETag` and `304` responses, and guidance on caching them publicly) is planned for a later release.
+An island that's the same for every visitor can be cached on the server with [route caching](caching.md). The deferred component calls `ctx.Cache().Set` as a page would:
+
+```orbit
+---
+import "time"
+
+type Props struct {
+	Slug string
+}
+
+ctx.Cache().Set(orbit.CacheOptions{MaxAge: 5 * time.Minute, Tags: []string{"comments:" + props.Slug}})
+---
+```
+
+- **The key is the island URL**: the build ID, the component and the props token. The same props share one stored response, and a deploy (a new build ID) starts with fresh keys.
+- **GET only**: an island sent as POST (props over about 8 KB) is never cached.
+- **`routeRules` don't apply** to `/_orbit/` paths: the component opts in itself.
+- **The browser default stays** `private, no-store`, stored with the response, unless the component sets its own `Cache-Control` with `ctx.Header()`.
+- **Per-user islands must not call `Set`**: the island request carries the visitor's cookies and goes through your middleware, often precisely because its content is per user. A cached copy goes to every visitor.
+
+With a provider configured, Orbit also answers conditional requests for islands: a stored island gets an automatic `ETag`, and any successful island response that carries an `ETag` or `Last-Modified` gets a `304` when the browser's `If-None-Match` or `If-Modified-Since` matches. A browser keeps nothing under `no-store`, so set `Cache-Control: private, no-cache` on the island for browsers to keep a copy and revalidate it. See [Conditional requests](caching.md#conditional-requests-and-etag).
 
 ### Large props: GET and POST
 
@@ -347,7 +367,7 @@ A placeholder inside an HTML fragment that you insert yourself (for example an h
 
 ### `server:defer` inside cached fragments
 
-A placeholder holds a deterministic token: the same props, component and build always give the same one. So a placeholder inside HTML that you cache with `orbit.RenderHTML` (see [Caching fragments](rendering.md#caching-fragments)) stays valid for the life of the process, and each visitor's browser still fetches the island's content with its own cookies, through your middleware. That's the way to put per-user parts inside a cached fragment.
+A placeholder holds a deterministic token: the same props, component and build always give the same one. So a placeholder inside HTML that you cache with `orbit.RenderHTML` (see [Caching fragments](rendering.md#caching-fragments)), or inside a page stored by the [route cache](caching.md), stays valid for the life of the process, and each visitor's browser still fetches the island's content with its own cookies, through your middleware. That's the way to put per-user parts inside a cached fragment.
 
 A cache shared across deploys (Redis, say) must put the deploy in its key: a new build has a new build ID and, without a stable `ORBIT_KEY`, a new key, so an old placeholder would get a 400.
 
@@ -509,6 +529,7 @@ The loader is inline, as Astro's island script is, which saves a request before 
 | `ASTRO_KEY`, `astro create-key` | `ORBIT_KEY`, `orbit create-key` |
 | `Astro.url` in a server island is the island URL; the page URL is in `Referer` | The same, with `ctx.URL` and `ctx.Request.Referer()` |
 | Island props switch to POST above 2048 characters | Above 8000 characters |
+| `Astro.cache.set(…)` in a server island caches its GET response | `ctx.Cache().Set(…)` in the deferred component, the same way; Orbit also answers `304`s |
 | `client:*` hydrates a React, Svelte, … component | `client:*` delays the vanilla `<script>`s of an `.orbit` component and its subtree |
 | `client:only` | Not supported: there are no framework components |
 

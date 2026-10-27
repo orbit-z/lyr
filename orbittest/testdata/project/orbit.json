@@ -1,1 +1,5 @@
-{}
+{
+  "routeRules": {
+    "/cached/[id]": { "maxAge": 60, "swr": 60, "tags": ["cached"] }
+  }
+}

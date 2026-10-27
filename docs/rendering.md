@@ -311,7 +311,7 @@ ctx.Header().Set("Cache-Control", "private, max-age=60")
 
 Pages get `Content-Type: text/html; charset=utf-8` unless the page sets another one, or middleware around Orbit set one on the response before calling it. Middleware around Orbit can add headers too (see [Middleware and locals](middleware.md)).
 
-Orbit doesn't compress responses or cache rendered pages. Add a gzip middleware and `Cache-Control` headers yourself; caching of SSR responses is not yet supported.
+Orbit doesn't compress responses: add a gzip middleware. To keep rendered pages and serve them again without rendering, see [Caching](caching.md); `Cache-Control` for browsers stays yours to set, as above.
 
 ## Responses are always buffered
 
@@ -408,91 +408,21 @@ The rules:
 
 ## Caching fragments
 
-`orbit.RenderHTML(ctx, slots.Default)` renders a slot, or any renderer, to an `orbit.HTML` string instead of into the page (see [Rendering a slot to a string](components.md#rendering-a-slot-to-a-string)). That's the building block of a fragment cache: a component that renders its children once, keeps the HTML for a while, and writes the cached copy on later requests. Orbit has no cache of its own; the pattern below is a few dozen lines of your code.
+[Route caching](caching.md) keeps whole responses. When only part of a page is slow and the same for everyone (a sidebar, an archive list), cache that part instead: `orbit.RenderHTML(ctx, slots.Default)` renders a slot, or any renderer, to an `orbit.HTML` string instead of into the page (see [Rendering a slot to a string](components.md#rendering-a-slot-to-a-string)), and a [`cache.Store`](caching.md#caching-data-and-fragments-cachestore) keeps it. The store has a time to live, tags and size bounds, and `Load` renders once when several requests miss the same key at the same time.
 
-The cache, with a time to live, a size cap, and single-flight, so that concurrent misses for one key render once:
+The store, one per process:
 
-```go file=internal/htmlcache/htmlcache.go
-// Package htmlcache is a small in-memory cache of rendered HTML fragments.
-package htmlcache
+```go file=internal/fragments/fragments.go
+// Package fragments holds the process's cache of rendered HTML fragments.
+package fragments
 
 import (
-	"errors"
-	"sync"
-	"time"
-
 	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/orbit/cache"
 )
 
-// Fragments is the process's fragment cache.
-var Fragments = New(10_000)
-
-// Cache maps keys to rendered HTML. It's safe for concurrent use.
-type Cache struct {
-	mu      sync.Mutex
-	max     int
-	entries map[string]*entry
-}
-
-type entry struct {
-	done    chan struct{} // closed once html and err are set
-	html    orbit.HTML
-	err     error
-	expires time.Time
-}
-
-var errPanicked = errors.New("htmlcache: render panicked")
-
-// New returns a cache that holds up to max entries.
-func New(max int) *Cache {
-	return &Cache{max: max, entries: make(map[string]*entry)}
-}
-
-// Get returns the HTML cached for key, or calls render and caches its
-// result for ttl. Concurrent calls for a missing key wait for one render.
-// Errors aren't cached.
-func (c *Cache) Get(key string, ttl time.Duration, render func() (orbit.HTML, error)) (orbit.HTML, error) {
-	for {
-		c.mu.Lock()
-		e, ok := c.entries[key]
-		if !ok {
-			if len(c.entries) >= c.max {
-				clear(c.entries) // a crude cap: start over
-			}
-			e = &entry{done: make(chan struct{})}
-			c.entries[key] = e
-			c.mu.Unlock()
-			c.fill(key, e, ttl, render)
-			return e.html, e.err
-		}
-		c.mu.Unlock()
-		<-e.done
-		if e.err != nil || time.Now().Before(e.expires) {
-			return e.html, e.err
-		}
-		c.mu.Lock()
-		if c.entries[key] == e {
-			delete(c.entries, key) // expired: the next turn renders it again
-		}
-		c.mu.Unlock()
-	}
-}
-
-// fill renders e. A failed or panicking render is removed, so the next
-// request tries again, and its waiters are always released.
-func (c *Cache) fill(key string, e *entry, ttl time.Duration, render func() (orbit.HTML, error)) {
-	defer func() {
-		c.mu.Lock()
-		if e.err != nil && c.entries[key] == e {
-			delete(c.entries, key)
-		}
-		c.mu.Unlock()
-		close(e.done)
-	}()
-	e.err = errPanicked // replaced unless render panics
-	e.html, e.err = render()
-	e.expires = time.Now().Add(ttl)
-}
+// HTML holds up to 10,000 fragments and about 32 MiB.
+var HTML = cache.New(cache.Options[orbit.HTML]{MaxEntries: 10_000, MaxBytes: 32 << 20})
 ```
 
 The component; its `key` must hold everything its children's HTML depends on:
@@ -500,21 +430,27 @@ The component; its `key` must hold everything its children's HTML depends on:
 ```orbit file=src/components/Cached.orbit
 ---
 import (
+	"context"
 	"time"
 
-	"example.com/blog/internal/htmlcache"
+	"example.com/blog/internal/fragments"
 )
 
 type Props struct {
-	Key string        // everything the children's HTML depends on
-	TTL time.Duration // how long a copy is served
+	Key  string        // everything the children's HTML depends on
+	TTL  time.Duration // how long a copy is served
+	Tags []string      // for invalidation
 }
 
-html, err := htmlcache.Fragments.Get(props.Key, props.TTL, func() (orbit.HTML, error) {
-	return orbit.RenderHTML(ctx, slots.Default)
-})
+html, tags, err := fragments.HTML.Load(ctx.Request.Context(), props.Key, props.TTL, props.Tags,
+	func(context.Context) (orbit.HTML, error) {
+		return orbit.RenderHTML(ctx, slots.Default)
+	})
 if err != nil {
 	return err
+}
+if len(tags) > 0 && ctx.Cache().Enabled() {
+	ctx.Cache().Set(orbit.CacheOptions{Tags: tags}) // a purge of these tags drops the page too
 }
 ---
 <Fragment set:html={html} />
@@ -537,7 +473,7 @@ if err != nil {
 }
 ---
 <h1>Archive</h1>
-<Cached key="archive:v1" ttl={time.Hour}>
+<Cached key="archive:v1" ttl={time.Hour} tags={[]string{"posts"}}>
   <ul>
     {for _, p := range all}
       <li><a href={"/blog/" + p.Slug}>{p.Title}</a></li>
@@ -546,15 +482,19 @@ if err != nil {
 </Cached>
 ```
 
+When a post changes, drop the fragments and the pages that hold them: `fragments.HTML.InvalidateTags("posts")`, then, when the site has a [route cache](caching.md), `site.InvalidateCache(rc, orbit.InvalidateOptions{Tags: []string{"posts"}})`.
+
 On a hit, the children don't render at all (in Astro, the slot is built on a hit too). The rules that keep this safe:
 
+- **Re-apply the tags.** Content captured by `orbit.RenderHTML` sets its cache options only when it renders. On a hit nothing renders, so the component passes the stored tags (`Load` returns them) to `ctx.Cache().Set`; otherwise a page stored by the route cache wouldn't carry them, and a purge of those tags would miss it. The `Enabled()` check skips this on a site without a provider (so there's no warning) and for a request your middleware disabled.
 - **Never cache per-user content.** The key must hold everything the HTML depends on (a data version, the locale), and the cached children must not read cookies, the session or per-user `locals`, or one visitor's page ends up in another's. Orbit can't check this for you. If you want a guard, set a flag on your `locals` around the render (`locals.Shared = true`, reset with `defer`) and make your per-user accessors refuse while it's set.
 - **Per-user parts go outside** the cached component, or inside it with `server:defer`: a deferred placeholder is the same for every visitor, and the browser loads its content per visitor, through your middleware (see [Lazy loading](lazy-loading.md#serverdefer-inside-cached-fragments)).
 - **Side effects run only on a miss**: `ctx.SetStatus`, `ctx.Header()` and `locals` writes inside the cached children happen when they render, not when a cached copy is served.
+- **Errors aren't cached**: a failed render is returned to every request waiting on it, and the next request renders again. A panic goes on in the request that rendered; the others get an error wrapping `cache.ErrLoadPanicked`.
 - **Assets need nothing**: the children's components are imported by the file that renders `<Cached>`, so their CSS and scripts are already in the page's bundles, and `client:*` markers keep working in a cached copy.
 - **No `</head>` inside**: the page's `<link>` and `<script>` tags go at the page's own `</head>`, never into a fragment, so a `</head>` inside `orbit.RenderHTML` is a render error.
-- **The render shares the request's `ctx`** only while it runs; the cache keeps only the HTML.
-- **Measure first.** A hit costs a map lookup and a copy into the page (about 20 ns for 2 KB) and a miss one allocation on top of the render, but writing static markup in place is cheaper still. Caching pays off when the children need slow data or heavy work.
+- **The render shares the request's `ctx`** only while it runs; the store keeps only the HTML.
+- **Measure first.** A hit costs about 50 ns and no allocation, plus the copy into the page, but writing static markup in place is cheaper still. Caching pays off when the children need slow data or heavy work.
 
 ## The build output: `dist/server` and `dist/client`
 
