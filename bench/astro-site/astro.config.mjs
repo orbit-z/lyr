@@ -1,5 +1,5 @@
 // @ts-check
-import { defineConfig } from 'astro/config';
+import { defineConfig, memoryCache } from 'astro/config';
 import node from '@astrojs/node';
 
 // Every page renders per request, served by a single standalone Node process,
@@ -9,4 +9,7 @@ export default defineConfig({
   adapter: node({ mode: 'standalone' }),
   // Orbit links its page stylesheet; do the same here rather than inline it.
   build: { inlineStylesheets: 'never' },
+  // In-memory route cache, like bench/orbit-site's cache.Memory: only pages
+  // that call Astro.cache.set (/fetch-cached) are stored.
+  cache: { provider: memoryCache() },
 });

@@ -60,6 +60,7 @@ var scenarioTitles = map[string]string{
 	"fetch":               "Scenario 2: 10 ms simulated fetch in the frontmatter (`/fetch`)",
 	"fetch-deferred":      "Scenario 4: the 10 ms part in a `server:defer` island (`/fetch-deferred`, then its island request)",
 	"fetch-deferred-page": "Scenario 4b: the deferred page on its own (`/fetch-deferred`, island not fetched)",
+	"fetch-cached":        "Scenario 5: the fetch page from the route cache (`/fetch-cached`, cache hits)",
 }
 
 // Markdown renders the report as Markdown tables, one per scenario.

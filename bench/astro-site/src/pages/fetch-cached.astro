@@ -1,0 +1,14 @@
+---
+import { fetchItems } from '../data';
+import Layout from '../layouts/Layout.astro';
+import ItemList from '../components/ItemList.astro';
+
+// The fetch page, stored by the route cache: fresh for an hour, so a
+// benchmark run measures cache hits.
+const items = await fetchItems();
+Astro.cache.set({ maxAge: 3600 });
+---
+<Layout title="Fetched list">
+  <h1>Latest items</h1>
+  <ItemList items={items} />
+</Layout>

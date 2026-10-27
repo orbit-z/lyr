@@ -28,7 +28,7 @@ Settings are environment variables:
 | `CONCURRENCY` | `64` | concurrent keep-alive connections (closed loop) |
 | `WARMUP`, `DURATION` | `5s`, `20s` | warm-up (not recorded) and measured window, per run |
 | `SERVERS` | `orbit-1 orbit-all astro-1 astro` | which servers to run |
-| `SCENARIOS` | `cards fetch fetch-deferred fetch-deferred-page` | which pages to run |
+| `SCENARIOS` | `cards fetch fetch-deferred fetch-deferred-page fetch-cached` | which pages to run |
 | `SERVER_CPUS` | `0-3,8-11` | CPUs for `orbit-all` and Astro |
 | `ONE_CPU` | `0` | the single CPU for `orbit-1` and `astro-1` |
 | `LOAD_CPUS` | `4-7,12-15` | CPUs for the load generator |
@@ -47,6 +47,7 @@ Run on a quiet machine: close browsers and builds, and use a fixed CPU governor 
 | 3. Cores | all pages | Each framework runs twice: `orbit-1` (`GOMAXPROCS=1`) and `astro-1` (the same Node process, all its threads) pinned to one CPU, and `orbit-all` and `astro` on every server CPU. |
 | 4. Deferred | `/fetch-deferred` | The same 10 ms list moved into a `server:defer` component with a fallback (an Astro server island on the Astro side). Each iteration GETs the page, then the island URL taken from it, as the browser's loader does. It reports page latency and TTFB, plus the island request's latency on its own. |
 | 4b. Deferred page alone | `/fetch-deferred` | Only the page, with its island never fetched (`fetch-deferred-page`): the page's TTFB without the island renders competing for the server. |
+| 5. Cached | `/fetch-cached` | The `/fetch` page stored in the route cache, fresh for an hour: `ctx.Cache().Set(orbit.CacheOptions{MaxAge: time.Hour})` with `orbit.WithCache(cache.Memory(…))` in `orbit-site/cmd/server`, and `Astro.cache.set({ maxAge: 3600 })` with `cache: { provider: memoryCache() }` in `astro.config.mjs`. Before each run the script requests the page once (a MISS, which stores it) and fails unless the next response is a HIT (`X-Orbit-Cache: HIT` / `X-Astro-Cache: HIT`), so the run measures cache hits only. The other pages never call `Set`, so they aren't cached. |
 
 The data (`orbit-site/internal/data/data.go`, `astro-site/src/data.ts`) is generated identically on both sides, once at startup.
 
@@ -60,7 +61,7 @@ The data (`orbit-site/internal/data/data.go`, `astro-site/src/data.ts`) is gener
 - **Server metrics**: the generator samples `/proc/<pid>/status` every 100 ms during the window. **RSS steady** is the median VmRSS, **peak** the maximum, and VmHWM is in the JSON. **CPU cores** is the server's utime+stime over the window divided by wall time (1.00 means one core fully busy), and **CPU ms / 1k req** is the same time per 1000 iterations: a cost per request that doesn't depend on how many cores the server had.
 - **Loader CPU**: the generator's own CPU use. If it approaches the number of `LOAD_CPUS`, that run was limited by the load generator, not the server, and its req/s is only a lower bound.
 - **A fresh server process for each (server, scenario) pair**, so each RSS figure belongs to its scenario.
-- **Content check** (`load check`): before measuring, the script fetches every page from both servers. It requires a 200 and compares the **visible text** (tags, scripts, styles and comments stripped, entities decoded, whitespace dropped), which must be identical; for scenario 4 it also compares the island responses. Byte sizes are reported and differ, because the scope attributes have different names (`data-o-xxxxxxxx` vs `data-astro-cid-xxxxxxxx`). Both sides use the JSX whitespace rules (Astro v7's default, and Orbit's).
+- **Content check** (`load check`): before measuring, the script fetches every page from both servers. It requires a 200 and compares the **visible text** (tags, scripts, styles and comments stripped, entities decoded, whitespace dropped), which must be identical; for scenario 4 it also compares the island responses. The check also stores `/fetch-cached` on both servers and asserts the next response is a HIT. Byte sizes are reported and differ, because the scope attributes have different names (`data-o-xxxxxxxx` vs `data-astro-cid-xxxxxxxx`). Both sides use the JSX whitespace rules (Astro v7's default, and Orbit's).
 
 ## Fairness choices
 

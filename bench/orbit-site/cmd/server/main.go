@@ -5,12 +5,15 @@ import (
 	"net/http"
 
 	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/orbit/cache"
 
 	"example.com/orbitbench/orbit_gen/app"
 )
 
 func main() {
-	site := app.New() // generated from src/: routes, pages and assets
+	// Generated from src/: routes, pages and assets. The in-memory route
+	// cache stores only pages that call ctx.Cache().Set (/fetch-cached).
+	site := app.New(orbit.WithCache(cache.Memory(cache.MemoryOptions{})))
 
 	mux := http.NewServeMux()
 	// Add your own routes here. More specific patterns win over "/":

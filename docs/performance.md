@@ -138,7 +138,7 @@ A page that waits on data costs whatever the data costs, however fast the render
 - **Sites without a provider pay nothing.** On a site with one, a page that never caches pays about 25 ns: its route has never stored and matches no rule, so it isn't looked up.
 - **Hot keys scale**: eviction uses CLOCK, so a hit takes a read lock and sets a bit instead of moving the entry under a write lock (a mutex LRU measured 67 ns per HIT at 16 threads in the prototype).
 
-The HTTP benchmark against Astro (`bench/run.sh`, [Results](#results)) doesn't have a cached-page scenario yet; the numbers above are the runtime's Go benchmarks.
+These are the runtime's Go benchmarks. Over HTTP against Astro's route cache, see [the fetch page from the route cache](#the-fetch-page-from-the-route-cache-fetch-cached) in the results.
 
 ## Slow data and the first byte: `server:defer`
 
@@ -245,7 +245,7 @@ Two dedicated sites in the Orbit repository mirror each other page for page:
 - `bench/orbit-site`, the Orbit version;
 - `bench/astro-site`, the same site in Astro, served by `@astrojs/node` in standalone mode, as **a single Node process** (no cluster, no Bun), with `output: 'server'`.
 
-They're kept separate from the example blog so the comparison is easy to audit. Every benchmark page renders on each request in both sites: `src/pages/cards.orbit`, `src/pages/fetch.orbit` and `src/pages/fetch-deferred.orbit`, with `.astro` mirrors.
+They're kept separate from the example blog so the comparison is easy to audit. Every benchmark page renders on each request in both sites: `src/pages/cards.orbit`, `src/pages/fetch.orbit`, `src/pages/fetch-deferred.orbit` and `src/pages/fetch-cached.orbit`, with `.astro` mirrors. The one exception is `fetch-cached`, which both sites store in their in-memory route cache.
 
 **Scenarios**, driven by `bench/load`, a small load generator written in Go (closed loop over keep-alive connections, exact percentiles, RSS and CPU sampled from `/proc`). `bench/run.sh` builds both sites, checks they serve the same visible text, and runs every scenario with a fresh server process. The server and the load generator are pinned to separate physical cores:
 
@@ -253,6 +253,7 @@ They're kept separate from the example blog so the comparison is easy to audit. 
 2. **Realistic** (`fetch`): a page whose frontmatter waits on a simulated 10 ms data fetch. This measures how well each server handles many requests waiting on I/O at once.
 3. **Cores**: Orbit runs each scenario twice, with `GOMAXPROCS=1` (one core, the fair comparison with a single Node process) and with all cores (how a Go server normally runs). Astro also runs twice: on the same 8 CPUs as Orbit at all cores, so its garbage collector and I/O threads have room, and pinned to one CPU, like Orbit at `GOMAXPROCS=1`.
 4. **Deferred** (`fetch-deferred`): the 10 ms-fetch page with the slow part moved into a `server:defer` component (Astro's mirror uses `server:defer` too). This measures the page's time to first byte, and the island request's latency on its own. A second run requests only the deferred page, as fast as the server allows, to show what the page costs without its island.
+5. **Cached** (`fetch-cached`): the 10 ms-fetch page with `ctx.Cache().Set(orbit.CacheOptions{MaxAge: time.Hour})`, served from `cache.Memory` (Astro's mirror calls `Astro.cache.set({ maxAge: 3600 })` with Astro 7's `memoryCache()` provider). The script stores the page before measuring and fails unless the next response is a HIT (`X-Orbit-Cache: HIT`, `X-Astro-Cache: HIT`), so the run measures cache hits only: what a stored page costs end to end, over HTTP.
 
 **Metrics**:
 
@@ -344,6 +345,19 @@ The deferred page on its own, without its island (`fetch-deferred-page` in `benc
 | Astro | 8,880 | 6.43 ms | 13.3 ms | 601 MB | 0.159 ms |
 
 Even without island requests, Astro's TTFB is mostly queueing: one thread at about 8,900 pages per second is full. Orbit at all cores is limited by the load generator here, which used about 6 of its 8 CPUs. Deferring costs the page one seal of its props (about 1 µs, see [Slow data and the first byte](#slow-data-and-the-first-byte-serverdefer)), which is why this page costs Astro more CPU than `/fetch`.
+
+### The fetch page from the route cache (`/fetch-cached`)
+
+The `/fetch` page stored by each framework's in-memory route cache, fresh for an hour: every measured request is a HIT, with no render and no 10 ms wait.
+
+<!-- TODO: fill from a full bench/run.sh on a quiet machine. -->
+
+| Server | req/s | p50 | p99 | Memory (RSS) | CPU per page |
+|---|---:|---:|---:|---:|---:|
+| Orbit, `GOMAXPROCS=1` | — | — | — | — | — |
+| Orbit, all cores | — | — | — | — | — |
+| Astro, one CPU | — | — | — | — | — |
+| Astro | — | — | — | — | — |
 
 ### Orbit vs. other Go templates (`bench/go`)
 

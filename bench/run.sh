@@ -7,7 +7,7 @@
 # Settings (environment):
 #   CONCURRENCY=64  WARMUP=5s  DURATION=20s
 #   SERVERS="orbit-1 orbit-all astro-1 astro"
-#   SCENARIOS="cards fetch fetch-deferred fetch-deferred-page"
+#   SCENARIOS="cards fetch fetch-deferred fetch-deferred-page fetch-cached"
 #   SERVER_CPUS=0-3,8-11  ONE_CPU=0  LOAD_CPUS=4-7,12-15   (taskset lists)
 #   SKIP_BUILD=1  (reuse the existing builds)
 set -euo pipefail
@@ -29,7 +29,7 @@ CONCURRENCY="${CONCURRENCY:-64}"
 SERVERS="${SERVERS:-orbit-1 orbit-all astro-1 astro}"
 # fetch-deferred-page requests only /fetch-deferred (its island is never
 # fetched), for the page's TTFB on its own.
-SCENARIOS="${SCENARIOS:-cards fetch fetch-deferred fetch-deferred-page}"
+SCENARIOS="${SCENARIOS:-cards fetch fetch-deferred fetch-deferred-page fetch-cached}"
 # Physical-core split. On this kind of CPU (Linux numbering), CPU n and CPU n+8
 # are the two SMT threads of one core, so the server gets cores 0-3 (both
 # threads) and the load generator cores 4-7: they never share a core.
@@ -92,6 +92,20 @@ wait_ready() { # URL
 
 port_of() { if [[ "$1" == astro* ]]; then echo "$ASTRO_PORT"; else echo "$ORBIT_PORT"; fi; }
 
+# ensure_cached SERVER URL: stores the page in the route cache (the first
+# request is a MISS) and fails unless the next response is a HIT, so a cached
+# run measures hits only.
+ensure_cached() {
+	local header=X-Orbit-Cache got
+	if [[ "$1" == astro* ]]; then header=X-Astro-Cache; fi
+	curl -fs -o /dev/null "$2"
+	got="$(curl -fs -o /dev/null -D - "$2" | tr -d '\r' | awk -v h="$header" 'tolower($1) == tolower(h ":") {print $2}')"
+	if [[ "$got" != HIT ]]; then
+		log "$1: $2 is not served from the route cache ($header: ${got:-missing}, want HIT)"
+		exit 1
+	fi
+}
+
 pinner() { # CPUS: prints the exec prefix (taskset execs the server, so $! is its PID)
 	if [[ "$PIN" == 1 ]]; then echo "taskset -c $1"; else echo env; fi
 }
@@ -144,7 +158,11 @@ CHECK="$WORK/check.txt"
 	"$LOAD" check -a "http://127.0.0.1:$ORBIT_PORT/cards" -b "http://127.0.0.1:$ASTRO_PORT/cards"
 	"$LOAD" check -a "http://127.0.0.1:$ORBIT_PORT/fetch" -b "http://127.0.0.1:$ASTRO_PORT/fetch"
 	"$LOAD" check -island -a "http://127.0.0.1:$ORBIT_PORT/fetch-deferred" -b "http://127.0.0.1:$ASTRO_PORT/fetch-deferred"
+	"$LOAD" check -a "http://127.0.0.1:$ORBIT_PORT/fetch-cached" -b "http://127.0.0.1:$ASTRO_PORT/fetch-cached"
 } | tee "$CHECK"
+# The check stored /fetch-cached on both servers: its next response is a hit.
+ensure_cached orbit-all "http://127.0.0.1:$ORBIT_PORT/fetch-cached"
+ensure_cached astro "http://127.0.0.1:$ASTRO_PORT/fetch-cached"
 stop_server
 SERVER_PID="$ORBIT_PID"
 stop_server
@@ -157,6 +175,7 @@ for server in $SERVERS; do
 		start_server "$server"
 		island=()
 		if [[ "$scenario" == fetch-deferred ]]; then island=(-island); fi
+		if [[ "$scenario" == fetch-cached ]]; then ensure_cached "$server" "http://127.0.0.1:$(port_of "$server")/fetch-cached"; fi
 		pin "$LOAD_CPUS" "$LOAD" run -url "http://127.0.0.1:$(port_of "$server")/${scenario%-page}" "${island[@]}" \
 			-c "$CONCURRENCY" -warmup "$WARMUP" -d "$DURATION" -pid "$SERVER_PID" \
 			-server "$server" -scenario "$scenario" >>"$RUNS"
