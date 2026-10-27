@@ -4775,6 +4775,9 @@ One line per friction point the `nyth` port (`~/Projects/nyth`, branch `orbit-po
 | 2026-10-27 | Astro `partial = true` fragment pages have no Orbit equivalent | `browse/cards`, `comments/`, `takedown/[id]/parts` | **workaround** (user decision): Go handlers with `orbit.RenderComponent` |
 | 2026-10-27 | A page can't return an arbitrary non-HTML body (plain-text 400, empty 429) | partials, takedown | **workaround**: typed errors through the app's error handler (§4c) |
 | 2026-10-27 | `<Cacher>` HTML fragment cache | chapter page reader, book page | **accepted**: dropped, data cache + route cache (§12 "No component cache"); revisit if a measurement asks |
+| 2026-10-27 | No struct spread into a component: Astro's `<NovelCard {...card} />` has no equivalent (`{...}` on a component needs an `orbit.RestAttrs` field) | `BookCards.orbit:20` | **workaround**: pass the struct as one prop (`card={…}`); **open**: whether to spec a props-struct spread |
+| 2026-10-27 | `RouteInfo` can't be built outside Orbit, so app-handler routes (`chapters.json` in `cmd/server`) need the app's own path to the page log | page log | **workaround**: nyth converts `r.Pattern` (`server.AppRoute`), as decided in §4g (Q4) |
+| 2026-10-27 | Orbit's trailing-slash redirect covers pages only, so an app handler at `/browse/cards/` 404s on `/browse/cards` (Astro 301s) | `browse/cards` | **open** |
 
 ## 13. Verification
 - `go test ./...` covers:
