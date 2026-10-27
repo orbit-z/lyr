@@ -2557,7 +2557,7 @@ A call site: `<Cacher key={ui.CardKey(book)} ttl={6 * time.Hour} store="cards"><
 - Streaming or partial flushes (responses stay buffered).
 
 ## 4e. Trailing slashes
-**Status: Implemented** (2026-10-26). Implementation notes:
+**Status: Implemented** (2026-10-26); an addition, a trailing-slash middleware placed before the user's middleware, is proposed at the end of this section ("Redirecting before middleware"). Implementation notes:
 - Runtime: `type TrailingSlash uint8`, `TrailingSlashNever`/`TrailingSlashAlways`, `WithTrailingSlash` (`site.go`); the router keeps an `always` flag and an `ext` flag per compiled route; `find` cuts the slash as a substring in `always`, `lookupPath` is the mode-free trie lookup that `redirectTarget` uses in both modes; `hasFileExtension` is rule 4's byte loop (`router.go`). Tests: `router_slash_test.go` (table tests in both modes, the predicate, redirect targets, `TestMatchAllocsAlways`, `FuzzMatchAlways` against the `never` router), `site_slash_test.go` (308 with an empty body for GET/HEAD/POST in both modes, files/`public/`/islands never redirected, Orbit-first mux routes, `TestServeAllocsAlways`: 1 alloc).
 - `internal/config`: `Config.TrailingSlashAlways` (a bool; `"never"` is the zero value). `internal/project` `appGo` adds `orbit.WithTrailingSlash(orbit.TrailingSlashAlways)` to `defaults` (after `WithSite`, before `embedded` and the caller's options) only for `"always"`; goldens `testdata/extras/{always,sitealways}.app_app.go.golden`.
 - `internal/markdown`: `CanonicalURL(route, always)` (with its own copy of the extension predicate; the runtime's is unexported) for `const URL` (`GenInput.TrailingSlashAlways`) and the project's `Resolver`.
@@ -2652,6 +2652,129 @@ User answers: (Q1) **308 for every method**, today's status kept (user decision,
 - Collapsing duplicate slashes (`/x//`), and Astro's unconditional redirect of paths that match nothing.
 - Rewriting or checking `href`s in templates. A later `orbit check` warning for literal internal links that don't follow the mode is a possible addition.
 - A per-route override.
+
+#### Redirecting before middleware (accepted)
+**User answers (2026-10-27)**: (Q1) a, the name `site.TrailingSlash`; **(Q2) b, pages only** (not the recommended mux coverage), so the shape is `func (s *Site) TrailingSlash(next http.Handler) http.Handler` with no `routes ...*http.ServeMux` argument: everything below about mux arguments, `mux.Handler` probing and its allocations is dropped; app routes keep their own redirect (nyth's `slashRedirect`). (Q3) a, `orbit new`'s `main.go` uses it by default (`site.TrailingSlash(mux)`).
+
+**Status: proposed** (spec 2026-10-27; nothing implemented). User decision it's designed within (2026-10-27, from the `nyth` port, §12.1): Orbit provides a **trailing-slash middleware that apps put first in the chain**, matching Astro's order; `site.Middleware` keeps its own redirect (Rule 5 above) for apps that don't use it. Everything above (modes, canonical URLs, the 308, what's never redirected) is unchanged.
+
+**Why**: Orbit redirects inside `site.Middleware`, i.e. **after** the user's middleware chain. Astro redirects **before** it, in two places (verified in `astro@7.3.8` and `@astrojs/node@11.1.7`, `bench/astro-site/node_modules`):
+- `astro/dist/core/routing/handler.js:63-66`: `handleRequest` calls `handleTrailingSlash(state)` right after `rejectInvalidEncoding` and before the route check and `render` (which runs the middleware chain, then the page). `core/routing/trailing-slash-handler.js:42-62` (`redirectTrailingSlash`): `/` and `isInternalPath` paths (prefixes `/_`, `/@`, `/.`, `//`; `@astrojs/internal-helpers/dist/path.js:60-65`) are never redirected; several trailing slashes are first collapsed (`MANY_TRAILING_SLASHES = /\/{2,}$/`, `path.js:24-30`); `always` appends `/` when `!hasFileExtension` (`WITH_FILE_EXT = /\/[^/]+\.\w+$/`, `path.js:183-186`), `never` removes it; **unconditional** (no route check). Status `GET ? 301 : 308` (`trailing-slash-handler.js:28`), `Location` = path + `url.search`, an HTML redirect body (`core/routing/3xx.js`).
+- `@astrojs/node/dist/serve-static.js:57-84` (standalone, runs before the app for every request, `standalone.js:41-50`): in `always`, every path without a slash, an extension or an internal prefix gets a **301 for any method**; in `never`, only a static *directory* with a trailing slash is redirected (301).
+
+So with an auth gate before Orbit, a signed-out visitor on `/fiction/b` (`always`) gets the gate's 303 to `/signin/` instead of the 308 to `/fiction/b/`, then signs in and lands on the slash-less URL, which only now redirects; the page log records the gate's answer under the wrong URL form. And an app handler registered at `/browse/cards/{$}` 404s on `/browse/cards` (§12.1), because Rule 5 only knows Orbit's pages. nyth works around both halves for its own handlers (`apps/website-orbit/cmd/server/main.go` `slashRedirect`: probes its `ServeMux` with the slashed path); Orbit's pages still redirect after the gates.
+
+**End-to-end example** (recommended shape: (Q1) a, (Q2) a)
+```go
+// cmd/server/main.go
+func main() {
+	site := app.New()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/hello", hello)
+	mux.Handle("/browse/cards/{$}", browseCards)
+	mux.Handle("/", site.Handler())
+
+	// Trailing-slash redirects first, as in Astro: before auth, sessions and
+	// locals. Pass the mux so its routes get them too.
+	h := site.TrailingSlash(logging(auth(mux)), mux)
+
+	if err := orbit.ListenAndServe(h); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+With `"trailingSlash": "always"`: `GET /fiction/b` from a signed-out visitor → **308 `/fiction/b/`** (auth never runs), then `/fiction/b/` → auth's 303 to `/signin/`; `GET /browse/cards?page=2` → 308 `/browse/cards/?page=2`; `GET /api/hello` → `hello` (its own form is registered; `/api/hello/` isn't); `GET /fiction/b/` → auth → Orbit, which matches and renders without checking any redirect (Rule 3). nyth: `root.Handle("/", orbitSite.TrailingSlash(http.NewCrossOriginProtection().Handler(server.Middleware(o, mux)), mux))`, and `slashRedirect` is deleted.
+
+**API** ((Q1)): in `site.go`, stdlib only:
+```go
+// TrailingSlash redirects the non-canonical form of a page URL (per
+// orbit.json's trailingSlash) with a 308 before calling next, so middleware
+// inside it never sees the other form: Astro's order. Put it outermost,
+// inside an access logger if you want the redirects logged. Routes of each
+// mux passed get the same redirect when their own form isn't registered and
+// the other form is (see PLAN §4e). Anything else reaches next untouched.
+// site.Middleware keeps its own redirect, so a request it redirected never
+// gets a second one.
+func (s *Site) TrailingSlash(next http.Handler, routes ...*http.ServeMux) http.Handler
+```
+A method on `Site` because the rule needs the site's router, its file sets and its mode (set by `app.New()` from `orbit.json`, `WithTrailingSlash`); the same shape as `Middleware`. An option can't do it: no Orbit option can move Orbit before the user's middleware, which is the user's code.
+
+**Rules**
+1. **Canonical form passes at once**: in `never` a path not ending in `/`, in `always` a path ending in `/` (and `/` in both) is passed to `next` after one byte check: the same `*http.Request`, nothing read or written. No collapsing (`/x//` passes, as Rule 5 above). So the common request costs a branch.
+2. **Non-canonical form, Orbit's side**: the redirect decision is **`site.Middleware`'s, from one shared helper** (`slashRedirect(r) (target string, ok bool)`: `classify(nil, r)`, then `redirectTarget` when it's `dispatchPage`); `site.Middleware` calls `redirectTarget` after its failed match, as today, and a test asserts they agree (below), so they can't drift. That keeps every exclusion: island URLs and other `/_orbit/` paths (any method), GET/HEAD of an existing `/_orbit/*` or `public/` file (an extension-less `public/LICENSE` in `always` is served, not redirected), `//…`, extension paths in `always`, and paths whose other form isn't a page. No `router.find` is needed: a non-canonical path never matches a page except an extension route, which is never redirected (Rule 3 above).
+3. **Non-canonical form, the app's side** (only with `routes`, (Q2) a): for each mux in order, `mux.Handler` on a probe request with the other form (`Path`, and `RawPath` when set, ± `/`; same method and host; built by value, so `r` is untouched). The other form counts when the mux returns a pattern that is **neither empty, nor `/`, nor a subtree pattern** (one ending in `/`; `{$}` patterns count). Then the request's own form is probed the same way: if it's registered too (both `/x` and `/x/{$}`), no redirect. Same exclusions as Rule 2 (`/`, `/_orbit/`, `//`, files, extensions in `always`). `Location` is the other form's escaped path plus `?` + `RawQuery`.
+   - Why subtree patterns don't count: `mux.Handle("/docs/", fileServer)` would turn every extension-less file under it into a redirect, and in `never` a `/docs/` → `/docs` redirect loops with ServeMux's own `/docs` → `/docs/` 301. Why the catch-all doesn't: it's usually `site.Handler()`, whose pages Rule 2 already covers.
+   - Probing the other form first means a request for a registered route (`POST /api/like` in `always`) costs one probe, not two.
+4. **Response**: 308 for every method (the user's (Q1) above), `Location` as Rule 5 above, empty body, no `Cache-Control` (as today and as Astro). `next` isn't called.
+5. **Placement**: outermost, so auth, sessions, CSRF checks and locals never see the other form; an access logger may wrap it to log the 308s (Astro's middleware doesn't see them; a Node access log in front of Astro does). Under a prefix (`http.StripPrefix`), place it inside, on the path Orbit sees (as `site.Match`, §4g).
+6. **Double redirect**: none. A request it redirects never reaches `site.Middleware`; a request it passes is either canonical or one `site.Middleware` won't redirect either (same helper), unless a middleware rewrote the path in between, in which case Orbit's own redirect still applies to the new path. `site.Middleware`'s redirect stays (user decision), with no "already checked" flag (decided by rule: simplest; its check only runs after a failed match).
+7. **`site.Match`** (§4g): unchanged. It returns `RouteNone` for a path that would be redirected; with `TrailingSlash` first, middleware never sees such a path, so `l.Route = site.Match(r)` only ever sees canonical paths, as in Astro (`context.routePattern` is set only after the redirect).
+8. **Route caching** (§4h): unchanged. The redirect happens before any locals or `Cache` exist; redirects are never stored (as today and as Astro, whose cache wraps only the middleware chain).
+9. **Islands, static files**: never redirected (Rule 2); `/_orbit/` requests pass after the prefix check.
+10. **Dev and prod**: the same (the user's `main.go` runs in both). In dev, a non-canonical GET/HEAD path opens the `public/` file once more to rule it out (Rule 2's `hasFile`), as `site.Match` does.
+11. **Generated default entry** (`orbit_gen/cmd/server`, no user entry): unchanged, `site.Handler()` has no middleware in front, so its redirect is already first (decided by rule: simplest).
+
+**Alloc budget** (asserted with `testing.AllocsPerRun`, both modes)
+- Canonical pass-through (Rule 1): **0**, and ≤ ~2 ns (`BenchmarkTrailingSlashPass`).
+- Non-canonical without `routes`, not redirected (a file, an island, an extension path, no page): **0** (a static-index map miss and one trie lookup, ~30–50 ns, as `site.Match`).
+- A redirect: the same as `site.Middleware`'s redirect today (the `Location` string and header slice).
+- With `routes`, a non-canonical path no page claims: `net/http`'s `ServeMux.Handler` allocates on its own (measured, Go 1.27.3: 0 for an exact `GET /api/items` match, 1 for a `{$}` or wildcard match, ~5 for a miss falling to `/`), plus the other form's path in `always` (a concatenation). Measured and documented, not asserted beyond a ceiling, since it's the stdlib's. In `never` this path is rare (trailing-slash requests); in `always` it's every request to an extension-less app route, so the docs say to register such routes with the slash or accept a few allocations.
+- `TestServeAllocs`, `TestRenderAllocs`, `TestServeRouteInfoAllocs`, `TestSiteMatchAllocs`: unchanged (`site.Middleware`'s serve path doesn't change).
+
+**`orbit new`** ((Q3) a): the scaffolded `cmd/server/main.go` wraps the mux:
+```go
+	// Trailing-slash redirects (orbit.json's trailingSlash) run first, as in
+	// Astro. Wrap your own middleware inside: site.TrailingSlash(logging(mux), mux).
+	if err := orbit.ListenAndServe(site.TrailingSlash(mux, mux)); err != nil {
+```
+
+**(Q) points**
+- **(Q1) Shape and name.**
+  - (a) **Recommended**: `site.TrailingSlash(next http.Handler, routes ...*http.ServeMux) http.Handler`, a method like `Middleware`. Named after `orbit.json`'s key, Astro's term and `WithTrailingSlash`, so it's found by searching either. Trade-off: on its own, `site.TrailingSlash(…)` could read as a getter for the mode.
+  - (b) The same, named `site.RedirectSlashes(next, …)` (chi's `middleware.RedirectSlashes`): says what it does; a second name for one concept.
+  - (c) `site.Middleware` gains an early mode (`orbit.WithSlashFirst()`): impossible as such (Orbit can't move before the user's middleware), so it would still need a wrapper; rejected.
+- **(Q2) Which routes it covers.**
+  - (a) **Recommended**: Orbit's pages through the shared helper (exactly `site.Middleware`'s rule), **plus the routes of any `*http.ServeMux` passed** (Rule 3). Fixes both halves of the §12.1 row (gates first, `/browse/cards`), deletes nyth's `slashRedirect`, and never steals a registered form or loops with ServeMux/FileServer redirects. Costs: a variadic argument; `ServeMux.Handler`'s allocations on non-canonical paths no page claims; other routers (chi) aren't covered (they'd keep their own, e.g. chi's `RedirectSlashes`).
+  - (b) Pages only (the shared helper, no argument). Smallest, can't drift, 0 allocations everywhere; nyth keeps its own `slashRedirect` for its handlers, and apps with slash routes write one.
+  - (c) Astro's unconditional rule: every non-canonical path except `/`, `/_orbit/`, `//`, files and extension paths. Exact Astro parity, no probe; but it redirects every app route registered in the other form (`/api/items` in `always` → `/api/items/` → 404), and in `never` a ServeMux subtree (`/docs/`) or `http.FileServer` directory loops (`/docs/` → 308 `/docs` → 301 `/docs/`). Reverses §4e's pages-only rule (user-accepted) for every app using it.
+  - (d) (a) with an interface instead of `*http.ServeMux`: `interface{ Handler(*http.Request) (http.Handler, string) }`. Same for ServeMux users, open to adapters; one more exported type for a case nobody has yet. Could replace (a)'s parameter type later without breaking callers (a `*ServeMux` satisfies it).
+- **(Q3) `orbit new`'s `main.go`.**
+  - (a) **Recommended**: use it by default (above). Astro's order from day one, so a gate added later already sits behind the redirect; free on canonical paths; app routes get redirects too. Trade-offs: `mux, mux` reads oddly at first (hence the comment); getting-started's `main.go` grows one concept.
+  - (b) Leave the scaffold as is; document it in `middleware.md`/`server.md`. Smaller first file, but every app that adds auth meets the ordering problem first.
+
+**Decided by rule** (for `DECISIONS.md`):
+- Canonical paths pass on a byte check; no collapsing of `/x//` (simplest; §4e Rule 5).
+- Same exclusions and `Location` as §4e Rule 5, from the same helper (simplest; can't drift).
+- Status 308 for every method, empty body (the user's §4e (Q1); Astro 301s GET).
+- No `Cache-Control` on the 308 (Astro sends none).
+- `site.Middleware`'s redirect kept without a skip flag (simplest).
+- Mux probe: other form first, subtree and catch-all patterns don't count, own form registered wins, method and host as the request's (Go stdlib: ServeMux's matching and its own redirect).
+- Placement: outermost, an access logger may wrap it (Astro: before middleware).
+- Generated default entry unchanged (simplest).
+- Astro's `rejectInvalidEncoding` 400 for doubly-encoded paths: not copied (out of scope; Go's URL parser already rejects invalid escapes).
+
+**Tests (what must exist)**
+- `site_slash_test.go`, table-driven, both modes × GET/HEAD/POST × dev/prod: a page's other form → 308 with `Location` (query kept, escaped path) and `next` not called (a recorder in `next`, and a "gate" in between that fails the test if it runs); canonical paths → `next` called with the same `*http.Request`; `/`, `/_orbit/x`, an island URL, a `public/` file (extension-less in `always`), `//evil.example`, an extension path, `/x//`, a non-page → `next`.
+- Mux routes: an exact pattern, a `{$}` pattern, a method-specific pattern with another method (no redirect, the mux's 405), a wildcard; a subtree pattern and the catch-all don't count; both forms registered → no redirect; two muxes; ServeMux's own `/docs` → `/docs/` doesn't loop (follow `Location`s ≤ 5 hops through `site.TrailingSlash(mux, mux)` and assert it ends in a non-3xx).
+- **Agreement**: for `TestSiteMatchAgrees`'s corpus (paths × methods × modes × dev/prod), `TrailingSlash(rec)` without `routes` redirects iff `Middleware(rec)` does, to the same `Location`.
+- **One redirect**: `TrailingSlash(site.Middleware(next))` and the scaffold's `TrailingSlash(mux, mux)`: the other form gets exactly one 308, and following it gives the page's 200.
+- `AllocsPerRun`: the budget above (0 for pass-through and non-redirected paths without `routes`; the redirect's count equal to `site.Middleware`'s); `BenchmarkTrailingSlashPass`/`…Redirect`/`…Probe`.
+- `internal/scaffold`: `TestFiles` golden of `main.go`; `TestCreate` builds it.
+- `internal/build`: `TestBuildTrailingSlashAlways` gains a server with a gate before Orbit (`/blog/hello` → 308, not the gate's status).
+- docstest builds the docs examples.
+
+**User-docs changes (with the implementation)**
+- `routing.md` "Trailing slashes": a "Redirecting before your middleware" part (why, the call, mux routes and what doesn't count); replace "Middleware that wraps Orbit runs before the redirect" with both cases.
+- `middleware.md` "Where middleware goes": the paragraph on seeing both forms (line ~131) explains `site.TrailingSlash` outermost; the request-flow diagram adds it.
+- `server.md`: both patterns (A and B) show it; the trailing-slash bullet of pattern B mentions it.
+- `getting-started.md`, `caching.md`, `migrating-from-astro.md`: their scaffold-shaped `main.go` snippets follow (Q3).
+- `coming-from-astro.md`: the `trailingSlash` row: redirects before middleware with `site.TrailingSlash`, and (per (Q2)) which routes it covers vs Astro's unconditional rule.
+- `reference/runtime-api.md`: `Site.TrailingSlash`. `DECISIONS.md`, `CHANGELOG.md`. `docs/site/cmd/server/main.go` uses it.
+
+**Out of scope**: chi/Gin route coverage (they have their own slash middleware); collapsing `/x//`; Astro's unconditional redirect unless (Q2) c; a 301 for GET (the user's §4e (Q1)).
+
+**Size**: runtime ~50–70 lines (`TrailingSlash`, the shared helper split out of `ServeHTTP`, the mux probe), tests ~250 lines, scaffold ~3 lines plus golden, docs ~60 lines; nyth: one line in `newHandler`, `slashRedirect` (~30 lines) removed.
 
 ## 4f. Loading data concurrently
 **Status: Implemented** (2026-10-26; runtime `load.go`, docs `docs/data-loading.md`; notes, deviations and measurements under "Implementation" at the end of this section). Accepted 2026-10-26. User answers, all as recommended: (Q1) `orbit.All(ctx, loads...)`; (Q3) cancellation: each load gets a context cancelled on the first error; (Q5) a panic in a load is recovered there, the others cancelled, then re-panicked on the page's goroutine; (Q6) the name `orbit.All`. (Q2) first error in time, (Q4) the failing load's `.orbit` position, (Q7) `*orbit.Ctx` as the first argument and (Q8) no memoizing helper in the runtime: decided by the coordinator with the recommendations (rule: simplest / Go stdlib errgroup semantics). User direction (2026-10-26): "ideally we should be able to load all the data at the page level". So **page-level loading is the documented main way to fetch data**; `server:concurrent` (§3.6) stays the porting escape hatch for components that fetch their own data, Astro style; and the runtime gets **a small helper that runs several loads concurrently in a frontmatter and returns the first error**.
