@@ -479,6 +479,7 @@ Some differences are on purpose, so expect them in the diff or normalize them:
 - **`<` and `>` in attribute values** are written as `&lt;` and `&gt;`, which Astro leaves raw. Browsers read both the same.
 - **`orbit.Attrs` spreads are sorted by name**, since a Go map has no order. Where the order matters, use an `orbit.AttrList`, which keeps it. See [Spread attributes](reference/template-syntax.md#spread-attributes).
 - **Whitespace under `compressHTML: "jsx"`** (the default, as in Astro v7): Orbit also applies the JSX rules to text directly inside a component's children or a `<Fragment>`, which Astro leaves as written. See [Whitespace](reference/template-syntax.md#whitespace).
+- **An empty attribute value is written `=""`** (`alt=""`), where Astro writes the bare attribute (`alt`). The DOM is the same.
 - **Booleans on `data-*` and custom-element attributes** are a bare attribute or nothing, where Astro writes `"true"`/`"false"`. `aria-*` is the same in both. See [Attribute values](reference/template-syntax.md#attribute-values-on-html-elements).
 
 ## 11. Common pitfalls

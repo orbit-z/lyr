@@ -567,13 +567,14 @@ The scaffolded `tsconfig.json`:
     "allowJs": true,
     "allowImportingTsExtensions": true,
     "skipLibCheck": true,
-    "rootDirs": [".", "orbit_gen/types"]
+    "rootDirs": [".", "orbit_gen/types"],
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src/**/*.ts", "orbit_gen/types/*.d.ts"]
 }
 ```
 
-It's yours to change. The `rootDirs` and `include` entries let TypeScript find the generated types of `import … from "./X.orbit"` in `orbit_gen/types/` (see [Typed data with `orbit.JSON`](#typed-data-with-orbitjson)). A project created before they existed needs them only for your editor's TypeScript in `.ts` files: `orbit check` and the TypeScript features in `<script>` blocks add them themselves, and `orbit doctor` warns when a project uses typed data without them.
+It's yours to change. `paths` gives scripts and component imports the `@/` alias for `src/` (see [Import aliases](components.md#import-aliases)). The `rootDirs` and `include` entries let TypeScript find the generated types of `import … from "./X.orbit"` in `orbit_gen/types/` (see [Typed data with `orbit.JSON`](#typed-data-with-orbitjson)). A project created before they existed needs them only for your editor's TypeScript in `.ts` files: `orbit check` and the TypeScript features in `<script>` blocks add them themselves, and `orbit doctor` warns when a project uses typed data without them.
 
 ### Type checking with `orbit check`
 
