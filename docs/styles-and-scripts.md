@@ -203,6 +203,8 @@ Use this for JSON-LD, third-party snippets that must stay verbatim, and small sc
 
 As in Astro, Orbit removes the `is:inline` directive itself and leaves everything else in the tag untouched. `is:inline` also works on `<style>`: the style is emitted where it is, unscoped and unbundled.
 
+A `<script>` or `<style>` with `set:html={…}` (or `set:text`) is inline too, as in Astro, with the directive's value as its content: `<script is:inline set:html={themeInit}></script>` writes a script built in Go. See [`set:html`](reference/template-syntax.md#directives).
+
 ## Bundling and deduplication per page
 
 Each page gets its own bundle. Its contents are decided statically, from imports:

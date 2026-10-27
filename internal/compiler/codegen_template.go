@@ -66,12 +66,12 @@ func (g *cgGen) node(n Node, c *wsCtx, i int) {
 		if n.Processed {
 			return // bundled in milestone 6
 		}
-		g.rawElement(&n.Tag, n, n.Content, n.JSON)
+		g.rawElement(&n.Tag, n, n.Content)
 	case *Style:
 		if n.Processed {
 			return
 		}
-		g.rawElement(&n.Tag, n, n.Content, false)
+		g.rawElement(&n.Tag, n, n.Content)
 	}
 }
 
@@ -548,13 +548,14 @@ func (g *cgGen) discardSwitch(n *Switch) {
 }
 
 // rawElement emits a script or style that isn't processed: copied as
-// written, minus its directives, with set:json content for a JSON script.
-func (g *cgGen) rawElement(t *Tag, node Node, content RawText, json bool) {
+// written, minus its directives, or with the content of its set:html,
+// set:text or set:json (as in Astro).
+func (g *cgGen) rawElement(t *Tag, node Node, content RawText) {
 	o := g.o
 	o.html("<" + t.Name)
 	set := g.htmlAttrs(t, node)
 	o.html(">")
-	if json && set != nil && set.Directive == SetJSON {
+	if set != nil {
 		g.setContent(set, node)
 	} else {
 		o.html(content.Text)

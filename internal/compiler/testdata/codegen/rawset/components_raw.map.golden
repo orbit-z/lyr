@@ -1,0 +1,18 @@
+orbit_gen/decl/components/raw/decl.go (src/components/Raw.orbit)
+orbit_gen/impl/components/raw/render.go (src/components/Raw.orbit)
+  exact 2:8 "\"github.com/orbit-z/orbit\"" -> 207-233 "\"github.com/orbit-z/orbit\""
+  exact 4:1 "theme := orbit.HTML(`document.documentElement.dataset.theme = localStorage.theme || \"dark\";`)" -> 725-818 "theme := orbit.HTML(`document.documentElement.dataset.theme = localStorage.theme || \"dark\";`)"
+  exact 5:1 "css := orbit.HTML(`body > p { color: red }`)" -> 893-937 "css := orbit.HTML(`body > p { color: red }`)"
+  exact 6:1 "text := `a < b && \"c\"`" -> 1012-1034 "text := `a < b && \"c\"`"
+  echo  - -> 1064-1069 "theme"
+  echo  - -> 1075-1078 "css"
+  echo  - -> 1084-1088 "text"
+  exact 8:29 "theme" -> 1181-1186 "theme"
+  exact 9:19 "theme" -> 1316-1321 "theme"
+  exact 10:28 "css" -> 1451-1454 "css"
+  exact 11:18 "css" -> 1583-1586 "css"
+  exact 12:29 "text" -> 1716-1720 "text"
+  exact 13:18 "text" -> 1850-1854 "text"
+call sites
+  content key=385 "text" call="orbit__w.Expr(\n/*line ../../../../src/components/Raw.orbit:12:29*/text/*line render.go:46:80*/,\n\t)"
+  content key=418 "text" call="orbit__w.Expr(\n/*line ../../../../src/components/Raw.orbit:13:18*/text/*line render.go:50:80*/,\n\t)"

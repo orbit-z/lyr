@@ -33,7 +33,7 @@ func validate(t *Template, p *parser) {
 			p.checkTag(&n.Tag, tkStyle, nil, &n.Content)
 			n.Inline = n.Attr("is:inline") != nil
 			n.Global = n.Attr("is:global") != nil
-			n.Processed = !n.Inline
+			n.Processed = !n.Inline && n.Attr("set:html") == nil && n.Attr("set:text") == nil
 		case *Component:
 			n.Defer, n.Client = p.checkTag(&n.Tag, tkComponent, n.Children, nil)
 			n.Concurrent = n.Attr("server:concurrent")

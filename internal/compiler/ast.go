@@ -264,7 +264,8 @@ type Style struct {
 	Inline bool
 	// Global is true with is:global: bundled but not scoped.
 	Global bool
-	// Processed is true unless the style is is:inline.
+	// Processed is true unless the style is is:inline or has set:html or
+	// set:text (which set its content in place, as in Astro).
 	Processed bool
 }
 

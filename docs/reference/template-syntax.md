@@ -441,8 +441,8 @@ A directive is an attribute with a namespace (`set:`, `is:`, `server:`, `client:
 
 | Directive | Where | Effect |
 |---|---|---|
-| `set:html={expr}` | HTML element, `<Fragment>` | Sets the content to raw HTML. `expr` must have type `orbit.HTML`; a string constant written in the template is also accepted. A `string` variable is a compile error at the `.orbit` position. |
-| `set:text={expr}` | HTML element, `<Fragment>` | Sets the content to the escaped text of `expr`. |
+| `set:html={expr}` | HTML element, `<Fragment>`, `<script>`, `<style>` | Sets the content to raw HTML. `expr` must have type `orbit.HTML`; a string constant written in the template is also accepted. A `string` variable is a compile error at the `.orbit` position. |
+| `set:text={expr}` | HTML element, `<Fragment>`, `<script>`, `<style>` | Sets the content to the escaped text of `expr`. |
 | `set:json={expr}` | `<script type="application/json">` only | Sets the content to `expr` encoded as JSON, escaped for a script element. See [`set:json`](#setjson). |
 | `class:list={…}` | HTML element, component tag | Builds the `class` attribute (on a component, its `class` prop) from a list of classes and conditions. See [`class:list`](#classlist). |
 | `slot="name"` | A child of a component | Sends that child to the named slot instead of the default slot. |
@@ -453,6 +453,19 @@ A directive is an attribute with a namespace (`set:`, `is:`, `server:`, `client:
 | `client:load`, `client:idle`, `client:visible`, `client:media` | Component tag | Controls when the scripts of the component and its subtree load. See [`client:*`](#client). |
 
 An element with a `set:` directive takes no children (whitespace aside); the directive replaces its content. `set:` directives on a component are a compile error.
+
+On a `<script>` or `<style>`, `set:html` and `set:text` make the element **inline**, as in Astro: it's written where it is, with that content, and isn't compiled, bundled or scoped, with or without `is:inline`. This is the usual way to emit a script or style built in Go, such as a theme bootstrap script:
+
+```orbit
+---
+import "github.com/orbit-z/orbit"
+
+themeInit := orbit.HTML(`document.documentElement.dataset.theme = localStorage.theme ?? "light";`)
+---
+<script is:inline set:html={themeInit}></script>
+```
+
+The content isn't escaped for JavaScript or CSS: `set:html` writes it as is, so it must be trusted (and must not contain `</script>` or `</style>`), and `set:text` HTML-escapes it like any text (`<` becomes `&lt;`, which a script or style doesn't decode), as Astro does. For data, use `set:json` instead.
 
 The compiler **warns** (without failing) on `on*={expr}` attributes such as `onclick={…}` and on `style={expr}`: escaping makes a value safe in HTML, not in JavaScript or CSS. See [Escaping and security](../components.md#escaping-and-security).
 

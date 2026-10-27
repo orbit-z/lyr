@@ -3,7 +3,7 @@ package compiler
 import "testing"
 
 func TestScriptsAndStyles(t *testing.T) {
-	src := "---\n---\n<div>\n{if true}<script>let a: number = 1</script>{/if}\n<script is:inline>x()</script>\n<script src=\"./b.ts\"></script>\n<script type=\"module\">y()</script>\n<style>.a{color:red}</style>\n<style is:global>body{margin:0}</style>\n<style is:inline>p{}</style>\n</div>\n"
+	src := "---\n---\n<div>\n{if true}<script>let a: number = 1</script>{/if}\n<script is:inline>x()</script>\n<script src=\"./b.ts\"></script>\n<script type=\"module\">y()</script>\n<style>.a{color:red}</style>\n<style is:global>body{margin:0}</style>\n<style is:inline>p{}</style>\n<style set:html={css}></style>\n<style is:global set:text={css}></style>\n<script set:html={js}></script>\n</div>\n"
 	f := Parse(src, Strict)
 	if f.HasErrors() {
 		t.Fatalf("parse: %v", f.Diagnostics)

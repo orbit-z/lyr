@@ -1,0 +1,18 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+
+	raw "example.com/blog/orbit_gen/decl/components/raw"
+	_ "example.com/blog/orbit_gen/impl/components/raw"
+	"github.com/orbit-z/orbit"
+)
+
+func main() {
+	var buf bytes.Buffer
+	if err := raw.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), raw.Props{}, orbit.Slots{}); err != nil {
+		panic(err)
+	}
+	fmt.Print(buf.String())
+}

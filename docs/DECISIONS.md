@@ -931,3 +931,13 @@ Keyword completion after `{` in template content (`internal/lsp/blocks.go`). Whe
 | The lowered code is a block, `{ orbit__c, orbit__v := cond, v; if orbit__c { … } }`, rather than `if c, v := cond, v; c { … }` | simplest (robust to a `//` comment at the end of an argument) | The one-line `if` with an init statement | — |
 | The first lowered site of a file keeps a reference to the callee (`_ = orbit.If[bool]`, no code), so a file whose only use of `orbit` is a lowered `If` still compiles | simplest | Drop the implicit import when unused | — |
 | The type check records identifier uses (to identify the runtime's `If` by its object) only for files where an attribute or content expression contains `If` | measured choice: no cost for other files | Always record them | — |
+
+## Port fixes (nyth)
+
+Fixes found porting the `nyth` Astro site (2026-10-27).
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| A Tailwind CLI found through `bun x` or `node_modules/.bin` runs with the `node_modules` directory of its own `tailwindcss` dependency appended to `NODE_PATH` (after the user's), found by asking Bun once where `bun x` put the bin, so `@import "tailwindcss"` resolves without a project `node_modules` | simplest (no Bun-internal path hard-coded; `@tailwindcss/node` honors `NODE_PATH`) | Have Orbit's inliner rewrite `@import "tailwindcss"` to the package's absolute path; run Tailwind from the CLI's directory | [Using Tailwind](tailwind.md) |
+| `set:html` and `set:text` work on `<script>` and `<style>`, and make them unprocessed (written in place, not bundled or scoped) with or without `is:inline` | Astro (its compiler emits them in place and hoists nothing) | A compile error without `is:inline` | [Template syntax](reference/template-syntax.md#directives) |
+| `set:text` on a `<script>`/`<style>` HTML-escapes its value, like any text | Astro | Write it unescaped; an error | [Template syntax](reference/template-syntax.md#directives) |
