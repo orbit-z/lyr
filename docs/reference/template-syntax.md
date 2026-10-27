@@ -573,6 +573,20 @@ With `Hidden` true, `Class` set to `"mt-4"` and `Pairs` false, this renders `<in
 | An expression of type `[]string` (`base`) | The classes of each element, as Astro's nested arrays do. |
 | `"c": cond` | The classes of `"c"` when `cond`, a `bool`, is true: Astro's object form `{ c: cond }`. The key is usually a string literal; any string expression works. |
 
+Conditional classes, side by side with Astro:
+
+| Astro | Orbit |
+|---|---|
+| `class:list={["card", { featured }]}` | `class:list={"card", "featured": props.Featured}` |
+| `class:list={[clamped && "group", "outline-none"]}` | `class:list={"group": clamped, "outline-none"}` |
+| `class:list={[on ? "a" : "b"]}` | `class:list={orbit.Cond(on, "a", "b")}`; or `"a": on, "b": !on` |
+| `class:list={[wrapped ? undefined : className]}` | `class:list={props.Class: !wrapped}` (the key can be any string) |
+| `class={on ? "a" : "b"}` | `class={orbit.Cond(on, "a", "b")}` |
+| `class={on ? "a" : undefined}` | `class={orbit.If(on, "a")}` (no `class` attribute when false) |
+| `class:list={[className ?? "p-4"]}` | `class:list={cmp.Or(props.Class, "p-4")}` |
+
+All of these allocate nothing on an HTML element. `orbit.Cond` and `orbit.If` evaluate both arguments ([Conditional values](#conditional-values-orbitif-and-orbitcond)).
+
 - **Order and whitespace**: classes are written in list order, separated by single spaces, whatever whitespace the items hold. Empty items are dropped; duplicates are kept, as in Astro.
 - **An empty list writes no `class` attribute** (`class:list={"active": false}` renders `<div>`).
 - **Escaping**: classes are escaped like any attribute value.

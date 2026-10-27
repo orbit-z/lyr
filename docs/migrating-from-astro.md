@@ -162,7 +162,7 @@ Step by step:
 - **Ternaries**: `cond ? v : undefined` on an attribute is `orbit.If(cond, v)`, and `a ? b : c` on a value is `orbit.Cond(a, b, c)`. When the branches are different markup, use `{if}…{else}…{/if}`. See [Conditional attributes](components.md#conditional-attributes).
 - **`&&` and `.map()`** become `{if}` and `{for}` blocks. `.filter()` becomes an `if` inside the loop, or a filtered slice built in the frontmatter. A chain of conditions on one value is a `{switch}`. See [Control flow](components.md#control-flow).
 - **Dynamic tags** port as they are, with `orbit.Cond` for the ternary: `Tag := orbit.Cond(props.Href != "", "a", "div")`. `orbit.Fragment` as the value renders only the children, for optional wrappers. See [Dynamic tags](components.md#one-element-or-another-dynamic-tags).
-- **`class:list`** is one flat list without `[…]` and `{…}`: `{"card", "featured": props.Featured}`. See [`class:list`](reference/template-syntax.md#classlist).
+- **`class:list`** is one flat list without `[…]` and `{…}`: `{"card", "featured": props.Featured}`. `cond && "x"` becomes `"x": cond`, and a ternary `orbit.Cond(c, "a", "b")`. See the side-by-side table in [`class:list`](reference/template-syntax.md#classlist).
 - **Template literals**: `` class={`card ${extra}`} `` is `class={"card " + extra}`. A quoted attribute value is literal text.
 - **`x ?? y`** is `cmp.Or(x, y)`, and optional chaining (`a?.b`) is an explicit `nil` check in the frontmatter.
 
