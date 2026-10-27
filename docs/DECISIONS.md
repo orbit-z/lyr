@@ -1037,6 +1037,17 @@ The matched route for middleware and logging (`PLAN.md` §4g). A field in the us
 | `orbittest.Get` fills it (it serves through the real handler); `orbittest.Render` and `orbit.RenderComponent` don't (no route) | simplest | Fill a fake route in `Render` | [Runtime API](reference/runtime-api.md#the-matched-route-routeinfo) |
 | The values are copied into the struct (an inline `[8]string`, then one slice), so a copy of the struct stays valid and independent | Go value semantics | Point into the struct itself | [Runtime API](reference/runtime-api.md#the-matched-route-routeinfo) |
 
+### Matching before serving (`site.Match`)
+
+`PLAN.md` §4g "Matching before serving". The shape `site.Match(r) RouteInfo` (Q1 a), `RouteNone` for a path no page matches (Q2 a), matching again inside `site.Middleware` (Q3 a) and leaving the app's own routes to the app (Q4 a) were the user's, not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| No route for a static file or the trailing-slash redirect's other form (`RouteNone`), as Orbit's fill records | Astro (answered before routing middleware) | Report the page the redirect leads to | [Middleware](middleware.md#knowing-the-route-before-orbit) |
+| An island request is `RouteIsland` for any method, with the same values Orbit records (a 405 included) | the existing fill (§4g table) | Only GET/HEAD/POST | [Middleware](middleware.md#knowing-the-route-before-orbit) |
+| In production, a file in the static index counts as served without opening it (no allocation); in dev the file is opened, as `site.Middleware` does. A file deleted from a `WithStaticDir` directory after startup is then reported as a file while `site.Middleware` falls back to pages | simplest (the index is what production serves) | Open the file in production too (allocates) | — |
+| `Match` reads the request as it is and never writes to it (no `r.Pattern`, no locals): the caller assigns the result | Go stdlib (`ServeMux.Handler(r)` doesn't serve or change `r`) | Fill the attached locals | [Runtime API](reference/runtime-api.md#the-matched-route-routeinfo) |
+
 ## Route caching
 
 Route caching (`PLAN.md` §4h). The lookup inside `site.Middleware` after the user's middleware (Q1), stores and header writers driven by Orbit (Q2), `WithCache` in `main.go` with `routeRules` in `orbit.json` (Q3), the `Locals` `Cache` field (Q4), one background revalidation per stale key (Q6), GET islands in the route cache (Q8) and the `orbit/cache` package (Q9) were the user's; automatic ETags and 304s (Q5) and miss coalescing on routes known to cache (Q7) were the coordinator's, with the recommendations. None are rows here.

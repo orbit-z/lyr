@@ -253,14 +253,12 @@ type middleware struct {
 
 func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s := m.site
-	if rest, ok := strings.CutPrefix(r.URL.Path, islandPrefix); ok {
+	switch d, rest := s.classify(w, r); d {
+	case dispatchIsland:
 		s.serveIsland(w, r, rest, nil)
 		return
-	}
-	if r.Method == http.MethodGet || r.Method == http.MethodHead {
-		if s.serveFile(w, r) {
-			return
-		}
+	case dispatchFile:
+		return
 	}
 	path := r.URL.EscapedPath()
 	c := s.acquire(r)
@@ -279,6 +277,38 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m.next.ServeHTTP(w, r)
+}
+
+// dispatch is what site.Middleware does with a request, decided by
+// classify.
+type dispatch uint8
+
+const (
+	// dispatchPage: match the page routes; without a match, the
+	// trailing-slash redirect, else next.
+	dispatchPage   dispatch = iota
+	dispatchIsland          // an island request
+	dispatchFile            // a static file (served, or found by Match)
+)
+
+// classify is site.Middleware's order, shared with Match (PLAN.md §4g) so
+// the two can't drift: island requests (any method), then static files
+// (GET and HEAD), then pages. With w set, a static file is served; with w
+// nil (Match), only looked up. rest is the island path after islandPrefix.
+func (s *Site) classify(w http.ResponseWriter, r *http.Request) (d dispatch, rest string) {
+	if rest, ok := strings.CutPrefix(r.URL.Path, islandPrefix); ok {
+		return dispatchIsland, rest
+	}
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		if w != nil {
+			if s.serveFile(w, r) {
+				return dispatchFile, ""
+			}
+		} else if s.hasFile(r) {
+			return dispatchFile, ""
+		}
+	}
+	return dispatchPage, ""
 }
 
 type notFoundHandler struct{ site *Site }

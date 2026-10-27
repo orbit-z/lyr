@@ -305,6 +305,59 @@ src/locals/locals.go:9:2: Locals has two orbit.RouteInfo fields (Route, Previous
 
 An embedded, unexported or pointer `RouteInfo` field is an error at the field too.
 
+### Knowing the route before Orbit
+
+Orbit fills the field only when the request reaches `site.Middleware`. A request that your middleware answers first, such as a sign-in redirect, a 503 or a rate limit, never gets there, so it has no route and `pageLog` skips it. In Astro, routing happens before any middleware, so `context.routePattern` is set for those requests too. To get the same, match the request yourself with `site.Match`:
+
+```go
+func (s *Site) Match(r *http.Request) RouteInfo // the route site.Middleware would serve r with, without serving it
+```
+
+```go file=cmd/server/gate.go
+package main
+
+import (
+	"net/http"
+
+	"github.com/orbit-z/orbit"
+
+	"example.com/blog/src/locals"
+)
+
+// signInGate sends visitors without a session from /account to /signin. It
+// records the route first, so pageLog logs the redirect with its route.
+func signInGate(site *orbit.Site, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r, l := orbit.EnsureLocals[locals.Locals](r)
+		l.Route = site.Match(r)
+		if l.Route.Kind == orbit.RoutePage && l.Route.Pattern == "/account" {
+			if _, err := r.Cookie("session"); err != nil {
+				http.Redirect(w, r, "/signin", http.StatusSeeOther)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+```
+
+Put it inside `pageLog`: `logging(pageLog(signInGate(site, requestInfo(mux))))`. A visitor's `GET /account` then logs `route=/account status=303`.
+
+`Match` follows `site.Middleware`'s own order, and returns what Orbit would record:
+
+| Request | `site.Match(r)` |
+|---|---|
+| a page route, any method | `orbit.RoutePage`, the route, its file and params |
+| `/_orbit/island/…`, any method | `orbit.RouteIsland`, as Orbit records it |
+| a GET or HEAD of a static file (`/_orbit/*`, `public/`) | `orbit.RouteNone` |
+| the other form of a page URL (`/blog/hello/`, redirected with a 308) | `orbit.RouteNone` |
+| anything else | `orbit.RouteNone`: Orbit passes it to `next`, which may be `site.NotFound()` (then Orbit records `/404`) or one of your handlers |
+
+- **Orbit fills the field again** when the request reaches it, so a request Orbit serves ends with Orbit's value, `/404` included. `Match` doesn't change the request or the locals; you assign its result.
+- **`Match` sees the request as it is now.** If something between your middleware and Orbit rewrites the path (`http.StripPrefix`), call `Match` on the rewritten request; otherwise Orbit's fill corrects the value only for requests it serves. Likewise, if your mux sends a path that an Orbit page would match to its own handler, `Match` still reports the page.
+- **Your own handlers' routes** aren't Orbit's: `Match` returns `orbit.RouteNone` for them. `http.ServeMux` records its pattern in `r.Pattern` (`GET /api/prefs`) on the request it serves, which is your middleware's `r`, so a log can read that after `next.ServeHTTP` returns.
+- **Cost**: no allocation (a route with more than 8 params allocates once), about 50 ns. Orbit matches the request again inside `site.Middleware`, which costs about as much.
+
 ## Keeping requests out of the cache
 
 With [route caching](caching.md), a page's response can be stored and served to every visitor. Orbit looks the request up inside `site.Middleware`, after your middleware has run, so middleware decides first. It reaches the request's cache handle through a field of type `orbit.Cache` in your `Locals` (any exported name; the type is the marker):

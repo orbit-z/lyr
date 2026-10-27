@@ -117,16 +117,21 @@ const maxIslandBody = 1 << 20
 
 // serveIsland answers an island request; rest is the path after
 // islandPrefix. bg is set for a background revalidation (PLAN.md §4h).
+// islandFile is RouteInfo.File of an island request: the component's file,
+// or "" for an unknown ID.
+func islandFile(isl *Island) string {
+	if isl == nil {
+		return ""
+	}
+	return isl.file
+}
+
 func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string, bg *cacheReq) {
 	build, id, ok := strings.Cut(rest, "/")
 	isl := s.islands[id]
 	if s.route != nil && bg == nil { // a revalidation leaves the trigger's RouteInfo alone
-		file := ""
-		if isl != nil {
-			file = isl.file
-		}
 		vals := [2]string{build, id}
-		s.fillRouteOnly(r, RouteIsland, islandPattern, file, islandParamNames, vals[:])
+		s.fillRouteOnly(r, RouteIsland, islandPattern, islandFile(isl), islandParamNames, vals[:])
 	}
 	switch r.Method {
 	case http.MethodGet, http.MethodHead, http.MethodPost:

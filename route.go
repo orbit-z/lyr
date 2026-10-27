@@ -3,6 +3,7 @@ package orbit
 import (
 	"iter"
 	"net/http"
+	"strings"
 )
 
 // The matched route, for middleware and logging (PLAN.md §4g): a RouteInfo
@@ -151,6 +152,54 @@ func WithLocalsRoute[L any](field func(*L) *RouteInfo) Option {
 		field: field,
 	}
 	return func(o *siteOptions) { o.route = lr }
+}
+
+// Match returns the route site.Middleware would serve r with, without
+// serving it: for middleware that answers some requests before Orbit does
+// (a sign-in redirect, a 503) and still wants their route, as Astro's
+// middleware has context.routePattern. It follows site.Middleware's order:
+//
+//   - an island request (/_orbit/island/…, any method): RouteIsland, as
+//     Orbit fills it;
+//   - a GET or HEAD of a static file (/_orbit/* assets, public/): RouteNone;
+//   - a page route: RoutePage, with the route's pattern, file and params;
+//   - anything else, the trailing-slash redirect's other form included:
+//     RouteNone (site.Middleware redirects it or passes it to next, which
+//     may be NotFound: Match can't know).
+//
+// Match reads r.URL and r.Method only and changes nothing; it's safe to
+// call from any goroutine. Assign the result to your Locals' RouteInfo
+// field, l.Route = site.Match(r): when the request reaches Orbit, Orbit
+// matches it again and fills the field as usual, so a request Orbit serves
+// ends with Orbit's value. Match sees r as it is now: call it on the
+// request Orbit will get, after any path rewrite.
+func (s *Site) Match(r *http.Request) RouteInfo {
+	var ri RouteInfo
+	switch d, rest := s.classify(nil, r); d {
+	case dispatchIsland:
+		build, id, _ := strings.Cut(rest, "/")
+		vals := [2]string{build, id}
+		ri.setTo(RouteIsland, islandPattern, islandFile(s.islands[id]), islandParamNames, vals[:])
+	case dispatchPage:
+		cr, rem := s.router.find(r.URL.EscapedPath())
+		if cr == nil {
+			break
+		}
+		if len(cr.names) > len(ri.buf) {
+			// More values than the inline array: extract into the one
+			// slice RouteInfo keeps (one allocation, as Orbit's fill).
+			ri.setTo(RoutePage, cr.route.Pattern, cr.route.File, cr.names, nil)
+			ri.more = cr.extract(rem, make([]string, 0, len(cr.names)))
+			break
+		}
+		var buf [8]string // the router's values, on the stack, copied by setTo
+		vals := buf[:0]
+		if cr.names != nil {
+			vals = cr.extract(rem, vals)
+		}
+		ri.setTo(RoutePage, cr.route.Pattern, cr.route.File, cr.names, vals)
+	}
+	return ri
 }
 
 // Island route values (RouteInfo of a /_orbit/island/ request).

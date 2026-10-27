@@ -155,19 +155,20 @@ func (fset *fileSet) open(name string) (f fs.File, meta fileMeta, ok bool) {
 	return f, meta, true
 }
 
-// serveFile serves a GET or HEAD for a static file, and reports whether it
-// did. Paths under /_orbit/island/ are reserved for island requests and are
-// never files. Directories are never served, and a path is never redirected.
-func (s *Site) serveFile(w http.ResponseWriter, r *http.Request) bool {
+// fileCandidate returns the file set and name a GET or HEAD for r would be
+// served from, and its Cache-Control, after the checks that need no file
+// system access: in production the file is in the set's index (a map
+// lookup, no allocation); in dev it still has to be opened.
+func (s *Site) fileCandidate(r *http.Request) (set *fileSet, name string, cache []string, ok bool) {
 	p := r.URL.Path
 	if len(p) < 2 || p[0] != '/' {
-		return false
+		return nil, "", nil, false
 	}
-	name := p[1:]
-	set, cache := &s.public, cachePublic
+	name = p[1:]
+	set, cache = &s.public, cachePublic
 	if strings.HasPrefix(name, "_orbit/") {
 		if strings.HasPrefix(name, "_orbit/island/") {
-			return false
+			return nil, "", nil, false
 		}
 		set, cache = &s.assets, cacheImmutable
 	}
@@ -177,12 +178,41 @@ func (s *Site) serveFile(w http.ResponseWriter, r *http.Request) bool {
 	// fs.ValidPath rejects "..", ".", empty elements and a trailing slash,
 	// so such paths never reach a file (os.Root also stops escapes).
 	if (set.files == nil && set.dir == "") || !fs.ValidPath(name) {
-		return false
+		return nil, "", nil, false
 	}
 	if set.files != nil {
 		if _, ok := set.files[name]; !ok {
-			return false // the hot path for pages: a map miss, no allocation
+			return nil, "", nil, false // the hot path for pages: a map miss, no allocation
 		}
+	}
+	return set, name, cache, true
+}
+
+// hasFile reports whether serveFile would serve r, without serving it: in
+// production an indexed file counts (no file system access); in dev the
+// file is opened and checked, as serveFile does.
+func (s *Site) hasFile(r *http.Request) bool {
+	set, name, _, ok := s.fileCandidate(r)
+	if !ok {
+		return false
+	}
+	if set.files != nil {
+		return true
+	}
+	f, _, ok := set.open(name)
+	if ok {
+		f.Close()
+	}
+	return ok
+}
+
+// serveFile serves a GET or HEAD for a static file, and reports whether it
+// did. Paths under /_orbit/island/ are reserved for island requests and are
+// never files. Directories are never served, and a path is never redirected.
+func (s *Site) serveFile(w http.ResponseWriter, r *http.Request) bool {
+	set, name, cache, ok := s.fileCandidate(r)
+	if !ok {
+		return false
 	}
 	f, meta, ok := set.open(name)
 	if !ok {

@@ -268,6 +268,11 @@ The route that answered a request, for logging and metrics. Declare a field of t
 - Read it on the request's goroutine, or after `next` returns: it isn't synchronized.
 - A project whose `Locals` has no such field pays nothing for it.
 
+```go
+func (s *Site) Match(r *http.Request) RouteInfo
+```
+Returns the route `site.Middleware` would serve `r` with, without serving it, for middleware that answers some requests itself before Orbit (a sign-in redirect, a 503) and still logs their route: `l.Route = site.Match(r)`. It follows `site.Middleware`'s order: an island request (any method) gives `RouteIsland`, a GET or HEAD of a static file `RouteNone`, a page route `RoutePage` with its params, and anything else `RouteNone`, the trailing-slash redirect's other form included (a path no page matches goes to `next`, so `Match` can't know it'll be a 404). It reads `r.URL` and `r.Method` only, changes nothing, is safe from any goroutine and doesn't allocate (a route with more than 8 params allocates once). Orbit fills the `Locals` field again when the request reaches it, so a request Orbit serves ends with Orbit's value. See [Knowing the route before Orbit](../middleware.md#knowing-the-route-before-orbit).
+
 ### The cache handle: a `Cache` field
 
 A field of type [`orbit.Cache`](#route-caching) in your `Locals`, with any exported name (`Cache orbit.Cache`), is the request's cache handle: middleware calls `l.Cache.Disable()` or `l.Cache.Set(…)` on it before Orbit's lookup, and `ctx.Cache()` returns it in pages and components. The generated `app.New()` wires it with [`WithLocalsCache`](#generated-wiring). As for `RouteInfo`, more than one such field, an embedded one, an unexported one or a `*orbit.Cache` is an error at the field. See [Keeping requests out of the cache](../middleware.md#keeping-requests-out-of-the-cache).

@@ -146,6 +146,8 @@ type Props struct {
 | `site.Handler() http.Handler` | `site.Middleware(site.NotFound())`: a complete handler that ends in your 404 page |
 | `site.NotFound() http.Handler` | Renders `404.orbit` with status 404 |
 
+`site.Match(r)` isn't a handler: it returns the route `site.Middleware` would serve `r` with, without serving it, for middleware that answers a request before Orbit and still logs its route. See [Knowing the route before Orbit](middleware.md#knowing-the-route-before-orbit).
+
 `site.Middleware(next)` handles a request only if it matches something Orbit owns. It checks, in this order:
 
 1. **The island endpoint** `/_orbit/island/…`, which renders `server:defer` components, for `GET`, `HEAD` and `POST`. See [The island endpoint](#the-island-endpoint).
