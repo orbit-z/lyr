@@ -1,0 +1,5 @@
+orbit_gen/decl/components/box/decl.go (src/components/Box.orbit)
+  exact 2:1 "type Props struct {\n\tAttrs orbit.RestAttrs\n}" -> 187-231 "type Props struct {\n\tAttrs orbit.RestAttrs\n}"
+orbit_gen/impl/components/box/render.go (src/components/Box.orbit)
+  exact 6:10 "props.Attrs" -> 674-685 "props.Attrs"
+call sites

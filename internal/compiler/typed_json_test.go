@@ -65,7 +65,7 @@ import Good "../components/Good.orbit"
 ---
 <main>
   <Comments server:defer postID={1}><p slot="fallback">Loading…</p></Comments>
-  <Good server:defer name="x" data-n={1} />
+  <Good server:defer name="x" data-n={1} list={orbit.AttrList{orbit.A("b", 1), orbit.A("a", true)}} />
   <Good />
 </main>
 `
@@ -80,9 +80,11 @@ type Props struct {
 	M    map[int]float64
 	// PLAN.md §2.5: RestAttrs's JSON methods pass the check.
 	Attrs orbit.RestAttrs
+	// PLAN.md §2.9: so do AttrList's.
+	List orbit.AttrList
 }
 ---
-<p {...props.Attrs}>{props.N}</p>
+<p {...props.Attrs} {...props.List}>{props.N}</p>
 `
 
 func TestDeferPropsJSONCheck(t *testing.T) {

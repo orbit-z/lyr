@@ -1,0 +1,15 @@
+---
+import "strconv"
+
+import Button "../components/Button.orbit"
+import Choice "../components/Choice.orbit"
+
+level, n, on := 3, 7, true
+Heading := "h" + strconv.Itoa(level)
+theme := "dark"
+---
+<Heading class="h">Title</Heading>
+<Button variant="primary">Save</Button>
+<Choice wrapped label="w" />
+<Choice label="bare" />
+<div {...orbit.AttrList{orbit.A("data-theme", theme), orbit.A("data-n", n), orbit.A("hidden", on)}}>list</div>

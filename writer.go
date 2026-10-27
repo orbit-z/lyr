@@ -597,7 +597,11 @@ func (w *Writer) attrValue(name, s string, filter bool) {
 // Spread writes every attribute in a, sorted by name, each by the Attr rules
 // (URL attributes included). A name that doesn't match
 // [A-Za-z_:][-A-Za-z0-9_:.]* is a render error, and nothing is written.
-func (w *Writer) Spread(a Attrs) {
+func (w *Writer) Spread(a Attrs) { w.spread("", a) }
+
+// spread is Spread, with the .orbit position of the spread for a name
+// error ("" for none).
+func (w *Writer) spread(pos string, a Attrs) {
 	if w.err != nil || len(a) == 0 {
 		return
 	}
@@ -605,7 +609,7 @@ func (w *Writer) Spread(a Attrs) {
 	names := arr[:0]
 	for name := range a {
 		if !validAttrName(name) {
-			w.setErr(fmt.Errorf("orbit: invalid attribute name %q in spread", name))
+			w.setErr(posErr(pos, "invalid attribute name "+strconv.Quote(name)+" in spread"))
 			return
 		}
 		names = append(names, name)
@@ -641,12 +645,27 @@ var urlAttrs = [...]string{
 	"usemap", "xmlns", "xlink:href",
 }
 
-// isURLAttr reports whether name (in any case) is a URL attribute.
+// isURLAttr reports whether name (in any ASCII case) is a URL attribute:
+// one of urlAttrs (TestIsURLAttr), lowercased into a stack buffer and
+// matched by a switch, the fast form for spreads, which look up every name.
 func isURLAttr(name string) bool {
-	for _, a := range urlAttrs {
-		if len(a) == len(name) && strings.EqualFold(a, name) {
-			return true
+	const longest = len("background") // and formaction, xlink:href
+	if len(name) < len("src") || len(name) > longest {
+		return false
+	}
+	var low [longest]byte
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		if 'A' <= c && c <= 'Z' {
+			c += 'a' - 'A'
 		}
+		low[i] = c
+	}
+	switch string(low[:len(name)]) {
+	case "action", "background", "cite", "codebase", "data", "formaction",
+		"href", "icon", "longdesc", "manifest", "poster", "profile", "src",
+		"usemap", "xmlns", "xlink:href":
+		return true
 	}
 	return false
 }

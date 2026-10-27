@@ -41,7 +41,7 @@ func Orbit__RenderImpl(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, or
 	orbit__w.Raw("</head><body class='home' hidden=no><ul>")
 	for /*line ../../../../../src/pages/index.orbit:22:12*/_, l := range links/*line render.go:42:101*/ {
 		orbit__w.Raw("<li")
-		orbit__w.Spread(
+		orbit__rt.SpreadOf(orbit__w, "src/pages/index.orbit:23:13",
 /*line ../../../../../src/pages/index.orbit:23:17*/attrs/*line render.go:45:81*/,
 		)
 		orbit__w.Raw("><a")

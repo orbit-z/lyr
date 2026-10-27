@@ -291,7 +291,7 @@ A tag that is lowercase or contains `-` is an HTML element or a custom element, 
 
 ### Components
 
-A capitalized tag renders a component. Its name must be the alias of an `.orbit` import in the frontmatter:
+A capitalized tag renders a component. Its name must be the alias of an `.orbit` import in the frontmatter (or a variable holding a tag name, a [dynamic tag](#dynamic-tags)):
 
 ```orbit
 ---
@@ -301,7 +301,7 @@ import Card "../components/Card.orbit"
 <Card post={p}><em>with children</em></Card>
 ```
 
-A tag that matches no import alias is an error:
+A tag that matches no import alias and no variable is an error:
 
 ```orbit file=src/pages/index.orbit expect-error
 ---
@@ -312,7 +312,7 @@ import Card "../components/Card.orbit"
 ```
 
 ```text
-src/pages/index.orbit:5:2: unknown component <Crad>: no .orbit import with this alias
+src/pages/index.orbit:5:2: unknown component <Crad>: no .orbit import with this alias (or declare a variable Crad for a dynamic tag)
 ```
 
 Only `.orbit` files can be imported as components. A `.tsx`, `.jsx`, `.svelte` or `.vue` import is an error (`framework components aren't supported; use a .orbit component with a <script>`), and so is any other relative or root-relative path that doesn't end in `.orbit`. See [Components](../components.md#no-framework-components).
@@ -320,6 +320,45 @@ Only `.orbit` files can be imported as components. A `.tsx`, `.jsx`, `.svelte` o
 An import path is relative (`./`, `../`), root-relative (`Card "/src/components/Card.orbit"`, from the project root, as in Astro and Vite) or a `tsconfig.json` `compilerOptions.paths` alias (`Card "@/components/Card.orbit"`), resolved as TypeScript and Astro do. A path that ends in `.orbit` or `.md` and doesn't start with `./`, `../` or `/` must match an alias. See [Root-relative imports](../components.md#root-relative-imports) and [Import aliases](../components.md#import-aliases).
 
 Children of a component are passed as slots. A component with no children allocates nothing for slots, and neither do children in an `orbit build` binary, which calls components directly. In `orbit dev` and `go test`, children that use a variable of the caller allocate one small closure per slot ([Direct calls in production builds](../performance.md#direct-calls-in-production-builds)). Children that are only whitespace pass no slot.
+
+### Dynamic tags
+
+A capitalized tag that names a **variable or constant in scope** renders the HTML element whose name the variable holds, as in Astro (`const Tag = href ? "a" : "button"`):
+
+```orbit file=src/components/Button.orbit
+---
+import "cmp"
+
+type Props struct {
+	Type  string
+	Attrs orbit.RestAttrs
+}
+
+link := props.Attrs.Has("href")
+Tag := orbit.Cond(link, "a", "button")
+---
+<Tag {...props.Attrs} type={orbit.If(!link, cmp.Or(props.Type, "button"))} class="btn">
+  <slot />
+</Tag>
+```
+
+`<Button href="/new">New</Button>` renders `<a href="/new" class="btn">New</a>`, and `<Button>Save</Button>` renders `<button type="button" class="btn">Save</button>`: one copy of the attributes and children instead of an `{if}` with two.
+
+- **In scope** means declared in the frontmatter (`Tag := …`, `var Tag = …`, or a `const`) or by an enclosing `{for}`, `{if}` or `{switch}` header (`{for _, T := range tags}<T>…</T>{/for}`). A capitalized name is a component when it's an import alias, `Self` or `Fragment`, and a dynamic tag otherwise. A name that is both an import alias and a variable is an error at the variable (`Card is both a component import and a variable; rename one`). Dotted names (`<props.As>`) aren't tags: write `Tag := props.As`.
+- **The value is a `string`** (an untyped constant, `orbit.Cond(…)`, `"h" + strconv.Itoa(level)`). Anything else is Go's error at the tag name: `cannot use Tag (variable of type int) as string value in argument to orbit__w.TagOpen`. A named string type needs a conversion: `Tag := string(kind)`.
+- **It's evaluated once**, at the start tag, before the attributes. The name is written as given, without changing its case.
+- **The name is checked when the page renders**. A name must be an ASCII letter followed by ASCII letters, digits, `-`, `_`, `.` or `:` (HTML, SVG and custom element names). These are render errors at the tag's position, and nothing of the tag is written:
+  - an empty name: `dynamic tag Tag is empty; use orbit.Fragment for no element`;
+  - any other invalid name: `dynamic tag Tag has an invalid element name "a b"`;
+  - `script`, `style`, `textarea`, `title`, `head`, `xmp`, `iframe`, `noembed`, `noframes` and `plaintext`, in any case: `<script> can't be a dynamic tag`. Orbit bundles scripts and styles at build time and writes the page's assets at a static `</head>`, and the others' content isn't parsed as markup; write these elements as static tags;
+  - a void element (`img`, `br`, `input`, …) with children or `set:html`/`set:text`: `dynamic tag <img> is a void element and can't have children`. Without content, it's written with no end tag (`<img src="…">`).
+- **`orbit.Fragment`** renders no element: with `Wrap := orbit.Cond(wrapped, "div", orbit.Fragment)`, `<Wrap class="w">…</Wrap>` writes only its children when `wrapped` is false, an optional wrapper. Its attributes are then neither written nor **evaluated** (Astro evaluates them and drops them; it matters only for an expression with side effects).
+- **Attributes** work as on any HTML element: static values, expressions with typed writes, shorthand, spreads (`orbit.Attrs`, `orbit.AttrList`, pass-through attributes with their `class` merged), `class:list`, `orbit.If`, `orbit.JSON`, the URL filter and the true/false attributes. `set:html`, `set:text` and `slot="x"` work too. `server:*` and `client:*` are errors (`server:defer only works on .orbit components`), and so are `is:inline`, `is:global` and `set:json`.
+- **Scoped styles**: the component's scope attribute is written on every dynamic tag, so `h2 { … }` in its `<style>` matches `<Heading>` when it renders an `h2`.
+- **Whitespace**: the children are compressed like inline content (the safe choice: the name isn't known at build time). A dynamic `pre` doesn't keep its whitespace verbatim; use a static `<pre>`.
+- **Self-closed**: `<Tag />` renders `<div></div>` for a `div`, as for a static tag.
+
+A dynamic tag costs about 10 to 20 ns more than static markup (the name check), and no allocation, a concatenated name included ([Performance](../performance.md#dynamic-tags)). There are no dynamic components: a variable can't hold a component, since each one has its own `Props` type. Use `{switch}` to pick one.
 
 ### `<Self>`
 
@@ -363,7 +402,7 @@ As in Astro, `<Fragment>` takes only `slot`, `set:html` and `set:text`. `<Fragme
 | `a=bare` | A static unquoted value, as in HTML | `A: "bare"` (a Go string literal, like a quoted value) |
 | `a={expr}` | Rendered from the value (see below) | `A: expr` |
 | `{a}` | Shorthand for `a={a}` | Shorthand for `a={a}` |
-| `{...attrs}` | Spread of an `orbit.Attrs`, or of the component's `orbit.RestAttrs` field | Merged into the component's [pass-through attributes](#pass-through-attributes) (it needs an `orbit.RestAttrs` field) |
+| `{...attrs}` | Spread of an `orbit.Attrs` or an `orbit.AttrList`, or of the component's `orbit.RestAttrs` field | Merged into the component's [pass-through attributes](#pass-through-attributes) (it needs an `orbit.RestAttrs` field) |
 
 Quoted values are literal text: `class="card {extra}"` renders `card {extra}`. To build a value, use an expression: `class={"card " + extra}`.
 
@@ -424,21 +463,41 @@ HTML attribute names are written to the output exactly as you spell them; only c
 
 ### Spread attributes
 
-`{...attrs}` writes every entry of an `orbit.Attrs` (`map[string]any`), sorted by name so the output is stable. Each value follows the rules above (`true` is bare, `false`/`nil` omitted, URL attributes filtered):
+`{...attrs}` writes every entry of an `orbit.Attrs` (`map[string]any`), sorted by name so the output is stable, or of an `orbit.AttrList`, in list order. Each value follows the rules above (`true` is bare, `false`/`nil` omitted, URL attributes filtered):
 
 ```orbit
 <input {...props.Attrs} />
 ```
 
-Each name must match `[A-Za-z_:][-A-Za-z0-9_:.]*`. A name with a space, quote, `>`, `/` or `=` is a render error, so a map built from user input can't inject markup.
+Each name must match `[A-Za-z_:][-A-Za-z0-9_:.]*`. A name with a space, quote, `>`, `/` or `=` is a render error at the spread's position, and nothing of the spread is written, so a map built from user input can't inject markup.
 
-**Coming from Astro**: Astro writes a spread object's entries in its key order; an `orbit.Attrs` is a Go map, which has none, so its entries are **sorted by name** (`{...orbit.Attrs{"role": "tab", "id": "t1"}}` writes `id="t1" role="tab"`). Attribute order doesn't change what the browser does, but a snapshot test or a CSS selector on the exact markup can differ after a port. Pass-through attributes (below) keep the caller's order.
+**Order**: Astro writes a spread object's entries in its key order; an `orbit.Attrs` is a Go map, which has none, so its entries are **sorted by name** (`{...orbit.Attrs{"role": "tab", "id": "t1"}}` writes `id="t1" role="tab"`). Attribute order doesn't change what the browser does, but a snapshot test or a CSS selector on the exact markup can differ after a port. When the order matters, use an **`orbit.AttrList`**, an ordered list built with `orbit.A(name, value)`:
+
+```go
+// Attributes are <html>'s theme attributes, in Astro's order.
+func Attributes(c Choices) orbit.AttrList {
+	return orbit.AttrList{
+		orbit.A("data-theme", c.Theme),
+		orbit.A("data-dark-theme", c.DarkTheme),
+		orbit.A("data-day-theme", c.DayTheme),
+	}
+}
+```
+
+`<html lang="en" {...theme.Attributes(choices)}>` then renders `<html lang="en" data-theme="dark" data-dark-theme="dark" data-day-theme="mist">`, in that order.
+
+- `orbit.A` keeps strings, bools, numbers, `orbit.URL`, `orbit.HTML`, `orbit.CSS` and `orbit.JSONValue` without boxing them, so a list built in the page costs no allocation (a list a helper returns costs one, its backing array). Any other value is kept as an `any`. Values are written as above.
+- An `AttrList` is a plain slice: `append`, `range`, `len` and the `slices` package work on it.
+- The same name twice in one list (ignoring ASCII case) is a render error: `attribute "role" twice in spread`.
+- `orbit.Attrs` stays the shorter literal when the order doesn't matter.
+
+Pass-through attributes (below) keep the caller's order too.
 
 Attributes are written in source order, with a spread's entries at the spread's position. Orbit doesn't merge duplicates: if a spread repeats an attribute written on the same element, both are written, and browsers use the first one.
 
 **Pass-through attributes**: in a component whose `Props` has an `orbit.RestAttrs` field, `{...props.Attrs}` (the field itself, spelled `props.<Field>`) writes the attributes the caller passed ([Pass-through attributes](#pass-through-attributes)): in the caller's order, then the caller's scope attribute. Their `class` is merged into the element's own `class` or `class:list` (`<button class="btn" {...props.Attrs}>` renders `class="btn mt-2"`, wherever the spread is written), or written as a `class` attribute on an element without one. Other duplicates are written twice, as above.
 
-On a component tag, a spread merges into the component's pass-through attributes ([below](#pass-through-attributes)); `<slot>` and `<Fragment>` take none.
+On a component tag, a spread (of an `orbit.Attrs`, an `orbit.AttrList` or an `orbit.RestAttrs`) merges into the component's pass-through attributes ([below](#pass-through-attributes)); `<slot>` and `<Fragment>` take none.
 
 ## Directives
 

@@ -401,7 +401,7 @@ func (g *cgGen) htmlAttrs(t *Tag, node Node) (set *Attr) {
 			if g.restOperand(a) != "" {
 				g.spreadRest(a, at == nil)
 			} else {
-				g.write("Spread", a.Code)
+				g.spreadOf(a)
 			}
 			continue
 		case a.Directive.IsSet():
@@ -451,6 +451,10 @@ var unscopedElements = map[string]bool{
 var verbatimElements = map[string]bool{"pre": true, "textarea": true, "script": true, "style": true}
 
 func (g *cgGen) element(n *Element, c *wsCtx, i int) {
+	if n.Dynamic {
+		g.dynElement(n, c, i)
+		return
+	}
 	o := g.o
 	o.html("<" + n.Name)
 	set := g.htmlAttrs(&n.Tag, n)
@@ -665,7 +669,7 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	} else {
 		imp := g.imports[n.Name]
 		if imp == nil {
-			g.errorf(n.NameSpan, "unknown component <%s>: no .orbit import with this alias", n.Name)
+			g.errorf(n.NameSpan, "unknown component <%s>: no .orbit import with this alias (or declare a variable %s for a dynamic tag)", n.Name, n.Name)
 			g.brokenComponent(n, c, i)
 			return
 		}

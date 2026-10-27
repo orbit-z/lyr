@@ -41,6 +41,10 @@ type cgGen struct {
 	rtNames   map[string]bool
 	// directUsed holds the aliases called directly in the build flavor.
 	directUsed map[string]bool
+	// dynTags numbers the dynamic tags of the impl file (orbit__t1, …),
+	// in emission order: stable across passes, and across a reformat that
+	// moves offsets (orbit fmt compares the generated code).
+	dynTags int
 }
 
 func cgGenerate(in *Input) (out *Output) {
@@ -261,6 +265,7 @@ func (g *cgGen) genDecl() *GenFile {
 }
 
 func (g *cgGen) genImpl() *GenFile {
+	g.dynTags = 0
 	gf := g.newFile(g.pkg.ImplFile(), g.pkg.ImplImportPath(g.in.Options.Module), g.pkg.ImplName())
 	o := g.o
 	direct := g.directImports()

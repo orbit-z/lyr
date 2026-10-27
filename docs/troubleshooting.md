@@ -162,9 +162,21 @@ The same applies after you edit an `.orbit` file: `go test` runs against the old
 
 ### `unknown component <Crad>: no .orbit import with this alias`
 
-**Cause:** a capitalized tag is always a component, and its name must be the alias of an `.orbit` import.
+**Cause:** a capitalized tag is a component, whose name must be the alias of an `.orbit` import, or a [dynamic tag](reference/template-syntax.md#dynamic-tags), whose name must be a variable or constant in scope at the tag. `Crad` is neither.
 
-**Fix:** fix the tag's spelling, or import the component in the frontmatter: `Card "../components/Card.orbit"`. See [Template syntax: Components](reference/template-syntax.md#components).
+**Fix:** fix the tag's spelling, or import the component in the frontmatter: `Card "../components/Card.orbit"`. For a dynamic tag, declare the variable before the tag (`Tag := "section"`); one declared inside a function literal, or after the `{for}` that declares it ends, isn't in scope. See [Template syntax: Components](reference/template-syntax.md#components).
+
+### `Card is both a component import and a variable; rename one`
+
+**Cause:** a variable has the name of an `.orbit` import's alias, so `<Card>` could be the component or a [dynamic tag](reference/template-syntax.md#dynamic-tags).
+
+**Fix:** rename the variable (`cardTag`, or `CardTag` to use it as a tag), or the import's alias.
+
+### `dynamic tag Tag is empty; use orbit.Fragment for no element`
+
+**Cause:** a render error: the variable of a [dynamic tag](reference/template-syntax.md#dynamic-tags) holds `""`, often an unset prop (`Tag := props.As`).
+
+**Fix:** give it a default (`Tag := cmp.Or(props.As, "div")`), or use `orbit.Fragment` for no element. The other render errors of dynamic tags (`<script> can't be a dynamic tag`, `dynamic tag <img> is a void element and can't have children`, an invalid name) name the problem the same way, at the tag's position.
 
 ### Go type errors at `.orbit` lines
 

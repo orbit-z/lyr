@@ -1,0 +1,14 @@
+---
+import "strconv"
+
+type Props struct {
+	Level int
+	Text  string
+}
+
+Heading := "h" + strconv.Itoa(props.Level)
+---
+<Heading class="font-serif" id={props.Text}>{props.Text}</Heading>
+<style>
+	h2 { color: red; }
+</style>

@@ -58,7 +58,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 /*line ../../../../src/components/Bridge.orbit:18:8*/orbit.JSON(post.Tags)/*line render.go:58:99*/,
 	)
 	orbit__w.Raw("</pre>\n<span")
-	orbit__w.Spread(
+	orbit__rt.SpreadOf(orbit__w, "src/components/Bridge.orbit:19:8",
 /*line ../../../../src/components/Bridge.orbit:19:12*/orbit.Attrs{"data-x": orbit.JSON(1)}/*line render.go:62:116*/,
 	)
 	orbit__w.Raw("></span>\n<i")

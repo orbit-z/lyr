@@ -1,7 +1,9 @@
 ---
 import Base "../layouts/Base.orbit"
+import Button "../components/Button.orbit"
 ---
 <Base title="Page not found">
   <h1>Page not found</h1>
   <p>There's nothing at <code>{ctx.URL.Path}</code>. <a href="/">Go back to the posts</a> or <a href="/search">search</a>.</p>
+  <Button href="/" variant="primary">All posts</Button>
 </Base>

@@ -36,11 +36,11 @@ func Orbit__RenderImpl(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, or
 /*line ../../../../../src/pages/index.orbit:19:28*/false/*line render.go:36:81*/,
 	)
 	orbit__w.Raw(" data-o-81707d2a>dynamic</p>\n<a")
-	orbit__w.Spread(
+	orbit__rt.SpreadOf(orbit__w, "src/pages/index.orbit:20:8",
 /*line ../../../../../src/pages/index.orbit:20:12*/attrs/*line render.go:40:81*/,
 	)
 	orbit__w.Raw(" data-o-81707d2a>spread</a>\n<a href=\"/x\"")
-	orbit__w.Spread(
+	orbit__rt.SpreadOf(orbit__w, "src/pages/index.orbit:21:18",
 /*line ../../../../../src/pages/index.orbit:21:22*/attrs/*line render.go:44:81*/,
 	)
 	orbit__w.Raw(" rel=\"next\" data-o-81707d2a>spread then static</a>\n<img src=\"/a.png\" alt=\"a\" data-o-81707d2a>\n<br data-o-81707d2a>\n<input type=\"text\" disabled data-o-81707d2a>\n<div class=\"empty\" data-o-81707d2a></div><ul data-o-81707d2a>")

@@ -1,0 +1,18 @@
+orbit_gen/decl/components/button/decl.go (src/components/Button.orbit)
+  exact 4:1 "type Props struct {\n\tVariant, Type string\n\tAttrs         orbit.RestAttrs\n}" -> 193-267 "type Props struct {\n\tVariant, Type string\n\tAttrs         orbit.RestAttrs\n}"
+orbit_gen/impl/components/button/render.go (src/components/Button.orbit)
+  exact 2:8 "\"cmp\"" -> 216-221 "\"cmp\""
+  exact 9:1 "link := props.Attrs.Has(\"href\")" -> 753-784 "link := props.Attrs.Has(\"href\")"
+  exact 10:1 "Tag := orbit.Cond(link, \"a\", \"button\")" -> 863-901 "Tag := orbit.Cond(link, \"a\", \"button\")"
+  exact 11:1 "kind := cmp.Or(props.Type, \"button\")" -> 980-1016 "kind := cmp.Or(props.Type, \"button\")"
+  echo  - -> 1047-1051 "link"
+  echo  - -> 1057-1060 "Tag"
+  echo  - -> 1066-1070 "kind"
+  exact 13:2 "Tag" -> 1198-1201 "Tag"
+  exact 13:10 "props.Attrs" -> 1336-1347 "props.Attrs"
+  exact 13:29 "orbit.If(!link, kind)" -> 1460-1481 "orbit.If(!link, kind)"
+  exact 13:71 "\"btn-\" + props.Variant" -> 1620-1642 "\"btn-\" + props.Variant"
+call sites
+  content key=207 "Tag" call="orbit__w.TagOpen(\"src/components/Button.orbit:13:2\", \"Tag\",\n/*line ../../../../src/components/Button.orbit:13:2*/Tag/*line render.go:30:81*/,\n\ttrue)"
+  attr type key=234 "orbit.If(!link, kind)" call="orbit__w.Attr(\"type\",\n/*line ../../../../src/components/Button.orbit:13:29*/orbit.If(!link, kind)/*line render.go:37:101*/,\n\t\t)"
+  class key=276 "\"btn-\" + props.Variant" call="orbit__w.ClassAny(\n/*line ../../../../src/components/Button.orbit:13:71*/\"btn-\" + props.Variant/*line render.go:41:102*/,\n\t\t)"

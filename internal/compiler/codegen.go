@@ -131,6 +131,9 @@ const (
 	// component with an orbit.RestAttrs field (PLAN.md §2.5):
 	// orbit__rt.RestAny(pre, "a", x).
 	SiteRest
+	// SiteTag is the name of a dynamic tag (PLAN.md §2.8):
+	// orbit__w.TagOpen(pos, "Tag", Tag, content). It has no typed write.
+	SiteTag
 )
 
 // CallSite records one write emitted with the Expr/Attr fallback, for the

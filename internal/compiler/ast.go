@@ -192,6 +192,11 @@ func (t *Tag) Attr(name string) *Attr {
 
 // Element is an HTML or custom element: a tag that is lowercase or contains
 // "-". <script> and <style> are Script and Style instead.
+//
+// It is also a dynamic tag (PLAN.md §2.8), with Dynamic set: a capitalized
+// tag naming a variable in scope (<Tag> after Tag := "a"), whose name is Go
+// code evaluated at render time. The parser makes those Components;
+// Analyze turns them into Elements.
 type Element struct {
 	Span
 	Tag
@@ -200,8 +205,13 @@ type Element struct {
 	Void bool
 	// RCDATA is true for <title> and <textarea>: their children are only Text,
 	// Expr, Comment, If and For; markup inside them is text.
-	RCDATA   bool
+	RCDATA bool
+	// Dynamic is true for a dynamic tag: Name is the Go variable (at
+	// NameSpan), and the element's name is its value.
+	Dynamic  bool
 	Children []Node
+	// asTag are a dynamic tag's diagnostics as such (Component.asTag).
+	asTag []Diagnostic
 }
 
 // Component is a capitalized tag: a call of an imported .orbit component, or
@@ -220,6 +230,11 @@ type Component struct {
 	Client *Attr
 	// Children are the slot contents.
 	Children []Node
+	// asCall and asTag are the diagnostics of the tag's attributes that
+	// depend on whether it is a component call or a dynamic tag (PLAN.md
+	// §2.8): the parser reports asCall, and Analyze replaces them with
+	// asTag for a dynamic tag.
+	asCall, asTag []Diagnostic
 }
 
 // Slot is a slot outlet, <slot> or <slot name="x">, with fallback children.

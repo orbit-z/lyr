@@ -119,7 +119,28 @@ CSS declarations (or a CSS value) from a trusted source, for `style={…}`: the 
 ```go
 type Attrs map[string]any
 ```
-Attributes to spread onto an HTML element with `{...attrs}`. Each value follows the [attribute rules](#attribute-values); each name must be a valid attribute name.
+Attributes to spread onto an HTML element with `{...attrs}`, written sorted by name. Each value follows the [attribute rules](#attribute-values); each name must be a valid attribute name.
+
+```go
+type AttrList []AttrPair
+type AttrPair struct{ /* unexported */ }
+
+func A[T any](name string, v T) AttrPair
+func (p AttrPair) Name() string
+func (p AttrPair) Value() any
+func (l AttrList) MarshalJSON() ([]byte, error)
+func (l *AttrList) UnmarshalJSON(b []byte) error
+```
+An ordered list of attributes to spread with `{...list}`, written **in list order** (an `Attrs` map is sorted), for byte parity with Astro, which keeps an object's order ([Spread attributes](template-syntax.md#spread-attributes)). Build each entry with `A`: strings, bools, the integer and float types, `URL`, `HTML`, `CSS` and `JSONValue` are kept without boxing, so a list built in a page allocates nothing; any other type is kept as an `any` (boxed). Each value follows the [attribute rules](#attribute-values). `Name` and `Value` read an entry back (`Value` boxes). An `AttrList` is a plain slice (`append`, `range`, `slices.*`).
+
+- Each name must be a valid attribute name, and appear once (ignoring ASCII case): `attribute "role" twice in spread` is a render error, and nothing of the list is written.
+- **JSON**: a JSON object in list order, each name mapped to its value as written or `true` for a bare attribute (`false` and `nil` left out), so a `Props` with an `AttrList` field can be sent to a [`server:defer`](../lazy-loading.md) component. Decoding keeps the order; an `orbit.URL` loses its trust, as for `RestAttrs`.
+- `orbit.If` in an `A` value works (`orbit.A("aria-current", orbit.If(cur, "page"))`); it's kept as an `any`.
+
+```go
+const Fragment = "#fragment"
+```
+The [dynamic tag](template-syntax.md#dynamic-tags) value for no element: `<Wrap>` with `Wrap == orbit.Fragment` writes only its children (Astro's `Fragment`). Compare with `==`; don't print it.
 
 ```go
 func If[T any](cond bool, v T) any
@@ -132,7 +153,7 @@ Conditional values, for Astro's `cond ? v : undefined` and `c ? a : b` ([Conditi
 ```go
 type RestAttrs struct{ /* unexported */ }
 
-func RestOf(m Attrs) RestAttrs
+func RestOf[T Attrs | AttrList](a T) RestAttrs
 func (a RestAttrs) Has(name string) bool
 func (a RestAttrs) Get(name string) (value string, ok bool)
 func (a RestAttrs) Class() string
@@ -141,7 +162,7 @@ func (a *RestAttrs) UnmarshalJSON(b []byte) error
 ```
 A component's pass-through attributes: the type of a `Props` field that collects the call site's attributes matching no other field ([Components](../components.md#passing-html-attributes-through), [Template syntax](template-syntax.md#pass-through-attributes)). Generated code builds it, with the static attributes already escaped, so a call site with only static attributes allocates nothing. The zero `RestAttrs` is empty.
 
-- **`RestOf`** wraps an `Attrs` for Go code that builds a `Props` (a test, `RenderComponent`, `orbittest`): its attributes are written like `Spread` writes them, sorted by name, with names checked at render time; a `"class"` entry is the class.
+- **`RestOf`** wraps an `Attrs` or an `AttrList` for Go code that builds a `Props` (a test, `RenderComponent`, `orbittest`): its attributes are written like `Spread` writes them (sorted by name) or `SpreadList` does (in list order, kept by reference, no allocation), with names checked at render time; a `"class"` entry is the class.
 - **`Has` and `Get`** look an attribute up, ignoring ASCII case. `Get` returns the value as it would be written, unescaped: `""` for a bare attribute, the filtered value for a `javascript:` URL, the joined classes for `class`. A `false` or `nil` value isn't there. They scan the attributes, and allocate only to format a number or a non-string value.
 - **`Class`** is the joined class string.
 - **JSON**: a JSON object of name → value as written, or `true` for a bare attribute, so a `Props` with a `RestAttrs` field can be sent to a [`server:defer`](../lazy-loading.md) component. An `orbit.URL` loses its trust in the round trip: decoded URL attributes are filtered.
@@ -311,7 +332,8 @@ func (w *Writer) AttrURL(name, s string)        // for URL attributes: scheme-fi
 func (w *Writer) AttrValue(s string)            // only the value AttrString writes between the quotes
 func (w *Writer) URL(s string)                  // only the value AttrURL writes between the quotes
 func (w *Writer) AttrBool(name string, b bool)  // bare or nothing, on any attribute
-func (w *Writer) Spread(a Attrs)                // {...attrs}
+func (w *Writer) Spread(a Attrs)                // {...attrs}, sorted by name
+func (w *Writer) SpreadList(l AttrList)         // {...list}, in list order
 func (w *Writer) SpreadRest(a *RestAttrs, withClass bool) // {...props.Attrs}
 func (w *Writer) RestClass(a *RestAttrs)        // the pass-through class, inside the element's class value
 func (w *Writer) JSONAttr(pos string, v JSONValue) // only the value, for name={orbit.JSON(…)}
@@ -324,7 +346,7 @@ func (w *Writer) JSONAttr(pos string, v JSONValue) // only the value, for name={
 - Anything else is attribute-escaped and quoted.
 - **URL attributes** (`action`, `background`, `cite`, `codebase`, `data`, `formaction`, `href`, `icon`, `longdesc`, `manifest`, `poster`, `profile`, `src`, `usemap`, `xmlns` and `xlink:href`: the list Go's `html/template` uses, plus `xlink:href`): a value whose scheme is `javascript:` or `vbscript:` (ignoring case, and after trimming whitespace and control characters) is replaced with `about:invalid#orbit`, unless it has type `orbit.URL`. This applies to `Attr`, `AttrURL`, `URL` and `Spread`.
 - **`AttrValue`** and **`URL`** write just the value: generated code writes `title={s}` (a `string`) as the static ` title="`, `w.AttrValue(s)` and the closing `"`, the same bytes as `AttrString("title", s)`, and `href={url}` as ` href="`, `w.URL(url)` and `"`, the same bytes as `AttrURL("href", url)`. An `orbit.URL` value is written with `AttrValue` instead, unfiltered; an `orbit.CSS` value is written like a string (with `URL` in a URL attribute).
-- **`Spread`** checks each name against `[A-Za-z_:][-A-Za-z0-9_:.]*`. An invalid name (with spaces, quotes, `>`, `/` or `=`) is a render error.
+- **`Spread`** and **`SpreadList`** check each name against `[A-Za-z_:][-A-Za-z0-9_:.]*`. An invalid name (with spaces, quotes, `>`, `/` or `=`) is a render error, and so is a name twice in an `AttrList`; nothing of the spread is written then. Generated code calls `SpreadOf` (below), whose errors carry the spread's `.orbit` position.
 - **`SpreadRest`** writes a [`RestAttrs`](#restattrs): the call site's attributes in source order (dynamic values by the rules above), the caller's scope attribute, then any merged spread's attributes the call site doesn't set (an `Attrs` checked like `Spread`). With `withClass`, it also writes a `class` attribute holding their class, or none when it's empty. Generated code passes `false` when the element has its own class, and writes the pass-through class inside it with `RestClass` (each class after a space, as `Class` does).
 - **A `JSONValue`** is always written (even when it encodes as `false` or `null`), single-quoted, as described in [JSON](#json). This applies to `Attr` and `Spread`. `Expr` writes it as HTML-escaped text.
 - **`JSONAttr`** writes just the value: generated code writes `data-post={orbit.JSON(post)}` as the static ` data-post='`, `w.JSONAttr(pos, orbit.JSON(post))` and the closing `'`, the same bytes as `Attr("data-post", orbit.JSON(post))`. `pos` is the `.orbit` position of the attribute value's `{`: an encoding error becomes the sticky error, prefixed with it. Errors from `Attr`, `Expr` and `Spread`, which have no position, read `orbit: orbit.JSON: json: …`.
@@ -357,10 +379,24 @@ func ClassString(v any) string
 func Rest(class, tail string, dyn ...RestAttr) RestAttrs
 func RestString(pre, name, s string) RestAttr // also RestStringURL, RestURL, RestBool, RestInt,
 func RestAny(pre, name string, v any) RestAttr //   RestUint, RestFloat, RestFloat32, RestJSON
-func RestFrom[T Attrs | RestAttrs](x T) RestAttrs
-func RestMerge[T Attrs | RestAttrs](own RestAttrs, x T) RestAttrs
+func RestFrom[T Attrs | AttrList | RestAttrs](x T) RestAttrs
+func RestMerge[T Attrs | AttrList | RestAttrs](own RestAttrs, x T) RestAttrs
 ```
 The call site of a component with an `orbit.RestAttrs` field: `Rest` takes the joined class, the escaped static attributes after the last dynamic one, and the dynamic ones, each with the static attributes before it and a typed value (`RestAny` when the build didn't check its type). `RestFrom` and `RestMerge` handle `{...x}` on the tag: a spread alone is passed as is; merging it with other attributes costs one allocation when it's a `RestAttrs`.
+
+```go
+func SpreadOf[T Attrs | AttrList](w *Writer, pos string, a T)
+```
+`{...x}` on an HTML element: an `Attrs` as `Spread` writes it, an `AttrList` as `SpreadList` does, with errors prefixed with `pos`, the spread's `.orbit` position. Generic, so the build needs no type information to emit it.
+
+```go
+type DynTag struct{ /* unexported */ }
+
+func (w *Writer) TagOpen(pos, expr, name string, content bool) DynTag
+func (t DynTag) Attrs() bool
+func (w *Writer) TagClose(t DynTag)
+```
+A [dynamic tag](template-syntax.md#dynamic-tags): `TagOpen` checks the name and writes `<name`; `pos` is the tag's `.orbit` position and `expr` the variable as written, for the error messages, and `content` says whether the template gives the tag children (a void element with content is an error). `Attrs` is false for `Fragment` (and after an error): generated code writes the attributes and the `>` only when it's true. `TagClose` writes `</name>` for a non-void element. No allocation, whatever the name.
 
 The writes behind [`class:list`](template-syntax.md#classlist). On an HTML element, the static classes are part of the precomputed HTML and the dynamic items are written with `Class` or `Classes`: whitespace is normalized and each class is escaped, with no allocation. When codegen can't tell whether a class comes first, `ClassStart` makes the first class open the attribute with ` class="`, and `ClassEnd` closes it, or writes nothing when there was no class. On a component tag, the class prop is `JoinClasses` of the items (`ClassIf` for `"c": cond`), which returns a single clean part as is and otherwise allocates the joined string. `ClassAny` and `ClassString` are the fallbacks for an item whose type the build didn't check; any other type is a render error (a panic for `ClassString`).
 

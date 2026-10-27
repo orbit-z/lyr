@@ -411,6 +411,8 @@ type anSynth struct {
 	segs []anSeg
 	// codes are the copied template Go regions, for the reserved-name scan.
 	codes []GoCode
+	// probes are the capitalized tag names, resolved for dynamic tags.
+	probes []*anProbe
 }
 
 type anSeg struct{ goStart, orbit, n int }
@@ -488,6 +490,10 @@ func (y *anSynth) nodes(ns []Node, tags map[string]bool) {
 		default:
 			if c, ok := n.(*Component); ok && !c.Self {
 				tags[c.Name] = true
+				y.probe(n, &c.Tag)
+			}
+			if e, ok := n.(*Element); ok && e.Dynamic {
+				y.probe(n, &e.Tag)
 			}
 			if t := TagOf(n); t != nil {
 				for _, at := range t.Attrs {
@@ -566,6 +572,7 @@ func (s *anState) parseBody() {
 		s.usage(file)
 		s.ctxRefs(file, tf, tmplStart, &y)
 	}
+	s.dynTags(file, tf, tmplStart, &y)
 	s.a.UsesLocals = s.implIdent["locals"] || file == nil || len(errs) > 0
 	s.a.CtxUnknown = file == nil || len(errs) > 0
 	if bodyErr || file == nil {

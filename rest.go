@@ -33,10 +33,11 @@ type RestAttrs struct {
 	// attributes (a forwarding caller's scope attribute, RestMerge).
 	class, tail, extra string
 	dyn                []RestAttr
-	// m is an Attrs from RestOf or merged by RestMerge, and next a merged
-	// RestAttrs. Both come after the attributes above, which win for the
-	// same name.
+	// m is an Attrs and l an AttrList from RestOf or merged by RestMerge
+	// (at most one of them per part), and next a merged RestAttrs. They
+	// come after the attributes above, which win for the same name.
 	m    Attrs
+	l    AttrList
 	next *RestAttrs
 }
 
@@ -138,20 +139,33 @@ func RestJSON(pre, name, pos string, v JSONValue) RestAttr {
 	return RestAttr{pre: pre, name: name, kind: restJSON, s: pos, v: v.v}
 }
 
-// RestOf wraps an Attrs as pass-through attributes, for Go code that
-// builds a component's Props. They're spread like Spread spreads them:
-// sorted by name, with names checked when written. A "class" entry is the
-// class merged into the element's class.
-func RestOf(m Attrs) RestAttrs { return RestAttrs{m: m} }
+// RestOf wraps an Attrs or an AttrList as pass-through attributes, for Go
+// code that builds a component's Props. They're spread like Spread and
+// SpreadList spread them: an Attrs sorted by name, an AttrList in list
+// order, with names checked when written. A "class" entry is the class
+// merged into the element's class. The list is kept by reference: it costs
+// no allocation.
+func RestOf[T Attrs | AttrList](a T) RestAttrs {
+	switch p := any(&a).(type) {
+	case *Attrs:
+		return RestAttrs{m: *p}
+	case *AttrList:
+		return RestAttrs{l: *p}
+	}
+	return RestAttrs{}
+}
 
 // RestFrom converts the operand of a spread on a component tag
 // (<Input {...x} />, alone on the tag) to the component's RestAttrs: an
-// Attrs as RestOf does, a RestAttrs as is. Generated code calls it.
-func RestFrom[T Attrs | RestAttrs](x T) RestAttrs {
+// Attrs or an AttrList as RestOf does, a RestAttrs as is. Generated code
+// calls it.
+func RestFrom[T Attrs | AttrList | RestAttrs](x T) RestAttrs {
 	// A pointer in the interface, so that the value isn't boxed.
 	switch p := any(&x).(type) {
 	case *Attrs:
 		return RestAttrs{m: *p}
+	case *AttrList:
+		return RestAttrs{l: *p}
 	case *RestAttrs:
 		return *p
 	}
@@ -160,14 +174,16 @@ func RestFrom[T Attrs | RestAttrs](x T) RestAttrs {
 
 // RestMerge merges the operand x of a spread on a component tag into own,
 // the attributes written on the tag, which win for the same name. Merging
-// an Attrs into attributes that have no merged part costs nothing; a
-// RestAttrs costs one allocation, except when own holds only static
-// attributes that x doesn't have (a forwarding caller's scope attribute).
-// Generated code calls it.
-func RestMerge[T Attrs | RestAttrs](own RestAttrs, x T) RestAttrs {
+// an Attrs or an AttrList into attributes that have no merged part costs
+// nothing; a RestAttrs costs one allocation, except when own holds only
+// static attributes that x doesn't have (a forwarding caller's scope
+// attribute). Generated code calls it.
+func RestMerge[T Attrs | AttrList | RestAttrs](own RestAttrs, x T) RestAttrs {
 	switch p := any(&x).(type) {
 	case *Attrs:
 		return own.mergeAttrs(*p)
+	case *AttrList:
+		return own.mergeList(*p)
 	case *RestAttrs:
 		return own.merge(*p)
 	}
@@ -178,11 +194,22 @@ func (a RestAttrs) mergeAttrs(m Attrs) RestAttrs {
 	if len(m) == 0 {
 		return a
 	}
-	if a.m == nil && a.next == nil {
+	if a.m == nil && a.l == nil && a.next == nil {
 		a.m = m
 		return a
 	}
 	return a.merge(RestAttrs{m: m})
+}
+
+func (a RestAttrs) mergeList(l AttrList) RestAttrs {
+	if len(l) == 0 {
+		return a
+	}
+	if a.m == nil && a.l == nil && a.next == nil {
+		a.l = l
+		return a
+	}
+	return a.merge(RestAttrs{l: l})
 }
 
 func (a RestAttrs) merge(x RestAttrs) RestAttrs {
@@ -192,7 +219,7 @@ func (a RestAttrs) merge(x RestAttrs) RestAttrs {
 	if a.empty() {
 		return x
 	}
-	if a.class == "" && a.dyn == nil && a.m == nil && a.next == nil && x.extra == "" && !x.hasAnyOf(a.tail) {
+	if a.class == "" && a.dyn == nil && a.m == nil && a.l == nil && a.next == nil && x.extra == "" && !x.hasAnyOf(a.tail) {
 		x.extra = a.tail
 		return x
 	}
@@ -206,7 +233,7 @@ func (a RestAttrs) merge(x RestAttrs) RestAttrs {
 }
 
 func (a *RestAttrs) empty() bool {
-	return a.class == "" && a.tail == "" && a.extra == "" && a.dyn == nil && len(a.m) == 0 && a.next == nil
+	return a.class == "" && a.tail == "" && a.extra == "" && a.dyn == nil && len(a.m) == 0 && len(a.l) == 0 && a.next == nil
 }
 
 // hasAnyOf reports whether a has one of the attributes of the static run s.
@@ -257,6 +284,15 @@ func (a RestAttrs) Class() string {
 				return s
 			}
 		}
+		for i := range p.l {
+			if strings.EqualFold(p.l[i].name, "class") {
+				if v := p.l[i].Value(); v != nil {
+					if s := mapClass(v); s != "" {
+						return s
+					}
+				}
+			}
+		}
 	}
 	return ""
 }
@@ -298,6 +334,13 @@ func (p *RestAttrs) getLocal(name string) (string, bool) {
 	for k, v := range p.m {
 		if strings.EqualFold(k, name) && !strings.EqualFold(k, "class") {
 			if s, ok := anyValue(name, v); ok {
+				return s, true
+			}
+		}
+	}
+	for i := range p.l {
+		if k := p.l[i].name; strings.EqualFold(k, name) && !strings.EqualFold(k, "class") {
+			if s, ok := anyValue(name, p.l[i].Value()); ok {
 				return s, true
 			}
 		}
@@ -444,7 +487,7 @@ func (w *Writer) SpreadRest(a *RestAttrs, withClass bool) {
 	}
 	w.buf.WriteString(a.tail)
 	w.buf.WriteString(a.extra)
-	if a.m != nil || a.next != nil {
+	if a.m != nil || a.l != nil || a.next != nil {
 		w.restMerged(a)
 	}
 	if withClass {
@@ -459,7 +502,7 @@ func (w *Writer) SpreadRest(a *RestAttrs, withClass bool) {
 // RestClass writes the class of a inside an element's class value, as
 // Class does: each class preceded by a space, nothing when it's empty.
 func (w *Writer) RestClass(a *RestAttrs) {
-	if a.class != "" || a.m == nil && a.next == nil {
+	if a.class != "" || a.m == nil && a.l == nil && a.next == nil {
 		w.Class(a.class)
 		return
 	}
@@ -505,11 +548,12 @@ func (w *Writer) restDyn(d *RestAttr) {
 	}
 }
 
-// restMerged writes the merged parts of a: its Attrs, then each merged
-// RestAttrs, skipping the names set before them (and class, which is
-// written apart).
+// restMerged writes the merged parts of a: its Attrs or AttrList, then
+// each merged RestAttrs, skipping the names set before them (and class,
+// which is written apart).
 func (w *Writer) restMerged(a *RestAttrs) {
 	w.restMap(a, a, a.m)
+	w.restList(a, a, a.l)
 	for p := a.next; p != nil && w.err == nil; p = p.next {
 		for i := range p.dyn {
 			d := &p.dyn[i]
@@ -521,6 +565,7 @@ func (w *Writer) restMerged(a *RestAttrs) {
 		w.restStatics(a, p, p.tail)
 		w.restStatics(a, p, p.extra)
 		w.restMap(a, p, p.m)
+		w.restList(a, p, p.l)
 	}
 }
 
@@ -579,13 +624,34 @@ func (w *Writer) restMap(top, p *RestAttrs, m Attrs) {
 	}
 }
 
-// ownSets reports whether p's own attributes (not its Attrs) set name.
+// restList writes the entries of l (part p's AttrList) in order, minus
+// class and the names set before them (by p's own attributes too). A name
+// error, or a name twice in l, is a render error.
+func (w *Writer) restList(top, p *RestAttrs, l AttrList) {
+	if len(l) == 0 || w.err != nil {
+		return
+	}
+	if err := checkList("", l); err != nil {
+		w.setErr(err)
+		return
+	}
+	for i := range l {
+		name := l[i].name
+		if strings.EqualFold(name, "class") || shadowed(top, p, name) || p.ownSets(name) {
+			continue
+		}
+		w.writePair(&l[i])
+	}
+}
+
+// ownSets reports whether p's own attributes (not its Attrs or AttrList)
+// set name.
 func (p *RestAttrs) ownSets(name string) bool {
-	if p.m == nil {
+	if p.m == nil && p.l == nil {
 		return false
 	}
 	q := *p
-	q.m, q.next = nil, nil
+	q.m, q.l, q.next = nil, nil, nil
 	return q.hasLocal(name)
 }
 
@@ -662,6 +728,21 @@ func (a RestAttrs) MarshalJSON() ([]byte, error) {
 			}
 			seen[strings.ToLower(name)] = true
 			add(name, v, isBare(name, p.m[name]))
+		}
+		if err := checkList("", p.l); err != nil {
+			return nil, err
+		}
+		for i := range p.l {
+			name, val := p.l[i].name, p.l[i].Value()
+			if seen[strings.ToLower(name)] {
+				continue
+			}
+			v, ok := anyValue(name, val)
+			if !ok {
+				continue
+			}
+			seen[strings.ToLower(name)] = true
+			add(name, v, isBare(name, val))
 		}
 	}
 	b.WriteByte('}')

@@ -587,7 +587,7 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 			return true
 		}
 		site := byStart[tf.Offset(call.Pos())]
-		if site == nil {
+		if site == nil || site.Kind == SiteTag {
 			return true
 		}
 		tv, ok := info.Types[call.Args[len(call.Args)-1]]

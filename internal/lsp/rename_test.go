@@ -317,6 +317,42 @@ p := Card.Props{Post: "x"}
 	})
 }
 
+// TestDynTagLSP: the name of a dynamic tag (PLAN.md §2.8) is Go code:
+// hover and definition go to the variable through gopls, and a rename
+// edits the declaration, both start tags and the end tag.
+func TestDynTagLSP(t *testing.T) {
+	needGopls(t)
+	const btn = `---
+link := true
+Tag := orbit.Cond(link, "a", "button")
+---
+<Tag href="/">x</Tag>
+<Tag />
+`
+	const path = "src/components/Btn.orbit"
+	files := map[string]string{path: btn}
+	dir := writeProject(t, maps2(files))
+	c := startClient(t, dir, nil)
+	c.open(path)
+	if text, _ := c.hover(path, at(t, btn, "<Tag", 0, 2)); !strings.Contains(text, "string") {
+		t.Errorf("hover on <Tag: %q, want its type string", text)
+	}
+	locs := c.locations(c.call("textDocument/definition", c.textPos(path, at(t, btn, "<Tag", 1, 2))))
+	if len(locs) != 1 || uriToPath(locs[0].URI) != filepath.Join(dir, path) || rangeText(btn, locs[0].Range) != "Tag" ||
+		locs[0].Range.Start.Line != 2 {
+		t.Errorf("definition on <Tag: %v", locs)
+	}
+	want := strings.ReplaceAll(btn, "Tag", "Elem")
+	for _, pos := range []Position{at(t, btn, "Tag :=", 0, 1), at(t, btn, "<Tag", 0, 2), at(t, btn, "</Tag>", 0, 3)} {
+		res := c.call("textDocument/rename", c.renameParams(path, pos, "Elem"))
+		checkRename(t, c.workspaceEdit(res, true), files, map[string]string{path: want})
+	}
+	// Attribute completion: the global HTML attributes.
+	if items := labels(c.complete(path, at(t, btn, "<Tag />", 0, 5))); !slices.Contains(items, "class") || !slices.Contains(items, "set:html") || slices.Contains(items, "href") {
+		t.Errorf("attribute completion on <Tag: %v", items)
+	}
+}
+
 // TestRenameChanges: an editor without documentChanges support gets
 // changes, and renameProvider without prepareProvider.
 func TestRenameChanges(t *testing.T) {

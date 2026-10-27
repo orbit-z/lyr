@@ -1,6 +1,9 @@
 package compiler
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // tagKind is the kind of a tag-shaped node, for the directive rules.
 type tagKind uint8
@@ -35,10 +38,40 @@ func validate(t *Template, p *parser) {
 			n.Global = n.Attr("is:global") != nil
 			n.Processed = !n.Inline && n.Attr("set:html") == nil && n.Attr("set:text") == nil
 		case *Component:
+			if n.Self {
+				n.Defer, n.Client = p.checkTag(&n.Tag, tkComponent, n.Children, nil)
+				n.Concurrent = n.Attr("server:concurrent")
+				if n.Defer != nil {
+					p.checkDeferChildren(n)
+				}
+				break
+			}
+			// A capitalized tag other than <Self> may be a dynamic tag
+			// (PLAN.md §2.8), which only analysis can tell: the
+			// diagnostics of the component reading are reported, and
+			// those that differ in each reading are kept, for Analyze to
+			// swap for a dynamic tag.
+			saved := p.diags
+			p.diags = nil
 			n.Defer, n.Client = p.checkTag(&n.Tag, tkComponent, n.Children, nil)
 			n.Concurrent = n.Attr("server:concurrent")
 			if n.Defer != nil {
 				p.checkDeferChildren(n)
+			}
+			call := p.diags
+			p.diags = nil
+			p.checkTag(&n.Tag, tkElement, n.Children, nil)
+			tag := p.diags
+			p.diags = append(saved, call...)
+			for _, d := range call {
+				if !slices.Contains(tag, d) {
+					n.asCall = append(n.asCall, d)
+				}
+			}
+			for _, d := range tag {
+				if !slices.Contains(call, d) {
+					n.asTag = append(n.asTag, d)
+				}
 			}
 		case *Slot:
 			p.checkTag(&n.Tag, tkSlot, n.Children, nil)

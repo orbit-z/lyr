@@ -194,7 +194,7 @@ With an up-to-date `orbit_gen/`, gopls reads the generated code of every file yo
 
 - **Tag names** after `<`: the components you've imported first, then other components in the project (accepting one adds its `.orbit` import: through the shortest `tsconfig.json` alias that covers the file, such as `import Card "@/components/Card.orbit"`, as TypeScript's auto-import does, otherwise with a relative path, `import Card "../components/Card.orbit"`), then `<Fragment>` and HTML elements.
 - **Props** on a component tag: its `Props` fields as attribute names (`post`, `featured`), with their types and doc comments. Accepting one inserts `post={…}`. Props you've already set aren't offered again.
-- **HTML attributes** on HTML elements: the element's own and the global ones.
+- **HTML attributes** on HTML elements: the element's own and the global ones. On a [dynamic tag](reference/template-syntax.md#dynamic-tags) (`<Tag>` with `Tag := …`), the global ones. Its name is Go code: hover, go to definition and references go to the variable, through gopls.
 - **Directives** where they're valid: `slot` on any tag; `set:html` and `set:text` on HTML elements and `<Fragment>`; `is:inline` on `<script>` and `<style>`; `is:global` on `<style>`; `set:json` on `<script type="application/json">`. On component tags, `server:defer`, `client:load`, `client:idle`, `client:visible` and `client:media` (they're errors on HTML elements, so they're never offered there). See [Lazy loading](lazy-loading.md).
 - **Control blocks** after `{` in template content: `if`, `for` and `switch` (accepting `if` inserts `{if cond}{/if}`, with the cursor on `cond`), `else if`/`else` inside an `{if}`, `case`/`default` inside a `{switch}`, and the closer of the innermost open block (`{/` offers just that one). Where the `{` could also start an expression, gopls's items follow.
 - **Slot names** inside `slot="…"`: the slots of the component you're passing content to. Inside a `server:defer` component, only `fallback`.
@@ -271,6 +271,7 @@ Rename works on Go identifiers in the frontmatter and in expressions, and update
 
 - **A frontmatter variable**: renaming `title` updates its declaration and every `{title}` in the template.
 - **A `Props` field**: renaming `Post` to `Article` in `Card.orbit` also renames the attribute at every call site, keeping its spelling style: `post={p}` becomes `article={p}`, and `is-open` would become `is-closed` rather than `isClosed`. You can start the rename from the field's declaration, from a `props.Post` use, or from a `post=` attribute at a call site; there you type the new attribute name (`is-closed`), and the field becomes `IsClosed`.
+- **A dynamic tag's variable**: renaming `Tag`, from its declaration or from a `<Tag>` or `</Tag>` tag, updates the declaration and both tags of every use.
 - **An `.orbit` import alias**: renaming `Card`, from its import or from a `<Card>` or `</Card>` tag, updates the import and every `<Card>` tag in that file. The new alias must start with an uppercase letter.
 - **Anything in your `.go` packages** that an `.orbit` file uses, such as `posts.Post`, is renamed in both.
 

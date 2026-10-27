@@ -36,6 +36,21 @@ Only values whose static type is an interface (such as `any` or `fmt.Stringer`),
 
 Elsewhere (inside a larger expression, in an `orbit.Attrs` value, as a component prop or a [pass-through attribute](components.md#passing-html-attributes-through)) it stays an ordinary call: no allocation for a constant or a false condition, and one for a dynamic value that's written. `orbit.Cond(c, a, b)` needs nothing special: its result has the type of `a` and `b`, so it gets the usual typed write. A `bool` on a [true/false attribute](reference/template-syntax.md#attribute-values-on-html-elements) such as `aria-pressed` is decided at build time from the attribute's name, so it costs nothing either.
 
+### Dynamic tags
+
+A [dynamic tag](reference/template-syntax.md#dynamic-tags) (`<Tag>` with `Tag := orbit.Cond(link, "a", "button")`) checks its name when it renders, in one pass, and writes its attributes like any element's, still precomputed where they're static. Measured on a Ryzen 7 9700X, Go 1.27.3: about 17 ns for a `<button>`/`<a>` with a static class, against 7 ns for the same markup duplicated in `{if}`/`{else}`; 23 ns for `"h" + strconv.Itoa(level)`; 11 ns for an optional wrapper (`orbit.Fragment` half the time). No allocation, a concatenated name included. Duplicated static markup stays the fastest form; the dynamic tag saves the second copy of the attributes and children.
+
+### Ordered spreads
+
+A spread of an `orbit.Attrs` boxes each dynamic value into the map and sorts the names; an [`orbit.AttrList`](reference/template-syntax.md#spread-attributes) built with `orbit.A` keeps the values unboxed and in order. For five dynamic string attributes (Ryzen 7 9700X, Go 1.27.3):
+
+| Spread | Time | Allocations |
+|---|---|---|
+| `orbit.Attrs` map built in the page | 250 ns | 5 (80 B) |
+| `orbit.AttrList` built in the page | 145 ns | 0 |
+| `orbit.AttrList` returned by a helper in another package | 183 ns | 1 (320 B, the backing array) |
+| The five attributes written one by one | 58 ns | 0 |
+
 ### Escaping allocates nothing when there's nothing to escape
 
 The escaper first scans a string for characters that need escaping. Most strings have none, and are copied into the buffer as they are, with no intermediate string and no allocation.

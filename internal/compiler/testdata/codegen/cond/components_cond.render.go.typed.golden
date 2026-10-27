@@ -303,7 +303,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 /*line ../../../../src/components/Cond.orbit:35:11*/fmt.Sprint(orbit.If(props.On, "a"))/*line render.go:303:114*/,
 	)
 	orbit__w.Raw("\"")
-	orbit__w.Spread(
+	orbit__rt.SpreadOf(orbit__w, "src/components/Cond.orbit:35:48",
 /*line ../../../../src/components/Cond.orbit:35:52*/orbit.Attrs{"data-s": orbit.If(props.On, "s")}/*line render.go:307:125*/,
 	)
 	orbit__w.Raw(">")
@@ -414,7 +414,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 /*line ../../../../src/components/Cond.orbit:40:80*/props.On/*line render.go:414:86*/,
 	)
 	orbit__w.Raw(">ce</my-el>\n<p")
-	orbit__w.Spread(
+	orbit__rt.SpreadOf(orbit__w, "src/components/Cond.orbit:41:4",
 /*line ../../../../src/components/Cond.orbit:41:8*/orbit.Attrs{"aria-pressed": props.Off, "data-x": props.Off, "draggable": true, "hidden": true, "Aria-Live": Flag(false)}/*line render.go:418:198*/,
 	)
 	orbit__w.Raw(">sp</p>")

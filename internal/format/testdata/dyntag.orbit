@@ -1,0 +1,9 @@
+---
+link:=props.Attrs.Has("href")
+Tag   := orbit.Cond(link,"a","button")
+theme:=orbit.AttrList{orbit.A("data-theme","dark"),orbit.A("data-n",3)}
+---
+<Tag {...props.Attrs}   type={orbit.If(!link,"button")}><slot /></Tag>
+<Tag/>
+<html {...theme}   lang="en"></html>
+{for _,T:=range tags}<T>{T}</T>{/for}

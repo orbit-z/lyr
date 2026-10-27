@@ -1,4 +1,6 @@
 ---
+import "cmp"
+
 type Props struct {
 	// Variant is "" for the default style, or "primary".
 	Variant string
@@ -6,16 +8,16 @@ type Props struct {
 	// the component sets the attribute itself.
 	Type string
 	// Attrs holds every other attribute of the call site (name, value,
-	// disabled, aria-*, data-*, class, …): they're written on the <button>.
+	// disabled, aria-*, data-*, class, …): they're written on the element.
 	Attrs orbit.RestAttrs
 }
 
-typ := props.Type
-if typ == "" {
-	typ = "button"
-}
+// With an href, the button is a link: Tag is a dynamic tag, <a> or
+// <button>, around the same attributes and content.
+link := props.Attrs.Has("href")
+Tag := orbit.Cond(link, "a", "button")
 ---
-<button {...props.Attrs} type={typ} class:list={"btn", "btn-primary": props.Variant == "primary"}><slot /></button>
+<Tag {...props.Attrs} type={orbit.If(!link, cmp.Or(props.Type, "button"))} class:list={"btn", "btn-primary": props.Variant == "primary"}><slot /></Tag>
 <style>
   .btn {
     padding: 0.3rem 0.8rem;
@@ -24,6 +26,7 @@ if typ == "" {
     background: none;
     color: inherit;
     cursor: pointer;
+    text-decoration: none;
   }
   .btn-primary {
     border-color: var(--accent);

@@ -680,11 +680,54 @@ renders (with the page's scope attribute `data-o-…`):
 - **`class` is merged**: a passed `class` (or `class:list`) joins the element's own `class` or `class:list` instead of being written twice (`class="btn btn-quiet mt-2"`). On an element without a class, the spread writes `class="mt-2"`. If the component declares a `Class` prop, `class` sets that prop instead.
 - **The caller's scoped styles apply**: when the calling file has a scoped `<style>`, its scope attribute is passed along too, so the page's `.mt-2` rule matches the button, as in Astro.
 - **Declare a prop for any attribute the component sets itself.** If both the call site and the element write `type`, both are written and the browser keeps the first. Declaring `Type` makes `type="submit"` set the prop, and the component decides.
-- **Spread it on any number of elements**: `{...props.Attrs}` can appear on several elements, say an `<a>` when an `href` is passed and a `<button>` otherwise. `props.Attrs.Has("href")` and `props.Attrs.Get("href")` read a passed attribute.
-- **Forwarding**: a wrapper passes its own pass-through attributes on with a spread on the inner component, `<Input {...props.Attrs} />`; attributes written on the tag win over the spread's. A spread on a component works only when the component has an `orbit.RestAttrs` field, and takes an `orbit.RestAttrs` or an `orbit.Attrs`.
+- **Spread it on any number of elements**: `{...props.Attrs}` can appear on several elements. To render an `<a>` when an `href` is passed and a `<button>` otherwise, use one [dynamic tag](#one-element-or-another-dynamic-tags). `props.Attrs.Has("href")` and `props.Attrs.Get("href")` read a passed attribute.
+- **Forwarding**: a wrapper passes its own pass-through attributes on with a spread on the inner component, `<Input {...props.Attrs} />`; attributes written on the tag win over the spread's. A spread on a component works only when the component has an `orbit.RestAttrs` field, and takes an `orbit.RestAttrs`, an `orbit.Attrs` or an `orbit.AttrList` (whose order is kept).
 - **Typos aren't caught**: on a component with an `orbit.RestAttrs` field, a misspelled prop (`varient="quiet"`) becomes an HTML attribute instead of an error, as in Astro. Declared props come first in editor completion.
 
-A `Props` takes at most one `orbit.RestAttrs` field, and it can't have embedded fields (Orbit must be able to tell props from pass-through attributes). From Go code, such as a test, build the field with `orbit.RestOf(orbit.Attrs{"name": "shelf"})`. The [template syntax reference](reference/template-syntax.md#pass-through-attributes) has the details and the error messages.
+A `Props` takes at most one `orbit.RestAttrs` field, and it can't have embedded fields (Orbit must be able to tell props from pass-through attributes). From Go code, such as a test, build the field with `orbit.RestOf(orbit.Attrs{"name": "shelf"})`, or `orbit.RestOf(orbit.AttrList{orbit.A("name", "shelf")})` to keep an order. The [template syntax reference](reference/template-syntax.md#pass-through-attributes) has the details and the error messages.
+
+### One element or another: dynamic tags
+
+A capitalized variable used as a tag renders the element it names, as Astro's `const Tag = …` does. A link that looks like a button, or a heading whose level is a prop, then needs one copy of its markup:
+
+```orbit file=src/components/Action.orbit
+---
+import "cmp"
+
+type Props struct {
+	Variant, Type string
+	Attrs         orbit.RestAttrs
+}
+
+link := props.Attrs.Has("href")
+Tag := orbit.Cond(link, "a", "button")
+---
+<Tag {...props.Attrs} type={orbit.If(!link, cmp.Or(props.Type, "button"))} class:list={"btn", "btn-" + props.Variant}>
+  <slot />
+</Tag>
+```
+
+`<Action variant="quiet" href="/new">New</Action>` renders an `<a href="/new" class="btn btn-quiet">`, and `<Action variant="quiet">Save</Action>` a `<button type="button" class="btn btn-quiet">`. A heading works the same way: `Heading := "h" + strconv.Itoa(props.Level)`, then `<Heading class="title">{props.Text}</Heading>`.
+
+**Optional wrappers**: `orbit.Fragment` as the value renders no element, only the children:
+
+```orbit file=src/components/Choice.orbit
+---
+type Props struct {
+	Label   string
+	Wrapped bool
+}
+
+Wrap := orbit.Cond(props.Wrapped, "div", orbit.Fragment)
+---
+<Wrap class="choice">
+  <label><input type="checkbox"> {props.Label}</label>
+</Wrap>
+```
+
+With `wrapped`, the `<label>` is inside a `<div class="choice">`; without, it's on its own.
+
+The name is a Go `string`, checked when the page renders: an empty string, `script`, `style` and a few other special elements, and an `img` or other void element with children are render errors. The [template syntax reference](reference/template-syntax.md#dynamic-tags) has the rules. A variable can't hold a component; to pick one, use `{switch}`.
 
 ### Types used by Props
 

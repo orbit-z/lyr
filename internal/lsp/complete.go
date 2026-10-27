@@ -725,7 +725,11 @@ func (ws *workspace) attrItems(c cursor, snippets bool) []any {
 	case *compiler.Fragment:
 		directive("slot", "set:html", "set:text")
 	case *compiler.Element:
-		attrs(strings.ToLower(n.Name))
+		if n.Dynamic {
+			attrs("") // the name is a variable: the global attributes (PLAN.md §2.8)
+		} else {
+			attrs(strings.ToLower(n.Name))
+		}
 		directive("slot", "class:list")
 		if !n.Void {
 			directive("set:html", "set:text")

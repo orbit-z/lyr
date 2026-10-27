@@ -987,3 +987,34 @@ Fixes found porting the `nyth` Astro site (2026-10-27).
 | `orbit.CSS` on `on*` still warns: there's no trusted JavaScript type | simplest (§2.7 out of scope: `template.JS`) | Accept it on `on*` too | [Components](components.md#event-handler-and-style-attributes) |
 | The candidate sites are the pass-1 call sites of `style`/`on*` attributes with an expression (`SiteAttr`, `SiteRest`), rather than a separate list recorded by the parser | simplest (the call sites already carry the attribute, and cover pass-through attributes, which the parser can't tell from props) | A parser-recorded list | — |
 | The language server keeps each warning with its attribute's source text (and its index among attributes with the same text), showing it at that attribute's current position; a check runs at startup and after `orbit_gen/` changes (now also without gopls overlays, when a file has candidates) | the Markdown typed diagnostics' approach (§9) | Re-run the typed check while typing | [Components](components.md#event-handler-and-style-attributes) |
+
+## Dynamic tags (`<Tag>`)
+
+Dynamic tags and optional wrappers (`PLAN.md` §2.8). A capitalized variable in scope as the tag (Q1 a), `orbit.Fragment` for no element with `""` an error (Q2 a) and the rejected names (Q3 a) were the user's, not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| "In scope" is go/parser's object resolution at the start tag (a body `:=`/`var`, a `{for}`/`{if}`/`{switch}` header) plus the hoisted `const`s; a hoisted type or func, or a variable only declared inside a function literal, isn't a dynamic tag (the unknown-component error) | simplest (the analyzer's existing parse) | Accept any declared name and let Go report the type | [Template syntax](reference/template-syntax.md#dynamic-tags) |
+| When the body doesn't parse (tolerant mode, while typing), no capitalized tag is dynamic | simplest | Guess from the frontmatter's tokens | — |
+| The alias/variable clash is reported once per name, at the variable's declaration, and the tag stays a component | simplest | One error per tag | [Template syntax](reference/template-syntax.md#dynamic-tags) |
+| `TagOpen` takes the tag's `.orbit` position and the variable's name (`TagOpen(pos, "Tag", Tag, content)`), not just `(name, content)` as sketched, so its render errors read `src/x.orbit:3:2: dynamic tag Tag is empty; …` | the existing positioned render errors (`JSONAttr`) | Errors without a position | [Runtime API](reference/runtime-api.md#generated-code-hooks) |
+| The invalid-name error reads `dynamic tag Tag has an invalid element name "a b"` | go vet style (simplest) | — | [Template syntax](reference/template-syntax.md#dynamic-tags) |
+| The rejected and void names are matched in any ASCII case; `Fragment`'s value `"#fragment"` is compared exactly (`"#Fragment"` is an invalid name) | HTML is case-insensitive; the sentinel is a constant | — | [Template syntax](reference/template-syntax.md#dynamic-tags) |
+| The parser keeps a capitalized tag's directive checks for both readings: the component's are reported as before, and analysis swaps them for the element's on a dynamic tag (`server:defer only works on .orbit components`, `set:html` allowed) | simplest (parse-only output unchanged) | Defer every directive check to analysis | — |
+| A dynamic tag's children are compressed as inline content, and its `set:html`/`set:text` content is written even for `orbit.Fragment` (like `<Fragment set:html>`) | Astro (`Fragment` with `set:html`) | Skip the content with the tags | [Template syntax](reference/template-syntax.md#dynamic-tags) |
+| Attribute completion on a dynamic tag offers the global HTML attributes and the element directives (`slot`, `class:list`, `set:html`, `set:text`), whatever the variable's name | the spec (as for an unknown element) | Look the variable's name up as an element | [Editor setup](editor-setup.md) |
+| The generated variable is `orbit__t1`, `orbit__t2`, … in emission order | simplest (stable across passes and across `orbit fmt`'s generated-code comparison, which an offset isn't) | The tag name's offset | — |
+
+## Ordered spreads (`orbit.AttrList`)
+
+`orbit.AttrList` (`PLAN.md` §2.9). The type and constructor (Q1 a), the names `AttrList`/`AttrPair`/`A` (Q2) and the duplicate-name error (Q3 a) were the user's, not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| `A` also keeps `orbit.CSS` unboxed, and every integer type (with its own type for `Value`), besides the listed kinds | simplest (the same switch) | Box `CSS` | [Runtime API](reference/runtime-api.md#values) |
+| `SpreadOf` takes the spread's `.orbit` position (`SpreadOf(w, pos, x)`), so a name error in a spread, `orbit.Attrs` included, reads `src/x.orbit:9:7: invalid attribute name "a b" in spread`; `Spread` and `SpreadList` keep `orbit: …` | the existing positioned render errors | No position | [Runtime API](reference/runtime-api.md#generated-code-hooks) |
+| A spread's errors are built without `fmt`, so a name doesn't escape | the allocation rule (§4b) | — | — |
+| An `AttrList` that marshals to JSON with a duplicate or invalid name is an error; `nil` marshals as `null`, and decoding `null` gives `nil` | `encoding/json` conventions | Drop the duplicate | [Runtime API](reference/runtime-api.md#values) |
+| Decoding keeps a JSON `false` as a bool (`aria-x` then writes `"false"`; elsewhere it's omitted), like `RestAttrs` | the existing `RestAttrs` rule | Drop `false` | [Runtime API](reference/runtime-api.md#values) |
+| In a `RestAttrs`, a merged `AttrList` is written after the tag's own attributes, in list order, skipping the names they set, as a merged `Attrs` is | the existing merge rule (§2.5) | — | [Components](components.md#passing-html-attributes-through) |
+| `isURLAttr` now matches by a lowercase switch instead of looping over the list (same names, `TestIsURLAttr`); spreads and `Attr` got faster (an `orbit.Attrs` of five: 295 → 250 ns) | the spec's "can tighten it" | Keep the loop | [Performance](performance.md#ordered-spreads) |

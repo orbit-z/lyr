@@ -218,6 +218,11 @@ type Analysis struct {
 	// parse; codegen then looks for the word ctx instead.
 	CtxRefs    []int
 	CtxUnknown bool
+	// DynTags are the name spans of the dynamic tags (PLAN.md §2.8), in
+	// source order: capitalized tags that name a variable or constant in
+	// scope instead of an import. Analyze turns their Components into
+	// Elements with Dynamic set.
+	DynTags []Span
 	// Diagnostics are analysis errors and warnings, sorted by position.
 	Diagnostics []Diagnostic
 }

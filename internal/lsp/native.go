@@ -115,6 +115,10 @@ func classify(f *project.File, off int) region {
 				return true
 			}
 		}
+		if e, ok := n.(*compiler.Element); ok && e.Dynamic && dynEndName(e).Contains(off) {
+			out = region{kind: regionGo, node: n} // _ = Tag in tolerant mode
+			return true
+		}
 		if t := compiler.TagOf(n); t != nil && inStartTag(f.Src, t, off) {
 			out = classifyTag(n, t, off, parent)
 			return true
@@ -134,6 +138,16 @@ func classify(f *project.File, off int) region {
 	}
 	visit(f.AST.Template, nil)
 	return out
+}
+
+// dynEndName is the name in a dynamic tag's end tag (</Tag>), empty
+// without one.
+func dynEndName(e *compiler.Element) compiler.Span {
+	if e.EndTag.Len() < len("</>")+len(e.Name) {
+		return compiler.Span{}
+	}
+	start := e.EndTag.Start + len("</")
+	return compiler.Span{Start: start, End: start + len(e.Name)}
 }
 
 // inStartTag reports whether off is inside t's start tag: after the "<"
@@ -157,6 +171,9 @@ func inStartTag(src string, t *compiler.Tag, off int) bool {
 // the component n is passed to as slot content.
 func classifyTag(n compiler.Node, t *compiler.Tag, off int, parent *compiler.Component) region {
 	comp, _ := n.(*compiler.Component)
+	if e, ok := n.(*compiler.Element); ok && e.Dynamic && t.NameSpan.Contains(off) {
+		return region{kind: regionGo, node: n} // the variable (PLAN.md §2.8)
+	}
 	if t.NameSpan.Contains(off) {
 		if comp != nil {
 			return region{kind: regionTag, comp: comp, node: n, span: t.NameSpan}
