@@ -5105,6 +5105,9 @@ One line per friction point the `nyth` port (`~/Projects/nyth`, branch `orbit-po
 | 2026-10-27 | No struct spread into a component: Astro's `<NovelCard {...card} />` has no equivalent (`{...}` on a component needs an `orbit.RestAttrs` field) | `BookCards.orbit:20` | **specced**: §2.11 (accepted; the port passes `card={…}` until then) |
 | 2026-10-27 | `RouteInfo` can't be built outside Orbit, so app-handler routes (`chapters.json` in `cmd/server`) need the app's own path to the page log | page log | **workaround**: nyth converts `r.Pattern` (`server.AppRoute`), as decided in §4g (Q4) |
 | 2026-10-27 | Orbit's trailing-slash redirect covers pages only, so an app handler at `/browse/cards/` 404s on `/browse/cards` (Astro 301s) | `browse/cards` | **workaround**: nyth 308s its own slash routes; **implemented** (2026-10-28): `site.TrailingSlash(next)`, placed first in the chain, as Astro redirects before middleware (user, 2026-10-27); pages only, so nyth keeps `slashRedirect` for its own slash routes (§4e) |
+| 2026-10-28 | Middleware can't tell whether Orbit will serve a static file: `site.Match` returns `RouteNone` for a public file and for an unmatched path alike | nyth skips its middleware for file paths, so `/nothing.zip` 500s (404 page without locals) | **open** |
+| 2026-10-28 | `Writer.Float` prints the shortest `'g'` form, so `1e6` renders `1e+06` where JS writes `1000000` (and `1e-7` vs `1e-07`) | stats charts (values ≤ 120 today) | **open** |
+| 2026-10-28 | A bare `data-*` passed to a component must be spelled `="true"` by hand to match Astro (15 times in one batch) | `you/*` | **accepted** (§2.6 Q3); easy to miss |
 
 ## 13. Verification
 - `go test ./...` covers:
