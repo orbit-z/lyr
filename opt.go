@@ -195,6 +195,25 @@ func writeText[T any](w *Writer, v T, escape bool) {
 // type Opt[T] (PLAN.md §2.6 (Q3)): the first argument is the prop's zero
 // value, Alias.Props{}.Field, which gives T.
 
+// SetHTML is set:html={x} before the build has checked x's type (PLAN.md
+// §2.6): an HTML is written raw, an Opt[HTML] when it's set. The build
+// replaces it with the HTML write (lowered for an Opt[HTML]), and refuses
+// any other type; when it couldn't check (export data couldn't be read, with
+// a warning), a value of another type is a render error at pos, never
+// written unescaped. Generated code calls it.
+func SetHTML[T ~string | Opt[HTML]](w *Writer, pos string, x T) {
+	switch v := any(x).(type) {
+	case HTML:
+		w.HTML(v)
+	case Opt[HTML]:
+		if h, ok := v.Get(); ok {
+			w.HTML(h)
+		}
+	default:
+		w.setErr(&posError{pos: pos, err: fmt.Errorf("set:html needs an orbit.HTML (or an orbit.Opt[orbit.HTML]), not %T; it was skipped (see the warning above)", x)})
+	}
+}
+
 // Wrap returns Some(v): a static value, a bare attribute or an expression
 // of type T passed to a prop of type Opt[T]. Generated code calls it.
 func Wrap[T any](_ Opt[T], v T) Opt[T] { return Opt[T]{v: v, ok: true} }

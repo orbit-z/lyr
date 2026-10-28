@@ -40,7 +40,7 @@ func Orbit__RenderImpl(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, or
 /*line ../../../../../src/components/Doc.orbit:23:30*/big/*line render.go:40:82*/,
 	)
 	orbit__w.Raw("</div>\n")
-	orbit__w.HTML(
+	orbit__rt.SetHTML(orbit__w, "src/components/Doc.orbit:24:21",
 /*line ../../../../../src/components/Doc.orbit:24:21*/props.Body/*line render.go:44:89*/,
 	)
 	orbit__w.Raw("\n")

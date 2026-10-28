@@ -454,6 +454,46 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 			orbit__w.Raw("\"")
 		}
 	}
-	orbit__w.Raw(">s</p>")
+	orbit__w.Raw(">s</p><div>")
+	{
+		orbit__o :=
+/*line ../../../../src/components/Opt.orbit:43:16*/h/*line render.go:460:78*/
+		orbit__v, orbit__c := orbit__o.Get()
+		if orbit__c {
+			orbit__w.HTML(orbit__v)
+		}
+	}
+	orbit__w.Raw("</div><div>")
+	{
+		orbit__o :=
+/*line ../../../../src/components/Opt.orbit:43:40*/orbit.None[orbit.HTML]()/*line render.go:469:102*/
+		orbit__v, orbit__c := orbit__o.Get()
+		if orbit__c {
+			orbit__w.HTML(orbit__v)
+		}
+	}
+	orbit__w.Raw("</div><div>")
+	{
+		orbit__o :=
+/*line ../../../../src/components/Opt.orbit:43:87*/orbit.If(props.On, orbit.HTML("<i>if</i>"))/*line render.go:478:121*/
+		orbit__v, orbit__c := orbit__o.Get()
+		if orbit__c {
+			orbit__w.HTML(orbit__v)
+		}
+	}
+	orbit__w.Raw("</div>")
+	{
+		orbit__o :=
+/*line ../../../../src/components/Opt.orbit:43:158*/h/*line render.go:487:79*/
+		orbit__v, orbit__c := orbit__o.Get()
+		if orbit__c {
+			orbit__w.HTML(orbit__v)
+		}
+	}
+	orbit__w.Raw("<div>")
+	orbit__w.HTML(
+/*line ../../../../src/components/Opt.orbit:43:178*/h.Or("")/*line render.go:495:86*/,
+	)
+	orbit__w.Raw("</div>")
 	return orbit__w.Err()
 }

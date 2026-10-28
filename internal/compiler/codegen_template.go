@@ -359,7 +359,17 @@ func (g *cgGen) emptySite(n *Expr) {
 	o.ind()
 	start := len(o.b)
 	o.str(NameW + ".Expr(\n")
-	arg := o.exact(n.Code.Span)
+	var arg Span
+	if n.Code.Start == n.Code.End {
+		// No //line directive before the zero-length segment: right after
+		// one, gopls offers almost nothing (as for an empty ${}, piece);
+		// there's no code for Go to report an error on.
+		at := len(o.b)
+		o.segs = append(o.segs, Segment{Kind: SegExact, OrbitStart: n.Code.Start, OrbitEnd: n.Code.End, GoStart: at, GoEnd: at})
+		arg = Span{at, at}
+	} else {
+		arg = o.exact(n.Code.Span)
+	}
 	o.str("\n")
 	o.ind()
 	o.str(")")
@@ -470,7 +480,11 @@ func (g *cgGen) setContent(set *Attr, node Node) {
 			o.ln(")")
 			return
 		}
-		g.write("HTML", set.Code)
+		if isBasicLit(set.Code.Text) {
+			g.write("HTML", set.Code)
+			return
+		}
+		g.htmlSite(node, set)
 	case SetJSON:
 		g.setJSON(set, node)
 	case SetText:

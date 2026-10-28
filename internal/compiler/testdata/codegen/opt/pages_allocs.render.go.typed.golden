@@ -114,14 +114,23 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 		}); orbit__err != nil {
 			return orbit__err
 		}
-		orbit__w.Raw("\n")
-		if orbit__err := /*line ../../../../src/pages/allocs.orbit:18:6*/Button.Render/*line render.go:118:107*/(orbit__ctx, orbit__w, Button.Props{
+		orbit__w.Raw("\n<span>")
+		{
+			orbit__o :=
+/*line ../../../../src/pages/allocs.orbit:18:21*/orbit.NonZero(orbit.HTML(it.Rel))/*line render.go:120:109*/
+			orbit__v, orbit__c := orbit__o.Get()
+			if orbit__c {
+				orbit__w.HTML(orbit__v)
+			}
+		}
+		orbit__w.Raw("</span>\n")
+		if orbit__err := /*line ../../../../src/pages/allocs.orbit:19:6*/Button.Render/*line render.go:127:107*/(orbit__ctx, orbit__w, Button.Props{
 			Attrs: orbit__rt.Rest("", "",
 				orbit__rt.RestOpt("", "aria-describedby",
-/*line ../../../../src/pages/allocs.orbit:18:31*/orbit.If(it.ID == 2, "help")/*line render.go:121:104*/,
+/*line ../../../../src/pages/allocs.orbit:19:31*/orbit.If(it.ID == 2, "help")/*line render.go:130:104*/,
 				),
 				orbit__rt.RestOpt("", "data-rel",
-/*line ../../../../src/pages/allocs.orbit:18:71*/orbit.NonZero(it.Rel)/*line render.go:124:96*/,
+/*line ../../../../src/pages/allocs.orbit:19:71*/orbit.NonZero(it.Rel)/*line render.go:133:96*/,
 				)),
 		}, orbit__rt.Slots{
 			Default: func(orbit__w *orbit__rt.Writer) error {

@@ -310,3 +310,25 @@ func TestOptAllocs(t *testing.T) {
 	}
 	_, _, _ = sink, pair, ra
 }
+
+// TestSetHTML: pass 1's set:html (PLAN.md §2.6): an HTML and a set
+// Opt[HTML] are written raw, none writes nothing, and a string (which the
+// build refuses) is a positioned render error, never written.
+func TestSetHTML(t *testing.T) {
+	var buf bytes.Buffer
+	w := NewWriter(&buf)
+	SetHTML(w, "x.orbit:1:2", HTML("<b>a</b>"))
+	SetHTML(w, "x.orbit:1:3", Some(HTML("<i>b</i>")))
+	SetHTML(w, "x.orbit:1:4", None[HTML]())
+	if got := buf.String(); got != "<b>a</b><i>b</i>" || w.Err() != nil {
+		t.Errorf("got %q, %v", got, w.Err())
+	}
+	SetHTML(w, "x.orbit:2:5", "<script>")
+	const want = "x.orbit:2:5: set:html needs an orbit.HTML (or an orbit.Opt[orbit.HTML]), not string; it was skipped (see the warning above)"
+	if err := w.Err(); err == nil || err.Error() != want {
+		t.Errorf("error %v, want %s", err, want)
+	}
+	if got := buf.String(); got != "<b>a</b><i>b</i>" {
+		t.Errorf("the string was written: %q", got)
+	}
+}

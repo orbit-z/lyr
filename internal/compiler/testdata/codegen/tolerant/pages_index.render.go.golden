@@ -24,7 +24,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	_ = post
 	orbit__w.Raw("<div>")
 	orbit__w.Expr(
-/*line ../../../../src/pages/index.orbit:6:7*//*line render.go:27:71*/
+
 	)
 	orbit__w.Raw("</div><p>")
 	orbit__w.Expr(
@@ -47,7 +47,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 		orbit__w.Raw("<b>empty header</b>\n")
 	}
 	orbit__w.Raw("<div>")
-	orbit__w.HTML(
+	orbit__rt.SetHTML(orbit__w, "src/pages/index.orbit:14:16",
 /*line ../../../../src/pages/index.orbit:14:16*/post.Title/*line render.go:51:83*/,
 	)
 	_ = (/*line ../../../../src/pages/index.orbit:14:35*/post.Title/*line render.go:53:89*/)

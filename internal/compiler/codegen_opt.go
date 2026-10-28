@@ -106,3 +106,33 @@ func (g *cgGen) optPropSite(f cgField) {
 	cs.Call = Span{start, len(o.b)}
 	g.sites = append(g.sites, cs)
 }
+
+// htmlSite emits the SiteHTML of a set:html value (PLAN.md §2.6, "Typed
+// optional values"): orbit__rt.SetHTML(orbit__w, pos, x) until the typed
+// pass has seen it, then orbit__w.HTML(x) (so a value of another type is
+// Go's error, as before), or the if of an orbit.Opt[orbit.HTML].
+func (g *cgGen) htmlSite(node Node, a *Attr) {
+	o := g.o
+	code := a.Code
+	cs := CallSite{Kind: SiteHTML, Key: code.Start, Node: node, Attr: a, Code: code}
+	tw, typed := g.in.Typed[code.Start]
+	if typed && tw.If != nil {
+		g.ifSite(cs, a, tw)
+		return
+	}
+	o.flush()
+	o.ind()
+	start := len(o.b)
+	if typed && tw.Kind == WriteHTML {
+		o.str(NameW + ".HTML(\n")
+	} else {
+		o.str(NameRuntime + ".SetHTML(" + NameW + ", " + strconv.Quote(g.position(code.Start)) + ",\n")
+	}
+	cs.Arg = o.exact(code.Span)
+	o.str(",\n")
+	o.ind()
+	o.str(")")
+	cs.Call = Span{start, len(o.b)}
+	o.str("\n")
+	g.sites = append(g.sites, cs)
+}

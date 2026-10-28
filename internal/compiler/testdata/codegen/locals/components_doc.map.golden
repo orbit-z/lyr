@@ -11,8 +11,9 @@ orbit_gen/impl/components/doc/render.go (src/components/Doc.orbit)
   exact 23:7 "props.Title()" -> 996-1009 "props.Title()"
   exact 23:23 "user" -> 1124-1128 "user"
   exact 23:30 "big" -> 1243-1246 "big"
-  exact 24:21 "props.Body" -> 1368-1378 "props.Body"
+  exact 24:21 "props.Body" -> 1415-1425 "props.Body"
 call sites
   content key=246 "props.Title()" call="orbit__w.Expr(\n/*line ../../../../src/components/Doc.orbit:23:7*/props.Title()/*line render.go:32:88*/,\n\t)"
   content key=262 "user" call="orbit__w.Expr(\n/*line ../../../../src/components/Doc.orbit:23:23*/user/*line render.go:36:80*/,\n\t)"
   content key=269 "big" call="orbit__w.Expr(\n/*line ../../../../src/components/Doc.orbit:23:30*/big/*line render.go:40:79*/,\n\t)"
+  set:html key=300 "props.Body" call="orbit__rt.SetHTML(orbit__w, \"src/components/Doc.orbit:24:21\",\n/*line ../../../../src/components/Doc.orbit:24:21*/props.Body/*line render.go:44:86*/,\n\t)"

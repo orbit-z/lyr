@@ -26,19 +26,19 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	_ = css
 	_ = text
 	orbit__w.Raw("<script>")
-	orbit__w.HTML(
+	orbit__rt.SetHTML(orbit__w, "src/components/Raw.orbit:8:29",
 /*line ../../../../src/components/Raw.orbit:8:29*/theme/*line render.go:30:80*/,
 	)
 	orbit__w.Raw("</script><script>")
-	orbit__w.HTML(
+	orbit__rt.SetHTML(orbit__w, "src/components/Raw.orbit:9:19",
 /*line ../../../../src/components/Raw.orbit:9:19*/theme/*line render.go:34:80*/,
 	)
 	orbit__w.Raw("</script><style>")
-	orbit__w.HTML(
+	orbit__rt.SetHTML(orbit__w, "src/components/Raw.orbit:10:28",
 /*line ../../../../src/components/Raw.orbit:10:28*/css/*line render.go:38:79*/,
 	)
 	orbit__w.Raw("</style><style>")
-	orbit__w.HTML(
+	orbit__rt.SetHTML(orbit__w, "src/components/Raw.orbit:11:18",
 /*line ../../../../src/components/Raw.orbit:11:18*/css/*line render.go:42:79*/,
 	)
 	orbit__w.Raw("</style><script>")

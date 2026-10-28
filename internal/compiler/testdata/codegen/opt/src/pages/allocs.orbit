@@ -15,6 +15,7 @@ current := "/fiction"
     <a href={it.Href} aria-current={orbit.If(it.Href == current, "page")} rel={orbit.NonZero(it.Rel)} data-id={orbit.NonZero(it.ID)}>{orbit.NonZero(it.Title)}{it.Label}</a>
     <Link href={it.Href} rel={orbit.NonZero(it.Rel)} title={it.Title} n={it.ID} on>{it.Label}</Link>
     <Link href="/s" rel="author" id="me">Static</Link>
+    <span set:html={orbit.NonZero(orbit.HTML(it.Rel))}></span>
     <Button aria-describedby={orbit.If(it.ID == 2, "help")} data-rel={orbit.NonZero(it.Rel)}>B</Button>
   {/for}
 </nav>

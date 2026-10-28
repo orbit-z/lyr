@@ -179,6 +179,8 @@ func dumpMap(r *cgResult) string {
 			kind = "class prop"
 		case SiteSpread:
 			kind = "spread"
+		case SiteHTML:
+			kind = "set:html"
 		}
 		if cs.Kind == SiteAttr {
 			kind = "attr " + cs.AttrName

@@ -1691,7 +1691,7 @@ To insert trusted markup without escaping, convert it to `orbit.HTML`. Either wr
 <div>{orbit.HTML(props.Post.Body)}</div>
 ```
 
-`set:html` only accepts an `orbit.HTML` value (or a string constant written in the template). A plain `string` variable is a compile error at the `.orbit` position, so raw output is always an explicit choice (won't compile):
+`set:html` only accepts an `orbit.HTML` value, an [`orbit.Opt[orbit.HTML]`](reference/template-syntax.md#optional-values-orbitopt) (none writes no content, as for an optional prop: `<div set:html={props.Intro}></div>` with `Intro orbit.Opt[orbit.HTML]`), or a string constant written in the template. A plain `string` variable is a compile error at the `.orbit` position, so raw output is always an explicit choice (won't compile):
 
 ```orbit file=src/components/PostBody.orbit expect-error
 ---

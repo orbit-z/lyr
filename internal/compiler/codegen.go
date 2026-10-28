@@ -162,12 +162,18 @@ const (
 	// attributes (WriteSpreadAttrs). Spread describes the tag. In pass 2,
 	// a tag with a props spread emits its sites in source order.
 	SiteSpread
+	// SiteHTML is the value of set:html (PLAN.md §2.6, "Typed optional
+	// values"): orbit__rt.SetHTML(orbit__w, pos, x) in pass 1, then
+	// orbit__w.HTML(x) (WriteHTML), lowered with an if for an
+	// orbit.Opt[orbit.HTML] (If.Opt). A basic literal isn't a site: it's
+	// written with orbit__w.HTML in both passes.
+	SiteHTML
 )
 
 // CallSite records one write emitted with the Expr/Attr fallback, for the
-// go/types pass (C). set:html (always HTML), set:json (always JSON), spreads
-// on elements and component props are not call sites, except class:list
-// items; spreads on component tags are (SiteSpread).
+// go/types pass (C). set:json (always JSON), spreads on elements and
+// component props are not call sites, except class:list items; spreads on
+// component tags (SiteSpread) and set:html values (SiteHTML) are.
 type CallSite struct {
 	Kind SiteKind
 	// Key identifies the site across passes: Code.Start, the offset of the

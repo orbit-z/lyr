@@ -26,6 +26,8 @@ func optSiteKind(w TypedWrite) string {
 		return "restopt"
 	case w.Kind == WriteRestOptURL:
 		return "restopturl"
+	case w.Kind == WriteHTML:
+		return "html"
 	}
 	return ""
 }
@@ -76,6 +78,10 @@ func TestOptTypedGolden(t *testing.T) {
 		"orbit.Some(n)": "restopt", "orbit.Some(true)": "restopt", `orbit.If(it.ID == 2, "help")`: "restopt",
 		// allocs.orbit.
 		`orbit.If(it.Href == current, "page")`: "folded", "orbit.NonZero(it.ID)": "opt", "orbit.NonZero(it.Title)": "opt",
+		// set:html of an Opt[orbit.HTML] (user decision, 2026-10-27), and
+		// of an orbit.HTML (the plain write).
+		"orbit.None[orbit.HTML]()": "opt", `orbit.If(props.On, orbit.HTML("<i>if</i>"))`: "opt",
+		"orbit.NonZero(orbit.HTML(it.Rel))": "opt", `h.Or("")`: "html",
 	} {
 		got, ok := kinds[code]
 		if !ok {

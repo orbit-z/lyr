@@ -192,6 +192,18 @@ func TestCompletion(t *testing.T) {
 		c.change(page, text)
 	})
 
+	// An empty {} gets the keywords and gopls's items too (its empty Go
+	// segment has no line directive before it, like an empty ${}).
+	t.Run("empty braces", func(t *testing.T) {
+		src := strings.Replace(text, "<p>{count}</p>", "<p>{}</p>", 1)
+		c.change(page, src)
+		items := c.complete(page, at(t, src, "<p>{}</p>", 0, len("<p>{")))
+		if item(items, "if") == nil || item(items, "count") == nil {
+			t.Errorf("{}: %v, want the if keyword and gopls's count", labels(items))
+		}
+		c.change(page, text)
+	})
+
 	// {switch} headers and case lists are Go regions completed by gopls.
 	t.Run("switch header and case list", func(t *testing.T) {
 		card := c.open("src/components/Card.orbit")

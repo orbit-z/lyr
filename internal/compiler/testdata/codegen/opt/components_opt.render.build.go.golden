@@ -220,6 +220,26 @@ func Orbit__RenderImpl(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, or
 	orbit__w.Attr("style",
 /*line ../../../../../src/components/Opt.orbit:42:11*/orbit.If(props.On, css.Or(""))/*line render.go:221:111*/,
 	)
-	orbit__w.Raw(">s</p>")
+	orbit__w.Raw(">s</p><div>")
+	orbit__rt.SetHTML(orbit__w, "src/components/Opt.orbit:43:16",
+/*line ../../../../../src/components/Opt.orbit:43:16*/h/*line render.go:225:81*/,
+	)
+	orbit__w.Raw("</div><div>")
+	orbit__rt.SetHTML(orbit__w, "src/components/Opt.orbit:43:40",
+/*line ../../../../../src/components/Opt.orbit:43:40*/orbit.None[orbit.HTML]()/*line render.go:229:105*/,
+	)
+	orbit__w.Raw("</div><div>")
+	orbit__rt.SetHTML(orbit__w, "src/components/Opt.orbit:43:87",
+/*line ../../../../../src/components/Opt.orbit:43:87*/orbit.If(props.On, orbit.HTML("<i>if</i>"))/*line render.go:233:124*/,
+	)
+	orbit__w.Raw("</div>")
+	orbit__rt.SetHTML(orbit__w, "src/components/Opt.orbit:43:158",
+/*line ../../../../../src/components/Opt.orbit:43:158*/h/*line render.go:237:82*/,
+	)
+	orbit__w.Raw("<div>")
+	orbit__rt.SetHTML(orbit__w, "src/components/Opt.orbit:43:178",
+/*line ../../../../../src/components/Opt.orbit:43:178*/h.Or("")/*line render.go:241:89*/,
+	)
+	orbit__w.Raw("</div>")
 	return orbit__w.Err()
 }

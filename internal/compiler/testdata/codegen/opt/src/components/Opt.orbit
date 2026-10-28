@@ -40,3 +40,4 @@ var mine MyOpt
 {/for}
 <p title={mine}>defined</p>
 <p style={orbit.If(props.On, css.Or(""))}>s</p>
+<div set:html={h}></div><div set:html={orbit.None[orbit.HTML]()}></div><div set:html={orbit.If(props.On, orbit.HTML("<i>if</i>"))}></div><Fragment set:html={h} /><div set:html={h.Or("")}></div>

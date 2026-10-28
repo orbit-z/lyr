@@ -617,6 +617,16 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 		if !ok {
 			return true
 		}
+		if site.Kind == SiteHTML {
+			// set:html (PLAN.md §2.6): an Opt[orbit.HTML] is lowered,
+			// anything else is written with HTML, Go's check.
+			w := TypedWrite{Kind: WriteHTML}
+			if et, isOpt := optElem(tv.Type); isOpt && identical(types.Unalias(et), env.html) {
+				w.If = &IfWrite{Opt: true, Val: site.Code.Span}
+			}
+			writes[site.Key] = w
+			return true
+		}
 		if site.Kind == SitePiece {
 			pieceTVs[site.Parent] = append(pieceTVs[site.Parent], tv)
 			w, bad := env.classifyPiece(tv, site.AttrName != "")
