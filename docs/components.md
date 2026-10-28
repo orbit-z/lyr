@@ -223,13 +223,13 @@ These names are provided in the render body and the template, without declaring 
 | Name | Type | What it is |
 |---|---|---|
 | `props` | `Props` | The values the parent passed. |
-| `ctx` | `*orbit.Ctx` | The request: `ctx.Request`, `ctx.URL`, `ctx.Site`, plus `ctx.Param`, `ctx.SetStatus`, `ctx.Header` and `ctx.Redirect`. It isn't a `context.Context`: pass `ctx.Request.Context()` to database and API calls (or, inside an `orbit.All` load, the `rc` it gets; see [Loading data](data-loading.md)). See [Rendering](rendering.md) and [Runtime API](reference/runtime-api.md). |
+| `ctx` | `*orbit.Ctx` | The request: `ctx.Request`, `ctx.URL`, `ctx.Site`, plus `ctx.Param`, `ctx.SetStatus`, `ctx.Header`, `ctx.Redirect` and `ctx.Cache()` ([Caching](caching.md)). It isn't a `context.Context`: pass `ctx.Request.Context()` to database and API calls (or, inside an `orbit.All` load, the `rc` it gets; see [Loading data](data-loading.md)). See [Rendering](rendering.md) and [Runtime API](reference/runtime-api.md). |
 | `slots` | `orbit.Slots` | The children the parent passed. See [Slots](#slots). |
 | `params` | `Params` | **Pages only.** The route params, typed: `params.Slug` for `src/pages/blog/[slug].orbit`. Orbit generates the `Params` struct from the file path. Components read a route param with `ctx.Param("slug")` instead. See [Route params](routing.md#route-params-params). |
 | `locals` | `*locals.Locals` | Request-scoped data, typed by your `type Locals struct` in the package `src/locals`. Without one, it's `*orbit.NoLocals`. See [Middleware and locals](middleware.md). |
 | `orbit` | package | The runtime package `github.com/orbit-z/orbit`. You can use it without importing it; an explicit import of it under the name `orbit` is merged with the implicit one. |
 
-A page and all its components share one `ctx` and one `locals`. (A component rendered with `server:defer` is the exception: it renders in its own request, with its own `ctx`; see [Lazy loading](lazy-loading.md).) `ctx` is pooled and reused for later requests, so don't keep it, or start a goroutine that uses it, after the render returns.
+A page and all its components share one `ctx` and one `locals`, with two exceptions. A component rendered with `server:defer` renders in its own request, with its own `ctx`; see [Lazy loading](lazy-loading.md). A component rendered with `server:concurrent` gets its own `ctx`, a copy of the page's (same request, params and `locals`) whose status and headers start empty and whose status, headers and cache settings are merged into the page's when the page joins it; see [Slow components](rendering.md#slow-components). `ctx` is pooled and reused for later requests, so don't keep it, or start a goroutine that uses it, after the render returns.
 
 Hoisted declarations live at package level, so they **can't see** `props`, `ctx`, `slots`, `locals` or `params`. Pass what a helper needs as arguments, as `href(props.Post)` does.
 

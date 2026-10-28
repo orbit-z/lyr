@@ -139,7 +139,7 @@ type Props struct {
 
 ## Orbit is `net/http` middleware
 
-`app.New()` comes from the generated package `example.com/blog/orbit_gen/app` and returns an `*orbit.Site`. It gives you three handlers:
+`app.New()` comes from the generated package `example.com/blog/orbit_gen/app` and returns an `*orbit.Site`. It gives you these handlers:
 
 | Method | What it is |
 |---|---|
@@ -147,6 +147,7 @@ type Props struct {
 | `site.Handler() http.Handler` | `site.Middleware(site.NotFound())`: a complete handler that ends in your 404 page |
 | `site.NotFound() http.Handler` | Renders `404.orbit` with status 404 |
 | `site.TrailingSlash(next http.Handler) http.Handler` | Sends the 308 for the other form of a page URL, then passes everything else to `next`; put it outermost (see [Redirecting before your middleware](routing.md#redirecting-before-your-middleware)) |
+| `site.CacheHandler(h http.Handler) http.Handler` | Puts one of your own handlers through the route cache (see [Custom handlers](caching.md#custom-handlers-sitecachehandler)) |
 
 `site.Match(r)` isn't a handler: it returns the route `site.Middleware` would serve `r` with, without serving it, for middleware that answers a request before Orbit and still logs its route. See [Knowing the route before Orbit](middleware.md#knowing-the-route-before-orbit).
 
@@ -371,7 +372,7 @@ if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 
 Pages render per request in dev exactly as in production; only where assets come from and how errors are shown differ.
 
-In production, `ORBIT_STATIC` is optional (the default is `dist/client` next to the binary) and `ORBIT_PUBLIC` is unset, because `public/` was copied into the static directory at build time. You can also set the static directory in code with `app.New(orbit.WithStaticDir("/srv/blog"))`; `--embed` builds use `orbit.WithStaticFS` automatically. See [Deploy](deploy.md).
+In production, `ORBIT_STATIC` is optional (the default is the `client/` directory next to the binary) and `ORBIT_PUBLIC` is unset, because `public/` was copied into the static directory at build time. You can also set the static directory in code with `app.New(orbit.WithStaticDir("/srv/blog"))`; `--embed` builds use `orbit.WithStaticFS` automatically. See [Deploy](deploy.md).
 
 The `ORBIT_STATIC` variable takes precedence over `WithStaticDir`, as it does over the files of an `--embed` build, so `orbit dev` keeps working if you hard-code a directory.
 

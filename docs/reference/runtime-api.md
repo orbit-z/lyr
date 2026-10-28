@@ -375,16 +375,19 @@ Which write an expression gets depends on its static type:
 
 ### Escaping rules
 
-`Expr` checks the value's exact dynamic type, in this order. A named type like `type Slug string` is not a `string` here: it falls through to `fmt.Sprint`, which prints the same text.
+`Expr` checks the value's exact dynamic type, in this order. A named type like `type Slug string` is not a `string` here: it falls through to `fmt.Sprint`, which prints the same text. A named float (`type Price float64`) is the exception: it's written as a float, like `Float`/`Float32` (unless it has a `Format` method), because `fmt.Sprint` would print `1e+06` where JavaScript prints `1000000`.
 
 | Value | Output |
 |---|---|
 | `nil` | nothing |
 | `orbit.HTML` | raw |
+| `orbit.JSONValue` | its JSON, HTML-escaped (see [JSON](#json)) |
 | `string`, `orbit.URL`, `orbit.CSS` | HTML-escaped |
 | `[]byte` | HTML-escaped, as a string |
-| ints, floats, bools | formatted with `strconv` (`float32` as a float32) |
+| ints, uints, bools | as `Int`, `Uint`, `Bool` |
+| `float64`, `float32` | as `Float`, `Float32`: JavaScript's number form (`1000000`, `1e-7`) |
 | `Renderer`, `func(*Writer) error` | called |
+| an `orbit.Opt[T]` | nothing when none; otherwise its value, by these rules |
 | `error` | `Error()`, escaped |
 | `fmt.Stringer` | `String()`, escaped |
 | a slice of these | each element in turn |
