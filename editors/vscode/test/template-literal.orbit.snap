@@ -1,0 +1,282 @@
+>---
+#^^^ source.orbit meta.frontmatter.orbit punctuation.definition.frontmatter.begin.orbit
+>import Card "../components/Card.orbit"
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.orbit meta.frontmatter.orbit meta.embedded.block.go
+>
+>type Props struct {
+#^^^^^^^^^^^^^^^^^^^^ source.orbit meta.frontmatter.orbit meta.embedded.block.go
+>	Slug  string
+#^^^^^^^^^^^^^^ source.orbit meta.frontmatter.orbit meta.embedded.block.go
+>	Index int
+#^^^^^^^^^^^ source.orbit meta.frontmatter.orbit meta.embedded.block.go
+>	Open  bool
+#^^^^^^^^^^^^ source.orbit meta.frontmatter.orbit meta.embedded.block.go
+>}
+#^^ source.orbit meta.frontmatter.orbit meta.embedded.block.go
+>
+>var re = regexp.MustCompile(`\d+ ${raw}`)
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.orbit meta.frontmatter.orbit meta.embedded.block.go
+>---
+#^^^ source.orbit meta.frontmatter.orbit punctuation.definition.frontmatter.end.orbit
+><a href={`/fiction/${props.Slug}`} aria-label={`Chapter ${props.Index + 1} of ${title}`}>
+#^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+# ^ source.orbit meta.tag.html entity.name.tag.html
+#  ^ source.orbit meta.tag.html
+#   ^^^^ source.orbit meta.tag.html entity.other.attribute-name.html
+#       ^ source.orbit meta.tag.html punctuation.separator.key-value.html
+#        ^ source.orbit meta.tag.html meta.expression.orbit punctuation.section.embedded.begin.orbit
+#         ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#          ^^^^^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                   ^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.begin.orbit
+#                     ^^^^^^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#                               ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.end.orbit
+#                                ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
+#                                 ^ source.orbit meta.tag.html meta.expression.orbit punctuation.section.embedded.end.orbit
+#                                  ^ source.orbit meta.tag.html
+#                                   ^^^^^^^^^^ source.orbit meta.tag.html entity.other.attribute-name.html
+#                                             ^ source.orbit meta.tag.html punctuation.separator.key-value.html
+#                                              ^ source.orbit meta.tag.html meta.expression.orbit punctuation.section.embedded.begin.orbit
+#                                               ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#                                                ^^^^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                                                        ^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.begin.orbit
+#                                                          ^^^^^^^^^^^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#                                                                         ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.end.orbit
+#                                                                          ^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                                                                              ^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.begin.orbit
+#                                                                                ^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#                                                                                     ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.end.orbit
+#                                                                                      ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
+#                                                                                       ^ source.orbit meta.tag.html meta.expression.orbit punctuation.section.embedded.end.orbit
+#                                                                                        ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+>	<Card title={`Chapter ${props.Index + 1}`} />
+#^ source.orbit
+# ^ source.orbit meta.tag.component.orbit punctuation.definition.tag.begin.html
+#  ^^^^ source.orbit meta.tag.component.orbit support.class.component.orbit
+#      ^ source.orbit meta.tag.component.orbit
+#       ^^^^^ source.orbit meta.tag.component.orbit entity.other.attribute-name.html
+#            ^ source.orbit meta.tag.component.orbit punctuation.separator.key-value.html
+#             ^ source.orbit meta.tag.component.orbit meta.expression.orbit punctuation.section.embedded.begin.orbit
+#              ^ source.orbit meta.tag.component.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#               ^^^^^^^^ source.orbit meta.tag.component.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                       ^^ source.orbit meta.tag.component.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.begin.orbit
+#                         ^^^^^^^^^^^^^^^ source.orbit meta.tag.component.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#                                        ^ source.orbit meta.tag.component.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.end.orbit
+#                                         ^ source.orbit meta.tag.component.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
+#                                          ^ source.orbit meta.tag.component.orbit meta.expression.orbit punctuation.section.embedded.end.orbit
+#                                           ^ source.orbit meta.tag.component.orbit
+#                                            ^^ source.orbit meta.tag.component.orbit punctuation.definition.tag.end.html
+></a>
+#^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#  ^ source.orbit meta.tag.html entity.name.tag.html
+#   ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+><span>{` · ${n} words`}</span>
+#^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+# ^^^^ source.orbit meta.tag.html entity.name.tag.html
+#     ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#      ^ source.orbit meta.expression.orbit punctuation.section.embedded.begin.orbit
+#       ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#        ^^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#           ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.begin.orbit
+#             ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#              ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.end.orbit
+#               ^^^^^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                     ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
+#                      ^ source.orbit meta.expression.orbit punctuation.section.embedded.end.orbit
+#                       ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                         ^^^^ source.orbit meta.tag.html entity.name.tag.html
+#                             ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+><button aria-label={orbit.If(props.Open, `Close ${title}`)}>x</button>
+#^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+# ^^^^^^ source.orbit meta.tag.html entity.name.tag.html
+#       ^ source.orbit meta.tag.html
+#        ^^^^^^^^^^ source.orbit meta.tag.html entity.other.attribute-name.html
+#                  ^ source.orbit meta.tag.html punctuation.separator.key-value.html
+#                   ^ source.orbit meta.tag.html meta.expression.orbit punctuation.section.embedded.begin.orbit
+#                    ^^^^^^^^^^^^^^^^^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go
+#                                         ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#                                          ^^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                                                ^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.begin.orbit
+#                                                  ^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#                                                       ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.end.orbit
+#                                                        ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
+#                                                         ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go
+#                                                          ^ source.orbit meta.tag.html meta.expression.orbit punctuation.section.embedded.end.orbit
+#                                                           ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#                                                            ^ source.orbit
+#                                                             ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                                                               ^^^^^^ source.orbit meta.tag.html entity.name.tag.html
+#                                                                     ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+>{if props.Slug == `a-${b}`}<i>a</i>{/if}
+#^ source.orbit meta.control.if.orbit punctuation.section.embedded.begin.orbit
+# ^^ source.orbit meta.control.if.orbit keyword.control.conditional.orbit
+#   ^^^^^^^^^^^^^^^ source.orbit meta.control.if.orbit meta.embedded.expression.go
+#                  ^ source.orbit meta.control.if.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#                   ^^ source.orbit meta.control.if.orbit meta.embedded.expression.go string.template.orbit
+#                     ^^ source.orbit meta.control.if.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.begin.orbit
+#                       ^ source.orbit meta.control.if.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#                        ^ source.orbit meta.control.if.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.end.orbit
+#                         ^ source.orbit meta.control.if.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
+#                          ^ source.orbit meta.control.if.orbit punctuation.section.embedded.end.orbit
+#                           ^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                            ^ source.orbit meta.tag.html entity.name.tag.html
+#                             ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#                              ^ source.orbit
+#                               ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                                 ^ source.orbit meta.tag.html entity.name.tag.html
+#                                  ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#                                   ^ source.orbit meta.control.end.orbit punctuation.section.embedded.begin.orbit
+#                                    ^ source.orbit meta.control.end.orbit keyword.control.orbit
+#                                     ^^ source.orbit meta.control.end.orbit keyword.control.conditional.orbit
+#                                       ^ source.orbit meta.control.end.orbit punctuation.section.embedded.end.orbit
+>{switch props.Slug}
+#^ source.orbit meta.control.switch.orbit punctuation.section.embedded.begin.orbit
+# ^^^^^^ source.orbit meta.control.switch.orbit keyword.control.conditional.orbit
+#       ^^^^^^^^^^^ source.orbit meta.control.switch.orbit meta.embedded.expression.go
+#                  ^ source.orbit meta.control.switch.orbit punctuation.section.embedded.end.orbit
+>	{case `draft`}<i>d</i>
+#^ source.orbit
+# ^ source.orbit meta.control.case.orbit punctuation.section.embedded.begin.orbit
+#  ^^^^ source.orbit meta.control.case.orbit keyword.control.conditional.orbit
+#      ^ source.orbit meta.control.case.orbit meta.embedded.expression.go
+#       ^ source.orbit meta.control.case.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#        ^^^^^ source.orbit meta.control.case.orbit meta.embedded.expression.go string.template.orbit
+#             ^ source.orbit meta.control.case.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
+#              ^ source.orbit meta.control.case.orbit punctuation.section.embedded.end.orbit
+#               ^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                ^ source.orbit meta.tag.html entity.name.tag.html
+#                 ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#                  ^ source.orbit
+#                   ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                     ^ source.orbit meta.tag.html entity.name.tag.html
+#                      ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+>{/switch}
+#^ source.orbit meta.control.end.orbit punctuation.section.embedded.begin.orbit
+# ^ source.orbit meta.control.end.orbit keyword.control.orbit
+#  ^^^^^^ source.orbit meta.control.end.orbit keyword.control.conditional.orbit
+#        ^ source.orbit meta.control.end.orbit punctuation.section.embedded.end.orbit
+><p class:list={{`btn-${size}`, "on": props.Open, `x-${k}`: true}}>c</p>
+#^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+# ^ source.orbit meta.tag.html entity.name.tag.html
+#  ^ source.orbit meta.tag.html
+#   ^^^^^ source.orbit meta.tag.html entity.other.attribute-name.directive.orbit entity.other.attribute-name.namespace.orbit
+#        ^ source.orbit meta.tag.html entity.other.attribute-name.directive.orbit punctuation.separator.namespace.orbit
+#         ^^^^ source.orbit meta.tag.html entity.other.attribute-name.directive.orbit entity.other.attribute-name.localname.orbit
+#             ^ source.orbit meta.tag.html punctuation.separator.key-value.html
+#              ^ source.orbit meta.tag.html meta.expression.orbit punctuation.section.embedded.begin.orbit
+#               ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go punctuation.definition.begin.bracket.curly.go
+#                ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#                 ^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                     ^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.begin.orbit
+#                       ^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#                           ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.end.orbit
+#                            ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
+#                             ^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go
+#                               ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.begin.go
+#                                ^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.quoted.double.go
+#                                  ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.end.go
+#                                   ^^^^^^^^^^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go
+#                                                 ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#                                                  ^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                                                    ^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.begin.orbit
+#                                                      ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#                                                       ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.end.orbit
+#                                                        ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
+#                                                         ^^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go
+#                                                               ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go punctuation.definition.end.bracket.curly.go
+#                                                                ^ source.orbit meta.tag.html meta.expression.orbit punctuation.section.embedded.end.orbit
+#                                                                 ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#                                                                  ^ source.orbit
+#                                                                   ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                                                                     ^ source.orbit meta.tag.html entity.name.tag.html
+#                                                                      ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+><p title={`line one
+#^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+# ^ source.orbit meta.tag.html entity.name.tag.html
+#  ^ source.orbit meta.tag.html
+#   ^^^^^ source.orbit meta.tag.html entity.other.attribute-name.html
+#        ^ source.orbit meta.tag.html punctuation.separator.key-value.html
+#         ^ source.orbit meta.tag.html meta.expression.orbit punctuation.section.embedded.begin.orbit
+#          ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#           ^^^^^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit
+>line ${two} \
+#^^^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#     ^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.begin.orbit
+#       ^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#          ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.end.orbit
+#           ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#            ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit constant.character.escape.orbit
+>end`}>m</p>
+#^^^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#   ^ source.orbit meta.tag.html meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
+#    ^ source.orbit meta.tag.html meta.expression.orbit punctuation.section.embedded.end.orbit
+#     ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#      ^ source.orbit
+#       ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#         ^ source.orbit meta.tag.html entity.name.tag.html
+#          ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+><p>{`esc \` \${ \n \x41 \u0041 \u{1F600} \0 \d`}</p>
+#^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+# ^ source.orbit meta.tag.html entity.name.tag.html
+#  ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#   ^ source.orbit meta.expression.orbit punctuation.section.embedded.begin.orbit
+#    ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#     ^^^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#         ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit constant.character.escape.orbit
+#           ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#            ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit constant.character.escape.orbit
+#              ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit constant.character.escape.orbit
+#                  ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                   ^^^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit constant.character.escape.orbit
+#                       ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                        ^^^^^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit constant.character.escape.orbit
+#                              ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                               ^^^^^^^^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit constant.character.escape.orbit
+#                                        ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                                         ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit constant.character.escape.orbit
+#                                           ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                                            ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit invalid.illegal.unknown-escape.orbit
+#                                              ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
+#                                               ^ source.orbit meta.expression.orbit punctuation.section.embedded.end.orbit
+#                                                ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                                                  ^ source.orbit meta.tag.html entity.name.tag.html
+#                                                   ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+><p>{`a ${f(`x ${g(`y ${z}`)}`)} b ${m["}"]} c`}</p>
+#^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+# ^ source.orbit meta.tag.html entity.name.tag.html
+#  ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+#   ^ source.orbit meta.expression.orbit punctuation.section.embedded.begin.orbit
+#    ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#     ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#       ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.begin.orbit
+#         ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#           ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#            ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit
+#              ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.begin.orbit
+#                ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#                  ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#                   ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit
+#                     ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.begin.orbit
+#                       ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#                        ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.end.orbit
+#                         ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
+#                          ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#                           ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.end.orbit
+#                            ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
+#                             ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#                              ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.end.orbit
+#                               ^^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                                  ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.begin.orbit
+#                                    ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#                                      ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.begin.go
+#                                       ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.quoted.double.go
+#                                        ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.end.go
+#                                         ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit meta.embedded.expression.go
+#                                          ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit meta.template.expression.orbit punctuation.definition.template-expression.end.orbit
+#                                           ^^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                                             ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
+#                                              ^ source.orbit meta.expression.orbit punctuation.section.embedded.end.orbit
+#                                               ^^ source.orbit meta.tag.html punctuation.definition.tag.begin.html
+#                                                 ^ source.orbit meta.tag.html entity.name.tag.html
+#                                                  ^ source.orbit meta.tag.html punctuation.definition.tag.end.html
+>

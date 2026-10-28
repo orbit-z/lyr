@@ -190,6 +190,8 @@ With an up-to-date `orbit_gen/`, gopls reads the generated code of every file yo
 
 **Go**, through gopls, everywhere you write Go: the frontmatter, `{…}` expressions, attribute expressions, `{if}`/`{for}`/`{switch}` headers and `{case}` lists. You get completion (including `props.`, `ctx.`, `slots.`, your typed `locals.` and, in pages, the route's `params.`), hover, signature help, go-to-definition, references and rename, across your `.orbit` files and your `.go` packages. Accepting a completion for an unimported package adds the import to the frontmatter.
 
+Inside a [template literal](reference/template-syntax.md#template-literals), each `${…}` piece is Go like any other expression, nested literals and pieces on later lines of a multi-line literal included: `` href={`/posts/${post.Slug}`} `` completes, hovers and renames `post` as `href={post.Slug}` would. The literal's text around the pieces is a string, so it gets no completion, as inside a quoted value. While you type, an empty `${}` already completes, and so does an unterminated literal, up to the end of its line.
+
 **Templates**, natively:
 
 - **Tag names** after `<`: the components you've imported first, then other components in the project (accepting one adds its `.orbit` import: through the shortest `tsconfig.json` alias that covers the file, such as `import Card "@/components/Card.orbit"`, as TypeScript's auto-import does, otherwise with a relative path, `import Card "../components/Card.orbit"`), then `<Fragment>` and HTML elements.

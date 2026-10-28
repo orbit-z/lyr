@@ -259,13 +259,65 @@ func rawLines(s string) map[int]bool {
 
 // goRegion formats an expression, an attribute's code or a control tag.
 func (fx *fileFmt) goRegion(r *region) {
+	if r.code.Start > r.code.End {
+		return // a parser span that isn't one (an unterminated literal the parser didn't report)
+	}
 	code := lf(fx.src[r.code.Start:r.code.End])
-	base := r.indent
-	if strings.IndexByte(code, '`') >= 0 && strings.ContainsAny(code, "$\\") {
-		// A template literal with pieces or escapes (PLAN.md §2.10) isn't
-		// Go: kept as written until pieces are formatted.
+	clause := ""
+	if r.kind == rCase {
+		clause = lf(fx.src[r.clause.Start:r.clause.End])
+	}
+	// Template literals (PLAN.md §2.10) aren't Go: the region is formatted
+	// with placeholders, and the literals are put back (tliteral.go).
+	tl, ok := newTLRegion(code)
+	if !ok {
 		return
 	}
+	ct, ok := newTLRegion(clause)
+	if !ok {
+		return
+	}
+	if ct != nil {
+		clause = ct.errCode
+	}
+	phCode := code
+	if tl != nil {
+		phCode = tl.fmtCode
+	}
+	nerr := len(fx.errs)
+	out, formatted, ok := fx.goRegionCode(r, phCode, clause)
+	if !ok {
+		if tl != nil && tl.errCode != tl.fmtCode {
+			// Report the errors at positions in the code as written.
+			fx.errs = fx.errs[:nerr]
+			fx.goRegionCode(r, tl.errCode, clause)
+		}
+		return
+	}
+	if tl != nil && formatted != "" {
+		f, ok := tl.restore(formatted)
+		if !ok {
+			fx.warns = append(fx.warns, warning(r.span, "formatting this "+regionName(r.kind)+" would change its code; left as is (please report this)"))
+			return
+		}
+		out = strings.Replace(out, formatted, f, 1)
+		formatted = f
+	}
+	code, formatted = tlCanon(code), tlCanon(formatted)
+	header := r.kind == rIf || r.kind == rElseIf || r.kind == rFor || r.kind == rSwitch
+	// gofmt drops the trailing comma of a one-line class:list.
+	list := r.kind == rClassList && sameGo(dropTrailingComma(code), dropTrailingComma(formatted), false)
+	if formatted != "" && !sameGo(code, formatted, false) && !list && !(header && sameGo(stripParens(code), stripParens(formatted), false)) {
+		fx.warns = append(fx.warns, warning(r.span, "formatting this "+regionName(r.kind)+" would change its code; left as is (please report this)"))
+		return
+	}
+	r.out, r.done = out, true
+}
+
+// goRegionCode formats region r's code (and a {case}'s switch clause),
+// returning the region's text and the formatted code inside it.
+func (fx *fileFmt) goRegionCode(r *region, code, clause string) (string, string, bool) {
+	base := r.indent
 	var out, formatted string
 	switch r.kind {
 	case rEndIf:
@@ -285,14 +337,14 @@ func (fx *fileFmt) goRegion(r *region) {
 		}
 		f, ok := fx.header(r.kind, code, r.code.Start, base)
 		if !ok {
-			return
+			return "", "", false
 		}
 		formatted = f
 		out = "{switch " + f + "}"
 	case rCase:
-		f, ok := fx.caseList(code, lf(fx.src[r.clause.Start:r.clause.End]), r.code.Start, base)
+		f, ok := fx.caseList(code, clause, r.code.Start, base)
 		if !ok {
-			return
+			return "", "", false
 		}
 		formatted = f
 		out = "{case " + f + "}"
@@ -305,7 +357,7 @@ func (fx *fileFmt) goRegion(r *region) {
 		}
 		f, ok := fx.classList(code, r.code.Start, base)
 		if !ok {
-			return
+			return "", "", false
 		}
 		formatted = f
 		out = "{" + f + "}"
@@ -316,7 +368,7 @@ func (fx *fileFmt) goRegion(r *region) {
 		}
 		f, ok := fx.expr(code, r.code.Start, base)
 		if !ok {
-			return
+			return "", "", false
 		}
 		formatted = f
 		switch r.kind {
@@ -328,7 +380,7 @@ func (fx *fileFmt) goRegion(r *region) {
 	case rIf, rElseIf, rFor:
 		f, ok := fx.header(r.kind, code, r.code.Start, base)
 		if !ok {
-			return
+			return "", "", false
 		}
 		formatted = f
 		switch r.kind {
@@ -340,14 +392,7 @@ func (fx *fileFmt) goRegion(r *region) {
 			out = "{for " + f + "}"
 		}
 	}
-	header := r.kind == rIf || r.kind == rElseIf || r.kind == rFor || r.kind == rSwitch
-	// gofmt drops the trailing comma of a one-line class:list.
-	list := r.kind == rClassList && sameGo(dropTrailingComma(code), dropTrailingComma(formatted), false)
-	if formatted != "" && !sameGo(code, formatted, false) && !list && !(header && sameGo(stripParens(code), stripParens(formatted), false)) {
-		fx.warns = append(fx.warns, warning(r.span, "formatting this "+regionName(r.kind)+" would change its code; left as is (please report this)"))
-		return
-	}
-	r.out, r.done = out, true
+	return out, formatted, true
 }
 
 func regionName(k regionKind) string {

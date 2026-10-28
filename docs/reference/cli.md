@@ -262,6 +262,7 @@ Formats your `.orbit` files the way `gofmt` formats Go: there's one style, with 
 | The frontmatter | With `gofmt`'s rules (`go/format`): tabs, spacing, one statement per line, sorted imports. Comments are kept. |
 | `{expr}` expressions, in content and in attribute values (`a={expr}`, `{...attrs}`) | The Go code inside the braces, with `gofmt`'s spacing; the braces hug the code. |
 | Control blocks: `{if}`, `{else if}`, `{else}`, `{/if}`, `{for}`, `{/for}`, `{switch}`, `{case}`, `{default}`, `{/switch}` | The condition, clause or case list, with `gofmt`'s spacing, and the block tag spelled one way. |
+| [Template literals](template-syntax.md#template-literals) in any of those | Each `${…}` piece, as a Go expression (`${ a+b }` becomes `${a + b}`); the text around the pieces is kept byte for byte. |
 | `<script>` and `<style>` content | With `bun fmt`, Bun's Prettier-compatible formatter, when Bun 1.4.4 or later is installed (see [Scripts and styles](#scripts-and-styles)). |
 
 It **never** changes:
@@ -406,6 +407,20 @@ The HTML lines themselves, and their indentation, are untouched. An expression t
     Title: "Hello",
     Tags:  []string{"go", "orbit"},
   }} />
+```
+
+#### Template literals
+
+A [template literal](template-syntax.md#template-literals) is formatted piece by piece: each `${…}` gets `gofmt`'s spacing, nested literals included, and the code around the literal is formatted as usual. Its text is never touched: escapes, `$` signs and line breaks stay as you wrote them. A piece written over several lines is kept as it is, and so is a literal with a piece that isn't valid Go (the code around it is still formatted). Before:
+
+```orbit unformatted
+<a href={`/posts/${ post.Slug }`} aria-label={orbit.If( open,`Close ${ title }` )}>{` · ${n*2} words`}</a>
+```
+
+After:
+
+```orbit
+<a href={`/posts/${post.Slug}`} aria-label={orbit.If(open, `Close ${title}`)}>{` · ${n * 2} words`}</a>
 ```
 
 ### Scripts and styles

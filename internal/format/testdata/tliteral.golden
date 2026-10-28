@@ -1,0 +1,26 @@
+---
+re := `\d+ ${x}`
+n := 3
+---
+<a href={`/p/${slug}`} aria-label={`Chapter ${props.Index + 1} of ${props.Book.Title}`}>{` · ${n * 2} words`}</a>
+<button aria-label={orbit.If(c, `Close ${x}`)}>x</button>
+<p title={strings.ToUpper(`a ${b + c}`) + "!"}>{f(`x ${y}`, `}`)}</p>
+{if s == `a-${b + 1}`}<p>a</p>{else if `${"}"}` != ""}<p>b</p>{/if}
+{for _, x := range []string{`a`, `b${c}`}}<i>{`a ${f(`x ${g(`y ${z + 1}`)}`)} b`}</i>{/for}
+{switch `k`}{case `k`, `l${m + 1}`}<b set:text={`${/* } */ x}`}></b>{/switch}
+<div class:list={"a", `b-${n + 1}`, `c-${n}`: on}>c</div>
+<Card title={`Chapter ${n + 1}`} name={`é ${n}`}  />
+<p>{`multi
+line ${n + 1} \${not} \` $ {x}`}</p>
+<p>{`span ${f(a,
+  b)} end ${c + d}`}</p>
+<p>{`bad ${a+} kept` + x}</p>
+<p>{`unicode é ${a}` + "x"}</p>
+<p>{`a\tb ${a}` + x // why
+}</p>
+<ul>
+  <li class:list={
+    `x-${n}`:    a,
+    "long-name": b,
+  }>d</li>
+</ul>

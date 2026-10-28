@@ -84,7 +84,9 @@ func scanBraced(src string, start int) int {
 
 // bracedLiteralFails reports whether the {…} construct at start is
 // unterminated because of a template literal (or one of its pieces), whose
-// own error is reported instead (checkTemplateLiterals). Only called after
+// own error is reported instead (checkTemplateLiterals). That needs the
+// literal to open on the line of the "{": the construct is cut at the end
+// of that line, and a literal after it is never seen. Only called after
 // scanBraced failed.
 func bracedLiteralFails(src string, start int) bool {
 	for i := start; i < len(src); i++ {
@@ -94,6 +96,9 @@ func bracedLiteralFails(src string, start int) bool {
 				return false
 			}
 		case '`':
+			if strings.IndexByte(src[start:i], '\n') >= 0 {
+				return false
+			}
 			if i = scanTemplateLiteral(src, i); i < 0 {
 				return true
 			}

@@ -91,27 +91,27 @@ func classify(f *project.File, off int) region {
 			return false
 		case *compiler.Expr:
 			if n.Code.Contains(off) {
-				out = region{kind: regionGo}
+				out = goRegion(f.Src, n.Code.Span, off)
 				return true
 			}
 		case *compiler.Branch:
 			if !n.Else && n.Header.Contains(off) && n.Cond.Contains(off) {
-				out = region{kind: regionGo}
+				out = goRegion(f.Src, n.Cond.Span, off)
 				return true
 			}
 		case *compiler.For:
 			if n.Header.Contains(off) && n.Clause.Contains(off) {
-				out = region{kind: regionGo}
+				out = goRegion(f.Src, n.Clause.Span, off)
 				return true
 			}
 		case *compiler.Switch:
 			if n.Header.Contains(off) && n.Clause.Contains(off) {
-				out = region{kind: regionGo}
+				out = goRegion(f.Src, n.Clause.Span, off)
 				return true
 			}
 		case *compiler.Case:
 			if !n.Default && n.Header.Contains(off) && n.List.Contains(off) {
-				out = region{kind: regionGo}
+				out = goRegion(f.Src, n.List.Span, off)
 				return true
 			}
 		}
@@ -120,7 +120,7 @@ func classify(f *project.File, off int) region {
 			return true
 		}
 		if t := compiler.TagOf(n); t != nil && inStartTag(f.Src, t, off) {
-			out = classifyTag(n, t, off, parent)
+			out = classifyTag(f.Src, n, t, off, parent)
 			return true
 		}
 		switch n := n.(type) {
@@ -138,6 +138,46 @@ func classify(f *project.File, off int) region {
 	}
 	visit(f.AST.Template, nil)
 	return out
+}
+
+// goRegion is the region of a template Go span holding off: regionGo, or
+// regionNone in the static text of a template literal (PLAN.md §2.10),
+// which is a string, like a quoted value.
+func goRegion(src string, code compiler.Span, off int) region {
+	if inLiteralText(src, code, off) {
+		return region{}
+	}
+	return region{kind: regionGo}
+}
+
+// inLiteralText reports whether off is in the static text of a template
+// literal in the Go code src[code], nested ones included: between its
+// backticks and outside its ${…} pieces.
+func inLiteralText(src string, code compiler.Span, off int) bool {
+	if code.Start < 0 || code.End > len(src) || strings.IndexByte(src[code.Start:code.End], '`') < 0 {
+		return false
+	}
+	lits, _ := compiler.FindTemplateLiterals(src[code.Start:code.End])
+	return inLits(lits, off-code.Start)
+}
+
+// inLits is inLiteralText's walk, offsets relative to the code.
+func inLits(lits []*compiler.TemplateLiteral, off int) bool {
+	for _, l := range lits {
+		if off <= l.Start || off > l.End || off == l.End && l.Closed {
+			continue // before the opening backtick, or after the closing one
+		}
+		for i, p := range l.Parts {
+			// A piece's Go runs from right after "${" to right before its
+			// "}"; the static parts around it end at the "$" and start
+			// after the "}".
+			if p.Piece && off >= l.Parts[i-1].End+len("${") && off <= max(l.Parts[i+1].Start-1, p.End) {
+				return inLits(p.Lits, off)
+			}
+		}
+		return true
+	}
+	return false
 }
 
 // dynEndName is the name in a dynamic tag's end tag (</Tag>), empty
@@ -169,7 +209,7 @@ func inStartTag(src string, t *compiler.Tag, off int) bool {
 
 // classifyTag classifies a position inside the start tag of n; parent is
 // the component n is passed to as slot content.
-func classifyTag(n compiler.Node, t *compiler.Tag, off int, parent *compiler.Component) region {
+func classifyTag(src string, n compiler.Node, t *compiler.Tag, off int, parent *compiler.Component) region {
 	comp, _ := n.(*compiler.Component)
 	if e, ok := n.(*compiler.Element); ok && e.Dynamic && t.NameSpan.Contains(off) {
 		return region{kind: regionGo, node: n} // the variable (PLAN.md §2.8)
@@ -183,6 +223,9 @@ func classifyTag(n compiler.Node, t *compiler.Tag, off int, parent *compiler.Com
 	for _, a := range t.Attrs {
 		switch {
 		case (a.IsExpr() || a.Kind == compiler.AttrSpread) && a.Code.Contains(off):
+			if inLiteralText(src, a.Code.Span, off) {
+				return region{}
+			}
 			return region{kind: regionGo, comp: comp, attr: a, node: n}
 		case a.IsStatic() && a.ValueSpan.Contains(off):
 			if a.Directive == compiler.SlotDirective {
