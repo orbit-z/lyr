@@ -123,7 +123,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 /*line ../../../../src/pages/index.orbit:24:41*/shelf/*line render.go:123:79*/,
 			),
 			orbit__rt.RestString("", "style", string(
-/*line ../../../../src/pages/index.orbit:24:55*/orbit.CSS(`content:"&"`)/*line render.go:126:98*/,
+/*line ../../../../src/pages/index.orbit:24:55*/orbit.CSS(/*line render.go:126:84*//*line ../../../../src/pages/index.orbit:24:65*/"content:\"&\""/*line render.go:126:173*//*line ../../../../src/pages/index.orbit:24:78*/)/*line render.go:126:248*/,
 			)),
 			orbit__rt.RestStringURL("", "src", string(
 /*line ../../../../src/pages/index.orbit:24:86*/orbit.CSS("javascript:css")/*line render.go:129:102*/,

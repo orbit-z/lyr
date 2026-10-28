@@ -149,6 +149,12 @@ func (g *cgGen) switchNode(n *Switch, c *wsCtx, i int) {
 // expression, typed when Input.Typed says so.
 func (g *cgGen) site(kind SiteKind, node Node, a *Attr, code GoCode) {
 	o := g.o
+	if l := wholeLiteral(g.src, code); l != nil {
+		// A whole-value template literal: its pieces' writes (PLAN.md
+		// §2.10).
+		g.litWrite(kind, node, a, l)
+		return
+	}
 	cs := CallSite{Kind: kind, Key: code.Start, Node: node, Attr: a, Code: code}
 	if kind == SiteAttr {
 		cs.AttrName = a.Name
@@ -436,7 +442,9 @@ func (g *cgGen) htmlAttrs(t *Tag, node Node) (set *Attr) {
 		}
 		if a.IsExpr() {
 			g.site(SiteAttr, node, a, a.Code)
-			g.jsonAttrSite(a, g.sites[len(g.sites)-1].Arg)
+			if last := g.sites[len(g.sites)-1]; last.Kind == SiteAttr {
+				g.jsonAttrSite(a, last.Arg) // a template literal is a string, never JSON
+			}
 			continue
 		}
 		o.html(" " + g.src[a.Start:a.End])
@@ -451,6 +459,17 @@ func (g *cgGen) setContent(set *Attr, node Node) {
 	}
 	switch set.Directive {
 	case SetHTML:
+		if l := wholeLiteral(g.src, set.Code); l != nil && !l.Const() {
+			// Converted to orbit.HTML when every piece is inert (PLAN.md
+			// §2.10 (Q4)).
+			o := g.o
+			o.flush()
+			o.ln(NameW + ".HTML(")
+			g.concat(l, NameRuntime+`.HTML("")`, false, node, set)
+			o.str(",\n")
+			o.ln(")")
+			return
+		}
 		g.write("HTML", set.Code)
 	case SetJSON:
 		g.setJSON(set, node)
@@ -786,6 +805,11 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 			explicitRest = a
 		}
 		f := cgField{key: key, attr: a, node: n}
+		if a.IsExpr() && wholeLiteral(g.src, a.Code) != nil {
+			if t := propType(props, key); visiblyNotString(t) {
+				g.errorf(a.Span, "a template literal is a string; prop %s of <%s> is %s", a.Name, n.Name, t)
+			}
+		}
 		if isOptProp(props, key) {
 			f.opt = qual + "Props{}." + key
 		}
@@ -908,7 +932,11 @@ func (g *cgGen) propFields(fields []cgField) {
 		case a.Directive == ClassList:
 			g.classProp(f.node, a, f.merged)
 		case a.IsExpr():
-			o.exact(a.Code.Span)
+			if l := wholeLiteral(g.src, a.Code); l != nil {
+				g.propLiteral(f.node.(*Component), f.key, a, l)
+			} else {
+				o.exact(a.Code.Span)
+			}
 		case a.IsStatic():
 			// A directive, so a type error (featured="yes" for a bool)
 			// lands on the value; a quoted value's position is its quote.

@@ -8,7 +8,6 @@ package compiler
 import (
 	"go/ast"
 	"go/constant"
-	gotoken "go/token"
 	"go/types"
 	"strconv"
 	"strings"
@@ -29,7 +28,7 @@ func mayCallIf(sites []CallSite) bool {
 // lowerIf returns the lowered write of site when expr (its expression in
 // the pass-1 file tf) is a call of the runtime's If, identified by its
 // types.Object, so a user's own If or a shadowed orbit is left alone.
-func (e *tyEnv) lowerIf(tf *gotoken.File, expr ast.Expr, site *CallSite, info *types.Info) (TypedWrite, bool) {
+func (e *tyEnv) lowerIf(sm *tySpanMap, expr ast.Expr, site *CallSite, info *types.Info) (TypedWrite, bool) {
 	call, sig, inst, ok := ifCall(expr, info)
 	if !ok {
 		return TypedWrite{}, false
@@ -49,7 +48,7 @@ func (e *tyEnv) lowerIf(tf *gotoken.File, expr ast.Expr, site *CallSite, info *t
 	}
 	// .orbit spans: the expression is copied byte for byte at site.Arg.
 	span := func(n ast.Node) Span {
-		return Span{tf.Offset(n.Pos()) - site.Arg.Start + site.Code.Start, tf.Offset(n.End()) - site.Arg.Start + site.Code.Start}
+		return sm.span(site, n)
 	}
 	iw := &IfWrite{Fun: span(call.Fun), Cond: span(call.Args[0]), Val: span(call.Args[1]), Inst: inst, Const: vtv.Value != nil}
 	if text, ok := foldIf(w, tv.Value, site); ok {

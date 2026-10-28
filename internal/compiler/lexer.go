@@ -154,10 +154,15 @@ func (l *lexer) lexRaw() token {
 // offset of the inner end (the closing '}' or, for an unterminated construct,
 // the end of the line), the token end, and whether a '}' closed it.
 func (l *lexer) braceEnd(start int) (innerEnd, end int, closed bool) {
-	if j := scanBraced(l.src, start); j > start && j < len(l.src) {
+	j := scanBraced(l.src, start)
+	if j > start && j < len(l.src) {
 		return j, j + 1, true
 	}
-	l.errorf(Span{start, start + 1}, "{ has no matching }")
+	if !bracedLiteralFails(l.src, start) {
+		// An unterminated template literal is reported at its backtick
+		// (or ${) by checkTemplateLiterals instead.
+		l.errorf(Span{start, start + 1}, "{ has no matching }")
+	}
 	eol := strings.IndexByte(l.src[start:], '\n')
 	if eol < 0 {
 		return len(l.src), len(l.src), false

@@ -348,8 +348,13 @@ func FuzzGenerate(f *testing.F) {
 					fzCheckMap(t, src, gf)
 				}
 				for _, cs := range out.CallSites {
-					if cs.Arg.Start < 0 || cs.Arg.End > len(out.Impl.Content) || cs.Arg.Start > cs.Arg.End ||
-						string(out.Impl.Content[cs.Arg.Start:cs.Arg.End]) != cs.Code.Text || cs.Key != cs.Code.Start {
+					if cs.Arg.Start < 0 || cs.Arg.End > len(out.Impl.Content) || cs.Arg.Start > cs.Arg.End {
+						t.Fatalf("call site %+v out of range", cs)
+					}
+					if literalSite(cs) {
+						continue
+					}
+					if string(out.Impl.Content[cs.Arg.Start:cs.Arg.End]) != cs.Code.Text || cs.Key != cs.Code.Start {
 						t.Fatalf("call site %+v doesn't hold its code", cs)
 					}
 				}
@@ -413,7 +418,7 @@ func fzUserGoValid(file *File, a *Analysis) bool {
 		return err == nil
 	}
 	expr := func(c GoCode) bool {
-		_, err := goparser.ParseExpr(c.Text)
+		_, err := goparser.ParseExpr(tlPlaceholderText(c.Text)) // template literals as their placeholders
 		return err == nil
 	}
 	for _, d := range a.Decls {
@@ -438,7 +443,7 @@ func fzUserGoValid(file *File, a *Analysis) bool {
 	// A header is valid when it makes exactly one if or for statement
 	// whose body holds the statement after it.
 	header := func(kw string, c GoCode) bool {
-		f, err := goparser.ParseFile(gotoken.NewFileSet(), "", "package p\nfunc _() {\n"+kw+c.Text+" {\nx()\n}\n}", goparser.SkipObjectResolution)
+		f, err := goparser.ParseFile(gotoken.NewFileSet(), "", "package p\nfunc _() {\n"+kw+tlPlaceholderText(c.Text)+" {\nx()\n}\n}", goparser.SkipObjectResolution)
 		if err != nil || len(f.Decls) != 1 {
 			return false
 		}
@@ -459,6 +464,7 @@ func fzUserGoValid(file *File, a *Analysis) bool {
 	ok := true
 	Walk(file.Template, func(n Node) bool {
 		for _, c := range cgTemplateCodes(n) {
+			ok = ok && fzPiecesValid(c.Text)      // each piece one expression
 			ok = ok && !endsInLineComment(c.Text) // a codegen error
 		}
 		switch n := n.(type) {
@@ -474,11 +480,11 @@ func fzUserGoValid(file *File, a *Analysis) bool {
 			lists := []string{"default"}
 			for _, cs := range n.Cases {
 				if !cs.Default {
-					lists = append(lists, "case "+cs.List.Text)
+					lists = append(lists, "case "+tlPlaceholderText(cs.List.Text))
 				}
 			}
 			for _, l := range lists {
-				f, err := goparser.ParseFile(gotoken.NewFileSet(), "", "package p\nfunc _() {\nswitch "+n.Clause.Text+" {\n"+l+":\nx()\n}\n}", goparser.SkipObjectResolution)
+				f, err := goparser.ParseFile(gotoken.NewFileSet(), "", "package p\nfunc _() {\nswitch "+tlPlaceholderText(n.Clause.Text)+" {\n"+l+":\nx()\n}\n}", goparser.SkipObjectResolution)
 				if err != nil || len(f.Decls) != 1 || len(f.Decls[0].(*ast.FuncDecl).Body.List) != 1 {
 					ok = false
 					break

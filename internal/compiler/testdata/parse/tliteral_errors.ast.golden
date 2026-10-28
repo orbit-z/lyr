@@ -1,0 +1,25 @@
+Template @0-194
+  Element @0-34
+    <p> name=@1-2 start=@0-3 end=@30-34
+    Expr @3-30 code=@4-29 "regexp.MustCompile(`\\d+`)"
+  Text @34-35 "\n"
+  Element @35-64
+    <p> name=@36-37 start=@35-38 end=@60-64
+    Expr @38-60 code=@39-59 "`empty ${} and ${ }`"
+  Text @64-65 "\n"
+  Element @65-106
+    <p> name=@66-67 start=@65-68 end=@102-106
+    Expr @68-102 code=@69-101 "`bad \\x4 \\u12 \\u{110000} \\08 \\q`"
+  Text @106-107 "\n"
+  Element @107-153
+    <p> name=@108-109 start=@107-149 end=@149-153
+      attr expr @110-148 name=@110-115 "title" value=@116-148 code=@117-147 "`ok \\u{1F600} 😀 \\x41 \\0 \\\n`"
+  Text @153-154 "\n"
+  Element @154-194
+    <p> name=@155-156 start=@154-157 end=@194-194
+    Expr @157-179 code=@158-179 "`unterminated ${x</p>"
+    Text @179-180 "\n"
+    Element @180-194
+      <p> name=@181-182 start=@180-183 end=@194-194
+      Expr @183-193 code=@184-193 "`open</p>"
+      Text @193-194 "\n"

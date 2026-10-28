@@ -1,0 +1,19 @@
+orbit_gen/decl/components/card/decl.go (src/components/Card.orbit)
+  exact 2:1 "type Slug string" -> 189-205 "type Slug string"
+  exact 4:1 "type Props struct {\n\tTitle string\n\tSlug  Slug\n\tAny   any\n\tHref  orbit.URL\n\tBody  orbit.HTML\n\tStyle orbit.CSS\n\tClass string\n\tAttrs orbit.RestAttrs\n}" -> 276-423 "type Props struct {\n\tTitle string\n\tSlug  Slug\n\tAny   any\n\tHref  orbit.URL\n\tBody  orbit.HTML\n\tStyle orbit.CSS\n\tClass string\n\tAttrs orbit.RestAttrs\n}"
+orbit_gen/impl/components/card/render.go (src/components/Card.orbit)
+  exact 15:13 "props.Class" -> 680-691 "props.Class"
+  exact 15:33 "props.Style" -> 796-807 "props.Style"
+  exact 15:55 "props.Href" -> 932-942 "props.Href"
+  exact 15:68 "props.Title" -> 1058-1069 "props.Title"
+  exact 15:86 "props.Slug" -> 1189-1199 "props.Slug"
+  exact 15:99 "props.Any" -> 1315-1324 "props.Any"
+  exact 15:125 "props.Body" -> 1446-1456 "props.Body"
+  exact 15:151 "props.Attrs" -> 1588-1599 "props.Attrs"
+call sites
+  attr class key=186 "props.Class" call="orbit__w.Attr(\"class\",\n/*line ../../../../src/components/Card.orbit:15:13*/props.Class/*line render.go:21:88*/,\n\t)"
+  attr style key=206 "props.Style" call="orbit__w.Attr(\"style\",\n/*line ../../../../src/components/Card.orbit:15:33*/props.Style/*line render.go:24:88*/,\n\t)"
+  attr href (url) key=228 "props.Href" call="orbit__w.Attr(\"href\",\n/*line ../../../../src/components/Card.orbit:15:55*/props.Href/*line render.go:28:87*/,\n\t)"
+  content key=241 "props.Title" call="orbit__w.Expr(\n/*line ../../../../src/components/Card.orbit:15:68*/props.Title/*line render.go:32:88*/,\n\t)"
+  content key=259 "props.Slug" call="orbit__w.Expr(\n/*line ../../../../src/components/Card.orbit:15:86*/props.Slug/*line render.go:36:87*/,\n\t)"
+  content key=272 "props.Any" call="orbit__w.Expr(\n/*line ../../../../src/components/Card.orbit:15:99*/props.Any/*line render.go:40:86*/,\n\t)"

@@ -163,7 +163,7 @@ Step by step:
 - **`&&` and `.map()`** become `{if}` and `{for}` blocks. `.filter()` becomes an `if` inside the loop, or a filtered slice built in the frontmatter. A chain of conditions on one value is a `{switch}`. See [Control flow](components.md#control-flow).
 - **Dynamic tags** port as they are, with `orbit.Cond` for the ternary: `Tag := orbit.Cond(props.Href != "", "a", "div")`. `orbit.Fragment` as the value renders only the children, for optional wrappers. See [Dynamic tags](components.md#one-element-or-another-dynamic-tags).
 - **`class:list`** is one flat list without `[…]` and `{…}`: `{"card", "featured": props.Featured}`. `cond && "x"` becomes `"x": cond`, and a ternary `orbit.Cond(c, "a", "b")`. See the side-by-side table in [`class:list`](reference/template-syntax.md#classlist).
-- **Template literals**: `` class={`card ${extra}`} `` is `class={"card " + extra}`. A quoted attribute value is literal text.
+- **Template literals** port unchanged: `` class={`card ${extra}`} ``, `` href={`/books/${book.Slug}`} ``, `` <Card title={`Chapter ${n}`} /> ``, with pieces of any type (an `int` needs no `strconv`). Two things to check: a backslash escape JavaScript accepts silently (`\d`) is an error, and `${x}` with a nil `x` prints nothing rather than `null`. A quoted attribute value is literal text. See [Template literals](reference/template-syntax.md#template-literals).
 - **`x ?? y`** is `cmp.Or(x, y)` (or `o.Or(y)` for an `orbit.Opt`), and optional chaining (`a?.b`) is an explicit `nil` check in the frontmatter.
 
 `<Fragment>` and its `<>…</>` shorthand, `<slot />`, named slots, `slot="x"` and `<Self />` (Astro's `<Astro.self />`) work as in Astro. See [Slots](components.md#slots) and [`<Fragment>`](components.md#fragment).

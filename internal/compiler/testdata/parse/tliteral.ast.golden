@@ -1,0 +1,39 @@
+Frontmatter @0-24 closed=true open=@0-3 close=@21-24 code=@4-21 "re := `\\d+ ${x}`\n"
+Template @25-466
+  Element @25-149
+    <a> name=@26-27 start=@25-133 end=@145-149
+      attr expr @28-47 name=@28-32 "href" value=@33-47 code=@34-46 "`/p/${slug}`"
+      attr expr @48-80 name=@48-53 "title" value=@54-80 code=@55-79 "orbit.If(c, `Open ${x}`)"
+      attr spread @81-91 value=@81-91 code=@85-90 "attrs"
+      attr expr @92-132 name=@92-102 "class:list" directive=class:list value=@103-132 code=@104-131 "\"a\", `b-${n}`, `c-${n}`: on"
+        class @104-107 code=@104-107 "\"a\"" static="a"
+        class @109-117 code=@109-117 "`b-${n}`"
+        class @119-131 code=@119-127 "`c-${n}`" cond=@129-131 "on"
+    Expr @133-145 code=@134-144 "` · ${n}`"
+  Text @149-150 "\n"
+  If @150-222 end=@217-222
+    Branch if @150-193 header=@150-168 cond=@154-167 "s == `a-${b}`"
+      Element @168-193
+        <p> name=@169-170 start=@168-171 end=@189-193
+        Expr @171-189 code=@172-188 "f(`x ${y}`, `}`)"
+    Branch else-if @193-217 header=@193-217 cond=@202-216 "`${\"}\"}` != \"\""
+  Text @222-223 "\n"
+  For @223-310 header=@223-265 clause=@228-264 "_, x := range []string{`a`, `b${c}`}" end=@304-310
+    Element @265-304
+      <i> name=@266-267 start=@265-268 end=@300-304
+      Expr @268-300 code=@269-299 "`a ${f(`x ${g(`y ${z}`)}`)} b`"
+  Text @310-311 "\n"
+  Switch @311-385 header=@311-323 clause=@319-322 "`k`" end=@376-385
+    Case case @323-376 header=@323-342 list=@329-341 "`k`, `l${m}`"
+      Element @342-376
+        <b> name=@343-344 start=@342-372 end=@372-376
+          attr expr @345-371 name=@345-353 "set:text" directive=set:text value=@354-371 code=@355-370 "`${ /* } */ x}`"
+  Text @385-386 "\n"
+  Component @386-421
+    <Card> name=@387-391 start=@386-421 end=@421-421 selfclosing
+      attr expr @392-418 name=@392-397 "title" value=@398-418 code=@399-417 "`Chapter ${n + 1}`"
+  Text @421-422 "\n"
+  Element @422-465
+    <p> name=@423-424 start=@422-425 end=@461-465
+    Expr @425-461 code=@426-460 "`multi\nline ${n} \\${not} \\` $ {x}`"
+  Text @465-466 "\n"

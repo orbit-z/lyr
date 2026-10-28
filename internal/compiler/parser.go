@@ -41,6 +41,7 @@ func Parse(src string, mode Mode) *File {
 	}
 	p.lx = lexer{src: src, pos: tmpl.Start, diags: &p.diags}
 	f.Template = p.parseTemplate(tmpl)
+	checkTemplateLiterals(f.Template, p)
 	for _, d := range p.diags {
 		if d.Severity == SeverityError {
 			f.syntax = append(f.syntax, d)

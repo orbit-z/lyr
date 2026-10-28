@@ -30,7 +30,7 @@ func isBasicLit(code string) bool {
 	if strings.TrimSpace(code) == "" {
 		return false
 	}
-	e, err := goparser.ParseExpr(code)
+	e, err := goparser.ParseExpr(tlPlaceholderText(code))
 	if err != nil {
 		return false
 	}

@@ -461,6 +461,23 @@ func OptOf[T, V any](_ Opt[T], v V) Opt[T]
 The value of a component prop of type `Opt[T]` ([Optional props](../components.md#optional-props)); the first argument is the prop's zero value, which gives `T`. `Wrap` sets a static value or a `T` expression; `WrapIf` is an `orbit.If` whose value is an untyped constant (the second argument is the `If` as written, so its package stays used); `OptOf` is the value before the build has checked its type: an `Opt[T]` as is, a `T` (or a value of the same kind, for an untyped constant) set.
 
 ```go
+func (w *Writer) URLMark() int        // the buffer offset before a URL attribute's value
+func (w *Writer) URLCheck(mark int)   // about:invalid#orbit if the value since mark has an unsafe scheme
+func (w *Writer) ClassBytes(b []byte) // Class of bytes
+func (w *Writer) AttrPiece(v any)     // Expr's text of v, attribute-escaped
+func (w *Writer) TextPiece(v any)     // Expr's text of v, escaped (orbit.HTML too)
+
+func TemplateString(parts ...any) string
+func TemplateAs[T any](witness T, parts ...any) T
+func StringAs[T ~string](witness T, s string) T
+
+type TB []byte // S, B, Int, Uint, Float, Float32, Bool, Stringer, Error, Any, String, Bytes
+func AppendFloat(b []byte, f float64) []byte   // also AppendFloat32, AppendStringer,
+func AppendAny(b []byte, v any) []byte         //   AppendError
+```
+[Template literals](template-syntax.md#template-literals). A whole-value literal on an element or in content is written piece by piece: the typed writes, or `AttrPiece`/`TextPiece` before the build has checked the types, with `URLMark`/`URLCheck` around a URL attribute's value when its static prefix doesn't settle the scheme. Anywhere else, a literal is `TemplateString` of its static parts and pieces (alternating, starting and ending with text), or `TemplateAs` for a prop (the witness is the field's zero value, which gives `T`) until the build checks it; the checked build uses Go's `+`, or a `TB` chain on a stack buffer when a piece isn't a string, and `StringAs` to convert to a named string type the generated file may not import. The `Append` functions append the bytes of the matching `Writer` method.
+
+```go
 func SpreadOf[T Attrs | AttrList](w *Writer, pos string, a T)
 ```
 `{...x}` on an HTML element: an `Attrs` as `Spread` writes it, an `AttrList` as `SpreadList` does, with errors prefixed with `pos`, the spread's `.orbit` position. Generic, so the build needs no type information to emit it.

@@ -8,7 +8,8 @@ import "strings"
 // construct is unterminated (or if src[start] isn't '{').
 //
 // The scanner is Go-aware: braces inside Go strings ("…" with escapes), raw
-// strings (`…`, which may span lines), runes ('{', or a quote escaped with
+// strings, template literals (`a ${x} b`, which may span lines and nest,
+// PLAN.md §2.10), runes ('{', or a quote escaped with
 // a backslash) and comments (// up to the newline, /* … */) don't count, so
 // {fmt.Sprintf("{%d}", n)} and
 // {posts.Filter(func(p Post) bool { return p.Draft })} end at the right '}'.
@@ -51,11 +52,13 @@ func scanBraced(src string, start int) int {
 				return -1
 			}
 		case '`':
-			j := strings.IndexByte(src[i+1:], '`')
+			// A template literal (PLAN.md §2.10): its pieces may hold
+			// braces, strings and nested literals.
+			j := scanTemplateLiteral(src, i)
 			if j < 0 {
 				return -1
 			}
-			i += 1 + j // the closing '`'
+			i = j // the closing '`'
 		case '/':
 			if i+1 >= len(src) {
 				return -1
@@ -77,6 +80,40 @@ func scanBraced(src string, start int) int {
 		}
 	}
 	return -1
+}
+
+// bracedLiteralFails reports whether the {…} construct at start is
+// unterminated because of a template literal (or one of its pieces), whose
+// own error is reported instead (checkTemplateLiterals). Only called after
+// scanBraced failed.
+func bracedLiteralFails(src string, start int) bool {
+	for i := start; i < len(src); i++ {
+		switch c := src[i]; c {
+		case '"', '\'':
+			if i = skipQuoted(src, i, c); i < 0 {
+				return false
+			}
+		case '`':
+			if i = scanTemplateLiteral(src, i); i < 0 {
+				return true
+			}
+		case '/':
+			if i+1 < len(src) && src[i+1] == '/' {
+				if j := strings.IndexByte(src[i+2:], '\n'); j >= 0 {
+					i += 2 + j
+				} else {
+					return false
+				}
+			} else if i+1 < len(src) && src[i+1] == '*' {
+				if j := strings.Index(src[i+2:], "*/"); j >= 0 {
+					i += 2 + j + 1
+				} else {
+					return false
+				}
+			}
+		}
+	}
+	return false
 }
 
 // skipQuoted returns the index of the quote q that closes the string or rune

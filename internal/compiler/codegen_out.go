@@ -24,6 +24,11 @@ type cgOut struct {
 
 	// raw is the pending static HTML, merged into one Raw call.
 	raw strings.Builder
+
+	// lit, when set, emits template Go code (at or after litFrom, the
+	// template's start) that holds template literals.
+	lit     func(Span) (Span, bool)
+	litFrom int
 }
 
 func newCGOut(genPath, orbitPath, src string, lines *LineIndex) *cgOut {
@@ -122,8 +127,17 @@ func endsInLineComment(code string) bool {
 	return strings.HasPrefix(last, "//")
 }
 
-// exact copies src[s] inline (kind=exact).
-func (o *cgOut) exact(s Span) Span { return o.inline(s, o.src[s.Start:s.End], SegExact) }
+// exact copies src[s] inline (kind=exact). Template Go code holding
+// template literals (PLAN.md §2.10) goes through the lit hook, which
+// rewrites them; the span returned then covers the rewritten code.
+func (o *cgOut) exact(s Span) Span {
+	if o.lit != nil && s.Start >= o.litFrom && strings.IndexByte(o.src[s.Start:s.End], '`') >= 0 {
+		if g, ok := o.lit(s); ok {
+			return g
+		}
+	}
+	return o.inline(s, o.src[s.Start:s.End], SegExact)
+}
 
 // ownLine starts an own-line directive frame at the beginning of a line:
 // //line <file>:L:C for orbit offset off. The framed code follows from

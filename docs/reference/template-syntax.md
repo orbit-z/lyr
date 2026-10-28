@@ -63,7 +63,7 @@ tags := []string{"go", "web"}
 | Construct | Meaning |
 |---|---|
 | text | Anything except `{` and a `<` that starts a tag; emitted verbatim. `<` starts a tag only when followed by a letter, `/`, `!` or `>` (the fragment shorthand `<>`); any other `<` (`a < b`, `<3`, `<=`) is text. A literal brace is written `{"{"}`. |
-| `{expr}` | Any Go expression, escaped (see [How values render](#how-values-render)). Its end is found with a Go-aware scanner that tracks `()[]{}` depth, strings, runes, raw strings and comments. |
+| `{expr}` | Any Go expression, escaped (see [How values render](#how-values-render)). Its end is found with a Go-aware scanner that tracks `()[]{}` depth, strings, runes, [template literals](#template-literals) and comments. |
 | `{/* … */}` | Template comment; emits nothing. |
 | `{if c}` `{else if c}` `{else}` `{/if}` | A Go `if` chain. |
 | `{for clause}` `{/for}` | A Go `for` loop with any clause: `range`, three-clause, or condition only. |
@@ -153,11 +153,54 @@ With `"html"`, the template above renders `<ul><li>Posts by <b>Ana</b>⏎and fri
 <p>{"}"} and {`{raw}`}</p>
 ```
 
-Braces inside composite literals, strings, runes, raw strings and comments don't end the expression.
+Braces inside composite literals, strings, runes, template literals and comments don't end the expression. A backtick string is a [template literal](#template-literals) in the template, not a Go raw string.
 
 - Statements aren't expressions: `{x := 1}` is an error. Declare variables in the frontmatter.
 - A call that returns several values (`posts.All()` returns a slice and an error) can't be used directly. Call it in the frontmatter and handle the error there.
 - Expressions see everything the render body declares, plus `props`, `ctx`, `slots`, `locals`, `params` (in pages) and the `orbit` package. See [Components](../components.md#whats-available-in-the-render-body).
+
+## Template literals
+
+In the template, a backtick string is a JavaScript template literal, as in Astro: static text with Go expressions in `${…}`.
+
+```orbit
+<a href={`/fiction/${book.Slug}`} aria-label={`Chapter ${n + 1} of ${book.Title}`}>…</a>
+<Card title={`Chapter ${n}`} />
+<span>{` · ${book.Words} words`}</span>
+<button aria-label={orbit.If(open, `Close ${book.Title}`)}>…</button>
+```
+
+renders `<a href="/fiction/the-hollow" aria-label="Chapter 3 of The Hollow &amp; Co">…</a>`, and so on.
+
+- **Everywhere in the template**: attribute values (elements, dynamic tags, components, pass-through attributes), `{…}` content, `set:text`, `set:html`, `set:json`, `class:list` items and keys, spreads, control headers (`` {if s == `a-${b}`} ``, `` {case `x`} ``), and anywhere inside a larger expression (call arguments, `orbit.If`/`orbit.Cond` arguments, operands, inside the `${…}` of another literal). The **frontmatter** and `.go` files are plain Go: a backtick there is a Go raw string, as always. `<script>` and `<style>` content isn't template code.
+- **Pieces** are Go expressions of any type, and each prints exactly as `{…}` prints it (see [How values render](#how-values-render)): `` `${n}` `` with an `int` prints `3`, with a `time.Duration` its `String()`, `${false}` prints `false`. Where Orbit differs from JavaScript: an untyped `nil` or a nil interface prints nothing (JavaScript prints `null`/`undefined`), and a slice concatenates its elements (JavaScript joins them with `,`). An `orbit.Renderer` (`${slots.Get("x")}`) is an error: it renders HTML, and a literal is text.
+- **A literal is a string.** An `orbit.HTML` piece is escaped like any string, and an `orbit.URL` piece doesn't exempt the value from URL filtering.
+- **Escapes** are JavaScript's: `` \` ``, `\$` (so `\${` is a literal `${`), `\\`, `\n`, `\r`, `\t`, `\b`, `\f`, `\v`, `\0`, `\xHH`, `\uHHHH`, `\u{H…}`, `\'`, `\"`, and a backslash before a line break (both dropped). Any other escape is an error, `unknown escape \d in template literal; write \\d for a backslash, or move a Go raw string to the frontmatter`. A `$` not followed by `{` is text.
+- **Literals may span lines**; the text keeps its line breaks (`compressHTML` never changes an expression's output). They nest: `` `a ${f(`x ${y}`)}` ``.
+
+**Go raw strings in the template.** A former raw string without `${` or `\` means the same as before (`` {`{raw}`} ``, `` strings.Join(x, `, `) ``). One with a backslash, typically a regular expression (`` regexp.MustCompile(`\d+`) ``), gets the unknown-escape error: double the backslash, or move it to the frontmatter (`re := regexp.MustCompile(`\d+`)`), where it's a Go raw string.
+
+### Where a literal is lowered, and what it costs
+
+- **The whole value of an element attribute or of `{…}`** (only whitespace between the literal and the braces): each piece is written straight to the buffer with its typed write, the static text pre-escaped at build time. No allocation. An attribute is always written as `name="…"`, even when every piece is empty (`title=""`, as Astro writes for an empty string); the boolean-attribute rule doesn't apply, since the value is a string. A `class` attribute alone is written exactly as written; merged with `class:list` (or a pass-through `class`), the literal is one class item, built in a stack buffer (no allocation either). Piece boundaries aren't class boundaries: `` `btn-${size}` `` is one class.
+- **A component prop or a pass-through attribute**: one string concatenation, one allocation when a piece is dynamic, the same as Go's `+`, and none for a literal without pieces. The prop's field must be a `string`, a named string type (converted: `` slug={`${a}-${b}`} `` into a `type Slug string`), or an interface the string satisfies (`any`). Anything else is an error: `a template literal is a string; prop count of <Card> is int`.
+- **Anywhere else** (a call argument, `orbit.If`'s value, an operand, a control header): a value of type `string`, one concatenation (one allocation when a piece is dynamic). A literal without pieces is an untyped string constant, exactly like `"…"` (`` {case `draft`} ``, `` orbit.CSS(`display:none`) ``). Converting a dynamic one is ordinary Go: `` orbit.CSS(`width:${w}`) `` is an explicit conversion, you vouching for the value. `orbit.If`/`orbit.Cond` evaluate their arguments first, so a literal there is built even when the condition is false.
+
+Constant pieces (`${"x"}`, `${3}`, a `const`) are folded into the static text at build time.
+
+### URLs
+
+In a URL attribute (`href`, `src`, …), the `javascript:`/`vbscript:` filter applies to the **whole value**, as for a string. When the text before the first piece settles the scheme (`/…`, `#…`, `?…`, `./…`, `https://…`, `mailto:…`), nothing is checked at render time: `` href={`/fiction/${slug}`} `` costs only its writes. A literal starting with `javascript:` is replaced at build time (its pieces are still evaluated). Otherwise (`` `${base}/x` ``) the written value is checked once at render time (a few nanoseconds, no allocation), so a scheme split across pieces is caught too.
+
+### Trusted targets and the `style`/`on*` warning
+
+A literal can become an `orbit.HTML`, `orbit.URL` or `orbit.CSS` prop (or a `set:html` value), and doesn't get the `style`/`on*` warning, only when every piece is **inert** by its static type:
+
+- a number or a `bool` (named ones too, `type Pct int`), unless its type has a `String`, `Error` or `Format` method (on `T` or `*T`): a method can return any text;
+- a constant (folded, so checked as static text), unless its type has one of those methods;
+- a value of the target type itself (an `orbit.URL` piece into an `orbit.URL` prop, an `orbit.CSS` piece on `style`).
+
+So `` <Link href={`/books/${id}`} /> `` works into an `orbit.URL` prop for an `int` id, and `` style={`width:${pct}%`} `` doesn't warn. A `string` piece is never inert: `a string piece can't be part of an orbit.URL prop: make the prop a string (filtered where it's written) or convert the piece with orbit.URL(…)`. The decision is made from the static type, never from the value.
 
 ## Comments
 
@@ -414,7 +457,7 @@ A `<>` must be closed by `</>`, and a `</>` closes only a `<>`: `<>…</div>` an
 | `{a}` | Shorthand for `a={a}` | Shorthand for `a={a}` |
 | `{...attrs}` | Spread of an `orbit.Attrs` or an `orbit.AttrList`, or of the component's `orbit.RestAttrs` field | Merged into the component's [pass-through attributes](#pass-through-attributes) (it needs an `orbit.RestAttrs` field) |
 
-Quoted values are literal text: `class="card {extra}"` renders `card {extra}`. To build a value, use an expression: `class={"card " + extra}`.
+Quoted values are literal text: `class="card {extra}"` renders `card {extra}`. To build a value, use a [template literal](#template-literals), `` class={`card ${extra}`} ``, or any expression: `class={"card " + extra}`.
 
 An expression value may contain `>`, quotes and braces; the scanner finds the closing `}` the same way as for `{expr}` (`featured={i > 0}` works).
 
@@ -427,6 +470,7 @@ An expression value may contain `>`, quotes and braces; the scanner finds the cl
 | an `orbit.Opt[T]` ([optional values](#optional-values-orbitopt)) | None: nothing, the attribute is omitted. Some `v`: written as `v` is, by the rules of this table for `T` (so `orbit.Opt[bool]` set to `true` is bare, set to `false` is omitted, or `"false"` on a true/false attribute). |
 | `true`/`false` on a true/false attribute | `="true"` or `="false"`: `<button aria-pressed="false">`. These are the attributes whose values are the keywords `true` and `false`: every `aria-*` attribute (any case), and `contenteditable`, `draggable`, `spellcheck` and `writingsuggestions`. |
 | a string | The escaped value in quotes. |
+| a [template literal](#template-literals), `` `/p/${id}` `` | Always `name="…"` (an empty one is `name=""`), each piece written as `{…}` writes it, escaped; a URL attribute filters the whole value. |
 | `orbit.URL` | The escaped value in quotes, without URL filtering. |
 | `orbit.CSS` | The escaped value in quotes, like a string (URL attributes still filter it). On `style`, it doesn't warn. |
 | `orbit.HTML` | Escaped like any string; attribute values are never raw. |
@@ -778,6 +822,7 @@ A page's route params get their `params` field names from this PascalCase conver
 - `a="s"` and `a=bare` become the Go string literal `"s"`, so they only fit a `string` field (or a named string type).
 - A bare `a` becomes `true`.
 - `a={expr}` passes `expr` as is; the Go compiler checks its type against the field.
+- `` a={`…${x}…`} ``, a [template literal](#template-literals), is a string: the field must be a `string`, a named string type or an interface such as `any` (an `orbit.HTML`, `orbit.URL` or `orbit.CSS` field only with [inert pieces](#trusted-targets-and-the-styleon-warning)).
 - A field you don't set has its zero value.
 
 ### Unknown props
@@ -873,7 +918,7 @@ The same name twice is an error even in another case (`name` and `NAME`). A `cla
 | `uint`, `uint8`…`uint64`, `byte` | decimal | `{byte(65)}` → `65` |
 | `float64` | shortest form, as `fmt.Sprint` | `{0.1}` → `0.1`, `{2.0}` → `2`, `{1e6}` → `1e+06` |
 | `float32` | shortest float32 form | `{float32(0.1)}` → `0.1` (not `0.10000000149011612`) |
-| `bool` | `true` or `false` | `{ok}` → `true` |
+| `bool` | `true` or `false` (unlike Astro, where `{false}` renders nothing) | `{ok}` → `true` |
 | `error` | its escaped `Error()` text; a nil error renders nothing | `{err}` → `file not found` |
 | `fmt.Stringer` | its escaped `String()` text | `{time.Second}` → `1s` |
 | `orbit.Renderer`, `func(*orbit.Writer) error` | called; whatever it writes is output | `{slots.Get("footer")}` |

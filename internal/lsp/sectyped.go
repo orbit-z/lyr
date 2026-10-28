@@ -41,7 +41,7 @@ func securityCandidates(f *project.File) (attrs []*compiler.Attr, texts []string
 	seen := map[string]int{}
 	for i := range f.Pass1.CallSites {
 		cs := &f.Pass1.CallSites[i]
-		if cs.Kind != compiler.SiteAttr && cs.Kind != compiler.SiteRest || cs.Attr == nil || compiler.SecurityWarning(cs.AttrName) == "" {
+		if cs.Kind != compiler.SiteAttr && cs.Kind != compiler.SiteRest && cs.Kind != compiler.SiteLit || cs.Attr == nil || compiler.SecurityWarning(cs.AttrName) == "" {
 			continue
 		}
 		a := cs.Attr

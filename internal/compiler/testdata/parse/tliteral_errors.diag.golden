@@ -1,0 +1,12 @@
+tliteral_errors.orbit:1:25: unknown escape \d in template literal; write \\d for a backslash, or move a Go raw string to the frontmatter
+tliteral_errors.orbit:2:12: empty ${} in template literal
+tliteral_errors.orbit:2:20: empty ${} in template literal
+tliteral_errors.orbit:3:10: invalid \x escape in template literal: want two hex digits, \xHH
+tliteral_errors.orbit:3:14: invalid \u escape in template literal: want \uHHHH or \u{H…}
+tliteral_errors.orbit:3:19: invalid \u escape in template literal: want \uHHHH or \u{H…}
+tliteral_errors.orbit:3:30: octal escape \08 in template literal; write \x or \u escapes
+tliteral_errors.orbit:3:34: unknown escape \q in template literal; write \\q for a backslash, or move a Go raw string to the frontmatter
+tliteral_errors.orbit:6:1: <p> isn't closed; add </p>
+tliteral_errors.orbit:6:19: unterminated ${ in template literal
+tliteral_errors.orbit:7:1: <p> isn't closed; add </p>
+tliteral_errors.orbit:7:5: unterminated template literal

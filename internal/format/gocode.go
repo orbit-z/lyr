@@ -261,6 +261,11 @@ func rawLines(s string) map[int]bool {
 func (fx *fileFmt) goRegion(r *region) {
 	code := lf(fx.src[r.code.Start:r.code.End])
 	base := r.indent
+	if strings.IndexByte(code, '`') >= 0 && strings.ContainsAny(code, "$\\") {
+		// A template literal with pieces or escapes (PLAN.md §2.10) isn't
+		// Go: kept as written until pieces are formatted.
+		return
+	}
 	var out, formatted string
 	switch r.kind {
 	case rEndIf:

@@ -407,6 +407,7 @@ func anRecvName(e ast.Expr) string {
 // anSynth builds the template part of the body file, mapping its copied
 // regions back to the .orbit file.
 type anSynth struct {
+	src  string // the .orbit file
 	b    strings.Builder
 	segs []anSeg
 	// codes are the copied template Go regions, for the reserved-name scan.
@@ -420,6 +421,11 @@ type anSeg struct{ goStart, orbit, n int }
 func (y *anSynth) glue(t string) { y.b.WriteString(t) }
 
 func (y *anSynth) copy(c GoCode) {
+	// Template literals become same-length placeholder calls (PLAN.md
+	// §2.10), so the names in their pieces resolve and offsets stay exact.
+	if y.src != "" {
+		c.Text = tlPlaceholder(y.src, c.Span)
+	}
 	y.segs = append(y.segs, anSeg{y.b.Len(), c.Start, len(c.Text)})
 	y.codes = append(y.codes, c)
 	y.b.WriteString(c.Text)
@@ -521,7 +527,7 @@ type anBodyStmt struct {
 }
 
 func (s *anState) parseBody() {
-	var y anSynth
+	y := anSynth{src: s.src}
 	if s.f.Template != nil {
 		y.nodes(s.f.Template.Children, s.tagUses)
 	}

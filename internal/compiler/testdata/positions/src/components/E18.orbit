@@ -1,0 +1,7 @@
+---
+import "strings"
+
+n := 1
+---
+<p title={`a ${n}
+b ${n} ${strings.Repeat(`x${undefC}`, 2)}`}></p>

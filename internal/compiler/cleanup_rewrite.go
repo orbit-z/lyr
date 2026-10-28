@@ -213,12 +213,50 @@ func cleanGoOutput(out []byte, names *ErrorNames) []byte {
 		for _, f := range [...]string{".WrapIf", ".Wrap", ".OptOf"} { // WrapIf before its prefix
 			line = strings.ReplaceAll(line, " in argument to "+NameRuntime+f, " in optional prop value")
 		}
+		line = rewriteTemplateCalls(line)
 		if cur != nil {
 			line = rewriteNames(line, cur)
 		}
 		b.WriteString(line)
 	}
 	return b.Bytes()
+}
+
+// rewriteTemplateCalls replaces the generated call of a template literal
+// (PLAN.md §2.10), orbit__rt.TemplateString(…) or TemplateAs(…), with
+// "template literal", and its "(value of type string)" with "(string)".
+func rewriteTemplateCalls(line string) string {
+	for _, fn := range [...]string{NameRuntime + ".TemplateString(", NameRuntime + ".TemplateAs("} {
+		for {
+			i := strings.Index(line, fn)
+			if i < 0 {
+				break
+			}
+			// The matching ')', skipping Go strings and runes.
+			depth, j := 0, i+len(fn)-1
+		scan:
+			for ; j < len(line); j++ {
+				switch c := line[j]; c {
+				case '(':
+					depth++
+				case ')':
+					depth--
+					if depth == 0 {
+						break scan
+					}
+				case '"', '\'':
+					if k := skipQuoted(line, j, c); k > j {
+						j = k
+					}
+				}
+			}
+			if j >= len(line) {
+				break
+			}
+			line = line[:i] + "template literal" + line[j+1:]
+		}
+	}
+	return strings.ReplaceAll(line, "template literal (value of type string)", "template literal (string)")
 }
 
 // rewriteNames rewrites the qualified generated names of one line, outside

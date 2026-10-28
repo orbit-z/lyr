@@ -1,0 +1,13 @@
+---
+import Card "../components/Card.orbit"
+import TL "../components/TL.orbit"
+import Wrap "../components/Wrap.orbit"
+
+n, id := 3, 42
+title := "T & U"
+on := true
+---
+<TL data-from={`index-${n}`} />
+<Card title={`Chapter ${n}`} slug={`${title}-${id}`} any={`a${n}`} href={`/books/${id}`} body={`<b>${n}</b>${on}`} style={`width:${n}%`} class={`c-${n}`} data-x={`d${n}`} src={`${title}`} />
+<Card title={`static`} slug={`s`} />
+<Wrap class={`w-${n} `} data-n={`${n}`} href={`javascript:${title}`} style={`top:${id}px`} onclick={`f(${title})`} />

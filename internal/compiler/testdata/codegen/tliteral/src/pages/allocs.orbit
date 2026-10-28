@@ -1,0 +1,13 @@
+---
+type Count int
+
+func (c Count) String() string { return "n" }
+
+name, slug, n, f, on := "x & y", "s", 3, 0.5, true
+var c Count = 4
+size := "lg"
+---
+<a href={`/p/${slug}`} title={`${name} ${n} ${f} ${on} ${c}`}>static prefix</a>
+<a href={`${slug}/x`}>check</a>
+<p class={`m-${size}`} class:list={"z", `k-${n}`}>merged</p>
+<span>{` · ${n} ${name} ${c} ${f}`}</span>
