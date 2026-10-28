@@ -219,7 +219,7 @@ func (g *cgGen) restOperand(a *Attr) string {
 	if rest == "" || a.Kind != AttrSpread || !strings.Contains(a.Code.Text, rest) {
 		return ""
 	}
-	e, err := goparser.ParseExpr(a.Code.Text)
+	e, err := goparser.ParseExpr(tlPlaceholderText(a.Code.Text))
 	if err != nil {
 		return ""
 	}

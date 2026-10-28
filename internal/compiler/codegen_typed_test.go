@@ -43,6 +43,9 @@ func TestTypedReemit(t *testing.T) {
 			if cs.Key != r.out.CallSites[i].Key {
 				t.Errorf("%s: site %d key %d, pass 1 %d", r.path, i, cs.Key, r.out.CallSites[i].Key)
 			}
+			if literalSite(cs) {
+				continue
+			}
 			if string(out.Impl.Content[cs.Arg.Start:cs.Arg.End]) != cs.Code.Text {
 				t.Errorf("%s: site %d Arg doesn't hold its code", r.path, i)
 			}

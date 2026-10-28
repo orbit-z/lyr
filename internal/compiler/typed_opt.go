@@ -10,13 +10,12 @@ package compiler
 import (
 	"go/ast"
 	"go/constant"
-	gotoken "go/token"
 	"go/types"
 )
 
 // optProp classifies the OptOf call of site. The diagnostic is the error
 // for a value of another type.
-func (e *tyEnv) optProp(tf *gotoken.File, call *ast.CallExpr, site *CallSite, info *types.Info) (TypedWrite, *Diagnostic) {
+func (e *tyEnv) optProp(sm *tySpanMap, call *ast.CallExpr, site *CallSite, info *types.Info) (TypedWrite, *Diagnostic) {
 	if len(call.Args) != 2 {
 		return TypedWrite{}, nil
 	}
@@ -35,7 +34,7 @@ func (e *tyEnv) optProp(tf *gotoken.File, call *ast.CallExpr, site *CallSite, in
 		return TypedWrite{}, nil
 	}
 	span := func(n ast.Node) Span {
-		return Span{tf.Offset(n.Pos()) - site.Arg.Start + site.Code.Start, tf.Offset(n.End()) - site.Arg.Start + site.Code.Start}
+		return sm.span(site, n)
 	}
 	if !isUntyped(tv.Type) && types.Identical(types.Unalias(tv.Type), types.Unalias(field)) {
 		return TypedWrite{Kind: WriteOptAsIs}, nil

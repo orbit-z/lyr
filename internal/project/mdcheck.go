@@ -147,7 +147,7 @@ func HasSecurity(f *File) bool {
 	}
 	for i := range f.Pass1.CallSites {
 		cs := &f.Pass1.CallSites[i]
-		if (cs.Kind == compiler.SiteAttr || cs.Kind == compiler.SiteRest) && cs.Attr != nil && compiler.SecurityWarning(cs.AttrName) != "" {
+		if (cs.Kind == compiler.SiteAttr || cs.Kind == compiler.SiteRest || cs.Kind == compiler.SiteLit) && cs.Attr != nil && compiler.SecurityWarning(cs.AttrName) != "" {
 			return true
 		}
 	}

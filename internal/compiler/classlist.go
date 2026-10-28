@@ -27,7 +27,8 @@ func (p *parser) parseClassList(a *Attr) []ClassItem {
 		return nil
 	}
 	const prefix = "_{"
-	src := prefix + code.Text + "}"
+	// Template literals as same-length placeholders (PLAN.md §2.10).
+	src := prefix + tlPlaceholder(p.src, code.Span) + "}"
 	fset := gotoken.NewFileSet()
 	e, err := goparser.ParseExprFrom(fset, "", src, goparser.SkipObjectResolution)
 	if err != nil {
@@ -73,7 +74,12 @@ func (p *parser) parseClassList(a *Attr) []ClassItem {
 		it.Span = span(el)
 		it.Code = gocode(x)
 		if bl, ok := x.(*ast.BasicLit); ok && bl.Kind == gotoken.STRING {
-			if v, err := strconv.Unquote(bl.Value); err == nil {
+			if it.Code.Text != "" && it.Code.Text[0] == '`' {
+				// A template literal: static when it has no piece.
+				if l := wholeLiteral(p.src, it.Code); l != nil && l.Const() {
+					it.Static, it.Value = true, l.Cooked()
+				}
+			} else if v, err := strconv.Unquote(bl.Value); err == nil {
 				it.Static, it.Value = true, v
 			}
 		}
@@ -272,6 +278,22 @@ func (g *cgGen) classSite(kind SiteKind, node Node, cl *Attr, code GoCode) {
 	if kind == SiteClass && typed && tw.Opt {
 		g.classOptSite(cs, tw)
 		return
+	}
+	if l := wholeLiteral(g.src, code); kind == SiteClass && typed && tw.Kind == WriteClass && l != nil && !l.Const() {
+		if ct, ok := g.in.Typed[l.End-1]; ok && ct.Kind == WriteConcat {
+			// A template literal item: built on the stack, written as
+			// bytes (PLAN.md §2.10).
+			o.flush()
+			o.ind()
+			start := len(o.b)
+			o.str(NameW + ".ClassBytes(")
+			cs.Arg = g.concat(l, "", true, node, cl)
+			o.str(")")
+			cs.Call = Span{start, len(o.b)}
+			o.str("\n")
+			g.sites = append(g.sites, cs)
+			return
+		}
 	}
 	open, closing := "", ""
 	switch {

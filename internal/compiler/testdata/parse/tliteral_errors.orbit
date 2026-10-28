@@ -1,0 +1,7 @@
+<p>{regexp.MustCompile(`\d+`)}</p>
+<p>{`empty ${} and ${ }`}</p>
+<p>{`bad \x4 \u12 \u{110000} \08 \q`}</p>
+<p title={`ok \u{1F600} 😀 \x41 \0 \
+`}></p>
+<p>{`unterminated ${x</p>
+<p>{`open</p>

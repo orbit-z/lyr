@@ -109,7 +109,7 @@ func (g *cgGen) isDirectJSON(code string) bool {
 	if g.rtNames == nil {
 		g.rtNames = runtimeNames(g.a)
 	}
-	e, err := goparser.ParseExpr(code)
+	e, err := goparser.ParseExpr(tlPlaceholderText(code))
 	return err == nil && directJSONArg(e, g.rtNames) != nil
 }
 

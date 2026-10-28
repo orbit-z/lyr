@@ -27,7 +27,14 @@ func TestScanBraced(t *testing.T) {
 		{"string escaped backslash", "", `{"a\\"}x`, `}x`},
 		{"raw string", "", "{`}{`}", "}"},
 		{"raw string multiline", "", "{`a\n}\nb`} x", "} x"},
-		{"raw string backslash", "", "{`\\`}", "}"},
+		{"template literal escaped backtick", "", "{`\\``}", "}"},
+		{"template literal escaped backtick unterminated", "", "{`\\`}", ""},
+		{"template literal piece brace", "", "{`a ${f(\"}\")} b`} x", "} x"},
+		{"template literal nested", "", "{`a ${f(`x ${y}`)}`}", "}"},
+		{"template literal piece comment", "", "{`${ /* } */ x}`}", "}"},
+		{"template literal piece backtick string", "", "{`${\"`\"}`}", "}"},
+		{"template literal dollar", "", "{`$x {y}`}", "}"},
+		{"unterminated piece", "", "{`${x`}", ""},
 		{"rune open", "", "{'{'}", "}"},
 		{"rune close", "", "{'}'}", "}"},
 		{"rune escaped quote", "", `{'\''}`, "}"},
@@ -167,6 +174,12 @@ func FuzzScanBraced(f *testing.F) {
 			t.Fatalf("scanBracedTolerant(%q, %d) = %d (scanBraced %d)", src, start, tol, got)
 		}
 
+		// A backtick starts a template literal, not a Go raw string (PLAN.md
+		// §2.10): FuzzTemplateLiteral covers those inputs.
+		if strings.IndexByte(src, '`') >= 0 {
+			return
+		}
+
 		// Where go/scanner lexes the construct without errors, both agree.
 		if want, ok := goScannerEnd(src, start); ok && got != want {
 			t.Fatalf("scanBraced(%q, %d) = %d, go/scanner says %d", src, start, got, want)
@@ -201,6 +214,39 @@ func BenchmarkScanBraced(b *testing.B) {
 				i = end
 			}
 		}
+	}
+	b.ReportAllocs()
+	for b.Loop() {
+		for _, s := range starts {
+			if scanBraced(src, s) < 0 {
+				b.Fatal("unterminated")
+			}
+		}
+	}
+}
+
+// BenchmarkScanBracedLiterals is BenchmarkScanBraced over expressions
+// holding template literals (PLAN.md §2.10).
+func BenchmarkScanBracedLiterals(b *testing.B) {
+	exprs := []string{
+		"{`/fiction/${book.Slug}`}",
+		"{`Chapter ${props.Index + 1} of ${props.Book.Title}`}",
+		"{orbit.If(open, `Close ${f(`x ${y}`)}`)}",
+		"{` · ${n} words`}",
+		"{`btn-${size} ${map[string]int{\"}\": 1}[\"}\"]}`}",
+	}
+	src := "<p>" + strings.Join(exprs, "</p><p>") + "</p>"
+	var starts []int
+	for i := 0; i < len(src); i++ {
+		if src[i] == '{' {
+			if end := scanBraced(src, i); end > 0 {
+				starts = append(starts, i)
+				i = end
+			}
+		}
+	}
+	if len(starts) != len(exprs) {
+		b.Fatalf("%d expressions found", len(starts))
 	}
 	b.ReportAllocs()
 	for b.Loop() {

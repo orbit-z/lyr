@@ -1,0 +1,5 @@
+---
+import "strings"
+---
+<p>{strings.TrimSpace(`c
+  ${undefD}`)}</p>

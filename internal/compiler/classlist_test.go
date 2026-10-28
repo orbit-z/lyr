@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -68,7 +69,7 @@ type Props struct{ Class string }
 		`src/pages/index.orbit []string{"d"}`: {Kind: WriteClasses},
 		"src/pages/index.orbit n":             {},
 	} {
-		if g := kinds[k]; g != w {
+		if g := kinds[k]; !reflect.DeepEqual(g, w) {
 			t.Errorf("%s: %+v, want %+v", k, g, w)
 		}
 	}

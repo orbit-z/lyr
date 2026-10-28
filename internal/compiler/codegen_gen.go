@@ -268,6 +268,9 @@ func (g *cgGen) genImpl() *GenFile {
 	g.dynTags = 0
 	gf := g.newFile(g.pkg.ImplFile(), g.pkg.ImplImportPath(g.in.Options.Module), g.pkg.ImplName())
 	o := g.o
+	if g.f.Template != nil {
+		o.lit, o.litFrom = g.litCode, g.f.Template.Start
+	}
 	direct := g.directImports()
 	if g.in.Direct != nil && !g.tolerant {
 		// The build flavor is read from its overlay location (PLAN.md §3.5).

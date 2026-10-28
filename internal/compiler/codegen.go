@@ -139,6 +139,21 @@ const (
 	// orbit__rt.OptOf(Alias.Props{}.Field, x). The typed pass checks x and
 	// passes it as is (an Opt[T]), wraps it (a T), or reports an error.
 	SiteOptProp
+	// SitePiece is a piece of a template literal that is the whole value
+	// of an HTML element attribute (AttrName set) or of a content
+	// expression or set:text (PLAN.md §2.10): orbit__w.AttrPiece(x) or
+	// orbit__w.TextPiece(x), each piece its own write.
+	SitePiece
+	// SiteConcat is a template literal anywhere else, a string expression:
+	// orbit__rt.TemplateString(s0, p0, s1, …, sN), or, as the whole value
+	// of a component prop or set:html (As),
+	// orbit__rt.TemplateAs(witness, s0, p0, …), which the typed pass turns
+	// into a concatenation. Key is the offset of its closing backtick.
+	SiteConcat
+	// SiteLit is the whole-value template literal of an HTML element
+	// attribute, whose pieces are SitePiece sites: no write of its own,
+	// recorded for the style and on* warnings (Call and Arg are empty).
+	SiteLit
 )
 
 // CallSite records one write emitted with the Expr/Attr fallback, for the
@@ -162,8 +177,15 @@ type CallSite struct {
 	URLAttr  bool
 	// Call is the whole write call in Impl.Content (from "orbit__w." to its
 	// closing paren); Arg is the expression's bytes in it, exactly
-	// Code.Text, between its line directive and its reset.
+	// Code.Text, between its line directive and its reset, unless Code
+	// holds template literals, which are rewritten (PLAN.md §2.10).
 	Call, Arg Span
+	// Lit is the template literal of a SitePiece, SiteConcat or SiteLit
+	// site; Parent is a SitePiece's SiteLit key (Lit.Start); As is set on
+	// a SiteConcat emitted as TemplateAs.
+	Lit    *TemplateLiteral
+	Parent int
+	As     bool
 }
 
 // DeferSite is one server:defer call site: orbit__rt.Defer(…, <Alias>.Props{…}, …).
@@ -244,6 +266,13 @@ const (
 	WriteOptAsIs
 	WriteOptWrap
 	WriteOptWrapIf
+	// WriteFold is a constant piece of a template literal, folded into the
+	// static text (TypedWrite.Text, unescaped) (PLAN.md §2.10).
+	WriteFold
+	// WriteConcat is a SiteConcat: TypedWrite.Pieces holds the write of
+	// each part (static parts zero), and Conv is "as" when the result is
+	// converted to the witness's string type with orbit__rt.StringAs.
+	WriteConcat
 )
 
 // writeMethods is the Writer method each kind calls. WriteAttrString,
@@ -254,7 +283,7 @@ var writeMethods = [...]string{"Expr", "", "String", "Int", "Uint", "Float", "Fl
 	"HTML", "Bytes", "Error", "Stringer", "Render", "AttrValue", "URL", "AttrBool",
 	"Int", "Uint", "Float", "Float32", "JSONAttr", "Class", "Classes",
 	"RestString", "RestStringURL", "RestURL", "RestBool", "RestInt", "RestUint", "RestFloat", "RestFloat32", "RestJSON",
-	"Bool", "RestOpt", "RestOptURL", "", "Wrap", "WrapIf"}
+	"Bool", "RestOpt", "RestOptURL", "", "Wrap", "WrapIf", "", ""}
 
 // attrPieces reports whether k writes its attribute as pieces: the static
 // ` name="` and `"` join the neighbouring Raw constants, and the call writes
@@ -285,6 +314,10 @@ type TypedWrite struct {
 	// Opt is set on a class:list item of type orbit.Opt[T] on an element:
 	// Kind and Conv write its value when it's set.
 	Opt bool
+	// Text is a WriteFold piece's constant text, unescaped.
+	Text string
+	// Pieces are a WriteConcat's part writes, one per part of its literal.
+	Pieces []TypedWrite
 }
 
 // IfWrite is a lowered orbit.If(cond, v) call site. Codegen emits

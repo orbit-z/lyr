@@ -556,8 +556,11 @@ func (s *tyState) checkUnit(u *tyUnit, generate func(*Input) *Output) TypedUnit 
 	if n > 0 {
 		return fallback
 	}
-	writes, cds, trusted := siteWrites(s.fset, u.implFile, u.unit.Pass1.CallSites, info, env)
+	writes, cds, trusted := siteWrites(s.fset, u.implFile, u.unit.Pass1.CallSites, info, env, u.unit.Pass1.Impl.Map)
 	ts, jds := s.bridgeTypes(u, info, env)
+	// A template literal prop of a visibly non-string type is pass 1's
+	// error already (PLAN.md §2.10): not twice.
+	cds = slices.DeleteFunc(cds, func(d Diagnostic) bool { return slices.Contains(u.unit.Pass1.Diagnostics, d) })
 	ds := append(append(checkDeferProps(s.fset, u.implFile, u.unit.Pass1.DeferSites, info), jds...), cds...)
 	res := TypedUnit{Output: u.unit.Pass1, Writes: writes, Checked: true, Types: ts,
 		Diagnostics: append(ds, securityWarnings(u.unit.Pass1.CallSites, trusted)...)}
@@ -574,13 +577,19 @@ func (s *tyState) checkUnit(u *tyUnit, generate func(*Input) *Output) TypedUnit 
 // diagnostics are the class:list items of a wrong type; trusted holds the
 // keys of the style and on* sites that don't get a security warning
 // (trustedSite).
-func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *types.Info, env *tyEnv) (writes TypedWrites, diags []Diagnostic, trusted map[int]bool) {
+func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *types.Info, env *tyEnv, smap *SourceMap) (writes TypedWrites, diags []Diagnostic, trusted map[int]bool) {
 	byStart := make(map[int]*CallSite, len(sites))
 	for i := range sites {
-		byStart[sites[i].Call.Start] = &sites[i]
+		if sites[i].Kind != SiteLit {
+			byStart[sites[i].Call.Start] = &sites[i]
+		}
 	}
 	tf := fset.File(f.Pos())
+	sm := newTySpanMap(tf, smap, sites)
 	writes = TypedWrites{}
+	// pieceTVs are the types of template literal pieces (PLAN.md §2.10),
+	// by the key of their whole-value literal (SiteLit) or concatenation.
+	pieceTVs := map[int][]types.TypeAndValue{}
 	ast.Inspect(f, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
 		if !ok || len(call.Args) == 0 {
@@ -590,8 +599,28 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 		if site == nil || site.Kind == SiteTag {
 			return true
 		}
+		if site.Kind == SiteConcat {
+			w, ds, tvs := env.concatWrite(call, site, info)
+			diags = append(diags, ds...)
+			pieceTVs[site.Key] = tvs
+			if w.Kind != WriteFallback {
+				writes[site.Key] = w
+			}
+			return true
+		}
 		tv, ok := info.Types[call.Args[len(call.Args)-1]]
 		if !ok {
+			return true
+		}
+		if site.Kind == SitePiece {
+			pieceTVs[site.Parent] = append(pieceTVs[site.Parent], tv)
+			w, bad := env.classifyPiece(tv, site.AttrName != "")
+			if bad {
+				diags = append(diags, pieceDiag(TLPart{Span: site.Code.Span, Text: site.Code.Text}, tv))
+			}
+			if w.Kind != WriteFallback {
+				writes[site.Key] = w
+			}
 			return true
 		}
 		if isSecuritySite(site) && env.trustedSite(site.AttrName, tv) {
@@ -602,7 +631,7 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 		}
 		var w TypedWrite
 		if site.Kind == SiteAttr || site.Kind == SiteContent {
-			if w, ok := env.lowerIf(tf, call.Args[len(call.Args)-1], site, info); ok {
+			if w, ok := env.lowerIf(sm, call.Args[len(call.Args)-1], site, info); ok {
 				writes[site.Key] = w
 				if w.If.Const && isSecuritySite(site) {
 					// orbit.If(c, "constant"): trusted like the constant.
@@ -628,7 +657,7 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 		}
 		switch site.Kind {
 		case SiteOptProp:
-			w, diag := env.optProp(tf, call, site, info)
+			w, diag := env.optProp(sm, call, site, info)
 			if diag != nil {
 				diags = append(diags, *diag)
 			}
@@ -666,6 +695,45 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 		}
 		return true
 	})
+	// A whole-value literal on style or on* is trusted when every piece is
+	// inert (PLAN.md §2.10 (Q4)): on an element (SiteLit, its pieces'
+	// types) or passed through (SiteRest, its concatenation's).
+	concats := map[Span]int{}
+	for i := range sites {
+		if sites[i].Kind == SiteConcat {
+			concats[sites[i].Code.Span] = sites[i].Key
+		}
+	}
+	for i := range sites {
+		site := &sites[i]
+		if !isSecuritySite(site) || trusted[site.Key] {
+			continue
+		}
+		var tvs []types.TypeAndValue
+		switch {
+		case site.Kind == SiteLit:
+			tvs = pieceTVs[site.Key]
+			if len(tvs) != site.Lit.Pieces() {
+				continue // a piece wasn't typed
+			}
+		case site.Kind == SiteRest:
+			k, ok := concats[site.Code.Span]
+			if !ok {
+				continue
+			}
+			if tvs, ok = pieceTVs[k]; !ok {
+				continue
+			}
+		default:
+			continue
+		}
+		if env.litTrusted(site.AttrName, tvs) {
+			if trusted == nil {
+				trusted = map[int]bool{}
+			}
+			trusted[site.Key] = true
+		}
+	}
 	return writes, diags, trusted
 }
 
@@ -673,7 +741,7 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 // warnings (PLAN.md §2.3, §2.7): name={expr} or {name} on an HTML element,
 // or passed through an orbit.RestAttrs field.
 func isSecuritySite(site *CallSite) bool {
-	return (site.Kind == SiteAttr || site.Kind == SiteRest) && SecurityWarning(site.AttrName) != ""
+	return (site.Kind == SiteAttr || site.Kind == SiteRest || site.Kind == SiteLit) && SecurityWarning(site.AttrName) != ""
 }
 
 // trustedSite reports whether the value tv of a style or on* attribute

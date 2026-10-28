@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -76,7 +77,7 @@ n := 1
 		"data-v":    {},
 		"data-nil":  {},
 	} {
-		if g := kinds[name]; g != w {
+		if g := kinds[name]; !reflect.DeepEqual(g, w) {
 			t.Errorf("%s: %+v, want %+v", name, g, w)
 		}
 	}
