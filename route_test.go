@@ -121,8 +121,8 @@ func TestRouteInfoPages(t *testing.T) {
 				{"/blog/a%20b%2Fc", 200, routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].orbit", "slug=a b/c"}},
 				{"/docs/a/b/c", 200, routeWant{RoutePage, "/docs/[...path]", "src/pages/docs/[...path].orbit", "path=a/b/c"}},
 				{"/p/1/2/3/4/5/6/7/8/9", 200, routeWant{RoutePage, "/p/[a]/[b]/[c]/[d]/[e]/[f]/[g]/[h]/[i]", "src/pages/p.orbit", "a=1,b=2,c=3,d=4,e=5,f=6,g=7,h=8,i=9"}},
-				{"/robots.txt", 200, routeWant{}},
-				{"/_orbit/app-1234.js", 200, routeWant{}},
+				{"/robots.txt", 200, routeWant{RouteFile, "/robots.txt", "", ""}},
+				{"/_orbit/app-1234.js", 200, routeWant{RouteFile, "/_orbit/app-1234.js", "", ""}},
 				{"/ok/", 308, routeWant{}},
 				{"/unknown", 404, routeWant{}}, // passed to next
 			} {

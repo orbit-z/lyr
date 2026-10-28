@@ -96,7 +96,7 @@ func logging(next http.Handler) http.Handler {
 		start := time.Now()
 		next.ServeHTTP(rec, r)
 		route := ""
-		if l.Route.Kind != orbit.RouteNone {
+		if k := l.Route.Kind; k != orbit.RouteNone && k != orbit.RouteFile { // a file's Pattern is its path
 			route = " route=" + l.Route.Pattern
 		}
 		log.Printf("%s %s %d %s id=%s%s", r.Method, r.URL.Path, rec.status, time.Since(start), l.RequestID, route)

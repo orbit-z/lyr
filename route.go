@@ -13,9 +13,8 @@ import (
 type RouteKind uint8
 
 const (
-	// RouteNone: Orbit didn't render this request (a static file, a
-	// trailing-slash redirect, a request passed to next, or one that never
-	// reached Orbit).
+	// RouteNone: Orbit didn't answer this request (a trailing-slash
+	// redirect, a request passed to next, or one that never reached Orbit).
 	RouteNone RouteKind = iota
 	// RoutePage: a page route matched, whatever the outcome (200, a
 	// redirect, an error, ErrNotFound).
@@ -25,6 +24,9 @@ const (
 	RouteNotFound
 	// RouteIsland: a /_orbit/island/ request.
 	RouteIsland
+	// RouteFile: a GET or HEAD Orbit serves as a static file (an /_orbit/
+	// asset or a public/ file). Pattern is the URL path; File is "".
+	RouteFile
 )
 
 // RouteInfo is the route that answered a request. Declare a field of this
@@ -46,11 +48,12 @@ const (
 type RouteInfo struct {
 	Kind RouteKind
 	// Pattern is the route's pattern: "/blog/[slug]" for a page, "/404"
-	// for Site.NotFound, "/_orbit/island/[buildID]/[id]" for an island.
+	// for Site.NotFound, "/_orbit/island/[buildID]/[id]" for an island,
+	// the URL path ("/robots.txt") for a static file.
 	Pattern string
 	// File is the page's .orbit file, src/pages/404.orbit, or the deferred
 	// component's file; "" when there's none (the empty 404, an unknown
-	// island).
+	// island, a static file).
 	File string
 
 	names []string  // the route's param names (static)
@@ -161,7 +164,8 @@ func WithLocalsRoute[L any](field func(*L) *RouteInfo) Option {
 //
 //   - an island request (/_orbit/island/…, any method): RouteIsland, as
 //     Orbit fills it;
-//   - a GET or HEAD of a static file (/_orbit/* assets, public/): RouteNone;
+//   - a GET or HEAD of a static file (/_orbit/* assets, public/):
+//     RouteFile, with the URL path as Pattern, as Orbit fills it;
 //   - a page route: RoutePage, with the route's pattern, file and params;
 //   - anything else, the trailing-slash redirect's other form included:
 //     RouteNone (site.Middleware redirects it or passes it to next, which
@@ -180,6 +184,8 @@ func (s *Site) Match(r *http.Request) RouteInfo {
 		build, id, _ := strings.Cut(rest, "/")
 		vals := [2]string{build, id}
 		ri.setTo(RouteIsland, islandPattern, islandFile(s.islands[id]), islandParamNames, vals[:])
+	case dispatchFile:
+		ri.setTo(RouteFile, r.URL.Path, "", nil, nil)
 	case dispatchPage:
 		cr, rem := s.router.find(r.URL.EscapedPath())
 		if cr == nil {

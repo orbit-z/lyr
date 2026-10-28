@@ -3,6 +3,7 @@ package orbit
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -53,10 +54,14 @@ func TestSiteMatch(t *testing.T) {
 		{"GET", "/blog/a%20b%2Fc", routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].orbit", "slug=a b/c"}},
 		{"GET", "/docs/a/b/c", routeWant{RoutePage, "/docs/[...path]", "src/pages/docs/[...path].orbit", "path=a/b/c"}},
 		{"GET", "/p/1/2/3/4/5/6/7/8/9", routeWant{RoutePage, "/p/[a]/[b]/[c]/[d]/[e]/[f]/[g]/[h]/[i]", "src/pages/p.orbit", "a=1,b=2,c=3,d=4,e=5,f=6,g=7,h=8,i=9"}},
-		{"GET", "/robots.txt", routeWant{}},
-		{"HEAD", "/robots.txt", routeWant{}},
-		{"GET", "/_orbit/app-1234.js", routeWant{}},
-		{"GET", "/shadow", routeWant{}},                                                    // the public file wins
+		{"GET", "/robots.txt", routeWant{RouteFile, "/robots.txt", "", ""}},
+		{"HEAD", "/robots.txt", routeWant{RouteFile, "/robots.txt", "", ""}},
+		{"POST", "/robots.txt", routeWant{}}, // files are GET and HEAD only; no page: next
+		{"GET", "/_orbit/app-1234.js", routeWant{RouteFile, "/_orbit/app-1234.js", "", ""}},
+		{"GET", "/_orbit/missing.js", routeWant{}},
+		{"GET", "/nothing.zip", routeWant{}},
+		{"GET", "/robots.txt/", routeWant{}},
+		{"GET", "/shadow", routeWant{RouteFile, "/shadow", "", ""}},                        // the public file wins
 		{"POST", "/shadow", routeWant{RoutePage, "/shadow", "src/pages/shadow.orbit", ""}}, // files are GET and HEAD only
 		{"GET", "/ok/", routeWant{}},                                                       // the slash redirect
 		{"GET", "/unknown", routeWant{}},                                                   // next, maybe NotFound
@@ -85,7 +90,7 @@ var matchCorpus = []string{
 	"/blog/a%2F", "/blog/a%2F/", "/blog/hello/?q=go", "/blog/hello?q=go",
 	"/blog", "/docs", "/docs/", "/docs/a/b/c", "/p/1/2/3/4/5/6/7/8/9", "/p/1/2", "/rss.xml", "/rss.xml/",
 	"/robots.txt", "/robots.txt/", "/_orbit/app-1234.js", "/_orbit/missing.js", "/_orbit/", "/shadow", "/shadow/",
-	"/unknown", "/unknown/", "/_orbit/island/", "/_orbit/island/b", "/_orbit/island/b/Nope-00000000",
+	"/unknown", "/unknown/", "/nothing.zip", "/_orbit/island/", "/_orbit/island/b", "/_orbit/island/b/Nope-00000000",
 	"/_orbit/island/BUILD/" + commentsID, "/_orbit/island/BUILD/" + commentsID + "/extra",
 }
 
@@ -118,8 +123,8 @@ func TestSiteMatchAgrees(t *testing.T) {
 			}
 		}
 	}
-	if kinds[RoutePage] == 0 || kinds[RouteIsland] == 0 || kinds[RouteNone] == 0 {
-		t.Errorf("corpus kinds %v: want pages, islands and none", kinds)
+	if kinds[RoutePage] == 0 || kinds[RouteIsland] == 0 || kinds[RouteFile] == 0 || kinds[RouteNone] == 0 {
+		t.Errorf("corpus kinds %v: want pages, islands, files and none", kinds)
 	}
 }
 
@@ -152,6 +157,35 @@ func TestSiteMatchThenServe(t *testing.T) {
 	gate := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/signin", http.StatusSeeOther) })
 	early("", gate).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/blog/hello", nil))
 	checkRoute(t, "gate", &got.Route, routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].orbit", "slug=hello"})
+}
+
+// TestSiteMatchFileDeleted: the documented production deviation. A file in
+// the static index counts for Match without being opened; if it's gone,
+// site.Middleware falls back to the pages (here /shadow). Dev opens it in
+// both.
+func TestSiteMatchFileDeleted(t *testing.T) {
+	for _, dev := range []string{"", "1"} {
+		t.Setenv("ORBIT_DEV", dev)
+		dir := t.TempDir()
+		writeFile(t, filepath.Join(dir, "shadow"), "public shadow")
+		t.Setenv("ORBIT_STATIC", "")
+		t.Setenv("ORBIT_PUBLIC", "")
+		t.Setenv("ORBIT_KEY", "")
+		s := NewSite(matchRoutes(), islandTable, WithStaticDir(dir), withRoute)
+		if err := os.Remove(filepath.Join(dir, "shadow")); err != nil {
+			t.Fatal(err)
+		}
+		ri := s.Match(httptest.NewRequest("GET", "/shadow", nil))
+		var got *routeLocals
+		attachLocals(s.Middleware(http.NotFoundHandler()), &got).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/shadow", nil))
+		page := routeWant{RoutePage, "/shadow", "src/pages/shadow.orbit", ""}
+		if dev == "" {
+			checkRoute(t, "prod Match", &ri, routeWant{RouteFile, "/shadow", "", ""})
+		} else {
+			checkRoute(t, "dev Match", &ri, page)
+		}
+		checkRoute(t, "Middleware dev="+dev, &got.Route, page)
+	}
 }
 
 // TestSiteMatchCacheHit: a route-cache HIT fills the same route as Match.
@@ -206,7 +240,9 @@ func TestSiteMatchAllocs(t *testing.T) {
 		{"GET", "/docs/a/b/c", 0},
 		{"POST", "/ok", 0},
 		{"GET", "/robots.txt", 0},
+		{"HEAD", "/robots.txt", 0},
 		{"GET", "/_orbit/app-1234.js", 0},
+		{"GET", "/nothing.zip", 0},
 		{"GET", "/ok/", 0},
 		{"GET", "/unknown", 0},
 		{"GET", "/_orbit/island/" + s.keys.buildID + "/" + commentsID, 0},

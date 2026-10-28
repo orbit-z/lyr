@@ -270,16 +270,17 @@ Island requests pass through your middleware like any other request, so deferred
 type RouteKind uint8
 
 const (
-	RouteNone     RouteKind = iota // Orbit rendered nothing: a static file, a slash redirect, next, or never reached Orbit
+	RouteNone     RouteKind = iota // Orbit answered nothing: a slash redirect, next, or never reached Orbit
 	RoutePage                      // a page route matched, whatever the outcome (200, redirect, error, ErrNotFound)
 	RouteNotFound                  // site.NotFound() answered: 404.orbit or the empty 404
 	RouteIsland                    // a /_orbit/island/ request
+	RouteFile                      // a GET or HEAD served as a static file (/_orbit/*, public/)
 )
 
 type RouteInfo struct {
 	Kind    RouteKind
-	Pattern string // "/blog/[slug]"; "/404"; "/_orbit/island/[buildID]/[id]"
-	File    string // "src/pages/blog/[slug].orbit"; the deferred component's file; "" if none
+	Pattern string // "/blog/[slug]"; "/404"; "/_orbit/island/[buildID]/[id]"; a file's URL path, "/robots.txt"
+	File    string // "src/pages/blog/[slug].orbit"; the deferred component's file; "" if none (a static file too)
 	// unexported: the param names and values
 }
 
@@ -296,7 +297,7 @@ The route that answered a request, for logging and metrics. Declare a field of t
 ```go
 func (s *Site) Match(r *http.Request) RouteInfo
 ```
-Returns the route `site.Middleware` would serve `r` with, without serving it, for middleware that answers some requests itself before Orbit (a sign-in redirect, a 503) and still logs their route: `l.Route = site.Match(r)`. It follows `site.Middleware`'s order: an island request (any method) gives `RouteIsland`, a GET or HEAD of a static file `RouteNone`, a page route `RoutePage` with its params, and anything else `RouteNone`, the trailing-slash redirect's other form included (a path no page matches goes to `next`, so `Match` can't know it'll be a 404). It reads `r.URL` and `r.Method` only, changes nothing, is safe from any goroutine and doesn't allocate (a route with more than 8 params allocates once). Orbit fills the `Locals` field again when the request reaches it, so a request Orbit serves ends with Orbit's value. See [Knowing the route before Orbit](../middleware.md#knowing-the-route-before-orbit).
+Returns the route `site.Middleware` would serve `r` with, without serving it, for middleware that answers some requests itself before Orbit (a sign-in redirect, a 503) and still logs their route: `l.Route = site.Match(r)`. It follows `site.Middleware`'s order: an island request (any method) gives `RouteIsland`, a GET or HEAD of a static file `RouteFile` (`Pattern` is the URL path, `File` is empty), a page route `RoutePage` with its params, and anything else `RouteNone`, the trailing-slash redirect's other form included (a path no page matches goes to `next`, so `Match` can't know it'll be a 404). It reads `r.URL` and `r.Method` only, changes nothing, is safe from any goroutine and doesn't allocate (a route with more than 8 params allocates once). Orbit fills the `Locals` field again when the request reaches it, so a request Orbit serves ends with Orbit's value. See [Knowing the route before Orbit](../middleware.md#knowing-the-route-before-orbit).
 
 ### The cache handle: a `Cache` field
 

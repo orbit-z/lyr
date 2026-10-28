@@ -278,7 +278,8 @@ Orbit fills the field as soon as the request is matched, before rendering, so a 
 | a page route (any outcome, `orbit.ErrNotFound` included) | `orbit.RoutePage` | the route's, `/blog/[slug]` | the page | the route's |
 | `site.NotFound()`, with `404.orbit` or the empty 404 | `orbit.RouteNotFound` | `/404` | `src/pages/404.orbit`, or `""` | none |
 | `/_orbit/island/…`, whatever the answer | `orbit.RouteIsland` | `/_orbit/island/[buildID]/[id]` | the deferred component, or `""` if the ID is unknown | `buildID`, `id` |
-| static files (`/_orbit/*`, `public/`), trailing-slash redirects, requests passed to `next` | unchanged (`orbit.RouteNone`) | | | |
+| a GET or HEAD served as a static file (`/_orbit/*`, `public/`) | `orbit.RouteFile` | the URL path, `/robots.txt` | `""` | none |
+| trailing-slash redirects, requests passed to `next` | unchanged (`orbit.RouteNone`) | | | |
 
 - **Params** are percent-decoded, like `ctx.Param`. `l.Route.Param("slug")` reads one; `Params()` gives every name and value in the route's order. The strings stay valid after the request, so you can keep them or the whole struct.
 - **A request through Orbit twice** (`site.Middleware` passes it to your mux, whose catch-all is `site.NotFound()`) keeps the last value, `/404`.
@@ -352,12 +353,13 @@ Put it inside `pageLog`: `logging(pageLog(signInGate(site, requestInfo(mux))))`.
 |---|---|
 | a page route, any method | `orbit.RoutePage`, the route, its file and params |
 | `/_orbit/island/…`, any method | `orbit.RouteIsland`, as Orbit records it |
-| a GET or HEAD of a static file (`/_orbit/*`, `public/`) | `orbit.RouteNone` |
+| a GET or HEAD of a static file (`/_orbit/*`, `public/`) | `orbit.RouteFile`, with the URL path as `Pattern` |
 | the other form of a page URL (`/blog/hello/`, redirected with a 308; never seen inside `site.TrailingSlash`) | `orbit.RouteNone` |
 | anything else | `orbit.RouteNone`: Orbit passes it to `next`, which may be `site.NotFound()` (then Orbit records `/404`) or one of your handlers |
 
 - **Orbit fills the field again** when the request reaches it, so a request Orbit serves ends with Orbit's value, `/404` included. `Match` doesn't change the request or the locals; you assign its result.
 - **`Match` sees the request as it is now.** If something between your middleware and Orbit rewrites the path (`http.StripPrefix`), call `Match` on the rewritten request; otherwise Orbit's fill corrects the value only for requests it serves. Likewise, if your mux sends a path that an Orbit page would match to its own handler, `Match` still reports the page.
+- **Files**: `orbit.RouteFile` tells a request Orbit will serve from `public/` or `/_orbit/` apart from an unknown path (`orbit.RouteNone`), so a middleware can skip its work for files only, and still give an unknown `/nothing.zip` its locals before it reaches `site.NotFound()`. In production, a file counts if it was there when the server started (Orbit indexes them then); in dev, if it's there now.
 - **Your own handlers' routes** aren't Orbit's: `Match` returns `orbit.RouteNone` for them. `http.ServeMux` records its pattern in `r.Pattern` (`GET /api/prefs`) on the request it serves, which is your middleware's `r`, so a log can read that after `next.ServeHTTP` returns.
 - **Cost**: no allocation (a route with more than 8 params allocates once), about 50 ns. Orbit matches the request again inside `site.Middleware`, which costs about as much.
 

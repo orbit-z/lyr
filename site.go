@@ -258,6 +258,9 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.serveIsland(w, r, rest, nil)
 		return
 	case dispatchFile:
+		if s.route != nil {
+			s.fillRouteOnly(r, RouteFile, r.URL.Path, "", nil, nil)
+		}
 		return
 	}
 	path := r.URL.EscapedPath()
