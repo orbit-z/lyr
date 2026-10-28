@@ -38,8 +38,8 @@ orbit_gen/impl/pages/index/render.go (src/pages/index.orbit)
   span  11:2 "Button" -> 4187-4200 "Button.Render"
   span  11:9 "label" -> 4311-4316 "Label"
   exact 11:16 "orbit.If(off, \"L\")" -> 4390-4408 "orbit.If(off, \"L\")"
-  exact 11:40 "orbit.Attrs{\"aria-pressed\": on, \"data-z\": on, \"spellcheck\": off}" -> 4511-4575 "orbit.Attrs{\"aria-pressed\": on, \"data-z\": on, \"spellcheck\": off}"
-  span  12:2 "Mine" -> 4755-4766 "Mine.Render"
+  exact 11:40 "orbit.Attrs{\"aria-pressed\": on, \"data-z\": on, \"spellcheck\": off}" -> 4662-4726 "orbit.Attrs{\"aria-pressed\": on, \"data-z\": on, \"spellcheck\": off}"
+  span  12:2 "Mine" -> 4906-4917 "Mine.Render"
 call sites
   content key=293 "off" call="orbit__rt.RestAny(\"\", \"aria-pressed\",\n/*line ../../../../src/pages/index.orbit:10:49*/off/*line render.go:52:76*/,\n\t\t\t)"
   content key=311 "on" call="orbit__rt.RestAny(\"\", \"aria-hidden\",\n/*line ../../../../src/pages/index.orbit:10:67*/on/*line render.go:55:75*/,\n\t\t\t)"
@@ -48,3 +48,4 @@ call sites
   content key=351 "off" call="orbit__rt.RestAny(\"\", \"draggable\",\n/*line ../../../../src/pages/index.orbit:10:107*/off/*line render.go:64:77*/,\n\t\t\t)"
   content key=380 "orbit.If(on, \"page\")" call="orbit__rt.RestAny(\" aria-live\", \"aria-current\",\n/*line ../../../../src/pages/index.orbit:10:136*/orbit.If(on, \"page\")/*line render.go:67:94*/,\n\t\t\t)"
   content key=413 "orbit.If(off, \"no\")" call="orbit__rt.RestAny(\"\", \"data-gone\",\n/*line ../../../../src/pages/index.orbit:10:169*/orbit.If(off, \"no\")/*line render.go:70:93*/,\n\t\t\t)"
+  spread key=476 "orbit.Attrs{\"aria-pressed\": on, \"data-z\": on, \"spellcheck\": off}" call="orbit__rt.RestFromAny(orbit__w, Button.Props{}, \"src/pages/index.orbit:11:36\", \"{...orbit.Attrs{\\\"aria-pressed\\\": on, \\\"data-z\\\": on, \\\"spellcheck\\\": off}} on <Button>\", /*line ../../../../src/pages/index.orbit:11:40*/orbit.Attrs{\"aria-pressed\": on, \"data-z\": on, \"spellcheck\": off}/*line render.go:78:317*/)"

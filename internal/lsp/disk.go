@@ -91,7 +91,7 @@ func (c *diskCheck) run(ctx context.Context) error {
 		return err
 	}
 	c.mdTyped = typedMarkdownDiags(p, front)
-	c.secTyped = typedSecurityDiags(p)
+	c.secTyped = typedSecurityDiags(p, front)
 	c.known, c.units = typesOf(p, false)
 	c.typed = map[string]*compiler.GenFile{}
 	for _, f := range p.Files {

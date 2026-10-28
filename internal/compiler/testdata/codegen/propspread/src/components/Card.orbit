@@ -1,0 +1,6 @@
+---
+import "example.com/blog/internal/cards"
+
+type Props = cards.Card
+---
+<a href={props.Href} data-lines={props.Lines}>{props.Title}<i>{props.Note}</i></a>

@@ -75,7 +75,7 @@ func Orbit__RenderImpl(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, or
 	orbit__w.Raw("\n")
 	if orbit__err := /*line ../../../../../src/pages/index.orbit:11:2*/orbit__Button.Orbit__RenderImpl/*line render.go:76:125*/(orbit__ctx, orbit__w, Button.Props{
 		/*line ../../../../../src/pages/index.orbit:11:9*/Label/*line render.go:77:82*/: /*line ../../../../../src/pages/index.orbit:11:16*/orbit.If(off, "L")/*line render.go:77:178*/,
-		Attrs: orbit__rt.RestFrom(/*line ../../../../../src/pages/index.orbit:11:40*/orbit.Attrs{"aria-pressed": on, "data-z": on, "spellcheck": off}/*line render.go:78:169*/),
+		Attrs: orbit__rt.RestFromAny(orbit__w, Button.Props{}, "src/pages/index.orbit:11:36", "{...orbit.Attrs{\"aria-pressed\": on, \"data-z\": on, \"spellcheck\": off}} on <Button>", /*line ../../../../../src/pages/index.orbit:11:40*/orbit.Attrs{"aria-pressed": on, "data-z": on, "spellcheck": off}/*line render.go:78:320*/),
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}

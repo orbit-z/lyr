@@ -22,8 +22,13 @@ type cgRest struct {
 	// cl is a class:list and classes the class attributes, kept apart.
 	cl      *Attr
 	classes []*Attr
-	// spreads are the {...x} on the tag, merged in.
+	// spreads are the {...x} on the tag, merged in (attribute spreads, or
+	// any spread in pass 1).
 	spreads []*Attr
+	// qual is the call site's "Card." ("" for <Self>) and tag its spread
+	// description, for pass 1's spread forms.
+	qual string
+	tag  *SpreadTag
 }
 
 func (r *cgRest) any() bool {
@@ -63,27 +68,54 @@ func hasProp(props *PropsInfo, name string) bool {
 func (g *cgGen) restValue(n *Component, r *cgRest) {
 	o := g.o
 	own := len(r.attrs) > 0 || r.cl != nil || len(r.classes) > 0 || g.scope != ""
-	spreads := r.spreads
-	merges := len(spreads)
+	merged := r.spreads
 	if !own {
-		merges--
+		merged = merged[1:]
 	}
-	for range merges {
-		o.str(NameRuntime + ".RestMerge(")
+	// Each spread is a SiteSpread: RestFrom or RestMerge once the typed
+	// pass found an attribute type, RestFromAny or RestMergeAny before
+	// (PLAN.md §2.11). starts are the merges' call offsets, outermost (the
+	// last spread's) first.
+	starts := make([]int, len(merged))
+	for i := range merged {
+		starts[i] = len(o.b)
+		if s := merged[len(merged)-1-i]; g.attrSpread(s) {
+			o.str(NameRuntime + ".RestMerge(")
+		} else {
+			o.str(NameRuntime + ".RestMergeAny(" + g.spreadArgs(r.qual, r.tag.Tag, s))
+		}
 	}
 	if own {
 		g.restOwn(n, r)
 	} else {
-		o.str(NameRuntime + ".RestFrom(")
-		o.exact(spreads[0].Code.Span)
+		s := r.spreads[0]
+		start := len(o.b)
+		if g.attrSpread(s) {
+			o.str(NameRuntime + ".RestFrom(")
+		} else {
+			o.str(NameRuntime + ".RestFromAny(" + g.spreadArgs(r.qual, r.tag.Tag, s))
+		}
+		arg := o.exact(s.Code.Span)
 		o.str(")")
-		spreads = spreads[1:]
+		g.restSpreadSite(n, r, s, Span{start, len(o.b)}, arg)
 	}
-	for _, s := range spreads {
+	for j, s := range merged {
 		o.str(", ")
-		o.exact(s.Code.Span)
+		arg := o.exact(s.Code.Span)
 		o.str(")")
+		g.restSpreadSite(n, r, s, Span{starts[len(merged)-1-j], len(o.b)}, arg)
 	}
+}
+
+// attrSpread reports whether the typed pass found the spread a on a
+// component tag to be of an attribute type.
+func (g *cgGen) attrSpread(a *Attr) bool {
+	return g.in.Typed[a.Code.Start].Kind == WriteSpreadAttrs
+}
+
+// restSpreadSite records the SiteSpread of a spread in a rest value.
+func (g *cgGen) restSpreadSite(n *Component, r *cgRest, a *Attr, call, arg Span) {
+	g.sites = append(g.sites, CallSite{Kind: SiteSpread, Key: a.Code.Start, Node: n, Attr: a, Code: a.Code, Call: call, Arg: arg, Spread: r.tag})
 }
 
 // restOwn emits orbit__rt.Rest(class, tail, dyn...) for the attributes

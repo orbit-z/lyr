@@ -20,6 +20,9 @@ type tyEnv struct {
 	stringer            *types.Interface
 	errorIface          *types.Interface
 	byteSlice           types.Type
+	// orbit.Attrs, orbit.AttrList and orbit.RestAttrs: an attribute spread
+	// on a component tag (PLAN.md §2.11).
+	attrs, attrList, restAttrs types.Type
 }
 
 // newTyEnv builds the table's types from the runtime package rt.
@@ -47,6 +50,9 @@ func newTyEnv(rt *types.Package) *tyEnv {
 		stringer:   str,
 		errorIface: errT.Underlying().(*types.Interface),
 		byteSlice:  types.NewSlice(types.Typ[types.Byte]),
+		attrs:      lookup("Attrs"),
+		attrList:   lookup("AttrList"),
+		restAttrs:  lookup("RestAttrs"),
 	}
 	if writer != nil {
 		e.renderFunc = types.NewSignatureType(nil, nil, nil,

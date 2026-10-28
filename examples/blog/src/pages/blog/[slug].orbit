@@ -24,7 +24,7 @@ if err != nil {
       <time datetime={post.Published.Format("2006-01-02")}>{post.Published.Format("2 January 2006")}</time>
     </p>
     <div class="body" set:html={orbit.HTML(post.Body)}></div>
-    <LikeButton slug={post.Slug} likes={posts.Likes(post.Slug)} />
+    <LikeButton {...posts.LikesOf(post.Slug)} />
   </article>
   <ShareButtons title={post.Title} client:visible="200px" />
   <Comments server:defer postID={post.ID}>

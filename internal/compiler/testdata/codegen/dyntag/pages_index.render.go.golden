@@ -192,7 +192,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	orbit__w.Raw("\n")
 	if orbit__err := /*line ../../../../src/pages/index.orbit:30:2*/Button.Render/*line render.go:193:105*/(orbit__ctx, orbit__w, Button.Props{
 		/*line ../../../../src/pages/index.orbit:30:9*/Variant/*line render.go:194:82*/: /*line ../../../../src/pages/index.orbit:30:17*/"link"/*line render.go:194:164*/,
-		Attrs: orbit__rt.RestMerge(orbit__rt.Rest("", " href=\"/x\""), /*line ../../../../src/pages/index.orbit:30:38*/list/*line render.go:195:144*/),
+		Attrs: orbit__rt.RestMergeAny(orbit__w, Button.Props{}, "src/pages/index.orbit:30:34", "{...list} on <Button>", orbit__rt.Rest("", " href=\"/x\""), /*line ../../../../src/pages/index.orbit:30:38*/list/*line render.go:195:229*/),
 	}, orbit__rt.Slots{
 		Default: func(orbit__w *orbit__rt.Writer) error {
 			orbit__w.Raw("Go")

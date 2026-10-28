@@ -153,7 +153,7 @@ func TestCodegenGolden(t *testing.T) {
 	}
 }
 
-var segKindNames = [...]string{"exact", "span", "echo"}
+var segKindNames = [...]string{"exact", "span", "echo", "spread"}
 
 // dumpMap prints both files' segments and call sites.
 func dumpMap(r *cgResult) string {
@@ -177,6 +177,8 @@ func dumpMap(r *cgResult) string {
 			kind = "class"
 		case SiteClassProp:
 			kind = "class prop"
+		case SiteSpread:
+			kind = "spread"
 		}
 		if cs.Kind == SiteAttr {
 			kind = "attr " + cs.AttrName

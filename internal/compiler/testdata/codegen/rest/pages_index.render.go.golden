@@ -169,14 +169,14 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	orbit__w.Raw("\n")
 	if orbit__err := /*line ../../../../src/pages/index.orbit:27:2*/Input.Render/*line render.go:170:104*/(orbit__ctx, orbit__w, Input.Props{
 		/*line ../../../../src/pages/index.orbit:27:8*/Label/*line render.go:171:80*/: /*line ../../../../src/pages/index.orbit:27:14*/"spread"/*line render.go:171:164*/,
-		Attrs: orbit__rt.RestMerge(orbit__rt.Rest("", " data-o-81707d2a"), /*line ../../../../src/pages/index.orbit:27:27*/extra/*line render.go:172:149*/),
+		Attrs: orbit__rt.RestMergeAny(orbit__w, Input.Props{}, "src/pages/index.orbit:27:23", "{...extra} on <Input>", orbit__rt.Rest("", " data-o-81707d2a"), /*line ../../../../src/pages/index.orbit:27:27*/extra/*line render.go:172:233*/),
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("\n")
 	if orbit__err := /*line ../../../../src/pages/index.orbit:28:2*/Input.Render/*line render.go:177:104*/(orbit__ctx, orbit__w, Input.Props{
 		/*line ../../../../src/pages/index.orbit:28:8*/Label/*line render.go:178:80*/: /*line ../../../../src/pages/index.orbit:28:14*/"merged"/*line render.go:178:164*/,
-		Attrs: orbit__rt.RestMerge(orbit__rt.Rest("own", " name=\"tag\" data-o-81707d2a"), /*line ../../../../src/pages/index.orbit:28:27*/extra/*line render.go:179:165*/),
+		Attrs: orbit__rt.RestMergeAny(orbit__w, Input.Props{}, "src/pages/index.orbit:28:23", "{...extra} on <Input>", orbit__rt.Rest("own", " name=\"tag\" data-o-81707d2a"), /*line ../../../../src/pages/index.orbit:28:27*/extra/*line render.go:179:249*/),
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
@@ -199,7 +199,7 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	}
 	orbit__w.Raw("\n")
 	if orbit__err := /*line ../../../../src/pages/index.orbit:31:2*/Wrap.Render/*line render.go:201:103*/(orbit__ctx, orbit__w, Wrap.Props{
-		Attrs: orbit__rt.RestMerge(orbit__rt.Rest("", " data-o-81707d2a"), /*line ../../../../src/pages/index.orbit:31:11*/fwd/*line render.go:202:147*/),
+		Attrs: orbit__rt.RestMergeAny(orbit__w, Wrap.Props{}, "src/pages/index.orbit:31:7", "{...fwd} on <Wrap>", orbit__rt.Rest("", " data-o-81707d2a"), /*line ../../../../src/pages/index.orbit:31:11*/fwd/*line render.go:202:226*/),
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}

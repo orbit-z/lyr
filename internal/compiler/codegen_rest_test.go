@@ -97,7 +97,8 @@ func TestRestTypedGolden(t *testing.T) {
 }
 
 // TestRestErrors: the call-site errors of pass-through attributes, each at
-// its .orbit position.
+// its .orbit position. A spread on a component without a RestAttrs field
+// (<Card {...attrs} />) is the typed pass's error (TestSpreadErrors).
 func TestRestErrors(t *testing.T) {
 	const page = `---
 import Button "../components/Button.orbit"
@@ -121,7 +122,6 @@ attrs := orbit.Attrs{}
 		"src/pages/index.orbit:7:29: attribute NAME is passed twice to <Button>",
 		"src/pages/index.orbit:8:2: <Button> gets attrs={…} and pass-through attributes; use {...x} to merge them",
 		"src/pages/index.orbit:9:2: <Button> gets attrs={…} and pass-through attributes; use {...x} to merge them",
-		"src/pages/index.orbit:10:7: {...} spread on <Card> needs an orbit.RestAttrs field in its Props, to pass HTML attributes through",
 		`src/pages/index.orbit:11:7: unknown prop "name" on <Card> (props: title; add an orbit.RestAttrs field to pass HTML attributes through)`,
 		"src/pages/index.orbit:12:19: attribute class is passed twice to <Button>",
 	}

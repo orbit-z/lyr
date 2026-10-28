@@ -154,11 +154,20 @@ const (
 	// attribute, whose pieces are SitePiece sites: no write of its own,
 	// recorded for the style and on* warnings (Call and Arg are empty).
 	SiteLit
+	// SiteSpread is a {...x} on a component tag (PLAN.md §2.11). Pass 1
+	// emits orbit__rt.SpreadCheck(orbit__w, Alias.Props{}, pos, what, x) on
+	// a callee without an orbit.RestAttrs field, and RestFromAny or
+	// RestMergeAny in the rest value of one with it; the typed pass decides
+	// whether x sets props (a struct, WriteSpreadProps) or pass-through
+	// attributes (WriteSpreadAttrs). Spread describes the tag. In pass 2,
+	// a tag with a props spread emits its sites in source order.
+	SiteSpread
 )
 
 // CallSite records one write emitted with the Expr/Attr fallback, for the
 // go/types pass (C). set:html (always HTML), set:json (always JSON), spreads
-// and component props are not call sites, except class:list items.
+// on elements and component props are not call sites, except class:list
+// items; spreads on component tags are (SiteSpread).
 type CallSite struct {
 	Kind SiteKind
 	// Key identifies the site across passes: Code.Start, the offset of the
@@ -186,6 +195,26 @@ type CallSite struct {
 	Lit    *TemplateLiteral
 	Parent int
 	As     bool
+	// Spread is the component tag of a SiteSpread, shared by its spreads.
+	Spread *SpreadTag
+}
+
+// SpreadTag is a component tag with spreads (PLAN.md §2.11), for the
+// typed pass's order rules.
+type SpreadTag struct {
+	// Tag is the component's tag name ("Card", or "Self"), and Rest the
+	// name of the callee's orbit.RestAttrs field, "" without one.
+	Tag, Rest string
+	// Items are the attributes that set a Props field and the spreads, in
+	// source order (pass-through attributes aren't items).
+	Items []SpreadItem
+}
+
+// SpreadItem is one item of a SpreadTag: an attribute setting Field, or a
+// spread (Field "").
+type SpreadItem struct {
+	Field string
+	Attr  *Attr
 }
 
 // DeferSite is one server:defer call site: orbit__rt.Defer(…, <Alias>.Props{…}, …).
@@ -273,6 +302,14 @@ const (
 	// each part (static parts zero), and Conv is "as" when the result is
 	// converted to the witness's string type with orbit__rt.StringAs.
 	WriteConcat
+	// WriteSpreadAttrs is a SiteSpread of an attribute type on a callee
+	// with an orbit.RestAttrs field: orbit__rt.RestFrom or RestMerge
+	// (PLAN.md §2.5).
+	WriteSpreadAttrs
+	// WriteSpreadProps is a SiteSpread of a struct, or a pointer to one,
+	// that sets props (TypedWrite.Spread): the call site becomes a block
+	// that builds the Props field by field (PLAN.md §2.11).
+	WriteSpreadProps
 )
 
 // writeMethods is the Writer method each kind calls. WriteAttrString,
@@ -283,7 +320,7 @@ var writeMethods = [...]string{"Expr", "", "String", "Int", "Uint", "Float", "Fl
 	"HTML", "Bytes", "Error", "Stringer", "Render", "AttrValue", "URL", "AttrBool",
 	"Int", "Uint", "Float", "Float32", "JSONAttr", "Class", "Classes",
 	"RestString", "RestStringURL", "RestURL", "RestBool", "RestInt", "RestUint", "RestFloat", "RestFloat32", "RestJSON",
-	"Bool", "RestOpt", "RestOptURL", "", "Wrap", "WrapIf", "", ""}
+	"Bool", "RestOpt", "RestOptURL", "", "Wrap", "WrapIf", "", "", "", ""}
 
 // attrPieces reports whether k writes its attribute as pieces: the static
 // ` name="` and `"` join the neighbouring Raw constants, and the call writes
@@ -318,6 +355,27 @@ type TypedWrite struct {
 	Text string
 	// Pieces are a WriteConcat's part writes, one per part of its literal.
 	Pieces []TypedWrite
+	// Spread is a WriteSpreadProps's plan.
+	Spread *SpreadWrite
+}
+
+// SpreadWrite is how a struct spread sets props (PLAN.md §2.11).
+type SpreadWrite struct {
+	// Ptr is set when the operand is a pointer: nil spreads nothing.
+	Ptr bool
+	// Copy is set when the operand's struct type is the callee's Props and
+	// the spread is the tag's first item: one struct copy.
+	Copy bool
+	// Fields are the fields it sets, in the operand's field order.
+	Fields []SpreadField
+}
+
+// SpreadField is one field set by a spread: the callee's Props field and
+// the operand's field share Name. Opt wraps the value (a T into an
+// orbit.Opt[T] prop).
+type SpreadField struct {
+	Name string
+	Opt  bool
 }
 
 // IfWrite is a lowered orbit.If(cond, v) call site. Codegen emits

@@ -1,0 +1,10 @@
+---
+type Props struct {
+	Depth int
+	Label string
+}
+---
+<b>{props.Label}{props.Depth}</b>
+{if props.Depth > 0}
+<Self {...props} depth={props.Depth - 1} />
+{/if}

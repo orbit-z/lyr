@@ -723,10 +723,117 @@ renders (with the page's scope attribute `data-o-…`):
 - **The caller's scoped styles apply**: when the calling file has a scoped `<style>`, its scope attribute is passed along too, so the page's `.mt-2` rule matches the button, as in Astro.
 - **Declare a prop for any attribute the component sets itself.** If both the call site and the element write `type`, both are written and the browser keeps the first. Declaring `Type` makes `type="submit"` set the prop, and the component decides.
 - **Spread it on any number of elements**: `{...props.Attrs}` can appear on several elements. To render an `<a>` when an `href` is passed and a `<button>` otherwise, use one [dynamic tag](#one-element-or-another-dynamic-tags). `props.Attrs.Has("href")` and `props.Attrs.Get("href")` read a passed attribute.
-- **Forwarding**: a wrapper passes its own pass-through attributes on with a spread on the inner component, `<Input {...props.Attrs} />`; attributes written on the tag win over the spread's. A spread on a component works only when the component has an `orbit.RestAttrs` field, and takes an `orbit.RestAttrs`, an `orbit.Attrs` or an `orbit.AttrList` (whose order is kept).
+- **Forwarding**: a wrapper passes its own pass-through attributes on with a spread on the inner component, `<Input {...props.Attrs} />`; attributes written on the tag win over the spread's. A spread of an `orbit.RestAttrs`, an `orbit.Attrs` or an `orbit.AttrList` (whose order is kept) works only when the component has an `orbit.RestAttrs` field; a spread of a struct sets props instead ([Spreading props](#spreading-props)).
 - **Typos aren't caught**: on a component with an `orbit.RestAttrs` field, a misspelled prop (`varient="quiet"`) becomes an HTML attribute instead of an error, as in Astro. Declared props come first in editor completion.
 
 A `Props` takes at most one `orbit.RestAttrs` field, and it can't have embedded fields (Orbit must be able to tell props from pass-through attributes). From Go code, such as a test, build the field with `orbit.RestOf(orbit.Attrs{"name": "shelf"})`, or `orbit.RestOf(orbit.AttrList{orbit.A("name", "shelf")})` to keep an order. The [template syntax reference](reference/template-syntax.md#pass-through-attributes) has the details and the error messages.
+
+### Spreading props
+
+Astro's `<Card {...card} />` passes an object's keys as props. In Orbit, a spread of a **struct** (or a pointer to one) on a component tag sets props: each field sets the prop of the **same Go name**. Which spread is which is decided by the value's type: a struct sets props, an `orbit.Attrs`, `orbit.AttrList` or `orbit.RestAttrs` passes [HTML attributes through](#passing-html-attributes-through).
+
+A Go helper can build all of a component's props. Here the component's `Props` is the helper's type:
+
+```go file=internal/teaser/teaser.go
+// Package teaser builds the props of a post teaser.
+package teaser
+
+import (
+	"github.com/orbit-z/orbit"
+
+	"example.com/blog/internal/posts"
+)
+
+// Props is what a teaser shows.
+type Props struct {
+	Href, Title, Summary string
+	Badge                orbit.Opt[string]
+}
+
+// Of returns the teaser of p; the first post gets a badge.
+func Of(p posts.Post, first bool) Props {
+	t := Props{Href: "/blog/" + p.Slug, Title: p.Title, Summary: p.Summary}
+	if first {
+		t.Badge = orbit.Some("new")
+	}
+	return t
+}
+```
+
+```orbit file=src/components/Teaser.orbit
+---
+import "example.com/blog/internal/teaser"
+
+type Props = teaser.Props
+---
+<article>
+  <h2><a href={props.Href}>{props.Title}</a> <small>{props.Badge}</small></h2>
+  <p>{props.Summary}</p>
+</article>
+```
+
+```orbit file=src/pages/teasers.orbit
+---
+import (
+	Share "../components/Share.orbit"
+	Teaser "../components/Teaser.orbit"
+	"example.com/blog/internal/posts"
+	"example.com/blog/internal/teaser"
+)
+
+list, err := posts.All()
+if err != nil {
+	return err
+}
+share := Share.Props{URL: "/blog", Title: "The blog"}
+---
+{for i, p := range list}
+  <Teaser {...teaser.Of(p, i == 0)} />
+{/for}
+<Share {...share} placement="top" />
+<Share {...share} placement="bottom" />
+```
+
+The second shape builds part of the callee's own `Props`, reachable through its import alias (`Share.Props`), and sets the rest on the tag:
+
+```orbit file=src/components/Share.orbit
+---
+type Props struct {
+	URL, Title string
+	Placement  string
+}
+---
+<nav class={"share share-" + props.Placement}><a href={props.URL}>Share “{props.Title}”</a></nav>
+```
+
+- **Order**: attributes and spreads apply in source order, so an attribute **after** a spread overrides it (`placement="top"` above). A Go struct always sets every field, so a value that would always be overwritten is an error instead of dead code: an attribute **before** a spread that sets the same prop, or two spreads that set the same prop. Two spreads of disjoint structs are fine: `<Cached {...ref} {...options} />`.
+- **Missing and extra fields**: a prop that nothing sets keeps its zero value, as always. A field of the struct that isn't a prop is an error listing it; spread a struct whose fields are all props, or pass the values one by one.
+- **Types**: each field must be assignable to its prop, with one widening: a `T` field sets an `orbit.Opt[T]` prop to `orbit.Some(v)`, as an attribute of type `T` would. An `orbit.Opt[T]` field can't set a `T` prop (use `Or` in the helper).
+- **Which fields**: the struct's exported fields, including those promoted through embedded structs, as `encoding/json` sees them. The callee's `Props` can embed structs too; a prop promoted through an embedded **pointer** can't be set by a spread (it could be nil).
+- **Pointers**: a nil pointer spreads nothing.
+- **Forwarding a whole `Props`**: `<Inner {...props} />` passes a wrapper's props on when the wrapper declares the same fields (or `type Props = Inner.Props`). When the struct has the callee's `orbit.RestAttrs` field, it's merged with the attributes passed through on the tag, which win.
+- **Not set by a spread**: slots (they come from children) and the `class` merge: a spread's `Class` field sets a `Class` prop like any field.
+- **Cost**: none at render time. The build assigns the fields one by one (one struct copy when the value's type is the callee's `Props`), with no allocation and no reflection.
+
+A struct with a field that isn't a prop:
+
+```orbit file=src/pages/hello.orbit expect-error
+---
+import (
+	Teaser "../components/Teaser.orbit"
+	"example.com/blog/internal/posts"
+)
+
+p, _ := posts.Find("hello")
+---
+<Teaser {...p} />
+```
+
+```text
+src/pages/hello.orbit:9:9: {...p} on <Teaser>: posts.Post has fields that aren't props of Teaser (Slug, Date, Body); spread a struct whose fields are all props, or pass them one by one (props: href, title, summary, badge)
+```
+
+The [template syntax reference](reference/template-syntax.md#props-spreads) lists every error. These checks need the types, so in the editor they appear a moment after you stop typing.
 
 ### One element or another: dynamic tags
 

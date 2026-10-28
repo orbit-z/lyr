@@ -1,0 +1,9 @@
+---
+import "example.com/blog/internal/cards"
+
+type Props struct {
+	cards.Options
+	Slug, Version string
+}
+---
+<p data-slug={props.Slug} data-v={props.Version} data-credits={props.Credits} data-lines={props.Lines}></p>

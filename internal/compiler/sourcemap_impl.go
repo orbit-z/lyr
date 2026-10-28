@@ -11,7 +11,7 @@ func (m *SourceMap) goOffset(off int) (int, bool) {
 	}
 	best := -1
 	for i, s := range m.Segments {
-		if s.Kind == SegEcho || off < s.OrbitStart || off > s.OrbitEnd {
+		if s.Kind == SegEcho || s.Kind == SegSpread || off < s.OrbitStart || off > s.OrbitEnd {
 			continue
 		}
 		if off < s.OrbitEnd {

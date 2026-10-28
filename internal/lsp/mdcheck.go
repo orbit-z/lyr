@@ -86,7 +86,7 @@ func (c *markdownCheck) run(ctx context.Context, mc *project.MarkdownChecker) er
 		c.known, c.units = typesOf(p, true)
 	}
 	if c.sec {
-		c.secTyped = typedSecurityDiags(p)
+		c.secTyped = typedSecurityDiags(p, front)
 	}
 	return nil
 }

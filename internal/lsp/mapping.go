@@ -65,7 +65,7 @@ func isNull(raw jsonRaw) bool {
 // the segment that contains off (end inclusive, so a cursor right after
 // "props." maps) in the impl or decl file, preferring one that contains it
 // strictly over one that ends at it. exact segments map by arithmetic, span
-// segments clamp, echo segments never match.
+// segments clamp, echo and spread segments never match.
 func (ws *workspace) toGo(p string, off int) (*genFile, int, bool) {
 	decl, impl := ws.genOf(p)
 	var best *genFile
@@ -76,7 +76,7 @@ func (ws *workspace) toGo(p string, off int) (*genFile, int, bool) {
 			continue
 		}
 		for _, s := range g.smap.Segments {
-			if s.Kind == compiler.SegEcho || off < s.OrbitStart || off > s.OrbitEnd {
+			if s.Kind == compiler.SegEcho || s.Kind == compiler.SegSpread || off < s.OrbitStart || off > s.OrbitEnd {
 				continue
 			}
 			r := 1

@@ -20,6 +20,13 @@ const (
 	// .orbit range (OrbitStart = OrbitEnd = -1); an LSP rename drops edits
 	// there.
 	SegEcho
+	// SegSpread is a field assignment generated for a props spread,
+	// orbit__p.F = orbit__s1.F (PLAN.md §2.11): it maps back like SegSpan,
+	// to the whole {...x} (so a Go error there lands on the spread), but
+	// GoOffset never picks it (the operand's own exact segment serves the
+	// cursor), and an LSP rename drops edits there like an echo's (the next
+	// generate re-emits it).
+	SegSpread
 )
 
 // Segment is one mapped range. Orbit offsets are bytes into the .orbit
@@ -42,7 +49,7 @@ type SourceMap struct {
 // GoOffset maps a .orbit offset to the generated file. It finds the segment
 // whose orbit range contains off, end inclusive (so a cursor right after
 // "props." maps); exact segments map by arithmetic, span segments clamp to
-// the Go range, echo segments never match. ok is false outside every
+// the Go range, echo and spread segments never match. ok is false outside every
 // segment.
 func (m *SourceMap) GoOffset(off int) (goOff int, ok bool) {
 	return m.goOffset(off)

@@ -455,6 +455,13 @@ func RestMerge[T Attrs | AttrList | RestAttrs](own RestAttrs, x T) RestAttrs
 The call site of a component with an `orbit.RestAttrs` field: `Rest` takes the joined class, the escaped static attributes after the last dynamic one, and the dynamic ones, each with the static attributes before it and a typed value (`RestAny` when the build didn't check its type; `RestOpt`, or `RestOptURL` in a URL attribute, for an `Opt`, stored unboxed for the common types, nothing when none). `RestFrom` and `RestMerge` handle `{...x}` on the tag: a spread alone is passed as is; merging it with other attributes costs one allocation when it's a `RestAttrs`.
 
 ```go
+func SpreadCheck[P, T any](w *Writer, _ P, pos, what string, x T)
+func RestFromAny[P, T any](w *Writer, _ P, pos, what string, x T) RestAttrs
+func RestMergeAny[P, T any](w *Writer, _ P, pos, what string, own RestAttrs, x T) RestAttrs
+```
+A spread on a component tag before the build has checked its type ([Spreading props](../components.md#spreading-props)): the second argument is the callee's zero `Props`. The build replaces them with field assignments (a struct) or `RestFrom`/`RestMerge` (attributes); they only run when it couldn't type-check, and then a struct spread is a render error at `pos`.
+
+```go
 func Wrap[T any](_ Opt[T], v T) Opt[T]
 func WrapIf[T any](_ Opt[T], _ func(bool, bool) Opt[bool], cond bool, v T) Opt[T]
 func OptOf[T, V any](_ Opt[T], v V) Opt[T]

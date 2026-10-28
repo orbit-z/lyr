@@ -1,0 +1,11 @@
+---
+type Props struct {
+	Slug, StartHref string
+	Mine            bool
+	QuestionID      string
+	Class           string
+	Note            orbit.Opt[string]
+	Attrs           orbit.RestAttrs
+}
+---
+<div class={props.Class} id={props.QuestionID} data-slug={props.Slug} data-start={props.StartHref} data-mine={props.Mine} {...props.Attrs}>{props.Note}</div>

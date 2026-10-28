@@ -6,5 +6,6 @@ orbit_gen/impl/components/wrap/render.go (src/components/Wrap.orbit)
   span  8:2 "Input" -> 778-790 "Input.Render"
   span  8:8 "label" -> 903-908 "Label"
   span  8:14 "\"wrapped\"" -> 985-994 "\"wrapped\""
-  exact 8:28 "props.Attrs" -> 1100-1111 "props.Attrs"
+  exact 8:28 "props.Attrs" -> 1193-1204 "props.Attrs"
 call sites
+  spread key=110 "props.Attrs" call="orbit__rt.RestFromAny(orbit__w, Input.Props{}, \"src/components/Wrap.orbit:8:24\", \"{...props.Attrs} on <Input>\", /*line ../../../../src/components/Wrap.orbit:8:28*/props.Attrs/*line render.go:24:209*/)"

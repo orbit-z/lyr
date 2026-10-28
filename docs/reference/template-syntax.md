@@ -455,7 +455,7 @@ A `<>` must be closed by `</>`, and a `</>` closes only a `<>`: `<>…</div>` an
 | `a=bare` | A static unquoted value, as in HTML | `A: "bare"` (a Go string literal, like a quoted value) |
 | `a={expr}` | Rendered from the value (see below) | `A: expr` |
 | `{a}` | Shorthand for `a={a}` | Shorthand for `a={a}` |
-| `{...attrs}` | Spread of an `orbit.Attrs` or an `orbit.AttrList`, or of the component's `orbit.RestAttrs` field | Merged into the component's [pass-through attributes](#pass-through-attributes) (it needs an `orbit.RestAttrs` field) |
+| `{...attrs}` | Spread of an `orbit.Attrs` or an `orbit.AttrList`, or of the component's `orbit.RestAttrs` field | A struct (or pointer to one): its fields [set props](#props-spreads). An `orbit.Attrs`, `orbit.AttrList` or `orbit.RestAttrs`: merged into the component's [pass-through attributes](#pass-through-attributes) (it needs an `orbit.RestAttrs` field) |
 
 Quoted values are literal text: `class="card {extra}"` renders `card {extra}`. To build a value, use a [template literal](#template-literals), `` class={`card ${extra}`} ``, or any expression: `class={"card " + extra}`.
 
@@ -575,7 +575,7 @@ Attributes are written in source order, with a spread's entries at the spread's 
 
 **Pass-through attributes**: in a component whose `Props` has an `orbit.RestAttrs` field, `{...props.Attrs}` (the field itself, spelled `props.<Field>`) writes the attributes the caller passed ([Pass-through attributes](#pass-through-attributes)): in the caller's order, then the caller's scope attribute. Their `class` is merged into the element's own `class` or `class:list` (`<button class="btn" {...props.Attrs}>` renders `class="btn mt-2"`, wherever the spread is written), or written as a `class` attribute on an element without one. Other duplicates are written twice, as above.
 
-On a component tag, a spread (of an `orbit.Attrs`, an `orbit.AttrList` or an `orbit.RestAttrs`) merges into the component's pass-through attributes ([below](#pass-through-attributes)); `<slot>` and `<Fragment>` take none.
+On a component tag, a spread of an `orbit.Attrs`, an `orbit.AttrList` or an `orbit.RestAttrs` merges into the component's pass-through attributes ([below](#pass-through-attributes)), and a spread of a struct sets props ([Props spreads](#props-spreads)); `<slot>` and `<Fragment>` take none.
 
 ## Directives
 
@@ -901,6 +901,32 @@ src/pages/index.orbit:4:15: class={…} merged with pass-through attributes must
 ```
 
 The same name twice is an error even in another case (`name` and `NAME`). A `class={…}` passed through, or written next to `{...props.Attrs}`, is a class list item, so it must be a `string` or `[]string`.
+
+### Props spreads
+
+On a component tag (`<Self>` included), `{...x}` whose type is a struct or a pointer to a struct sets props (see [Components](../components.md#spreading-props) for the guide). Orbit tells it from a pass-through spread by the type, so these rules are checked by the build's type check (in the editor, after a short pause).
+
+- **Fields**: each exported field of `x`, including fields promoted through embedded structs (`encoding/json`'s field set, tags ignored), sets the callee's `Props` field of the same Go name (exact: `QuestionID`, not `questionId`). Unexported fields are skipped. Every field must be a prop.
+- **Types**: Go's assignability, plus `T` into an `orbit.Opt[T]` prop as `orbit.Some(v)`.
+- **Order**: attributes and spreads apply in source order and a later one wins; an attribute before a spread that sets the same field, and two spreads that set the same field, are errors. Each operand is evaluated once, in source order; pass-through attributes written on the tag are evaluated after the props.
+- **A nil pointer** spreads nothing.
+- **The callee's `orbit.RestAttrs` field**, when `x` has it, is merged with the attributes passed through on the tag (which win), not overwritten.
+- `server:defer`, `server:concurrent` and `client:*` work as with attributes. A Markdown import takes no props, so a spread on one is the unknown-prop error.
+
+Errors, each at its position:
+
+```text
+src/pages/index.orbit:4:7: {...card} on <Card>: cards.Summary has fields that aren't props of Card (Blurb, Rank); spread a struct whose fields are all props, or pass them one by one (props: href, title, lines)
+src/pages/index.orbit:5:7: {...card} sets Lines of <Card>: card.Lines is int, the prop is orbit.Opt[string]
+src/pages/index.orbit:6:7: questionID="…" is overwritten by {...actions} after it (it sets QuestionID); move it after the spread to override
+src/pages/index.orbit:7:16: {...ref} and {...options} both set Slug of <Cached>; a spread can't override another
+src/pages/index.orbit:8:7: {...n} on <Card>: n is int; spread a struct (its fields set props) or an orbit.Attrs, orbit.AttrList or orbit.RestAttrs (pass-through attributes)
+src/pages/index.orbit:9:9: {...x} can't set Lines of <Cached>: it's promoted through the embedded pointer *cards.Options
+src/pages/index.orbit:10:7: {...x} can't read Lines: it's promoted through the embedded pointer *cards.Options; pass it as an attribute
+src/pages/index.orbit:11:7: unknown prop {...x} on <Intro> (Intro takes no props)
+```
+
+When the build can't run its type check (it warns that it can't read export data), a struct spread fails the render at its position: `{...card} on <Card> sets props, which needs Orbit's type check; it was skipped (see the warning above)`.
 
 ## How values render
 

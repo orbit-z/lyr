@@ -691,6 +691,11 @@ type cgField struct {
 	// the field's zero value, "Alias.Props{}.Field", which the wrapping
 	// helpers take first.
 	opt string
+	// spread is a props spread of a block call site (PLAN.md §2.11), with
+	// its typed plan and its tag (attr is nil).
+	spread *Attr
+	sw     *SpreadWrite
+	tag    *SpreadTag
 }
 
 type cgSlot struct {
@@ -738,7 +743,18 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	// class prop.
 	restField := props.Rest
 	classRest := restField != "" && !hasProp(props, "class")
-	var rest cgRest
+	tagName := n.Name
+	if n.Self {
+		tagName = "Self"
+	}
+	// Spreads on the tag (PLAN.md §2.11): block is set when the typed pass
+	// decided each of them and one sets props, which are then built field
+	// by field; checks are pass 1's spreads on a callee without a
+	// RestAttrs field.
+	info := &SpreadTag{Tag: tagName, Rest: restField}
+	block := g.blockCall(n)
+	var checks []*Attr
+	rest := cgRest{qual: qual, tag: info}
 	var explicitRest *Attr
 	passed := map[string]bool{} // collected names, lowercased
 	collect := func(a *Attr) bool {
@@ -753,14 +769,24 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	}
 	for _, a := range n.Attrs {
 		if a.Kind == AttrSpread {
-			if restField != "" {
-				if strings.TrimSpace(a.Code.Text) != "" { // {...} is reported by the parser
-					rest.spreads = append(rest.spreads, a)
-				}
+			if strings.TrimSpace(a.Code.Text) == "" {
+				continue // {...} is reported by the parser
+			}
+			if !n.Self && hint == "" { // a Markdown import takes no props
+				g.errorf(a.Span, "unknown prop %s on <%s> (%s)", spreadText(a), n.Name, propList(n.Name, props))
+				pre = append(pre, a.Code)
 				continue
 			}
-			g.errorf(a.Span, "{...} spread on <%s> needs an orbit.RestAttrs field in its Props, to pass HTML attributes through", n.Name)
-			pre = append(pre, a.Code)
+			info.Items = append(info.Items, SpreadItem{Attr: a})
+			if tw := g.in.Typed[a.Code.Start]; block && tw.Kind == WriteSpreadProps {
+				fields = append(fields, cgField{spread: a, sw: tw.Spread, tag: info, node: n})
+				continue
+			}
+			if restField != "" {
+				rest.spreads = append(rest.spreads, a)
+				continue
+			}
+			checks = append(checks, a)
 			continue
 		}
 		if cl != nil && (a == cl || slices.Contains(merged, a)) {
@@ -769,7 +795,11 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 					passed["class"] = true
 					rest.cl, rest.classes = cl, merged
 				} else {
+					k := len(fields)
 					fields, pre = g.classField(n, props, cl, merged, fields, pre)
+					if len(fields) > k {
+						info.Items = append(info.Items, SpreadItem{Field: fields[k].key, Attr: cl})
+					}
 				}
 			}
 			continue
@@ -814,7 +844,11 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 			f.opt = qual + "Props{}." + key
 		}
 		fields = append(fields, f)
+		info.Items = append(info.Items, SpreadItem{Field: key, Attr: a})
 	}
+	// A props spread that sets the RestAttrs field (forwarding a whole
+	// Props) is merged with the tag's collected attributes, which win.
+	restSet := block && restField != "" && spreadsSet(fields, restField)
 	switch {
 	case restField == "":
 	case explicitRest != nil && rest.any():
@@ -824,9 +858,10 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 		fields = append(fields, cgField{key: restField, rest: &rest, node: n})
 	}
 	slots := g.groupSlots(n.Children)
+	call := cgCall{n: n, qual: qual, tag: tagName, fields: fields, pre: pre, checks: checks, info: info, block: block, restSet: restSet}
 
 	if n.Defer != nil && n.Client == nil {
-		g.deferCall(n, qual, id, fields, pre, slots, c)
+		g.deferCall(&call, id, slots, c)
 		return
 	}
 	lazy := n.Client != nil && n.Client.Directive.IsLazy() && n.Defer == nil
@@ -842,6 +877,18 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	for _, code := range pre {
 		g.discard(code)
 	}
+	g.spreadChecks(&call)
+	if block {
+		o.ln("{")
+		o.depth++
+		g.blockProps(&call, nil)
+	}
+	defer func() {
+		if block {
+			o.depth--
+			o.ln("}")
+		}
+	}()
 	o.ind()
 	conc := n.Concurrent != nil
 	if conc && g.in.Options.Locals != "" {
@@ -864,12 +911,18 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 		o.inline(n.NameSpan, NameDirect(n.Name)+"."+NameRenderImpl, SegSpan)
 	}
 	if conc {
-		o.str(", " + qual + "Props{")
+		o.str(", ")
 	} else {
-		o.str("(" + NameCtx + ", " + NameW + ", " + qual + "Props{")
+		o.str("(" + NameCtx + ", " + NameW + ", ")
 	}
-	g.propFields(fields)
-	o.str("}, " + NameRuntime + ".Slots{")
+	if block {
+		o.str(NameP)
+	} else {
+		o.str(qual + "Props{")
+		g.propFields(fields)
+		o.str("}")
+	}
+	o.str(", " + NameRuntime + ".Slots{")
 	if len(slots) > 0 {
 		o.str("\n")
 		o.depth++
@@ -913,7 +966,6 @@ func (g *cgGen) propFields(fields []cgField) {
 	o.str("\n")
 	o.depth++
 	for _, f := range fields {
-		a := f.attr
 		o.ind()
 		if f.rest != nil {
 			o.str(f.key + ": ")
@@ -921,58 +973,77 @@ func (g *cgGen) propFields(fields []cgField) {
 			o.str(",\n")
 			continue
 		}
-		o.inline(a.NameSpan, f.key, SegSpan)
+		o.inline(f.attr.NameSpan, f.key, SegSpan)
 		o.str(": ")
-		if f.opt != "" && a.Directive != ClassList {
-			g.optProp(f)
-			o.str(",\n")
-			continue
-		}
-		switch {
-		case a.Directive == ClassList:
-			g.classProp(f.node, a, f.merged)
-		case a.IsExpr():
-			if l := wholeLiteral(g.src, a.Code); l != nil {
-				g.propLiteral(f.node.(*Component), f.key, a, l)
-			} else {
-				o.exact(a.Code.Span)
-			}
-		case a.IsStatic():
-			// A directive, so a type error (featured="yes" for a bool)
-			// lands on the value; a quoted value's position is its quote.
-			sp := a.ValueSpan
-			if a.Kind == AttrQuoted {
-				// An unclosed quote (tolerant mode) ends at the end of
-				// the file: there's no closing quote to include.
-				sp = Span{sp.Start - 1, min(sp.End+1, len(g.src))}
-			}
-			o.inline(sp, strconv.Quote(a.Value), SegSpan)
-		default:
-			// A bare attribute's true: a type error lands on its name.
-			o.str("/*line " + o.dirFile + ":" + o.pos(a.NameSpan.Start) + "*/true")
-			o.reset()
-		}
+		g.fieldValue(f)
 		o.str(",\n")
 	}
 	o.depth--
 	o.ind()
 }
 
+// fieldValue emits the value of the prop field f set by an attribute.
+func (g *cgGen) fieldValue(f cgField) {
+	o := g.o
+	a := f.attr
+	if f.opt != "" && a.Directive != ClassList {
+		g.optProp(f)
+		return
+	}
+	switch {
+	case a.Directive == ClassList:
+		g.classProp(f.node, a, f.merged)
+	case a.IsExpr():
+		if l := wholeLiteral(g.src, a.Code); l != nil {
+			g.propLiteral(f.node.(*Component), f.key, a, l)
+		} else {
+			o.exact(a.Code.Span)
+		}
+	case a.IsStatic():
+		// A directive, so a type error (featured="yes" for a bool)
+		// lands on the value; a quoted value's position is its quote.
+		sp := a.ValueSpan
+		if a.Kind == AttrQuoted {
+			// An unclosed quote (tolerant mode) ends at the end of
+			// the file: there's no closing quote to include.
+			sp = Span{sp.Start - 1, min(sp.End+1, len(g.src))}
+		}
+		o.inline(sp, strconv.Quote(a.Value), SegSpan)
+	default:
+		// A bare attribute's true: a type error lands on its name.
+		o.str("/*line " + o.dirFile + ":" + o.pos(a.NameSpan.Start) + "*/true")
+		o.reset()
+	}
+}
+
 // deferCall emits a server:defer call site (PLAN.md §3.4): orbit__rt.Defer
 // with the component ID, the Props literal and the fallback renderer
 // (compiled here, in the parent, with its scope attribute) or nil.
-func (g *cgGen) deferCall(n *Component, qual, id string, fields []cgField, pre []GoCode, slots []cgSlot, c *wsCtx) {
+func (g *cgGen) deferCall(call *cgCall, id string, slots []cgSlot, c *wsCtx) {
 	o := g.o
+	n := call.n
 	o.flush()
-	for _, code := range pre {
+	for _, code := range call.pre {
 		g.discard(code)
+	}
+	g.spreadChecks(call)
+	var lit Span
+	if call.block {
+		o.ln("{")
+		o.depth++
+		g.blockProps(call, &lit)
 	}
 	o.ind()
 	o.str("if " + NameErr + " := " + NameRuntime + ".Defer(" + NameCtx + ", " + NameW + ", " + strconv.Quote(id) + ", ")
-	lit := o.inline(n.NameSpan, qual+"Props", SegSpan)
-	o.str("{")
-	g.propFields(fields)
-	o.str("}, ")
+	if call.block {
+		o.str(NameP)
+	} else {
+		lit = o.inline(n.NameSpan, call.qual+"Props", SegSpan)
+		o.str("{")
+		g.propFields(call.fields)
+		o.str("}")
+	}
+	o.str(", ")
 	var fallback []Node
 	for _, s := range slots {
 		if s.name == "fallback" {
@@ -987,11 +1058,11 @@ func (g *cgGen) deferCall(n *Component, qual, id string, fields []cgField, pre [
 	o.str("); " + NameErr + " != nil {\n")
 	o.ln("\treturn " + NameErr)
 	o.ln("}")
-	tag := n.Name
-	if n.Self {
-		tag = "Self"
+	if call.block {
+		o.depth--
+		o.ln("}")
 	}
-	g.defers = append(g.defers, DeferSite{Attr: n.Defer.Span, Tag: tag, Lit: lit})
+	g.defers = append(g.defers, DeferSite{Attr: n.Defer.Span, Tag: call.tag, Lit: lit})
 }
 
 // lazyOpen is the <orbit-lazy> start tag of a client:idle|visible|media

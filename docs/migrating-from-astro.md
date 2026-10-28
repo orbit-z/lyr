@@ -201,6 +201,37 @@ variant := cmp.Or(props.Variant, "primary")
 
 `<Button variant="quiet" type="submit" name="intent" value="buy">Buy</Button>` renders `<button type="submit" name="intent" value="buy" class="btn btn-quiet">Buy</button>`. A passed `class` is merged into the element's `class:list` instead of being written twice. `rest.href` is `props.Attrs.Get("href")`. See [Passing HTML attributes through](components.md#passing-html-attributes-through).
 
+### Spreading props: `{...card}` and `{...Astro.props}`
+
+An Astro helper that returns a component's props, `<NovelCard {...bookCard(book, options)} />`, ports as a Go function returning a struct, spread the same way. Give the component that struct as its `Props`:
+
+```go
+// internal/novelcard/novelcard.go
+type Props struct {
+	Href, Slug, Title string
+	Lines             int
+}
+
+func BookCard(book catalog.Book, o Options) Props { … }
+```
+
+```orbit
+---
+import "example.com/shop/internal/novelcard"
+
+type Props = novelcard.Props
+---
+<article data-slug={props.Slug}>…</article>
+```
+
+```orbit
+<NovelCard {...novelcard.BookCard(book, props.Options)} />
+```
+
+- **Part of the props, plus attributes**: `<BookActions {...actions} questionID="top" />` works when `actions` is a struct of some of `BookActions`' props; build it as `BookActions.Props{BookSlug: …, Mine: mine}` (the import alias reaches the component's `Props`) or with any struct whose fields are props. An attribute written after the spread overrides it, as in Astro.
+- **`{...Astro.props}`** (a wrapper passing everything on) is `{...props}`, when the wrapper declares the same fields or `type Props = Inner.Props`.
+- **Differences**: only a struct sets props (an object literal is a struct literal: `{...Card.Props{Title: t}}`), and a field that isn't a prop is an error instead of an extra `Astro.props` key. Names match exactly (`QuestionID`, not `questionId`). A Go struct sets every field, so an attribute written **before** a spread of the same prop, or two spreads setting one prop, is an error rather than a silent override. See [Spreading props](components.md#spreading-props).
+
 ### Slots rendered to a string
 
 `await Astro.slots.render("default")` is `orbit.RenderHTML(ctx, slots.Default)`, which returns an `orbit.HTML` and an error:

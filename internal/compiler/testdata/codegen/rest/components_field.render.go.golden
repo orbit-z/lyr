@@ -22,14 +22,14 @@ func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit_
 	orbit__w.Raw("<div class=\"f\" data-o-df97ba3a>")
 	if orbit__err := /*line ../../../../src/components/Field.orbit:9:17*/Input.Render/*line render.go:23:108*/(orbit__ctx, orbit__w, Input.Props{
 		/*line ../../../../src/components/Field.orbit:9:23*/Label/*line render.go:24:84*/: /*line ../../../../src/components/Field.orbit:9:30*/props.Label/*line render.go:24:174*/,
-		Attrs: orbit__rt.RestMerge(orbit__rt.Rest("", " required name=\"field\" data-o-df97ba3a"), /*line ../../../../src/components/Field.orbit:9:47*/props.Attrs/*line render.go:25:182*/),
+		Attrs: orbit__rt.RestMergeAny(orbit__w, Input.Props{}, "src/components/Field.orbit:9:43", "{...props.Attrs} on <Input>", orbit__rt.Rest("", " required name=\"field\" data-o-df97ba3a"), /*line ../../../../src/components/Field.orbit:9:47*/props.Attrs/*line render.go:25:276*/),
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}
 	orbit__w.Raw("</div>\n")
 	if orbit__err := /*line ../../../../src/components/Field.orbit:10:2*/Input.Render/*line render.go:30:108*/(orbit__ctx, orbit__w, Input.Props{
 		/*line ../../../../src/components/Field.orbit:10:8*/Label/*line render.go:31:84*/: /*line ../../../../src/components/Field.orbit:10:14*/"scope only"/*line render.go:31:176*/,
-		Attrs: orbit__rt.RestMerge(orbit__rt.Rest("", " data-o-df97ba3a"), /*line ../../../../src/components/Field.orbit:10:31*/props.Attrs/*line render.go:32:159*/),
+		Attrs: orbit__rt.RestMergeAny(orbit__w, Input.Props{}, "src/components/Field.orbit:10:27", "{...props.Attrs} on <Input>", orbit__rt.Rest("", " data-o-df97ba3a"), /*line ../../../../src/components/Field.orbit:10:31*/props.Attrs/*line render.go:32:254*/),
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}

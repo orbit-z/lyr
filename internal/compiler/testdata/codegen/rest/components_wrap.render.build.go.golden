@@ -21,7 +21,7 @@ func Orbit__RenderImpl(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, or
 	_, _, _ = ctx, props, slots
 	if orbit__err := /*line ../../../../../src/components/Wrap.orbit:8:2*/orbit__Input.Orbit__RenderImpl/*line render.go:22:127*/(orbit__ctx, orbit__w, Input.Props{
 		/*line ../../../../../src/components/Wrap.orbit:8:8*/Label/*line render.go:23:85*/: /*line ../../../../../src/components/Wrap.orbit:8:14*/"wrapped"/*line render.go:23:175*/,
-		Attrs: orbit__rt.RestFrom(/*line ../../../../../src/components/Wrap.orbit:8:28*/props.Attrs/*line render.go:24:119*/),
+		Attrs: orbit__rt.RestFromAny(orbit__w, Input.Props{}, "src/components/Wrap.orbit:8:24", "{...props.Attrs} on <Input>", /*line ../../../../../src/components/Wrap.orbit:8:28*/props.Attrs/*line render.go:24:212*/),
 	}, orbit__rt.Slots{}); orbit__err != nil {
 		return orbit__err
 	}

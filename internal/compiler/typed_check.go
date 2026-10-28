@@ -590,6 +590,7 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 	// pieceTVs are the types of template literal pieces (PLAN.md §2.10),
 	// by the key of their whole-value literal (SiteLit) or concatenation.
 	pieceTVs := map[int][]types.TypeAndValue{}
+	var spreadCalls []tySpreadCall // the spreads on component tags (PLAN.md §2.11)
 	ast.Inspect(f, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
 		if !ok || len(call.Args) == 0 {
@@ -606,6 +607,10 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 			if w.Kind != WriteFallback {
 				writes[site.Key] = w
 			}
+			return true
+		}
+		if site.Kind == SiteSpread {
+			spreadCalls = append(spreadCalls, tySpreadCall{site, call})
 			return true
 		}
 		tv, ok := info.Types[call.Args[len(call.Args)-1]]
@@ -695,6 +700,9 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 		}
 		return true
 	})
+	if len(spreadCalls) > 0 {
+		diags = append(diags, env.spreadWrites(spreadCalls, info, writes)...)
+	}
 	// A whole-value literal on style or on* is trusted when every piece is
 	// inert (PLAN.md §2.10 (Q4)): on an element (SiteLit, its pieces'
 	// types) or passed through (SiteRest, its concatenation's).

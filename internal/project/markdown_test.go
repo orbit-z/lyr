@@ -199,6 +199,7 @@ func TestMarkdownFrontErrors(t *testing.T) {
 		"src/content/intro.md":             "Intro.\n",
 		"src/pages/e.orbit":                "---\nimport Missing \"../content/missing.md\"\n---\n<Missing x=\"1\" />\n",
 		"src/pages/f.orbit":                "---\nimport Intro \"../content/intro.md\"\n---\n<Intro x=\"1\" />\n",
+		"src/pages/g.orbit":                "---\nimport Intro \"../content/intro.md\"\n\nx := struct{ Title string }{}\n---\n<Intro {...x} />\n",
 		"src/pages/hello.markdown":         "Hi\n",
 		"src/pages/hello.md":               "Hi\n",
 		"src/pages/docs/index.md":          "Hi\n",
@@ -225,6 +226,7 @@ func TestMarkdownFrontErrors(t *testing.T) {
 		`src/pages/docs/index.md: route /docs is already defined by src/pages/docs.orbit; remove or rename one of them`,
 		`src/pages/e.orbit:2:16: no such component: src/content/missing.md`,
 		`src/pages/f.orbit:4:8: unknown prop "x" on <Intro> (Intro takes no props)`,
+		`src/pages/g.orbit:6:8: unknown prop {...x} on <Intro> (Intro takes no props)`,
 		`src/pages/hello.md: generates the same Go package as src/pages/hello.markdown (orbit_gen/decl/pages/hello_md); rename one of them`,
 		`src/pages/hello.md: route /hello is already defined by src/pages/hello.markdown; remove or rename one of them`,
 	}

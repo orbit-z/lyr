@@ -107,6 +107,18 @@ func Likes(slug string) int {
 	return likes[slug]
 }
 
+// LikeState is what the like button shows: its fields are LikeButton's
+// props, so the post page spreads it, <LikeButton {...posts.LikesOf(slug)} />.
+type LikeState struct {
+	Slug  string
+	Likes int
+}
+
+// LikesOf returns the like state of a post.
+func LikesOf(slug string) LikeState {
+	return LikeState{Slug: slug, Likes: Likes(slug)}
+}
+
 // Like adds a like to a post and returns its new count, or ErrNotFound.
 func Like(slug string) (int, error) {
 	if _, err := Find(slug); err != nil {

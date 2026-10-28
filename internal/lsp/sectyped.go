@@ -1,6 +1,8 @@
 package lsp
 
 import (
+	"slices"
+
 	"github.com/orbit-z/orbit/internal/compiler"
 	"github.com/orbit-z/orbit/internal/project"
 )
@@ -21,62 +23,95 @@ import (
 // import (project.CheckScope.Security). A typed check's warnings are
 // adopted only if ws.secEdit hasn't moved since its snapshot. Edits of
 // other .orbit files run nothing.
+//
+// The errors of spreads on component tags (PLAN.md §2.11 (Q5) a) travel the
+// same way: only the typed pass knows a spread's type, so a file with one
+// is a candidate file, the spreads and prop attributes of its tags are
+// candidate attributes, and the typed pass's diagnostics at one of them
+// (not already among pass 1's) are kept with their severity.
 
-// secTypedDiag is one security warning of the typed check.
+// secTypedDiag is one security warning (or spread error) of the typed
+// check.
 type secTypedDiag struct {
 	// text is the attribute's source and ord its index among the file's
 	// candidate attributes with that text.
-	text    string
-	ord     int
-	message string
+	text     string
+	ord      int
+	message  string
+	severity compiler.Severity
 }
 
 // securityCandidates returns the attributes of f's pass-1 call sites that
-// can get a security warning, in order, each with its source text and
+// can get a security warning, then the spreads and prop attributes of its
+// component tags with spreads, in order, each with its source text and
 // ordinal among the attributes of the same text.
 func securityCandidates(f *project.File) (attrs []*compiler.Attr, texts []string, ords []int) {
 	if f == nil || f.MD != nil || f.Pass1 == nil {
 		return nil, nil, nil
 	}
 	seen := map[string]int{}
-	for i := range f.Pass1.CallSites {
-		cs := &f.Pass1.CallSites[i]
-		if cs.Kind != compiler.SiteAttr && cs.Kind != compiler.SiteRest && cs.Kind != compiler.SiteLit || cs.Attr == nil || compiler.SecurityWarning(cs.AttrName) == "" {
-			continue
-		}
-		a := cs.Attr
-		if a.Start < 0 || a.End > len(f.Src) || a.Start > a.End {
-			continue
+	add := func(a *compiler.Attr) {
+		if a == nil || a.Start < 0 || a.End > len(f.Src) || a.Start > a.End {
+			return
 		}
 		text := f.Src[a.Start:a.End]
 		attrs, texts, ords = append(attrs, a), append(texts, text), append(ords, seen[text])
 		seen[text]++
 	}
+	for i := range f.Pass1.CallSites {
+		cs := &f.Pass1.CallSites[i]
+		if cs.Kind != compiler.SiteAttr && cs.Kind != compiler.SiteRest && cs.Kind != compiler.SiteLit || cs.Attr == nil || compiler.SecurityWarning(cs.AttrName) == "" {
+			continue
+		}
+		add(cs.Attr)
+	}
+	// The spreads on component tags and the prop attributes next to them
+	// (PLAN.md §2.11): the typed pass's spread errors are at one of them.
+	var tags []*compiler.SpreadTag
+	for i := range f.Pass1.CallSites {
+		if t := f.Pass1.CallSites[i].Spread; t != nil && !slices.Contains(tags, t) {
+			tags = append(tags, t)
+			for _, it := range t.Items {
+				add(it.Attr)
+			}
+		}
+	}
 	return attrs, texts, ords
 }
 
-// typedSecurityDiags returns the security warnings of p's .orbit files
-// (after Typecheck): the typed pass's warnings at a candidate attribute.
-func typedSecurityDiags(p *project.Project) map[string][]secTypedDiag {
-	warned := map[string]map[compiler.Span]string{} // path → attribute span → message
+// typedSecurityDiags returns the security warnings and spread errors of
+// p's .orbit files (after Typecheck): the typed pass's diagnostics at a
+// candidate attribute that aren't in front (p.Diagnostics before it).
+func typedSecurityDiags(p *project.Project, front []project.Diagnostic) map[string][]secTypedDiag {
+	type found struct {
+		severity compiler.Severity
+		message  string
+	}
+	seen := map[diagKey]int{}
+	for _, d := range front {
+		seen[keyOf(d)]++
+	}
+	at := map[string]map[compiler.Span][]found{} // path → attribute span → diagnostics
 	for _, d := range p.Diagnostics {
-		if d.Severity == compiler.SeverityWarning {
-			if warned[d.File] == nil {
-				warned[d.File] = map[compiler.Span]string{}
-			}
-			warned[d.File][d.Span] = d.Message
+		if k := keyOf(d); seen[k] > 0 {
+			seen[k]--
+			continue
 		}
+		if at[d.File] == nil {
+			at[d.File] = map[compiler.Span][]found{}
+		}
+		at[d.File][d.Span] = append(at[d.File][d.Span], found{d.Severity, d.Message})
 	}
 	out := map[string][]secTypedDiag{}
 	for _, f := range p.Files {
-		w := warned[f.Path]
+		w := at[f.Path]
 		if w == nil {
 			continue
 		}
 		attrs, texts, ords := securityCandidates(f)
 		for i, a := range attrs {
-			if msg, ok := w[a.Span]; ok {
-				out[f.Path] = append(out[f.Path], secTypedDiag{text: texts[i], ord: ords[i], message: msg})
+			for _, d := range w[a.Span] {
+				out[f.Path] = append(out[f.Path], secTypedDiag{text: texts[i], ord: ords[i], message: d.message, severity: d.severity})
 			}
 		}
 	}
@@ -84,11 +119,11 @@ func typedSecurityDiags(p *project.Project) map[string][]secTypedDiag {
 }
 
 // hasSecuritySites reports whether an .orbit file has a style or on*
-// attribute with an expression value: only then can the typed check find
-// security warnings.
+// attribute with an expression value, or a spread on a component tag: only
+// then can the typed check find security warnings (or spread errors).
 func (ws *workspace) hasSecuritySites() bool {
 	for _, f := range ws.proj.Files {
-		if project.HasSecurity(f) {
+		if hasSecurity(f) {
 			return true
 		}
 	}
@@ -96,9 +131,9 @@ func (ws *workspace) hasSecuritySites() bool {
 }
 
 // hasSecurity reports whether the .orbit file f has a security warning
-// candidate (in its tolerant output): edits of such a file (or of one that
-// had one) rerun the typed check.
-func hasSecurity(f *project.File) bool { return project.HasSecurity(f) }
+// candidate or a spread on a component tag (in its tolerant output): edits
+// of such a file (or of one that had one) rerun the typed check.
+func hasSecurity(f *project.File) bool { return project.HasSecurity(f) || project.HasSpread(f) }
 
 // securityChanged records a change that the security warnings may depend
 // on (an edit of an .orbit file that has or had candidates, a Go file
@@ -129,7 +164,11 @@ func (ws *workspace) secTypedDiagnostics(p string, lines *lineIndex) []map[strin
 	for _, sd := range stored {
 		for i, a := range attrs {
 			if texts[i] == sd.text && ords[i] == sd.ord {
-				out = append(out, map[string]any{"range": lines.rangeOf(a.Start, a.End, encUTF16), "severity": sevWarning,
+				sev := sevWarning
+				if sd.severity == compiler.SeverityError {
+					sev = sevError
+				}
+				out = append(out, map[string]any{"range": lines.rangeOf(a.Start, a.End, encUTF16), "severity": sev,
 					"source": "orbit", "message": sd.message})
 				break
 			}

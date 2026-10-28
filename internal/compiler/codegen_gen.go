@@ -45,6 +45,9 @@ type cgGen struct {
 	// in emission order: stable across passes, and across a reformat that
 	// moves offsets (orbit fmt compares the generated code).
 	dynTags int
+	// spreadTmps numbers the props spread operands (orbit__s1, …), the
+	// same way.
+	spreadTmps int
 }
 
 func cgGenerate(in *Input) (out *Output) {

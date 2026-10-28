@@ -58,7 +58,10 @@ func (m *MarkdownChecker) Typecheck(ctx context.Context, p *Project) (checked in
 type CheckScope struct {
 	Markdown bool // the Markdown files with a layout
 	Data     bool // the .orbit files with a data contract (HasData)
-	Security bool // the .orbit files with style or on* warning candidates (HasSecurity)
+	// Security is the .orbit files with style or on* warning candidates
+	// (HasSecurity) or with spreads on component tags (HasSpread), whose
+	// errors only the typed pass finds (PLAN.md §2.11 (Q5)).
+	Security bool
 }
 
 // TypecheckScope is Typecheck over the files of scope and their
@@ -154,9 +157,24 @@ func HasSecurity(f *File) bool {
 	return false
 }
 
+// HasSpread reports whether the .orbit file f (after Front) has a spread
+// on a component tag (PLAN.md §2.11): only the typed pass can tell whether
+// it sets props or pass-through attributes, and find its errors.
+func HasSpread(f *File) bool {
+	if f == nil || f.MD != nil || f.Pass1 == nil {
+		return false
+	}
+	for i := range f.Pass1.CallSites {
+		if f.Pass1.CallSites[i].Kind == compiler.SiteSpread {
+			return true
+		}
+	}
+	return false
+}
+
 // root reports whether f is in scope itself (not as a dependency).
 func (s CheckScope) root(f *File) bool {
-	return s.Markdown && f.MD != nil && f.MD.Layout != "" || s.Data && HasData(f) || s.Security && HasSecurity(f)
+	return s.Markdown && f.MD != nil && f.MD.Layout != "" || s.Data && HasData(f) || s.Security && (HasSecurity(f) || HasSpread(f))
 }
 
 // markdownUnits returns, in p.Files order, the files of scope and every
@@ -201,7 +219,7 @@ func markdownUnits(p *Project, scope CheckScope) []*File {
 		f := queue[0]
 		queue = queue[1:]
 		imports(f.Pass1.Decl)
-		if f.MD != nil || HasData(f) || HasSecurity(f) {
+		if f.MD != nil || HasData(f) || HasSecurity(f) || HasSpread(f) {
 			imports(f.Pass1.Impl) // the layout's (or the components') decl packages
 		}
 	}

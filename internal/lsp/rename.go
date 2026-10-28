@@ -21,10 +21,11 @@ import (
 // Rename (PLAN.md §9 Request routing, rename): Go identifiers go to gopls
 // once the readiness barrier finished, and its WorkspaceEdit is mapped edit
 // by edit through the source maps of every generated file it touches.
-// Edits on echo lines are dropped; a field key (a span segment) becomes the
-// call site's attribute in its own spelling; any other edit on generated
-// code rejects the whole rename. Import aliases are renamed natively (the
-// alias and its tags), with gopls renaming their Go uses file by file.
+// Edits on echo lines and on props spreads' field assignments are dropped;
+// a field key (a span segment) becomes the call site's attribute in its own
+// spelling; any other edit on generated code rejects the whole rename.
+// Import aliases are renamed natively (the alias and its tags), with gopls
+// renaming their Go uses file by file.
 // prepareRename is gated by Orbit's routing and by where the identifier is
 // declared (gopls would also rename glue such as orbit__w or props).
 
@@ -761,8 +762,10 @@ func (rm *renameMapper) edit(g *genFile, r Range, text string, set *editSet) *rp
 	gs, ge := rm.genRange(g, r)
 	seg, ok := renameSegment(g.smap, gs, ge)
 	switch {
-	case ok && seg.Kind == compiler.SegEcho:
-		return nil // _ = name (PLAN.md §2.2)
+	case ok && (seg.Kind == compiler.SegEcho || seg.Kind == compiler.SegSpread):
+		// _ = name (PLAN.md §2.2), or a props spread's field assignment
+		// (§2.11): the next generate re-emits it.
+		return nil
 	case ok && seg.Kind == compiler.SegExact:
 		os, oe := seg.OrbitStart+gs-seg.GoStart, seg.OrbitStart+ge-seg.GoStart
 		if a := shorthandAt(f, os, oe); a != nil {
@@ -807,7 +810,8 @@ func (rm *renameMapper) edit(g *genFile, r Range, text string, set *editSet) *rp
 }
 
 // renameSegment returns the segment that holds the Go range [gs, ge]:
-// exact before span before echo when an empty range sits on a boundary.
+// exact before span before echo (or spread) when an empty range sits on a
+// boundary.
 func renameSegment(m *compiler.SourceMap, gs, ge int) (compiler.Segment, bool) {
 	if m == nil {
 		return compiler.Segment{}, false
@@ -818,7 +822,7 @@ func renameSegment(m *compiler.SourceMap, gs, ge int) (compiler.Segment, bool) {
 		if s.GoStart > gs || ge > s.GoEnd {
 			continue
 		}
-		r := map[compiler.SegmentKind]int{compiler.SegExact: 3, compiler.SegSpan: 2, compiler.SegEcho: 1}[s.Kind]
+		r := map[compiler.SegmentKind]int{compiler.SegExact: 3, compiler.SegSpan: 2, compiler.SegEcho: 1, compiler.SegSpread: 1}[s.Kind]
 		if r > rank {
 			best, rank = s, r
 		}
