@@ -1,0 +1,52 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "comment": "Injected into Markdown: ```orbit fenced code blocks highlight as Orbit, the --- frontmatter as Go.",
+  "scopeName": "text.html.markdown.orbit",
+  "injectionSelector": "L:text.html.markdown",
+  "patterns": [
+    { "include": "#fenced-code-block-orbit" }
+  ],
+  "repository": {
+    "fenced-code-block-orbit": {
+      "comment": "Same shape as the fenced blocks of VS Code's Markdown grammar. Inside the block a --- line opens the frontmatter wherever it is: a fence has no \\A to anchor it to.",
+      "name": "markup.fenced_code.block.markdown",
+      "begin": "(^|\\G)(\\s*)(`{3,}|~{3,})\\s*(?i:(orbit)((\\s+|:|,|\\{|\\?)[^`]*)?$)",
+      "end": "(^|\\G)(\\2|\\s{0,3})(\\3)\\s*$",
+      "beginCaptures": {
+        "3": { "name": "punctuation.definition.markdown" },
+        "4": { "name": "fenced_code.block.language.markdown" },
+        "5": { "name": "fenced_code.block.language.attributes.markdown" }
+      },
+      "endCaptures": {
+        "3": { "name": "punctuation.definition.markdown" }
+      },
+      "patterns": [
+        {
+          "begin": "(^|\\G)(\\s*)(.*)",
+          "while": "(^|\\G)(?!\\s*([`~]{3,})\\s*$)",
+          "contentName": "meta.embedded.block.orbit",
+          "patterns": [
+            { "include": "#frontmatter" },
+            { "include": "source.orbit#template" }
+          ]
+        }
+      ]
+    },
+    "frontmatter": {
+      "name": "meta.frontmatter.orbit",
+      "begin": "(^|\\G)\\s*(---)\\s*$",
+      "end": "^\\s*(---)\\s*$",
+      "beginCaptures": {
+        "2": { "name": "punctuation.definition.frontmatter.begin.orbit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.frontmatter.end.orbit" }
+      },
+      "contentName": "meta.embedded.block.go",
+      "patterns": [
+        { "include": "source.go" },
+        { "include": "source.orbit#keep" }
+      ]
+    }
+  }
+}

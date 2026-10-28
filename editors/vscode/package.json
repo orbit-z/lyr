@@ -59,6 +59,21 @@
           "source.ts": "typescript",
           "source.json": "json"
         }
+      },
+      {
+        "scopeName": "text.html.markdown.orbit",
+        "path": "./syntaxes/markdown.orbit.tmLanguage.json",
+        "injectTo": [
+          "text.html.markdown"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.orbit": "orbit",
+          "meta.embedded.block.go": "go",
+          "meta.embedded.expression.go": "go",
+          "meta.embedded.block.css": "css",
+          "meta.embedded.block.ts": "typescript",
+          "meta.embedded.block.json": "json"
+        }
       }
     ],
     "configurationDefaults": {
@@ -113,8 +128,9 @@
   "scripts": {
     "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --platform=node --format=cjs --target=node22 --external:vscode --minify",
     "check": "bun check --no-script",
-    "test": "bun check --no-script && vscode-tmgrammar-snap --config package.json 'test/*.orbit'",
-    "test:update": "vscode-tmgrammar-snap --config package.json --updateSnapshot 'test/*.orbit'",
+    "test": "bun check --no-script && vscode-tmgrammar-snap --config package.json 'test/*.orbit' && bun run test:markdown",
+    "test:markdown": "vscode-tmgrammar-snap --config package.json -g test/grammars/markdown.tmLanguage.json -s text.html.markdown 'test/*.md'",
+    "test:update": "vscode-tmgrammar-snap --config package.json --updateSnapshot 'test/*.orbit' && vscode-tmgrammar-snap --config package.json -g test/grammars/markdown.tmLanguage.json -s text.html.markdown --updateSnapshot 'test/*.md'",
     "package": "bun run build && vsce package --no-dependencies --out orbit-$npm_package_version.vsix",
     "publish": "vsce publish --no-dependencies --packagePath orbit-$npm_package_version.vsix && ovsx publish orbit-$npm_package_version.vsix"
   },

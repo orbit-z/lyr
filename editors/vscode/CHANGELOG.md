@@ -14,6 +14,7 @@ The first release.
 - Formatting: "Format Document" formats `.orbit` files with `orbit fmt`'s rules (through `orbit lsp`), and the extension is the default formatter for `[orbit]`. Format on save stays off unless you turn it on.
 - Markdown files under `src/` are sent to `orbit lsp` for Orbit's diagnostics (frontmatter, layout, links, routes) as you type. Every other Markdown feature stays VS Code's.
 - The extension activates in any workspace that contains an `.orbit` file, so Markdown diagnostics work before an `.orbit` file is opened.
+- ```` ```orbit ```` code blocks in Markdown files highlight as Orbit in the editor (a `---` line in the block opens Go frontmatter). VS Code's Markdown preview keeps its own highlighter.
 - Import path completion offers `.orbit` and Markdown files (`/` triggers it).
 - Highlighting for `{switch}` blocks: `{switch …}`, `{case …}`, `{default}` and `{/switch}`, with the header and case lists as Go.
 - `class:list` highlights as a directive, with its list as Go; completion offers it on HTML elements and on components with a `class` prop.

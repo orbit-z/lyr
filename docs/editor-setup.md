@@ -54,7 +54,8 @@ The extension:
 - highlights them: the frontmatter and `{…}` expressions as Go, `<style>` as CSS, `<script>` as TypeScript (`<script type="application/json">` as JSON), and the rest as HTML, with components and directives set apart;
 - adds bracket matching, comment toggling and auto-closing;
 - starts `orbit lsp` for completion, diagnostics and the rest;
-- sends the Markdown files under `src/` to `orbit lsp` too, for their diagnostics only (see [Markdown files](#markdown-files)): their highlighting and every other Markdown feature stay VS Code's;
+- sends the Markdown files under `src/` to `orbit lsp` too, for their diagnostics only (see [Markdown files](#markdown-files)): every other Markdown feature stays VS Code's;
+- highlights ```` ```orbit ```` code blocks in any Markdown file, in the editor (not in VS Code's Markdown preview, which has its own highlighter): a `---` line in the block opens Go frontmatter, the rest is the template;
 - adds three commands to the Command Palette:
   - **Orbit: Restart Language Server**, for example after installing a new gopls;
   - **Orbit: Run orbit generate**;

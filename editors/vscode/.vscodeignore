@@ -3,7 +3,7 @@
 # Marketplace files.
 **
 !dist/extension.js
-!syntaxes/orbit.tmLanguage.json
+!syntaxes/*.tmLanguage.json
 !language-configuration.json
 !icons/*.svg
 !package.json
