@@ -198,10 +198,11 @@ func writeText[T any](w *Writer, v T, escape bool) {
 // SetHTML is set:html={x} before the build has checked x's type (PLAN.md
 // §2.6): an HTML is written raw, an Opt[HTML] when it's set. The build
 // replaces it with the HTML write (lowered for an Opt[HTML]), and refuses
-// any other type; when it couldn't check (export data couldn't be read, with
-// a warning), a value of another type is a render error at pos, never
+// any other type with its own error (so T is any: a string must not be
+// Go's error too); when it couldn't check (export data couldn't be read,
+// with a warning), a value of another type is a render error at pos, never
 // written unescaped. Generated code calls it.
-func SetHTML[T ~string | Opt[HTML]](w *Writer, pos string, x T) {
+func SetHTML[T any](w *Writer, pos string, x T) {
 	switch v := any(x).(type) {
 	case HTML:
 		w.HTML(v)

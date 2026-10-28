@@ -184,3 +184,43 @@ func TestOptPropErrors(t *testing.T) {
 		}
 	}
 }
+
+// TestSetHTMLTypeError: a set:html value that isn't assignable to
+// orbit.HTML or an orbit.Opt[orbit.HTML] is the typed pass's Orbit-worded
+// error at the value (PLAN.md §2.6, user decision 2026-10-28); untyped
+// constants, HTML values and Opt[HTML] values aren't. The pass-2 output
+// still builds and vets (the bad sites keep SetHTML), so Go never reports
+// them a second time.
+func TestSetHTMLTypeError(t *testing.T) {
+	srcs := map[string]string{
+		"src/pages/index.orbit": "---\ntype Mine orbit.HTML\n\nconst nbsp = \"&nbsp;\"\nconst typed string = \"x\"\nconst h orbit.HTML = \"<b>\"\nbody := \"<p>\"\nn := 3\nvar m Mine\nvar o orbit.Opt[orbit.HTML]\nok := true\n---\n" +
+			"<div set:html={body}></div>\n<div set:html={nbsp}></div>\n<div set:html={nbsp + \"x\" + (nbsp)}></div>\n<div set:html={typed}></div>\n" +
+			"<div set:html={h}></div>\n<div set:html={orbit.HTML(body)}></div>\n<div set:html={n}></div>\n<div set:html={m}></div>\n" +
+			"<div set:html={o}></div>\n<Fragment set:html={orbit.If(ok, h)} />\n<div set:html={nbsp + body}></div>\n",
+	}
+	m := newGenModule(t)
+	pl := plPipeline(t, m, srcs, Options{Module: testModule})
+	var got []string
+	for _, pf := range pl.files {
+		for _, d := range pf.typed.Diagnostics {
+			got = append(got, d.Format(pf.path, pf.f.Lines))
+		}
+	}
+	const fix = ": convert a trusted value with orbit.HTML(…), or use set:text"
+	want := []string{
+		"src/pages/index.orbit:13:16: set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not string" + fix,
+		"src/pages/index.orbit:16:16: set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not string" + fix,
+		"src/pages/index.orbit:19:16: set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not int" + fix,
+		"src/pages/index.orbit:20:16: set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not index_impl.Mine" + fix,
+		"src/pages/index.orbit:23:16: set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not string" + fix,
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("got:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	impl := string(pl.files[0].typed.Output.Impl.Content)
+	if n := strings.Count(impl, NameRuntime+".SetHTML("); n != 5 {
+		t.Errorf("%d SetHTML calls left in pass 2, want 5 (the errors):\n%s", n, impl)
+	}
+	pl.write(m, true)
+	m.buildAndVet()
+}

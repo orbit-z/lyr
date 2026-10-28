@@ -109,8 +109,9 @@ func (g *cgGen) optPropSite(f cgField) {
 
 // htmlSite emits the SiteHTML of a set:html value (PLAN.md §2.6, "Typed
 // optional values"): orbit__rt.SetHTML(orbit__w, pos, x) until the typed
-// pass has seen it, then orbit__w.HTML(x) (so a value of another type is
-// Go's error, as before), or the if of an orbit.Opt[orbit.HTML].
+// pass has accepted it, then orbit__w.HTML(x) or the if of an
+// orbit.Opt[orbit.HTML]. A value of another type is the typed pass's error
+// and keeps SetHTML (which takes any type, so Go doesn't report it again).
 func (g *cgGen) htmlSite(node Node, a *Attr) {
 	o := g.o
 	code := a.Code

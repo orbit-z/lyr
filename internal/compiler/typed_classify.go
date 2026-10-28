@@ -6,6 +6,7 @@ package compiler
 // agent C.
 
 import (
+	"go/ast"
 	gotoken "go/token"
 	"go/types"
 )
@@ -352,6 +353,47 @@ func classTypeError(t types.Type, what string) string {
 		name = types.TypeString(t, func(p *types.Package) string { return p.Name() })
 	}
 	return what + " must be a string or []string, not " + name
+}
+
+// setHTMLError returns the error of a set:html value that orbit.HTML
+// doesn't take (PLAN.md §2.6, user decision 2026-10-28), or nil: a value
+// assignable to orbit.HTML (an untyped constant included), untyped nil
+// (Go's error, which stays) or an invalid type. x is the value as passed to
+// SetHTML, whose T an untyped constant made string (go/types records the
+// inferred type), so x itself tells an untyped constant.
+func (e *tyEnv) setHTMLError(x ast.Expr, tv types.TypeAndValue, info *types.Info, at Span) *Diagnostic {
+	if e.html == nil || tv.Type == nil {
+		return nil
+	}
+	if b, ok := types.Unalias(tv.Type).(*types.Basic); ok && (b.Kind() == types.UntypedNil || b.Kind() == types.Invalid) {
+		return nil
+	}
+	if types.AssignableTo(tv.Type, e.html) || tv.Value != nil && untypedConst(x, info) {
+		return nil
+	}
+	typ := types.TypeString(tv.Type, func(p *types.Package) string { return p.Name() })
+	return &Diagnostic{SeverityError, at, "set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not " + typ +
+		": convert a trusted value with orbit.HTML(…), or use set:text"}
+}
+
+// untypedConst reports whether x is an untyped constant expression as
+// written: literals, untyped constants (nbsp, pkg.Nbsp) and the operators
+// combining them.
+func untypedConst(x ast.Expr, info *types.Info) bool {
+	switch x := x.(type) {
+	case *ast.BasicLit:
+		return true
+	case *ast.ParenExpr:
+		return untypedConst(x.X, info)
+	case *ast.BinaryExpr:
+		return untypedConst(x.X, info) && untypedConst(x.Y, info)
+	case *ast.SelectorExpr:
+		return untypedConst(x.Sel, info)
+	case *ast.Ident:
+		c, ok := info.Uses[x].(*types.Const)
+		return ok && isUntyped(c.Type())
+	}
+	return false
 }
 
 // restWrites maps an attribute write to the pass-through attribute write

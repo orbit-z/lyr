@@ -216,9 +216,9 @@ src/components/Card.orbit:9:17: props.Post.Titel undefined (type posts.Post has 
 
 See [Error output](reference/cli.md#error-output).
 
-### `cannot use body (variable of type string) as orbit.HTML value in argument to orbit__w.HTML`
+### `set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not string`
 
-**Cause:** `set:html` only accepts an `orbit.HTML` value (or a string constant you wrote in the template), so raw output is always an explicit choice. `orbit__w.HTML` is the generated write behind `set:html`.
+**Cause:** `set:html` only accepts an `orbit.HTML` value, an `orbit.Opt[orbit.HTML]` or a string constant you wrote in the template, so raw output is always an explicit choice.
 
 **Fix:** convert content you trust, such as your own Markdown renderer's output: `<div set:html={orbit.HTML(body)}></div>`. For text from users, use `{body}` or `set:text={body}`, which escape it. See [Raw HTML with `orbit.HTML`](components.md#raw-html-with-orbithtml).
 

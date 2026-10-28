@@ -469,9 +469,9 @@ func OptOf[T, V any](_ Opt[T], v V) Opt[T]
 The value of a component prop of type `Opt[T]` ([Optional props](../components.md#optional-props)); the first argument is the prop's zero value, which gives `T`. `Wrap` sets a static value or a `T` expression; `WrapIf` is an `orbit.If` whose value is an untyped constant (the second argument is the `If` as written, so its package stays used); `OptOf` is the value before the build has checked its type: an `Opt[T]` as is, a `T` (or a value of the same kind, for an untyped constant) set.
 
 ```go
-func SetHTML[T ~string | Opt[HTML]](w *Writer, pos string, x T)
+func SetHTML[T any](w *Writer, pos string, x T)
 ```
-`set:html={x}` before the build has checked `x`'s type: an `HTML` is written raw, an `Opt[HTML]` when it's set. The build replaces it with `w.HTML(x)` (an `if` for an `Opt`), so any other type is Go's error; it only runs when the build couldn't type-check, and then a value of another type is a render error at `pos`, never written.
+`set:html={x}` before the build has checked `x`'s type: an `HTML` is written raw, an `Opt[HTML]` when it's set. The build replaces it with `w.HTML(x)` (an `if` for an `Opt`), and any other type is the build's error (`set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not …`), not Go's; it only runs when the build couldn't type-check, and then a value of another type is a render error at `pos`, never written.
 
 ```go
 func (w *Writer) URLMark() int        // the buffer offset before a URL attribute's value

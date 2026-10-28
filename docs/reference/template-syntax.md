@@ -516,7 +516,7 @@ if hint != "" {
 - **Written as its value**: on an HTML element attribute, none omits the attribute and a set value is written by the rules for `T` (the URL filter, `orbit.URL` and `orbit.CSS`, `orbit.JSON`, booleans). In content (`{…}`, `set:text`), none writes nothing. A frontmatter variable keeps its type, unlike an `any`, so the value gets the typed writes and no allocation.
 - **`class`**: an `orbit.Opt[string]` or `orbit.Opt[[]string]` works as a `class:list` item, and an `orbit.Opt[string]` as a `class={…}` value; none adds no class.
 - **`style`**: an `orbit.Opt[orbit.CSS]` is trusted like an `orbit.CSS`, with no warning.
-- **`set:html`** takes an `orbit.Opt[orbit.HTML]` as well as an `orbit.HTML`: none writes nothing, some writes the HTML raw (`<div set:html={orbit.If(open, body)}></div>`). A `string` is still a compile error.
+- **`set:html`** takes an `orbit.Opt[orbit.HTML]` as well as an `orbit.HTML`: none writes nothing, some writes the HTML raw (`<div set:html={orbit.If(open, body)}></div>`). A `string` is still a compile error (`set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not string: …`).
 - **Only `orbit.Opt` itself counts**: a type defined over it (`type MaybeRel orbit.Opt[string]`) is a new struct type, written like any struct. An alias (`type MaybeRel = orbit.Opt[string]`) is fine.
 - In Go code and logs, `fmt.Sprint(o)` prints the value, or `""` for none. In JSON, none is `null`; see [`orbit.Opt`](runtime-api.md#optional-values).
 
@@ -583,7 +583,7 @@ A directive is an attribute with a namespace (`set:`, `is:`, `server:`, `client:
 
 | Directive | Where | Effect |
 |---|---|---|
-| `set:html={expr}` | HTML element, `<Fragment>`, `<script>`, `<style>` | Sets the content to raw HTML. `expr` must have type `orbit.HTML` or `orbit.Opt[orbit.HTML]` (none writes no content); a string constant written in the template is also accepted. A `string` variable is a compile error at the `.orbit` position. |
+| `set:html={expr}` | HTML element, `<Fragment>`, `<script>`, `<style>` | Sets the content to raw HTML. `expr` must have type `orbit.HTML` or `orbit.Opt[orbit.HTML]` (none writes no content); a string constant written in the template is also accepted. Any other type, such as a `string` variable, is a compile error at the value's `.orbit` position, also shown in the editor: `set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not string: convert a trusted value with orbit.HTML(…), or use set:text`. |
 | `set:text={expr}` | HTML element, `<Fragment>`, `<script>`, `<style>` | Sets the content to the escaped text of `expr`. |
 | `set:json={expr}` | `<script type="application/json">` only | Sets the content to `expr` encoded as JSON, escaped for a script element. See [`set:json`](#setjson). |
 | `class:list={…}` | HTML element, component tag | Builds the `class` attribute (on a component, its `class` prop) from a list of classes and conditions. See [`class:list`](#classlist). |

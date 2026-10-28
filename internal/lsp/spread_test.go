@@ -105,3 +105,48 @@ func TestSpreadTypedCheck(t *testing.T) {
 	c.change(page, spreadPage)
 	c.waitDiag(page, none)
 }
+
+const setHTMLPage = `---
+const nbsp = "&nbsp;"
+
+body := "<p>x</p>"
+---
+<div set:html={orbit.HTML(body)}></div>
+<span set:html={nbsp}></span>
+`
+
+// TestSetHTMLTyped: a set:html value that isn't an orbit.HTML is the typed
+// check's Orbit-worded error while typing (PLAN.md §2.6, user decision
+// 2026-10-28), at the value, once; fixing it clears it, and an untyped
+// constant (nbsp) is never one.
+func TestSetHTMLTyped(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping in -short mode")
+	}
+	const page = "src/pages/index.orbit"
+	dir := writeProject(t, map[string]string{page: setHTMLPage})
+	stub, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(stubEnv, "record:"+filepath.Join(t.TempDir(), "rec"))
+	c := startInProcess(t, dir, map[string]any{"goplsPath": stub})
+	c.open(page)
+	none := func(ds []map[string]any) bool { return len(ds) == 0 }
+
+	bad := strings.Replace(setHTMLPage, "{orbit.HTML(body)}", "{body}", 1)
+	c.change(page, bad)
+	ds := c.waitDiag(page, func(ds []map[string]any) bool {
+		if len(ds) != 1 {
+			return false
+		}
+		m, _ := ds[0]["message"].(string)
+		sev, _ := ds[0]["severity"].(float64)
+		return m == "set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not string: convert a trusted value with orbit.HTML(…), or use set:text" && sev == sevError
+	})
+	if r := diagRange(t, ds[0]); r.Start != at(t, bad, "{body}", 0, 1) || r.End != at(t, bad, "{body}", 0, len("{body")) {
+		t.Errorf("error at %+v, want the value", r)
+	}
+	c.change(page, setHTMLPage)
+	c.waitDiag(page, none)
+}

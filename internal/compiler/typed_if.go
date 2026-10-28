@@ -14,11 +14,12 @@ import (
 )
 
 // mayCallIf reports whether any attribute or content site's code mentions
-// If, so the type check records identifier uses only for files that may
-// need them.
+// If, or there's a set:html site (whose untyped constants are told by
+// their identifiers, untypedConst), so the type check records identifier
+// uses only for files that may need them.
 func mayCallIf(sites []CallSite) bool {
 	for i := range sites {
-		if k := sites[i].Kind; (k == SiteAttr || k == SiteContent || k == SiteOptProp) && strings.Contains(sites[i].Code.Text, "If") {
+		if k := sites[i].Kind; k == SiteHTML || (k == SiteAttr || k == SiteContent || k == SiteOptProp) && strings.Contains(sites[i].Code.Text, "If") {
 			return true
 		}
 	}

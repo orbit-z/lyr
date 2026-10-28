@@ -1705,10 +1705,10 @@ body := props.Body
 ```
 
 ```text
-src/components/PostBody.orbit:8:16: cannot use body (variable of type string) as orbit.HTML value in argument to orbit__w.HTML
+src/components/PostBody.orbit:8:16: set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not string: convert a trusted value with orbit.HTML(…), or use set:text
 ```
 
-The message is the Go compiler's: `orbit__w.HTML` is the generated write for `set:html`.
+The editor shows it too, a moment after you type.
 
 Only convert content you control (your own Markdown renderer's output, say), never user input. `set:text={expr}` is the escaped counterpart: it sets an element's text content.
 

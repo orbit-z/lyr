@@ -618,11 +618,17 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 			return true
 		}
 		if site.Kind == SiteHTML {
-			// set:html (PLAN.md §2.6): an Opt[orbit.HTML] is lowered,
-			// anything else is written with HTML, Go's check.
+			// set:html (PLAN.md §2.6): an Opt[orbit.HTML] is lowered, a
+			// value assignable to orbit.HTML (untyped constants included)
+			// is written with HTML; anything else is Orbit's error here,
+			// and the site keeps SetHTML (it takes any type), so Go
+			// doesn't report it again. Untyped nil stays Go's error.
 			w := TypedWrite{Kind: WriteHTML}
 			if et, isOpt := optElem(tv.Type); isOpt && identical(types.Unalias(et), env.html) {
 				w.If = &IfWrite{Opt: true, Val: site.Code.Span}
+			} else if d := env.setHTMLError(call.Args[len(call.Args)-1], tv, info, site.Code.Span); d != nil {
+				diags = append(diags, *d)
+				return true
 			}
 			writes[site.Key] = w
 			return true

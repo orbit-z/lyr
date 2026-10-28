@@ -28,7 +28,9 @@ import (
 // same way: only the typed pass knows a spread's type, so a file with one
 // is a candidate file, the spreads and prop attributes of its tags are
 // candidate attributes, and the typed pass's diagnostics at one of them
-// (not already among pass 1's) are kept with their severity.
+// (not already among pass 1's) are kept with their severity. So are the
+// set:html errors (PLAN.md §2.6, user decision 2026-10-28), at the value
+// of a set:html={expr}.
 
 // secTypedDiag is one security warning (or spread error) of the typed
 // check.
@@ -74,6 +76,14 @@ func securityCandidates(f *project.File) (attrs []*compiler.Attr, texts []string
 			for _, it := range t.Items {
 				add(it.Attr)
 			}
+		}
+	}
+	// The set:html={expr} values (PLAN.md §2.6): the typed pass's error
+	// for a value that isn't an orbit.HTML is at the value, so the
+	// candidate is the value (an Attr of its span).
+	for i := range f.Pass1.CallSites {
+		if cs := &f.Pass1.CallSites[i]; cs.Kind == compiler.SiteHTML {
+			add(&compiler.Attr{Span: cs.Code.Span})
 		}
 	}
 	return attrs, texts, ords
@@ -133,7 +143,9 @@ func (ws *workspace) hasSecuritySites() bool {
 // hasSecurity reports whether the .orbit file f has a security warning
 // candidate or a spread on a component tag (in its tolerant output): edits
 // of such a file (or of one that had one) rerun the typed check.
-func hasSecurity(f *project.File) bool { return project.HasSecurity(f) || project.HasSpread(f) }
+func hasSecurity(f *project.File) bool {
+	return project.HasSecurity(f) || project.HasSpread(f) || project.HasSetHTML(f)
+}
 
 // securityChanged records a change that the security warnings may depend
 // on (an edit of an .orbit file that has or had candidates, a Go file
