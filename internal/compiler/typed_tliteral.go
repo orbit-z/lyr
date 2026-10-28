@@ -16,6 +16,8 @@ import (
 	"go/types"
 	"strconv"
 	"strings"
+
+	"github.com/orbit-z/orbit/internal/jsfloat"
 )
 
 // tyQual names packages by their name in type strings ("orbit.URL"), and
@@ -85,12 +87,12 @@ func foldPiece(v constant.Value, w TypedWrite) (string, bool) {
 	case WriteFloat:
 		if v.Kind() == constant.Int || v.Kind() == constant.Float {
 			f, _ := constant.Float64Val(constant.ToFloat(v))
-			return strconv.FormatFloat(f, 'g', -1, 64), true
+			return jsfloat.Format(f, 64), true
 		}
 	case WriteFloat32:
 		if v.Kind() == constant.Int || v.Kind() == constant.Float {
 			f, _ := constant.Float32Val(constant.ToFloat(v))
-			return strconv.FormatFloat(float64(f), 'g', -1, 32), true
+			return jsfloat.Format(float64(f), 32), true
 		}
 	}
 	return "", false

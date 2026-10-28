@@ -57,6 +57,14 @@ type myErr struct{ msg string }
 
 func (e *myErr) Error() string { return e.msg }
 
+type (
+	exprPrice     float64
+	exprRatio     float32
+	exprFormatted float64
+)
+
+func (exprFormatted) Format(f fmt.State, _ rune) { f.Write([]byte("f")) }
+
 func TestExpr(t *testing.T) {
 	var nilPtrStringer *ptrStringer
 	var nilNilSafe *nilSafe
@@ -89,10 +97,20 @@ func TestExpr(t *testing.T) {
 		{"uintptr", uintptr(9), "9"},
 		{"float 0.1", 0.1, "0.1"},
 		{"float 2.0", 2.0, "2"},
-		{"float 1e6", 1e6, "1e+06"},
-		{"float 1e-7", 1e-7, "1e-07"},
+		{"float 1e6", 1e6, "1000000"},
+		{"float 1e-6", 1e-6, "0.000001"},
+		{"float 1e-7", 1e-7, "1e-7"},
+		{"float 1e20", 1e20, "100000000000000000000"},
+		{"float 1e21", 1e21, "1e+21"},
+		{"float -0", math.Copysign(0, -1), "0"},
 		{"float NaN", math.NaN(), "NaN"},
-		{"float +Inf", math.Inf(1), "+Inf"},
+		{"float +Inf", math.Inf(1), "Infinity"},
+		{"float -Inf", math.Inf(-1), "-Infinity"},
+		{"named float", exprPrice(1234567), "1234567"},
+		{"named float32", exprRatio(0.1), "0.1"},
+		{"named float Format", exprFormatted(1e6), "f"},
+		{"float in struct", struct{ F float64 }{1e6}, "{1e+06}"},
+		{"float32 1e6", float32(1e6), "1000000"},
 		{"float32 0.1", float32(0.1), "0.1"},
 		{"float32 1/3", float32(1.0 / 3), "0.33333334"},
 		{"bool true", true, "true"},
@@ -672,6 +690,10 @@ func TestZeroAllocs(t *testing.T) {
 		{"Int", func() { w.Int(123456) }},
 		{"Uint", func() { w.Uint(123456) }},
 		{"Float", func() { w.Float(3.25) }},
+		{"Float decimal", func() { w.Float(1e20) }},
+		{"Float small", func() { w.Float(0.0000015) }},
+		{"Float exponent", func() { w.Float(-1.5e-300) }},
+		{"Float NaN", func() { w.Float(math.NaN()) }},
 		{"Float32", func() { w.Float32(0.1) }},
 		{"Bool", func() { w.Bool(true) }},
 		{"HTML", func() { w.HTML("<b>x</b>") }},

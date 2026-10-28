@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+
+	"github.com/orbit-z/orbit/internal/jsfloat"
 )
 
 // Template literals (PLAN.md §2.10). In a template, a backtick string is a
@@ -242,14 +244,13 @@ func (b TB) String() string { return string(b) }
 // Bytes returns the text built, for ClassBytes.
 func (b TB) Bytes() []byte { return b }
 
-// AppendFloat appends f in its shortest form, the bytes of Writer.Float.
-func AppendFloat(b []byte, f float64) []byte { return strconv.AppendFloat(b, f, 'g', -1, 64) }
+// AppendFloat appends f as JavaScript's String(f) does, the bytes of
+// Writer.Float.
+func AppendFloat(b []byte, f float64) []byte { return jsfloat.Append(b, f, 64) }
 
-// AppendFloat32 appends f in its shortest float32 form, the bytes of
+// AppendFloat32 appends f with its shortest float32 digits, the bytes of
 // Writer.Float32.
-func AppendFloat32(b []byte, f float32) []byte {
-	return strconv.AppendFloat(b, float64(f), 'g', -1, 32)
-}
+func AppendFloat32(b []byte, f float32) []byte { return jsfloat.Append(b, float64(f), 32) }
 
 // AppendStringer appends s.String(), the text of Writer.Stringer: nothing
 // for a nil s, <nil> for a nil pointer whose String panics.

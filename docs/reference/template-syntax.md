@@ -916,8 +916,8 @@ The same name twice is an error even in another case (`name` and `NAME`). A `cla
 | `[]byte` | escaped text, not a list of numbers | `{[]byte("hi")}` → `hi` |
 | `int`, `int8`…`int64`, `rune` | decimal | `{42}` → `42`, `{'a'}` → `97` |
 | `uint`, `uint8`…`uint64`, `byte` | decimal | `{byte(65)}` → `65` |
-| `float64` | shortest form, as `fmt.Sprint` | `{0.1}` → `0.1`, `{2.0}` → `2`, `{1e6}` → `1e+06` |
-| `float32` | shortest float32 form | `{float32(0.1)}` → `0.1` (not `0.10000000149011612`) |
+| `float64` | as JavaScript's `String(x)`, what Astro renders | `{0.1}` → `0.1`, `{2.0}` → `2`, `{1e6}` → `1000000`, `{1e-7}` → `1e-7`, `{1e21}` → `1e+21` |
+| `float32` | the same, with the shortest float32 digits | `{float32(0.1)}` → `0.1` (not `0.10000000149011612`) |
 | `bool` | `true` or `false` (unlike Astro, where `{false}` renders nothing) | `{ok}` → `true` |
 | `error` | its escaped `Error()` text; a nil error renders nothing | `{err}` → `file not found` |
 | `fmt.Stringer` | its escaped `String()` text | `{time.Second}` → `1s` |
@@ -929,11 +929,11 @@ The same name twice is an error even in another case (`name` and `NAME`). A `cla
 Details that are easy to trip over:
 
 - **Characters are numbers**: a `rune` or `byte` prints its code (`{'a'}` → `97`). Use `{string(r)}` for the character.
-- **Named types** print like their underlying value, the way `fmt.Sprint` prints them: `type Slug string` prints the string, `type Count int` the number. If the type has a `String` method, that's used instead.
+- **Named types** print like their underlying value: `type Slug string` prints the string, `type Count int` the number, `type Price float64` the float as above. If the type has a `String` method, that's used instead.
 - **Only `orbit.HTML` itself is raw.** A type defined from it (`type Markup orbit.HTML`) is escaped like a string, and a type defined from `orbit.URL` is URL-filtered like a string. Convert back with `orbit.HTML(m)` to write raw.
 - **`String` on a pointer receiver** is only used when the value is a pointer: a `T` value whose `String` is declared on `*T` prints with `fmt.Sprint` (its fields), not with `String`.
 - **Pointers aren't dereferenced**: a `*string` prints an address. Write `{*p}`, after checking `p != nil`.
-- **Floats** use the shortest exact form, which switches to exponent notation for large and small values (`1e+06`, `1e-07`). For a fixed format, call `strconv.FormatFloat` or `fmt.Sprintf("%.2f", x)`.
+- **Floats** print as JavaScript prints numbers, so a ported Astro page renders the same text: the shortest digits that read back as the same value, in decimal notation from `0.000001` up to (not including) `1e21`, and exponent notation outside it (`1e-7`, `1.5e+21`). `-0` prints `0`; `NaN`, `Infinity` and `-Infinity` print as in JavaScript. This is not `fmt.Sprint`'s form (`1e+06`, `1e-07`), which a float inside another value still gets (`{struct{ F float64 }{1e6}}` → `{1e+06}`). `set:json` and `orbit.JSON` use `encoding/json`, whose numbers already match JavaScript's (`1e-7`, `1e+21`), apart from `NaN` and `±Inf`, which are an error there. For a fixed format, call `strconv.FormatFloat` or `fmt.Sprintf("%.2f", x)`.
 - **`time.Time`** is a `fmt.Stringer`, so `{date}` prints `2026-10-01 00:00:00 +0000 UTC`. Use `{date.Format("2 Jan 2006")}` for a readable date.
 
 Attribute values follow the same formatting, with the attribute rules for `true`, `false`, `nil`, a none `orbit.Opt` and URLs on top (see [Attribute values](#attribute-values-on-html-elements)).
