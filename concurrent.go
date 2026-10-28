@@ -79,11 +79,11 @@ func (o *siteOptions) concurrencyLimit() int32 {
 	return o.concLimit
 }
 
-// CtxOf is generated at the start of slot content that uses the Ctx: it
-// returns the Ctx of the goroutine that renders into w (slot content can
-// run in a server:concurrent component's goroutine, with that component's
-// Writer), or c when w has none, such as a Writer from NewWriter. It's
-// for generated code; don't call it yourself.
+// For generated code. CtxOf is emitted at the start of slot content that
+// uses the Ctx: it returns the Ctx of the goroutine that renders into w
+// (slot content can run in a server:concurrent component's goroutine, with
+// that component's Writer), or c when w has none, such as a Writer from
+// NewWriter.
 func CtxOf(w *Writer, c *Ctx) *Ctx {
 	if w.ctx != nil {
 		return w.ctx
@@ -91,7 +91,8 @@ func CtxOf(w *Writer, c *Ctx) *Ctx {
 	return c
 }
 
-// Concurrent is generated at each server:concurrent call site. It starts
+// For generated code. Concurrent is emitted at each server:concurrent call
+// site. It starts
 // render(c', w', props, slots) in its own goroutine, with its own Writer w'
 // and Ctx c' (a copy of c), records the component's place in w's output
 // and returns nil: the component's output and errors come out when the
@@ -100,8 +101,7 @@ func CtxOf(w *Writer, c *Ctx) *Ctx {
 //
 // It renders inline, as a plain call, when w belongs to no Orbit render
 // (NewWriter), past the concurrency limit (WithConcurrencyLimit), and
-// inside an attribute value. It's for generated code; don't call it
-// yourself.
+// inside an attribute value.
 func Concurrent[P any](c *Ctx, w *Writer, render func(*Ctx, *Writer, P, Slots) error, props P, slots Slots) error {
 	if w.err != nil {
 		return w.err

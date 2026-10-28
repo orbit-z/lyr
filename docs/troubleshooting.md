@@ -697,7 +697,7 @@ import _ "example.com/blog/orbit_gen/app"
 
 **Cause:** a page or island calls `ctx.Cache().Set`, but the site has no cache provider, so nothing is stored. It's logged once per process.
 
-**Fix:** pass a provider in `cmd/server/main.go`, such as `app.New(orbit.WithCache(cache.Memory(cache.MemoryOptions{})))`, or remove the `Set` calls. See [Caching](caching.md).
+**Fix:** pass a provider in `cmd/server/main.go`, such as `app.New(orbit.WithCache(cache.NewMemory(cache.MemoryOptions{})))`, or remove the `Set` calls. See [Caching](caching.md).
 
 ### A cached page shows another visitor's data
 

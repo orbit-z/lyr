@@ -22,8 +22,8 @@ import (
 // (Astro's Fragment). Compare with ==; it isn't meant to be printed.
 const Fragment = "#fragment"
 
-// DynTag is a dynamic tag between TagOpen and TagClose. Generated code
-// only.
+// For generated code. DynTag is a dynamic tag between TagOpen and
+// TagClose.
 type DynTag struct {
 	name string
 	kind dynKind
@@ -37,14 +37,14 @@ const (
 	dynVoid                   // "<name" … with no end tag
 )
 
-// Attrs reports whether the tag's attributes and its ">" are to be written:
+// For generated code. Attrs reports whether the tag's attributes and its ">" are to be written:
 // false for Fragment, and after an error.
 func (t DynTag) Attrs() bool { return t.kind != dynNone }
 
-// TagOpen checks the dynamic tag name and writes "<name". pos is the .orbit
-// position of the tag and expr the variable as written (Tag), for errors;
-// content is set when the template gives the tag children (or set:html,
-// set:text). Generated code only.
+// For generated code. TagOpen checks the dynamic tag name and writes
+// "<name". pos is the .orbit position of the tag and expr the variable as
+// written (Tag), for errors; content is set when the template gives the
+// tag children (or set:html, set:text).
 //
 // A name must be an ASCII letter followed by ASCII letters, digits, -, _,
 // . and :. Fragment writes nothing. The empty string, an invalid name, the
@@ -97,8 +97,8 @@ func (w *Writer) TagOpen(pos, expr, name string, content bool) DynTag {
 	return DynTag{name, k}
 }
 
-// TagClose writes "</name>" for a dynamic tag that TagOpen opened as a
-// non-void element, and nothing otherwise. Generated code only.
+// For generated code. TagClose writes "</name>" for a dynamic tag that
+// TagOpen opened as a non-void element, and nothing otherwise.
 func (w *Writer) TagClose(t DynTag) {
 	if w.err != nil || t.kind != dynElement {
 		return

@@ -15,12 +15,12 @@ import (
 // anywhere else into a string concatenation. These are the runtime helpers
 // of that generated code; none of them is meant to be called by hand.
 
-// URLMark returns the buffer offset where a URL attribute's value starts,
-// for URLCheck. Generated code calls it around a template literal whose
+// For generated code. URLMark returns the buffer offset where a URL
+// attribute's value starts, for URLCheck: around a template literal whose
 // static prefix doesn't settle the URL's scheme at build time.
 func (w *Writer) URLMark() int { return w.buf.Len() }
 
-// URLCheck replaces the bytes written since mark (a URL attribute's value)
+// For generated code. URLCheck replaces the bytes written since mark (a URL attribute's value)
 // with about:invalid#orbit if they start with a javascript: or vbscript:
 // scheme, as AttrURL does for a whole string value.
 func (w *Writer) URLCheck(mark int) {
@@ -33,7 +33,7 @@ func (w *Writer) URLCheck(mark int) {
 	}
 }
 
-// ClassBytes writes the classes in b as Class does: a template literal that
+// For generated code. ClassBytes writes the classes in b as Class does: a template literal that
 // is one class:list item (or a class merged into a class list), built in a
 // stack buffer.
 func (w *Writer) ClassBytes(b []byte) {
@@ -56,7 +56,7 @@ func (w *Writer) ClassBytes(b []byte) {
 	}
 }
 
-// AttrPiece writes a piece of a template literal in an attribute value:
+// For generated code. AttrPiece writes a piece of a template literal in an attribute value:
 // the text Expr would write for v, attribute-escaped (orbit.HTML too, since
 // a template literal is text).
 func (w *Writer) AttrPiece(v any) {
@@ -80,7 +80,7 @@ func (w *Writer) AttrPiece(v any) {
 	}
 }
 
-// TextPiece writes a piece of a template literal in content: the text Expr
+// For generated code. TextPiece writes a piece of a template literal in content: the text Expr
 // would write for v, HTML-escaped. orbit.HTML is escaped too (a template
 // literal is text), and a Renderer's output is escaped.
 func (w *Writer) TextPiece(v any) {
@@ -118,7 +118,7 @@ func (w *Writer) piece(v any, esc func(*bytes.Buffer, []byte)) {
 	putBuffer(scratch)
 }
 
-// TemplateString returns the text of a template literal's parts: each
+// For generated code. TemplateString returns the text of a template literal's parts: each
 // formatted as Expr would write it, unescaped. Codegen emits it for a
 // literal it couldn't type (the fallback); the typed pass replaces it with
 // a concatenation.
@@ -134,7 +134,7 @@ func appendParts(b []byte, parts []any) []byte {
 	return b
 }
 
-// TemplateAs returns the text of a template literal's parts as a value of
+// For generated code. TemplateAs returns the text of a template literal's parts as a value of
 // the type of witness (a component prop's field, read from a zero Props):
 // a string kind gets the text, an interface a string. It is the fallback of
 // a template literal passed whole to a prop; the typed pass replaces it with
@@ -197,62 +197,62 @@ func inertPart(p any, t reflect.Type, static bool) bool {
 	return true
 }
 
-// StringAs converts s to the string type of witness: a template literal
+// For generated code. StringAs converts s to the string type of witness: a template literal
 // passed whole to a prop of a named string type (type Slug string,
 // orbit.URL, …), whose name the generated file may not import.
 func StringAs[T ~string](witness T, s string) T { return T(s) }
 
-// TB builds the text of a template literal whose pieces aren't all
+// For generated code. TB builds the text of a template literal whose pieces aren't all
 // strings, in a buffer that generated code allocates on the stack:
 // orbit__rt.TB(make([]byte, 0, 64)).S("Chapter ").Int(int64(n)).String().
 // Each method appends what the matching Writer method writes, unescaped.
 type TB []byte
 
-// S appends s.
+// For generated code. S appends s.
 func (b TB) S(s string) TB { return append(b, s...) }
 
-// B appends p.
+// For generated code. B appends p.
 func (b TB) B(p []byte) TB { return append(b, p...) }
 
-// Int appends n in decimal.
+// For generated code. Int appends n in decimal.
 func (b TB) Int(n int64) TB { return strconv.AppendInt(b, n, 10) }
 
-// Uint appends n in decimal.
+// For generated code. Uint appends n in decimal.
 func (b TB) Uint(n uint64) TB { return strconv.AppendUint(b, n, 10) }
 
-// Float appends f as Writer.Float writes it.
+// For generated code. Float appends f as Writer.Float writes it.
 func (b TB) Float(f float64) TB { return AppendFloat(b, f) }
 
-// Float32 appends f as Writer.Float32 writes it.
+// For generated code. Float32 appends f as Writer.Float32 writes it.
 func (b TB) Float32(f float32) TB { return AppendFloat32(b, f) }
 
-// Bool appends true or false.
+// For generated code. Bool appends true or false.
 func (b TB) Bool(v bool) TB { return strconv.AppendBool(b, v) }
 
-// Stringer appends s.String() (nothing for a nil s).
+// For generated code. Stringer appends s.String() (nothing for a nil s).
 func (b TB) Stringer(s fmt.Stringer) TB { return AppendStringer(b, s) }
 
-// Error appends e.Error() (nothing for a nil e).
+// For generated code. Error appends e.Error() (nothing for a nil e).
 func (b TB) Error(e error) TB { return AppendError(b, e) }
 
-// Any appends v's text as Expr formats it.
+// For generated code. Any appends v's text as Expr formats it.
 func (b TB) Any(v any) TB { return AppendAny(b, v) }
 
-// String returns the text built (one allocation).
+// For generated code. String returns the text built (one allocation).
 func (b TB) String() string { return string(b) }
 
-// Bytes returns the text built, for ClassBytes.
+// For generated code. Bytes returns the text built, for ClassBytes.
 func (b TB) Bytes() []byte { return b }
 
-// AppendFloat appends f as JavaScript's String(f) does, the bytes of
+// For generated code. AppendFloat appends f as JavaScript's String(f) does, the bytes of
 // Writer.Float.
 func AppendFloat(b []byte, f float64) []byte { return jsfloat.Append(b, f, 64) }
 
-// AppendFloat32 appends f with its shortest float32 digits, the bytes of
+// For generated code. AppendFloat32 appends f with its shortest float32 digits, the bytes of
 // Writer.Float32.
 func AppendFloat32(b []byte, f float32) []byte { return jsfloat.Append(b, float64(f), 32) }
 
-// AppendStringer appends s.String(), the text of Writer.Stringer: nothing
+// For generated code. AppendStringer appends s.String(), the text of Writer.Stringer: nothing
 // for a nil s, <nil> for a nil pointer whose String panics.
 func AppendStringer(b []byte, s fmt.Stringer) []byte {
 	if s == nil {
@@ -261,7 +261,7 @@ func AppendStringer(b []byte, s fmt.Stringer) []byte {
 	return append(b, stringerString(s)...)
 }
 
-// AppendError appends e.Error(), the text of Writer.Error: nothing for a
+// For generated code. AppendError appends e.Error(), the text of Writer.Error: nothing for a
 // nil e.
 func AppendError(b []byte, e error) []byte {
 	if e == nil {
@@ -270,7 +270,7 @@ func AppendError(b []byte, e error) []byte {
 	return append(b, errorString(e)...)
 }
 
-// AppendAny appends v's text as Writer.Expr formats it, unescaped: nothing
+// For generated code. AppendAny appends v's text as Writer.Expr formats it, unescaped: nothing
 // for nil, orbit.HTML as its text, a Renderer's output.
 func AppendAny(b []byte, v any) []byte {
 	switch v := v.(type) {

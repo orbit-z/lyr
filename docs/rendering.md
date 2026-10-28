@@ -422,7 +422,7 @@ import (
 )
 
 // HTML holds up to 10,000 fragments and about 32 MiB.
-var HTML = cache.New(cache.Options[orbit.HTML]{MaxEntries: 10_000, MaxBytes: 32 << 20})
+var HTML = cache.NewStore(cache.StoreOptions[orbit.HTML]{MaxEntries: 10_000, MaxBytes: 32 << 20})
 ```
 
 The component; its `key` must hold everything its children's HTML depends on:

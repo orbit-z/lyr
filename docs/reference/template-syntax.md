@@ -493,6 +493,7 @@ Go has no ternary. Small runtime helpers stand in for Astro's `cond ? v : undefi
 - `orbit.If(cond, v)` is an [optional value](#optional-values-orbitopt), an `orbit.Opt[T]`: set to `v` when `cond` is true, and none otherwise. As an attribute value, none omits the attribute; in content, it writes nothing. `orbit.If(c, nil)` doesn't compile: write nothing instead.
 - `orbit.NonZero(x)` is set to `x` unless `x` is its type's zero value (`""`, `0`, `false`, `nil`): Astro's `x || undefined`. `rel={orbit.NonZero(post.Rel)}` is `orbit.If(post.Rel != "", post.Rel)`, with `post.Rel` written once.
 - `orbit.Cond(cond, a, b)` is `a` or `b`, with their type, so it's written like any value of that type.
+- Which one: `orbit.If` when the false case means **no value** (omit the attribute, write nothing, leave an `Opt` prop unset); `orbit.Cond` when both cases are values.
 - For text, `{if}…{else}…{/if}` works too, and writes static text; `orbit.Cond` is shorter for a word.
 - Astro's `x ?? "fallback"` is the standard library's `cmp.Or(x, "fallback")`: the first argument that isn't the zero value (`""`, `0`, `nil`).
 - **Both arguments are always evaluated**, as for any Go call: `orbit.If(viewer != nil, viewer.Email)` panics when `viewer` is nil, unlike Astro's `viewer ? viewer.email : undefined`. Guard it in the frontmatter (`email := ""` then `if viewer != nil { email = viewer.Email }`), or use `{if viewer != nil}…{/if}`.
@@ -600,8 +601,6 @@ On a `<script>` or `<style>`, `set:html` and `set:text` make the element **inlin
 
 ```orbit
 ---
-import "github.com/orbit-z/orbit"
-
 themeInit := orbit.HTML(`document.documentElement.dataset.theme = localStorage.theme ?? "light";`)
 ---
 <script is:inline set:html={themeInit}></script>

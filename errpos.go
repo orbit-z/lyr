@@ -1,7 +1,7 @@
 package orbit
 
-// ErrorAt is called by generated code around every return of a frontmatter
-// body: return ErrorAt("src/pages/x.orbit:14:5", err). It prefixes a failure
+// For generated code. ErrorAt wraps every return of a frontmatter body:
+// return ErrorAt("src/pages/x.orbit:14:5", err). It prefixes a failure
 // with the .orbit position of its return, so the production 500 log line
 // says where the error came from. ErrNotFound and *RedirectError are control
 // flow and pass through unchanged, as does an error that already carries a

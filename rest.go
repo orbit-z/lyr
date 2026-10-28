@@ -41,8 +41,8 @@ type RestAttrs struct {
 	next *RestAttrs
 }
 
-// RestAttr is one dynamic attribute of a RestAttrs, with the pre-escaped
-// static attributes written before it. Generated code builds it with
+// For generated code. RestAttr is one dynamic attribute of a RestAttrs,
+// with the pre-escaped static attributes written before it, built with
 // RestString, RestInt, … (typed) or RestAny.
 type RestAttr struct {
 	pre, name string
@@ -67,38 +67,38 @@ const (
 	restJSON
 )
 
-// Rest builds the pass-through attributes of a call site: class is the
-// joined class string, tail the pre-escaped static attributes after the
-// last dynamic one (` required data-o-5c7d1e2f`), dyn the dynamic
-// attributes in source order. Generated code calls it.
+// For generated code. Rest builds the pass-through attributes of a call
+// site: class is the joined class string, tail the pre-escaped static
+// attributes after the last dynamic one (` required data-o-5c7d1e2f`), dyn
+// the dynamic attributes in source order.
 func Rest(class, tail string, dyn ...RestAttr) RestAttrs {
 	return RestAttrs{class: class, tail: tail, dyn: dyn}
 }
 
-// RestAny is a dynamic attribute whose type codegen didn't know: written
+// For generated code. RestAny is a dynamic attribute whose type codegen didn't know: written
 // by Attr's rules when spread.
 func RestAny(pre, name string, v any) RestAttr {
 	return RestAttr{pre: pre, name: name, kind: restAny, v: v}
 }
 
-// RestString is a dynamic string attribute, attribute-escaped when spread.
+// For generated code. RestString is a dynamic string attribute, attribute-escaped when spread.
 func RestString(pre, name, s string) RestAttr {
 	return RestAttr{pre: pre, name: name, kind: restString, s: s}
 }
 
-// RestStringURL is a dynamic string in a URL attribute (href, src, …):
+// For generated code. RestStringURL is a dynamic string in a URL attribute (href, src, …):
 // attribute-escaped, with a javascript: or vbscript: URL replaced with
 // about:invalid#orbit.
 func RestStringURL(pre, name, s string) RestAttr {
 	return RestAttr{pre: pre, name: name, kind: restStringURL, s: s}
 }
 
-// RestURL is a dynamic trusted URL attribute: escaped, not filtered.
+// For generated code. RestURL is a dynamic trusted URL attribute: escaped, not filtered.
 func RestURL(pre, name string, u URL) RestAttr {
 	return RestAttr{pre: pre, name: name, kind: restURL, s: string(u)}
 }
 
-// RestBool is a dynamic boolean attribute: bare when true, omitted when
+// For generated code. RestBool is a dynamic boolean attribute: bare when true, omitted when
 // false, or name="true"/name="false" on an attribute whose values are those
 // keywords (aria-*, draggable, …), as Attr writes it.
 func RestBool(pre, name string, b bool) RestAttr {
@@ -112,40 +112,40 @@ func RestBool(pre, name string, b bool) RestAttr {
 	return a
 }
 
-// RestInt is a dynamic integer attribute.
+// For generated code. RestInt is a dynamic integer attribute.
 func RestInt(pre, name string, n int64) RestAttr {
 	return RestAttr{pre: pre, name: name, kind: restInt, n: uint64(n)}
 }
 
-// RestUint is a dynamic unsigned integer attribute.
+// For generated code. RestUint is a dynamic unsigned integer attribute.
 func RestUint(pre, name string, n uint64) RestAttr {
 	return RestAttr{pre: pre, name: name, kind: restUint, n: n}
 }
 
-// RestFloat is a dynamic float64 attribute, written as Float writes it.
+// For generated code. RestFloat is a dynamic float64 attribute, written as Float writes it.
 func RestFloat(pre, name string, f float64) RestAttr {
 	return RestAttr{pre: pre, name: name, kind: restFloat, n: math.Float64bits(f)}
 }
 
-// RestFloat32 is a dynamic float32 attribute, written as Float32 writes it.
+// For generated code. RestFloat32 is a dynamic float32 attribute, written as Float32 writes it.
 func RestFloat32(pre, name string, f float32) RestAttr {
 	return RestAttr{pre: pre, name: name, kind: restFloat32, n: uint64(math.Float32bits(f))}
 }
 
-// RestJSON is a dynamic JSONValue attribute, written single-quoted as
+// For generated code. RestJSON is a dynamic JSONValue attribute, written single-quoted as
 // JSONAttr writes it; pos is the .orbit position of the value, for an
 // encoding error.
 func RestJSON(pre, name, pos string, v JSONValue) RestAttr {
 	return RestAttr{pre: pre, name: name, kind: restJSON, s: pos, v: v.v}
 }
 
-// RestOpt is a dynamic attribute whose value is an Opt: omitted when none,
-// else written as its value is (the common types stored unboxed, as the
-// typed constructors store them). Generated code calls it for an Opt-typed
-// pass-through attribute, orbit.If included; RestOptURL in a URL attribute.
+// For generated code. RestOpt is a dynamic attribute whose value is an
+// Opt (an Opt-typed pass-through attribute, orbit.If included; RestOptURL
+// in a URL attribute): omitted when none, else written as its value is
+// (the common types stored unboxed, as the typed constructors store them).
 func RestOpt[T any](pre, name string, o Opt[T]) RestAttr { return restOpt(pre, name, o, false) }
 
-// RestOptURL is RestOpt in a URL attribute (href, src, …): a string value
+// For generated code. RestOptURL is RestOpt in a URL attribute (href, src, …): a string value
 // is filtered as RestStringURL filters it.
 func RestOptURL[T any](pre, name string, o Opt[T]) RestAttr { return restOpt(pre, name, o, true) }
 
@@ -214,10 +214,9 @@ func RestOf[T Attrs | AttrList](a T) RestAttrs {
 	return RestAttrs{}
 }
 
-// RestFrom converts the operand of a spread on a component tag
-// (<Input {...x} />, alone on the tag) to the component's RestAttrs: an
-// Attrs or an AttrList as RestOf does, a RestAttrs as is. Generated code
-// calls it.
+// For generated code. RestFrom converts the operand of a spread on a
+// component tag (<Input {...x} />, alone on the tag) to the component's
+// RestAttrs: an Attrs or an AttrList as RestOf does, a RestAttrs as is.
 func RestFrom[T Attrs | AttrList | RestAttrs](x T) RestAttrs {
 	// A pointer in the interface, so that the value isn't boxed.
 	switch p := any(&x).(type) {
@@ -231,12 +230,12 @@ func RestFrom[T Attrs | AttrList | RestAttrs](x T) RestAttrs {
 	return RestAttrs{}
 }
 
-// RestMerge merges the operand x of a spread on a component tag into own,
-// the attributes written on the tag, which win for the same name. Merging
-// an Attrs or an AttrList into attributes that have no merged part costs
-// nothing; a RestAttrs costs one allocation, except when own holds only
-// static attributes that x doesn't have (a forwarding caller's scope
-// attribute). Generated code calls it.
+// For generated code. RestMerge merges the operand x of a spread on a
+// component tag into own, the attributes written on the tag, which win for
+// the same name. Merging an Attrs or an AttrList into attributes that have
+// no merged part costs nothing; a RestAttrs costs one allocation, except
+// when own holds only static attributes that x doesn't have (a forwarding
+// caller's scope attribute).
 func RestMerge[T Attrs | AttrList | RestAttrs](own RestAttrs, x T) RestAttrs {
 	switch p := any(&x).(type) {
 	case *Attrs:
@@ -570,7 +569,7 @@ func (w *Writer) SpreadRest(a *RestAttrs, withClass bool) {
 	}
 }
 
-// RestClass writes the class of a inside an element's class value, as
+// For generated code. RestClass writes the class of a inside an element's class value, as
 // Class does: each class preceded by a space, nothing when it's empty.
 func (w *Writer) RestClass(a *RestAttrs) {
 	if a.class != "" || a.m == nil && a.l == nil && a.next == nil {

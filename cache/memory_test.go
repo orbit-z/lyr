@@ -113,7 +113,7 @@ func TestMemoryPathTagIsOwn(t *testing.T) {
 func TestMemoryOnInvalidate(t *testing.T) {
 	var got []orbit.InvalidateOptions
 	fail := errors.New("bus down")
-	m := Memory(MemoryOptions{OnInvalidate: func(ctx context.Context, o orbit.InvalidateOptions) error {
+	m := NewMemory(MemoryOptions{OnInvalidate: func(ctx context.Context, o orbit.InvalidateOptions) error {
 		got = append(got, o)
 		return fail
 	}})
@@ -139,14 +139,14 @@ func TestMemoryOnInvalidate(t *testing.T) {
 	}
 
 	// Without a hook, Invalidate returns nil.
-	if err := Memory(MemoryOptions{}).Invalidate(context.Background(), orbit.InvalidateOptions{Path: "/"}); err != nil {
+	if err := NewMemory(MemoryOptions{}).Invalidate(context.Background(), orbit.InvalidateOptions{Path: "/"}); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestMemoryQuery(t *testing.T) {
 	q := orbit.CacheQuery{Include: []string{"page"}}
-	if got := Memory(MemoryOptions{Query: q}).CacheQuery(); !slices.Equal(got.Include, q.Include) {
+	if got := NewMemory(MemoryOptions{Query: q}).CacheQuery(); !slices.Equal(got.Include, q.Include) {
 		t.Errorf("CacheQuery = %+v", got)
 	}
 	defer func() {
@@ -154,7 +154,7 @@ func TestMemoryQuery(t *testing.T) {
 			t.Error("Include and Exclude together didn't panic")
 		}
 	}()
-	Memory(MemoryOptions{Query: orbit.CacheQuery{Include: []string{"a"}, Exclude: []string{"b"}}})
+	NewMemory(MemoryOptions{Query: orbit.CacheQuery{Include: []string{"a"}, Exclude: []string{"b"}}})
 }
 
 func TestMemoryBytes(t *testing.T) {

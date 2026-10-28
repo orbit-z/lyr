@@ -19,14 +19,14 @@ func isClassSpace(c byte) bool {
 	return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r'
 }
 
-// ClassStart begins a class attribute written by class:list when codegen
-// can't tell whether it will hold a class: the first class written opens it
-// with ` class="`, and ClassEnd closes it, or writes nothing when no class
-// was written, so an empty list writes no attribute. Generated code calls
-// it.
+// For generated code. ClassStart begins a class attribute written by
+// class:list when codegen can't tell whether it will hold a class: the
+// first class written opens it with ` class="`, and ClassEnd closes it, or
+// writes nothing when no class was written, so an empty list writes no
+// attribute.
 func (w *Writer) ClassStart() { w.clsPending = true }
 
-// ClassEnd ends a class attribute begun by ClassStart: the closing quote,
+// For generated code. ClassEnd ends a class attribute begun by ClassStart: the closing quote,
 // or nothing when no class was written.
 func (w *Writer) ClassEnd() {
 	if w.clsPending {
@@ -36,7 +36,7 @@ func (w *Writer) ClassEnd() {
 	w.Raw(`"`)
 }
 
-// Class writes the classes in s, HTML-escaped, each preceded by a space
+// For generated code. Class writes the classes in s, HTML-escaped, each preceded by a space
 // (or by ` class="` for the first class after ClassStart). Whitespace
 // around and between them is normalized; an empty or blank s writes
 // nothing.
@@ -76,14 +76,14 @@ func (w *Writer) classSep() {
 	w.buf.WriteByte(' ')
 }
 
-// Classes writes the classes of each string in ss, as Class does.
+// For generated code. Classes writes the classes of each string in ss, as Class does.
 func (w *Writer) Classes(ss []string) {
 	for _, s := range ss {
 		w.Class(s)
 	}
 }
 
-// ClassAny writes a class:list item whose type codegen didn't know: a
+// For generated code. ClassAny writes a class:list item whose type codegen didn't know: a
 // string kind as Class, a slice of a string kind as Classes. Any other
 // type is a render error (orbit build reports it at the item first).
 func (w *Writer) ClassAny(v any) {
@@ -129,7 +129,7 @@ func classTypeError(v any) error {
 	return fmt.Errorf("orbit: class:list item must be a string or []string, not %T", v)
 }
 
-// JoinClasses joins the classes of parts with single spaces, dropping
+// For generated code. JoinClasses joins the classes of parts with single spaces, dropping
 // empty parts and normalizing whitespace: the class prop a component gets
 // from class:list. When only one part has classes and it's already
 // normalized, it is returned as is, without allocating.
@@ -203,7 +203,7 @@ func classNormalized(s string) bool {
 	return true
 }
 
-// ClassIf returns s if cond is true, and "" otherwise: a keyed class:list
+// For generated code. ClassIf returns s if cond is true, and "" otherwise: a keyed class:list
 // item ("active": cond) in a component's class prop.
 func ClassIf(cond bool, s string) string {
 	if cond {
@@ -212,7 +212,7 @@ func ClassIf(cond bool, s string) string {
 	return ""
 }
 
-// ClassString converts a class:list item whose type codegen didn't know to
+// For generated code. ClassString converts a class:list item whose type codegen didn't know to
 // a string for JoinClasses: a string kind as is, a slice of a string kind
 // joined with spaces. It panics for any other type (orbit build reports it
 // at the item first).

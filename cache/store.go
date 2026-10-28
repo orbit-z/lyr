@@ -13,8 +13,8 @@ import (
 	"github.com/orbit-z/orbit"
 )
 
-// Options configure New.
-type Options[V any] struct {
+// StoreOptions configure NewStore.
+type StoreOptions[V any] struct {
 	// MaxEntries bounds the number of values held. 0 means
 	// DefaultMaxEntries.
 	MaxEntries int
@@ -32,7 +32,7 @@ type Options[V any] struct {
 
 // Store is an in-process cache of values of type V, with a time to live
 // and tags per value, bounded by entry count and optionally bytes: a data
-// or fragment cache. Make one with New. It's safe for concurrent use.
+// or fragment cache. Make one with NewStore. It's safe for concurrent use.
 //
 // Values are stored as given and every hit returns the same value: don't
 // change a value once it's stored (or one you got from the store), such as
@@ -62,12 +62,12 @@ type flight[V any] struct {
 // waited on a load which panicked.
 var ErrLoadPanicked = errors.New("cache: load panicked")
 
-// New returns an empty Store. It panics if a bound is negative.
-func New[V any](o Options[V]) *Store[V] {
+// NewStore returns an empty Store. It panics if a bound is negative.
+func NewStore[V any](o StoreOptions[V]) *Store[V] {
 	return newStore(o, 0)
 }
 
-func newStore[V any](o Options[V], shards int) *Store[V] {
+func newStore[V any](o StoreOptions[V], shards int) *Store[V] {
 	size := o.Size
 	if size == nil {
 		size = defaultSize[V]
@@ -225,6 +225,6 @@ func (s *Store[V]) Clear() {
 // included.
 func (s *Store[V]) Len() int { return s.g.len() }
 
-// Bytes returns the bytes held, as measured by Options.Size plus each
+// Bytes returns the bytes held, as measured by StoreOptions.Size plus each
 // key's length.
 func (s *Store[V]) Bytes() int64 { return s.g.bytes() }

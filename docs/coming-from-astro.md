@@ -229,7 +229,7 @@ See [Using Tailwind](tailwind.md).
 | `Astro.cache.invalidate({ tags, path })` | `ctx.Cache().Invalidate(rc, orbit.InvalidateOptions{Tags: …, Path: …})`, or `site.InvalidateCache` in your handlers | A path purge drops every query variant of the path. |
 | `context.cache` in middleware | An `orbit.Cache` field in `Locals`: `l.Cache.Disable()` | See [Keeping requests out of the cache](middleware.md#keeping-requests-out-of-the-cache). |
 | `routeRules` in `astro.config` | `routeRules` in `orbit.json` | Still whole seconds; patterns use Orbit's route syntax. See [`routeRules`](configuration.md#routerules). |
-| `cache: { provider: memoryCache() }` | `app.New(orbit.WithCache(cache.Memory(cache.MemoryOptions{…})))` in `cmd/server/main.go` | `github.com/orbit-z/orbit/cache`; CDN providers implement `orbit.CacheHeaderWriter`. |
+| `cache: { provider: memoryCache() }` | `app.New(orbit.WithCache(cache.NewMemory(cache.MemoryOptions{…})))` in `cmd/server/main.go` | `github.com/orbit-z/orbit/cache`; CDN providers implement `orbit.CacheHeaderWriter`. |
 | `X-Astro-Cache: HIT` / `MISS` / `STALE` | `X-Orbit-Cache: HIT` / `MISS` / `STALE` | |
 | Caching is off in `astro dev` | Off in `orbit dev` | Test it with `orbittest.Get` on a site built with `WithCache`. |
 

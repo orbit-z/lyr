@@ -10,6 +10,8 @@ Inside `.orbit` files you don't need this import: `orbit` is always available, a
 
 Many of the names below are used by the code Orbit generates and rarely appear in your own code. Each section says which ones you're likely to use.
 
+The names only generated code calls (the [generated-code hooks](#generated-code-hooks), [generated wiring](#generated-wiring), [deferred islands](#deferred-islands) and [concurrent rendering](#concurrent-rendering) helpers, among others) have a Go doc comment that starts with "For generated code.". They may change between versions, and the language server doesn't offer them in completion; hover and go to definition still work on them. The package's Go doc lists them under "Generated code".
+
 ## Request context: `Ctx`
 
 Every page and component gets the request context as `ctx`.
@@ -284,8 +286,8 @@ type RouteInfo struct {
 	// unexported: the param names and values
 }
 
-func (ri *RouteInfo) Param(name string) string               // like Ctx.Param: "" when absent
-func (ri *RouteInfo) Params() iter.Seq2[string, string]      // name, value, in the route's order
+func (ri RouteInfo) Param(name string) string                // like Ctx.Param: "" when absent
+func (ri RouteInfo) Params() iter.Seq2[string, string]       // name, value, in the route's order
 ```
 The route that answered a request, for logging and metrics. Declare a field of this type in your `Locals`, with any exported name: `Route orbit.RouteInfo`. The type is the marker. Orbit fills it as soon as the request is matched, before rendering, so a redirect, an error or a panic still leaves it set. Middleware reads it after `next.ServeHTTP` returns; pages and components read `locals.Route`. See [Logging the matched route](../middleware.md#logging-the-matched-route) for what each kind of request records.
 
@@ -696,7 +698,7 @@ All instances of one build share its embedded key. For rolling deploys, or sever
 ```go
 func WithCache(p CacheProvider) Option
 ```
-Sets the site's [route cache](#route-caching) provider: a store such as `cache.Memory` from [`orbit/cache`](#orbitcache), a CDN header writer, or a plain provider for Astro's default headers. Pass it to `app.New()` in `cmd/server/main.go`. With several `WithCache` options, the last one wins. Under `orbit dev`, caching is off whatever the provider. See [Caching](../caching.md).
+Sets the site's [route cache](#route-caching) provider: a store such as `cache.MemoryProvider` (`cache.NewMemory`) from [`orbit/cache`](#orbitcache), a CDN header writer, or a plain provider for Astro's default headers. Pass it to `app.New()` in `cmd/server/main.go`. With several `WithCache` options, the last one wins. Under `orbit dev`, caching is off whatever the provider. See [Caching](../caching.md).
 
 #### WithErrorHandler
 
@@ -867,7 +869,7 @@ type CacheQuery struct {
 	NoSort  bool     // keep the parameters in request order
 }
 ```
-Which query parameters are part of a key, Astro's `memoryCache` `query` option. Patterns are `path.Match` patterns, matched case-insensitively against parameter names. Without `Include` or `Exclude`, Astro's tracking parameters (`utm_*`, `fbclid`, `gclid`, `ref` and others) are dropped. Giving both, or a bad pattern, panics in `NewSite`; `cache.Memory` already panics on both when it's created. Parameters are sorted by name unless `NoSort` is set.
+Which query parameters are part of a key, Astro's `memoryCache` `query` option. Patterns are `path.Match` patterns, matched case-insensitively against parameter names. Without `Include` or `Exclude`, Astro's tracking parameters (`utm_*`, `fbclid`, `gclid`, `ref` and others) are dropped. Giving both, or a bad pattern, panics in `NewSite`; `cache.NewMemory` already panics on both when it's created. Parameters are sorted by name unless `NoSort` is set.
 
 ## Deferred islands
 
@@ -953,7 +955,7 @@ It returns `nil` after a graceful shutdown, and otherwise the error that stopped
 
 ## orbit/cache
 
-The `github.com/orbit-z/orbit/cache` package holds in-process caches: `Memory`, a route cache provider for `WithCache`, and `Store`, a general cache for data and rendered fragments. It depends only on the standard library and the `orbit` package, and generated code never imports it. See [Caching](../caching.md).
+The `github.com/orbit-z/orbit/cache` package holds in-process caches: `MemoryProvider` (made with `NewMemory`), a route cache provider for `WithCache`, and `Store` (made with `NewStore`), a general cache for data and rendered fragments. It depends only on the standard library and the `orbit` package, and generated code never imports it. See [Caching](../caching.md).
 
 ```go
 import "github.com/orbit-z/orbit/cache"
@@ -976,7 +978,7 @@ type MemoryOptions struct {
 	OnInvalidate func(ctx context.Context, o orbit.InvalidateOptions) error
 }
 
-func Memory(o MemoryOptions) *MemoryProvider
+func NewMemory(o MemoryOptions) *MemoryProvider
 ```
 Returns an in-process route cache, an `orbit.CacheStore`, safe for concurrent use. Responses are kept until `Stored + MaxAge + SWR` (Orbit decides whether one is fresh or stale) and evicted roughly least recently used first when a bound is reached. `Vary` markers and variants count as one entry each. A response bigger than `MaxBytes` divided by the number of shards isn't stored. It panics if `o.Query` sets both `Include` and `Exclude`, or if a bound is negative.
 
@@ -1000,14 +1002,14 @@ func (m *MemoryProvider) Bytes() int64
 ### Store
 
 ```go
-type Options[V any] struct {
+type StoreOptions[V any] struct {
 	MaxEntries int                // 0 means DefaultMaxEntries
 	MaxBytes   int64              // when positive: Size of each value plus its key's length
 	Size       func(V) int64      // nil: the length of a string, []byte or orbit.HTML, else 0
 	Now        func() time.Time   // the clock; nil means time.Now
 }
 
-func New[V any](o Options[V]) *Store[V]
+func NewStore[V any](o StoreOptions[V]) *Store[V]
 ```
 Returns an empty in-process cache of values of type `V`, with a time to live and tags per value, safe for concurrent use. It panics if a bound is negative. A value bigger than `MaxBytes` divided by the number of shards isn't stored. Values are stored as given and every hit returns the same value: don't change a value once it's stored, or one you got from the store.
 

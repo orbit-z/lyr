@@ -176,6 +176,42 @@ func TestCompletion(t *testing.T) {
 		}
 	})
 
+	// The runtime's generated-code-only names (doc "For generated code.")
+	// aren't offered, after orbit., after an aliased import of the runtime,
+	// or on a *Writer; the user API is.
+	t.Run("generated-code-only runtime names", func(t *testing.T) {
+		card := c.open("src/components/Card.orbit")
+		aliased := strings.Replace(card, "type Props", "import rt \"github.com/orbit-z/orbit\"\n\nvar _ rt.HTML\n\ntype Props", 1)
+		for _, tc := range []struct {
+			src, marker  string
+			want, hidden []string
+		}{
+			{strings.Replace(card, "{props.Post}", "{orbit.}", 1), "{orbit.",
+				[]string{"If", "HTML", "Cond", "RestOf", "NewSite"},
+				[]string{"RestString", "ErrorAt", "Wrap", "SetHTML", "TB", "Route", "LocalsOf", "WithLocalsRoute"}},
+			{strings.Replace(aliased, "{props.Post}", "{rt.}", 1), "{rt.",
+				[]string{"If", "HTML"},
+				[]string{"RestString", "ErrorAt"}},
+			{strings.Replace(card, "{props.Post}", "{orbit.NewWriter(nil).}", 1), "{orbit.NewWriter(nil).",
+				[]string{"String", "Raw", "AttrValue", "URL"},
+				[]string{"Enter", "Leave", "HeadEnd", "Class", "ClassStart", "TagOpen", "URLMark"}},
+		} {
+			c.change("src/components/Card.orbit", tc.src)
+			items := c.complete("src/components/Card.orbit", at(t, tc.src, tc.marker, 0, len(tc.marker)))
+			for _, w := range tc.want {
+				if item(items, w) == nil {
+					t.Errorf("%s: completion %v, want %s", tc.marker, labels(items), w)
+				}
+			}
+			for _, h := range tc.hidden {
+				if item(items, h) != nil {
+					t.Errorf("%s: generated-code-only %s offered", tc.marker, h)
+				}
+			}
+		}
+		c.change("src/components/Card.orbit", card)
+	})
+
 	// {c} is both the start of a control block and of an expression: the
 	// keywords come first, then gopls's items.
 	t.Run("block keywords and gopls", func(t *testing.T) {

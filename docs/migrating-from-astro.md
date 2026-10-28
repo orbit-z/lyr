@@ -429,7 +429,7 @@ There's one middleware model, and Orbit ships no auth: sessions, cookies and sec
 
 If your Astro site uses `Astro.cache` or `routeRules`, the port is mostly mechanical:
 
-- **The provider**: Astro's `cache: { provider: memoryCache({ max: 5000 }) }` becomes `app.New(orbit.WithCache(cache.Memory(cache.MemoryOptions{MaxEntries: 5000})))` in `cmd/server/main.go`, with `github.com/orbit-z/orbit/cache`.
+- **The provider**: Astro's `cache: { provider: memoryCache({ max: 5000 }) }` becomes `app.New(orbit.WithCache(cache.NewMemory(cache.MemoryOptions{MaxEntries: 5000})))` in `cmd/server/main.go`, with `github.com/orbit-z/orbit/cache`.
 - **`routeRules`** move from `astro.config` to `orbit.json` under the same name, still in whole seconds. Patterns use Orbit's route syntax: `/blog/[...path]` covers `/blog` and everything under it. See [`routeRules`](configuration.md#routerules).
 - **`Astro.cache.set({ maxAge: 3600, tags: ["post:" + id] })`** becomes `ctx.Cache().Set(orbit.CacheOptions{MaxAge: time.Hour, Tags: []string{"post:" + id}})`: durations are `time.Duration` (`3600` seconds is `time.Hour`), not numbers. `Astro.cache.set(false)` becomes `ctx.Cache().Disable()`, and `invalidate` becomes `ctx.Cache().Invalidate` or `site.InvalidateCache` in your handlers.
 - **`context.cache` in middleware** becomes a field of type `orbit.Cache` in your `Locals`:

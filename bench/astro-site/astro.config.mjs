@@ -9,7 +9,7 @@ export default defineConfig({
   adapter: node({ mode: 'standalone' }),
   // Orbit links its page stylesheet; do the same here rather than inline it.
   build: { inlineStylesheets: 'never' },
-  // In-memory route cache, like bench/orbit-site's cache.Memory: only pages
+  // In-memory route cache, like bench/orbit-site's cache.NewMemory: only pages
   // that call Astro.cache.set (/fetch-cached) are stored.
   cache: { provider: memoryCache() },
 });

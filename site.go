@@ -68,8 +68,9 @@ type siteOptions struct {
 	cacheField *localsCache  // WithLocalsCache
 }
 
-// NewSite is called by the generated orbit_gen/app.New(). It compiles the
-// routes and panics if they're invalid; orbit build reports the same errors
+// NewSite builds a site from its routes and islands. The generated
+// orbit_gen/app.New() calls it; tests and hand-built sites can call it
+// too. It compiles the routes and panics if they're invalid; orbit build reports the same errors
 // at build time. It reads the environment once: ORBIT_DEV, ORBIT_STATIC,
 // ORBIT_KEY and, in dev, ORBIT_PUBLIC. In dev, page assets come from
 // $ORBIT_STATIC/manifest.json when it exists (orbit dev writes it).

@@ -261,6 +261,26 @@ func TestSiteMatchAllocs(t *testing.T) {
 	if got := testing.AllocsPerRun(1000, func() { l.Route = s.Match(r) }); got != 0 {
 		t.Errorf("l.Route = Match(r): %v allocs, want 0", got)
 	}
+	// Reading the params, from a variable or straight off Match: nothing.
+	var sink string
+	if got := testing.AllocsPerRun(1000, func() { sink = s.Match(r).Param("slug") }); got != 0 {
+		t.Errorf("Match(r).Param: %v allocs, want 0", got)
+	}
+	if got := testing.AllocsPerRun(1000, func() {
+		for _, v := range l.Route.Params() {
+			sink = v
+		}
+	}); got != 0 {
+		t.Errorf("l.Route.Params(): %v allocs, want 0", got)
+	}
+	if got := testing.AllocsPerRun(1000, func() {
+		for _, v := range s.Match(r).Params() {
+			sink = v
+		}
+	}); got != 0 {
+		t.Errorf("Match(r).Params(): %v allocs, want 0", got)
+	}
+	_ = sink
 }
 
 func BenchmarkSiteMatch(b *testing.B) {

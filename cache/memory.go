@@ -8,7 +8,7 @@ import (
 	"github.com/orbit-z/orbit"
 )
 
-// MemoryOptions configure Memory.
+// MemoryOptions configure NewMemory.
 type MemoryOptions struct {
 	// MaxEntries bounds the number of stored responses (Vary markers and
 	// variants count as one each). 0 means DefaultMaxEntries.
@@ -18,7 +18,7 @@ type MemoryOptions struct {
 	// MaxBytes divided by the number of shards is not stored.
 	MaxBytes int64
 	// Query says which query parameters are part of a key; Orbit reads it
-	// once, in NewSite. Giving both Include and Exclude panics in Memory.
+	// once, in NewSite. Giving both Include and Exclude panics in NewMemory.
 	Query orbit.CacheQuery
 	// Now is the clock for expiry; nil means time.Now. Tests set it.
 	Now func() time.Time
@@ -29,7 +29,7 @@ type MemoryOptions struct {
 }
 
 // MemoryProvider is an in-process route cache, an orbit.CacheStore. Make
-// one with Memory and pass it to orbit.WithCache. It's safe for concurrent
+// one with NewMemory and pass it to orbit.WithCache. It's safe for concurrent
 // use.
 type MemoryProvider struct {
 	g            *engine[*orbit.CachedResponse]
@@ -47,12 +47,12 @@ const entryOverhead = 256
 // any tag a page sets.
 const pathTag = "\x00path:"
 
-// Memory returns an in-process route cache. Responses are kept until
+// NewMemory returns an in-process route cache. Responses are kept until
 // Stored + MaxAge + SWR (Orbit decides whether one is fresh or stale), and
 // evicted least recently used first, approximately (CLOCK, per shard),
 // when a bound is reached. It panics if o.Query sets both Include and
 // Exclude, or if a bound is negative.
-func Memory(o MemoryOptions) *MemoryProvider {
+func NewMemory(o MemoryOptions) *MemoryProvider {
 	if len(o.Query.Include) > 0 && len(o.Query.Exclude) > 0 {
 		panic("cache: MemoryOptions.Query sets both Include and Exclude; use one or the other")
 	}

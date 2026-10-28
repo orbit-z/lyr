@@ -15,8 +15,8 @@ import (
 // Deferred islands: server:defer placeholders and their endpoint (PLAN.md
 // §3.4, §5b "Deferred island requests").
 
-// Island is one entry of the server:defer island table, created by
-// NewIsland in the generated orbit_gen/app.
+// For generated code. Island is one entry of the server:defer island
+// table, created by NewIsland in the generated orbit_gen/app.
 type Island struct {
 	id     string
 	file   string
@@ -24,8 +24,8 @@ type Island struct {
 	cache  *cacheState                                 // set by NewSite
 }
 
-// NewIsland is one entry of the island table that the generated
-// orbit_gen/app passes to NewSite: a component used with server:defer
+// For generated code. NewIsland is one entry of the island table that
+// the generated orbit_gen/app passes to NewSite: a component used with server:defer
 // somewhere in the project. id is its component ID, file its .orbit path.
 // On an island request, the opened props are decoded into a P with
 // encoding/json (unknown fields are ignored, missing ones stay zero) and
@@ -50,8 +50,8 @@ func (e *islandPropsError) Error() string { return "orbit: island props: " + e.e
 // /_orbit/island/<buildID>/<id>.
 const islandPrefix = "/_orbit/island/"
 
-// Defer is generated at each server:defer call site: it encodes props as
-// JSON, seals them with the site's island key and writes the placeholder
+// For generated code. Defer is emitted at each server:defer call site: it
+// encodes props as JSON, seals them with the site's island key and writes the placeholder
 //
 //	<orbit-island src="/_orbit/island/<buildID>/<id>" props="<token>">fallback</orbit-island>
 //

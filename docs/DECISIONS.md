@@ -1094,7 +1094,7 @@ Route caching (`PLAN.md` §4h). The lookup inside `site.Middleware` after the us
 | Decision | Rule | Alternative | Where documented |
 |---|---|---|---|
 | The key is the host, the escaped path and the normalized query, without the scheme (behind a proxy, Go doesn't see it) | simplest | Astro's `origin` (scheme included), from `X-Forwarded-Proto` | [Caching](caching.md#the-key) |
-| `cache.Memory` panics when `Query` sets both `Include` and `Exclude` | Go stdlib (a constructor panics on a contradictory configuration, as `WithSite` does) | Return an error; let `Include` win | [Caching](caching.md#the-memory-provider-cachememory) |
+| `cache.NewMemory` panics when `Query` sets both `Include` and `Exclude` | Go stdlib (a constructor panics on a contradictory configuration, as `WithSite` does) | Return an error; let `Include` win | [Caching](caching.md#the-memory-provider-cachenewmemory) |
 | The `Set-Cookie` and `Vary: Cookie`/`*` refusals are logged once per route and reason, not on every request | simplest (Astro logs every request, which floods logs) | Astro's every-request warning | [Caching](caching.md#whats-stored) |
 | The `404.orbit` page answered for `orbit.ErrNotFound`, and unmatched URLs, are never stored | simplest (unmatched URLs are an unbounded key space) | Store a page's 404 like any status | [Caching](caching.md#whats-stored) |
 | `InvalidateOptions.Path` drops every query variant and host of the path | Astro (its CDN providers' `astro-path:` tag), so every provider behaves the same | Astro's memory provider: the exact path and normalized query | [Caching](caching.md#invalidation) |
@@ -1164,3 +1164,17 @@ Spreading props into a component (`PLAN.md` §2.11). Struct spreads with fields 
 | A tag with a spread in error keeps the first pass's form (the build fails on the error anyway) | simplest | Emit the props of the valid spreads | — |
 | In the editor, the spread errors travel with the `style`/`on*` warnings: tied to the text of the spread or attribute, refreshed by the typed check while typing for files with a spread on a component tag | simplest (the existing channel: same debounce, same "a moment after you stop typing" behavior) | A separate channel | [Components](components.md#spreading-props) |
 | A field assignment a spread generates (`orbit__p.F = orbit__s1.F`) maps back to the whole `{...x}` (so a Go error there lands on the spread) and is skipped when mapping a cursor (the operand's own code serves hover and completion); a rename drops edits there | the echo lines' rule (PLAN.md §3.3) | Map it to nothing | — |
+
+## API review (2026-10-28)
+
+From a review of the docs for API inconsistencies. The user decided the public names: `RouteInfo`'s `Param`/`Params` take a value, so `site.Match(r).Param("slug")` compiles; the cache constructors are `cache.NewMemory` and `cache.NewStore` (`StoreOptions[V]`), with tag parameters unchanged; `orbit.WithLocals`/`LocalsFromRequest`/`LocalsOf`/`orbittest.WithLocals` and `site.TrailingSlash` keep their names.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| `.orbit` examples use the implicit `orbit` package, with no `import "github.com/orbit-z/orbit"` (`.go` files keep it, they need it) | simplest (the docs say the import is implicit) | Import it explicitly in every example | [Components](components.md#whats-available-in-the-render-body) |
+| The docs say when to use `orbit.If` (the false case is no value) and when `orbit.Cond` (both cases are values) | simplest | No guidance | [Template syntax](reference/template-syntax.md#conditional-values-orbitif-and-orbitcond) |
+| Completion hides a runtime name when its label is in the LSP's list **and** gopls's documentation for the item starts with "For generated code."; an item without documentation (gopls's `completionDocumentation` off) is kept | simplest (a map lookup per item; the doc check tells the runtime's `String`/`Class`/`Route` from a user's name of the same spelling, with no type information) | Hide by label alone (would hide user fields and methods named `String`, `Route`, …), or find the selector's package/type before the cursor | [Editor setup](editor-setup.md#what-completion-covers) |
+| The LSP's list of generated-code-only names is kept equal to the runtime's "For generated code." doc comments by a test (`TestGenOnlyNamesMatchRuntime`), not generated | simplest (no codegen step; the test fails on drift) | Generate the list with `go generate` | `internal/lsp/genonly.go` |
+| `TB`'s methods are marked "For generated code." too, like the type | simplest (a `TB` only exists in generated code) | Mark the type only | Package `orbit` Go doc |
+| `NewSite` isn't marked: its comment says the generated `app.New()` calls it and that tests and hand-built sites can too | Go stdlib (documented API stays visible) | Mark it | Package `orbit` Go doc |
+| Hover, go to definition and signature help are unchanged for generated-code-only names | simplest | Hide them there too | [Runtime API](reference/runtime-api.md) |

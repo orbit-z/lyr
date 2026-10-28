@@ -29,7 +29,7 @@ func waitFlight(t *testing.T, s *Store[string], key string) {
 }
 
 func TestLoadSingleFlight(t *testing.T) {
-	s := New(Options[string]{})
+	s := NewStore(StoreOptions[string]{})
 	gate := make(chan struct{})
 	var loads atomic.Int32
 	load := func(context.Context) (string, error) {
@@ -80,7 +80,7 @@ func TestLoadSingleFlight(t *testing.T) {
 }
 
 func TestLoadCancellationPerCaller(t *testing.T) {
-	s := New(Options[string]{})
+	s := NewStore(StoreOptions[string]{})
 	gate := make(chan struct{})
 	leaderCtx, cancelLeader := context.WithCancel(context.Background())
 	var loadCtxErr error
@@ -128,7 +128,7 @@ func TestLoadCancellationPerCaller(t *testing.T) {
 }
 
 func TestLoadErrorShared(t *testing.T) {
-	s := New(Options[string]{})
+	s := NewStore(StoreOptions[string]{})
 	gate := make(chan struct{})
 	boom := errors.New("boom")
 	var loads atomic.Int32
@@ -174,7 +174,7 @@ func TestLoadErrorShared(t *testing.T) {
 }
 
 func TestLoadPanicShared(t *testing.T) {
-	s := New(Options[string]{})
+	s := NewStore(StoreOptions[string]{})
 	gate := make(chan struct{})
 	load := func(context.Context) (string, error) {
 		<-gate
@@ -211,7 +211,7 @@ func TestLoadNotStoredAfterInvalidation(t *testing.T) {
 		"Clear":          func(s *Store[string]) { s.Clear() },
 	} {
 		t.Run(name, func(t *testing.T) {
-			s := New(Options[string]{})
+			s := NewStore(StoreOptions[string]{})
 			v, _, err := s.Load(context.Background(), "k", time.Minute, []string{"t"}, func(context.Context) (string, error) {
 				purge(s) // data changed while it was loaded
 				return "old", nil
@@ -227,7 +227,7 @@ func TestLoadNotStoredAfterInvalidation(t *testing.T) {
 }
 
 func TestLoadZeroTTL(t *testing.T) {
-	s := New(Options[string]{})
+	s := NewStore(StoreOptions[string]{})
 	v, _, err := s.Load(context.Background(), "k", 0, nil, func(context.Context) (string, error) { return "v", nil })
 	if v != "v" || err != nil || s.Len() != 0 {
 		t.Errorf("got %q, %v, Len %d", v, err, s.Len())
@@ -237,7 +237,7 @@ func TestLoadZeroTTL(t *testing.T) {
 // TestLoadConcurrent mixes Load, Set and InvalidateTags on few keys, for
 // -race.
 func TestLoadConcurrent(t *testing.T) {
-	s := New(Options[int]{MaxEntries: 8})
+	s := NewStore(StoreOptions[int]{MaxEntries: 8})
 	var wg sync.WaitGroup
 	for w := range 8 {
 		wg.Go(func() {

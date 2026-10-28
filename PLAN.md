@@ -3360,7 +3360,7 @@ if o.PageLog != nil {
 ### End-to-end example (recommended shape: (Q1) a, (Q2) a, (Q3) a, (Q4) a, (Q5) a)
 `cmd/server/main.go` configures the provider:
 ```go
-site := app.New(orbit.WithCache(cache.Memory(cache.MemoryOptions{MaxEntries: 5000, MaxBytes: 256 << 20})))
+site := app.New(orbit.WithCache(cache.NewMemory(cache.MemoryOptions{MaxEntries: 5000, MaxBytes: 256 << 20})))
 ```
 `orbit.json` sets defaults per route, in Astro's units (seconds):
 ```json
@@ -3446,7 +3446,7 @@ A provider that implements neither `CacheHeaderWriter` nor `CacheStore` gets Ast
 
 **What's looked up**: GET requests only (decided by rule: Astro; HEAD always renders) with a provider configured, outside dev, when the handle isn't disabled, and on a route that has stored before or matches a rule (one atomic load per route, so pages that never cache pay nothing for the lookup; decided by rule: simplest).
 
-**Key** (decided by rule: Astro): `r.Host` + escaped path + query. The query is sorted, Astro's tracking-parameter list is dropped, and the memory provider's `Query{Include, Exclude, NoSort}` options apply (globs per `path.Match`, case-insensitive; `Include` with `Exclude` panics in `cache.Memory`, decided by rule: Go stdlib constructor convention, as `WithSite`). The key is built in a stack buffer and hashed with `hash/maphash`, so it allocates nothing up to 16 parameters and 512 bytes, and the string is compared on a hash match. Astro's scheme is left out: behind a proxy, Go doesn't see it (decided by rule: simplest). For `Vary` values, see below.
+**Key** (decided by rule: Astro): `r.Host` + escaped path + query. The query is sorted, Astro's tracking-parameter list is dropped, and the memory provider's `Query{Include, Exclude, NoSort}` options apply (globs per `path.Match`, case-insensitive; `Include` with `Exclude` panics in `cache.NewMemory`, decided by rule: Go stdlib constructor convention, as `WithSite`). The key is built in a stack buffer and hashed with `hash/maphash`, so it allocates nothing up to 16 parameters and 512 bytes, and the string is compared on a hash match. Astro's scheme is left out: behind a proxy, Go doesn't see it (decided by rule: simplest). For `Vary` values, see below.
 
 **What's stored** (decided by rule: Astro unless noted): the response of a successful render whose handle isn't disabled and has `MaxAge > 0`, at any status the page set (200, 404 through `SetStatus`, 410…). A `ctx.Redirect` answer is stored too, since Astro caches a redirect a page returns. These are **never stored**:
 - render errors and panics, and `WithErrorHandler` answers;
@@ -3510,8 +3510,8 @@ A new stdlib-only subpackage, `github.com/orbit-z/orbit/cache`. It's imported on
   - **Bounds**: `MaxEntries` (default 1000, Astro's `max`) and an optional `MaxBytes` (nyth's), checked per shard, so they're approximate. A value bigger than the byte budget is refused, and an earlier value under that key is dropped (nyth).
   - **Expiry and tags**: lazy expiry with no timer (nyth, Astro), and a tag reverse index pruned on every removal (nyth's `tagCount` invariant).
   - An injectable `Now func() time.Time` for tests (nyth's `Clock`).
-- **`cache.Memory(MemoryOptions) *MemoryProvider`**: the route cache's `CacheStore`. It also has `OnInvalidate func(ctx, orbit.InvalidateOptions) error`, called after a local `Invalidate`, so an app forwards purges to other instances, and `InvalidateLocal(o)` for the subscriber to apply them. nyth keeps its Redis streams bus (`invalidationBus.ts` → its own Go code) and calls these two.
-- **`cache.Store[V]`**: the same engine as a general in-process data and fragment cache. `New[V](Options)`, `Get(key) (V, bool)`, `Set(key, v, ttl, tags...)`, `Load(ctx, key, ttl, tags, load func(context.Context) (V, error)) (V, []string, error)`, `Delete`, `InvalidateTags`, `Clear`, `Len`, `Bytes`.
+- **`cache.NewMemory(MemoryOptions) *MemoryProvider`**: the route cache's `CacheStore`. It also has `OnInvalidate func(ctx, orbit.InvalidateOptions) error`, called after a local `Invalidate`, so an app forwards purges to other instances, and `InvalidateLocal(o)` for the subscriber to apply them. nyth keeps its Redis streams bus (`invalidationBus.ts` → its own Go code) and calls these two.
+- **`cache.Store[V]`**: the same engine as a general in-process data and fragment cache. `NewStore[V](StoreOptions)`, `Get(key) (V, bool)`, `Set(key, v, ttl, tags...)`, `Load(ctx, key, ttl, tags, load func(context.Context) (V, error)) (V, []string, error)`, `Delete`, `InvalidateTags`, `Clear`, `Len`, `Bytes`.
   - `Load` is single-flight per key (nyth's `singleFlight.ts`). The load runs once with `context.WithoutCancel` of the first caller's context; each caller waits under its own context. Errors are shared with the callers waiting on that load and nothing is stored. A panic is re-panicked in the leader and returned as an error to the waiters (§4f's rule).
   - It returns the entry's tags, so a fragment hit can re-apply them to `ctx.Cache()`.
   - This replaces the hand-written cache in `rendering.md`'s "Caching fragments" (`<Cacher>` becomes `cache.Store[orbit.HTML]` plus `RenderHTML`).
@@ -3555,7 +3555,7 @@ A new stdlib-only subpackage, `github.com/orbit-z/orbit/cache`. It's imported on
   - (a) **Recommended**: GET islands go through the same cache when the component calls `Set` (Astro does this). The browser default stays `private, no-store`, so the HTTP-only plan is a subset.
   - (b) Keep the user's decision: islands never touch the store; only 304s ((Q5)) and docs.
 - **(Q9) What the `nyth` port becomes.**
-  - (a) **Recommended**: the subpackage `orbit/cache` with both the route provider (`cache.Memory`) and the generic `cache.Store[V]` (nyth's `memoryCache` + `singleFlight`), replacing `rendering.md`'s hand-written fragment cache. Cross-instance invalidation stays app code through `OnInvalidate`/`InvalidateLocal`.
+  - (a) **Recommended**: the subpackage `orbit/cache` with both the route provider (`cache.NewMemory`) and the generic `cache.Store[V]` (nyth's `memoryCache` + `singleFlight`), replacing `rendering.md`'s hand-written fragment cache. Cross-instance invalidation stays app code through `OnInvalidate`/`InvalidateLocal`.
   - (b) Only the route provider; data and fragment caches stay app code, as §4d decided (the docs' pattern).
   - (c) Everything in the runtime package. That avoids an import, but generic exported types in package `orbit` weigh on every generated package's compile (§4b).
 
@@ -3591,7 +3591,7 @@ A new stdlib-only subpackage, `github.com/orbit-z/orbit/cache`. It's imported on
 ### User-docs changes (with the implementation)
 - New `docs/caching.md`:
   - the flow (HIT/MISS/STALE);
-  - `ctx.Cache()`, `routeRules`, providers (`cache.Memory`, header providers, writing one);
+  - `ctx.Cache()`, `routeRules`, providers (`cache.NewMemory`, header providers, writing one);
   - invalidation, conditional requests, islands;
   - dev and testing;
   - the safety rules, with what Orbit enforces and the patterns;
@@ -3626,8 +3626,8 @@ A new stdlib-only subpackage, `github.com/orbit-z/orbit/cache`. It's imported on
   | STALE (a revalidation already running) | 155 | 0 |
   | MISS that stores, on a known route (flight, entry, key, header and body copies) | 1890 | 13 |
   | HIT on one hot key, 16 threads (aggregate ns per op) | 30 | 0 |
-  | `cache.Memory` `Get` hit / miss; hot key at 16 threads | 43 / 10; 29 | 0 |
-  | `cache.Memory` `Put` into a full cache (evicts) | 335–378 | 4 |
+  | `cache.MemoryProvider` `Get` hit / miss; hot key at 16 threads | 43 / 10; 29 | 0 |
+  | `cache.MemoryProvider` `Put` into a full cache (evicts) | 335–378 | 4 |
   | `cache.Store.Get` hit; `Load` hit; `Set` | 46; 47; 215–238 | 0; 0; 2 |
 
   `TestRenderAllocs` (0) and `TestServeAllocs` (1) are unchanged; `TestCacheAllocs` asserts HIT, 304, query HIT and STALE at 0, a page without `Set` on a provider site at 1, and `Set` without a provider at 1.
@@ -3647,7 +3647,7 @@ A new stdlib-only subpackage, `github.com/orbit-z/orbit/cache`. It's imported on
 - **The no-provider warning** is given at the end of a page or island request whose own handle was set; options set only on a Locals field by middleware aren't warned about (decided by rule: simplest).
 - **A Locals field before Orbit sees the request** (middleware, before `next`): `Enabled()` is false and `Invalidate` returns `ErrCacheNotEnabled`; middleware uses `site.InvalidateCache`. Documented.
 - **`cache.Store.Load` runs the load on the first caller's goroutine**, not a separate one: a fragment load uses the caller's `*orbit.Ctx` through `RenderHTML`, which would be released while a detached load still used it. The leader always waits for its own load; joiners wait under their own context. A panic continues in the leader with its stack; joiners get an error wrapping `cache.ErrLoadPanicked`. A load that overlapped a `Delete`, `InvalidateTags` or `Clear` isn't stored.
-- **`cache.Memory` shards**: up to 64, fewer for small `MaxEntries` (at least 8 entries per shard), so small caches have exact bounds. `MaxBytes` is per shard, so a single response bigger than `MaxBytes`/shards is refused (documented).
+- **`cache.MemoryProvider` shards**: up to 64, fewer for small `MaxEntries` (at least 8 entries per shard), so small caches have exact bounds. `MaxBytes` is per shard, so a single response bigger than `MaxBytes`/shards is refused (documented).
 - **`examples/blog` doesn't cache**: its layout prints the request ID and the theme cookie on every page, so a stored page would be wrong for other visitors; the integration test is in `orbittest/testdata/project` instead.
 
 ## 5. Assets (scripts and styles)

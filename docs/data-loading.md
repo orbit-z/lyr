@@ -354,7 +354,7 @@ import (
 )
 
 // books holds up to 10,000 books, shared by every request.
-var books = cache.New(cache.Options[Book]{MaxEntries: 10_000})
+var books = cache.NewStore(cache.StoreOptions[Book]{MaxEntries: 10_000})
 
 // CachedBook is Book, served from the process's cache for up to five
 // minutes. Concurrent misses for one slug make one call.

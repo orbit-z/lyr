@@ -36,7 +36,7 @@ const ttl = 30 * time.Second
 
 func tier(maxEntries int, maxBytes int64) (*Store[string], *fakeClock) {
 	c := newClock()
-	return newStore(Options[string]{MaxEntries: maxEntries, MaxBytes: maxBytes, Now: c.Now}, 1), c
+	return newStore(StoreOptions[string]{MaxEntries: maxEntries, MaxBytes: maxBytes, Now: c.Now}, 1), c
 }
 
 func get(s *Store[string], key string) string {
@@ -89,14 +89,14 @@ func TestNonPositiveTTL(t *testing.T) {
 }
 
 func TestNegativeBoundsPanic(t *testing.T) {
-	for _, o := range []Options[string]{{MaxEntries: -1}, {MaxBytes: -1}} {
+	for _, o := range []StoreOptions[string]{{MaxEntries: -1}, {MaxBytes: -1}} {
 		func() {
 			defer func() {
 				if recover() == nil {
-					t.Errorf("New(%+v) didn't panic", o)
+					t.Errorf("NewStore(%+v) didn't panic", o)
 				}
 			}()
-			New(o)
+			NewStore(o)
 		}()
 	}
 }
@@ -180,7 +180,7 @@ func TestBoundBounds(t *testing.T) {
 }
 
 func TestShardedBoundsAreApproximate(t *testing.T) {
-	s := New(Options[string]{MaxEntries: 1000})
+	s := NewStore(StoreOptions[string]{MaxEntries: 1000})
 	if len(s.g.shards) != 64 || s.g.maxEntries != 16 {
 		t.Fatalf("%d shards of %d, want 64 of 16", len(s.g.shards), s.g.maxEntries)
 	}
@@ -190,7 +190,7 @@ func TestShardedBoundsAreApproximate(t *testing.T) {
 	if n := s.Len(); n > 64*16 || n < 900 {
 		t.Errorf("Len = %d, want about 1000 and at most 1024", n)
 	}
-	if small := New(Options[string]{MaxEntries: 2}); len(small.g.shards) != 1 {
+	if small := NewStore(StoreOptions[string]{MaxEntries: 2}); len(small.g.shards) != 1 {
 		t.Errorf("MaxEntries 2: %d shards, want 1", len(small.g.shards))
 	}
 }
@@ -372,7 +372,7 @@ func TestBytesAccounted(t *testing.T) {
 }
 
 func TestSizeFunc(t *testing.T) {
-	s := newStore(Options[[]int]{MaxBytes: 100, Size: func(v []int) int64 { return int64(8 * len(v)) }}, 1)
+	s := newStore(StoreOptions[[]int]{MaxBytes: 100, Size: func(v []int) int64 { return int64(8 * len(v)) }}, 1)
 	s.Set("k", make([]int, 10), ttl)
 	if s.Bytes() != 81 {
 		t.Errorf("Bytes = %d, want 81", s.Bytes())
@@ -382,7 +382,7 @@ func TestSizeFunc(t *testing.T) {
 		t.Errorf("an oversize value was stored")
 	}
 	// Without Size, other types count only their key.
-	o := New(Options[int]{})
+	o := NewStore(StoreOptions[int]{})
 	o.Set("key", 1, ttl)
 	if o.Bytes() != 3 {
 		t.Errorf("default size: Bytes = %d, want 3", o.Bytes())
@@ -410,7 +410,7 @@ func TestHashCollisionIsAMiss(t *testing.T) {
 }
 
 func TestIsolation(t *testing.T) {
-	a, b := New(Options[string]{}), New(Options[string]{})
+	a, b := NewStore(StoreOptions[string]{}), NewStore(StoreOptions[string]{})
 	a.Set("k", "1", ttl)
 	if _, ok := b.Get("k"); ok {
 		t.Error("two stores share an entry")
@@ -419,7 +419,7 @@ func TestIsolation(t *testing.T) {
 
 // TestConcurrentEngine runs every operation at once, for -race.
 func TestConcurrentEngine(t *testing.T) {
-	s := New(Options[string]{MaxEntries: 64, MaxBytes: 4096})
+	s := NewStore(StoreOptions[string]{MaxEntries: 64, MaxBytes: 4096})
 	var wg sync.WaitGroup
 	for w := range 8 {
 		wg.Go(func() {

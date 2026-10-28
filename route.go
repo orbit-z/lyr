@@ -64,7 +64,7 @@ type RouteInfo struct {
 
 // Param returns the percent-decoded value of the route parameter name, like
 // Ctx.Param, or "" when the route has no such parameter.
-func (ri *RouteInfo) Param(name string) string {
+func (ri RouteInfo) Param(name string) string {
 	vals := ri.values()
 	for i, n := range ri.names {
 		if n == name && i < len(vals) {
@@ -78,7 +78,7 @@ func (ri *RouteInfo) Param(name string) string {
 // order:
 //
 //	for name, value := range l.Route.Params() { … }
-func (ri *RouteInfo) Params() iter.Seq2[string, string] {
+func (ri RouteInfo) Params() iter.Seq2[string, string] {
 	return func(yield func(string, string) bool) {
 		vals := ri.values()
 		for i, n := range ri.names {
@@ -137,13 +137,11 @@ type localsRoute struct {
 	field    any // func(*L) *RouteInfo
 }
 
-// WithLocalsRoute tells the site where the RouteInfo field of your Locals
-// is. The generated app.New() passes it, before the caller's options, when
-// src/locals declares one:
+// For generated code. WithLocalsRoute tells the site where the RouteInfo
+// field of your Locals is. The generated app.New() passes it, before the
+// caller's options, when src/locals declares one:
 //
 //	orbit.WithLocalsRoute(func(l *locals.Locals) *orbit.RouteInfo { return &l.Route })
-//
-// You don't need to call it yourself.
 func WithLocalsRoute[L any](field func(*L) *RouteInfo) Option {
 	lr := &localsRoute{
 		attached: func(r *http.Request) (any, *RouteInfo) {

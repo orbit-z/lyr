@@ -408,16 +408,17 @@ const (
 	entryExpired
 )
 
-// RouteRule is one orbit.json "routeRules" entry: default cache options
-// for the requests whose path matches Pattern (Orbit's route syntax). The
-// generated app.New() passes them with WithRouteRules.
+// For generated code. RouteRule is one orbit.json "routeRules" entry:
+// default cache options for the requests whose path matches Pattern
+// (Orbit's route syntax). The generated app.New() passes them with
+// WithRouteRules.
 type RouteRule struct {
 	Pattern string
 	Options CacheOptions
 }
 
 // WithCache configures the site's cache provider: a store such as
-// cache.Memory (github.com/orbit-z/orbit/cache), a CDN header writer, or a
+// cache.NewMemory (github.com/orbit-z/orbit/cache), a CDN header writer, or a
 // plain provider for Astro's default headers. Pass it to app.New() in
 // cmd/server/main.go. Under orbit dev, caching is off. With several
 // WithCache options, the last one wins.
@@ -425,8 +426,8 @@ func WithCache(p CacheProvider) Option {
 	return func(o *siteOptions) { o.cache = p }
 }
 
-// WithRouteRules sets default cache options per route pattern (orbit.json
-// "routeRules"); the generated app.New() passes them. Patterns use Orbit's
+// For generated code. WithRouteRules sets default cache options per route
+// pattern (orbit.json "routeRules"); the generated app.New() passes them. Patterns use Orbit's
 // route syntax and priority, and match the request path, whichever page
 // serves it; they never match /_orbit/ paths. The first matching rule is
 // applied before the page renders, as a first Set. Rules do nothing
@@ -445,13 +446,11 @@ type localsCache struct {
 	field any // func(*L) *Cache
 }
 
-// WithLocalsCache tells the site where the orbit.Cache field of your Locals
-// is. The generated app.New() passes it, before the caller's options, when
-// src/locals declares one:
+// For generated code. WithLocalsCache tells the site where the
+// orbit.Cache field of your Locals is. The generated app.New() passes it,
+// before the caller's options, when src/locals declares one:
 //
 //	orbit.WithLocalsCache(func(l *locals.Locals) *orbit.Cache { return &l.Cache })
-//
-// You don't need to call it yourself.
 func WithLocalsCache[L any](field func(*L) *Cache) Option {
 	lc := &localsCache{
 		attached: func(r *http.Request) (any, *Cache) {

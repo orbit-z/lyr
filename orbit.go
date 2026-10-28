@@ -4,6 +4,33 @@
 // Most of this package is called by code that the orbit CLI generates from
 // .orbit components. The parts users call directly are the Site middleware,
 // the locals helpers, RenderComponent and ListenAndServe.
+//
+// # Generated code
+//
+// The names whose doc comment starts with "For generated code." are called
+// by the code that orbit generate writes. They aren't meant to be called by
+// hand, may change between versions, and the language server (orbit lsp)
+// doesn't offer them in completion. By group:
+//
+//   - Pass-through attributes and spreads: Rest, RestAttr, the Rest<Kind>
+//     constructors (RestString, RestInt, …, RestOpt, RestOptURL), RestFrom,
+//     RestMerge, RestFromAny, RestMergeAny, SpreadCheck, SpreadOf and
+//     Writer.RestClass.
+//   - Optional props and set:html: Wrap, WrapIf, OptOf and SetHTML.
+//   - Template literals: TemplateString, TemplateAs, StringAs, TB and its
+//     methods, the Append functions, and Writer.URLMark, Writer.URLCheck,
+//     Writer.ClassBytes, Writer.AttrPiece and Writer.TextPiece.
+//   - class:list: JoinClasses, ClassIf, ClassString, and Writer.Class,
+//     Writer.Classes, Writer.ClassAny, Writer.ClassStart and
+//     Writer.ClassEnd.
+//   - Dynamic tags: DynTag, Writer.TagOpen and Writer.TagClose.
+//   - Rendering: Writer.Enter, Writer.Leave, Writer.HeadEnd, ErrorAt and
+//     LocalsOf.
+//   - server:defer and server:concurrent: Defer, Island, NewIsland,
+//     Concurrent and CtxOf.
+//   - Site wiring in the generated app.New(): Route, Asset, RouteRule,
+//     WithRouteRules, WithLocalsRoute and WithLocalsCache. NewSite itself
+//     is public API, for tests and hand-built sites.
 package orbit
 
 import (
@@ -62,7 +89,7 @@ func (s Slots) Get(name string) Renderer {
 // Has reports whether content was passed for a slot.
 func (s Slots) Has(name string) bool { return s.Get(name) != nil }
 
-// Asset is a stylesheet or script that a page needs, injected into <head>.
+// For generated code. Asset is a stylesheet or script that a page needs, injected into <head>.
 // Kind is "css", "js", "lazy" or "modulepreload"; for "lazy", ID is the
 // component ID whose marker loads it. A "modulepreload" asset is a shared
 // chunk that the page's "js" module imports (PLAN.md §5e): it gets a
@@ -73,7 +100,7 @@ type Asset struct {
 	ID   string
 }
 
-// Route is one page in the generated route table.
+// For generated code. Route is one page in the generated route table.
 type Route struct {
 	Pattern string                    // e.g. "/blog/[slug]"
 	File    string                    // e.g. "src/pages/blog/[slug].orbit"

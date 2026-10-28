@@ -201,7 +201,7 @@ func (w *Writer) Render(r Renderer) {
 	}
 }
 
-// HeadEnd marks the place where the page's </head> starts: the page's
+// For generated code. HeadEnd marks the place where the page's </head> starts: the page's
 // asset tags are written there. Only the first call counts.
 func (w *Writer) HeadEnd() {
 	if w.capture {
@@ -222,7 +222,7 @@ func (w *Writer) HeadEnd() {
 	}
 }
 
-// Enter pushes component onto the component stack. Past a depth of 1000 it
+// For generated code. Enter pushes component onto the component stack. Past a depth of 1000 it
 // returns an error naming the stack instead, which stops runaway recursion
 // before it overflows the Go stack. If the writer already has an error, Enter
 // returns it. Call Leave when the component is done, only if Enter succeeded.
@@ -238,7 +238,7 @@ func (w *Writer) Enter(component string) error {
 	return nil
 }
 
-// Leave pops the component pushed by the matching Enter.
+// For generated code. Leave pops the component pushed by the matching Enter.
 func (w *Writer) Leave() {
 	if n := len(w.stack); n > 0 {
 		w.stack = w.stack[:n-1]

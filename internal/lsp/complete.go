@@ -213,7 +213,8 @@ func completionItems(raw jsonRaw) (obj, []jsonRaw) {
 // its .orbit file: every range (textEdit's range, or an InsertReplaceEdit's
 // insert and replace; additionalTextEdits; itemDefaults.editRange) is
 // rewritten, other fields pass through. An item whose edit doesn't map is
-// dropped, as are the generated code's own names (orbit__*). An unmapped
+// dropped, as are the generated code's own names (orbit__*) and the
+// runtime's generated-code-only names (genonly.go). An unmapped
 // additional edit is dropped, except an import gopls adds, which becomes an
 // insertion into the frontmatter's imports.
 func (m mapper) mapCompletion(g *genFile, raw jsonRaw) jsonRaw {
@@ -245,7 +246,7 @@ func (m mapper) mapCompletion(g *genFile, raw jsonRaw) jsonRaw {
 	out := make([]jsonRaw, 0, len(rawItems))
 	for _, ri := range rawItems {
 		it := decodeObj(ri)
-		if it == nil || isGlueName(it.str("label")) {
+		if it == nil || isGlueName(it.str("label")) || isGenOnlyItem(it) {
 			continue
 		}
 		if te := decodeObj(it["textEdit"]); te != nil {

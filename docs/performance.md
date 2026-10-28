@@ -124,7 +124,7 @@ JSON attribute values are single-quoted, so the quotes inside need no escaping: 
 
 ## Cached pages: route caching
 
-A page that waits on data costs whatever the data costs, however fast the render. With [route caching](caching.md), a page that calls `ctx.Cache().Set` (or matches a `routeRules` entry) is stored after its first render, and later requests get the stored bytes without a render or a fetch. Measured with the runtime's benchmarks on an AMD Ryzen 7 9700X with Go 1.27.3, at `-cpu 1`, on a 1.1 KB page through `site.Middleware`, with `cache.Memory`:
+A page that waits on data costs whatever the data costs, however fast the render. With [route caching](caching.md), a page that calls `ctx.Cache().Set` (or matches a `routeRules` entry) is stored after its first render, and later requests get the stored bytes without a render or a fetch. Measured with the runtime's benchmarks on an AMD Ryzen 7 9700X with Go 1.27.3, at `-cpu 1`, on a 1.1 KB page through `site.Middleware`, with `cache.MemoryProvider`:
 
 | Case | Time | Allocations |
 |---|---:|---:|
@@ -136,7 +136,7 @@ A page that waits on data costs whatever the data costs, however fast the render
 | the same page rendered, no provider | ~620 ns | 1 |
 | a page that doesn't call `Set`, on a site with a provider | +~25 ns | 1 |
 | HIT on one hot key, 16 threads (aggregate, per request) | ~30 ns | 0 |
-| `cache.Memory` `Get`, a hit | 43 ns | 0 |
+| `cache.MemoryProvider` `Get`, a hit | 43 ns | 0 |
 | `cache.Store` `Get`, a hit | 46 ns | 0 |
 
 - **A HIT is cheaper than rendering even this small page**, and it allocates nothing (a render allocates the `Content-Length` value). For a page that waits 10 ms on a fetch, like `/fetch` [below](#page-with-a-10-ms-data-fetch-fetch), a HIT doesn't wait at all.
@@ -260,7 +260,7 @@ They're kept separate from the example blog so the comparison is easy to audit. 
 2. **Realistic** (`fetch`): a page whose frontmatter waits on a simulated 10 ms data fetch. This measures how well each server handles many requests waiting on I/O at once.
 3. **Cores**: Orbit runs each scenario twice, with `GOMAXPROCS=1` (one core, the fair comparison with a single Node process) and with all cores (how a Go server normally runs). Astro also runs twice: on the same 8 CPUs as Orbit at all cores, so its garbage collector and I/O threads have room, and pinned to one CPU, like Orbit at `GOMAXPROCS=1`.
 4. **Deferred** (`fetch-deferred`): the 10 ms-fetch page with the slow part moved into a `server:defer` component (Astro's mirror uses `server:defer` too). This measures the page's time to first byte, and the island request's latency on its own. A second run requests only the deferred page, as fast as the server allows, to show what the page costs without its island.
-5. **Cached** (`fetch-cached`): the 10 ms-fetch page with `ctx.Cache().Set(orbit.CacheOptions{MaxAge: time.Hour})`, served from `cache.Memory` (Astro's mirror calls `Astro.cache.set({ maxAge: 3600 })` with Astro 7's `memoryCache()` provider). The script stores the page before measuring and fails unless the next response is a HIT (`X-Orbit-Cache: HIT`, `X-Astro-Cache: HIT`), so the run measures cache hits only: what a stored page costs end to end, over HTTP.
+5. **Cached** (`fetch-cached`): the 10 ms-fetch page with `ctx.Cache().Set(orbit.CacheOptions{MaxAge: time.Hour})`, served from `cache.MemoryProvider` (Astro's mirror calls `Astro.cache.set({ maxAge: 3600 })` with Astro 7's `memoryCache()` provider). The script stores the page before measuring and fails unless the next response is a HIT (`X-Orbit-Cache: HIT`, `X-Astro-Cache: HIT`), so the run measures cache hits only: what a stored page costs end to end, over HTTP.
 
 **Metrics**:
 

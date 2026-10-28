@@ -281,10 +281,10 @@ func checkList(pos string, l AttrList) error {
 	return nil
 }
 
-// SpreadOf writes the spread {...a} of an HTML element: an Attrs as Spread
-// writes it (sorted by name), an AttrList as SpreadList does (in order).
-// pos is the .orbit position of the spread, for a name error. Generated
-// code calls it.
+// For generated code. SpreadOf writes the spread {...a} of an HTML
+// element: an Attrs as Spread writes it (sorted by name), an AttrList as
+// SpreadList does (in order). pos is the .orbit position of the spread,
+// for a name error.
 func SpreadOf[T Attrs | AttrList](w *Writer, pos string, a T) {
 	// A pointer in the interface, so that the value isn't boxed.
 	switch p := any(&a).(type) {

@@ -10,11 +10,11 @@ import (
 // locals types never collide.
 type localsKey[L any] struct{}
 
-// LocalsOf returns the request's locals, never nil. If middleware attached an
-// *L to c.Request (with EnsureLocals or WithLocals), it returns that pointer;
-// otherwise it allocates a zero L on first use. The value is cached on c, so
-// every component in the request shares it. Generated code calls LocalsOf to
-// define locals.
+// For generated code. LocalsOf defines locals: it returns the request's
+// locals, never nil. If middleware attached an *L to c.Request (with
+// EnsureLocals or WithLocals), it returns that pointer; otherwise it
+// allocates a zero L on first use. The value is cached on c, so every
+// component in the request shares it.
 func LocalsOf[L any](c *Ctx) *L {
 	if c.locals != nil {
 		l, ok := c.locals.(*L)

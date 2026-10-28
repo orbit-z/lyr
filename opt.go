@@ -195,13 +195,13 @@ func writeText[T any](w *Writer, v T, escape bool) {
 // type Opt[T] (PLAN.md §2.6 (Q3)): the first argument is the prop's zero
 // value, Alias.Props{}.Field, which gives T.
 
-// SetHTML is set:html={x} before the build has checked x's type (PLAN.md
-// §2.6): an HTML is written raw, an Opt[HTML] when it's set. The build
-// replaces it with the HTML write (lowered for an Opt[HTML]), and refuses
-// any other type with its own error (so T is any: a string must not be
-// Go's error too); when it couldn't check (export data couldn't be read,
-// with a warning), a value of another type is a render error at pos, never
-// written unescaped. Generated code calls it.
+// For generated code. SetHTML is set:html={x} before the build has
+// checked x's type (PLAN.md §2.6): an HTML is written raw, an Opt[HTML]
+// when it's set. The build replaces it with the HTML write (lowered for an
+// Opt[HTML]), and refuses any other type with its own error (so T is any:
+// a string must not be Go's error too); when it couldn't check (export
+// data couldn't be read, with a warning), a value of another type is a
+// render error at pos, never written unescaped.
 func SetHTML[T any](w *Writer, pos string, x T) {
 	switch v := any(x).(type) {
 	case HTML:
@@ -215,14 +215,15 @@ func SetHTML[T any](w *Writer, pos string, x T) {
 	}
 }
 
-// Wrap returns Some(v): a static value, a bare attribute or an expression
-// of type T passed to a prop of type Opt[T]. Generated code calls it.
+// For generated code. Wrap returns Some(v): a static value, a bare
+// attribute or an expression of type T passed to a prop of type Opt[T].
 func Wrap[T any](_ Opt[T], v T) Opt[T] { return Opt[T]{v: v, ok: true} }
 
-// WrapIf returns If(cond, v) as an Opt[T], for an orbit.If call whose value
-// is an untyped constant passed to a prop of type Opt[T] (so it takes T,
-// not the constant's default type). The second argument is the If written
-// at the call site, which keeps its package used. Generated code calls it.
+// For generated code. WrapIf returns If(cond, v) as an Opt[T], for an
+// orbit.If call whose value is an untyped constant passed to a prop of
+// type Opt[T] (so it takes T, not the constant's default type). The second
+// argument is the If written at the call site, which keeps its package
+// used.
 func WrapIf[T any](_ Opt[T], _ func(bool, bool) Opt[bool], cond bool, v T) Opt[T] {
 	if cond {
 		return Opt[T]{v: v, ok: true}
@@ -230,9 +231,10 @@ func WrapIf[T any](_ Opt[T], _ func(bool, bool) Opt[bool], cond bool, v T) Opt[T
 	return Opt[T]{}
 }
 
-// OptOf returns v when it's an Opt[T] and Some(v) when it's a T, for a
-// prop of type Opt[T] before the typed pass has checked the value (which
-// then replaces the call with v, Wrap or WrapIf). Generated code calls it.
+// For generated code. OptOf returns v when it's an Opt[T] and Some(v)
+// when it's a T, for a prop of type Opt[T] before the typed pass has
+// checked the value (which then replaces the call with v, Wrap or
+// WrapIf).
 //
 // An untyped constant passed through OptOf has its default type, so a
 // value (or an Opt's value) of the same kind as T, or a number for a

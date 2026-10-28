@@ -64,7 +64,7 @@ import (
 )
 
 func main() {
-	site := app.New(orbit.WithCache(cache.Memory(cache.MemoryOptions{
+	site := app.New(orbit.WithCache(cache.NewMemory(cache.MemoryOptions{
 		MaxEntries: 5000,
 		MaxBytes:   256 << 20, // 256 MiB
 	})))
@@ -233,7 +233,7 @@ The key is the request's host, its escaped path and its normalized query:
 
 - the query parameters are sorted by name;
 - tracking parameters are dropped, Astro's list: `utm_*`, `fbclid`, `gclid`, `ref` and others. So `/blog?utm_source=x` gets the same copy as `/blog`.
-- `cache.Memory`'s `Query` option chooses the parameters (see [`cache.Memory`](#the-memory-provider-cachememory)).
+- `cache.NewMemory`'s `Query` option chooses the parameters (see [`cache.NewMemory`](#the-memory-provider-cachenewmemory)).
 
 The scheme isn't part of the key: behind a proxy, Go doesn't see it.
 
@@ -412,7 +412,7 @@ mux.Handle("GET /fragments/latest", site.CacheHandler(http.HandlerFunc(latest)))
 
 | Kind | Interface | What Orbit does |
 |---|---|---|
-| A store, such as `cache.Memory` | `orbit.CacheStore` | Looks requests up with `Get`, stores responses with `Put`. Writes no CDN headers. |
+| A store, such as `cache.MemoryProvider` | `orbit.CacheStore` | Looks requests up with `Get`, stores responses with `Put`. Writes no CDN headers. |
 | A CDN header writer | `orbit.CacheHeaderWriter` | Calls `WriteCacheHeaders` on each response whose options are active, so the CDN caches. |
 | Neither | `orbit.CacheProvider` | Writes Astro's default headers: `CDN-Cache-Control: max-age=N, stale-while-revalidate=M`, `Cache-Tag: a, b`, `Last-Modified` and `ETag`. |
 
@@ -426,12 +426,12 @@ type CacheProvider interface {
 }
 ```
 
-### The memory provider: `cache.Memory`
+### The memory provider: `cache.NewMemory`
 
-`cache.Memory` from `github.com/orbit-z/orbit/cache` is an in-process store, Astro's `memoryCache()`:
+`cache.NewMemory` from `github.com/orbit-z/orbit/cache` makes an in-process store, Astro's `memoryCache()`:
 
 ```go
-p := cache.Memory(cache.MemoryOptions{
+p := cache.NewMemory(cache.MemoryOptions{
 	MaxEntries: 5000,      // default 1000
 	MaxBytes:   256 << 20, // optional
 	Query:      orbit.CacheQuery{Exclude: []string{"utm_*", "sort"}},
@@ -441,7 +441,7 @@ p := cache.Memory(cache.MemoryOptions{
 - **`MaxEntries`** bounds the stored responses (each `Vary` variant counts as one). The default is 1000, Astro's.
 - **`MaxBytes`**, when set, bounds the bytes held: bodies, headers, keys and tags. The store is split into shards and the bounds are checked per shard, so they're approximate, and a response bigger than `MaxBytes` divided by the number of shards isn't stored.
 - **Eviction** is close to least recently used (CLOCK, per shard), and expiry is lazy: an entry is dropped when it's read after `MaxAge + SWR`, or evicted. There's no timer.
-- **`Query`** says which query parameters are part of a key. `Include` and `Exclude` are [`path.Match`](https://pkg.go.dev/path#Match) patterns, matched case-insensitively against parameter names. With `Include`, only matching parameters are kept. `Exclude` drops the matching ones and replaces the default list of tracking parameters, so list `utm_*` again if you still want it dropped, as above (an empty, non-nil `Exclude` keeps every parameter). Setting both makes `cache.Memory` panic. Parameters are sorted by name unless `NoSort` is set.
+- **`Query`** says which query parameters are part of a key. `Include` and `Exclude` are [`path.Match`](https://pkg.go.dev/path#Match) patterns, matched case-insensitively against parameter names. With `Include`, only matching parameters are kept. `Exclude` drops the matching ones and replaces the default list of tracking parameters, so list `utm_*` again if you still want it dropped, as above (an empty, non-nil `Exclude` keeps every parameter). Setting both makes `cache.NewMemory` panic. Parameters are sorted by name unless `NoSort` is set.
 - **`OnInvalidate`** forwards purges to other instances (see [Several instances](#several-instances)).
 - **`Now`** replaces the clock, for tests.
 
@@ -519,17 +519,17 @@ type CacheStore interface {
 - **`Vary` markers**: a response with a `Vary` header is stored under a variant key, with a marker under the URL's own key (an entry whose `Vary` field is set, with no body). Store markers like any other entry.
 - **`Invalidate`** drops the entries carrying any of `o.Tags`, and every entry whose `Path` is `o.Path`.
 - **Query parameters**: a store may also implement `CacheQuery() orbit.CacheQuery`, read once when the site is created.
-- **Speed**: `Get` runs on every lookup, so keep it free of allocations; `cache.Memory`'s takes about 43 ns.
+- **Speed**: `Get` runs on every lookup, so keep it free of allocations; `cache.MemoryProvider`'s takes about 43 ns.
 
 A persistent or shared store (Redis, disk) is a provider in your own code or another module; Orbit ships only the memory one.
 
 ## Several instances
 
-Each instance's `cache.Memory` is its own, so a purge must reach every instance. `OnInvalidate` is called after each local purge, so you can publish it with whatever your instances already share (Redis, NATS, a database), and each instance applies the purges it receives with `InvalidateLocal`, which doesn't call `OnInvalidate` again:
+Each instance's `cache.MemoryProvider` is its own, so a purge must reach every instance. `OnInvalidate` is called after each local purge, so you can publish it with whatever your instances already share (Redis, NATS, a database), and each instance applies the purges it receives with `InvalidateLocal`, which doesn't call `OnInvalidate` again:
 
 ```go
 var mem *cache.MemoryProvider
-mem = cache.Memory(cache.MemoryOptions{
+mem = cache.NewMemory(cache.MemoryOptions{
 	MaxEntries: 5000,
 	OnInvalidate: func(ctx context.Context, o orbit.InvalidateOptions) error {
 		return bus.Publish(ctx, o) // your own code: send o to the other instances
@@ -546,10 +546,10 @@ go bus.Subscribe(func(o orbit.InvalidateOptions) {
 
 ## Caching data and fragments: `cache.Store`
 
-The route cache keeps whole responses. For values that several pages share (a product, a sidebar's HTML), `cache.New` makes a general in-process cache on the same engine:
+The route cache keeps whole responses. For values that several pages share (a product, a sidebar's HTML), `cache.NewStore` makes a general in-process cache on the same engine:
 
 ```go
-var products = cache.New(cache.Options[shop.Product]{MaxEntries: 10_000})
+var products = cache.NewStore(cache.StoreOptions[shop.Product]{MaxEntries: 10_000})
 
 p, _, err := products.Load(ctx.Request.Context(), id, time.Minute, []string{"product:" + id},
 	func(lc context.Context) (shop.Product, error) { return api.Product(lc, id) })
@@ -558,7 +558,7 @@ p, _, err := products.Load(ctx.Request.Context(), id, time.Minute, []string{"pro
 - **`Get(key)`** and **`Set(key, v, ttl, tags...)`** read and write directly; `Get` doesn't allocate (about 46 ns on a hit).
 - **`Load`** returns the stored value, or calls `load` once per key however many requests miss at the same time. The first caller runs it with `context.WithoutCancel` of its context; the others wait under their own context and get `ctx.Err()` if it ends first. An error is returned to every caller waiting on that load, and nothing is stored. A panic goes on in the first caller, and the others get an error wrapping `cache.ErrLoadPanicked`. `Load` also returns the entry's tags.
 - **`Delete(key)`**, **`InvalidateTags(tags...)`** and **`Clear()`** drop values; a load running at the time doesn't store its result.
-- **`MaxEntries`** (default 1000) and **`MaxBytes`** bound it as for `cache.Memory`; `Size` measures a value (by default, the length of a `string`, `[]byte` or `orbit.HTML`, else 0). `Len()` and `Bytes()` report it.
+- **`MaxEntries`** (default 1000) and **`MaxBytes`** bound it as for `cache.NewMemory`; `Size` measures a value (by default, the length of a `string`, `[]byte` or `orbit.HTML`, else 0). `Len()` and `Bytes()` report it.
 - **Values are stored as given**, not copied: don't change a value after storing it, or one you got from the store (a slice's elements, the fields behind a pointer).
 
 [Loading data](data-loading.md#cache-data-across-requests-cachestore) shows a data cache, and [Caching fragments](rendering.md#caching-fragments) a fragment cache that re-applies its tags to the page.
@@ -604,7 +604,7 @@ import (
 )
 
 func TestCaching(t *testing.T) {
-	site := app.New(orbit.WithCache(cache.Memory(cache.MemoryOptions{})))
+	site := app.New(orbit.WithCache(cache.NewMemory(cache.MemoryOptions{})))
 	h := session.Middleware(site.Handler())
 	state := func(path string, opts ...orbittest.Option) string {
 		t.Helper()
@@ -636,7 +636,7 @@ func TestCaching(t *testing.T) {
 }
 ```
 
-Give each test its own site (or its own `cache.Memory`), so tests don't see each other's entries. `cache.MemoryOptions{Now: …}` moves time forward without waiting, to test expiry.
+Give each test its own site (or its own `cache.MemoryProvider`), so tests don't see each other's entries. `cache.MemoryOptions{Now: …}` moves time forward without waiting, to test expiry.
 
 ## Without a provider
 
@@ -673,7 +673,7 @@ On one hot key with 16 threads, a HIT costs about 30 ns per request in aggregate
 | `Astro.cache.invalidate({ tags })`, `{ path }` | `ctx.Cache().Invalidate(rc, orbit.InvalidateOptions{Tags: …})`, `site.InvalidateCache` |
 | `context.cache` in middleware | an `orbit.Cache` field in `Locals` |
 | `routeRules` in `astro.config` | `routeRules` in `orbit.json`, with Orbit's route patterns; still whole seconds |
-| `memoryCache()` | `cache.Memory(cache.MemoryOptions{…})` |
+| `memoryCache()` | `cache.NewMemory(cache.MemoryOptions{…})` |
 | `cache: { provider }` | `app.New(orbit.WithCache(p))` |
 | `X-Astro-Cache` | `X-Orbit-Cache` |
 

@@ -60,7 +60,7 @@ func wantState(t *testing.T, rec *httptest.ResponseRecorder, want string) {
 
 func TestSiteMissThenHit(t *testing.T) {
 	var renders atomic.Int32
-	mem := cache.Memory(cache.MemoryOptions{})
+	mem := cache.NewMemory(cache.MemoryOptions{})
 	s, h := newSite(t, mem, &renders)
 
 	wantState(t, get(h, "/", ""), "MISS")
@@ -82,7 +82,7 @@ func TestSiteMissThenHit(t *testing.T) {
 
 func TestSitePathInvalidationDropsVariants(t *testing.T) {
 	var renders atomic.Int32
-	mem := cache.Memory(cache.MemoryOptions{})
+	mem := cache.NewMemory(cache.MemoryOptions{})
 	s, h := newSite(t, mem, &renders)
 
 	for _, lang := range []string{"en", "fr"} {

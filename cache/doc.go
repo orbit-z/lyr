@@ -1,6 +1,7 @@
-// Package cache provides in-process caches for Orbit sites: Memory, a
-// route cache provider for orbit.WithCache, and Store, a general cache for
-// data and rendered fragments.
+// Package cache provides in-process caches for Orbit sites: MemoryProvider
+// (made with NewMemory), a route cache provider for orbit.WithCache, and
+// Store (made with NewStore), a general cache for data and rendered
+// fragments.
 //
 // Both use one engine: a map split into shards, bounded by an entry count
 // (MaxEntries, 1000 by default) and optionally by bytes (MaxBytes). When a
@@ -13,10 +14,10 @@
 //
 // # Route cache
 //
-// Memory stores the responses of pages that call ctx.Cache().Set with a
-// MaxAge. Pass it to app.New in cmd/server/main.go:
+// A MemoryProvider stores the responses of pages that call ctx.Cache().Set
+// with a MaxAge. Pass it to app.New in cmd/server/main.go:
 //
-//	site := app.New(orbit.WithCache(cache.Memory(cache.MemoryOptions{
+//	site := app.New(orbit.WithCache(cache.NewMemory(cache.MemoryOptions{
 //		MaxEntries: 5000,
 //		MaxBytes:   256 << 20,
 //	})))
@@ -33,7 +34,7 @@
 // fragment, store its HTML and re-apply its tags to the page's cache
 // options, so a purge of a tag drops both:
 //
-//	var fragments = cache.New(cache.Options[orbit.HTML]{MaxBytes: 32 << 20})
+//	var fragments = cache.NewStore(cache.StoreOptions[orbit.HTML]{MaxBytes: 32 << 20})
 //
 //	html, tags, err := fragments.Load(ctx.Request.Context(), "sidebar", time.Minute, []string{"posts"},
 //		func(context.Context) (orbit.HTML, error) {

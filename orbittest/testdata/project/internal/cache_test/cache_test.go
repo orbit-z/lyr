@@ -18,7 +18,7 @@ import (
 // Get through a site built with WithCache caches like production: MISS,
 // then HIT, with the orbit.json rule and the page's tag (PLAN.md §4h).
 func TestGetCaches(t *testing.T) {
-	site := app.New(orbit.WithCache(cache.Memory(cache.MemoryOptions{})))
+	site := app.New(orbit.WithCache(cache.NewMemory(cache.MemoryOptions{})))
 	h := site.Handler()
 	if got := orbittest.Get(t, h, "/cached/a").Header().Get("X-Orbit-Cache"); got != "MISS" {
 		t.Fatalf("first GET: X-Orbit-Cache %q", got)
@@ -42,7 +42,7 @@ func TestGetCaches(t *testing.T) {
 // Over HTTP: X-Orbit-Cache, a tag purge from an admin handler, and the
 // middleware keeping a signed-in visitor out of the cache.
 func TestHTTP(t *testing.T) {
-	site := app.New(orbit.WithCache(cache.Memory(cache.MemoryOptions{})))
+	site := app.New(orbit.WithCache(cache.NewMemory(cache.MemoryOptions{})))
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /admin/purge", func(w http.ResponseWriter, r *http.Request) {
 		if err := site.InvalidateCache(r.Context(), orbit.InvalidateOptions{Tags: []string{"item:" + r.FormValue("id")}}); err != nil {

@@ -191,6 +191,8 @@ With an up-to-date `orbit_gen/`, gopls reads the generated code of every file yo
 
 **Go**, through gopls, everywhere you write Go: the frontmatter, `{…}` expressions, attribute expressions, `{if}`/`{for}`/`{switch}` headers and `{case}` lists. You get completion (including `props.`, `ctx.`, `slots.`, your typed `locals.` and, in pages, the route's `params.`), hover, signature help, go-to-definition, references and rename, across your `.orbit` files and your `.go` packages. Accepting a completion for an unimported package adds the import to the frontmatter.
 
+Completion after `orbit.` (or another name you import the runtime as), and on an `*orbit.Writer`, leaves out the runtime names that only generated code calls, those whose Go doc starts with "For generated code." (see [Runtime API](reference/runtime-api.md)). Hover and go to definition still work on them.
+
 Inside a [template literal](reference/template-syntax.md#template-literals), each `${…}` piece is Go like any other expression, nested literals and pieces on later lines of a multi-line literal included: `` href={`/posts/${post.Slug}`} `` completes, hovers and renames `post` as `href={post.Slug}` would. The literal's text around the pieces is a string, so it gets no completion, as inside a quoted value. While you type, an empty `${}` already completes, and so does an unterminated literal, up to the end of its line.
 
 **Templates**, natively:
