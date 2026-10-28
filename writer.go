@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/orbit-z/orbit/internal/jsfloat"
 )
 
 // maxDepth is the deepest component nesting Enter allows.
@@ -127,20 +129,24 @@ func (w *Writer) Uint(n uint64) {
 	w.buf.Write(strconv.AppendUint(w.buf.AvailableBuffer(), n, 10))
 }
 
-// Float writes f in its shortest form, as fmt.Sprint does (0.1, 2, 1e+06).
+// Float writes f as JavaScript's String(f) does, what Astro renders: the
+// shortest digits, in decimal notation for 1e-6 <= |f| < 1e21 (0.1, 2,
+// 1000000, 0.000001) and exponent notation otherwise (1e-7, 1e+21); -0
+// prints 0, and NaN, Infinity and -Infinity print as in JavaScript.
 func (w *Writer) Float(f float64) {
 	if w.err != nil {
 		return
 	}
-	w.buf.Write(strconv.AppendFloat(w.buf.AvailableBuffer(), f, 'g', -1, 64))
+	w.buf.Write(jsfloat.Append(w.buf.AvailableBuffer(), f, 64))
 }
 
-// Float32 writes f in its shortest float32 form: float32(0.1) prints 0.1.
+// Float32 writes f as Float does, with its shortest float32 digits:
+// float32(0.1) prints 0.1.
 func (w *Writer) Float32(f float32) {
 	if w.err != nil {
 		return
 	}
-	w.buf.Write(strconv.AppendFloat(w.buf.AvailableBuffer(), float64(f), 'g', -1, 32))
+	w.buf.Write(jsfloat.Append(w.buf.AvailableBuffer(), float64(f), 32))
 }
 
 // Bool writes true or false.
@@ -259,7 +265,8 @@ func depthError(stack []string) error {
 //   - JSONValue: its JSON text, HTML-escaped
 //   - string, URL, CSS: HTML-escaped
 //   - []byte: HTML-escaped, as a string
-//   - ints, floats, bools: strconv (float32 as a float32)
+//   - ints, bools: strconv
+//   - floats, named ones too: as JavaScript's String(f) (Float, Float32)
 //   - Renderer, func(*Writer) error: called
 //   - Opt: nothing when none, else its value by these rules
 //   - error: Error(), escaped
@@ -268,7 +275,8 @@ func depthError(stack []string) error {
 //   - anything else: fmt.Sprint, escaped
 //
 // A named type such as type Slug string isn't a string here: it goes through
-// fmt.Sprint, which prints the same text.
+// fmt.Sprint, which prints the same text. Floats inside another value (a
+// struct, a map) print as fmt.Sprint prints them (1e+06).
 func (w *Writer) Expr(v any) {
 	if w.err != nil {
 		return
@@ -368,6 +376,19 @@ func (w *Writer) reflectValue(v any, escape bool) {
 			w.value(rv.Index(i).Interface(), escape)
 		}
 		return
+	}
+	// A named float (type Price float64) prints as a float, the text of
+	// the typed write codegen emits for it; fmt's %v form (1e+06) isn't
+	// JavaScript's (1000000). A Format method still wins, as in fmt.
+	if k := rv.Kind(); k == reflect.Float64 || k == reflect.Float32 {
+		if _, ok := v.(fmt.Formatter); !ok {
+			if k == reflect.Float32 {
+				w.Float32(float32(rv.Float()))
+			} else {
+				w.Float(rv.Float())
+			}
+			return
+		}
 	}
 	if escape {
 		escapeString(w.buf, fmt.Sprint(v))

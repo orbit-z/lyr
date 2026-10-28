@@ -341,8 +341,8 @@ When Orbit compiles a template, it type-checks each `{…}` expression and calls
 func (w *Writer) String(s string)         // HTML-escaped
 func (w *Writer) Int(n int64)
 func (w *Writer) Uint(n uint64)
-func (w *Writer) Float(f float64)
-func (w *Writer) Float32(f float32)       // formatted as a float32: float32(0.1) prints 0.1
+func (w *Writer) Float(f float64)         // as JavaScript's String(f): 1e6 prints 1000000, 1e-7 prints 1e-7
+func (w *Writer) Float32(f float32)       // the same, with float32 digits: float32(0.1) prints 0.1
 func (w *Writer) Bool(b bool)
 func (w *Writer) HTML(h HTML)             // raw; also used by set:html
 func (w *Writer) Bytes(b []byte)          // HTML-escaped, as a string

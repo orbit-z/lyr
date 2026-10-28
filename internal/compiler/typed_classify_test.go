@@ -28,7 +28,7 @@ var tyCases = []struct{ attr, expr, want string }{
 	{"", `flag`, "Bool/bool"},      // type Flag bool
 	{"", `f64`, "Float"},           // float64
 	{"", `f32`, "Float32"},         // float32: bitSize 32, prints 0.1
-	{"", `price`, "Float/float64"}, // type Price float64: fmt %v == strconv g -1 64
+	{"", `price`, "Float/float64"}, // type Price float64: Expr writes a named float as Float
 	{"", `ratio`, "Float32/float32"},
 	{"", `float32(0.1)`, "Float32"}, // typed constant
 	{"", `raw`, "Bytes"},            // []byte
