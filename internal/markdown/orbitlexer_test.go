@@ -78,11 +78,16 @@ func TestOrbitLexer(t *testing.T) {
 		`cm   "{/* a template comment */}"`,
 		`nt   "h1"`,
 		`na   "class"`,
-		`s    "\"literal {x}\""`, // braces in a quoted attribute are text
-		`s    "\"}%d{\""`,        // a Go string with braces in an expression
-		`sc   "'}'"`,             // a rune
-		"s    \"`raw }`\"",       // a raw string
-		`cm   "/* } */"`,         // a Go comment
+		`s    "\"literal {x}\""`,         // braces in a quoted attribute are text
+		`s    "\"}%d{\""`,                // a Go string with braces in an expression
+		`sc   "'}'"`,                     // a rune
+		"sb   \"`raw }`\"",               // a template literal without pieces
+		"s    \"`a raw ${string}`\"",     // the frontmatter keeps Go's raw strings
+		"sb   \"`/posts/\"", `si   "${"`, // a literal with pieces
+		`si   "}"`,
+		"sb   \"`x \"",   // a nested literal
+		`se   "\\$"`,     // an escape
+		`cm   "/* } */"`, // a Go comment
 		`k    "if"`, `k    "else"`, `k    "for"`, `k    "/for"`, `k    "/if"`,
 		`nc   "Card"`, `nc   "Self"`, // component tags
 		`o    "..."`, // a spread
@@ -120,6 +125,86 @@ func TestOrbitLexerEdges(t *testing.T) {
 		{"<><b>x</b></>", "p    \"<><\"\nnt   \"b\"\np    \">\"\n-    \"x\"\np    \"</\"\nnt   \"b\"\np    \"></>\"\n"},
 		// {switch} blocks: keywords, with the header and case lists as Go.
 		{"{switch x}{case 1, 2}{default}{/switch}", "p    \"{\"\nk    \"switch\"\nnx   \"x\"\np    \"}{\"\nk    \"case\"\nmi   \"1\"\np    \",\"\nmi   \"2\"\np    \"}{\"\nk    \"default\"\np    \"}{\"\nk    \"/switch\"\np    \"}\"\n"},
+	} {
+		got, _ := orbitTokens(t, tt.src)
+		if got != tt.want {
+			t.Errorf("%q:\n%s\nwant:\n%s", tt.src, got, tt.want)
+		}
+	}
+}
+
+// TestOrbitLexerTemplateLiterals: in a template expression a backtick
+// string is a template literal (PLAN.md §2.10), its pieces template
+// expressions again, so nesting is exact.
+func TestOrbitLexerTemplateLiterals(t *testing.T) {
+	bt := func(s string) string { return strings.ReplaceAll(s, "'", "`") } // ' stands for a backtick
+	for _, tt := range []struct{ src, want string }{
+		// Three levels; braces in a literal's text don't count.
+		{bt("{'a${f('b${'c}'}')}'}"), bt(`p    "{"
+sb   "'a"
+si   "${"
+nf   "f"
+p    "("
+sb   "'b"
+si   "${"
+sb   "'c}'"
+si   "}"
+sb   "'"
+p    ")"
+si   "}"
+sb   "'"
+p    "}"
+`)},
+		// A backtick in a piece's Go string doesn't end the literal.
+		{bt(`{'${"'"}'}`), bt(`p    "{"
+sb   "'"
+si   "${"
+s    "\"'\""
+si   "}"
+sb   "'"
+p    "}"
+`)},
+		// $ without { is text; \${ is an escape, not a piece.
+		{bt(`{'$x \${y}'}`), bt(`p    "{"
+sb   "'$x "
+se   "\\$"
+sb   "{y}'"
+p    "}"
+`)},
+		// An unterminated literal makes the { an error.
+		{bt("<p>{'a</p>\n"), bt(`p    "<"
+nt   "p"
+p    ">"
+err  "{"
+-    "'a"
+p    "</"
+nt   "p"
+p    ">"
+`)},
+		// A control header, a multi-line literal as an attribute value.
+		{bt("{if s == 'a-${b}'}{/if}<a x={'1\n${n}'}/>"), bt(`p    "{"
+k    "if"
+nx   "s"
+o    "=="
+sb   "'a-"
+si   "${"
+nx   "b"
+si   "}"
+sb   "'"
+p    "}{"
+k    "/if"
+p    "}<"
+nt   "a"
+na   "x"
+o    "="
+p    "{"
+sb   "'1\n"
+si   "${"
+nx   "n"
+si   "}"
+sb   "'"
+p    "}/>"
+`)},
 	} {
 		got, _ := orbitTokens(t, tt.src)
 		if got != tt.want {

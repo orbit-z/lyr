@@ -136,6 +136,15 @@ func findLiterals(src string, sp Span, diags *[]Diagnostic) []*TemplateLiteral {
 	return lits
 }
 
+// FindTemplateLiterals returns the outermost template literals of code, Go
+// code from a template expression, with spans relative to code; ok is false
+// when one of them has a lexical error (orbit fmt leaves such code alone).
+func FindTemplateLiterals(code string) (lits []*TemplateLiteral, ok bool) {
+	var diags []Diagnostic
+	lits = findLiterals(code, Span{0, len(code)}, &diags)
+	return lits, len(diags) == 0
+}
+
 // tlScanGo scans Go code in src[i:limit] for template literals. With piece
 // set, it stops at the '}' that closes the piece (returning its index);
 // otherwise it scans to limit. end is -1 when a piece isn't closed.

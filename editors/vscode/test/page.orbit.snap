@@ -152,9 +152,9 @@
 #                   ^ source.orbit meta.expression.orbit punctuation.section.embedded.end.orbit
 #                    ^^^^^ source.orbit
 #                         ^ source.orbit meta.expression.orbit punctuation.section.embedded.begin.orbit
-#                          ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.quoted.raw.go punctuation.definition.string.begin.go
-#                           ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.quoted.raw.go
-#                            ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.quoted.raw.go punctuation.definition.string.end.go
+#                          ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.begin.orbit
+#                           ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit
+#                            ^ source.orbit meta.expression.orbit meta.embedded.expression.go string.template.orbit punctuation.definition.string.template.end.orbit
 #                             ^ source.orbit meta.expression.orbit punctuation.section.embedded.end.orbit
 #                              ^^^^^ source.orbit
 #                                   ^ source.orbit meta.expression.orbit punctuation.section.embedded.begin.orbit

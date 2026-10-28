@@ -1,0 +1,26 @@
+---
+import Card "../components/Card.orbit"
+
+type Props struct {
+	Slug  string
+	Index int
+	Open  bool
+}
+
+var re = regexp.MustCompile(`\d+ ${raw}`)
+---
+<a href={`/fiction/${props.Slug}`} aria-label={`Chapter ${props.Index + 1} of ${title}`}>
+	<Card title={`Chapter ${props.Index + 1}`} />
+</a>
+<span>{` · ${n} words`}</span>
+<button aria-label={orbit.If(props.Open, `Close ${title}`)}>x</button>
+{if props.Slug == `a-${b}`}<i>a</i>{/if}
+{switch props.Slug}
+	{case `draft`}<i>d</i>
+{/switch}
+<p class:list={{`btn-${size}`, "on": props.Open, `x-${k}`: true}}>c</p>
+<p title={`line one
+line ${two} \
+end`}>m</p>
+<p>{`esc \` \${ \n \x41 \u0041 \u{1F600} \0 \d`}</p>
+<p>{`a ${f(`x ${g(`y ${z}`)}`)} b ${m["}"]} c`}</p>

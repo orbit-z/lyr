@@ -220,25 +220,27 @@ func goRegions(f *compiler.File) []string {
 			}
 		}
 	}
+	// Template literals are compared as their parts (tlCanon).
+	tc := func(s string) string { return tlCanon(lf(s)) }
 	compiler.Walk(f.Template, func(n compiler.Node) bool {
 		switch n := n.(type) {
 		case *compiler.Expr:
-			out = append(out, dumpExpr(n.Code.Text))
+			out = append(out, dumpExpr(tc(n.Code.Text)))
 		case *compiler.Branch:
 			if !n.Else {
-				out = append(out, dumpFile("package p\n\nfunc _() {\nif "+lf(n.Cond.Text)+" {}\n}\n", false))
+				out = append(out, dumpFile("package p\n\nfunc _() {\nif "+tc(n.Cond.Text)+" {}\n}\n", false))
 			}
 		case *compiler.For:
-			out = append(out, dumpFile("package p\n\nfunc _() {\nfor "+lf(n.Clause.Text)+" {}\n}\n", false))
+			out = append(out, dumpFile("package p\n\nfunc _() {\nfor "+tc(n.Clause.Text)+" {}\n}\n", false))
 		case *compiler.Switch:
 			// The whole switch: a type switch's case lists are types.
 			var b strings.Builder
-			b.WriteString("package p\n\nfunc _() {\nswitch " + lf(n.Clause.Text) + " {\n")
+			b.WriteString("package p\n\nfunc _() {\nswitch " + tc(n.Clause.Text) + " {\n")
 			for _, cs := range n.Cases {
 				if cs.Default {
 					b.WriteString("default:\n")
 				} else {
-					b.WriteString("case " + lf(cs.List.Text) + ":\n")
+					b.WriteString("case " + tc(cs.List.Text) + ":\n")
 				}
 			}
 			b.WriteString("}\n}\n")
@@ -248,9 +250,9 @@ func goRegions(f *compiler.File) []string {
 			for _, a := range t.Attrs {
 				switch {
 				case a.Directive == compiler.ClassList && strings.TrimSpace(a.Code.Text) != "":
-					out = append(out, dumpExpr("_{"+lf(a.Code.Text)+"}"))
+					out = append(out, dumpExpr("_{"+tc(a.Code.Text)+"}"))
 				case a.Kind == compiler.AttrExpr || a.Kind == compiler.AttrSpread || a.Kind == compiler.AttrShorthand:
-					out = append(out, dumpExpr(a.Code.Text))
+					out = append(out, dumpExpr(tc(a.Code.Text)))
 				}
 			}
 		}

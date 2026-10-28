@@ -452,3 +452,18 @@ func literalSite(cs CallSite) bool {
 	}
 	return strings.IndexByte(cs.Code.Text, '`') >= 0
 }
+
+// TestTemplateLiteralNextLine: an unterminated literal that opens on the
+// line after its "{" is outside the construct as recovered (cut at the end
+// of the "{"'s line), so the "{" itself is reported (found by FuzzFormat).
+func TestTemplateLiteralNextLine(t *testing.T) {
+	for _, src := range []string{"<div title={\n`></div>", "<div class:list={\n`></div>", "<p>{\n`</p>"} {
+		found := false
+		for _, d := range Parse(src, Strict).Diagnostics {
+			found = found || d.Severity == SeverityError
+		}
+		if !found {
+			t.Errorf("%q: no error", src)
+		}
+	}
+}

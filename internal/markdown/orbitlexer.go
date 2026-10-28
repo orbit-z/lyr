@@ -22,10 +22,16 @@ import (
 //     like in the compiler) are NameClass, other tags NameTag; the fragment
 //     shorthand <>…</> is tag punctuation.
 //   - {…} in content, as an attribute value and in a start tag (spreads) is
-//     matched up to its closing brace by braceRe, then split by braceTokens
-//     as the compiler's lexBrace does: {/* comment */}, {if …}, {else if …},
-//     {else}, {/if}, {for …}, {/for}, {switch …}, {case …}, {default},
-//     {/switch}, {...spread}, or a Go expression.
+//     matched up to its closing brace by scanBrace (a state machine, as the
+//     compiler's scanBraced), then split by braceTokens as the compiler's
+//     lexBrace does: {/* comment */}, {if …}, {else if …}, {else}, {/if},
+//     {for …}, {/for}, {switch …}, {case …}, {default}, {/switch},
+//     {...spread}, or a Go expression.
+//   - In a template expression every backtick string is a template literal
+//     (PLAN.md §2.10): its text is LiteralStringBacktick (escapes
+//     LiteralStringEscape), "${" and "}" LiteralStringInterpol, and each
+//     piece is lexed as a template expression again, so nested literals are
+//     exact. The frontmatter keeps Go's raw strings.
 //   - <script> content is TypeScript (JSON for type="application/json" and
 //     "application/ld+json"), <style> content CSS (with Tailwind's @apply,
 //     twcss.go), as in the compiler.
@@ -46,22 +52,22 @@ var orbitLexer = sync.OnceValue(func() chroma.Lexer {
 	}, orbitRules))
 })
 
-// braceRe matches a template's {…} the way internal/compiler's scanBraced
-// finds its end: braces inside Go strings ("…" and '…' with backslash
-// escapes, ending at a newline like in Go), raw strings (`…`) and comments
-// (// up to the newline, /* … */) don't count, and nested braces are
-// counted with a .NET balancing group (regexp2). Each step is atomic, so a
-// construct without its closing brace fails in linear time.
-var braceRe = `\{(?:(?>[^{}"'` + "`" + `/]+|"(?:[^"\\\n]|\\[^\n])*"|'(?:[^'\\\n]|\\[^\n])*'|` +
-	"`[^`]*`" + `|//[^\n]*\n|/\*(?:[^*]|\*(?!/))*\*/|/(?![/*])|(?<o>\{)|(?<-o>\})))*(?(o)(?!))\}`
-
 func orbitRules() chroma.Rules {
 	goLexer := lexers.Get("go")
 	ts := lexers.Get("typescript")
 	css := twCSS{lexers.Get("css")}
 	json := lexers.Get("json")
-	brace := chroma.EmitterFunc(func(groups []string, _ *chroma.LexerState) chroma.Iterator {
-		return chroma.Literator(braceTokens(goLexer, groups[0])...)
+	// brace is the emitter of a rule matching "{": it scans the rest of
+	// the expression itself and moves the lexer past it (regular
+	// expressions can't follow nested template literals).
+	brace := chroma.EmitterFunc(func(_ []string, l *chroma.LexerState) chroma.Iterator {
+		start := l.Pos - 1
+		end := scanBrace(l.Text, start)
+		if end < 0 {
+			return chroma.Literator(chroma.Token{Type: chroma.Error, Value: "{"})
+		}
+		l.Pos = end
+		return chroma.Literator(braceTokens(goLexer, string(l.Text[start:end]))...)
 	})
 	goCode := chroma.EmitterFunc(func(groups []string, _ *chroma.LexerState) chroma.Iterator {
 		return chroma.Literator(goTokens(nil, goLexer, groups[0])...)
@@ -91,8 +97,7 @@ func orbitRules() chroma.Rules {
 		},
 		"template": {
 			{Pattern: `[^<&{}]+`, Type: chroma.Text},
-			{Pattern: braceRe, Type: brace},
-			{Pattern: `\{`, Type: chroma.Error}, // no matching }
+			{Pattern: `\{`, Type: brace}, // an error token without its }
 			{Pattern: `<!--.*?(?:-->|\z)`, Type: chroma.Comment},
 			{Pattern: `(?i)<!doctype[^>]*>?`, Type: chroma.CommentPreproc},
 			{Pattern: `(?i)(<)(\s*)(script)(?=[^>]*\btype\s*=\s*["']?application/(?:ld\+)?json\b)`,
@@ -110,14 +115,13 @@ func orbitRules() chroma.Rules {
 		"tag": {
 			{Pattern: `\s+`, Type: chroma.Text},
 			{Pattern: `/?>`, Type: chroma.Punctuation, Mutator: chroma.Pop(1)},
-			{Pattern: braceRe, Type: brace}, // {...spread}
+			{Pattern: `\{`, Type: brace}, // {...spread}
 			{Pattern: `([^\s"'<>/=\{\}` + "`" + `]+)(\s*)(=)(\s*)`, Type: chroma.ByGroups(chroma.NameAttribute, chroma.Text, chroma.Operator, chroma.Text), Mutator: chroma.Push("attr")},
 			{Pattern: `[^\s"'<>/=\{\}` + "`" + `]+`, Type: chroma.NameAttribute},
-			{Pattern: `\{`, Type: chroma.Error},
 			{Pattern: `.`, Type: chroma.Text},
 		},
 		"attr": {
-			{Pattern: braceRe, Type: brace, Mutator: chroma.Pop(1)},
+			{Pattern: `\{`, Type: brace, Mutator: chroma.Pop(1)},
 			{Pattern: `".*?"`, Type: chroma.LiteralString, Mutator: chroma.Pop(1)},
 			{Pattern: `'.*?'`, Type: chroma.LiteralString, Mutator: chroma.Pop(1)},
 			{Pattern: `[^\s>{]+`, Type: chroma.LiteralString, Mutator: chroma.Pop(1)},
@@ -140,7 +144,7 @@ func braceTokens(goLexer chroma.Lexer, s string) []chroma.Token {
 	if lead != "" {
 		out = append(out, tok(chroma.TextWhitespace, lead))
 	}
-	goCode := func(code string) { out = goTokens(out, goLexer, code) }
+	goCode := func(code string) { out = exprTokens(out, goLexer, code) }
 	// {/* comment */}
 	if strings.HasPrefix(t, "/*") {
 		if k := strings.Index(t[2:], "*/"); k >= 0 && strings.TrimSpace(t[2+k+2:]) == "" {
@@ -214,4 +218,161 @@ func identPrefix(s string) string {
 		i += size
 	}
 	return s[:i]
+}
+
+// scanBrace returns the end (exclusive) of the {…} starting at t[i], as
+// internal/compiler's scanBraced finds it, or -1: braces inside Go strings
+// ("…" and '…' with backslash escapes, ending at a newline like in Go),
+// comments (// up to a newline, /* … */) and template literals (`…` with
+// ${…} pieces, nested) don't count.
+func scanBrace(t []rune, i int) int {
+	depth := 0
+	for i < len(t) {
+		switch t[i] {
+		case '{':
+			depth++
+			i++
+		case '}':
+			depth--
+			i++
+			if depth == 0 {
+				return i
+			}
+		case '"', '\'':
+			i = scanQuoted(t, i)
+		case '`':
+			i = scanLiteral(t, i)
+		case '/':
+			i = scanComment(t, i, true)
+		default:
+			i++
+		}
+		if i < 0 {
+			return -1
+		}
+	}
+	return -1
+}
+
+// scanQuoted returns the end of the Go string or rune at t[i], or -1.
+func scanQuoted(t []rune, i int) int {
+	q := t[i]
+	for i++; i < len(t); i++ {
+		switch t[i] {
+		case q:
+			return i + 1
+		case '\n':
+			return -1
+		case '\\':
+			if i+1 >= len(t) || t[i+1] == '\n' {
+				return -1
+			}
+			i++
+		}
+	}
+	return -1
+}
+
+// scanComment returns the end of the comment at t[i] (i+1 for a lone
+// "/"). An unterminated comment ends at -1 when strict, else at len(t).
+func scanComment(t []rune, i int, strict bool) int {
+	if i+1 >= len(t) || (t[i+1] != '/' && t[i+1] != '*') {
+		return i + 1
+	}
+	line := t[i+1] == '/'
+	for j := i + 2; j < len(t); j++ {
+		if line && t[j] == '\n' {
+			return j // the newline isn't part of the comment
+		}
+		if !line && t[j] == '/' && t[j-1] == '*' && j > i+2 {
+			return j + 1
+		}
+	}
+	if strict {
+		return -1
+	}
+	return len(t)
+}
+
+// scanLiteral returns the end of the template literal at t[i], or -1.
+func scanLiteral(t []rune, i int) int {
+	for i++; i < len(t); {
+		switch {
+		case t[i] == '`':
+			return i + 1
+		case t[i] == '\\':
+			i += 2
+		case t[i] == '$' && i+1 < len(t) && t[i+1] == '{':
+			if i = scanBrace(t, i+1); i < 0 {
+				return -1
+			}
+		default:
+			i++
+		}
+	}
+	return -1
+}
+
+// exprTokens appends the tokens of the Go code of a template expression:
+// Go, with its backtick strings as template literals.
+func exprTokens(out []chroma.Token, goLexer chroma.Lexer, code string) []chroma.Token {
+	if !strings.Contains(code, "`") {
+		return goTokens(out, goLexer, code)
+	}
+	t := []rune(code)
+	last := 0
+	for i := 0; i < len(t); {
+		switch t[i] {
+		case '"', '\'':
+			if i = scanQuoted(t, i); i < 0 {
+				i = len(t)
+			}
+		case '/':
+			i = scanComment(t, i, false)
+		case '`':
+			out = goTokens(out, goLexer, string(t[last:i]))
+			out, i = literalTokens(out, goLexer, t, i)
+			last = i
+		default:
+			i++
+		}
+	}
+	return goTokens(out, goLexer, string(t[last:]))
+}
+
+// literalTokens appends the tokens of the template literal at t[i] and
+// returns its end.
+func literalTokens(out []chroma.Token, goLexer chroma.Lexer, t []rune, i int) ([]chroma.Token, int) {
+	tok := func(tt chroma.TokenType, v []rune) {
+		if len(v) > 0 {
+			out = append(out, chroma.Token{Type: tt, Value: string(v)})
+		}
+	}
+	text := i // start of the pending static text, the opening backtick included
+	for i++; i < len(t); {
+		switch {
+		case t[i] == '`':
+			tok(chroma.LiteralStringBacktick, t[text:i+1])
+			return out, i + 1
+		case t[i] == '\\':
+			tok(chroma.LiteralStringBacktick, t[text:i])
+			e := min(i+2, len(t))
+			tok(chroma.LiteralStringEscape, t[i:e])
+			i, text = e, e
+		case t[i] == '$' && i+1 < len(t) && t[i+1] == '{':
+			tok(chroma.LiteralStringBacktick, t[text:i])
+			tok(chroma.LiteralStringInterpol, t[i:i+2])
+			end := scanBrace(t, i+1)
+			if end < 0 { // not closed: the rest is the piece
+				return exprTokens(out, goLexer, string(t[i+2:])), len(t)
+			}
+			out = exprTokens(out, goLexer, string(t[i+2:end-1]))
+			tok(chroma.LiteralStringInterpol, t[end-1:end])
+			i, text = end, end
+		default:
+			i++
+		}
+	}
+	tok(chroma.LiteralStringBacktick, t[text:])
+	return out, len(t)
 }

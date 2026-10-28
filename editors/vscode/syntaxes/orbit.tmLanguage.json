@@ -193,7 +193,7 @@
       "comment": "Go inside {…}. Strings, runes, comments and nested braces are matched here, so a } inside them never ends the expression (the compiler's Go-aware scanner, PLAN.md §2.3); the rest is source.go.",
       "patterns": [
         { "include": "#go-string" },
-        { "include": "#go-raw-string" },
+        { "include": "#template-literal" },
         { "include": "#go-rune" },
         { "include": "#go-block-comment" },
         { "include": "#go-line-comment" },
@@ -209,12 +209,29 @@
       "endCaptures": { "0": { "name": "punctuation.definition.string.end.go" } },
       "patterns": [{ "name": "constant.character.escape.go", "match": "\\\\(?:[abfnrtv\\\\'\"]|[0-7]{3}|x\\h{2}|u\\h{4}|U\\h{8})" }]
     },
-    "go-raw-string": {
-      "name": "string.quoted.raw.go",
+    "template-literal": {
+      "comment": "In the template every backtick string is a JavaScript template literal (PLAN.md §2.10): JavaScript's escapes, ${…} pieces holding Go (nested literals included). Listed before source.go so it wins over Go's raw string; the frontmatter keeps Go's raw strings.",
+      "name": "string.template.orbit",
       "begin": "`",
       "end": "`",
-      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.go" } },
-      "endCaptures": { "0": { "name": "punctuation.definition.string.end.go" } }
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.template.begin.orbit" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.string.template.end.orbit" } },
+      "patterns": [
+        {
+          "name": "constant.character.escape.orbit",
+          "match": "\\\\(?:[\\\\`$nrtbfv'\"]|0(?![0-9])|x\\h{2}|u\\h{4}|u\\{\\h+\\}|$)"
+        },
+        { "name": "invalid.illegal.unknown-escape.orbit", "match": "\\\\." },
+        {
+          "name": "meta.template.expression.orbit",
+          "begin": "\\$\\{",
+          "end": "\\}",
+          "beginCaptures": { "0": { "name": "punctuation.definition.template-expression.begin.orbit" } },
+          "endCaptures": { "0": { "name": "punctuation.definition.template-expression.end.orbit" } },
+          "contentName": "meta.embedded.expression.go",
+          "patterns": [{ "include": "#go" }]
+        }
+      ]
     },
     "go-rune": {
       "name": "string.quoted.rune.go",

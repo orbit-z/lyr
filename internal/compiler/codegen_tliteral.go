@@ -89,6 +89,22 @@ func (g *cgGen) piece(p TLPart) Span {
 	if len(p.Lits) > 0 {
 		return g.codeLits(p.Span, p.Lits)
 	}
+	if p.Text == "" {
+		// An empty ${} (a parse error, so tolerant mode only): its
+		// zero-length segment sits in an argument list that may be empty,
+		// so the Go parses and gopls completes there. No //line directive
+		// before it: right after one, gopls offers almost nothing (measured
+		// in TestTemplateLiteralLSP); the segment has no code for Go to
+		// report an error on anyway.
+		o := g.o
+		o.str(NameRuntime + ".TemplateString( ")
+		at := len(o.b)
+		o.segs = append(o.segs, Segment{Kind: SegExact, OrbitStart: p.Start, OrbitEnd: p.End, GoStart: at, GoEnd: at})
+		o.str(" ")
+		o.reset()
+		o.str(")")
+		return Span{at, at}
+	}
 	return g.o.inline(p.Span, p.Text, SegExact)
 }
 
