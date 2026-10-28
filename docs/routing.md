@@ -344,7 +344,25 @@ In `"always"`, it's the mirror image: `/blog/hello` gets a 308 to `/blog/hello/`
 
 Params come from the path without its slash: in `"always"`, `[slug]` at `/blog/hello/` is `"hello"`, `[...path]` at `/docs/a/b/` is `"a/b"`, and at `/docs/` it's `""`. `ctx.URL` is the request URL as received, slash included.
 
-Middleware that wraps Orbit runs before the redirect, so it can see both `/blog/hello/` and `/blog/hello`. See [Middleware and locals](middleware.md).
+### Redirecting before your middleware
+
+`site.Middleware` (and `site.Handler()`) redirects when the request reaches Orbit, so middleware that wraps Orbit runs first and sees both `/blog/hello/` and `/blog/hello`: an auth gate would answer a signed-out visitor on the other form with its own redirect, and the visitor would land on the wrong form after signing in. Astro redirects before its middleware. To get Astro's order, wrap your whole handler in `site.TrailingSlash`, outermost (`orbit new`'s `cmd/server/main.go` does):
+
+```go
+site := app.New()
+mux := http.NewServeMux()
+mux.Handle("/", site.Handler())
+
+// logging sees the 308s too; auth never sees the other form.
+h := logging(site.TrailingSlash(auth(mux)))
+```
+
+- **Same rule**: it sends exactly the 308 `site.Middleware` would (same pages, same exclusions, same `Location`), and `site.Middleware` keeps its own redirect, so a request is never redirected twice.
+- **Pages only**: like `site.Middleware`'s, it redirects only paths whose other form is a page URL. Your own mux routes (`/api/items`) reach `next` untouched in either form; if you register a route in one form only and want the other redirected, do it in your handler.
+- **Free on canonical URLs**: a path already in its canonical form is passed on after a check of its last byte, with no allocation; a non-canonical one costs a file and route lookup (~35 ns, no allocation) unless it's redirected.
+- **Under a prefix** (`http.StripPrefix`), put it inside, on the path Orbit sees.
+
+See [Middleware and locals](middleware.md#where-middleware-goes).
 
 ## Which HTTP methods Orbit handles
 

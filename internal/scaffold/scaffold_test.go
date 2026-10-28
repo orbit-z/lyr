@@ -41,7 +41,7 @@ func TestFiles(t *testing.T) {
 	}
 	main := files["cmd/server/main.go"]
 	if !strings.Contains(string(main), "\t\"example.com/blog/orbit_gen/app\"\n") ||
-		!strings.Contains(string(main), "if err := orbit.ListenAndServe(mux); err != nil {\n\t\tlog.Fatal(err)\n\t}") {
+		!strings.Contains(string(main), "if err := orbit.ListenAndServe(site.TrailingSlash(mux)); err != nil {\n\t\tlog.Fatal(err)\n\t}") {
 		t.Errorf("main.go:\n%s", main)
 	}
 	if f, err := format.Source(main); err != nil || string(f) != string(main) {

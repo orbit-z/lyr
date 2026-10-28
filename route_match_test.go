@@ -78,15 +78,23 @@ func TestSiteMatch(t *testing.T) {
 
 // TestSiteMatchAgrees: for every path × method × slash mode, in prod and dev,
 // Match returns what site.Middleware fills.
+// matchCorpus is the request paths of TestSiteMatchAgrees and
+// TestTrailingSlashAgrees, for matchSite; BUILD stands for the build ID.
+var matchCorpus = []string{
+	"/", "/ok", "/ok/", "//ok", "/redirect", "/gone", "/blog/hello", "/blog/hello/", "/blog/a%20b%2Fc",
+	"/blog/a%2F", "/blog/a%2F/", "/blog/hello/?q=go", "/blog/hello?q=go",
+	"/blog", "/docs", "/docs/", "/docs/a/b/c", "/p/1/2/3/4/5/6/7/8/9", "/p/1/2", "/rss.xml", "/rss.xml/",
+	"/robots.txt", "/robots.txt/", "/_orbit/app-1234.js", "/_orbit/missing.js", "/_orbit/", "/shadow", "/shadow/",
+	"/unknown", "/unknown/", "/_orbit/island/", "/_orbit/island/b", "/_orbit/island/b/Nope-00000000",
+	"/_orbit/island/BUILD/" + commentsID, "/_orbit/island/BUILD/" + commentsID + "/extra",
+}
+
+var matchMethods = []string{"GET", "HEAD", "POST", "DELETE"}
+
+var modeName = map[TrailingSlash]string{TrailingSlashNever: "never", TrailingSlashAlways: "always"}
+
 func TestSiteMatchAgrees(t *testing.T) {
 	captureLog(t)
-	paths := []string{
-		"/", "/ok", "/ok/", "//ok", "/redirect", "/gone", "/blog/hello", "/blog/hello/", "/blog/a%20b%2Fc",
-		"/blog", "/docs", "/docs/", "/docs/a/b/c", "/p/1/2/3/4/5/6/7/8/9", "/p/1/2", "/rss.xml", "/rss.xml/",
-		"/robots.txt", "/robots.txt/", "/_orbit/app-1234.js", "/_orbit/missing.js", "/_orbit/", "/shadow", "/shadow/",
-		"/unknown", "/unknown/", "/_orbit/island/", "/_orbit/island/b", "/_orbit/island/b/Nope-00000000",
-		"/_orbit/island/BUILD/" + commentsID, "/_orbit/island/BUILD/" + commentsID + "/extra",
-	}
 	kinds := map[RouteKind]int{}
 	for _, dev := range []string{"", "1"} {
 		for _, mode := range []TrailingSlash{TrailingSlashNever, TrailingSlashAlways} {
@@ -94,10 +102,10 @@ func TestSiteMatchAgrees(t *testing.T) {
 			s := matchSite(t, WithTrailingSlash(mode))
 			var got *routeLocals
 			h := attachLocals(s.Middleware(http.NotFoundHandler()), &got)
-			for _, p := range paths {
+			for _, p := range matchCorpus {
 				p = strings.Replace(p, "BUILD", s.keys.buildID, 1)
-				for _, method := range []string{"GET", "HEAD", "POST", "DELETE"} {
-					name := method + " " + p + " dev=" + dev + " mode=" + map[TrailingSlash]string{TrailingSlashNever: "never", TrailingSlashAlways: "always"}[mode]
+				for _, method := range matchMethods {
+					name := method + " " + p + " dev=" + dev + " mode=" + modeName[mode]
 					ri := s.Match(httptest.NewRequest(method, p, nil))
 					h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(method, p, nil))
 					kinds[ri.Kind]++

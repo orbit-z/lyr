@@ -272,11 +272,76 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	releaseCtx(c)
 	if target, ok := s.router.redirectTarget(path, r.URL.RawQuery); ok {
-		w.Header()["Location"] = []string{target}
-		w.WriteHeader(http.StatusPermanentRedirect)
+		writeSlashRedirect(w, target)
 		return
 	}
 	m.next.ServeHTTP(w, r)
+}
+
+// TrailingSlash redirects the non-canonical form of a page URL (per
+// orbit.json's trailingSlash: /x/ to /x by default, /x to /x/ with
+// TrailingSlashAlways) with a 308 before calling next, so middleware inside
+// it never sees the other form: Astro's order. Put it outermost, inside an
+// access logger if you want the redirects logged:
+//
+//	orbit.ListenAndServe(site.TrailingSlash(logging(auth(mux))))
+//
+// It covers Orbit's pages only, with exactly site.Middleware's rule: a path
+// is redirected only when its other form is a page URL; island URLs,
+// /_orbit/ assets, public/ files, "//…" paths and file-extension paths
+// never are. Your own routes keep their own redirects. Anything else
+// reaches next untouched, and a canonical path costs one byte check.
+// site.Middleware keeps its own redirect, so a request this one passed
+// never gets a second one.
+func (s *Site) TrailingSlash(next http.Handler) http.Handler {
+	return &slashMiddleware{site: s, next: next}
+}
+
+type slashMiddleware struct {
+	site *Site
+	next http.Handler
+}
+
+func (m *slashMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !m.site.canonicalSlash(r.URL) {
+		if target, ok := m.site.slashRedirect(r); ok {
+			writeSlashRedirect(w, target)
+			return
+		}
+	}
+	m.next.ServeHTTP(w, r)
+}
+
+// canonicalSlash reports, from the path's last byte, that u is in its
+// canonical trailing-slash form, which site.Middleware never redirects.
+// A path with a RawPath (an escaped "/", say) is left to slashRedirect,
+// which reads the escaped path as site.Middleware does.
+func (s *Site) canonicalSlash(u *url.URL) bool {
+	p := u.Path
+	if len(p) < 2 {
+		return true
+	}
+	if u.RawPath != "" {
+		return false
+	}
+	return (p[len(p)-1] == '/') == s.router.always
+}
+
+// slashRedirect is site.Middleware's trailing-slash decision for r, without
+// serving anything: classify's order (islands, then files), then
+// redirectTarget for a page request. It needs no match: a path
+// redirectTarget accepts never matches a page (PLAN.md §4e).
+func (s *Site) slashRedirect(r *http.Request) (string, bool) {
+	if d, _ := s.classify(nil, r); d != dispatchPage {
+		return "", false
+	}
+	return s.router.redirectTarget(r.URL.EscapedPath(), r.URL.RawQuery)
+}
+
+// writeSlashRedirect sends the trailing-slash 308, with an empty body.
+func writeSlashRedirect(w http.ResponseWriter, target string) {
+	w.Header()["Location"] = []string{target}
+	w.WriteHeader(http.StatusPermanentRedirect)
 }
 
 // dispatch is what site.Middleware does with a request, decided by

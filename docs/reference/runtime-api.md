@@ -574,7 +574,7 @@ The integration point with your server. For a request that Orbit owns, Orbit ans
 
 1. **Island requests**, `/_orbit/island/<buildID>/<id>`, for `GET`, `HEAD` and `POST`; any other method gets a 405 with `Allow: GET, HEAD, POST`. With a cache provider, a `GET` goes through the route cache like a page. See [Lazy loading](../lazy-loading.md).
 2. **Static files**, `/_orbit/*` assets and `public/` files, for `GET` and `HEAD` only; other methods fall through to `next`. Files are served with `http.ServeContent` (`Range`, conditional requests). `/_orbit/*` files get `Cache-Control: public, max-age=31536000, immutable`, `public/` files `Cache-Control: public, max-age=0`, and both get `no-cache` in `orbit dev`. A directory is never served (not even its `index.html`), a file path is never redirected, and `/_orbit/island/` is never a file. In production, the static directory is indexed once at startup, so files added later are served after a restart; `orbit dev` looks them up per request.
-3. **Pages**, for every method. With a [cache provider](#withcache), a `GET` for a page is looked up in the route cache first, and may be answered from it (see [Caching](../caching.md)). A path with a trailing slash whose slash-less form is a page gets a 308 redirect to it, keeping the query string (`/blog/hello/` → `/blog/hello`).
+3. **Pages**, for every method. With a [cache provider](#withcache), a `GET` for a page is looked up in the route cache first, and may be answered from it (see [Caching](../caching.md)). A path with a trailing slash whose slash-less form is a page gets a 308 redirect to it, keeping the query string (`/blog/hello/` → `/blog/hello`; the mirror image with `TrailingSlashAlways`). `TrailingSlash` (below) sends the same redirect before your middleware.
 
 Anything else goes to `next`, untouched: Orbit writes nothing and sets no header.
 
@@ -589,6 +589,11 @@ Same as `s.Middleware(s.NotFound())`: Orbit's pages, with `404.orbit` for everyt
 func (s *Site) NotFound() http.Handler
 ```
 Renders `404.orbit` with a 404 status (a status the page sets with `ctx.SetStatus` wins), or answers an empty 404 if there is no `404.orbit`. Use it as the catch-all of your own mux when Orbit comes first.
+
+```go
+func (s *Site) TrailingSlash(next http.Handler) http.Handler
+```
+Sends `Middleware`'s trailing-slash 308 before `next` runs, so middleware inside it never sees the other form of a page URL, as in Astro: `orbit.ListenAndServe(logging(site.TrailingSlash(auth(mux))))`. Put it outermost, with only a logger outside it if you want the 308s logged; `orbit new`'s `main.go` uses it. The decision is exactly `Middleware`'s (pages only; never `/`, `/_orbit/`, a `public/` file, a `//` path or, in `always`, an extension path; `Location` keeps the query; empty body), and `Middleware` keeps its own redirect, so nothing is redirected twice. Everything else reaches `next` as the same `*http.Request`. A canonical path costs one byte check; nothing allocates except the redirect's `Location`. Under `http.StripPrefix`, put it inside. See [Redirecting before your middleware](../routing.md#redirecting-before-your-middleware).
 
 ```go
 func (s *Site) ServeError(w http.ResponseWriter, r *http.Request, err error)

@@ -73,7 +73,7 @@ func main() {
 	mux.Handle("POST /admin/purge/{slug}", purge(site))
 	mux.Handle("/", site.Handler())
 
-	if err := orbit.ListenAndServe(session.Middleware(mux)); err != nil {
+	if err := orbit.ListenAndServe(site.TrailingSlash(session.Middleware(mux))); err != nil {
 		log.Fatal(err)
 	}
 }

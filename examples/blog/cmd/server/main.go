@@ -31,8 +31,10 @@ func main() {
 	// public/ files and the 404 page.
 	mux.Handle("/", site.Handler())
 
-	// logging runs first, then requestInfo, then the mux and Orbit.
-	if err := orbit.ListenAndServe(logging(requestInfo(mux))); err != nil {
+	// logging runs first (so it logs the trailing-slash redirects too), then
+	// site.TrailingSlash redirects the other form of a page URL before any
+	// middleware sees it, then requestInfo, then the mux and Orbit.
+	if err := orbit.ListenAndServe(logging(site.TrailingSlash(requestInfo(mux)))); err != nil {
 		log.Fatal(err)
 	}
 }

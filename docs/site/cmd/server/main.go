@@ -47,7 +47,8 @@ func main() {
 	// Everything else goes to Orbit: pages, /_orbit/* assets and public/ files.
 	mux.Handle("/", site.Handler())
 
-	if err := orbit.ListenAndServe(gzipped(theme(mux))); err != nil {
+	// Trailing-slash redirects first, as in Astro.
+	if err := orbit.ListenAndServe(site.TrailingSlash(gzipped(theme(mux)))); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -125,4 +126,238 @@ func TestServeAllocsAlways(t *testing.T) {
 			t.Errorf("serving %s: %v allocs, want 1 (Content-Length)", target, allocs)
 		}
 	}
+}
+
+// Tests of site.TrailingSlash, the redirect before the user's middleware
+// (PLAN.md §4e "Redirecting before middleware").
+
+// slashFirstSite is slashRoutes with public files (robots.txt, and docs
+// and LICENSE without an extension, docs named like a page) and an
+// /_orbit/ asset.
+func slashFirstSite(t *testing.T, mode TrailingSlash) *Site {
+	t.Helper()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "robots.txt"), "robots")
+	writeFile(t, filepath.Join(dir, "docs"), "public docs")
+	writeFile(t, filepath.Join(dir, "LICENSE"), "MIT")
+	writeFile(t, filepath.Join(dir, "_orbit", "app-1234.js"), "js")
+	return testSite(t, slashRoutes(), WithStaticDir(dir), WithTrailingSlash(mode))
+}
+
+func TestSiteTrailingSlash(t *testing.T) {
+	type redirect struct{ target, to string }
+	for _, dev := range []string{"", "1"} {
+		for _, m := range []struct {
+			mode      TrailingSlash
+			redirects []redirect
+			passes    []string
+		}{
+			{TrailingSlashNever, []redirect{
+				{"/blog/hello/", "/blog/hello"},
+				{"/blog/hello/?q=go&x=1", "/blog/hello?q=go&x=1"},
+				{"/blog/a%20b/", "/blog/a%20b"},
+				{"/search/", "/search"},
+				{"/rss.xml/", "/rss.xml"},
+			}, []string{
+				"/", "/blog/hello", "/search?q=go", "/docs", "/rss.xml", "/x",
+				"/unknown/", "/x//", "/blog//", "//evil.example/", "/_orbit/x/", "/_orbit/app-1234.js/",
+				"/_orbit/island/0000000000000000/x/", "/robots.txt",
+			}},
+			{TrailingSlashAlways, []redirect{
+				{"/blog/hello", "/blog/hello/"},
+				{"/blog/hello?q=go&x=1", "/blog/hello/?q=go&x=1"},
+				{"/blog/a%20b", "/blog/a%20b/"},
+				{"/search", "/search/"},
+			}, []string{
+				"/", "/blog/hello/", "/search/?q=go", "/rss.xml", "/robots.txt", "/LICENSE", "/_orbit/app-1234.js",
+				"/blog/v1.2", "/rss.xml/", "/unknown", "/x//", "//evil.example", "/_orbit/x",
+				"/_orbit/island/0000000000000000/x",
+			}},
+		} {
+			t.Setenv("ORBIT_DEV", dev)
+			s := slashFirstSite(t, m.mode)
+			name := "mode=" + modeName[m.mode] + " dev=" + dev
+			for _, method := range []string{"GET", "HEAD", "POST"} {
+				gate := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					t.Errorf("%s: %s %s: the gate ran", name, method, r.URL)
+				})
+				redirects := m.redirects
+				if m.mode == TrailingSlashAlways && method == "POST" {
+					// public/docs is a file for GET and HEAD only.
+					redirects = append(redirects, redirect{"/docs", "/docs/"})
+				}
+				for _, tt := range redirects {
+					rec := do(s.TrailingSlash(gate), method, tt.target)
+					if rec.Code != http.StatusPermanentRedirect || rec.Header().Get("Location") != tt.to ||
+						rec.Body.Len() != 0 || rec.Header().Get("Cache-Control") != "" {
+						t.Errorf("%s: %s %s: got %d %q %q, want 308 %q", name, method, tt.target,
+							rec.Code, rec.Header().Get("Location"), rec.Body, tt.to)
+					}
+				}
+				passes := m.passes
+				if m.mode == TrailingSlashAlways && method != "POST" {
+					passes = append(passes, "/docs")
+				}
+				for _, target := range passes {
+					req := httptest.NewRequest(method, target, nil)
+					var got *http.Request
+					h := s.TrailingSlash(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						got = r
+						w.WriteHeader(299)
+					}))
+					rec := httptest.NewRecorder()
+					h.ServeHTTP(rec, req)
+					if got != req || rec.Code != 299 {
+						t.Errorf("%s: %s %s: got %d %q, want next with the same request", name, method, target,
+							rec.Code, rec.Header().Get("Location"))
+					}
+				}
+			}
+		}
+	}
+}
+
+// TestTrailingSlashAgrees: for TestSiteMatchAgrees's corpus, in both modes,
+// prod and dev, site.TrailingSlash redirects exactly when site.Middleware
+// does, to the same Location.
+func TestTrailingSlashAgrees(t *testing.T) {
+	captureLog(t)
+	redirects := 0
+	for _, dev := range []string{"", "1"} {
+		for _, mode := range []TrailingSlash{TrailingSlashNever, TrailingSlashAlways} {
+			t.Setenv("ORBIT_DEV", dev)
+			s := matchSite(t, WithTrailingSlash(mode))
+			first := s.TrailingSlash(&nextHandler{})
+			inside := s.Middleware(&nextHandler{})
+			for _, p := range matchCorpus {
+				p = strings.Replace(p, "BUILD", s.keys.buildID, 1)
+				for _, method := range matchMethods {
+					a, b := do(first, method, p), do(inside, method, p)
+					aRedir, bRedir := a.Code == http.StatusPermanentRedirect, b.Code == http.StatusPermanentRedirect
+					// A page's own redirect (/redirect: 302) isn't the slash's.
+					if aRedir != bRedir || aRedir && a.Header().Get("Location") != b.Header().Get("Location") {
+						t.Errorf("%s %s dev=%s mode=%s: TrailingSlash %d %q, Middleware %d %q", method, p, dev, modeName[mode],
+							a.Code, a.Header().Get("Location"), b.Code, b.Header().Get("Location"))
+					}
+					if aRedir {
+						redirects++
+					}
+				}
+			}
+		}
+	}
+	if redirects == 0 {
+		t.Error("the corpus has no redirect")
+	}
+}
+
+// One redirect, then the page: site.TrailingSlash before site.Middleware,
+// and the scaffold's shape (a mux with site.Handler() as its catch-all).
+func TestTrailingSlashOneRedirect(t *testing.T) {
+	for _, m := range []struct {
+		mode      TrailingSlash
+		from, to  string
+		wantBody  string
+		otherPath string
+	}{
+		{TrailingSlashNever, "/blog/hello/?q=1", "/blog/hello?q=1", "post hello", "/api/items/"},
+		{TrailingSlashAlways, "/blog/hello?q=1", "/blog/hello/?q=1", "post hello", "/api/items"},
+	} {
+		s := slashFirstSite(t, m.mode)
+		mux := http.NewServeMux()
+		mux.HandleFunc(m.otherPath, func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("api")) })
+		mux.Handle("/", s.Handler())
+		for _, h := range []http.Handler{s.TrailingSlash(s.Middleware(&nextHandler{})), s.TrailingSlash(mux)} {
+			rec := do(h, "GET", m.from)
+			if rec.Code != http.StatusPermanentRedirect || rec.Header().Get("Location") != m.to {
+				t.Fatalf("mode=%s: GET %s: got %d %q", modeName[m.mode], m.from, rec.Code, rec.Header().Get("Location"))
+			}
+			rec = do(h, "GET", m.to)
+			if rec.Code != 200 || rec.Body.String() != m.wantBody {
+				t.Errorf("mode=%s: GET %s: got %d %q", modeName[m.mode], m.to, rec.Code, rec.Body)
+			}
+		}
+		// An app route in the other form keeps working (pages only).
+		if rec := do(s.TrailingSlash(mux), "GET", m.otherPath); rec.Code != 200 || rec.Body.String() != "api" {
+			t.Errorf("mode=%s: GET %s: got %d %q", modeName[m.mode], m.otherPath, rec.Code, rec.Body)
+		}
+	}
+}
+
+func TestTrailingSlashAllocs(t *testing.T) {
+	if testing.Short() || raceEnabled {
+		t.Skip("allocation counts (not under -short or -race)")
+	}
+	t.Setenv("ORBIT_DEV", "")
+	for _, m := range []struct {
+		mode            TrailingSlash
+		pass, redirects []string
+	}{
+		{TrailingSlashNever,
+			[]string{"/", "/blog/hello", "/search?q=go", "/unknown/", "/_orbit/x/", "/x//", "//evil.example/", "/robots.txt"},
+			[]string{"/blog/hello/", "/search/?q=go"}},
+		{TrailingSlashAlways,
+			[]string{"/", "/blog/hello/", "/unknown", "/rss.xml", "/robots.txt", "/docs", "/_orbit/app-1234.js",
+				"/_orbit/island/0000000000000000/x", "//evil.example"},
+			[]string{"/blog/hello", "/search?q=go"}},
+	} {
+		s := slashFirstSite(t, m.mode)
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(299) })
+		first, inside := s.TrailingSlash(next), s.Middleware(next)
+		fw := newFakeResponseWriter()
+		count := func(h http.Handler, r *http.Request) float64 {
+			return testing.AllocsPerRun(1000, func() {
+				fw.reset()
+				h.ServeHTTP(fw, r)
+			})
+		}
+		for _, target := range m.pass {
+			r := httptest.NewRequest("GET", target, nil)
+			if allocs := count(first, r); allocs != 0 || fw.status != 299 {
+				t.Errorf("mode=%s: GET %s: %d, %v allocs, want next and 0", modeName[m.mode], target, fw.status, allocs)
+			}
+		}
+		for _, target := range m.redirects {
+			r := httptest.NewRequest("GET", target, nil)
+			want := count(inside, r)
+			if allocs := count(first, r); allocs != want || fw.status != http.StatusPermanentRedirect {
+				t.Errorf("mode=%s: GET %s: %d, %v allocs, want 308 and %v (site.Middleware's)", modeName[m.mode], target, fw.status, allocs, want)
+			}
+		}
+	}
+}
+
+func benchTrailingSlash(b *testing.B, mode TrailingSlash, target string, wantStatus int) {
+	b.Setenv("ORBIT_DEV", "")
+	b.Setenv("ORBIT_STATIC", "")
+	b.Setenv("ORBIT_PUBLIC", "")
+	s := NewSite(slashRoutes(), nil, WithStaticDir(b.TempDir()), WithTrailingSlash(mode))
+	h := s.TrailingSlash(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(299) }))
+	fw := newFakeResponseWriter()
+	r := httptest.NewRequest("GET", target, nil)
+	b.ReportAllocs()
+	for b.Loop() {
+		fw.reset()
+		h.ServeHTTP(fw, r)
+	}
+	if fw.status != wantStatus {
+		b.Fatalf("GET %s: got %d", target, fw.status)
+	}
+}
+
+// A canonical path: one byte check, then next.
+func BenchmarkTrailingSlashPass(b *testing.B) {
+	b.Run("never", func(b *testing.B) { benchTrailingSlash(b, TrailingSlashNever, "/blog/hello", 299) })
+	b.Run("always", func(b *testing.B) { benchTrailingSlash(b, TrailingSlashAlways, "/blog/hello/", 299) })
+}
+
+// A non-canonical path that no page claims: the file lookup and the trie.
+func BenchmarkTrailingSlashMiss(b *testing.B) {
+	b.Run("never", func(b *testing.B) { benchTrailingSlash(b, TrailingSlashNever, "/api/items/", 299) })
+	b.Run("always", func(b *testing.B) { benchTrailingSlash(b, TrailingSlashAlways, "/api/items", 299) })
+}
+
+func BenchmarkTrailingSlashRedirect(b *testing.B) {
+	b.Run("never", func(b *testing.B) { benchTrailingSlash(b, TrailingSlashNever, "/blog/hello/", 308) })
+	b.Run("always", func(b *testing.B) { benchTrailingSlash(b, TrailingSlashAlways, "/blog/hello", 308) })
 }

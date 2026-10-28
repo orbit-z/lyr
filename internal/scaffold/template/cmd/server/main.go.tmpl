@@ -19,8 +19,10 @@ func main() {
 	// Everything else goes to Orbit: pages, /_orbit/* assets and public/ files.
 	mux.Handle("/", site.Handler())
 
-	// Wrap mux in your own net/http middleware (logging, auth, locals) here.
-	if err := orbit.ListenAndServe(mux); err != nil {
+	// Trailing-slash redirects (orbit.json's trailingSlash) run first, as in
+	// Astro. Wrap mux in your own net/http middleware (logging, auth, locals)
+	// inside it: site.TrailingSlash(logging(mux)).
+	if err := orbit.ListenAndServe(site.TrailingSlash(mux)); err != nil {
 		log.Fatal(err)
 	}
 }

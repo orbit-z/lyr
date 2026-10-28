@@ -38,8 +38,9 @@ func main() {
 	mux.HandleFunc("GET /api/prefs", prefs)
 	mux.Handle("/", site.Handler())
 
-	// logging runs first, then requestInfo, then the mux and Orbit.
-	if err := orbit.ListenAndServe(logging(requestInfo(mux))); err != nil {
+	// logging runs first, then the trailing-slash redirects, then
+	// requestInfo, then the mux and Orbit.
+	if err := orbit.ListenAndServe(logging(site.TrailingSlash(requestInfo(mux)))); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -128,21 +129,23 @@ Where you put a middleware relative to Orbit decides what it sees:
 
 Middleware listed first runs first: in `logging(requestInfo(mux))`, `logging` sees the request before `requestInfo`, and sees the response after it. See [Server](server.md#choosing-precedence) for where the mux and Orbit go.
 
-Outer middleware also runs before Orbit's trailing-slash redirect, so it can see `/account/` as well as `/account` (whichever isn't the canonical URL is redirected afterwards, per `orbit.json`'s `trailingSlash`). Compare paths with that in mind (see [Routing](routing.md#trailing-slashes)).
+**Trailing slashes**: `site.Handler()` redirects the other form of a page URL (`/account/` by default, `/account` with `"trailingSlash": "always"`) only when the request reaches it, so middleware outside it would see both forms. `site.TrailingSlash`, outermost as above (`orbit new`'s `main.go` has it), sends that 308 first, as Astro does: `requestInfo`, auth gates and sessions only ever see the canonical form, and a gate never answers a request that's about to be redirected. Put a logger outside it if you want the 308s logged, as `logging` here. Middleware you place outside `site.TrailingSlash`, or in a `main.go` without it, still sees both forms; compare paths with that in mind (see [Routing](routing.md#redirecting-before-your-middleware)).
 
 ## The request flow
 
 With the `main.go` above, every request takes this path:
 
 ```text
-Request → logging → requestInfo → http.ServeMux
-                                   ├─ GET /api/prefs  → prefs
-                                   └─ / (anything else)
-                                        → site.Handler()
-                                           ├─ /_orbit/island/…    → deferred component
-                                           ├─ /_orbit/*, public/  → file
-                                           ├─ page route          → cached copy or page
-                                           └─ no match            → 404.orbit
+Request → logging → site.TrailingSlash
+                     ├─ other form of a page URL → 308 to the canonical URL
+                     └─ → requestInfo → http.ServeMux
+                                        ├─ GET /api/prefs  → prefs
+                                        └─ / (anything else)
+                                             → site.Handler()
+                                                ├─ /_orbit/island/…    → deferred component
+                                                ├─ /_orbit/*, public/  → file
+                                                ├─ page route          → cached copy or page
+                                                └─ no match            → 404.orbit
 ```
 
 Inside `site.Handler()`, Orbit picks up the `*locals.Locals` that `EnsureLocals` attached to the request, and the page, its components and `404.orbit` all render with it. Responses come back out through `requestInfo` and `logging`.
@@ -350,7 +353,7 @@ Put it inside `pageLog`: `logging(pageLog(signInGate(site, requestInfo(mux))))`.
 | a page route, any method | `orbit.RoutePage`, the route, its file and params |
 | `/_orbit/island/…`, any method | `orbit.RouteIsland`, as Orbit records it |
 | a GET or HEAD of a static file (`/_orbit/*`, `public/`) | `orbit.RouteNone` |
-| the other form of a page URL (`/blog/hello/`, redirected with a 308) | `orbit.RouteNone` |
+| the other form of a page URL (`/blog/hello/`, redirected with a 308; never seen inside `site.TrailingSlash`) | `orbit.RouteNone` |
 | anything else | `orbit.RouteNone`: Orbit passes it to `next`, which may be `site.NotFound()` (then Orbit records `/404`) or one of your handlers |
 
 - **Orbit fills the field again** when the request reaches it, so a request Orbit serves ends with Orbit's value, `/404` included. `Match` doesn't change the request or the locals; you assign its result.

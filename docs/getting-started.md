@@ -409,14 +409,16 @@ func main() {
 	// Everything else goes to Orbit: pages, /_orbit/* assets and public/ files.
 	mux.Handle("/", site.Handler())
 
-	// Wrap mux in your own net/http middleware (logging, auth, locals) here.
-	if err := orbit.ListenAndServe(mux); err != nil {
+	// Trailing-slash redirects (orbit.json's trailingSlash) run first, as in
+	// Astro. Wrap mux in your own net/http middleware (logging, auth, locals)
+	// inside it: site.TrailingSlash(logging(mux)).
+	if err := orbit.ListenAndServe(site.TrailingSlash(mux)); err != nil {
 		log.Fatal(err)
 	}
 }
 ```
 
-The `app` import is your module path plus `/orbit_gen/app`. `orbit dev`, `orbit preview` and the built binary all run this same `main`, so your routes and middleware behave the same in development and production. `orbit.ListenAndServe` listens on `:4321` by default, or on the port in `PORT` or the address in `ORBIT_ADDR`, and shuts down gracefully on SIGINT and SIGTERM. After a graceful shutdown it returns `nil`, so `log.Fatal` only runs (and exits with status 1) when the server fails, for example because the port is taken; Ctrl-C exits cleanly. See [Server](server.md) for custom routes and precedence, and [Middleware and locals](middleware.md) for middleware.
+The `app` import is your module path plus `/orbit_gen/app`. `orbit dev`, `orbit preview` and the built binary all run this same `main`, so your routes and middleware behave the same in development and production. `site.TrailingSlash` sends the 308 for the other form of a page URL (`/about/` to `/about`) before your middleware runs, as Astro does (see [Trailing slashes](routing.md#redirecting-before-your-middleware)). `orbit.ListenAndServe` listens on `:4321` by default, or on the port in `PORT` or the address in `ORBIT_ADDR`, and shuts down gracefully on SIGINT and SIGTERM. After a graceful shutdown it returns `nil`, so `log.Fatal` only runs (and exits with status 1) when the server fails, for example because the port is taken; Ctrl-C exits cleanly. See [Server](server.md) for custom routes and precedence, and [Middleware and locals](middleware.md) for middleware.
 
 ### TypeScript files
 

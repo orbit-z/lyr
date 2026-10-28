@@ -18,6 +18,42 @@ func TestBuildTrailingSlashAlways(t *testing.T) {
 	writeFile(t, dir, "src/pages/rss.xml.orbit", "---\nctx.Header().Set(\"Content-Type\", \"application/rss+xml\")\n---\n<rss></rss>\n")
 	writeFile(t, dir, "src/pages/notes/a.md", "See [b](./b.md#setup).\n")
 	writeFile(t, dir, "src/pages/notes/b.md", "# Setup\n")
+	// A server entry with a gate before Orbit, behind site.TrailingSlash:
+	// the redirect comes first, as in Astro (PLAN.md §4e "Redirecting
+	// before middleware").
+	writeFile(t, dir, "src/pages/private.orbit", "<p>private</p>\n")
+	writeFile(t, dir, "cmd/server/main.go", `package main
+
+import (
+	"log"
+	"net/http"
+	"strings"
+
+	"github.com/orbit-z/orbit"
+
+	"example.com/site/orbit_gen/app"
+)
+
+func main() {
+	site := app.New()
+	mux := http.NewServeMux()
+	mux.Handle("/", site.Handler())
+	if err := orbit.ListenAndServe(site.TrailingSlash(gate(mux))); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// gate sends every /private request to the sign-in page.
+func gate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/private") {
+			http.Redirect(w, r, "/signin/", http.StatusSeeOther)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+`)
 	if code, out := runOrbit(t, dir, "build"); code != 0 || out != "" {
 		t.Fatalf("orbit build: exit %d\n%s", code, out)
 	}
@@ -38,6 +74,9 @@ func TestBuildTrailingSlashAlways(t *testing.T) {
 		{"GET", "/rss.xml", 200, "", "<rss></rss>"},
 		{"GET", "/notes/a/", 200, "", `<a href="/notes/b/#setup">b</a>`},
 		{"GET", "/robots.txt", 200, "", ""},
+		{"GET", "/private", 308, "/private/", ""},
+		{"POST", "/private?x=1", 308, "/private/?x=1", ""},
+		{"GET", "/private/", 303, "/signin/", ""},
 	} {
 		resp, body := s.do(tt.method, tt.path, "")
 		if resp.StatusCode != tt.status || resp.Header.Get("Location") != tt.location || !strings.Contains(body, tt.body) {

@@ -202,8 +202,10 @@ func checkBlogPages(t *testing.T, s *server) {
 				t.Errorf("GET %s: no %q in:\n%s", tt.path, want, body)
 			}
 		}
-		if resp.Header.Get("X-Request-Id") == "" {
-			t.Errorf("GET %s: no X-Request-ID from the requestInfo middleware", tt.path)
+		// site.TrailingSlash redirects before requestInfo runs, as Astro
+		// redirects before its middleware.
+		if got := resp.Header.Get("X-Request-Id"); (got == "") != (tt.status == 308) {
+			t.Errorf("GET %s: X-Request-ID %q (requestInfo runs for everything but the 308s)", tt.path, got)
 		}
 	}
 

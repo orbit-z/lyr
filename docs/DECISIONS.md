@@ -822,6 +822,20 @@ The `orbit.json` `trailingSlash` option (`PLAN.md` §4e). The modes (`"never"`, 
 | In `"never"`, `//` still gets a 308 to `/` (unchanged; its `Location` isn't protocol-relative) | simplest (today's behavior) | Never redirect `//` | `PLAN.md` §4e |
 | The config field is a bool (`TrailingSlashAlways`) in `internal/config` and `markdown.GenInput`; `markdown.CanonicalURL` mirrors the runtime's extension rule rather than importing the runtime package | simplest | A string or the runtime's `TrailingSlash` type | `PLAN.md` §4e |
 
+### Redirecting before middleware (`site.TrailingSlash`)
+
+`PLAN.md` §4e "Redirecting before middleware". The name `site.TrailingSlash(next)`, covering pages only (no mux argument) and its use in `orbit new`'s `main.go` were the user's, not rows here.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| A canonical path passes on a check of its last byte, with no collapsing of `/x//`; a path with a `RawPath` (an escaped `/`) takes the full check | simplest (§4e rule 5) | Collapse duplicate slashes | [Routing](routing.md#redirecting-before-your-middleware) |
+| Same exclusions and `Location` as `site.Middleware`'s redirect, from the same helper (`classify`, then `redirectTarget`) | simplest (can't drift) | Its own rule | [Runtime API](reference/runtime-api.md#site) |
+| 308 for every method, empty body, no `Cache-Control` | the user's §4e (Q1); Astro sends no `Cache-Control` | 301 for GET (Astro) | [Routing](routing.md#trailing-slashes) |
+| `site.Middleware` keeps its redirect, with no "already checked" flag | simplest | Skip it behind `TrailingSlash` | [Routing](routing.md#redirecting-before-your-middleware) |
+| Placement: outermost, a logger may wrap it | Astro (redirects before middleware) | Inside the logger | [Middleware](middleware.md#where-middleware-goes) |
+| The generated default entry (`orbit_gen/cmd/server`) is unchanged: `site.Handler()` has nothing in front of it | simplest | Wrap it too | — |
+| Astro's 400 for doubly encoded paths (`rejectInvalidEncoding`) isn't copied | out of scope (Go's URL parser rejects invalid escapes) | Copy it | — |
+
 ## Pass-through attributes
 
 With `orbit.RestAttrs` (`PLAN.md` §2.5). The type as the marker, merging a passed `class` into the element's, no typo guard and spreads on component tags were the user's (§2.5 (Q1)–(Q4)), not rows here. Astro's behavior was checked with `@astrojs/compiler-rs` 0.5.1.

@@ -27,7 +27,8 @@ func main() {
 	mux.HandleFunc("POST /blog/{slug}/like", like)
 	mux.Handle("/", site.Handler()) // everything else: pages, assets, islands, 404
 
-	if err := orbit.ListenAndServe(logging(mux)); err != nil {
+	// Trailing-slash redirects first, as in Astro; logging sees them too.
+	if err := orbit.ListenAndServe(logging(site.TrailingSlash(mux))); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -76,7 +77,7 @@ func logging(next http.Handler) http.Handler {
 }
 ```
 
-This is a complete server: two API routes, the blog's pages, and request logging around all of it. `orbit new` scaffolds a smaller version of this file, and it's yours to edit.
+This is a complete server: two API routes, the blog's pages, the trailing-slash redirects before anything else, and request logging around all of it. `orbit new` scaffolds a smaller version of this file, and it's yours to edit.
 
 <details>
 <summary>The other files this example uses: <code>internal/posts/posts.go</code> and <code>src/components/LikeButton.orbit</code></summary>
@@ -145,6 +146,7 @@ type Props struct {
 | `site.Middleware(next http.Handler) http.Handler` | Serves what Orbit owns and passes everything else to `next` |
 | `site.Handler() http.Handler` | `site.Middleware(site.NotFound())`: a complete handler that ends in your 404 page |
 | `site.NotFound() http.Handler` | Renders `404.orbit` with status 404 |
+| `site.TrailingSlash(next http.Handler) http.Handler` | Sends the 308 for the other form of a page URL, then passes everything else to `next`; put it outermost (see [Redirecting before your middleware](routing.md#redirecting-before-your-middleware)) |
 
 `site.Match(r)` isn't a handler: it returns the route `site.Middleware` would serve `r` with, without serving it, for middleware that answers a request before Orbit and still logs its route. See [Knowing the route before Orbit](middleware.md#knowing-the-route-before-orbit).
 
@@ -200,19 +202,21 @@ Register Orbit as the mux's `/` pattern. In `http.ServeMux`, `/` is the least sp
 mux.HandleFunc("GET /api/posts", listPosts)
 mux.HandleFunc("POST /blog/{slug}/like", like)
 mux.Handle("/", site.Handler())
-h := logging(mux)
+h := logging(site.TrailingSlash(mux))
 ```
 
 ```text
-Request → logging → http.ServeMux
-                     ├─ GET /api/posts          → listPosts
-                     ├─ POST /blog/{slug}/like  → like
-                     └─ / (anything else)
-                          → site.Handler()
-                             ├─ page, island, /_orbit/*, public/
-                             │    → Orbit responds
-                             └─ no match
-                                  → site.NotFound(): 404.orbit
+Request → logging → site.TrailingSlash
+                     ├─ other form of a page URL → 308
+                     └─ → http.ServeMux
+                          ├─ GET /api/posts          → listPosts
+                          ├─ POST /blog/{slug}/like  → like
+                          └─ / (anything else)
+                               → site.Handler()
+                                  ├─ page, island, /_orbit/*, public/
+                                  │    → Orbit responds
+                                  └─ no match
+                                       → site.NotFound(): 404.orbit
 ```
 
 Pick this when your routes must never be shadowed by a page, for example an API under `/api/`. A route you register at the same path as a page replaces that page. Don't register routes under `/_orbit/`: that prefix belongs to Orbit.
@@ -225,11 +229,11 @@ Wrap your mux with `site.Middleware`. Orbit looks at each request first and fall
 mux.HandleFunc("GET /api/posts", listPosts)
 mux.HandleFunc("POST /blog/{slug}/like", like)
 mux.Handle("/", site.NotFound()) // unmatched paths render 404.orbit
-h := logging(site.Middleware(mux))
+h := logging(site.TrailingSlash(site.Middleware(mux)))
 ```
 
 ```text
-Request → logging → site.Middleware(mux)
+Request → logging → site.TrailingSlash → site.Middleware(mux)
                      ├─ page, island, /_orbit/*, public/  → Orbit responds
                      └─ no match: next, untouched
                           → http.ServeMux
@@ -242,7 +246,7 @@ Pick this when pages should win, for example when a content team adds pages that
 
 - **Pages claim every method.** `POST /blog/hello/like` still reaches `like`, because `[slug]` matches a single segment and no page matches `/blog/hello/like`. But a page at the same path as one of your routes wins for `GET`, `POST` and everything else.
 - **Catch-alls claim their whole prefix.** A `[...rest]` page answers every method under its prefix. Keep your handlers outside those prefixes.
-- **Trailing slashes** are redirected only for page paths. A request for your `/api/items/` route reaches the mux untouched, unless `/api/items` is also a page. With `"trailingSlash": "always"`, it's the mirror image: `/api/items` reaches the mux unless `/api/items/` is a page, which a root `[...rest].orbit` makes it (see [Trailing slashes](routing.md#trailing-slashes)).
+- **Trailing slashes** are redirected only for page paths. A request for your `/api/items/` route reaches the mux untouched, unless `/api/items` is also a page. With `"trailingSlash": "always"`, it's the mirror image: `/api/items` reaches the mux unless `/api/items/` is a page, which a root `[...rest].orbit` makes it (see [Trailing slashes](routing.md#trailing-slashes)). `site.TrailingSlash` follows the same rule, so it never redirects your routes either; it only moves the pages' redirect in front of your middleware (auth, sessions).
 
 ## Wrapping with middleware
 
@@ -250,6 +254,7 @@ Where you put a middleware relative to Orbit decides what it sees:
 
 - **Outside Orbit** (`logging(site.Middleware(mux))`, or `logging(mux)` in pattern A): it sees every request, pages, island requests and custom routes alike. Put logging, sessions, CORS, rate limiting and gzip here. Orbit never compresses responses itself.
 - **After Orbit** (`site.Middleware(cors(mux))` in pattern B): it only sees the requests Orbit didn't handle.
+- **Inside `site.TrailingSlash`**, which goes outermost (only a logger outside it): it never sees the other form of a page URL, which has already been redirected, as in Astro. See [Middleware and locals](middleware.md#where-middleware-goes).
 
 Any ecosystem middleware works, because Orbit is a plain `http.Handler`.
 

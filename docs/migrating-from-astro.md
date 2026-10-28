@@ -235,7 +235,7 @@ Pages keep their paths: `src/pages/books/[slug].astro` becomes `src/pages/books/
 - **Redirects**: `return Astro.redirect("/signin", 303)` is `return ctx.Redirect("/signin", http.StatusSeeOther)`; the status is required. See [Redirects](rendering.md#redirects).
 - **`redirects` in `astro.config`** become handlers in `cmd/server/main.go`: `mux.Handle("GET /shop", http.RedirectHandler("/", http.StatusMovedPermanently))` (see the [server below](#6-port-the-middleware)).
 - **Endpoints** (`src/pages/api/*.ts`) become `net/http` handlers on the same mux. See [Server](server.md#choosing-precedence).
-- **Trailing slashes**: set `"trailingSlash"` in `orbit.json` to the mode your site uses, `"never"` (the default) or `"always"`. Astro's `'ignore'` has no equivalent: each page has one URL. The other form of a page URL gets a **308** redirect, for every method, where Astro's server sends a 301 for `GET`. See [Trailing slashes](routing.md#trailing-slashes).
+- **Trailing slashes**: set `"trailingSlash"` in `orbit.json` to the mode your site uses, `"never"` (the default) or `"always"`. Astro's `'ignore'` has no equivalent: each page has one URL. The other form of a page URL gets a **308** redirect, for every method, where Astro's server sends a 301 for `GET`. Wrap your handler in `site.TrailingSlash`, outermost, as `orbit new`'s `main.go` does, so the redirect comes before your middleware, as in Astro; unlike Astro's, it redirects only paths whose other form is a page, never your own routes. See [Trailing slashes](routing.md#redirecting-before-your-middleware).
 
 ## 5. Move data loading into the page
 
@@ -351,7 +351,8 @@ func main() {
 	mux.Handle("GET /shop", http.RedirectHandler("/", http.StatusMovedPermanently))
 	mux.Handle("/", site.Handler())
 
-	if err := orbit.ListenAndServe(withShop(api, mux)); err != nil {
+	// Trailing-slash redirects first, before the middleware, as in Astro.
+	if err := orbit.ListenAndServe(site.TrailingSlash(withShop(api, mux))); err != nil {
 		log.Fatal(err)
 	}
 }
