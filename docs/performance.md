@@ -4,7 +4,7 @@ Lyr's server rendering is designed to do as little work per request as possible;
 
 Lyr has no target number; it measures and publishes. In short (full numbers and setup in [Results](#results)):
 
-- **Render-heavy page** (500 cards from nested components): Lyr serves about 14.6× as many pages as Astro per CPU, and about 57× at all cores against Astro's single Node process. Rendering it allocates nothing.
+- **Render-heavy page** (500 cards from nested components): Lyr serves about 14.5× as many pages as Astro per CPU, and about 56× at all cores against Astro's single Node process. Rendering it allocates nothing.
 - **Page with a 10 ms data fetch**: similar throughput, since both servers mostly wait, but Lyr has lower tail latency and uses far less memory.
 
 ## Why Lyr's SSR is fast
@@ -281,18 +281,18 @@ The runtime's writer and escaper have their own Go micro-benchmarks, which repor
 
 ## Results
 
-Measured on 2026-10-26 (Lyr at commit 65cfe93) on an AMD Ryzen 7 9700X (8 cores, 16 threads), 46 GB RAM, Linux 7.2.11, with Go 1.27.3, Node 25.6.1, Astro 7.3.8 and `@astrojs/node` 11.1.7 (standalone, one process). Every run uses 64 keep-alive connections, a 5 s warm-up and 20 s of measurement. The server runs on cores 0–3 (both threads of each) and the load generator on cores 4–7; Lyr at `GOMAXPROCS=1` and "Astro, one CPU" are pinned to one CPU; "Astro" gets the same 8 CPUs as Lyr at all cores. No run had an error, and the machine was otherwise idle. Reproduce with `bench/run.sh` (about 7 minutes).
+Measured on 2026-10-31 (Lyr at commit f2284a4) on an AMD Ryzen 7 9700X (8 cores, 16 threads), 46 GB RAM, Linux 7.2.13, with Go 1.27.3, Node 25.6.1, Astro 7.3.8 and `@astrojs/node` 11.1.7 (standalone, one process). Every run uses 64 keep-alive connections, a 5 s warm-up and 20 s of measurement. The server runs on cores 0–3 (both threads of each) and the load generator on cores 4–7; Lyr at `GOMAXPROCS=1` and "Astro, one CPU" are pinned to one CPU; "Astro" gets the same 8 CPUs as Lyr at all cores. No run had an error. Two full runs agreed within 2%; the tables are the second. Desktop apps were open (a browser, an IDE), and both frameworks measured about 10% lower than in the previous run (2026-10-26: 9,749 and 669 req/s on `/cards` at one CPU) while the ratios held, so compare ratios across dates rather than absolute numbers. Reproduce with `bench/run.sh` (about 7 minutes).
 
 ### Render-heavy page (`/cards`, 500 cards from nested components)
 
 | Server | req/s | p50 | p99 | Memory (RSS) | CPU per page |
 |---|---:|---:|---:|---:|---:|
-| Lyr, `GOMAXPROCS=1` | 9,749 | 6.6 ms | 13.0 ms | 14 MB | 0.093 ms |
-| Lyr, all cores | 39,746 | 1.2 ms | 6.2 ms | 27 MB | 0.19 ms |
-| Astro, one CPU | 669 | 92.5 ms | 155 ms | 475 MB | 1.47 ms |
-| Astro | 698 | 89.8 ms | 125 ms | 510 MB | 1.55 ms |
+| Lyr, `GOMAXPROCS=1` | 8,555 | 7.5 ms | 15.1 ms | 14 MB | 0.102 ms |
+| Lyr, all cores | 36,563 | 1.3 ms | 7.0 ms | 27 MB | 0.20 ms |
+| Astro, one CPU | 592 | 104 ms | 171 ms | 455 MB | 1.61 ms |
+| Astro | 651 | 96.3 ms | 130 ms | 533 MB | 1.63 ms |
 
-On one CPU each, Lyr serves about 14.6× as many pages as Astro. With all cores, about 57× as many as Astro's single Node process. Part of that second number is Go using every core while Node runs JavaScript on one thread: giving Astro 8 CPUs instead of one helps it by only 4% here.
+On one CPU each, Lyr serves about 14.5× as many pages as Astro. With all cores, about 56× as many as Astro's single Node process. Part of that second number is Go using every core while Node runs JavaScript on one thread: giving Astro 8 CPUs instead of one helps it by only 10% here.
 
 ### Where the time goes (Lyr vs. Astro)
 
@@ -322,10 +322,10 @@ The shares and counts are measured. The per-row grouping of functions is ours, a
 
 | Server | req/s | p50 | p99 | Memory (RSS) | CPU per page |
 |---|---:|---:|---:|---:|---:|
-| Lyr, `GOMAXPROCS=1` | 5,844 | 10.9 ms | 11.8 ms | 14 MB | 0.010 ms |
-| Lyr, all cores | 5,958 | 10.8 ms | 11.2 ms | 18 MB | 0.023 ms |
-| Astro, one CPU | 4,748 | 12.9 ms | 27.4 ms | 381 MB | 0.102 ms |
-| Astro | 5,324 | 11.9 ms | 15.7 ms | 296 MB | 0.114 ms |
+| Lyr, `GOMAXPROCS=1` | 5,824 | 11.0 ms | 11.9 ms | 15 MB | 0.010 ms |
+| Lyr, all cores | 5,956 | 10.8 ms | 11.2 ms | 17 MB | 0.023 ms |
+| Astro, one CPU | 4,374 | 13.6 ms | 31.0 ms | 292 MB | 0.117 ms |
+| Astro | 5,107 | 12.3 ms | 17.2 ms | 301 MB | 0.130 ms |
 
 Every server spends most of each request waiting, and 64 connections waiting 10 ms each cap the rate near 6,400 req/s, so throughput is close. The differences are in the tail latency, the CPU and the memory.
 
@@ -335,49 +335,49 @@ Each iteration requests the page, then its island, as the browser's loader does.
 
 | Server | iterations/s | page TTFB p50 | page TTFB p99 | island p50 | island p99 | Memory (RSS) |
 |---|---:|---:|---:|---:|---:|---:|
-| Lyr, `GOMAXPROCS=1` | 5,626 | 0.38 ms | 1.28 ms | 11.0 ms | 12.0 ms | 15 MB |
-| Lyr, all cores | 5,916 | 0.06 ms | 0.51 ms | 10.8 ms | 11.3 ms | 17 MB |
-| Astro, one CPU | 2,285 | 7.29 ms | 39.6 ms | 16.6 ms | 35.8 ms | 288 MB |
-| Astro | 2,840 | 5.92 ms | 12.2 ms | 15.6 ms | 22.4 ms | 613 MB |
+| Lyr, `GOMAXPROCS=1` | 5,607 | 0.38 ms | 1.47 ms | 10.9 ms | 12.2 ms | 16 MB |
+| Lyr, all cores | 5,915 | 0.06 ms | 0.53 ms | 10.8 ms | 11.4 ms | 19 MB |
+| Astro, one CPU | 2,032 | 8.66 ms | 42.3 ms | 18.0 ms | 43.1 ms | 297 MB |
+| Astro | 2,598 | 7.04 ms | 13.8 ms | 16.8 ms | 23.8 ms | 315 MB |
 
-Deferring the slow component takes Lyr's first byte from about 11 ms to well under 1 ms. Astro's first byte stays at several milliseconds because its single JavaScript thread is nearly saturated by the pages and islands together (0.9 cores busy).
+Deferring the slow component takes Lyr's first byte from about 11 ms to well under 1 ms. Astro's first byte stays at several milliseconds because its single JavaScript thread is nearly saturated by the pages and islands together (0.96 cores busy).
 
 The deferred page on its own, without its island (`fetch-deferred-page` in `bench/run.sh`):
 
 | Server | req/s | TTFB p50 | TTFB p99 | Memory (RSS) | CPU per page |
 |---|---:|---:|---:|---:|---:|
-| Lyr, `GOMAXPROCS=1` | 139,965 | 0.45 ms | 1.00 ms | 15 MB | 0.005 ms |
-| Lyr, all cores | 413,254 | 0.09 ms | 0.61 ms | 17 MB | 0.010 ms |
-| Astro, one CPU | 6,616 | 7.22 ms | 38.1 ms | 288 MB | 0.148 ms |
-| Astro | 8,880 | 6.43 ms | 13.3 ms | 601 MB | 0.159 ms |
+| Lyr, `GOMAXPROCS=1` | 127,094 | 0.49 ms | 1.17 ms | 14 MB | 0.005 ms |
+| Lyr, all cores | 388,434 | 0.10 ms | 0.69 ms | 17 MB | 0.011 ms |
+| Astro, one CPU | 5,961 | 8.07 ms | 40.3 ms | 302 MB | 0.157 ms |
+| Astro | 8,110 | 7.07 ms | 14.3 ms | 312 MB | 0.170 ms |
 
-Even without island requests, Astro's TTFB is mostly queueing: one thread at about 8,900 pages per second is full. Lyr at all cores is limited by the load generator here, which used about 6 of its 8 CPUs. Deferring costs the page one seal of its props (about 1 µs, see [Slow data and the first byte](#slow-data-and-the-first-byte-serverdefer)), which is why this page costs Astro more CPU than `/fetch`.
+Even without island requests, Astro's TTFB is mostly queueing: one thread at about 8,100 pages per second is full. Lyr at all cores is limited by the load generator here, which used about 5.5 of its 8 CPUs. Deferring costs the page one seal of its props (about 1 µs, see [Slow data and the first byte](#slow-data-and-the-first-byte-serverdefer)), which is why this page costs Astro more CPU than `/fetch`.
 
 ### The fetch page from the route cache (`/fetch-cached`)
 
 The `/fetch` page stored by each framework's in-memory route cache, fresh for an hour: every measured request is a HIT, with no render and no 10 ms wait.
 
-<!-- TODO: fill from a full bench/run.sh on a quiet machine. -->
-
 | Server | req/s | p50 | p99 | Memory (RSS) | CPU per page |
 |---|---:|---:|---:|---:|---:|
-| Lyr, `GOMAXPROCS=1` | — | — | — | — | — |
-| Lyr, all cores | — | — | — | — | — |
-| Astro, one CPU | — | — | — | — | — |
-| Astro | — | — | — | — | — |
+| Lyr, `GOMAXPROCS=1` | 128,524 | 0.49 ms | 1.16 ms | 15 MB | 0.005 ms |
+| Lyr, all cores | 392,972 | 0.12 ms | 0.69 ms | 17 MB | 0.010 ms |
+| Astro, one CPU | 17,814 | 2.85 ms | 13.3 ms | 339 MB | 0.051 ms |
+| Astro | 22,506 | 2.60 ms | 5.44 ms | 379 MB | 0.054 ms |
+
+Caching takes the 10 ms wait out for both, so this is each framework's cost to serve stored bytes: on one CPU, Lyr serves about 7.2× as many cached pages as Astro, at a tenth of the CPU per page. Lyr at all cores is limited by the load generator again (5.7 of its 8 CPUs), so its 17× over Astro is a lower bound.
 
 ### Lyr vs. other Go templates (`bench/go`)
 
-The same 500-card page (a layout, a header with a nav loop, and cards with attributes, escaped text and a slot), rendered into a buffer. Lyr's row is the code `lyr build` produces (`go test -overlay=.lyr/build/overlay.json -bench . -benchmem`, see `bench/go/README.md`); 6 runs, medians (2026-10-26, commit 65cfe93, quiet machine).
+The same 500-card page (a layout, a header with a nav loop, and cards with attributes, escaped text and a slot), rendered into a buffer. Lyr's row is the code `lyr build` produces (`go test -overlay=.lyr/build/overlay.json -bench . -benchmem`, see `bench/go/README.md`); 6 runs, medians (2026-10-31, commit f2284a4).
 
 | Engine | Time per page | Memory per page | Allocations per page |
 |---|---:|---:|---:|
-| Lyr | 49.6 µs | 14 B | 0 |
-| Lyr in dev and `go test` (hook calls) | 58.4 µs | 39 KB | 501 |
+| Lyr | 51.3 µs | 13 B | 0 |
+| Lyr in dev and `go test` (hook calls) | 57.6 µs | 39 KB | 501 |
 | templ v0.3.1070 | 257 µs | 275 KB | 8,985 |
-| `html/template` | 1.75 ms | 622 KB | 26,814 |
+| `html/template` | 1.76 ms | 622 KB | 26,814 |
 
-With direct calls, the 500 slot closures that use the loop variable, and the layout's, stay on the stack (see [Direct calls in production builds](#direct-calls-in-production-builds)); through the hooks, each costs one allocation. Serving the page through `site.Handler()` adds one allocation (`Content-Length`) and almost no time (49.3 µs). A small page with a route param is served in 0.34 µs with 1 allocation, `Content-Length` (3 through the hooks: also a slot closure and a string concatenation it captured). On one core (`-cpu 1`) the direct calls save 18% (49.5 vs. 60.3 µs).
+With direct calls, the 500 slot closures that use the loop variable, and the layout's, stay on the stack (see [Direct calls in production builds](#direct-calls-in-production-builds)); through the hooks, each costs one allocation. Serving the page through `site.Handler()` adds one allocation (`Content-Length`) and almost no time (51.4 µs). A small page with a route param is served in 0.36 µs with 1 allocation, `Content-Length` (3 through the hooks: also a slot closure and a string concatenation it captured). On one core (`-cpu 1`) the direct calls save 17% (50.3 vs. 60.8 µs).
 
 Differences under about 3% between two builds can come from code alignment alone (how the linker lays out functions), as measured on this page, so treat them as noise.
 

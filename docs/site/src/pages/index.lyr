@@ -46,11 +46,11 @@ example := content.HomeExample()
   <section class="stats" aria-labelledby="stats-title">
     <h2 id="stats-title" class="visually-hidden">Benchmarks</h2>
     <a class="stat" href="/performance#results">
-      <strong>14.6×</strong>
+      <strong>14.5×</strong>
       <span>Astro's pages per CPU, on a page of 500 nested components</span>
     </a>
     <a class="stat" href="/performance#results">
-      <strong>57×</strong>
+      <strong>56×</strong>
       <span>at all cores, against Astro's single Node process</span>
     </a>
     <a class="stat" href="/performance#allocations-per-request">

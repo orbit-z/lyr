@@ -136,7 +136,7 @@ func TestLaunchPages(t *testing.T) {
 	for _, want := range []string{
 		"Astro's developer experience, with much faster SSR",
 		"go install github.com/orbit-z/lyr/cmd/lyr@latest",
-		"14.6×", "57×",
+		"14.5×", "56×",
 		`href="https://github.com/orbit-z/lyr"`,
 		`<link rel="canonical" href="https://lyr.example/">`,
 		`<meta property="og:image" content="https://lyr.example/og.png">`,

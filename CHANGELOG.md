@@ -51,4 +51,4 @@ Before this release the project was called Orbit. Everything moved to the new na
 - `lyrtest` helpers for testing pages and components with `go test`.
 - `lyr new` scaffolds a Dockerfile for a distroless single-binary image.
 
-**Performance**, measured against Astro on the same 500-card page: about 14.6× the pages per CPU, and 57× at all cores against Astro's single Node process. See the [performance page](docs/performance.md#results) for the methodology and every result.
+**Performance**, measured against Astro on the same 500-card page: about 14.5× the pages per CPU, and 56× at all cores against Astro's single Node process. See the [performance page](docs/performance.md#results) for the methodology and every result.
