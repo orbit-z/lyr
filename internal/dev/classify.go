@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/config"
 )
 
 // Kind is what a changed path asks the dev pipeline to do (PLAN.md §7.1),
@@ -24,35 +24,35 @@ const (
 	// or .css file under src/, or tsconfig.json: incremental esbuild, no Go
 	// rebuild.
 	KindAsset
-	// KindOrbit: a .orbit or Markdown file under src/ (or a directory
+	// KindLyr: a .lyr or Markdown file under src/ (or a directory
 	// there). The pipeline regenerates and compares: if only
 	// <style>/<script> contents changed, it's an esbuild rebuild; otherwise
 	// a Go rebuild.
-	KindOrbit
+	KindLyr
 	// KindGo: a user .go file, go.mod or go.sum: reload the type checker's
 	// export data, regenerate, go build. A change made only of KindGo
 	// paths starts go build at once, in parallel with regenerating.
 	KindGo
-	// KindConfig: orbit.json: regenerate everything and go build.
+	// KindConfig: lyr.json: regenerate everything and go build.
 	KindConfig
-	// KindWatch: a file that matches an orbit.json "watch" pattern and is
+	// KindWatch: a file that matches a lyr.json "watch" pattern and is
 	// no other kind: restart the app (no rebuild) and reload.
 	KindWatch
 )
 
 func (k Kind) String() string {
-	return [...]string{"ignore", "public", "asset", "orbit", "go", "config", "watch"}[k]
+	return [...]string{"ignore", "public", "asset", "lyr", "go", "config", "watch"}[k]
 }
 
 // classifier classifies a changed path (Classify, or watchSet.classify).
 type classifier func(rel string, isDir bool) Kind
 
-// watchSet is the orbit.json "watch" patterns.
+// watchSet is the lyr.json "watch" patterns.
 type watchSet []string
 
 // classify is Classify, plus KindWatch for a path that Classify ignores
 // and a pattern matches (for a directory: a pattern could match below it),
-// except under Orbit's own output (orbit_gen/, dist/, .orbit/) and for
+// except under Lyr's own output (lyr_gen/, dist/, .lyr/) and for
 // editors' temporary files.
 func (ws watchSet) classify(rel string, isDir bool) Kind {
 	k := Classify(rel, isDir)
@@ -61,7 +61,7 @@ func (ws watchSet) classify(rel string, isDir bool) Kind {
 	}
 	rel = path.Clean(rel)
 	first, _, _ := strings.Cut(rel, "/")
-	if first == "orbit_gen" || first == "dist" || first == ".orbit" || editorTemp(path.Base(rel)) {
+	if first == "lyr_gen" || first == "dist" || first == ".lyr" || editorTemp(path.Base(rel)) {
 		return KindIgnore
 	}
 	for _, p := range ws {
@@ -74,7 +74,7 @@ func (ws watchSet) classify(rel string, isDir bool) Kind {
 
 // skipDir reports whether the watcher skips a directory, by its
 // slash-separated path relative to the module root ("" is the root):
-// orbit_gen/, dist/, node_modules/, dot directories (.orbit/, .git/) and,
+// lyr_gen/, dist/, node_modules/, dot directories (.lyr/, .git/) and,
 // like the go command, testdata/ and directories starting with "_" (except
 // under src/, where "_" directories hold page partials).
 func skipDir(rel string) bool {
@@ -82,7 +82,7 @@ func skipDir(rel string) bool {
 		return false
 	}
 	switch rel {
-	case "orbit_gen", "dist", "node_modules":
+	case "lyr_gen", "dist", "node_modules":
 		return true
 	}
 	base := path.Base(rel)
@@ -115,7 +115,7 @@ func Classify(rel string, isDir bool) Kind {
 	}
 	if isDir {
 		if rel == "src" || strings.HasPrefix(rel, "src/") {
-			return KindOrbit // files in it may not have their own events
+			return KindLyr // files in it may not have their own events
 		}
 		return KindIgnore // a new directory's .go files have their own events
 	}
@@ -123,7 +123,7 @@ func Classify(rel string, isDir bool) Kind {
 		return KindIgnore
 	}
 	switch {
-	case dir == "." && base == "orbit.json":
+	case dir == "." && base == "lyr.json":
 		return KindConfig
 	case dir == "." && (base == "go.mod" || base == "go.sum" || base == "go.work"):
 		return KindGo
@@ -131,17 +131,17 @@ func Classify(rel string, isDir bool) Kind {
 		return KindIgnore
 	case strings.HasSuffix(base, ".go"):
 		return KindGo
-	case strings.HasSuffix(base, ".orbit") || compiler.IsMarkdown(base):
-		// Markdown files under src/ are compiled like .orbit files
+	case strings.HasSuffix(base, ".lyr") || compiler.IsMarkdown(base):
+		// Markdown files under src/ are compiled like .lyr files
 		// (PLAN.md §2.4).
 		if rel == "src" || strings.HasPrefix(rel, "src/") {
-			return KindOrbit
+			return KindLyr
 		}
 		return KindIgnore
 	case strings.HasPrefix(rel, "src/") && path.Ext(base) == "":
 		// No extension: most likely a directory that was removed or
 		// renamed (which has no events for the files in it).
-		return KindOrbit
+		return KindLyr
 	case strings.HasPrefix(rel, "src/"):
 		return KindAsset
 	case dir == "." && (base == "package.json" || isTsconfigName(base)):

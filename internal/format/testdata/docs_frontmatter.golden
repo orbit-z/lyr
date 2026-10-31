@@ -1,6 +1,6 @@
 ---
 import (
-	Card "../components/Card.orbit"
+	Card "../components/Card.lyr"
 	"example.com/blog/internal/posts"
 	"strings"
 )

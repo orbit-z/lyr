@@ -8,13 +8,13 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // Import path completion (PLAN.md §9 Request routing): in a frontmatter
-// import spec whose path starts with "." (relative: an .orbit or Markdown
-// import, PLAN.md §2.2, §2.4), Orbit offers the project's .orbit files and
+// import spec whose path starts with "." (relative: a .lyr or Markdown
+// import, PLAN.md §2.2, §2.4), Lyr offers the project's .lyr files and
 // every Markdown file under src/, as paths relative to the file; in one
 // whose path starts with "/", as root-relative paths ("/src/…"); in one
 // whose path starts with a tsconfig.json paths alias ("@/" for "@/*"), or
@@ -93,7 +93,7 @@ func importPathAt(f *project.File, off int, prefixes []string) (importPath, bool
 
 // importPathItems are the import path completions at the cursor, and
 // whether the cursor is in a relative import path (the completion is then
-// Orbit's alone).
+// Lyr's alone).
 func (ws *workspace) importPathItems(c cursor, trigger string) ([]any, bool) {
 	switch trigger {
 	case "", ".", "/", `"`:
@@ -107,7 +107,7 @@ func (ws *workspace) importPathItems(c cursor, trigger string) ([]any, bool) {
 	taken := map[string]bool{}
 	imported := map[string]bool{c.f.Path: true}
 	if a := c.f.Analysis; a != nil {
-		for _, im := range a.OrbitImports {
+		for _, im := range a.LyrImports {
 			if im.PathSpan.Contains(c.off) {
 				continue // the spec being edited
 			}

@@ -138,7 +138,7 @@ func findLiterals(src string, sp Span, diags *[]Diagnostic) []*TemplateLiteral {
 
 // FindTemplateLiterals returns the outermost template literals of code, Go
 // code from a template expression, with spans relative to code; ok is false
-// when one of them has a lexical error (orbit fmt leaves such code alone).
+// when one of them has a lexical error (lyr fmt leaves such code alone).
 func FindTemplateLiterals(code string) (lits []*TemplateLiteral, ok bool) {
 	var diags []Diagnostic
 	lits = findLiterals(code, Span{0, len(code)}, &diags)

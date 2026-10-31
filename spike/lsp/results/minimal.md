@@ -1,7 +1,7 @@
 # Session minimal: answering server→client requests with null or errors
 ### mode null: `Card.Props{|}`
-request: `orbit_gen/impl/pages/index/render.go` at 45:31 (0-based, utf-16), latency 1ms
-isIncomplete=true, 58 items: [Post Featured Post.Slug Post.Title posts.Post{} orbit posts orbit__complete orbit__render Card Orbit__Render Props Render Prerender any …(+43)]
+request: `lyr_gen/impl/pages/index/render.go` at 45:31 (0-based, utf-16), latency 1ms
+isIncomplete=true, 58 items: [Post Featured Post.Slug Post.Title posts.Post{} lyr posts lyr__complete lyr__render Card Lyr__Render Props Render Prerender any …(+43)]
 Post present: true
 diagnostic for `Psot` published: true (n=1)
 
@@ -15,7 +15,7 @@ diagnostic for `Psot` published: true (n=1)
 - notification `window/logMessage` ×3
 - notification `window/showMessage` ×1
 ### mode error: `Card.Props{|}`
-request: `orbit_gen/impl/pages/index/render.go` at 45:31 (0-based, utf-16), latency 0s
+request: `lyr_gen/impl/pages/index/render.go` at 45:31 (0-based, utf-16), latency 0s
 ERROR: textDocument/completion: {"code":0,"message":"no views"}
 Post present: false
 diagnostic for `Psot` published: false (n=0)

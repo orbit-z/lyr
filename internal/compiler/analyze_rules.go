@@ -28,7 +28,7 @@ func (s *anState) reservedCodes(codes []GoCode) {
 }
 
 func (s *anState) reserved(t anTok) {
-	s.errorf(Span{t.pos, t.end}, "%s is reserved: names starting with orbit__ or Orbit__ are used by generated code", t.lit)
+	s.errorf(Span{t.pos, t.end}, "%s is reserved: names starting with lyr__ or Lyr__ are used by generated code", t.lit)
 }
 
 // typeSpec returns the type spec named name declared by a.Decls[i], or nil.
@@ -218,7 +218,7 @@ func (s *anState) props(ts *ast.TypeSpec, broken bool) {
 			}
 			if p.Rest != "" {
 				if !broken {
-					s.errorf(sp, "Props has two orbit.RestAttrs fields (%s, %s); a component takes one", p.Rest, id.Name)
+					s.errorf(sp, "Props has two lyr.RestAttrs fields (%s, %s); a component takes one", p.Rest, id.Name)
 				}
 				continue
 			}
@@ -227,28 +227,28 @@ func (s *anState) props(ts *ast.TypeSpec, broken bool) {
 	}
 	if p.Rest != "" && !p.Listable {
 		if !broken {
-			s.errorf(restSpan, "an orbit.RestAttrs field needs a Props without embedded fields, so Orbit can tell props from pass-through attributes")
+			s.errorf(restSpan, "a lyr.RestAttrs field needs a Props without embedded fields, so Lyr can tell props from pass-through attributes")
 		}
 		p.Rest = ""
 	}
 }
 
 // IsRestAttrsType reports whether a Props field's type expression, as
-// written, is orbit.RestAttrs (PLAN.md §2.5).
+// written, is lyr.RestAttrs (PLAN.md §2.5).
 func IsRestAttrsType(typ string) bool {
-	return strings.Join(strings.Fields(typ), "") == "orbit.RestAttrs"
+	return strings.Join(strings.Fields(typ), "") == "lyr.RestAttrs"
 }
 
 // IsOptType reports whether a Props field's type expression, as written,
-// is an orbit.Opt instantiation (orbit.Opt[string]): a prop that wraps a
+// is a lyr.Opt instantiation (lyr.Opt[string]): a prop that wraps a
 // T passed to it (PLAN.md §2.6 (Q3)). An alias declared in a Go package
 // isn't seen.
 func IsOptType(typ string) bool {
-	return strings.HasPrefix(strings.Join(strings.Fields(typ), ""), "orbit.Opt[")
+	return strings.HasPrefix(strings.Join(strings.Fields(typ), ""), "lyr.Opt[")
 }
 
-// placeImports places Go and .orbit imports by their uses, and reports
-// unused .orbit imports.
+// placeImports places Go and .lyr imports by their uses, and reports
+// unused .lyr imports.
 func (s *anState) placeImports() {
 	place := func(name string) Placement {
 		var p Placement
@@ -275,13 +275,13 @@ func (s *anState) placeImports() {
 		if g.Place == 0 {
 			g.Place = PlaceImpl
 		}
-		if name == "orbit" {
+		if name == "lyr" {
 			covered |= g.Place
 		}
 	}
-	s.a.ImplicitOrbit = place("orbit") &^ covered
-	for i := range s.a.OrbitImports {
-		o := &s.a.OrbitImports[i]
+	s.a.ImplicitLyr = place("lyr") &^ covered
+	for i := range s.a.LyrImports {
+		o := &s.a.LyrImports[i]
 		o.Place = place(o.Alias)
 		if s.tagUses[o.Alias] {
 			o.Place |= PlaceImpl
@@ -295,7 +295,7 @@ func (s *anState) placeImports() {
 	}
 }
 
-// checkClashes reports .orbit aliases, named Go imports and impl-placed
+// checkClashes reports .lyr aliases, named Go imports and impl-placed
 // names that equal an exported name of the declaration package.
 func (s *anState) checkClashes() {
 	page := s.a.Info.Role == RolePage
@@ -318,7 +318,7 @@ func (s *anState) checkClashes() {
 			s.errorf(sp, "%s clashes with %s in the component's declaration package (Props uses it); rename one", name, name)
 		}
 	}
-	for _, o := range s.a.OrbitImports {
+	for _, o := range s.a.LyrImports {
 		check(o.Alias, o.AliasSpan)
 	}
 	for _, g := range s.a.GoImports {

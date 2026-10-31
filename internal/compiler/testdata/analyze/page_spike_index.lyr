@@ -1,0 +1,11 @@
+---
+import A "../components/A.lyr"
+
+items := []A.Item{{Name: "root", Count: 2}}
+---
+<!DOCTYPE html>
+<html><body>
+{for _, it := range items}
+  <A item={it} depth={0} />
+{/for}
+</body></html>

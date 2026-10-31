@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"maps"
@@ -10,7 +10,7 @@ import (
 // always mode iff it's the canonical form of a never-mode match, and a
 // redirect always lands on a matching path.
 func FuzzMatchAlways(f *testing.F) {
-	for _, s := range []string{"/", "/blog/new/", "/blog/v1.2", "/docs/", "/x//y/", "//", "//evil", "/rss.xml", "/rss.xml/", "/_orbit/x"} {
+	for _, s := range []string{"/", "/blog/new/", "/blog/v1.2", "/docs/", "/x//y/", "//", "//evil", "/rss.xml", "/rss.xml/", "/_lyr/x"} {
 		f.Add(s, "q=1")
 	}
 	patterns := []string{"/", "/blog", "/blog/new", "/blog/[slug]", "/docs/[...path]", "/rss.xml", "/[a]/[b]", notFoundPattern}
@@ -178,8 +178,8 @@ func TestRedirectTargetAlways(t *testing.T) {
 		{"//", "", ""},
 		{"/404", "", ""},
 		{"", "", ""},
-		{"/_orbit/x", "", ""},
-		{"/_orbit/island/0000000000000000/x", "", ""},
+		{"/_lyr/x", "", ""},
+		{"/_lyr/island/0000000000000000/x", "", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path+"?"+tt.query, func(t *testing.T) {
@@ -191,7 +191,7 @@ func TestRedirectTargetAlways(t *testing.T) {
 	}
 	// A root rest page claims every slash-less path without an extension.
 	rest := mustAlwaysRouter(t, "/[...rest]")
-	for _, p := range []string{"//evil.example", "///evil.example", "/_orbit/island/x"} {
+	for _, p := range []string{"//evil.example", "///evil.example", "/_lyr/island/x"} {
 		if got, ok := rest.redirectTarget(p, ""); ok {
 			t.Errorf("redirectTarget(%q) = %q, want no redirect", p, got)
 		}

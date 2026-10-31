@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // fakeImporter type-checks the runtime stand-in and the layout's decl
@@ -46,7 +46,7 @@ func (f *fakeImporter) Import(path string) (*types.Package, error) {
 const layoutDecl = `package post
 
 import (
-	orbit "github.com/orbit-z/orbit"
+	lyr "github.com/orbit-z/lyr"
 	"time"
 )
 
@@ -68,16 +68,16 @@ type Props struct {
 	Order    uint8
 	Weight   float32
 	Kind     Kind
-	Intro    orbit.HTML
+	Intro    lyr.HTML
 	Author   Author
 	Authors  []Author
 	Links    map[string]string
 	Meta     struct{ Lang string }
 	OnClick  func()
-	Subtitle orbit.Opt[string]
-	Rank     orbit.Opt[Kind]
-	Note     orbit.Opt[string]
-	Headings []orbit.Heading
+	Subtitle lyr.Opt[string]
+	Rank     lyr.Opt[Kind]
+	Note     lyr.Opt[string]
+	Headings []lyr.Heading
 }
 `
 
@@ -86,20 +86,20 @@ func retype(t *testing.T, src string) (*compiler.Output, []compiler.Diagnostic, 
 	fset := token.NewFileSet()
 	imp := &fakeImporter{fset: fset, std: importer.ForCompiler(fset, "source", nil), pkgs: map[string]*types.Package{},
 		srcs: map[string]string{
-			compiler.RuntimePath:                           "package orbit\n\ntype Heading struct {\n\tDepth int\n\tSlug, Text string\n}\n\ntype HTML string\n\ntype Opt[T any] struct {\n\tv  T\n\tok bool\n}\n\nfunc Some[T any](v T) Opt[T] { return Opt[T]{v, true} }\n",
-			"example.com/blog/orbit_gen/decl/layouts/post": layoutDecl,
+			compiler.RuntimePath:                         "package lyr\n\ntype Heading struct {\n\tDepth int\n\tSlug, Text string\n}\n\ntype HTML string\n\ntype Opt[T any] struct {\n\tv  T\n\tok bool\n}\n\nfunc Some[T any](v T) Opt[T] { return Opt[T]{v, true} }\n",
+			"example.com/blog/lyr_gen/decl/layouts/post": layoutDecl,
 		}}
 	d := Parse("src/pages/blog/hello.md", src, Options{}, nil, nil)
 	if len(d.Diagnostics) > 0 {
 		t.Fatalf("parse: %s", diags(d))
 	}
-	layout := &compiler.ComponentInfo{Path: "src/layouts/Post.orbit", Name: "Post",
+	layout := &compiler.ComponentInfo{Path: "src/layouts/Post.lyr", Name: "Post",
 		Pkg: compiler.GenPackage{Rel: "layouts/post", Name: "post"}, Props: compiler.PropsInfo{Declared: true}}
 	in := GenInput{
 		Info:    compiler.FileInfo{Path: "src/pages/blog/hello.md", Role: compiler.RolePage, Route: "/blog/hello"},
 		Pkg:     compiler.GenPackage{Rel: "pages/blog/hello_md", Name: "hello_md"},
 		Options: compiler.Options{Module: "example.com/blog"},
-		Index:   compiler.ComponentIndex{"src/layouts/Post.orbit": layout},
+		Index:   compiler.ComponentIndex{"src/layouts/Post.lyr": layout},
 	}
 	pass1 := Generate(d, in)
 	out, ds, ok := Retype(d, in, pass1)(imp)
@@ -128,7 +128,7 @@ section: Blog
 subtitle: Hello
 rank: post
 note: null
-layout: ../../layouts/Post.orbit
+layout: ../../layouts/Post.lyr
 ---
 ## One
 `
@@ -151,8 +151,8 @@ layout: ../../layouts/Post.orbit
 		`p.Links = map[string]string{"home": "/"}`,
 		`p.Meta = struct{Lang string}{Lang: "en"}`,
 		`p.Section = "Blog"`,
-		`p.Subtitle = orbit__rt.Some[string]("Hello")`,
-		`p.Rank = orbit__rt.Some[Layout.Kind]("post")`,
+		`p.Subtitle = lyr__rt.Some[string]("Hello")`,
+		`p.Rank = lyr__rt.Some[Layout.Kind]("post")`,
 		"\np.Headings = Headings\n",
 		"\t\"time\"\n",
 	} {
@@ -187,14 +187,14 @@ func TestRetypeErrors(t *testing.T) {
 		{"authors: [{name: 3}]", ""},
 		{"authors: [{name: [x]}]", "2:18: frontmatter authors[0].name: a list isn't a string (Post.Props.Authors[0].Name is string)"},
 		{"title: null", `2:8: frontmatter key "title" has no value; delete the line or give it a value`},
-		{"subtitle: [a]", "2:11: frontmatter subtitle: a list isn't a string (Post.Props.Subtitle is orbit.Opt[string])"},
+		{"subtitle: [a]", "2:11: frontmatter subtitle: a list isn't a string (Post.Props.Subtitle is lyr.Opt[string])"},
 		{"on-click: x", "2:1: frontmatter on-click: Post.Props.OnClick is func(), which frontmatter can't set"},
-		{"headings: x", `2:1: frontmatter key "headings" can't be set: Orbit fills Post.Props.Headings with the page's headings; rename the key`},
+		{"headings: x", `2:1: frontmatter key "headings" can't be set: Lyr fills Post.Props.Headings with the page's headings; rename the key`},
 		{"subtitel: x", `2:1: unknown frontmatter key "subtitel" for layout Post (props: base, title, date, tags, draft, order, weight, kind, intro, author, authors, links, meta, onClick, subtitle, rank, note, headings, section)`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.yaml, func(t *testing.T) {
-			src := "---\n" + tt.yaml + "\nlayout: ../../layouts/Post.orbit\n---\n"
+			src := "---\n" + tt.yaml + "\nlayout: ../../layouts/Post.lyr\n---\n"
 			d := Parse("src/pages/blog/hello.md", src, Options{}, nil, nil)
 			if len(d.Diagnostics) > 0 {
 				if got := diags(d); got != tt.want {
@@ -216,15 +216,15 @@ func TestRetypeErrors(t *testing.T) {
 }
 
 func TestGenerate(t *testing.T) {
-	src := "---\ntitle: Hi\ntilte: typo\nlayout: ../layouts/Post.orbit\n---\n# Hi\n"
+	src := "---\ntitle: Hi\ntilte: typo\nlayout: ../layouts/Post.lyr\n---\n# Hi\n"
 	d := Parse("src/pages/hi.md", src, Options{}, nil, nil)
-	layout := &compiler.ComponentInfo{Path: "src/layouts/Post.orbit", Name: "Post", Pkg: compiler.GenPackage{Rel: "layouts/post", Name: "post"},
-		Props: compiler.PropsInfo{Declared: true, Listable: true, Fields: []compiler.PropField{{Name: "Title", Type: "string"}, {Name: "Headings", Type: "[]orbit.Heading"}}}}
+	layout := &compiler.ComponentInfo{Path: "src/layouts/Post.lyr", Name: "Post", Pkg: compiler.GenPackage{Rel: "layouts/post", Name: "post"},
+		Props: compiler.PropsInfo{Declared: true, Listable: true, Fields: []compiler.PropField{{Name: "Title", Type: "string"}, {Name: "Headings", Type: "[]lyr.Heading"}}}}
 	in := GenInput{
 		Info:    compiler.FileInfo{Path: "src/pages/hi.md", Role: compiler.RolePage, Route: "/hi"},
 		Pkg:     compiler.GenPackage{Rel: "pages/hi_md", Name: "hi_md"},
 		Options: compiler.Options{Module: "example.com/blog"},
-		Index:   compiler.ComponentIndex{"src/layouts/Post.orbit": layout},
+		Index:   compiler.ComponentIndex{"src/layouts/Post.lyr": layout},
 	}
 	out := Generate(d, in)
 	if len(out.Diagnostics) != 1 || out.Diagnostics[0].Message != `unknown frontmatter key "tilte" for layout Post (props: title, headings)` ||
@@ -239,13 +239,13 @@ func TestGenerate(t *testing.T) {
 		}
 	}
 	impl := string(out.Impl.Content)
-	for _, w := range []string{"p.Title = \"Hi\"\n//line render.go:", "p.Headings = Headings", `return Layout.Render(orbit__ctx, orbit__w, orbit__lprops, orbit__rt.Slots{Default: orbit__content})`} {
+	for _, w := range []string{"p.Title = \"Hi\"\n//line render.go:", "p.Headings = Headings", `return Layout.Render(lyr__ctx, lyr__w, lyr__lprops, lyr__rt.Slots{Default: lyr__content})`} {
 		if !strings.Contains(impl, w) {
 			t.Errorf("no %q in impl:\n%s", w, impl)
 		}
 	}
 	in.Index = nil
-	if out := Generate(d, in); len(out.Diagnostics) != 1 || out.Diagnostics[0].Message != "layout ../layouts/Post.orbit: no such file" {
+	if out := Generate(d, in); len(out.Diagnostics) != 1 || out.Diagnostics[0].Message != "layout ../layouts/Post.lyr: no such file" {
 		t.Errorf("missing layout: %v", out.Diagnostics)
 	}
 }

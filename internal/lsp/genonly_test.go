@@ -33,11 +33,11 @@ func TestGenOnlyNamesMatchRuntime(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if f.Name.Name == "orbit" {
+		if f.Name.Name == "lyr" {
 			files = append(files, f)
 		}
 	}
-	pkg, err := doc.NewFromFiles(fset, files, "github.com/orbit-z/orbit")
+	pkg, err := doc.NewFromFiles(fset, files, "github.com/orbit-z/lyr")
 	if err != nil {
 		t.Fatal(err)
 	}

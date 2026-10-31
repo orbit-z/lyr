@@ -1,6 +1,6 @@
-orbit_gen/decl/components/layout/decl.go (src/components/Layout.orbit)
-  exact 2:1 "type Props struct {\n\tTitle string\n}" -> 159-194 "type Props struct {\n\tTitle string\n}"
-orbit_gen/impl/components/layout/render.go (src/components/Layout.orbit)
-  exact 8:13 "props.Title" -> 694-705 "props.Title"
+lyr_gen/decl/components/layout/decl.go (src/components/Layout.lyr)
+  exact 2:1 "type Props struct {\n\tTitle string\n}" -> 151-186 "type Props struct {\n\tTitle string\n}"
+lyr_gen/impl/components/layout/render.go (src/components/Layout.lyr)
+  exact 8:13 "props.Title" -> 642-653 "props.Title"
 call sites
-  content key=72 "props.Title" call="orbit__w.Expr(\n/*line ../../../../src/components/Layout.orbit:8:13*/props.Title/*line render.go:21:89*/,\n\t)"
+  content key=72 "props.Title" call="lyr__w.Expr(\n/*line ../../../../src/components/Layout.lyr:8:13*/props.Title/*line render.go:21:87*/,\n\t)"

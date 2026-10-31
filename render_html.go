@@ -1,15 +1,15 @@
-package orbit
+package lyr
 
 import "errors"
 
 // errHeadInCapture is the render error of a </head> inside RenderHTML.
-var errHeadInCapture = errors.New("orbit: </head> can't be inside orbit.RenderHTML; keep the document head outside the captured content")
+var errHeadInCapture = errors.New("lyr: </head> can't be inside lyr.RenderHTML; keep the document head outside the captured content")
 
 // RenderHTML renders r and returns its output as HTML, for example to keep a
 // slot's markup in a fragment cache and write it later with set:html:
 //
-//	html, err := cache.Get(props.Key, func() (orbit.HTML, error) {
-//		return orbit.RenderHTML(ctx, slots.Default)
+//	html, err := cache.Get(props.Key, func() (lyr.HTML, error) {
+//		return lyr.RenderHTML(ctx, slots.Default)
 //	})
 //
 // The output is exactly what r would write in place. A nil r (no slot

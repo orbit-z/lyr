@@ -5,7 +5,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // Doc is a parsed Markdown file.
@@ -80,12 +80,12 @@ func (d *Doc) setFields(fields []*Field, aliases compiler.ImportResolver) {
 		}
 		v := f.Value
 		if v.Kind == KindList || v.Kind == KindMap || v.Raw == "" {
-			d.errorf(v.Pos, "layout must be the path of an .orbit file, such as ../layouts/Post.orbit")
+			d.errorf(v.Pos, "layout must be the path of a .lyr file, such as ../layouts/Post.lyr")
 			continue
 		}
 		d.LayoutRaw, d.LayoutPos = v.Raw, v.Pos
-		if path.Ext(v.Raw) != ".orbit" {
-			d.errorf(v.Pos, "layout %s must be an .orbit file", v.Raw)
+		if path.Ext(v.Raw) != ".lyr" {
+			d.errorf(v.Pos, "layout %s must be a .lyr file", v.Raw)
 			continue
 		}
 		// A relative path, or a tsconfig.json paths alias (PLAN.md §2.2).

@@ -1,5 +1,5 @@
-info src/components/iife.orbit component route=""
-implicit orbit: none
+info src/components/iife.lyr component route=""
+implicit lyr: none
 decl func @4-38 place=impl named@9-14
   "func named() string { return \"n\" }"
 decl func @101-146 place=decl recv=Props

@@ -17,7 +17,7 @@ type cgOut struct {
 	depth  int // indentation of glue lines, in tabs
 
 	base    string // bare basename used by resets: "decl.go" or "render.go"
-	dirFile string // the .orbit file as directives name it
+	dirFile string // the .lyr file as directives name it
 	src     string
 	lines   *LineIndex
 	segs    []Segment
@@ -31,12 +31,12 @@ type cgOut struct {
 	litFrom int
 }
 
-func newCGOut(genPath, orbitPath, src string, lines *LineIndex) *cgOut {
+func newCGOut(genPath, lyrPath, src string, lines *LineIndex) *cgOut {
 	base := genPath
 	if i := strings.LastIndexByte(base, '/'); i >= 0 {
 		base = base[i+1:]
 	}
-	return &cgOut{line: 1, lastNL: -1, base: base, dirFile: DirectiveFile(genPath, orbitPath), src: src, lines: lines}
+	return &cgOut{line: 1, lastNL: -1, base: base, dirFile: DirectiveFile(genPath, lyrPath), src: src, lines: lines}
 }
 
 // str writes s verbatim.
@@ -93,7 +93,7 @@ func (o *cgOut) inline(s Span, text string, kind SegmentKind) Span {
 	o.str("/*line " + o.dirFile + ":" + o.pos(s.Start) + "*/")
 	g := Span{len(o.b), len(o.b) + len(text)}
 	o.str(text)
-	o.segs = append(o.segs, Segment{Kind: kind, OrbitStart: s.Start, OrbitEnd: s.End, GoStart: g.Start, GoEnd: g.End})
+	o.segs = append(o.segs, Segment{Kind: kind, LyrStart: s.Start, LyrEnd: s.End, GoStart: g.Start, GoEnd: g.End})
 	if endsInLineComment(text) {
 		o.str("\n") // {x // c} would swallow the reset and the glue after it
 	}
@@ -140,7 +140,7 @@ func (o *cgOut) exact(s Span) Span {
 }
 
 // ownLine starts an own-line directive frame at the beginning of a line:
-// //line <file>:L:C for orbit offset off. The framed code follows from
+// //line <file>:L:C for lyr offset off. The framed code follows from
 // column 1 of the next line; close it with endOwnLine.
 func (o *cgOut) ownLine(off int) {
 	o.str("//line " + o.dirFile + ":" + o.pos(off) + "\n")
@@ -158,7 +158,7 @@ func (o *cgOut) endOwnLine() {
 func (o *cgOut) copySeg(s Span) {
 	g := len(o.b)
 	o.str(o.src[s.Start:s.End])
-	o.segs = append(o.segs, Segment{Kind: SegExact, OrbitStart: s.Start, OrbitEnd: s.End, GoStart: g, GoEnd: len(o.b)})
+	o.segs = append(o.segs, Segment{Kind: SegExact, LyrStart: s.Start, LyrEnd: s.End, GoStart: g, GoEnd: len(o.b)})
 }
 
 // echo writes "_ = name" with an echo segment over name.
@@ -167,14 +167,14 @@ func (o *cgOut) echo(name string) {
 	o.str("_ = ")
 	g := len(o.b)
 	o.str(name)
-	o.segs = append(o.segs, Segment{Kind: SegEcho, OrbitStart: -1, OrbitEnd: -1, GoStart: g, GoEnd: len(o.b)})
+	o.segs = append(o.segs, Segment{Kind: SegEcho, LyrStart: -1, LyrEnd: -1, GoStart: g, GoEnd: len(o.b)})
 	o.str("\n")
 }
 
 // html queues static HTML for the next Raw call.
 func (o *cgOut) html(s string) { o.raw.WriteString(s) }
 
-// flush emits the pending static HTML as one orbit__w.Raw call.
+// flush emits the pending static HTML as one lyr__w.Raw call.
 func (o *cgOut) flush() {
 	if o.raw.Len() == 0 {
 		return

@@ -12,7 +12,7 @@ import (
 // Inlining (PLAN.md §5d, Q3). Tailwind's CLI inlines the CSS files an input
 // @imports but, unlike @tailwindcss/vite, doesn't rewrite their url()s, so
 // a Fontsource stylesheet's url(./files/x.woff2) would resolve from the
-// importing stylesheet's directory. Orbit therefore inlines those imports
+// importing stylesheet's directory. Lyr therefore inlines those imports
 // itself before running Tailwind: each resolvable @import of a CSS file is
 // replaced by the file's text, wrapped in @media, @supports and @layer
 // blocks for its conditions, and every relative reference in an inlined
@@ -33,7 +33,7 @@ type Resolver func(spec, dir string) (string, bool)
 type Source struct {
 	Text string
 	// File is the absolute path of the file Text is in: the .css file, or
-	// the .orbit file of a <style> block.
+	// the .lyr file of a <style> block.
 	File string
 	// Line and Col are the 1-based position of Text's first byte in File
 	// (1, 1 for a .css file).
@@ -348,7 +348,7 @@ type conditions struct {
 }
 
 // parseConditions reads the tokens after an @import's URL. ok is unset
-// when they have a function Orbit doesn't know (Tailwind's theme(…),
+// when they have a function Lyr doesn't know (Tailwind's theme(…),
 // source(…), prefix(…)): the import is left to Tailwind.
 func parseConditions(src string, toks []tok, i, end int) (c conditions, ok bool) {
 	var media strings.Builder

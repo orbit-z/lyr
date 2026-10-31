@@ -11,7 +11,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
@@ -22,8 +22,8 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-// GitHubURL is Orbit's repository.
-const GitHubURL = "https://github.com/orbit-z/orbit"
+// GitHubURL is Lyr's repository.
+const GitHubURL = "https://github.com/orbit-z/lyr"
 
 // RepoURL is where links to files outside docs/ point.
 const RepoURL = GitHubURL + "/blob/main/"
@@ -169,7 +169,7 @@ func (r *mdRenderer) render(file string, src []byte) (*Page, error) {
 	if err := r.md.Renderer().Render(&out, src, doc); err != nil {
 		return nil, err
 	}
-	p.HTML = orbit.HTML(out.String())
+	p.HTML = lyr.HTML(out.String())
 	if p.Title == "" {
 		p.Title = slug
 	}
@@ -380,7 +380,7 @@ func renderFenced(w util.BufWriter, src []byte, node ast.Node, entering bool) (a
 		seg := lines.At(i)
 		code.Write(seg.Value(src))
 	}
-	// Highlighted with Orbit's own Chroma renderer (the orbit lexer
+	// Highlighted with Lyr's own Chroma renderer (the lyr lexer
 	// included), styled by src/styles/highlight.css.
 	w.WriteString(`<pre class="chroma" tabindex="0"><code`)
 	if lang != "" {

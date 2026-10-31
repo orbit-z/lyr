@@ -18,7 +18,7 @@ func TestSwitchTypedWrites(t *testing.T) {
 		"\t{default}<u>{v}</u>\n" +
 		"{/switch}\n"
 	m := newGenModule(t)
-	p := plPipeline(t, m, map[string]string{"src/components/X.orbit": src}, Options{Module: testModule})
+	p := plPipeline(t, m, map[string]string{"src/components/X.lyr": src}, Options{Module: testModule})
 	if d := p.diagnostics(); len(d) > 0 {
 		t.Fatalf("diagnostics:\n%s", strings.Join(d, "\n"))
 	}

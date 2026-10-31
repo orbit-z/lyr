@@ -10,11 +10,11 @@ import (
 )
 
 // cgFileInfo derives a file's role and route from its project-relative path.
-func cgFileInfo(orbitPath string) FileInfo {
-	info := FileInfo{Path: orbitPath}
-	if strings.HasPrefix(orbitPath, "src/pages/") {
+func cgFileInfo(lyrPath string) FileInfo {
+	info := FileInfo{Path: lyrPath}
+	if strings.HasPrefix(lyrPath, "src/pages/") {
 		info.Role = RolePage
-		route := strings.TrimSuffix(strings.TrimPrefix(orbitPath, "src/pages"), ".orbit")
+		route := strings.TrimSuffix(strings.TrimPrefix(lyrPath, "src/pages"), ".lyr")
 		route = strings.TrimSuffix(route, "/index")
 		if route == "" {
 			route = "/"
@@ -25,8 +25,8 @@ func cgFileInfo(orbitPath string) FileInfo {
 }
 
 // cgAnalyze parses src and analyzes it with the real Analyze.
-func cgAnalyze(t testing.TB, orbitPath, src string, mode Mode) (*File, *Analysis) {
+func cgAnalyze(t testing.TB, lyrPath, src string, mode Mode) (*File, *Analysis) {
 	t.Helper()
 	f := Parse(src, mode)
-	return f, Analyze(f, cgFileInfo(orbitPath))
+	return f, Analyze(f, cgFileInfo(lyrPath))
 }

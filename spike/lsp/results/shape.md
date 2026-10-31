@@ -1,7 +1,7 @@
 # Session shape: client without insertReplaceSupport / snippetSupport / labelDetailsSupport
 ### `Card.Props{|}`
-request: `orbit_gen/impl/pages/index/render.go` at 45:31 (0-based, utf-16), latency 9ms
-isIncomplete=true, 57 items: [Post Featured Post.Slug Post.Title orbit posts orbit__complete orbit__render Card Orbit__Render Props Render Prerender any append …(+42)]
+request: `lyr_gen/impl/pages/index/render.go` at 45:31 (0-based, utf-16), latency 9ms
+isIncomplete=true, 57 items: [Post Featured Post.Slug Post.Title lyr posts lyr__complete lyr__render Card Lyr__Render Props Render Prerender any append …(+42)]
 item Post:
 ```json
 {
@@ -28,7 +28,7 @@ item Post:
 }
 ```
 ### `props.Fe|`
-request: `orbit_gen/impl/components/card/render.go` at 33:60 (0-based, utf-16), latency 45ms
+request: `lyr_gen/impl/components/card/render.go` at 33:60 (0-based, utf-16), latency 45ms
 isIncomplete=true, 1 items: [Featured]
 item Featured:
 ```json

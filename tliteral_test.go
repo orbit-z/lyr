@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -66,7 +66,7 @@ func TestClassBytes(t *testing.T) {
 }
 
 // TestPieces: AttrPiece and TextPiece write Expr's text of every value,
-// escaped for their context (orbit.HTML and a Renderer's output too), and
+// escaped for their context (lyr.HTML and a Renderer's output too), and
 // TemplateString and AppendAny the same text unescaped.
 func TestPieces(t *testing.T) {
 	for _, v := range tlValues {

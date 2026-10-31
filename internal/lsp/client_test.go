@@ -16,12 +16,12 @@ import (
 )
 
 // The editor side of the integration tests: an LSP client that spawns
-// orbit lsp over stdio, answers its requests like a minimal editor and
+// lyr lsp over stdio, answers its requests like a minimal editor and
 // records what it publishes.
 
 var (
 	buildOnce sync.Once
-	orbitBin  string
+	lyrBin    string
 	buildErr  error
 	binDir    string
 )
@@ -42,25 +42,25 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// buildOrbit builds the orbit CLI once per test run.
-func buildOrbit(t *testing.T) string {
+// buildLyr builds the lyr CLI once per test run.
+func buildLyr(t *testing.T) string {
 	t.Helper()
 	buildOnce.Do(func() {
-		binDir, buildErr = os.MkdirTemp("", "orbit-lsp-test")
+		binDir, buildErr = os.MkdirTemp("", "lyr-lsp-test")
 		if buildErr != nil {
 			return
 		}
-		orbitBin = filepath.Join(binDir, "orbit")
-		cmd := exec.Command("go", "build", "-o", orbitBin, "./cmd/orbit")
+		lyrBin = filepath.Join(binDir, "lyr")
+		cmd := exec.Command("go", "build", "-o", lyrBin, "./cmd/lyr")
 		cmd.Dir = repoRoot(t)
 		if out, err := cmd.CombinedOutput(); err != nil {
-			buildErr = fmt.Errorf("go build ./cmd/orbit: %v\n%s", err, out)
+			buildErr = fmt.Errorf("go build ./cmd/lyr: %v\n%s", err, out)
 		}
 	})
 	if buildErr != nil {
 		t.Fatal(buildErr)
 	}
-	return orbitBin
+	return lyrBin
 }
 
 func repoRoot(t *testing.T) string {
@@ -93,10 +93,10 @@ func writeProject(t *testing.T, files map[string]string) string {
 		t.Fatal(err)
 	}
 	files["go.mod"] = "module example.com/site\n\ngo 1.27\n\ntoolchain go1.27.3\n\n" +
-		"require github.com/orbit-z/orbit v0.0.0\n\n" +
+		"require github.com/orbit-z/lyr v0.0.0\n\n" +
 		"require (\n\tgithub.com/evanw/esbuild v0.28.2 // indirect\n\tgithub.com/fsnotify/fsnotify v1.10.1 // indirect\n" +
 		"\tgithub.com/tdewolff/parse/v2 v2.8.16 // indirect\n\tgolang.org/x/sys v0.13.0 // indirect\n)\n\n" +
-		"replace github.com/orbit-z/orbit => " + filepath.ToSlash(root) + "\n"
+		"replace github.com/orbit-z/lyr => " + filepath.ToSlash(root) + "\n"
 	files["go.sum"] = string(sum)
 	for name, content := range files {
 		p := filepath.Join(dir, filepath.FromSlash(name))
@@ -139,10 +139,10 @@ type testClient struct {
 // documentChanges and prepareRename support.
 const noDocumentChanges = "test:noDocumentChanges"
 
-// startClient spawns orbit lsp in dir and initializes it.
+// startClient spawns lyr lsp in dir and initializes it.
 func startClient(t *testing.T, dir string, initOpts map[string]any, env ...string) *testClient {
 	t.Helper()
-	cmd := exec.Command(buildOrbit(t), "lsp")
+	cmd := exec.Command(buildLyr(t), "lsp")
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), append([]string{"GOFLAGS=-mod=mod", "GOWORK=off"}, env...)...)
 	stdin, err := cmd.StdinPipe()
@@ -172,7 +172,7 @@ func startClient(t *testing.T, dir string, initOpts map[string]any, env ...strin
 		logf.Close()
 		if t.Failed() || testing.Verbose() {
 			b, _ := os.ReadFile(logf.Name())
-			t.Logf("orbit lsp log:\n%s", b)
+			t.Logf("lyr lsp log:\n%s", b)
 		}
 	})
 	c.initialize(initOpts)
@@ -210,7 +210,7 @@ func startInProcess(t *testing.T, dir string, initOpts map[string]any) *testClie
 		logf.Close()
 		if t.Failed() || testing.Verbose() {
 			b, _ := os.ReadFile(logf.Name())
-			t.Logf("orbit lsp log:\n%s", b)
+			t.Logf("lyr lsp log:\n%s", b)
 		}
 	})
 	c.initialize(initOpts)
@@ -400,7 +400,7 @@ func (c *testClient) open(rel string) string {
 	c.versions[rel] = 1
 	c.mu.Unlock()
 	c.conn.Notify("textDocument/didOpen", map[string]any{"textDocument": map[string]any{
-		"uri": c.uri(rel), "languageId": "orbit", "version": 1, "text": string(b)}})
+		"uri": c.uri(rel), "languageId": "lyr", "version": 1, "text": string(b)}})
 	return string(b)
 }
 

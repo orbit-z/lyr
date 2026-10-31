@@ -1,6 +1,6 @@
-info src/components/props_alias.orbit component route=""
+info src/components/props_alias.lyr component route=""
 goimport name="" path="example.com/blog/internal/card" @11-43 "\"example.com/blog/internal/card\"" path=@11-43 place=decl
-implicit orbit: none
+implicit lyr: none
 decl type @45-68 place=decl Props@50-55
   "type Props = card.Props"
 echo []

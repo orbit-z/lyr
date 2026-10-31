@@ -1,0 +1,19 @@
+---
+import Actions "../components/Actions.lyr"
+import Cached "../components/Cached.lyr"
+import Card "../components/Card.lyr"
+import Tree "../components/Tree.lyr"
+import "example.com/blog/internal/cards"
+
+actions := Actions.Props{Slug: "s", StartHref: "/start"}
+opts := cards.Options{Credits: true, Lines: 3}
+refs := []*cards.Ref{{Slug: "a"}, nil}
+extra := cards.Extra{Note: "n"}
+---
+{for i, ref := range refs}
+	<Card {...cards.Of(i)} />
+	<Actions {...actions} questionID="q" class="c" />
+	<Actions {...extra} slug="e" />
+	<Cached {...ref} {...opts} />
+	<Tree depth={1} label="t" />
+{/for}

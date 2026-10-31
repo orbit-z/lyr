@@ -1,7 +1,7 @@
-info src/components/shadowing.orbit component route=""
+info src/components/shadowing.lyr component route=""
 goimport name="" path="strings" @14-23 "\"strings\"" path=@14-23 place=impl
 goimport name="" path="strconv" @25-34 "\"strconv\"" path=@25-34 place=impl
-implicit orbit: none
+implicit lyr: none
 decl type @38-69 place=decl Item@43-47
   "type Item struct{ Name string }"
 decl type @71-104 place=decl Props@76-81

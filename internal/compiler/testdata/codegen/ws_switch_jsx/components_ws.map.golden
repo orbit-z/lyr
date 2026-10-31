@@ -1,15 +1,15 @@
-orbit_gen/decl/components/ws/decl.go (src/components/Ws.orbit)
-  exact 2:1 "type Props struct {\n\tKind string\n\tN    int\n}" -> 151-195 "type Props struct {\n\tKind string\n\tN    int\n}"
-orbit_gen/impl/components/ws/render.go (src/components/Ws.orbit)
-  exact 9:13 "props.Kind" -> 664-674 "props.Kind"
-  exact 11:13 "\"a\"" -> 757-760 "\"a\""
-  exact 12:15 "props.N" -> 877-884 "props.N"
-  exact 19:13 "props.N" -> 1074-1081 "props.N"
-  exact 20:13 "1" -> 1164-1165 "1"
-  exact 25:14 "props.N" -> 1311-1318 "props.N"
-  exact 25:28 "1" -> 1401-1402 "1"
-  exact 25:44 "2" -> 1511-1512 "2"
-  exact 28:12 "" -> 1676-1676 ""
-  exact 29:13 "props.N > 5" -> 1759-1770 "props.N > 5"
+lyr_gen/decl/components/ws/decl.go (src/components/Ws.lyr)
+  exact 2:1 "type Props struct {\n\tKind string\n\tN    int\n}" -> 143-187 "type Props struct {\n\tKind string\n\tN    int\n}"
+lyr_gen/impl/components/ws/render.go (src/components/Ws.lyr)
+  exact 9:13 "props.Kind" -> 614-624 "props.Kind"
+  exact 11:13 "\"a\"" -> 705-708 "\"a\""
+  exact 12:15 "props.N" -> 819-826 "props.N"
+  exact 19:13 "props.N" -> 1008-1015 "props.N"
+  exact 20:13 "1" -> 1096-1097 "1"
+  exact 25:14 "props.N" -> 1237-1244 "props.N"
+  exact 25:28 "1" -> 1325-1326 "1"
+  exact 25:44 "2" -> 1431-1432 "2"
+  exact 28:12 "" -> 1590-1590 ""
+  exact 29:13 "props.N > 5" -> 1671-1682 "props.N > 5"
 call sites
-  content key=177 "props.N" call="orbit__w.Expr(\n/*line ../../../../src/components/Ws.orbit:12:15*/props.N/*line render.go:24:82*/,\n\t\t)"
+  content key=177 "props.N" call="lyr__w.Expr(\n/*line ../../../../src/components/Ws.lyr:12:15*/props.N/*line render.go:24:80*/,\n\t\t)"

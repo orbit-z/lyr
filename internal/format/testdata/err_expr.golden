@@ -1,2 +1,2 @@
 -- errors --
-err_expr.orbit:4:17: expected operand, found 'EOF'
+err_expr.lyr:4:17: expected operand, found 'EOF'

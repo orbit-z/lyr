@@ -96,7 +96,7 @@ func (l *lexer) startsTag(i int) bool {
 }
 
 // isEndTagOf reports whether src[i:] starts with </name (case-sensitive,
-// like every tag name in Orbit) followed by a space, '/', '>' or the end of the file.
+// like every tag name in Lyr) followed by a space, '/', '>' or the end of the file.
 func (l *lexer) isEndTagOf(i int, name string) bool {
 	s := l.src[i:]
 	if len(s) < 2+len(name) || s[0] != '<' || s[1] != '/' || s[2:2+len(name)] != name {

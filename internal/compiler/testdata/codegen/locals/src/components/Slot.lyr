@@ -1,0 +1,4 @@
+---
+import Doc "./Doc.lyr"
+---
+<Doc><b>{locals.User}</b></Doc>

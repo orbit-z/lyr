@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -27,8 +27,8 @@ func staticDir(t *testing.T) string {
 	base := t.TempDir()
 	dir := filepath.Join(base, "client")
 	writeFile(t, filepath.Join(base, "secret.txt"), "secret")
-	writeFile(t, filepath.Join(dir, "_orbit", "app-1234.js"), "console.log(1)")
-	writeFile(t, filepath.Join(dir, "_orbit", "island", "x"), "not a file")
+	writeFile(t, filepath.Join(dir, "_lyr", "app-1234.js"), "console.log(1)")
+	writeFile(t, filepath.Join(dir, "_lyr", "island", "x"), "not a file")
 	writeFile(t, filepath.Join(dir, "robots.txt"), "robots")
 	writeFile(t, filepath.Join(dir, "about"), "public about")
 	writeFile(t, filepath.Join(dir, "docs", "index.html"), "docs index")
@@ -43,14 +43,14 @@ func TestStaticFiles(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			if dev {
-				t.Setenv("ORBIT_DEV", "1")
+				t.Setenv("LYR_DEV", "1")
 			} else {
-				t.Setenv("ORBIT_DEV", "")
+				t.Setenv("LYR_DEV", "")
 			}
 			dir := staticDir(t)
 			routes := []Route{
-				{Pattern: "/about", File: "src/pages/about.orbit", Render: page("page about")},
-				{Pattern: "/docs", File: "src/pages/docs.orbit", Render: page("docs page")},
+				{Pattern: "/about", File: "src/pages/about.lyr", Render: page("page about")},
+				{Pattern: "/docs", File: "src/pages/docs.lyr", Render: page("docs page")},
 			}
 			s := testSite(t, routes, WithStaticDir(dir))
 			immutable, public := "public, max-age=31536000, immutable", "public, max-age=0"
@@ -62,8 +62,8 @@ func TestStaticFiles(t *testing.T) {
 				status         int
 				body, cache    string
 			}{
-				{"GET", "/_orbit/app-1234.js", 200, "console.log(1)", immutable},
-				{"HEAD", "/_orbit/app-1234.js", 200, "", immutable},
+				{"GET", "/_lyr/app-1234.js", 200, "console.log(1)", immutable},
+				{"HEAD", "/_lyr/app-1234.js", 200, "", immutable},
 				{"GET", "/robots.txt", 200, "robots", public},
 				{"GET", "/about", 200, "public about", public}, // files come before pages
 				{"POST", "/about", 200, "page about", ""},      // pages answer other methods
@@ -77,26 +77,26 @@ func TestStaticFiles(t *testing.T) {
 						rec.Code, rec.Body, rec.Header().Get("Cache-Control"), tt.status, tt.body, tt.cache)
 				}
 			}
-			if rec := do(s.Handler(), "GET", "/_orbit/app-1234.js"); rec.Header().Get("Content-Type") != "text/javascript; charset=utf-8" {
+			if rec := do(s.Handler(), "GET", "/_lyr/app-1234.js"); rec.Header().Get("Content-Type") != "text/javascript; charset=utf-8" {
 				t.Errorf("Content-Type = %q", rec.Header().Get("Content-Type"))
 			}
 
 			// The island prefix is never a file: the island endpoint answers
 			// it (an unknown island is an empty 404).
-			if rec := do(s.Handler(), "GET", "/_orbit/island/x"); rec.Code != 404 || rec.Body.Len() != 0 {
-				t.Errorf("GET /_orbit/island/x: got %d %q, want an empty 404", rec.Code, rec.Body)
+			if rec := do(s.Handler(), "GET", "/_lyr/island/x"); rec.Code != 404 || rec.Body.Len() != 0 {
+				t.Errorf("GET /_lyr/island/x: got %d %q, want an empty 404", rec.Code, rec.Body)
 			}
 
 			// Requests that must reach next: other methods on a file, traversal, directories and file paths with a
 			// trailing slash.
 			for _, tt := range []struct{ method, target string }{
 				{"POST", "/robots.txt"},
-				{"PUT", "/_orbit/app-1234.js"},
+				{"PUT", "/_lyr/app-1234.js"},
 				{"GET", "/../secret.txt"},
 				{"GET", "/%2e%2e/secret.txt"},
-				{"GET", "/_orbit/../../secret.txt"},
-				{"GET", "/_orbit/"},
-				{"GET", "/_orbit"},
+				{"GET", "/_lyr/../../secret.txt"},
+				{"GET", "/_lyr/"},
+				{"GET", "/_lyr"},
 				{"GET", "/robots.txt/"},
 				{"GET", "/docs/../robots.txt"},
 				{"GET", "/missing.txt"},
@@ -150,7 +150,7 @@ func TestStaticSymlinkEscape(t *testing.T) {
 		t.Skip("symlinks unsupported:", err)
 	}
 	for _, dev := range []string{"", "1"} {
-		t.Setenv("ORBIT_DEV", dev)
+		t.Setenv("LYR_DEV", dev)
 		next := &nextHandler{}
 		rec := do(testSite(t, nil, WithStaticDir(dir)).Middleware(next), "GET", "/leak.txt")
 		if !next.called {
@@ -162,22 +162,22 @@ func TestStaticSymlinkEscape(t *testing.T) {
 func TestDevPublic(t *testing.T) {
 	static := t.TempDir()
 	public := t.TempDir()
-	writeFile(t, filepath.Join(static, "_orbit", "a.css"), "css")
+	writeFile(t, filepath.Join(static, "_lyr", "a.css"), "css")
 	writeFile(t, filepath.Join(static, "manifest.json"), "{}")
 	writeFile(t, filepath.Join(public, "robots.txt"), "dev robots")
-	t.Setenv("ORBIT_DEV", "1")
-	t.Setenv("ORBIT_STATIC", static)
-	t.Setenv("ORBIT_PUBLIC", public)
+	t.Setenv("LYR_DEV", "1")
+	t.Setenv("LYR_STATIC", static)
+	t.Setenv("LYR_PUBLIC", public)
 	s := NewSite(nil, nil)
 
 	// Files added after startup are served in dev.
 	writeFile(t, filepath.Join(public, "late.txt"), "late")
-	writeFile(t, filepath.Join(static, "_orbit", "b.js"), "js")
+	writeFile(t, filepath.Join(static, "_lyr", "b.js"), "js")
 	for target, body := range map[string]string{
-		"/robots.txt":   "dev robots",
-		"/late.txt":     "late",
-		"/_orbit/a.css": "css",
-		"/_orbit/b.js":  "js",
+		"/robots.txt": "dev robots",
+		"/late.txt":   "late",
+		"/_lyr/a.css": "css",
+		"/_lyr/b.js":  "js",
 	} {
 		rec := do(s.Handler(), "GET", target)
 		if rec.Code != 200 || rec.Body.String() != body || rec.Header().Get("Cache-Control") != "no-cache" {
@@ -189,8 +189,8 @@ func TestDevPublic(t *testing.T) {
 		t.Errorf("/manifest.json: got %d %q", rec.Code, rec.Body)
 	}
 
-	// ORBIT_PUBLIC is ignored outside dev.
-	t.Setenv("ORBIT_DEV", "")
+	// LYR_PUBLIC is ignored outside dev.
+	t.Setenv("LYR_DEV", "")
 	writeFile(t, filepath.Join(static, "robots.txt"), "static robots")
 	if rec := do(NewSite(nil, nil).Handler(), "GET", "/robots.txt"); rec.Body.String() != "static robots" {
 		t.Errorf("prod /robots.txt: %q", rec.Body)
@@ -205,7 +205,7 @@ func TestStaticPrecedence(t *testing.T) {
 	}
 	envDir, optDir := mk("env"), mk("option")
 	fsys := os.DirFS(mk("fs"))
-	t.Setenv("ORBIT_DEV", "")
+	t.Setenv("LYR_DEV", "")
 
 	tests := []struct {
 		env  string
@@ -218,7 +218,7 @@ func TestStaticPrecedence(t *testing.T) {
 		{"", []Option{WithStaticFS(fsys)}, "fs"},
 	}
 	for i, tt := range tests {
-		t.Setenv("ORBIT_STATIC", tt.env)
+		t.Setenv("LYR_STATIC", tt.env)
 		rec := do(NewSite(nil, nil, tt.opts...).Handler(), "GET", "/which.txt")
 		if rec.Body.String() != tt.want {
 			t.Errorf("case %d: got %q, want %q", i, rec.Body, tt.want)
@@ -227,7 +227,7 @@ func TestStaticPrecedence(t *testing.T) {
 
 	// The default is client/ next to the test binary, which doesn't exist:
 	// no files, and no error.
-	t.Setenv("ORBIT_STATIC", "")
+	t.Setenv("LYR_STATIC", "")
 	if rec := do(NewSite(nil, nil).Handler(), "GET", "/which.txt"); rec.Code != 404 {
 		t.Errorf("default: got %d %q", rec.Code, rec.Body)
 	}
@@ -239,7 +239,7 @@ func TestStaticPrecedence(t *testing.T) {
 	if rec := do(NewSite(nil, nil, WithStaticDir(filepath.Join(optDir, "nope"))).Handler(), "GET", "/which.txt"); rec.Code != 404 {
 		t.Errorf("missing dir: got %d", rec.Code)
 	}
-	if !strings.Contains(logged.String(), "orbit: WithStaticDir directory ") || strings.Count(logged.String(), "\n") != 1 {
+	if !strings.Contains(logged.String(), "lyr: WithStaticDir directory ") || strings.Count(logged.String(), "\n") != 1 {
 		t.Errorf("missing dir: log = %q, want one WithStaticDir warning", logged.String())
 	}
 }
@@ -258,8 +258,8 @@ func TestStaticDefaultNextToBinary(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(dir, "hi.txt"), "next to binary")
 	t.Cleanup(func() { os.RemoveAll(dir) })
-	t.Setenv("ORBIT_STATIC", "")
-	t.Setenv("ORBIT_DEV", "")
+	t.Setenv("LYR_STATIC", "")
+	t.Setenv("LYR_DEV", "")
 	t.Chdir(t.TempDir())
 	if rec := do(NewSite(nil, nil).Handler(), "GET", "/hi.txt"); rec.Body.String() != "next to binary" {
 		t.Errorf("got %d %q", rec.Code, rec.Body)

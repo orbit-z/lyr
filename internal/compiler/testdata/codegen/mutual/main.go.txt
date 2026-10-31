@@ -4,15 +4,15 @@ import (
 	"bytes"
 	"fmt"
 
-	a "example.com/blog/orbit_gen/decl/components/a"
-	_ "example.com/blog/orbit_gen/impl/components/a"
-	_ "example.com/blog/orbit_gen/impl/components/b"
-	"github.com/orbit-z/orbit"
+	a "example.com/blog/lyr_gen/decl/components/a"
+	_ "example.com/blog/lyr_gen/impl/components/a"
+	_ "example.com/blog/lyr_gen/impl/components/b"
+	"github.com/orbit-z/lyr"
 )
 
 func main() {
 	var buf bytes.Buffer
-	if err := a.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), a.Props{Depth: 1}, orbit.Slots{}); err != nil {
+	if err := a.Render(&lyr.Ctx{}, lyr.NewWriter(&buf), a.Props{Depth: 1}, lyr.Slots{}); err != nil {
 		panic(err)
 	}
 	fmt.Println(buf.String())

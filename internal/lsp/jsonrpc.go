@@ -1,8 +1,8 @@
 package lsp
 
 // A minimal JSON-RPC 2.0 peer over a byte stream with LSP's Content-Length
-// framing (PLAN.md §9 Transport). The same Conn talks to the editor (Orbit
-// is the server) and to gopls (Orbit is the client). Payloads stay
+// framing (PLAN.md §9 Transport). The same Conn talks to the editor (Lyr
+// is the server) and to gopls (Lyr is the client). Payloads stay
 // json.RawMessage: the server decodes only the fields it rewrites.
 
 import (

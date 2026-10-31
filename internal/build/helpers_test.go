@@ -19,14 +19,14 @@ import (
 )
 
 // The end-to-end tests run the real CLI: TestMain's directory holds an
-// orbit binary built once, on first use, from ../../cmd/orbit.
+// lyr binary built once, on first use, from ../../cmd/lyr.
 
 var (
 	tmpDir     string
 	repoRoot   string
-	orbitOnce  sync.Once
-	orbitBin   string
-	orbitErr   error
+	lyrOnce    sync.Once
+	lyrBin     string
+	lyrErr     error
 	goEnv      = []string{"GOFLAGS=-mod=mod", "GOWORK=off"}
 	httpClient = &http.Client{
 		Timeout:       10 * time.Second,
@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 	if repoRoot, err = filepath.Abs("../.."); err != nil {
 		panic(err)
 	}
-	if tmpDir, err = os.MkdirTemp("", "orbit-build-test-"); err != nil {
+	if tmpDir, err = os.MkdirTemp("", "lyr-build-test-"); err != nil {
 		panic(err)
 	}
 	code := m.Run()
@@ -58,35 +58,35 @@ func needE2E(t *testing.T) {
 	}
 }
 
-// orbitCLI returns the path of the orbit binary, building it once.
-func orbitCLI(t *testing.T) string {
+// lyrCLI returns the path of the lyr binary, building it once.
+func lyrCLI(t *testing.T) string {
 	t.Helper()
-	orbitOnce.Do(func() {
-		orbitBin = filepath.Join(tmpDir, "orbit")
-		cmd := exec.Command("go", "build", "-o", orbitBin, "./cmd/orbit")
+	lyrOnce.Do(func() {
+		lyrBin = filepath.Join(tmpDir, "lyr")
+		cmd := exec.Command("go", "build", "-o", lyrBin, "./cmd/lyr")
 		cmd.Dir = repoRoot
 		if out, err := cmd.CombinedOutput(); err != nil {
-			orbitErr = fmt.Errorf("go build ./cmd/orbit: %v\n%s", err, out)
+			lyrErr = fmt.Errorf("go build ./cmd/lyr: %v\n%s", err, out)
 		}
 	})
-	if orbitErr != nil {
-		t.Fatal(orbitErr)
+	if lyrErr != nil {
+		t.Fatal(lyrErr)
 	}
-	return orbitBin
+	return lyrBin
 }
 
 // fixture copies testdata/site into a new directory, with a go.mod that
 // replaces the runtime with this repository, and, when userServer is set,
 // the files of testdata/user on top: its own cmd/server, src/locals, the
 // /account page and the LikeButton component. Without them, the site has no
-// src/locals and pages get orbit.NoLocals. It returns the directory.
+// src/locals and pages get lyr.NoLocals. It returns the directory.
 func fixture(t *testing.T, userServer bool) string {
 	t.Helper()
 	dir := t.TempDir()
 	if err := os.CopyFS(dir, os.DirFS("testdata/site")); err != nil {
 		t.Fatal(err)
 	}
-	gomod := "module example.com/site\n\ngo 1.27\n\ntoolchain go1.27.3\n\nrequire github.com/orbit-z/orbit v0.0.0\n\nreplace github.com/orbit-z/orbit => " + filepath.ToSlash(repoRoot) + "\n"
+	gomod := "module example.com/site\n\ngo 1.27\n\ntoolchain go1.27.3\n\nrequire github.com/orbit-z/lyr v0.0.0\n\nreplace github.com/orbit-z/lyr => " + filepath.ToSlash(repoRoot) + "\n"
 	writeFile(t, dir, "go.mod", gomod)
 	if userServer {
 		if err := os.CopyFS(dir, os.DirFS("testdata/user")); err != nil {
@@ -112,17 +112,17 @@ func exists(name string) bool {
 	return err == nil
 }
 
-// runOrbit runs the orbit CLI in dir and returns its exit code and combined
+// runLyr runs the lyr CLI in dir and returns its exit code and combined
 // output.
-func runOrbit(t *testing.T, dir string, args ...string) (int, string) {
+func runLyr(t *testing.T, dir string, args ...string) (int, string) {
 	t.Helper()
-	cmd := exec.Command(orbitCLI(t), args...)
+	cmd := exec.Command(lyrCLI(t), args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), goEnv...)
 	out, err := cmd.CombinedOutput()
 	var exit *exec.ExitError
 	if err != nil && !errors.As(err, &exit) {
-		t.Fatalf("orbit %v: %v", args, err)
+		t.Fatalf("lyr %v: %v", args, err)
 	}
 	return cmd.ProcessState.ExitCode(), string(out)
 }
@@ -178,7 +178,7 @@ func startEnv(t *testing.T, dir string, env []string, name string, args ...strin
 	port := freePort(t)
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
-	cmd.Env = append(append(os.Environ(), "PORT="+port, "ORBIT_ADDR="), env...)
+	cmd.Env = append(append(os.Environ(), "PORT="+port, "LYR_ADDR="), env...)
 	s := &server{t: t, cmd: cmd, base: "http://127.0.0.1:" + port, stderr: &syncBuffer{}, done: make(chan struct{})}
 	cmd.Stdout, cmd.Stderr = s.stderr, s.stderr
 	if err := cmd.Start(); err != nil {

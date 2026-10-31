@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 func TestMapCompletion(t *testing.T) {
-	ws := memWorkspace(t, map[string]string{"src/components/Card.orbit": mapCard, "src/pages/index.orbit": mapPage})
-	const card = "src/components/Card.orbit"
+	ws := memWorkspace(t, map[string]string{"src/components/Card.lyr": mapCard, "src/pages/index.lyr": mapPage})
+	const card = "src/components/Card.lyr"
 	_, impl := ws.genOf(card)
 	m := mapper{ws: ws, enc: encUTF16}
 	gen := string(impl.content)
@@ -24,11 +24,11 @@ func TestMapCompletion(t *testing.T) {
 	}
 	cursor := at("props./", len("props."))
 	empty := Range{Start: cursor, End: cursor}
-	glue := Range{Start: at("orbit__w.Enter", 0), End: at("orbit__w.Enter", 5)}
-	rtLine := `orbit__rt "github.com/orbit-z/orbit"`
+	glue := Range{Start: at("lyr__w.Enter", 0), End: at("lyr__w.Enter", 5)}
+	rtLine := `lyr__rt "github.com/orbit-z/lyr"`
 	afterRT := at(rtLine, len(rtLine))
 	importEdit := map[string]any{"range": Range{Start: afterRT, End: afterRT}, "newText": "\n\t\"strings\""}
-	genImport := map[string]any{"range": Range{Start: afterRT, End: afterRT}, "newText": "\n\t\"example.com/site/orbit_gen/decl/components/card\""}
+	genImport := map[string]any{"range": Range{Start: afterRT, End: afterRT}, "newText": "\n\t\"example.com/site/lyr_gen/decl/components/card\""}
 	res := map[string]any{
 		"isIncomplete": true,
 		"itemDefaults": map[string]any{"editRange": map[string]any{"insert": empty, "replace": empty}},
@@ -36,7 +36,7 @@ func TestMapCompletion(t *testing.T) {
 			map[string]any{"label": "Title", "kind": 5, "labelDetails": map[string]any{"detail": " string"},
 				"textEdit": map[string]any{"insert": empty, "replace": empty, "newText": "Title"}},
 			map[string]any{"label": "Glue", "textEdit": map[string]any{"range": glue, "newText": "x"}},
-			map[string]any{"label": "orbit__w", "textEdit": map[string]any{"range": empty, "newText": "orbit__w"}},
+			map[string]any{"label": "lyr__w", "textEdit": map[string]any{"range": empty, "newText": "lyr__w"}},
 			map[string]any{"label": "strings.ToUpper", "textEdit": map[string]any{"range": empty, "newText": "strings.ToUpper"},
 				"additionalTextEdits": []any{importEdit}},
 			map[string]any{"label": "card.Props", "textEdit": map[string]any{"range": empty, "newText": "card.Props"},
@@ -93,11 +93,11 @@ func TestImportInsertion(t *testing.T) {
 		{"no frontmatter", "<p>x</p>\n", "---\nimport \"strings\"\n---\n<p>x</p>\n"},
 		{"no import", "---\nx := 1\n---\n", "---\nimport \"strings\"\nx := 1\n---\n"},
 		{"single", "---\nimport \"fmt\"\n\nx := 1\n---\n", "---\nimport \"fmt\"\nimport \"strings\"\n\nx := 1\n---\n"},
-		{"group", "---\nimport (\n\t\"fmt\"\n\tCard \"./Card.orbit\"\n)\nx := 1\n---\n",
-			"---\nimport (\n\t\"fmt\"\n\tCard \"./Card.orbit\"\n\t\"strings\"\n)\nx := 1\n---\n"},
+		{"group", "---\nimport (\n\t\"fmt\"\n\tCard \"./Card.lyr\"\n)\nx := 1\n---\n",
+			"---\nimport (\n\t\"fmt\"\n\tCard \"./Card.lyr\"\n\t\"strings\"\n)\nx := 1\n---\n"},
 		{"group on one line", "---\nimport (\"fmt\")\n---\n", "---\nimport (\"fmt\"\n\t\"strings\"\n)\n---\n"},
-		{"group then single", "---\nimport (\n\t\"fmt\"\n)\nimport Card \"./Card.orbit\"\n---\n",
-			"---\nimport (\n\t\"fmt\"\n)\nimport Card \"./Card.orbit\"\nimport \"strings\"\n---\n"},
+		{"group then single", "---\nimport (\n\t\"fmt\"\n)\nimport Card \"./Card.lyr\"\n---\n",
+			"---\nimport (\n\t\"fmt\"\n)\nimport Card \"./Card.lyr\"\nimport \"strings\"\n---\n"},
 		{"CRLF", "---\r\nx := 1\r\n---\r\n", "---\r\nimport \"strings\"\nx := 1\r\n---\r\n"},
 	} {
 		f := compiler.Parse(tc.src, compiler.Tolerant)
@@ -125,12 +125,12 @@ type Props struct {
 <p>{props.Title}</p>
 `
 	const page = `---
-import Card "../components/Card.orbit"
+import Card "../components/Card.lyr"
 ---
 <Card title="x"  />
 `
-	ws := memWorkspace(t, map[string]string{"src/components/Card.orbit": card, "src/pages/index.orbit": page})
-	f, lines := ws.file("src/pages/index.orbit")
+	ws := memWorkspace(t, map[string]string{"src/components/Card.lyr": card, "src/pages/index.lyr": page})
+	f, lines := ws.file("src/pages/index.lyr")
 	off := strings.Index(page, `"x" `) + len(`"x" `)
 	c := cursor{ws: ws, f: f, lines: lines, path: f.Path, off: off, reg: classify(f, off)}
 	if c.reg.kind != regionAttr || c.reg.comp == nil {
@@ -162,7 +162,7 @@ import Card "../components/Card.orbit"
 	// From gopls: fields keep gopls's order, sortText and details; the
 	// doc is scrubbed of directive text and falls back to the index's.
 	fields := []obj{
-		decodeObj(jsonRaw(`{"label":"ID","kind":5,"detail":"int","sortText":"00000","documentation":{"kind":"markdown","value":"line ../../x.orbit:3:1\n"}}`)),
+		decodeObj(jsonRaw(`{"label":"ID","kind":5,"detail":"int","sortText":"00000","documentation":{"kind":"markdown","value":"line ../../x.lyr:3:1\n"}}`)),
 		decodeObj(jsonRaw(`{"label":"Title","kind":5,"detail":"string","sortText":"00001"}`)),
 		decodeObj(jsonRaw(`{"label":"IsOpen","kind":5,"detail":"bool","sortText":"00002","documentation":"Is it open?"}`)),
 	}
@@ -190,7 +190,7 @@ import Card "../components/Card.orbit"
 	// Pass-through attributes (PLAN.md §2.5): the RestAttrs field is
 	// listed as a prop, and class:list is offered.
 	rest := *info
-	rest.Props.Fields = append(slices.Clone(info.Props.Fields), compiler.PropField{Name: "Attrs", Type: "orbit.RestAttrs"})
+	rest.Props.Fields = append(slices.Clone(info.Props.Fields), compiler.PropField{Name: "Attrs", Type: "lyr.RestAttrs"})
 	rest.Props.Rest = "Attrs"
 	if got := names(ws.componentItems(c, &rest, nil, false, true)); !slices.Contains(got, "attrs") || !slices.Contains(got, "class:list") {
 		t.Errorf("rest component items: %v", got)
@@ -203,7 +203,7 @@ import Card "../components/Card.orbit"
 
 func TestClassifyCompletion(t *testing.T) {
 	const src = `---
-import Card "../components/Card.orbit"
+import Card "../components/Card.lyr"
 ---
 <div><
 <Card server:defer><p slot="x"></p><Ca
@@ -212,8 +212,8 @@ import Card "../components/Card.orbit"
 <script type="application/json" ></script>
 <div>{}</div>
 `
-	ws := memWorkspace(t, map[string]string{"src/components/Card.orbit": mapCard, "src/pages/index.orbit": src})
-	f := ws.byPath["src/pages/index.orbit"]
+	ws := memWorkspace(t, map[string]string{"src/components/Card.lyr": mapCard, "src/pages/index.lyr": src})
+	f := ws.byPath["src/pages/index.lyr"]
 	for _, tc := range []struct {
 		at        string
 		delta     int
@@ -255,15 +255,15 @@ func TestImportPathAt(t *testing.T) {
 		{"import (\n)\nx \"./|\"", false, false, false}, // after the block
 		{`import A B "./|"`, false, false, false},       // not a spec
 		{"x := `\nimport \"./|\"", true, false, true},   // line-based: a raw string isn't seen
-		{`import Card "./a.orbit" // "./|`, false, false, false},
+		{`import Card "./a.lyr" // "./|`, false, false, false},
 		{`import Card "@/|"`, true, true, true}, // a tsconfig.json paths alias
 		{`import "@|`, true, false, false},      // the start of one
 		{`import "@x/|"`, false, false, false},  // another prefix: gopls
 	} {
 		at := strings.Index(tc.fm, "|")
 		src := "---\n" + strings.Replace(tc.fm, "|", "", 1) + "\n---\n<p>x</p>\n"
-		ws := memWorkspace(t, map[string]string{"src/pages/index.orbit": src})
-		ip, ok := importPathAt(ws.byPath["src/pages/index.orbit"], len("---\n")+at, []string{"@/"})
+		ws := memWorkspace(t, map[string]string{"src/pages/index.lyr": src})
+		ip, ok := importPathAt(ws.byPath["src/pages/index.lyr"], len("---\n")+at, []string{"@/"})
 		if ok != tc.ok || ok && (ip.alias != tc.alias || ip.closed != tc.closed) {
 			t.Errorf("%q: %+v %v, want ok %v alias %v closed %v", tc.fm, ip, ok, tc.ok, tc.alias, tc.closed)
 		}

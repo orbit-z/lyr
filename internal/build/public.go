@@ -11,17 +11,17 @@ import (
 	"strings"
 )
 
-// AssetsDir is where Orbit serves its bundles, under dist/client (PLAN.md
+// AssetsDir is where Lyr serves its bundles, under dist/client (PLAN.md
 // §4); public/ files may not use it.
-const AssetsDir = "_orbit"
+const AssetsDir = "_lyr"
 
 // CopyPublic copies the files of the public directory src into dst, which
-// must not exist, and creates dst/_orbit. A missing src copies nothing.
+// must not exist, and creates dst/_lyr. A missing src copies nothing.
 // Symbolic links to files are copied as the files they point to; a symbolic
 // link to a directory is an error. Problems with the user's files (a file
-// under public/_orbit, a symbolic link to a directory) are returned as
+// under public/_lyr, a symbolic link to a directory) are returned as
 // messages, "public/<path>: …", sorted, and dst is then incomplete; the
-// error is for I/O failures. An empty public/_orbit directory is ignored.
+// error is for I/O failures. An empty public/_lyr directory is ignored.
 func CopyPublic(src, dst string) (problems []string, err error) {
 	if err := os.MkdirAll(filepath.Join(dst, AssetsDir), 0o755); err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func CopyPublic(src, dst string) (problems []string, err error) {
 		slash := filepath.ToSlash(rel)
 		if slash == AssetsDir || strings.HasPrefix(slash, AssetsDir+"/") {
 			if !d.IsDir() {
-				problems = append(problems, fmt.Sprintf("public/%s: the /%s/ path is reserved for Orbit's assets; move it out of public/%s", slash, AssetsDir, AssetsDir))
+				problems = append(problems, fmt.Sprintf("public/%s: the /%s/ path is reserved for Lyr's assets; move it out of public/%s", slash, AssetsDir, AssetsDir))
 			}
 			return nil
 		}

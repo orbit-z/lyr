@@ -1,5 +1,5 @@
-info src/components/err_init.orbit component route=""
-implicit orbit: none
+info src/components/err_init.lyr component route=""
+implicit lyr: none
 decl func @33-77 place=impl init@38-42
   "func init() {\n\tcache = map[string]string{}\n}"
 decl func @79-103 place=impl recv=Props

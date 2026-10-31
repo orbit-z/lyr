@@ -5,15 +5,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // FuzzFormat: Source never panics; on a file without syntax errors that it
 // formats, the output parses, has the same template tree, and formatting
 // it again changes nothing.
 func FuzzFormat(f *testing.F) {
-	files, _ := filepath.Glob("testdata/*.orbit")
-	more, _ := filepath.Glob("../compiler/testdata/*/*.orbit")
+	files, _ := filepath.Glob("testdata/*.lyr")
+	more, _ := filepath.Glob("../compiler/testdata/*/*.lyr")
 	for _, name := range append(files, more...) {
 		if b, err := os.ReadFile(name); err == nil {
 			f.Add(string(b))

@@ -1,0 +1,6 @@
+---
+import Emb "../components/Emb.lyr"
+---
+<main>
+  <Emb nmae="x" />
+</main>

@@ -1,15 +1,15 @@
-// Package content loads Orbit's Markdown documentation (docs/*.md and
+// Package content loads Lyr's Markdown documentation (docs/*.md and
 // docs/reference/*.md) and renders it to HTML once, for the pages of the site.
 //
 // The Markdown comes from one of two places:
 //
 //   - the docs directory on disk: $DOCS_DIR, or else the nearest parent
-//     directory of the working directory that looks like Orbit's docs/
+//     directory of the working directory that looks like Lyr's docs/
 //     (it has README.md, getting-started.md and reference/cli.md);
 //   - an embedded copy in md/, written by `go generate ./internal/content`.
 //
-// The embedded copy is used when it exists, except in `orbit dev`
-// (ORBIT_DEV=1) or when DOCS_DIR is set. Reading from disk, the docs are
+// The embedded copy is used when it exists, except in `lyr dev`
+// (LYR_DEV=1) or when DOCS_DIR is set. Reading from disk, the docs are
 // reloaded whenever a .md file changes, so an edit shows on the next request.
 package content
 
@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 )
 
 //go:embed all:md
@@ -59,7 +59,7 @@ type Page struct {
 	// Description is Summary cut to about 160 characters, for the page's
 	// meta description.
 	Description string
-	HTML        orbit.HTML
+	HTML        lyr.HTML
 	TOC         []Heading // h2 and h3
 	Sections    []Section
 
@@ -90,7 +90,7 @@ type Docs struct {
 	Problems []string
 	// Source says where the Markdown came from: a directory or "embedded".
 	Source string
-	// Version is the Orbit release the docs describe, from CHANGELOG.md's
+	// Version is the Lyr release the docs describe, from CHANGELOG.md's
 	// first version heading ("v0.1.0"); "" without a changelog.
 	Version string
 
@@ -274,7 +274,7 @@ func Get() (*Docs, error) {
 }
 
 func loadDefault() (*Docs, error) {
-	useDisk := os.Getenv("DOCS_DIR") != "" || os.Getenv("ORBIT_DEV") == "1"
+	useDisk := os.Getenv("DOCS_DIR") != "" || os.Getenv("LYR_DEV") == "1"
 	if !useDisk {
 		if sub, err := fs.Sub(embedded, "md"); err == nil {
 			if names, _ := fs.Glob(sub, "*.md"); len(names) > 0 {
@@ -308,7 +308,7 @@ func loadDir(dir string) (*Docs, error) {
 }
 
 // findDocsDir returns $DOCS_DIR, or the nearest parent of the working
-// directory that holds Orbit's docs.
+// directory that holds Lyr's docs.
 func findDocsDir() (string, error) {
 	if d := os.Getenv("DOCS_DIR"); d != "" {
 		return filepath.Abs(d)

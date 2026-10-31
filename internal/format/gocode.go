@@ -9,7 +9,7 @@ import (
 	gotoken "go/token"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // formatAll formats the regions in source order: the frontmatter, the

@@ -20,7 +20,7 @@ type Props struct {
 `
 
 const spreadPage = `---
-import Card "../components/Card.orbit"
+import Card "../components/Card.lyr"
 
 type Teaser struct{ Post string }
 
@@ -31,16 +31,16 @@ teaser := Teaser{Post: "x"}
 
 // TestSpreadLSP: hover, definition and completion in {...x} go to gopls,
 // and renaming a Props field or a field of the spread struct succeeds with
-// orbit_gen/ on disk, whose typed code assigns the spread's fields (those
+// lyr_gen/ on disk, whose typed code assigns the spread's fields (those
 // edits are dropped: the next generate re-emits them).
 func TestSpreadLSP(t *testing.T) {
 	needGopls(t)
-	const card, page = "src/components/Card.orbit", "src/pages/index.orbit"
+	const card, page = "src/components/Card.lyr", "src/pages/index.lyr"
 	files := map[string]string{card: spreadCard, page: spreadPage}
 	dir := writeProject(t, maps2(files))
-	orbitGenerate(t, dir)
-	b, err := os.ReadFile(filepath.Join(dir, "orbit_gen/impl/pages/index/render.go"))
-	if err != nil || !strings.Contains(string(b), "orbit__p.Post = orbit__s1.Post") {
+	lyrGenerate(t, dir)
+	b, err := os.ReadFile(filepath.Join(dir, "lyr_gen/impl/pages/index/render.go"))
+	if err != nil || !strings.Contains(string(b), "lyr__p.Post = lyr__s1.Post") {
 		t.Fatalf("typed page on disk (%v):\n%s", err, b)
 	}
 	c := startClient(t, dir, nil)
@@ -78,7 +78,7 @@ func TestSpreadTypedCheck(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in -short mode")
 	}
-	const card, page = "src/components/Card.orbit", "src/pages/index.orbit"
+	const card, page = "src/components/Card.lyr", "src/pages/index.lyr"
 	dir := writeProject(t, map[string]string{card: spreadCard, page: spreadPage})
 	stub, err := os.Executable()
 	if err != nil {
@@ -111,19 +111,19 @@ const nbsp = "&nbsp;"
 
 body := "<p>x</p>"
 ---
-<div set:html={orbit.HTML(body)}></div>
+<div set:html={lyr.HTML(body)}></div>
 <span set:html={nbsp}></span>
 `
 
-// TestSetHTMLTyped: a set:html value that isn't an orbit.HTML is the typed
-// check's Orbit-worded error while typing (PLAN.md §2.6, user decision
+// TestSetHTMLTyped: a set:html value that isn't a lyr.HTML is the typed
+// check's Lyr-worded error while typing (PLAN.md §2.6, user decision
 // 2026-10-28), at the value, once; fixing it clears it, and an untyped
 // constant (nbsp) is never one.
 func TestSetHTMLTyped(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in -short mode")
 	}
-	const page = "src/pages/index.orbit"
+	const page = "src/pages/index.lyr"
 	dir := writeProject(t, map[string]string{page: setHTMLPage})
 	stub, err := os.Executable()
 	if err != nil {
@@ -134,7 +134,7 @@ func TestSetHTMLTyped(t *testing.T) {
 	c.open(page)
 	none := func(ds []map[string]any) bool { return len(ds) == 0 }
 
-	bad := strings.Replace(setHTMLPage, "{orbit.HTML(body)}", "{body}", 1)
+	bad := strings.Replace(setHTMLPage, "{lyr.HTML(body)}", "{body}", 1)
 	c.change(page, bad)
 	ds := c.waitDiag(page, func(ds []map[string]any) bool {
 		if len(ds) != 1 {
@@ -142,7 +142,7 @@ func TestSetHTMLTyped(t *testing.T) {
 		}
 		m, _ := ds[0]["message"].(string)
 		sev, _ := ds[0]["severity"].(float64)
-		return m == "set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not string: convert a trusted value with orbit.HTML(…), or use set:text" && sev == sevError
+		return m == "set:html needs lyr.HTML or lyr.Opt[lyr.HTML], not string: convert a trusted value with lyr.HTML(…), or use set:text" && sev == sevError
 	})
 	if r := diagRange(t, ds[0]); r.Start != at(t, bad, "{body}", 0, 1) || r.End != at(t, bad, "{body}", 0, len("{body")) {
 		t.Errorf("error at %+v, want the value", r)

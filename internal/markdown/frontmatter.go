@@ -13,7 +13,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // The frontmatter (PLAN.md §2.4): YAML between --- lines at the top of the
@@ -32,7 +32,7 @@ const (
 	KindList
 	KindMap
 	// KindNull is a top-level key with no value (key:, key: null, key: ~):
-	// it leaves a layout prop of type orbit.Opt none, and is an error
+	// it leaves a layout prop of type lyr.Opt none, and is an error
 	// anywhere else (noValueError). It's not in Frontmatter.
 	KindNull
 )
@@ -289,7 +289,7 @@ func (p *fmParser) value(n *yaml.Node, key string) *Value {
 	switch n.ShortTag() {
 	case "!!null":
 		if !strings.ContainsAny(key, ".[") {
-			// A top-level key: none for a layout prop of type orbit.Opt
+			// A top-level key: none for a layout prop of type lyr.Opt
 			// (PLAN.md §2.6), else noValueError at generate time.
 			v.Kind = KindNull
 			return v

@@ -1,0 +1,9 @@
+---
+type Props struct {
+	N int
+}
+
+value := notDeclared
+---
+<div data-value={lyr.JSON(value)} data-n={lyr.JSON(props.N)} data-other={value}></div>
+<script type="application/json" id="cfg" set:json={value}></script>

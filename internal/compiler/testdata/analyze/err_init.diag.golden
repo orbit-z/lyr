@@ -1,1 +1,1 @@
-src/components/err_init.orbit:4:6: func init isn't allowed in a component; use a package under internal/ for initialization
+src/components/err_init.lyr:4:6: func init isn't allowed in a component; use a package under internal/ for initialization

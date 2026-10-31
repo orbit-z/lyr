@@ -1,6 +1,0 @@
----
-import Emb "../components/Emb.orbit"
-
-var n int = Emb.Props{}
----
-<Emb><p>{n}</p></Emb>

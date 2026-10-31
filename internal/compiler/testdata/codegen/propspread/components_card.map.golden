@@ -1,13 +1,13 @@
-orbit_gen/decl/components/card/decl.go (src/components/Card.orbit)
-  exact 2:8 "\"example.com/blog/internal/cards\"" -> 152-185 "\"example.com/blog/internal/cards\""
-  exact 4:1 "type Props = cards.Card" -> 258-281 "type Props = cards.Card"
-orbit_gen/impl/components/card/render.go (src/components/Card.orbit)
-  exact 6:10 "props.Href" -> 676-686 "props.Href"
-  exact 6:34 "props.Lines" -> 795-806 "props.Lines"
-  exact 6:48 "props.Title" -> 921-932 "props.Title"
-  exact 6:64 "props.Note" -> 1049-1059 "props.Note"
+lyr_gen/decl/components/card/decl.go (src/components/Card.lyr)
+  exact 2:8 "\"example.com/blog/internal/cards\"" -> 144-177 "\"example.com/blog/internal/cards\""
+  exact 4:1 "type Props = cards.Card" -> 248-271 "type Props = cards.Card"
+lyr_gen/impl/components/card/render.go (src/components/Card.lyr)
+  exact 6:10 "props.Href" -> 624-634 "props.Href"
+  exact 6:34 "props.Lines" -> 739-750 "props.Lines"
+  exact 6:48 "props.Title" -> 859-870 "props.Title"
+  exact 6:64 "props.Note" -> 981-991 "props.Note"
 call sites
-  attr href (url) key=83 "props.Href" call="orbit__w.Attr(\"href\",\n/*line ../../../../src/components/Card.orbit:6:10*/props.Href/*line render.go:21:86*/,\n\t)"
-  attr data-lines key=107 "props.Lines" call="orbit__w.Attr(\"data-lines\",\n/*line ../../../../src/components/Card.orbit:6:34*/props.Lines/*line render.go:24:87*/,\n\t)"
-  content key=121 "props.Title" call="orbit__w.Expr(\n/*line ../../../../src/components/Card.orbit:6:48*/props.Title/*line render.go:28:87*/,\n\t)"
-  content key=137 "props.Note" call="orbit__w.Expr(\n/*line ../../../../src/components/Card.orbit:6:64*/props.Note/*line render.go:32:86*/,\n\t)"
+  attr href (url) key=83 "props.Href" call="lyr__w.Attr(\"href\",\n/*line ../../../../src/components/Card.lyr:6:10*/props.Href/*line render.go:21:84*/,\n\t)"
+  attr data-lines key=107 "props.Lines" call="lyr__w.Attr(\"data-lines\",\n/*line ../../../../src/components/Card.lyr:6:34*/props.Lines/*line render.go:24:85*/,\n\t)"
+  content key=121 "props.Title" call="lyr__w.Expr(\n/*line ../../../../src/components/Card.lyr:6:48*/props.Title/*line render.go:28:85*/,\n\t)"
+  content key=137 "props.Note" call="lyr__w.Expr(\n/*line ../../../../src/components/Card.lyr:6:64*/props.Note/*line render.go:32:84*/,\n\t)"

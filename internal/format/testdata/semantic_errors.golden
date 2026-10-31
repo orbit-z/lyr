@@ -1,6 +1,6 @@
 ---
 import (
-	Unused "./Unused.orbit"
+	Unused "./Unused.lyr"
 	"fmt"
 )
 ---

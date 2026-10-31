@@ -1,3 +1,3 @@
-orbit_gen/decl/components/bare/decl.go (src/components/Bare.orbit)
-orbit_gen/impl/components/bare/render.go (src/components/Bare.orbit)
+lyr_gen/decl/components/bare/decl.go (src/components/Bare.lyr)
+lyr_gen/impl/components/bare/render.go (src/components/Bare.lyr)
 call sites

@@ -22,17 +22,17 @@ import (
 var reloadJS []byte
 
 // reloadTag is the script tag the proxy adds before </body>.
-const reloadTag = `<script src="/__orbit/reload.js" async></script>`
+const reloadTag = `<script src="/__lyr/reload.js" async></script>`
 
 // Paths the proxy answers itself (PLAN.md §7): everything else is the
 // user's server's.
 const (
-	orbitPrefix = "/__orbit/"
-	eventsPath  = orbitPrefix + "events"
-	reloadPath  = orbitPrefix + "reload.js"
+	lyrPrefix  = "/__lyr/"
+	eventsPath = lyrPrefix + "events"
+	reloadPath = lyrPrefix + "reload.js"
 )
 
-// server is the dev proxy: it serves /__orbit/*, makes requests wait while
+// server is the dev proxy: it serves /__lyr/*, makes requests wait while
 // a rebuild is in progress, shows the error overlay for HTML requests while
 // the last build failed, and proxies everything else to the running app,
 // adding the reload script to HTML pages.
@@ -130,8 +130,8 @@ func (s *server) state() (*app, *failure) {
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if strings.HasPrefix(r.URL.Path, orbitPrefix) {
-		s.serveOrbit(w, r)
+	if strings.HasPrefix(r.URL.Path, lyrPrefix) {
+		s.serveLyr(w, r)
 		return
 	}
 	if !s.wait(r.Context()) {
@@ -144,13 +144,13 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if a == nil {
 		if f == nil {
-			f = &failure{Title: "No server running", Text: "orbit dev has no running server; see the terminal."}
+			f = &failure{Title: "No server running", Text: "lyr dev has no running server; see the terminal."}
 		}
 		if wantsHTML(r) {
 			s.serveOverlay(w, r, f)
 			return
 		}
-		http.Error(w, "orbit dev: "+f.Title+"\n\n"+f.Text, http.StatusServiceUnavailable)
+		http.Error(w, "lyr dev: "+f.Title+"\n\n"+f.Text, http.StatusServiceUnavailable)
 		return
 	}
 	s.proxy.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), targetKey{}, a.addr)))
@@ -177,8 +177,8 @@ func (s *server) serveOverlay(w http.ResponseWriter, r *http.Request, f *failure
 	}
 }
 
-// serveOrbit answers /__orbit/*.
-func (s *server) serveOrbit(w http.ResponseWriter, r *http.Request) {
+// serveLyr answers /__lyr/*.
+func (s *server) serveLyr(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case eventsPath:
 		s.serveEvents(w, r)
@@ -206,7 +206,7 @@ func (s *server) serveEvents(w http.ResponseWriter, r *http.Request) {
 	h.Set("Content-Type", "text/event-stream")
 	h.Set("Cache-Control", "no-cache")
 	w.WriteHeader(http.StatusOK)
-	io.WriteString(w, ": orbit dev\n\n")
+	io.WriteString(w, ": lyr dev\n\n")
 	fl.Flush()
 	for {
 		select {
@@ -234,7 +234,7 @@ func (s *server) inject(resp *http.Response) error {
 	}
 	if ce := resp.Header.Get("Content-Encoding"); ce != "" && !strings.EqualFold(ce, "identity") {
 		s.warnEncoding.Do(func() {
-			fmt.Fprintf(s.stderr, "orbit dev: %s %s came back with Content-Encoding: %s even though the proxy removes Accept-Encoding, so it has no live-reload script; make your compression middleware check Accept-Encoding\n", resp.Request.Method, resp.Request.URL.Path, ce)
+			fmt.Fprintf(s.stderr, "lyr dev: %s %s came back with Content-Encoding: %s even though the proxy removes Accept-Encoding, so it has no live-reload script; make your compression middleware check Accept-Encoding\n", resp.Request.Method, resp.Request.URL.Path, ce)
 		})
 		return nil
 	}
@@ -280,7 +280,7 @@ func (s *server) proxyError(w http.ResponseWriter, r *http.Request, err error) {
 		w.Write(body)
 		return
 	}
-	http.Error(w, "orbit dev: your server didn't answer: "+err.Error(), http.StatusBadGateway)
+	http.Error(w, "lyr dev: your server didn't answer: "+err.Error(), http.StatusBadGateway)
 }
 
 // retryTransport sends a proxied request to the app. When the connection
@@ -316,7 +316,7 @@ func isDialError(err error) bool {
 	return errors.As(err, &op) && op.Op == "dial"
 }
 
-// hub fans reload events out to the /__orbit/events subscribers.
+// hub fans reload events out to the /__lyr/events subscribers.
 type hub struct {
 	mu   sync.Mutex
 	subs map[chan struct{}]bool

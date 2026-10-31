@@ -1,16 +1,16 @@
-orbit_gen/decl/components/a/decl.go (src/components/A.orbit)
-  exact 4:1 "type Props struct {\n\tDepth int\n}" -> 149-181 "type Props struct {\n\tDepth int\n}"
-orbit_gen/impl/components/a/render.go (src/components/A.orbit)
-  exact 2:8 "B" -> 201-202 "B"
-  span  2:10 "\"./B.orbit\"" -> 203-249 "\"example.com/blog/orbit_gen/decl/components/b\""
-  exact 8:28 "props.Depth" -> 801-812 "props.Depth"
-  exact 9:8 "_, ctx := range []int{1, 2}" -> 914-941 "_, ctx := range []int{1, 2}"
-  span  10:6 "B" -> 1036-1044 "B.Render"
-  span  10:8 "depth" -> 1152-1157 "Depth"
-  exact 10:15 "props.Depth + 1" -> 1232-1247 "props.Depth + 1"
-  span  10:32 "n" -> 1326-1327 "N"
-  exact 10:35 "ctx" -> 1402-1405 "ctx"
-  exact 11:18 "ctx" -> 1608-1611 "ctx"
+lyr_gen/decl/components/a/decl.go (src/components/A.lyr)
+  exact 4:1 "type Props struct {\n\tDepth int\n}" -> 141-173 "type Props struct {\n\tDepth int\n}"
+lyr_gen/impl/components/a/render.go (src/components/A.lyr)
+  exact 2:8 "B" -> 191-192 "B"
+  span  2:10 "\"./B.lyr\"" -> 193-237 "\"example.com/blog/lyr_gen/decl/components/b\""
+  exact 8:28 "props.Depth" -> 745-756 "props.Depth"
+  exact 9:8 "_, ctx := range []int{1, 2}" -> 854-881 "_, ctx := range []int{1, 2}"
+  span  10:6 "B" -> 972-980 "B.Render"
+  span  10:8 "depth" -> 1081-1086 "Depth"
+  exact 10:15 "props.Depth + 1" -> 1159-1174 "props.Depth + 1"
+  span  10:32 "n" -> 1251-1252 "N"
+  exact 10:35 "ctx" -> 1325-1328 "ctx"
+  exact 11:18 "ctx" -> 1519-1522 "ctx"
 call sites
-  attr data-depth key=90 "props.Depth" call="orbit__w.Attr(\"data-depth\",\n/*line ../../../../src/components/A.orbit:8:28*/props.Depth/*line render.go:24:84*/,\n\t)"
-  content key=197 "ctx" call="orbit__w.Expr(\n/*line ../../../../src/components/A.orbit:11:18*/ctx/*line render.go:35:77*/,\n\t\t\t\t)"
+  attr data-depth key=88 "props.Depth" call="lyr__w.Attr(\"data-depth\",\n/*line ../../../../src/components/A.lyr:8:28*/props.Depth/*line render.go:24:82*/,\n\t)"
+  content key=195 "ctx" call="lyr__w.Expr(\n/*line ../../../../src/components/A.lyr:11:18*/ctx/*line render.go:35:75*/,\n\t\t\t\t)"

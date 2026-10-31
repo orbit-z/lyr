@@ -9,10 +9,10 @@ import (
 
 // ImportResolver resolves the component import paths that aren't relative:
 // tsconfig.json compilerOptions.paths aliases (PLAN.md §2.2), such as
-// "@/components/Card.orbit".
+// "@/components/Card.lyr".
 type ImportResolver interface {
 	// ResolveImport returns the project-relative, "/"-separated path that
-	// spec resolves to ("src/components/Card.orbit"), or false when no
+	// spec resolves to ("src/components/Card.lyr"), or false when no
 	// alias matches it.
 	ResolveImport(spec string) (string, bool)
 }
@@ -25,7 +25,7 @@ func IsRelativeImport(p string) bool {
 
 // IsRootImport reports whether an import path is root-relative, "/…":
 // resolved from the project root, as in Astro and Vite
-// ("/src/components/Card.orbit").
+// ("/src/components/Card.lyr").
 func IsRootImport(p string) bool { return strings.HasPrefix(p, "/") }
 
 // IsPathImport reports whether an import path names a file by path,

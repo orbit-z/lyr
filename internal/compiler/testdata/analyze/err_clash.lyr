@@ -1,0 +1,20 @@
+---
+import (
+	Item "./Item.lyr"
+	Props "./Other.lyr"
+	Render "./Render.lyr"
+	Kind "example.com/kind"
+)
+
+type Item struct{ Name string }
+
+type Kind int
+
+type Props struct {
+	Item Item
+	K    Kind
+}
+
+type Row int
+---
+<Item /><Props /><Render />{Kind.X}

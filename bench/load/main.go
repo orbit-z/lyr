@@ -1,4 +1,4 @@
-// Command load is the closed-loop HTTP load generator for the Orbit vs.
+// Command load is the closed-loop HTTP load generator for the Lyr vs.
 // Astro benchmark (bench/run.sh drives it).
 //
 //	load run    -url URL [-c 64] [-warmup 5s] [-d 20s] [-island] [-pid PID] [-server S -scenario X]

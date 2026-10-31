@@ -1,10 +1,10 @@
 package compiler
 
 // Milestone 6 contract (PLAN.md §5): the processed <script> and <style>
-// blocks of a file, for the bundler (internal/assets) and orbit check, and
+// blocks of a file, for the bundler (internal/assets) and lyr check, and
 // the scoped-CSS rewrite (css.go).
 
-// ScriptBlock is a processed <script> of a file: Orbit bundles it.
+// ScriptBlock is a processed <script> of a file: Lyr bundles it.
 type ScriptBlock struct {
 	// Index is its position among the file's processed scripts, from 0.
 	Index int
@@ -15,7 +15,7 @@ type ScriptBlock struct {
 	Src string
 }
 
-// StyleBlock is a processed <style> of a file: Orbit bundles it into the
+// StyleBlock is a processed <style> of a file: Lyr bundles it into the
 // page stylesheet.
 type StyleBlock struct {
 	// Index is its position among the file's processed styles, from 0.
@@ -66,9 +66,9 @@ func HasScopedStyle(f *File) bool {
 	return false
 }
 
-// ScopeAttr returns the scope attribute name of a file, "data-o-" plus its
-// ScopeHash, e.g. data-o-3fa2c1d0. CSS selectors use [data-o-…].
-func ScopeAttr(orbitPath string) string { return "data-o-" + ScopeHash(orbitPath) }
+// ScopeAttr returns the scope attribute name of a file, "data-l-" plus its
+// ScopeHash, e.g. data-l-3fa2c1d0. CSS selectors use [data-l-…].
+func ScopeAttr(lyrPath string) string { return "data-l-" + ScopeHash(lyrPath) }
 
 // ScopeCSS rewrites css so its selectors only match elements carrying
 // attr (ScopeAttr): [attr] is added to the last compound of

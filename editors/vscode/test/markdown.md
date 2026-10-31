@@ -1,8 +1,8 @@
-# Orbit in Markdown
+# Lyr in Markdown
 
-```orbit
+```lyr
 ---
-import Card "../components/Card.orbit"
+import Card "../components/Card.lyr"
 
 title := "Hi"
 ---
@@ -14,15 +14,15 @@ title := "Hi"
 </style>
 ```
 
-  ```Orbit file=src/pages/index.orbit
+  ```Lyr file=src/pages/index.lyr
   <h1>{title}</h1>
   ```
 
-~~~orbit
+~~~lyr
 <p>no frontmatter</p>
 ~~~
 
-```orbit
+```lyr
 <script>
   let open = 1;
 ```

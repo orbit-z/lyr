@@ -125,7 +125,7 @@ func TestTSConformance(t *testing.T) {
 	}
 	b.WriteString("\nexport {};\n")
 	imports := slices.Sorted(maps.Keys(used))
-	src := "import type { " + strings.Join(imports, ", ") + " } from \"orbit:types\";\n" + b.String()
+	src := "import type { " + strings.Join(imports, ", ") + " } from \"lyr:types\";\n" + b.String()
 
 	dir := t.TempDir()
 	files := map[string]string{
@@ -143,7 +143,7 @@ func TestTSConformance(t *testing.T) {
 }
 `,
 	}
-	for _, out := range EmitTypes([]*UnitTypes{{Path: "x.orbit", Decls: m.Decls()}}) {
+	for _, out := range EmitTypes([]*UnitTypes{{Path: "x.lyr", Decls: m.Decls()}}) {
 		files[filepath.Base(out.Path)] = string(out.Content)
 	}
 	for name, content := range files {

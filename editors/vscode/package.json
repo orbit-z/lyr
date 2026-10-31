@@ -1,13 +1,13 @@
 {
-  "name": "orbit",
-  "displayName": "Orbit",
-  "description": "Orbit (.orbit) language support: syntax highlighting, and Go and TypeScript completion, diagnostics and rename through orbit lsp.",
+  "name": "lyr",
+  "displayName": "Lyr",
+  "description": "Lyr (.lyr) language support: syntax highlighting, and Go and TypeScript completion, diagnostics and rename through lyr lsp.",
   "version": "0.1.0",
   "publisher": "orbit-z",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/orbit-z/orbit",
+    "url": "https://github.com/orbit-z/lyr",
     "directory": "editors/vscode"
   },
   "engines": {
@@ -17,37 +17,37 @@
     "Programming Languages"
   ],
   "keywords": [
-    "orbit",
+    "lyr",
     "go",
     "golang",
     "ssr",
     "template"
   ],
   "main": "./dist/extension.js",
-  "activationEvents": ["workspaceContains:**/*.orbit"],
+  "activationEvents": ["workspaceContains:**/*.lyr"],
   "contributes": {
     "languages": [
       {
-        "id": "orbit",
+        "id": "lyr",
         "aliases": [
-          "Orbit",
-          "orbit"
+          "Lyr",
+          "lyr"
         ],
         "extensions": [
-          ".orbit"
+          ".lyr"
         ],
         "configuration": "./language-configuration.json",
         "icon": {
-          "light": "./icons/orbit-light.svg",
-          "dark": "./icons/orbit-dark.svg"
+          "light": "./icons/lyr-light.svg",
+          "dark": "./icons/lyr-dark.svg"
         }
       }
     ],
     "grammars": [
       {
-        "language": "orbit",
-        "scopeName": "source.orbit",
-        "path": "./syntaxes/orbit.tmLanguage.json",
+        "language": "lyr",
+        "scopeName": "source.lyr",
+        "path": "./syntaxes/lyr.tmLanguage.json",
         "embeddedLanguages": {
           "meta.embedded.block.go": "go",
           "meta.embedded.expression.go": "go",
@@ -61,13 +61,13 @@
         }
       },
       {
-        "scopeName": "text.html.markdown.orbit",
-        "path": "./syntaxes/markdown.orbit.tmLanguage.json",
+        "scopeName": "text.html.markdown.lyr",
+        "path": "./syntaxes/markdown.lyr.tmLanguage.json",
         "injectTo": [
           "text.html.markdown"
         ],
         "embeddedLanguages": {
-          "meta.embedded.block.orbit": "orbit",
+          "meta.embedded.block.lyr": "lyr",
           "meta.embedded.block.go": "go",
           "meta.embedded.expression.go": "go",
           "meta.embedded.block.css": "css",
@@ -77,62 +77,62 @@
       }
     ],
     "configurationDefaults": {
-      "[orbit]": {
-        "editor.defaultFormatter": "orbit-z.orbit"
+      "[lyr]": {
+        "editor.defaultFormatter": "orbit-z.lyr"
       },
       "tailwindCSS.includeLanguages": {
-        "orbit": "html"
+        "lyr": "html"
       }
     },
     "configuration": {
-      "title": "Orbit",
+      "title": "Lyr",
       "properties": {
-        "orbit.path": {
+        "lyr.path": {
           "type": "string",
-          "default": "orbit",
+          "default": "lyr",
           "scope": "machine-overridable",
-          "markdownDescription": "The `orbit` binary the extension runs (`orbit lsp`, `orbit generate`, `orbit doctor`). A bare name is looked up on `PATH`; a relative path is resolved against the first workspace folder; `~/` is your home directory."
+          "markdownDescription": "The `lyr` binary the extension runs (`lyr lsp`, `lyr generate`, `lyr doctor`). A bare name is looked up on `PATH`; a relative path is resolved against the first workspace folder; `~/` is your home directory."
         },
-        "orbit.goplsPath": {
+        "lyr.goplsPath": {
           "type": "string",
           "default": "",
           "scope": "machine-overridable",
-          "markdownDescription": "The gopls that `orbit lsp` starts, passed as its `goplsPath` initialization option. Empty: `gopls` on `PATH`, then `go tool gopls` if your `go.mod` pins it."
+          "markdownDescription": "The gopls that `lyr lsp` starts, passed as its `goplsPath` initialization option. Empty: `gopls` on `PATH`, then `go tool gopls` if your `go.mod` pins it."
         },
-        "orbit.typescriptPath": {
+        "lyr.typescriptPath": {
           "type": "string",
           "default": "",
           "scope": "machine-overridable",
-          "markdownDescription": "The TypeScript 7 (7.0.2 or later) that `orbit lsp` starts for `<script>` blocks, passed as its `typescriptPath` initialization option: a native `tsc` binary or a `typescript` package directory. Empty: the project's `node_modules/typescript`, then `tsc` on `PATH`, then `bun x --package typescript@7.0.2` when Bun is installed."
+          "markdownDescription": "The TypeScript 7 (7.0.2 or later) that `lyr lsp` starts for `<script>` blocks, passed as its `typescriptPath` initialization option: a native `tsc` binary or a `typescript` package directory. Empty: the project's `node_modules/typescript`, then `tsc` on `PATH`, then `bun x --package typescript@7.0.2` when Bun is installed."
         }
       }
     },
     "commands": [
       {
-        "command": "orbit.restartServer",
+        "command": "lyr.restartServer",
         "title": "Restart Language Server",
-        "category": "Orbit"
+        "category": "Lyr"
       },
       {
-        "command": "orbit.generate",
-        "title": "Run orbit generate",
-        "category": "Orbit"
+        "command": "lyr.generate",
+        "title": "Run lyr generate",
+        "category": "Lyr"
       },
       {
-        "command": "orbit.doctor",
-        "title": "Run orbit doctor",
-        "category": "Orbit"
+        "command": "lyr.doctor",
+        "title": "Run lyr doctor",
+        "category": "Lyr"
       }
     ]
   },
   "scripts": {
     "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --platform=node --format=cjs --target=node22 --external:vscode --minify",
     "check": "bun check --no-script",
-    "test": "bun check --no-script && vscode-tmgrammar-snap --config package.json 'test/*.orbit' && bun run test:markdown",
+    "test": "bun check --no-script && vscode-tmgrammar-snap --config package.json 'test/*.lyr' && bun run test:markdown",
     "test:markdown": "vscode-tmgrammar-snap --config package.json -g test/grammars/markdown.tmLanguage.json -s text.html.markdown 'test/*.md'",
-    "test:update": "vscode-tmgrammar-snap --config package.json --updateSnapshot 'test/*.orbit' && vscode-tmgrammar-snap --config package.json -g test/grammars/markdown.tmLanguage.json -s text.html.markdown --updateSnapshot 'test/*.md'",
-    "package": "bun run build && vsce package --no-dependencies --out orbit-$npm_package_version.vsix",
-    "publish": "vsce publish --no-dependencies --packagePath orbit-$npm_package_version.vsix && ovsx publish orbit-$npm_package_version.vsix"
+    "test:update": "vscode-tmgrammar-snap --config package.json --updateSnapshot 'test/*.lyr' && vscode-tmgrammar-snap --config package.json -g test/grammars/markdown.tmLanguage.json -s text.html.markdown --updateSnapshot 'test/*.md'",
+    "package": "bun run build && vsce package --no-dependencies --out lyr-$npm_package_version.vsix",
+    "publish": "vsce publish --no-dependencies --packagePath lyr-$npm_package_version.vsix && ovsx publish lyr-$npm_package_version.vsix"
   },
   "dependencies": {
     "vscode-languageclient": "10.1.2"

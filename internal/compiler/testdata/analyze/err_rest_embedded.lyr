@@ -1,0 +1,9 @@
+---
+import "net/http"
+
+type Props struct {
+	http.Header
+	Attrs lyr.RestAttrs
+}
+---
+<p>{len(props.Header)}</p>

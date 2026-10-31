@@ -1,0 +1,8 @@
+---
+import (
+	Unused "./Unused.lyr"
+	"fmt"
+)
+---
+<Fragment class="x">{fmt.Sprint( 1 )}</Fragment>
+<div client:load>{ 2 }</div>

@@ -8,28 +8,28 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/config"
 )
 
 // Reload returns the project at root after the files at paths changed on
 // disk (written, created, removed or renamed), through Front: it reports
-// whether there are errors, as Front does. It's the per-file front of orbit
+// whether there are errors, as Front does. It's the per-file front of lyr
 // dev (PLAN.md §7.1 step 1).
 //
 // prev is the project of an earlier Load (or Reload) and Front of root,
 // whose Files may have been through Bundle and Typecheck since. Reload
 // updates it in place and returns it, redoing only what the change
-// affects: it rediscovers src/, reads only the changed and new .orbit and
+// affects: it rediscovers src/, reads only the changed and new .lyr and
 // Markdown files, re-parses them, updates their index entries, and runs
 // pass 1 on them and on every file that imports one whose entry changed (or
 // appeared or went away). The project checks and the diagnostics are
 // recomputed. The result is the same as Load followed by Front, which
 // Reload falls back to (returning a new Project) when prev is nil or a
-// path is one that every file depends on: go.mod, orbit.json, or a Go file
+// path is one that every file depends on: go.mod, lyr.json, or a Go file
 // that changes which src/locals type the generated code uses.
 //
-// paths are relative to root and "/"-separated (as in orbit dev's change
+// paths are relative to root and "/"-separated (as in lyr dev's change
 // batches), or absolute; paths outside root are ignored, and so are paths
 // that Load doesn't read (public/, .ts files…). A directory stands for
 // every file under it. A changed file whose content is unchanged (an editor
@@ -99,9 +99,9 @@ func Reload(prev *Project, root string, paths []string) (*Project, bool, error) 
 		}
 	}
 	found := make(map[string]bool, len(discovered))
-	dirty := map[string]bool{} // .orbit and Markdown files with a new source
+	dirty := map[string]bool{} // .lyr and Markdown files with a new source
 	mdSet := false             // a Markdown file was added or removed
-	var orbit []*File
+	var lyr []*File
 	for _, file := range discovered {
 		found[file] = true
 		md := compiler.IsMarkdown(file)
@@ -115,7 +115,7 @@ func Reload(prev *Project, root string, paths []string) (*Project, bool, error) 
 		}
 		if known && !isChanged(file) {
 			if old != nil {
-				orbit = append(orbit, old)
+				lyr = append(lyr, old)
 			}
 			continue
 		}
@@ -139,13 +139,13 @@ func Reload(prev *Project, root string, paths []string) (*Project, bool, error) 
 				old.Src = src
 				dirty[file] = true
 			}
-			orbit = append(orbit, old)
+			lyr = append(lyr, old)
 		default:
 			f, err := NewFile(file, src)
 			if err != nil {
 				return nil, false, err // Discover only returns clean paths under src/
 			}
-			orbit = append(orbit, f)
+			lyr = append(lyr, f)
 			dirty[file] = true
 		}
 	}
@@ -165,15 +165,15 @@ func Reload(prev *Project, root string, paths []string) (*Project, bool, error) 
 	}
 	// A paths alias with several targets resolves to the first existing
 	// one: when files come or go, the alias imports resolve again.
-	if p.aliases.MultiTarget() && (mdSet || len(orbit) != len(byPath) || slices.ContainsFunc(orbit, func(f *File) bool { return byPath[f.Path] == nil })) {
-		for _, f := range orbit {
+	if p.aliases.MultiTarget() && (mdSet || len(lyr) != len(byPath) || slices.ContainsFunc(lyr, func(f *File) bool { return byPath[f.Path] == nil })) {
+		for _, f := range lyr {
 			if hasAliasImport(f) {
 				dirty[f.Path] = true
 			}
 		}
 	}
-	// orbit is in discovered (sorted) order and holds no removed file.
-	return p, p.frontChanged(orbit, dirty, mdSet), nil
+	// lyr is in discovered (sorted) order and holds no removed file.
+	return p, p.frontChanged(lyr, dirty, mdSet), nil
 }
 
 // relPath returns name relative to root, "/"-separated and clean, or false
@@ -193,13 +193,13 @@ func relPath(root, name string) (string, bool) {
 	return rel, true
 }
 
-// frontChanged is Front after an edit (Reload): orbit are the project's
-// .orbit Files now, sorted, and dirty the .orbit and Markdown files whose
+// frontChanged is Front after an edit (Reload): lyr are the project's
+// .lyr Files now, sorted, and dirty the .lyr and Markdown files whose
 // source is new; mdSet is set when Markdown files were added or removed,
 // which changes how every Markdown file's links resolve.
-func (p *Project) frontChanged(orbit []*File, dirty map[string]bool, mdSet bool) bool {
+func (p *Project) frontChanged(lyr []*File, dirty map[string]bool, mdSet bool) bool {
 	var reparse []*File
-	for _, f := range orbit {
+	for _, f := range lyr {
 		if dirty[f.Path] || f.AST == nil {
 			reparse = append(reparse, f)
 		}
@@ -212,7 +212,7 @@ func (p *Project) frontChanged(orbit []*File, dirty map[string]bool, mdSet bool)
 			oldMD[f.Path] = f
 		}
 	}
-	p.Files = orbit
+	p.Files = lyr
 	var mdFiles, mdParse []*File
 	for _, file := range p.mdActive() {
 		if f := oldMD[file]; f != nil && !mdSet && !dirty[file] {
@@ -260,7 +260,7 @@ func (p *Project) frontChanged(orbit []*File, dirty map[string]bool, mdSet bool)
 	var gen []*File
 	for _, f := range p.Files {
 		if !regen[f] {
-			for _, im := range f.Analysis.OrbitImports {
+			for _, im := range f.Analysis.LyrImports {
 				if infoChanged[im.Resolved] {
 					regen[f] = true
 					break

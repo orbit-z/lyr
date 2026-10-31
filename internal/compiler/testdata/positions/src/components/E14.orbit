@@ -1,6 +1,0 @@
----
-type Props struct {
-	N orbit.Opt[int]
-}
----
-{if props.N.IsSome()}<Self n={"x"} />{/if}

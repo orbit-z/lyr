@@ -13,7 +13,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 )
 
 type point struct{ X, Y int }
@@ -35,8 +35,8 @@ type Slug string
 type Props struct {
 	PostID   int
 	OnLoad   func()
-	Render   orbit.Renderer
-	Slots    orbit.Slots
+	Render   lyr.Renderer
+	Slots    lyr.Slots
 	Ch       chan int
 	P        unsafe.Pointer
 	C        complex128
@@ -53,8 +53,8 @@ type Props struct {
 	Raw      []byte
 	Arr      [2]*int
 	Depth    int
-	OptOK    orbit.Opt[string]
-	OptFn    orbit.Opt[func()]
+	OptOK    lyr.Opt[string]
+	OptFn    lyr.Opt[func()]
 }
 ---
 <p>{props.PostID}</p>
@@ -62,12 +62,12 @@ type Props struct {
 `
 
 const tyJSONPage = `---
-import Comments "../components/Comments.orbit"
-import Good "../components/Good.orbit"
+import Comments "../components/Comments.lyr"
+import Good "../components/Good.lyr"
 ---
 <main>
   <Comments server:defer postID={1}><p slot="fallback">Loading…</p></Comments>
-  <Good server:defer name="x" data-n={1} list={orbit.AttrList{orbit.A("b", 1), orbit.A("a", true)}} />
+  <Good server:defer name="x" data-n={1} list={lyr.AttrList{lyr.A("b", 1), lyr.A("a", true)}} />
   <Good />
 </main>
 `
@@ -81,9 +81,9 @@ type Props struct {
 	Skip func() ` + "`json:\"-\"`" + `
 	M    map[int]float64
 	// PLAN.md §2.5: RestAttrs's JSON methods pass the check.
-	Attrs orbit.RestAttrs
+	Attrs lyr.RestAttrs
 	// PLAN.md §2.9: so do AttrList's.
-	List orbit.AttrList
+	List lyr.AttrList
 }
 ---
 <p {...props.Attrs} {...props.List}>{props.N}</p>
@@ -91,9 +91,9 @@ type Props struct {
 
 func TestDeferPropsJSONCheck(t *testing.T) {
 	p := plFront(map[string]string{
-		"src/components/Comments.orbit": tyJSONComments,
-		"src/components/Good.orbit":     tyJSONGood,
-		"src/pages/index.orbit":         tyJSONPage,
+		"src/components/Comments.lyr": tyJSONComments,
+		"src/components/Good.lyr":     tyJSONGood,
+		"src/pages/index.lyr":         tyJSONPage,
 	}, Options{Module: testModule})
 	if ds := p.diagnostics(); len(ds) > 0 {
 		t.Fatalf("front diagnostics:\n%s", strings.Join(ds, "\n"))
@@ -111,13 +111,13 @@ func TestDeferPropsJSONCheck(t *testing.T) {
 	const tail = ", which can't be sent to a deferred component; props must be JSON-serializable"
 	var want []string
 	for _, site := range []struct{ pos, tag string }{
-		{"src/components/Comments.orbit:51:27", "Self"},
-		{"src/pages/index.orbit:6:13", "Comments"},
+		{"src/components/Comments.lyr:51:27", "Self"},
+		{"src/pages/index.lyr:6:13", "Comments"},
 	} {
 		for _, f := range []string{
 			"Props.OnLoad has type func()",
-			"Props.Render has type orbit.Renderer",
-			"Props.Slots.Default has type orbit.Renderer",
+			"Props.Render has type lyr.Renderer",
+			"Props.Slots.Default has type lyr.Renderer",
 			"Props.Ch has type chan int",
 			"Props.P has type unsafe.Pointer",
 			"Props.C has type complex128",
@@ -142,7 +142,7 @@ func TestDeferPropsJSONCheck(t *testing.T) {
 // time).
 func TestDeferPropsNotChecked(t *testing.T) {
 	p := plFront(map[string]string{
-		"src/components/Good.orbit": "---\ntype Props struct{ F func() }\n---\n<p>{undefinedName}</p>\n{if false}<Self server:defer />{/if}\n",
+		"src/components/Good.lyr": "---\ntype Props struct{ F func() }\n---\n<p>{undefinedName}</p>\n{if false}<Self server:defer />{/if}\n",
 	}, Options{Module: testModule})
 	p.typedPass(t, &tyTestLoader{})
 	if pf := p.files[0]; pf.typed.Checked || len(pf.typed.Diagnostics) > 0 {
@@ -174,9 +174,9 @@ func TestJSONWalkerSelfCoded(t *testing.T) {
 // it adds to pass 2.
 func BenchmarkDeferPropsCheck(b *testing.B) {
 	p := plFront(map[string]string{
-		"src/components/Comments.orbit": tyJSONComments,
-		"src/components/Good.orbit":     tyJSONGood,
-		"src/pages/index.orbit":         tyJSONPage,
+		"src/components/Comments.lyr": tyJSONComments,
+		"src/components/Good.lyr":     tyJSONGood,
+		"src/pages/index.lyr":         tyJSONPage,
 	}, Options{Module: testModule})
 	units := make([]Unit, len(p.files))
 	for i, pf := range p.files {
@@ -186,7 +186,7 @@ func BenchmarkDeferPropsCheck(b *testing.B) {
 	if _, err := c.Check(context.Background(), units); err != nil {
 		b.Fatal(err)
 	}
-	d := c.state.decls[testModule+"/orbit_gen/decl/components/comments"]
+	d := c.state.decls[testModule+"/lyr_gen/decl/components/comments"]
 	if d == nil || d.pkg == nil {
 		b.Fatal("no Comments decl package")
 	}

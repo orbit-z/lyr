@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/jsfloat"
+	"github.com/orbit-z/lyr/internal/jsfloat"
 )
 
 // maxDepth is the deepest component nesting Enter allows.
@@ -20,7 +20,7 @@ const maxDepth = 1000
 const depthStackShown = 10
 
 // invalidURL replaces a filtered javascript:/vbscript: URL.
-const invalidURL = "about:invalid#orbit"
+const invalidURL = "about:invalid#lyr"
 
 // Writer writes HTML straight into a bytes.Buffer. Generated code calls its
 // methods; you can also use it in a Renderer written in Go.
@@ -42,7 +42,7 @@ type Writer struct {
 	// clsPending is set between ClassStart and the first class written
 	// (classlist.go).
 	clsPending bool
-	// capture is set on the Writer of an orbit.RenderHTML capture, where
+	// capture is set on the Writer of a lyr.RenderHTML capture, where
 	// a </head> marker is a render error.
 	capture bool
 	// Concurrent rendering (concurrent.go, PLAN.md §3.6). ctx is the Ctx
@@ -247,7 +247,7 @@ func (w *Writer) Leave() {
 
 func depthError(stack []string) error {
 	var b strings.Builder
-	b.WriteString("orbit: render depth exceeded ")
+	b.WriteString("lyr: render depth exceeded ")
 	b.WriteString(strconv.Itoa(maxDepth))
 	b.WriteString(": ")
 	shown := stack[:min(len(stack), depthStackShown)]
@@ -453,7 +453,7 @@ func nilPanic(v any, r any) string {
 //     escaped too.
 //
 // In a URL attribute (href, src, …), a javascript: or vbscript: URL is
-// replaced with about:invalid#orbit, unless v has type URL.
+// replaced with about:invalid#lyr, unless v has type URL.
 func (w *Writer) Attr(name string, v any) {
 	if w.err != nil {
 		return
@@ -529,7 +529,7 @@ func (w *Writer) AttrString(name, s string) {
 }
 
 // AttrURL writes the attribute name="s", with s attribute-escaped and a
-// javascript: or vbscript: URL replaced with about:invalid#orbit.
+// javascript: or vbscript: URL replaced with about:invalid#lyr.
 func (w *Writer) AttrURL(name, s string) {
 	if w.err != nil {
 		return
@@ -550,7 +550,7 @@ func (w *Writer) AttrValue(s string) {
 
 // URL writes s as a URL attribute's value, the bytes AttrURL writes between
 // the quotes: s attribute-escaped, with a javascript: or vbscript: URL
-// replaced with about:invalid#orbit. Codegen writes ` href="`, URL(s) and `"`
+// replaced with about:invalid#lyr. Codegen writes ` href="`, URL(s) and `"`
 // for a typed string in a URL attribute.
 func (w *Writer) URL(s string) {
 	if w.err != nil {
@@ -626,7 +626,7 @@ func (w *Writer) attrValue(name, s string, filter bool) {
 // [A-Za-z_:][-A-Za-z0-9_:.]* is a render error, and nothing is written.
 func (w *Writer) Spread(a Attrs) { w.spread("", a) }
 
-// spread is Spread, with the .orbit position of the spread for a name
+// spread is Spread, with the .lyr position of the spread for a name
 // error ("" for none).
 func (w *Writer) spread(pos string, a Attrs) {
 	if w.err != nil || len(a) == 0 {

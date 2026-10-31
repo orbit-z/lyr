@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/orbit-z/orbit/internal/jsfloat"
+	"github.com/orbit-z/lyr/internal/jsfloat"
 )
 
 // Template literals (PLAN.md §2.10). In a template, a backtick string is a
@@ -21,7 +21,7 @@ import (
 func (w *Writer) URLMark() int { return w.buf.Len() }
 
 // For generated code. URLCheck replaces the bytes written since mark (a URL attribute's value)
-// with about:invalid#orbit if they start with a javascript: or vbscript:
+// with about:invalid#lyr if they start with a javascript: or vbscript:
 // scheme, as AttrURL does for a whole string value.
 func (w *Writer) URLCheck(mark int) {
 	if w.err != nil || mark < 0 || mark > w.buf.Len() {
@@ -57,7 +57,7 @@ func (w *Writer) ClassBytes(b []byte) {
 }
 
 // For generated code. AttrPiece writes a piece of a template literal in an attribute value:
-// the text Expr would write for v, attribute-escaped (orbit.HTML too, since
+// the text Expr would write for v, attribute-escaped (lyr.HTML too, since
 // a template literal is text).
 func (w *Writer) AttrPiece(v any) {
 	if w.err != nil {
@@ -81,7 +81,7 @@ func (w *Writer) AttrPiece(v any) {
 }
 
 // For generated code. TextPiece writes a piece of a template literal in content: the text Expr
-// would write for v, HTML-escaped. orbit.HTML is escaped too (a template
+// would write for v, HTML-escaped. lyr.HTML is escaped too (a template
 // literal is text), and a Renderer's output is escaped.
 func (w *Writer) TextPiece(v any) {
 	if w.err != nil {
@@ -138,8 +138,8 @@ func appendParts(b []byte, parts []any) []byte {
 // the type of witness (a component prop's field, read from a zero Props):
 // a string kind gets the text, an interface a string. It is the fallback of
 // a template literal passed whole to a prop; the typed pass replaces it with
-// a concatenation, and reports a field of any other type. For orbit.HTML,
-// orbit.URL and orbit.CSS, every part must be inert (a number or bool
+// a concatenation, and reports a field of any other type. For lyr.HTML,
+// lyr.URL and lyr.CSS, every part must be inert (a number or bool
 // without String, Error or Format methods, a value of that type, or a
 // static string part): otherwise TemplateAs panics, as it does for a field
 // that can't hold a string.
@@ -150,7 +150,7 @@ func TemplateAs[T any](witness T, parts ...any) T {
 	case HTML, URL, CSS:
 		for i, p := range parts {
 			if !inertPart(p, rv.Type(), i%2 == 0) {
-				panic(fmt.Sprintf("orbit: a %T piece can't be part of an %s template literal", p, rv.Type()))
+				panic(fmt.Sprintf("lyr: a %T piece can't be part of a %s template literal", p, rv.Type()))
 			}
 		}
 	}
@@ -161,7 +161,7 @@ func TemplateAs[T any](witness T, parts ...any) T {
 	case rv.Kind() == reflect.Interface && reflect.TypeOf(s).AssignableTo(rv.Type()):
 		rv.Set(reflect.ValueOf(s))
 	default:
-		panic(fmt.Sprintf("orbit: a template literal is a string; the prop is %s", rv.Type()))
+		panic(fmt.Sprintf("lyr: a template literal is a string; the prop is %s", rv.Type()))
 	}
 	return out
 }
@@ -199,12 +199,12 @@ func inertPart(p any, t reflect.Type, static bool) bool {
 
 // For generated code. StringAs converts s to the string type of witness: a template literal
 // passed whole to a prop of a named string type (type Slug string,
-// orbit.URL, …), whose name the generated file may not import.
+// lyr.URL, …), whose name the generated file may not import.
 func StringAs[T ~string](witness T, s string) T { return T(s) }
 
 // For generated code. TB builds the text of a template literal whose pieces aren't all
 // strings, in a buffer that generated code allocates on the stack:
-// orbit__rt.TB(make([]byte, 0, 64)).S("Chapter ").Int(int64(n)).String().
+// lyr__rt.TB(make([]byte, 0, 64)).S("Chapter ").Int(int64(n)).String().
 // Each method appends what the matching Writer method writes, unescaped.
 type TB []byte
 
@@ -271,7 +271,7 @@ func AppendError(b []byte, e error) []byte {
 }
 
 // For generated code. AppendAny appends v's text as Writer.Expr formats it, unescaped: nothing
-// for nil, orbit.HTML as its text, a Renderer's output.
+// for nil, lyr.HTML as its text, a Renderer's output.
 func AppendAny(b []byte, v any) []byte {
 	switch v := v.(type) {
 	case nil:

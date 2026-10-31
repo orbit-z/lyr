@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 // attribute; in content, it writes nothing. Generated code writes an
 // Opt-typed attribute or content value as an if statement around the typed
 // write of T, so it costs no allocation; the untyped paths (Attr, Expr,
-// Spread, an orbit.Attrs value) see it through the unexported optValue
+// Spread, a lyr.Attrs value) see it through the unexported optValue
 // methods.
 
 // Opt is an optional value of type T: either some value, or none. The zero
@@ -20,7 +20,7 @@ import (
 // is written as v; in content, none writes nothing.
 //
 // Build one with Some, None, If or NonZero. An Opt is comparable when T is:
-// o == orbit.None[string]() and o == orbit.Some("x") work, and cmp.Or(a, b)
+// o == lyr.None[string]() and o == lyr.Some("x") work, and cmp.Or(a, b)
 // returns the first one that is set.
 //
 // In JSON, none is null and some(v) is v's JSON; decoding null gives none.
@@ -37,7 +37,7 @@ func Some[T any](v T) Opt[T] { return Opt[T]{v: v, ok: true} }
 func None[T any]() Opt[T] { return Opt[T]{} }
 
 // NonZero returns Some(v), or None when v is T's zero value: Astro's
-// `x || undefined`. orbit.NonZero(id) is orbit.If(id != "", id) with id
+// `x || undefined`. lyr.NonZero(id) is lyr.If(id != "", id) with id
 // evaluated once.
 func NonZero[T comparable](v T) Opt[T] {
 	var zero T
@@ -66,7 +66,7 @@ func (o Opt[T]) IsSome() bool { return o.ok }
 func (o Opt[T]) IsZero() bool { return !o.ok }
 
 // String returns fmt.Sprint of the value, or "" when none, so fmt and log
-// lines print the value. Orbit doesn't use it to write an Opt: a template
+// lines print the value. Lyr doesn't use it to write an Opt: a template
 // writes the value by its own type's rules.
 func (o Opt[T]) String() string {
 	if !o.ok {
@@ -98,7 +98,7 @@ func (o *Opt[T]) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// optValue is how the untyped paths (Attr, Expr, Spread, orbit.Attrs, a
+// optValue is how the untyped paths (Attr, Expr, Spread, lyr.Attrs, a
 // RestAny) see an Opt without knowing T. User types can't implement it.
 type optValue interface {
 	// optAttr writes nothing when none, else the attribute by Attr's rules
@@ -211,7 +211,7 @@ func SetHTML[T any](w *Writer, pos string, x T) {
 			w.HTML(h)
 		}
 	default:
-		w.setErr(&posError{pos: pos, err: fmt.Errorf("set:html needs an orbit.HTML (or an orbit.Opt[orbit.HTML]), not %T; it was skipped (see the warning above)", x)})
+		w.setErr(&posError{pos: pos, err: fmt.Errorf("set:html needs a lyr.HTML (or a lyr.Opt[lyr.HTML]), not %T; it was skipped (see the warning above)", x)})
 	}
 }
 
@@ -220,7 +220,7 @@ func SetHTML[T any](w *Writer, pos string, x T) {
 func Wrap[T any](_ Opt[T], v T) Opt[T] { return Opt[T]{v: v, ok: true} }
 
 // For generated code. WrapIf returns If(cond, v) as an Opt[T], for an
-// orbit.If call whose value is an untyped constant passed to a prop of
+// lyr.If call whose value is an untyped constant passed to a prop of
 // type Opt[T] (so it takes T, not the constant's default type). The second
 // argument is the If written at the call site, which keeps its package
 // used.
@@ -239,7 +239,7 @@ func WrapIf[T any](_ Opt[T], _ func(bool, bool) Opt[bool], cond bool, v T) Opt[T
 // An untyped constant passed through OptOf has its default type, so a
 // value (or an Opt's value) of the same kind as T, or a number for a
 // number, is converted to T, as the typed pass's Wrap and WrapIf would
-// take it (rel={someConst} or rel={orbit.If(c, "x")} for an Opt[Slug]).
+// take it (rel={someConst} or rel={lyr.If(c, "x")} for an Opt[Slug]).
 // Any other value gives None: the typed pass reports it.
 func OptOf[T, V any](_ Opt[T], v V) Opt[T] {
 	switch x := any(v).(type) {

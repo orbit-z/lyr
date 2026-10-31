@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Allocation tests for Orbit's own render and serve path (PLAN.md §4b): a
+// Allocation tests for Lyr's own render and serve path (PLAN.md §4b): a
 // typical page renders with 0 allocations and is served with exactly 1, the
 // Content-Length value, which net/http may read after ServeHTTP returns and
 // so can't be reused.
@@ -23,7 +23,7 @@ type allocCardProps struct {
 var allocCardHook = allocCard
 
 func allocCard(c *Ctx, w *Writer, p allocCardProps, s Slots) error {
-	if err := w.Enter("src/components/Card.orbit"); err != nil {
+	if err := w.Enter("src/components/Card.lyr"); err != nil {
 		return err
 	}
 	defer w.Leave()
@@ -51,7 +51,7 @@ func allocSlot(w *Writer) error {
 
 func allocPage(c *Ctx, w *Writer) error {
 	w.Raw(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>`)
-	w.String("Orbit & friends")
+	w.String("Lyr & friends")
 	w.Raw(`</title>`)
 	w.HeadEnd()
 	w.Raw(`</head><body><main>`)
@@ -80,7 +80,7 @@ func allocPostPage(c *Ctx, w *Writer) error {
 	return nil
 }
 
-// A Markdown page as orbit generate compiles it (PLAN.md §2.4): the HTML is
+// A Markdown page as lyr generate compiles it (PLAN.md §2.4): the HTML is
 // a constant, the layout's props (frontmatter and headings) are built once
 // at package initialization, and the content is a package-level slot func.
 type allocLayoutProps struct {
@@ -92,7 +92,7 @@ type allocLayoutProps struct {
 var allocLayoutHook = allocLayout
 
 func allocLayout(c *Ctx, w *Writer, p allocLayoutProps, s Slots) error {
-	if err := w.Enter("src/layouts/Post.orbit"); err != nil {
+	if err := w.Enter("src/layouts/Post.lyr"); err != nil {
 		return err
 	}
 	defer w.Leave()
@@ -121,13 +121,13 @@ func allocLayout(c *Ctx, w *Writer, p allocLayoutProps, s Slots) error {
 var allocMDHeadings = []Heading{{Depth: 2, Slug: "why-markdown", Text: "Why Markdown"}, {Depth: 2, Slug: "whats-next", Text: "What’s next"}}
 
 var allocMDProps = func() (p allocLayoutProps) {
-	p.Title = "Hello, Orbit"
+	p.Title = "Hello, Lyr"
 	p.Tags = []string{"news", "go"}
 	p.Headings = allocMDHeadings
 	return p
 }()
 
-const allocMDHTML = "<p>Orbit compiles this file to Go.</p>\n<h2 id=\"why-markdown\">Why Markdown</h2>\n" +
+const allocMDHTML = "<p>Lyr compiles this file to Go.</p>\n<h2 id=\"why-markdown\">Why Markdown</h2>\n" +
 	"<pre class=\"chroma\" tabindex=\"0\" data-language=\"go\"><code><span class=\"nx\">fmt</span></code></pre>\n" +
 	"<h2 id=\"whats-next\">What&rsquo;s next</h2>\n"
 
@@ -145,10 +145,10 @@ func allocMDPage(c *Ctx, w *Writer) error {
 }
 
 var allocRoutes = []Route{
-	{Pattern: "/", File: "src/pages/index.orbit", Render: allocPage},
-	{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].orbit", Render: allocPostPage},
+	{Pattern: "/", File: "src/pages/index.lyr", Render: allocPage},
+	{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].lyr", Render: allocPostPage},
 	{Pattern: "/hello", File: "src/pages/blog/hello.md", Render: allocMDPage},
-	{Pattern: "/assets", File: "src/pages/assets.orbit", Render: allocPage, Assets: benchAssets},
+	{Pattern: "/assets", File: "src/pages/assets.lyr", Render: allocPage, Assets: benchAssets},
 }
 
 // fakeResponseWriter is a reusable, allocation-free http.ResponseWriter.
@@ -209,7 +209,7 @@ func TestServeAllocs(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("allocation counts (not under -short or -race)")
 	}
-	t.Setenv("ORBIT_DEV", "")
+	t.Setenv("LYR_DEV", "")
 	s := testSite(t, allocRoutes, WithSite("https://example.com"))
 	h := s.Middleware(http.NotFoundHandler())
 	tests := []struct {
@@ -217,9 +217,9 @@ func TestServeAllocs(t *testing.T) {
 	}{
 		{"/", "<!DOCTYPE html>"},
 		{"/blog/hello-world", "<!DOCTYPE html><html><head><title>hello-world"},
-		{"/hello", `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Hello, Orbit</title></head><body><nav><ul><li><a href="#why-markdown">Why Markdown</a></li>`},
-		{"/assets", `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Orbit &amp; friends</title>` +
-			`<link rel="stylesheet" href="/_orbit/index-3f9a2c1d.css"><script type="module" src="/_orbit/index-9b1e44a2.js"></script></head>`},
+		{"/hello", `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Hello, Lyr</title></head><body><nav><ul><li><a href="#why-markdown">Why Markdown</a></li>`},
+		{"/assets", `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Lyr &amp; friends</title>` +
+			`<link rel="stylesheet" href="/_lyr/index-3f9a2c1d.css"><script type="module" src="/_lyr/index-9b1e44a2.js"></script></head>`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.target, func(t *testing.T) {
@@ -246,8 +246,8 @@ func TestServeAllocs(t *testing.T) {
 }
 
 func BenchmarkServePage(b *testing.B) {
-	b.Setenv("ORBIT_DEV", "")
-	b.Setenv("ORBIT_STATIC", b.TempDir())
+	b.Setenv("LYR_DEV", "")
+	b.Setenv("LYR_STATIC", b.TempDir())
 	s := NewSite(allocRoutes, nil)
 	h := s.Middleware(http.NotFoundHandler())
 	for _, target := range []string{"/", "/blog/hello-world"} {
@@ -278,18 +278,18 @@ func allocCardsPage(c *Ctx, w *Writer) error {
 }
 
 var benchAssets = []Asset{
-	{Kind: "css", URL: "/_orbit/index-3f9a2c1d.css"},
-	{Kind: "js", URL: "/_orbit/index-9b1e44a2.js"},
+	{Kind: "css", URL: "/_lyr/index-3f9a2c1d.css"},
+	{Kind: "js", URL: "/_lyr/index-9b1e44a2.js"},
 }
 
 // BenchmarkServeAssets serves pages with a stylesheet and a script, so the
 // asset tags are inserted at </head>.
 func BenchmarkServeAssets(b *testing.B) {
-	b.Setenv("ORBIT_DEV", "")
-	b.Setenv("ORBIT_STATIC", b.TempDir())
+	b.Setenv("LYR_DEV", "")
+	b.Setenv("LYR_STATIC", b.TempDir())
 	s := NewSite([]Route{
-		{Pattern: "/", File: "src/pages/index.orbit", Render: allocPage, Assets: benchAssets},
-		{Pattern: "/cards", File: "src/pages/cards.orbit", Render: allocCardsPage, Assets: benchAssets},
+		{Pattern: "/", File: "src/pages/index.lyr", Render: allocPage, Assets: benchAssets},
+		{Pattern: "/cards", File: "src/pages/cards.lyr", Render: allocCardsPage, Assets: benchAssets},
 	}, nil)
 	h := s.Middleware(http.NotFoundHandler())
 	for _, target := range []string{"/", "/cards"} {
@@ -331,9 +331,9 @@ func allocCachedPage(c *Ctx, w *Writer) error {
 }
 
 var allocCacheRoutes = []Route{
-	{Pattern: "/", File: "src/pages/index.orbit", Render: allocCachedPage},
-	{Pattern: "/plain", File: "src/pages/plain.orbit", Render: allocPage},
-	{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].orbit", Render: allocPostPage},
+	{Pattern: "/", File: "src/pages/index.lyr", Render: allocCachedPage},
+	{Pattern: "/plain", File: "src/pages/plain.lyr", Render: allocPage},
+	{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].lyr", Render: allocPostPage},
 }
 
 func TestCacheAllocs(t *testing.T) {
@@ -351,8 +351,8 @@ func TestCacheAllocs(t *testing.T) {
 			fw.reset()
 			h.ServeHTTP(fw, r)
 		})
-		if fw.status != wantStatus || fw.h.Get("X-Orbit-Cache") != wantState {
-			t.Fatalf("%s %s: %d %q, want %d %q", r.Method, r.URL, fw.status, fw.h.Get("X-Orbit-Cache"), wantStatus, wantState)
+		if fw.status != wantStatus || fw.h.Get("X-Lyr-Cache") != wantState {
+			t.Fatalf("%s %s: %d %q, want %d %q", r.Method, r.URL, fw.status, fw.h.Get("X-Lyr-Cache"), wantStatus, wantState)
 		}
 		if n != float64(want) {
 			t.Errorf("%s %s (%s %d): %v allocs, want %d", r.Method, r.URL, wantState, wantStatus, n, want)
@@ -360,7 +360,7 @@ func TestCacheAllocs(t *testing.T) {
 	}
 	warm := httptest.NewRecorder()
 	h.ServeHTTP(warm, httptest.NewRequest("GET", "/", nil))
-	if warm.Header().Get("X-Orbit-Cache") != "MISS" {
+	if warm.Header().Get("X-Lyr-Cache") != "MISS" {
 		t.Fatalf("warm-up: %v", warm.Header())
 	}
 	allocs(httptest.NewRequest("GET", "/", nil), 0, "HIT", 200)
@@ -399,8 +399,8 @@ func (*missStore) Get(CacheKey) *CachedResponse  { return nil }
 func (*missStore) Put(CacheKey, *CachedResponse) {}
 
 func BenchmarkCache(b *testing.B) {
-	b.Setenv("ORBIT_DEV", "")
-	b.Setenv("ORBIT_STATIC", b.TempDir())
+	b.Setenv("LYR_DEV", "")
+	b.Setenv("LYR_STATIC", b.TempDir())
 	serve := func(b *testing.B, h http.Handler, r *http.Request) {
 		fw := newFakeResponseWriter()
 		b.ReportAllocs()

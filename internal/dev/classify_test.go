@@ -16,15 +16,15 @@ func TestClassify(t *testing.T) {
 		{"public/img/logo.svg", false, KindPublic},
 		{"public/img", true, KindPublic},
 		{"public", true, KindPublic},
-		// .orbit files: the pipeline decides between esbuild and Go.
-		{"src/components/Card.orbit", false, KindOrbit},
-		{"src/pages/_partials/Note.orbit", false, KindOrbit},
-		{"src/pages/about.md", false, KindOrbit},
-		{"src/content/post.markdown", false, KindOrbit},
+		// .lyr files: the pipeline decides between esbuild and Go.
+		{"src/components/Card.lyr", false, KindLyr},
+		{"src/pages/_partials/Note.lyr", false, KindLyr},
+		{"src/pages/about.md", false, KindLyr},
+		{"src/content/post.markdown", false, KindLyr},
 		{"README.md", false, KindIgnore},
-		{"src/pages/blog", true, KindOrbit},
-		{"src/pages/blog", false, KindOrbit}, // removed: maybe a directory
-		{"other/Card.orbit", false, KindIgnore},
+		{"src/pages/blog", true, KindLyr},
+		{"src/pages/blog", false, KindLyr}, // removed: maybe a directory
+		{"other/Card.lyr", false, KindIgnore},
 		// Files the bundles read.
 		{"src/scripts/util.ts", false, KindAsset},
 		{"src/styles/base.css", false, KindAsset},
@@ -41,13 +41,13 @@ func TestClassify(t *testing.T) {
 		{"go.mod", false, KindGo},
 		{"go.sum", false, KindGo},
 		{"internal/posts/posts_test.go", false, KindIgnore},
-		{"orbit.json", false, KindConfig},
-		{"src/orbit.json", false, KindAsset},
+		{"lyr.json", false, KindConfig},
+		{"src/lyr.json", false, KindAsset},
 		// Excluded directories.
-		{"orbit_gen/app/app.go", false, KindIgnore},
-		{"orbit_gen", true, KindIgnore},
+		{"lyr_gen/app/app.go", false, KindIgnore},
+		{"lyr_gen", true, KindIgnore},
 		{"dist/server", false, KindIgnore},
-		{".orbit/dev/manifest.json", false, KindIgnore},
+		{".lyr/dev/manifest.json", false, KindIgnore},
 		{"node_modules/x/index.ts", false, KindIgnore},
 		{"src/node_modules/x/index.ts", false, KindIgnore},
 		{".git/HEAD", false, KindIgnore},
@@ -55,10 +55,10 @@ func TestClassify(t *testing.T) {
 		{"_tools/gen.go", false, KindIgnore},
 		{"internal/newpkg", true, KindIgnore},
 		// Editors' temporary files, other files.
-		{"src/components/.Card.orbit.swp", false, KindIgnore},
-		{"src/components/Card.orbit~", false, KindIgnore},
+		{"src/components/.Card.lyr.swp", false, KindIgnore},
+		{"src/components/Card.lyr~", false, KindIgnore},
 		{"src/components/4913", false, KindIgnore},
-		{"src/components/#Card.orbit#", false, KindIgnore},
+		{"src/components/#Card.lyr#", false, KindIgnore},
 		{"README.md", false, KindIgnore},
 		{"Dockerfile", false, KindIgnore},
 	}
@@ -69,8 +69,8 @@ func TestClassify(t *testing.T) {
 	}
 }
 
-// TestClassifyWatch checks the orbit.json "watch" patterns: a matching path
-// that's no other kind is KindWatch; other kinds win; Orbit's own output
+// TestClassifyWatch checks the lyr.json "watch" patterns: a matching path
+// that's no other kind is KindWatch; other kinds win; Lyr's own output
 // and editors' temporary files never are.
 func TestClassifyWatch(t *testing.T) {
 	ws := watchSet{"../*.md", "content/**", "testdata/*.json", "dist/**", "src/**"}
@@ -88,7 +88,7 @@ func TestClassifyWatch(t *testing.T) {
 		{"testdata/x.json", false, KindWatch}, // a directory the watcher skips otherwise
 		{"dist/x", false, KindIgnore},
 		{"src/a.ts", false, KindAsset},
-		{"src/pages/a.orbit", false, KindOrbit},
+		{"src/pages/a.lyr", false, KindLyr},
 		{"README.md", false, KindIgnore},
 		{"go.mod", false, KindGo},
 	}
@@ -108,8 +108,8 @@ func TestChange(t *testing.T) {
 	if want := []string{"go.mod", "internal/a/a.go"}; !slices.Equal(c.Paths, want) {
 		t.Errorf("Paths = %v, want %v", c.Paths, want)
 	}
-	if !c.Only(KindGo) || c.Has(KindOrbit) || c.Empty() {
-		t.Errorf("Go-only change: Only(Go)=%v Has(Orbit)=%v Empty=%v", c.Only(KindGo), c.Has(KindOrbit), c.Empty())
+	if !c.Only(KindGo) || c.Has(KindLyr) || c.Empty() {
+		t.Errorf("Go-only change: Only(Go)=%v Has(Lyr)=%v Empty=%v", c.Only(KindGo), c.Has(KindLyr), c.Empty())
 	}
 	c = NewChange([]string{"src/a.ts", "public/x.txt"}, nil)
 	if !c.Only(KindAsset, KindPublic) || c.Only(KindAsset) {

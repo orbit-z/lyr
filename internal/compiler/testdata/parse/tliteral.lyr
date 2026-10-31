@@ -1,0 +1,10 @@
+---
+re := `\d+ ${x}`
+---
+<a href={`/p/${slug}`} title={lyr.If(c, `Open ${x}`)} {...attrs} class:list={"a", `b-${n}`, `c-${n}`: on}>{` · ${n}`}</a>
+{if s == `a-${b}`}<p>{f(`x ${y}`, `}`)}</p>{else if `${"}"}` != ""}{/if}
+{for _, x := range []string{`a`, `b${c}`}}<i>{`a ${f(`x ${g(`y ${z}`)}`)} b`}</i>{/for}
+{switch `k`}{case `k`, `l${m}`}<b set:text={`${ /* } */ x}`}></b>{/switch}
+<Card title={`Chapter ${n + 1}`} />
+<p>{`multi
+line ${n} \${not} \` $ {x}`}</p>

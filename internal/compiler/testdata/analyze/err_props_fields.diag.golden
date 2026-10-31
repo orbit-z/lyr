@@ -1,2 +1,2 @@
-src/components/err_props_fields.orbit:12:2: Props fields IsOpen and Is_Open both match the attribute name isopen; rename one
-src/components/err_props_fields.orbit:13:2: Props field count must be exported, since a parent sets it (rename it to Count)
+src/components/err_props_fields.lyr:12:2: Props fields IsOpen and Is_Open both match the attribute name isopen; rename one
+src/components/err_props_fields.lyr:13:2: Props field count must be exported, since a parent sets it (rename it to Count)

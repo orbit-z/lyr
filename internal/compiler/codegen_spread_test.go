@@ -159,12 +159,12 @@ func TestSpreadAllocs(t *testing.T) {
 	p, builds, m := spreadPipeline(t)
 	p.write(m, true)
 	m.writeOverlay(builds)
-	m.write("alloc/alloc_test.go", strings.Replace(condAllocTestSrc, `_ "example.com/blog/orbit_gen/impl/pages/allocs"`,
-		`_ "example.com/blog/orbit_gen/impl/pages/allocs"
-	_ "example.com/blog/orbit_gen/impl/components/actions"
-	_ "example.com/blog/orbit_gen/impl/components/cached"
-	_ "example.com/blog/orbit_gen/impl/components/card"
-	_ "example.com/blog/orbit_gen/impl/components/tree"`, 1))
+	m.write("alloc/alloc_test.go", strings.Replace(condAllocTestSrc, `_ "example.com/blog/lyr_gen/impl/pages/allocs"`,
+		`_ "example.com/blog/lyr_gen/impl/pages/allocs"
+	_ "example.com/blog/lyr_gen/impl/components/actions"
+	_ "example.com/blog/lyr_gen/impl/components/cached"
+	_ "example.com/blog/lyr_gen/impl/components/card"
+	_ "example.com/blog/lyr_gen/impl/components/tree"`, 1))
 	allocs := func(args ...string) string {
 		out, err := m.goCmd(append(append([]string{"test", "-count=1", "-v"}, args...), "./alloc")...)
 		if err != nil {
@@ -190,9 +190,9 @@ func TestSpreadAllocs(t *testing.T) {
 // positioned render error while an attribute spread renders as before.
 func TestSpreadPass1(t *testing.T) {
 	srcs := map[string]string{
-		"src/components/Card.orbit": "---\ntype Props struct{ Title string }\n---\n<p>{props.Title}</p>\n",
-		"src/components/Box.orbit":  "---\ntype Props struct{ Attrs orbit.RestAttrs }\n---\n<div {...props.Attrs}></div>\n",
-		"src/pages/index.orbit":     "---\nimport Card \"../components/Card.orbit\"\nimport Box \"../components/Box.orbit\"\n\ntype T struct{ Title string }\n\nfail := false\n---\n<Box {...orbit.Attrs{\"id\": \"x\"}} />\n{if fail}<Card {...T{\"t\"}} />{/if}\n{if !fail}<Box {...T{\"t\"}} />{/if}\n",
+		"src/components/Card.lyr": "---\ntype Props struct{ Title string }\n---\n<p>{props.Title}</p>\n",
+		"src/components/Box.lyr":  "---\ntype Props struct{ Attrs lyr.RestAttrs }\n---\n<div {...props.Attrs}></div>\n",
+		"src/pages/index.lyr":     "---\nimport Card \"../components/Card.lyr\"\nimport Box \"../components/Box.lyr\"\n\ntype T struct{ Title string }\n\nfail := false\n---\n<Box {...lyr.Attrs{\"id\": \"x\"}} />\n{if fail}<Card {...T{\"t\"}} />{/if}\n{if !fail}<Box {...T{\"t\"}} />{/if}\n",
 	}
 	m := newGenModule(t)
 	p := plPipeline(t, m, srcs, Options{Module: testModule})
@@ -212,16 +212,16 @@ import (
 	"bytes"
 	"fmt"
 
-	_ "example.com/blog/orbit_gen/impl/components/box"
-	_ "example.com/blog/orbit_gen/impl/components/card"
-	index "example.com/blog/orbit_gen/decl/pages/index"
-	_ "example.com/blog/orbit_gen/impl/pages/index"
-	"github.com/orbit-z/orbit"
+	_ "example.com/blog/lyr_gen/impl/components/box"
+	_ "example.com/blog/lyr_gen/impl/components/card"
+	index "example.com/blog/lyr_gen/decl/pages/index"
+	_ "example.com/blog/lyr_gen/impl/pages/index"
+	"github.com/orbit-z/lyr"
 )
 
 func main() {
 	var buf bytes.Buffer
-	err := index.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), index.Props{}, orbit.Slots{})
+	err := index.Render(&lyr.Ctx{}, lyr.NewWriter(&buf), index.Props{}, lyr.Slots{})
 	fmt.Printf("%s\n%v\n", buf.String(), err)
 }
 `)
@@ -229,13 +229,13 @@ func main() {
 	if err != nil {
 		t.Fatalf("go run: %v\n%s", err, out)
 	}
-	want := "<div id=\"x\"></div>\nsrc/pages/index.orbit:11:16: {...T{\"t\"}} on <Box> sets props, which needs Orbit's type check; it was skipped (see the warning above)\n"
+	want := "<div id=\"x\"></div>\nsrc/pages/index.lyr:11:16: {...T{\"t\"}} on <Box> sets props, which needs Lyr's type check; it was skipped (see the warning above)\n"
 	if out != want {
 		t.Errorf("got:\n%s\nwant:\n%s", out, want)
 	}
 }
 
-// TestSpreadErrors: the typed pass's spread errors, each at its .orbit
+// TestSpreadErrors: the typed pass's spread errors, each at its .lyr
 // position (PLAN.md §2.11 Errors).
 func TestSpreadErrors(t *testing.T) {
 	m := newGenModule(t)
@@ -255,11 +255,11 @@ type Inner struct{ Lines int }
 type Deep struct{ *Inner }
 `)
 	srcs := map[string]string{
-		"src/components/Card.orbit": "---\ntype Props struct {\n\tTitle string\n\tNote  orbit.Opt[string]\n\tLines orbit.Opt[string]\n\tPlain string\n}\n---\n<p>{props.Title}</p>\n",
-		"src/components/Ptr.orbit":  "---\nimport \"example.com/blog/internal/cards\"\n\ntype Props struct{ *cards.Inner }\n---\n<p></p>\n",
-		"src/components/Box.orbit":  "---\ntype Props struct{ Title string }\n---\n<p></p>\n",
-		"src/pages/index.orbit": "---\nimport Card \"../components/Card.orbit\"\nimport Ptr \"../components/Ptr.orbit\"\nimport Box \"../components/Box.orbit\"\nimport \"example.com/blog/internal/cards\"\n\n" +
-			"type O struct{ Plain orbit.Opt[string] }\n\nn := 3\nvar s cards.Summary\nvar w cards.Wrong\nvar o O\nvar a, b struct{ Title string }\nattrs := orbit.Attrs{}\nvar d cards.Deep\n---\n" +
+		"src/components/Card.lyr": "---\ntype Props struct {\n\tTitle string\n\tNote  lyr.Opt[string]\n\tLines lyr.Opt[string]\n\tPlain string\n}\n---\n<p>{props.Title}</p>\n",
+		"src/components/Ptr.lyr":  "---\nimport \"example.com/blog/internal/cards\"\n\ntype Props struct{ *cards.Inner }\n---\n<p></p>\n",
+		"src/components/Box.lyr":  "---\ntype Props struct{ Title string }\n---\n<p></p>\n",
+		"src/pages/index.lyr": "---\nimport Card \"../components/Card.lyr\"\nimport Ptr \"../components/Ptr.lyr\"\nimport Box \"../components/Box.lyr\"\nimport \"example.com/blog/internal/cards\"\n\n" +
+			"type O struct{ Plain lyr.Opt[string] }\n\nn := 3\nvar s cards.Summary\nvar w cards.Wrong\nvar o O\nvar a, b struct{ Title string }\nattrs := lyr.Attrs{}\nvar d cards.Deep\n---\n" +
 			"<Card {...s} />\n" + // 17: extra fields
 			"<Card {...w} />\n" + // 18: type mismatch
 			"<Card {...o} />\n" + // 19: Opt[T] into T
@@ -285,15 +285,15 @@ type Deep struct{ *Inner }
 		}
 	}
 	want := []string{
-		"src/pages/index.orbit:17:7: {...s} on <Card>: cards.Summary has fields that aren't props of Card (Blurb, Rank); spread a struct whose fields are all props, or pass them one by one (props: title, note, lines, plain)",
-		"src/pages/index.orbit:18:7: {...w} sets Lines of <Card>: w.Lines is int, the prop is orbit.Opt[string]",
-		"src/pages/index.orbit:19:7: {...o} sets Plain of <Card>: o.Plain is orbit.Opt[string], the prop is string",
-		"src/pages/index.orbit:22:7: {...n} on <Card>: n is int; spread a struct (its fields set props) or an orbit.Attrs, orbit.AttrList or orbit.RestAttrs (pass-through attributes)",
-		"src/pages/index.orbit:23:6: {...} spread on <Box> needs an orbit.RestAttrs field in its Props, to pass HTML attributes through",
-		"src/pages/index.orbit:24:6: {...cards.Inner{}} can't set Lines of <Ptr>: it's promoted through the embedded pointer *cards.Inner",
-		"src/pages/index.orbit:25:6: {...d} can't read Lines: it's promoted through the embedded pointer *cards.Inner; pass it as an attribute",
-		"src/pages/index.orbit:20:7: title=\"…\" is overwritten by {...a} after it (it sets Title); move it after the spread to override",
-		"src/pages/index.orbit:21:14: {...a} and {...b} both set Title of <Card>; a spread can't override another",
+		"src/pages/index.lyr:17:7: {...s} on <Card>: cards.Summary has fields that aren't props of Card (Blurb, Rank); spread a struct whose fields are all props, or pass them one by one (props: title, note, lines, plain)",
+		"src/pages/index.lyr:18:7: {...w} sets Lines of <Card>: w.Lines is int, the prop is lyr.Opt[string]",
+		"src/pages/index.lyr:19:7: {...o} sets Plain of <Card>: o.Plain is lyr.Opt[string], the prop is string",
+		"src/pages/index.lyr:22:7: {...n} on <Card>: n is int; spread a struct (its fields set props) or a lyr.Attrs, lyr.AttrList or lyr.RestAttrs (pass-through attributes)",
+		"src/pages/index.lyr:23:6: {...} spread on <Box> needs a lyr.RestAttrs field in its Props, to pass HTML attributes through",
+		"src/pages/index.lyr:24:6: {...cards.Inner{}} can't set Lines of <Ptr>: it's promoted through the embedded pointer *cards.Inner",
+		"src/pages/index.lyr:25:6: {...d} can't read Lines: it's promoted through the embedded pointer *cards.Inner; pass it as an attribute",
+		"src/pages/index.lyr:20:7: title=\"…\" is overwritten by {...a} after it (it sets Title); move it after the spread to override",
+		"src/pages/index.lyr:21:14: {...a} and {...b} both set Title of <Card>; a spread can't override another",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("got:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

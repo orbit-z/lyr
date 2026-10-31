@@ -5,12 +5,12 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/tsconfig"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/tsconfig"
 )
 
 // Import aliases (PLAN.md §2.2): Load reads tsconfig.json's paths and
-// baseUrl once; every file's analysis resolves its non-relative .orbit and
+// baseUrl once; every file's analysis resolves its non-relative .lyr and
 // Markdown imports (and a Markdown layout) through them.
 
 // aliasResolver is the project's compiler.ImportResolver.
@@ -48,7 +48,7 @@ func (p *Project) importResolver() compiler.ImportResolver {
 	return aliasResolver{root: p.Root, aliases: p.aliases}
 }
 
-// analyze analyzes the parsed .orbit file f.
+// analyze analyzes the parsed .lyr file f.
 func (p *Project) analyze(f *File) {
 	f.Info.Aliases = p.importResolver()
 	f.Analysis = compiler.Analyze(f.AST, f.Info)
@@ -86,7 +86,7 @@ func hasAliasImport(f *File) bool {
 	if f.Analysis == nil {
 		return false
 	}
-	for _, im := range f.Analysis.OrbitImports {
+	for _, im := range f.Analysis.LyrImports {
 		if !compiler.IsPathImport(im.Path) {
 			return true
 		}

@@ -1,17 +1,17 @@
-orbit_gen/decl/components/actions/decl.go (src/components/Actions.orbit)
-  exact 2:1 "type Props struct {\n\tSlug, StartHref string\n\tMine            bool\n\tQuestionID      string\n\tClass           string\n\tNote            orbit.Opt[string]\n\tAttrs           orbit.RestAttrs\n}" -> 195-378 "type Props struct {\n\tSlug, StartHref string\n\tMine            bool\n\tQuestionID      string\n\tClass           string\n\tNote            orbit.Opt[string]\n\tAttrs           orbit.RestAttrs\n}"
-orbit_gen/impl/components/actions/render.go (src/components/Actions.orbit)
-  exact 11:13 "props.Class" -> 711-722 "props.Class"
-  exact 11:30 "props.QuestionID" -> 882-898 "props.QuestionID"
-  exact 11:59 "props.Slug" -> 1010-1020 "props.Slug"
-  exact 11:83 "props.StartHref" -> 1133-1148 "props.StartHref"
-  exact 11:111 "props.Mine" -> 1261-1271 "props.Mine"
-  exact 11:127 "props.Attrs" -> 1379-1390 "props.Attrs"
-  exact 11:141 "props.Note" -> 1515-1525 "props.Note"
+lyr_gen/decl/components/actions/decl.go (src/components/Actions.lyr)
+  exact 2:1 "type Props struct {\n\tSlug, StartHref string\n\tMine            bool\n\tQuestionID      string\n\tClass           string\n\tNote            lyr.Opt[string]\n\tAttrs           lyr.RestAttrs\n}" -> 183-362 "type Props struct {\n\tSlug, StartHref string\n\tMine            bool\n\tQuestionID      string\n\tClass           string\n\tNote            lyr.Opt[string]\n\tAttrs           lyr.RestAttrs\n}"
+lyr_gen/impl/components/actions/render.go (src/components/Actions.lyr)
+  exact 11:13 "props.Class" -> 657-668 "props.Class"
+  exact 11:30 "props.QuestionID" -> 820-836 "props.QuestionID"
+  exact 11:59 "props.Slug" -> 944-954 "props.Slug"
+  exact 11:83 "props.StartHref" -> 1063-1078 "props.StartHref"
+  exact 11:111 "props.Mine" -> 1187-1197 "props.Mine"
+  exact 11:127 "props.Attrs" -> 1301-1312 "props.Attrs"
+  exact 11:141 "props.Note" -> 1431-1441 "props.Note"
 call sites
-  class key=204 "props.Class" call="orbit__w.ClassAny(\n/*line ../../../../src/components/Actions.orbit:11:13*/props.Class/*line render.go:22:91*/,\n\t)"
-  attr id key=221 "props.QuestionID" call="orbit__w.Attr(\"id\",\n/*line ../../../../src/components/Actions.orbit:11:30*/props.QuestionID/*line render.go:27:96*/,\n\t)"
-  attr data-slug key=250 "props.Slug" call="orbit__w.Attr(\"data-slug\",\n/*line ../../../../src/components/Actions.orbit:11:59*/props.Slug/*line render.go:30:90*/,\n\t)"
-  attr data-start key=274 "props.StartHref" call="orbit__w.Attr(\"data-start\",\n/*line ../../../../src/components/Actions.orbit:11:83*/props.StartHref/*line render.go:33:95*/,\n\t)"
-  attr data-mine key=302 "props.Mine" call="orbit__w.Attr(\"data-mine\",\n/*line ../../../../src/components/Actions.orbit:11:111*/props.Mine/*line render.go:36:91*/,\n\t)"
-  content key=332 "props.Note" call="orbit__w.Expr(\n/*line ../../../../src/components/Actions.orbit:11:141*/props.Note/*line render.go:43:91*/,\n\t)"
+  class key=200 "props.Class" call="lyr__w.ClassAny(\n/*line ../../../../src/components/Actions.lyr:11:13*/props.Class/*line render.go:22:89*/,\n\t)"
+  attr id key=217 "props.QuestionID" call="lyr__w.Attr(\"id\",\n/*line ../../../../src/components/Actions.lyr:11:30*/props.QuestionID/*line render.go:27:94*/,\n\t)"
+  attr data-slug key=246 "props.Slug" call="lyr__w.Attr(\"data-slug\",\n/*line ../../../../src/components/Actions.lyr:11:59*/props.Slug/*line render.go:30:88*/,\n\t)"
+  attr data-start key=270 "props.StartHref" call="lyr__w.Attr(\"data-start\",\n/*line ../../../../src/components/Actions.lyr:11:83*/props.StartHref/*line render.go:33:93*/,\n\t)"
+  attr data-mine key=298 "props.Mine" call="lyr__w.Attr(\"data-mine\",\n/*line ../../../../src/components/Actions.lyr:11:111*/props.Mine/*line render.go:36:89*/,\n\t)"
+  content key=328 "props.Note" call="lyr__w.Expr(\n/*line ../../../../src/components/Actions.lyr:11:141*/props.Note/*line render.go:43:89*/,\n\t)"

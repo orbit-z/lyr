@@ -15,7 +15,7 @@ var lineDirective = regexp.MustCompile(`//line [^\n]*|/\*line [^*]*\*/`)
 // default slot and inside a named-slot <Fragment>.
 func TestFragmentShorthandCodegen(t *testing.T) {
 	const card = "---\ntype Props struct{}\n---\n<div><slot /><slot name=\"footer\" /></div>\n"
-	tmpl := "---\nimport Card \"./Card.orbit\"\ntype Props struct{ Items []string }\n---\n" +
+	tmpl := "---\nimport Card \"./Card.lyr\"\ntype Props struct{ Items []string }\n---\n" +
 		"<F>\n  <h1>Title</h1>\n  {props.Items[0]}\n</F>\n" +
 		"<ul>{for _, x := range props.Items}<F><li>{x}</li><li>sep</li></F>{/for}</ul>\n" +
 		"<Card>\n  <Fragment slot=\"footer\"><F>a</F></Fragment>\n  <F><b>default</b></F>\n</Card>\n" +
@@ -23,8 +23,8 @@ func TestFragmentShorthandCodegen(t *testing.T) {
 	gen := func(open, close string) (string, string) {
 		src := strings.NewReplacer("<F>", open, "</F>", close).Replace(tmpl)
 		p := plFront(map[string]string{
-			"src/components/Card.orbit": card,
-			"src/components/X.orbit":    src,
+			"src/components/Card.lyr": card,
+			"src/components/X.lyr":    src,
 		}, Options{Module: testModule})
 		if d := p.diagnostics(); len(d) > 0 {
 			t.Fatalf("diagnostics for %s:\n%s", open, strings.Join(d, "\n"))

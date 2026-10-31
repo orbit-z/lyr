@@ -101,7 +101,7 @@ func TestSourceMaps(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			res := bundle(t, tt.opts, basicInput(t, dir))
 			noErrors(t, res)
-			idx := res.Pages["src/pages/index.orbit"]
+			idx := res.Pages["src/pages/index.lyr"]
 			css, js := idx[0].URL, idx[1].URL
 			for _, url := range []string{css, js} {
 				gen := string(res.File(url).Contents)
@@ -112,10 +112,10 @@ func TestSourceMaps(t *testing.T) {
 
 			gen := string(res.File(js).Contents)
 			sm := readMap(t, res, js)
-			// Card.orbit line 11: "  console.log(greet(\"card\"), n);"
+			// Card.lyr line 11: "  console.log(greet(\"card\"), n);"
 			src, line, col := lookup(t, gen, sm, "console.log(")
-			if src != "/src/components/Card.orbit" || line != 11 || col != 3 {
-				t.Errorf("console.log maps to %s:%d:%d, want /src/components/Card.orbit:11:3", src, line, col)
+			if src != "/src/components/Card.lyr" || line != 11 || col != 3 {
+				t.Errorf("console.log maps to %s:%d:%d, want /src/components/Card.lyr:11:3", src, line, col)
 			}
 			// util.ts, shared with blog/[slug], is a chunk (PLAN.md §5e)
 			// whose map points at the .ts file. Line 2: "  return `hi ${name}`;"
@@ -133,8 +133,8 @@ func TestSourceMaps(t *testing.T) {
 				t.Errorf("shared util.ts is in the page entry:\n%s", gen)
 			}
 			for i, s := range sm.Sources {
-				if s == "/src/components/Card.orbit" && (i >= len(sm.SourcesContent) || *sm.SourcesContent[i] != basicFiles["src/components/Card.orbit"]) {
-					t.Errorf("sourcesContent of Card.orbit isn't the file")
+				if s == "/src/components/Card.lyr" && (i >= len(sm.SourcesContent) || *sm.SourcesContent[i] != basicFiles["src/components/Card.lyr"]) {
+					t.Errorf("sourcesContent of Card.lyr isn't the file")
 				}
 				if strings.Contains(s, "?") || strings.Contains(s, "@") {
 					t.Errorf("source %q keeps a block suffix or page qualifier", s)
@@ -149,8 +149,8 @@ func TestSourceMaps(t *testing.T) {
 			if !tt.opts.Dev {
 				return
 			}
-			// Card.orbit line 6: "  .card { color: red }"
-			if src, line, col := lookup(t, cgen, csm, ".card"); src != "/src/components/Card.orbit" || line != 6 || col != 3 {
+			// Card.lyr line 6: "  .card { color: red }"
+			if src, line, col := lookup(t, cgen, csm, ".card"); src != "/src/components/Card.lyr" || line != 6 || col != 3 {
 				t.Errorf(".card maps to %s:%d:%d", src, line, col)
 			}
 		})

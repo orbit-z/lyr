@@ -9,55 +9,55 @@ import (
 	"sync"
 
 	"github.com/evanw/esbuild/pkg/api"
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/tailwind"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/tailwind"
 )
 
 // The virtual modules (PLAN.md §5).
 //
-// Each page with assets is one esbuild entry, orbit-page:<name>.ts when its
+// Each page with assets is one esbuild entry, lyr-page:<name>.ts when its
 // graph has a script (the CSS that the module imports, its styles included,
-// becomes the entry's stylesheet) and orbit-page:<name>.css when it only
+// becomes the entry's stylesheet) and lyr-page:<name>.css when it only
 // has styles (no empty JS entry). The entry imports the page's blocks in
 // graph order, each file's styles then its scripts, as
-// orbit:style/<ComponentID>-<i>@<page>.css and
-// orbit:script/<ComponentID>-<i>@<page>.ts, where <page> is the entry's
+// lyr:style/<ComponentID>-<i>@<page>.css and
+// lyr:script/<ComponentID>-<i>@<page>.ts, where <page> is the entry's
 // bundle name. The page qualifier makes each block one module per page,
 // so that with code splitting (PLAN.md §5e) esbuild inlines a page's
 // blocks into its own entry, in graph order, and only imported files
-// (.ts/.js files, packages, orbit:client, CSS imported from scripts)
+// (.ts/.js files, packages, lyr:client, CSS imported from scripts)
 // become shared chunks. The copies share one block: its scoped CSS,
 // padded contents and Tailwind output are computed once.
 //
-// A block resolves to its .orbit file itself, in esbuild's file namespace,
-// with a "?orbit-script=<i>&page=<page>" or "?orbit-style=<i>&page=<page>"
+// A block resolves to its .lyr file itself, in esbuild's file namespace,
+// with a "?lyr-script=<i>&page=<page>" or "?lyr-style=<i>&page=<page>"
 // suffix that keeps the blocks of a file, and their per-page copies,
 // apart (lazy entries use the suffix without "&page="). Its contents are
 // the block's text, preceded by newlines and spaces up to the block's line
-// and column in the .orbit file.
-// So esbuild's own positions (errors, warnings and source maps) are .orbit
-// positions with no mapping step: errors read src/x.orbit:L:C, and a source
-// map's original positions are lines and columns of the .orbit file, whose
+// and column in the .lyr file.
+// So esbuild's own positions (errors, warnings and source maps) are .lyr
+// positions with no mapping step: errors read src/x.lyr:L:C, and a source
+// map's original positions are lines and columns of the .lyr file, whose
 // real text replaces the padded one in sourcesContent (sourcemap.go).
 // Resolving in the file namespace also gives each block the nearest
-// tsconfig.json of its file, and the .orbit file's directory as resolveDir.
+// tsconfig.json of its file, and the .lyr file's directory as resolveDir.
 
-// A lazy entry (client:*, PLAN.md §5) is orbit:lazy/<ComponentID>.ts,
+// A lazy entry (client:*, PLAN.md §5) is lyr:lazy/<ComponentID>.ts,
 // served from lazyNamespace: it imports the component's script modules.
 
 const (
-	lazyPrefix    = "orbit:lazy/"
-	lazyNamespace = "orbit-lazy"
-	pageNamespace = "orbit-page"
-	scriptPrefix  = "orbit:script/"
-	stylePrefix   = "orbit:style/"
-	scriptSuffix  = "?orbit-script="
-	styleSuffix   = "?orbit-style="
+	lazyPrefix    = "lyr:lazy/"
+	lazyNamespace = "lyr-lazy"
+	pageNamespace = "lyr-page"
+	scriptPrefix  = "lyr:script/"
+	stylePrefix   = "lyr:style/"
+	scriptSuffix  = "?lyr-script="
+	styleSuffix   = "?lyr-style="
 )
 
 // plan is one Input turned into esbuild entries and module contents.
 type plan struct {
-	// entries are the entry specifiers ("orbit-page:index.ts"), sorted.
+	// entries are the entry specifiers ("lyr-page:index.ts"), sorted.
 	entries []string
 	// pageOf maps an entry specifier to its page file.
 	pageOf map[string]string
@@ -65,7 +65,7 @@ type plan struct {
 	// ("index.ts").
 	pageSrc map[string]string
 	// lazyOf maps a lazy entry, as the metafile names it
-	// ("orbit-lazy:Counter-1c2d3e4f.ts"), to its component file, and
+	// ("lyr-lazy:Counter-1c2d3e4f.ts"), to its component file, and
 	// lazySrc holds its contents by path in lazyNamespace.
 	lazyOf  map[string]string
 	lazySrc map[string]string
@@ -73,7 +73,7 @@ type plan struct {
 	outName map[string]string
 	// pages are the input pages, sorted by file.
 	pages []Page
-	// blocks maps a block specifier ("orbit:style/Card-3fa2c1d0-0@index.css")
+	// blocks maps a block specifier ("lyr:style/Card-3fa2c1d0-0@index.css")
 	// to its module and the suffix it resolves with.
 	blocks map[string]blockCopy
 	// byKey maps a block's file and suffix to its module, for onLoad.
@@ -81,9 +81,9 @@ type plan struct {
 	// base maps a block's file and unqualified suffix to its module: the
 	// one block that its per-page copies share.
 	base map[string]*block
-	// orbitSrc holds the text of every .orbit file with a block, for
+	// lyrSrc holds the text of every .lyr file with a block, for
 	// source maps.
-	orbitSrc map[string]string
+	lyrSrc map[string]string
 	// highlight is the contents of highlightSpec.
 	highlight   string
 	diagnostics []Diagnostic
@@ -93,11 +93,11 @@ type plan struct {
 // (Input.HighlightCSS), served from highlightNamespace.
 const (
 	highlightSpec      = stylePrefix + "markdown-highlight.css"
-	highlightNamespace = "orbit-highlight"
+	highlightNamespace = "lyr-highlight"
 )
 
 // blockCopy is one copy of a block: the block and the suffix of the copy
-// ("?orbit-script=0&page=index").
+// ("?lyr-script=0&page=index").
 type blockCopy struct {
 	*block
 	suffix string
@@ -105,11 +105,11 @@ type blockCopy struct {
 
 // block is one script or style block, shared by its per-page copies.
 type block struct {
-	file     string // project-relative .orbit path
+	file     string // project-relative .lyr path
 	css      bool
 	contents string
 	// For a style block that is a Tailwind input (PLAN.md §5d): its
-	// scoped text, unpadded, and its position in the .orbit file.
+	// scoped text, unpadded, and its position in the .lyr file.
 	// orig is the text before scoping and scope the inserted attribute,
 	// to place Tailwind's errors in the user's text.
 	tw    tailwind.Info
@@ -137,7 +137,7 @@ func newPlan(in *Input) *plan {
 		blocks:    map[string]blockCopy{},
 		byKey:     map[string]*block{},
 		base:      map[string]*block{},
-		orbitSrc:  map[string]string{},
+		lyrSrc:    map[string]string{},
 		highlight: in.HighlightCSS,
 	}
 	names := map[string]bool{}
@@ -167,7 +167,7 @@ func newPlan(in *Input) *plan {
 				continue
 			}
 			if len(src.Styles) > 0 || len(src.Scripts) > 0 {
-				p.orbitSrc[file] = src.Src
+				p.lyrSrc[file] = src.Src
 			}
 			for _, st := range src.Styles {
 				imports = append(imports, p.style(src, st, name))
@@ -215,7 +215,7 @@ func newPlan(in *Input) *plan {
 		if src == nil || len(src.Scripts) == 0 {
 			continue
 		}
-		p.orbitSrc[file] = src.Src
+		p.lyrSrc[file] = src.Src
 		var b strings.Builder
 		for i, sc := range src.Scripts {
 			fmt.Fprintf(&b, "import %s;\n", strconv.Quote(p.script(src, sc, i, "")))
@@ -249,8 +249,8 @@ func entryBase(file string) string {
 
 // copyOf returns the specifier and the suffix of the copy of block index
 // of the component id for page (its bundle name; "" for a lazy entry,
-// unqualified): ("orbit:script/Card-3fa2c1d0-0@index.ts",
-// "?orbit-script=0&page=index").
+// unqualified): ("lyr:script/Card-3fa2c1d0-0@index.ts",
+// "?lyr-script=0&page=index").
 func copyOf(prefix, id string, index int, ext, suffix, page string) (spec, sfx string) {
 	spec = prefix + id + "-" + strconv.Itoa(index)
 	sfx = suffix + strconv.Itoa(index)
@@ -352,8 +352,8 @@ func pad(pos compiler.Position) string {
 }
 
 // entryName is the bundle name of a page: its path under src/pages without
-// .orbit, "/" turned into "-", and only letters, digits, "-" and "_" kept
-// ("src/pages/blog/[slug].orbit" → "blog-slug").
+// .lyr, "/" turned into "-", and only letters, digits, "-" and "_" kept
+// ("src/pages/blog/[slug].lyr" → "blog-slug").
 func entryName(file string) string {
 	s := strings.TrimPrefix(file, "src/pages/")
 	s = strings.TrimSuffix(s, path.Base(s)) + compiler.TrimSourceExt(s)

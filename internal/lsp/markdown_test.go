@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// Markdown files in the language server (PLAN.md §2.4 "LSP", §9): Orbit's
+// Markdown files in the language server (PLAN.md §2.4 "LSP", §9): Lyr's
 // diagnostics for open and compiled .md files, at UTF-16 positions that
 // follow edits, the typed check's frontmatter type errors, null answers to
 // requests on them, and .md paths in import completion. None of it needs
@@ -26,7 +26,7 @@ type Props struct {
 <html><head></head><body><h1>{props.Title}</h1><slot /></body></html>
 `
 
-const mdHello = "---\nlayout: ../../layouts/Post.orbit\ntitle: Héllo ✓ 😀\ntilte: typo\ndraft: \"yes\"\n---\n# Hello\n\nSee [the other](./other.md), ✓ 😀 [missing](./missing.md).\n"
+const mdHello = "---\nlayout: ../../layouts/Post.lyr\ntitle: Héllo ✓ 😀\ntilte: typo\ndraft: \"yes\"\n---\n# Hello\n\nSee [the other](./other.md), ✓ 😀 [missing](./missing.md).\n"
 
 const mdList = "---\nimport Hello \"./blog/hello.md\"\n---\n<Hello />\n"
 
@@ -35,14 +35,14 @@ func TestMarkdown(t *testing.T) {
 		t.Skip("skipping in -short mode")
 	}
 	dir := writeProject(t, map[string]string{
-		"src/layouts/Post.orbit":   mdLayout,
-		"src/pages/blog/hello.md":  mdHello,
-		"src/pages/blog/other.md":  "# Other\n",
-		"src/pages/list.orbit":     mdList,
-		"src/content/README.md":    "[x](./nope.md)\n",
-		"src/content/notes.md":     "Notes.\n",
-		"README.md":                "[x](./nope.md)\n",
-		"src/components/Box.orbit": "<div><slot /></div>\n",
+		"src/layouts/Post.lyr":    mdLayout,
+		"src/pages/blog/hello.md": mdHello,
+		"src/pages/blog/other.md": "# Other\n",
+		"src/pages/list.lyr":      mdList,
+		"src/content/README.md":   "[x](./nope.md)\n",
+		"src/content/notes.md":    "Notes.\n",
+		"README.md":               "[x](./nope.md)\n",
+		"src/components/Box.lyr":  "<div><slot /></div>\n",
 	})
 	stub, err := os.Executable()
 	if err != nil {
@@ -119,7 +119,7 @@ func TestMarkdown(t *testing.T) {
 			t.Errorf("fragment warning: %v", ds[0])
 		}
 		// A new type error shows up once the Markdown typed check reruns
-		// after the edit, with no orbit_gen/ event (there's no orbit_gen/);
+		// after the edit, with no lyr_gen/ event (there's no lyr_gen/);
 		// fixing it clears it.
 		bad := strings.Replace(warn, "draft: true", `draft: "no"`, 1)
 		c.change(hello, bad)
@@ -154,19 +154,19 @@ func TestMarkdown(t *testing.T) {
 	})
 
 	t.Run("import paths", func(t *testing.T) {
-		const list = "src/pages/list.orbit"
+		const list = "src/pages/list.lyr"
 		src := c.open(list)
 		edited := strings.Replace(src, `"./blog/hello.md"`, `"./"`, 1)
 		c.change(list, edited)
 		items := c.complete(list, at(t, edited, `"./"`, 0, len(`"./`)))
 		got := labels(items)
-		for _, want := range []string{"./blog/hello.md", "./blog/other.md", "../layouts/Post.orbit", "../components/Box.orbit",
+		for _, want := range []string{"./blog/hello.md", "./blog/other.md", "../layouts/Post.lyr", "../components/Box.lyr",
 			"../content/notes.md", "../content/README.md"} {
 			if !slices.Contains(got, want) {
 				t.Errorf(`import "./: %v, missing %s`, got, want)
 			}
 		}
-		if slices.Contains(got, "./list.orbit") {
+		if slices.Contains(got, "./list.lyr") {
 			t.Errorf("the file itself is offered: %v", got)
 		}
 		it := item(items, "./blog/other.md")
@@ -211,13 +211,13 @@ func TestMarkdownRename(t *testing.T) {
 	needGopls(t)
 	hello := strings.Replace(strings.Replace(mdHello, "tilte: typo\n", "", 1), `"yes"`, "true", 1)
 	dir := writeProject(t, map[string]string{
-		"src/layouts/Post.orbit":  mdLayout,
+		"src/layouts/Post.lyr":    mdLayout,
 		"src/pages/blog/hello.md": hello,
 		"src/pages/blog/other.md": "# Other\n",
 	})
 	c := startClient(t, dir, nil)
-	layout := c.open("src/layouts/Post.orbit")
-	_, err := c.callErr("textDocument/rename", c.renameParams("src/layouts/Post.orbit", at(t, layout, "Title string", 0, 1), "Heading"))
+	layout := c.open("src/layouts/Post.lyr")
+	_, err := c.callErr("textDocument/rename", c.renameParams("src/layouts/Post.lyr", at(t, layout, "Title string", 0, 1), "Heading"))
 	want := "can't rename Title: the frontmatter of src/pages/blog/hello.md:3 (title) sets it"
 	if msg := rpcMessage(err); !strings.Contains(msg, want) {
 		t.Errorf("rename of Title: %q, want %q", msg, want)
@@ -234,7 +234,7 @@ func TestMarkdownTypedCheck(t *testing.T) {
 	hello := strings.Replace(strings.Replace(mdHello, "tilte: typo\n", "", 1), `"yes"`, "true", 1)
 	hello = strings.Replace(hello, "./missing.md", "./other.md", 1)
 	dir := writeProject(t, map[string]string{
-		"src/layouts/Post.orbit":  mdLayout,
+		"src/layouts/Post.lyr":    mdLayout,
 		"src/pages/blog/hello.md": hello,
 		"src/pages/blog/other.md": "# Other\n",
 	})
@@ -302,7 +302,7 @@ func TestMarkdownTypedCheck(t *testing.T) {
 	}
 
 	// An edit of the layout's Props reruns it: draft: true isn't an int.
-	const layout = "src/layouts/Post.orbit"
+	const layout = "src/layouts/Post.lyr"
 	src := c.open(layout)
 	c.change(layout, strings.Replace(src, "Draft bool", "Draft int", 1))
 	c.waitDiag(md, func(ds []map[string]any) bool { return typed(ds, "true") })

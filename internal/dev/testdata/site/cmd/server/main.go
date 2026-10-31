@@ -1,7 +1,7 @@
 // Command server is the dev fixture's server entry: a custom /robots.txt
 // and /pid route before the pages, a gzip middleware that compresses for
 // clients that accept it, and a marker file written after a graceful
-// shutdown (orbit.ListenAndServe returns nil after SIGINT).
+// shutdown (lyr.ListenAndServe returns nil after SIGINT).
 package main
 
 import (
@@ -13,9 +13,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 
-	"example.com/devsite/orbit_gen/app"
+	"example.com/devsite/lyr_gen/app"
 )
 
 func main() {
@@ -27,10 +27,10 @@ func main() {
 		w.Write([]byte(strconv.Itoa(os.Getpid())))
 	})
 	mux.Handle("/", app.New().Handler())
-	if err := orbit.ListenAndServe(gzipped(mux)); err != nil {
+	if err := lyr.ListenAndServe(gzipped(mux)); err != nil {
 		log.Fatal(err)
 	}
-	dir := filepath.Join(".orbit", "stopped")
+	dir := filepath.Join(".lyr", "stopped")
 	os.MkdirAll(dir, 0o755)
 	os.WriteFile(filepath.Join(dir, strconv.Itoa(os.Getpid())), []byte("SIGINT"), 0o644)
 }

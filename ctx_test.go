@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"errors"
@@ -65,7 +65,7 @@ func TestRedirect(t *testing.T) {
 			t.Errorf("Redirect(%d) = %+v", code, re)
 		}
 	}
-	if got := c.Redirect("/a", 302).Error(); got != "orbit: redirect 302 to /a" {
+	if got := c.Redirect("/a", 302).Error(); got != "lyr: redirect 302 to /a" {
 		t.Errorf("Error() = %q", got)
 	}
 }

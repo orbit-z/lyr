@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// cgGen generates one .orbit file.
+// cgGen generates one .lyr file.
 type cgGen struct {
 	in       *Input
 	f        *File
@@ -20,14 +20,14 @@ type cgGen struct {
 	o     *cgOut // the file being written (impl, while the template is emitted)
 	diags []Diagnostic
 	sites []CallSite
-	// ifRef is set once a lowered orbit.If site has kept a reference to
+	// ifRef is set once a lowered lyr.If site has kept a reference to
 	// its callee (ifSite).
 	ifRef bool
 	// defers are the server:defer call sites, in order.
 	defers []DeferSite
 
-	// imports maps an .orbit import alias to its spec.
-	imports map[string]*OrbitImport
+	// imports maps a .lyr import alias to its spec.
+	imports map[string]*LyrImport
 	// tagUsed holds the aliases the template uses as tags.
 	tagUsed map[string]bool
 	// skipAttr holds the slot="x" attributes of a component's direct
@@ -41,11 +41,11 @@ type cgGen struct {
 	rtNames   map[string]bool
 	// directUsed holds the aliases called directly in the build flavor.
 	directUsed map[string]bool
-	// dynTags numbers the dynamic tags of the impl file (orbit__t1, …),
+	// dynTags numbers the dynamic tags of the impl file (lyr__t1, …),
 	// in emission order: stable across passes, and across a reformat that
-	// moves offsets (orbit fmt compares the generated code).
+	// moves offsets (lyr fmt compares the generated code).
 	dynTags int
-	// spreadTmps numbers the props spread operands (orbit__s1, …), the
+	// spreadTmps numbers the props spread operands (lyr__s1, …), the
 	// same way.
 	spreadTmps int
 }
@@ -65,7 +65,7 @@ func cgGenerate(in *Input) (out *Output) {
 		a:        in.Analysis,
 		src:      in.File.Src,
 		tolerant: in.Options.Mode == Tolerant,
-		imports:  map[string]*OrbitImport{},
+		imports:  map[string]*LyrImport{},
 		tagUsed:  map[string]bool{},
 		skipAttr: map[*Attr]bool{},
 
@@ -83,8 +83,8 @@ func cgGenerate(in *Input) (out *Output) {
 	if HasScopedStyle(g.f) {
 		g.scope = ScopeAttr(g.a.Info.Path)
 	}
-	for i := range g.a.OrbitImports {
-		imp := &g.a.OrbitImports[i]
+	for i := range g.a.LyrImports {
+		imp := &g.a.LyrImports[i]
 		if _, dup := g.imports[imp.Alias]; !dup {
 			g.imports[imp.Alias] = imp
 		}
@@ -104,7 +104,7 @@ func cgGenerate(in *Input) (out *Output) {
 			return true
 		})
 	}
-	for _, imp := range g.a.OrbitImports {
+	for _, imp := range g.a.LyrImports {
 		if _, ok := g.in.Index[imp.Resolved]; !ok && imp.Place != 0 {
 			g.errorf(imp.PathSpan, "no such component: %s", imp.Resolved)
 		}
@@ -137,14 +137,14 @@ func (g *cgGen) newFile(path, importPath, pkgName string) *GenFile {
 
 func (g *cgGen) finish(gf *GenFile) *GenFile {
 	gf.Content = g.o.b
-	gf.Map = &SourceMap{Orbit: g.a.Info.Path, Gen: gf.Path, Segments: g.o.segs}
+	gf.Map = &SourceMap{Lyr: g.a.Info.Path, Gen: gf.Path, Segments: g.o.segs}
 	return gf
 }
 
 const runtimeImport = NameRuntime + ` "` + RuntimePath + `"`
-const orbitImport = `orbit "` + RuntimePath + `"`
+const lyrImport = `lyr "` + RuntimePath + `"`
 
-// userImports writes the Go and .orbit imports for one package, each under
+// userImports writes the Go and .lyr imports for one package, each under
 // an own-line directive, and the reset after them.
 func (g *cgGen) userImports(place Placement) {
 	o := g.o
@@ -160,7 +160,7 @@ func (g *cgGen) userImports(place Placement) {
 		}
 		specs = append(specs, spec{imp.Span.Start, func() { o.copySeg(imp.Span) }})
 	}
-	for _, imp := range g.a.OrbitImports {
+	for _, imp := range g.a.LyrImports {
 		if imp.Place&place == 0 { // unused: A's error, emitted nowhere (gap 1)
 			continue
 		}
@@ -177,7 +177,7 @@ func (g *cgGen) userImports(place Placement) {
 			o.str(ws)
 			gs := len(o.b)
 			o.str(strconv.Quote(target.DeclImportPath(g.in.Options.Module)))
-			o.segs = append(o.segs, Segment{Kind: SegSpan, OrbitStart: imp.PathSpan.Start, OrbitEnd: imp.PathSpan.End, GoStart: gs, GoEnd: len(o.b)})
+			o.segs = append(o.segs, Segment{Kind: SegSpan, LyrStart: imp.PathSpan.Start, LyrEnd: imp.PathSpan.End, GoStart: gs, GoEnd: len(o.b)})
 		}})
 	}
 	// Source order, so segments stay sorted on both sides.
@@ -223,8 +223,8 @@ func (g *cgGen) genDecl() *GenFile {
 	o := g.o
 	o.str(GenHeader + "\n\npackage " + g.pkg.Name + "\n\nimport (\n")
 	o.ln("\t" + runtimeImport)
-	if g.a.ImplicitOrbit&PlaceDecl != 0 {
-		o.ln("\t" + orbitImport)
+	if g.a.ImplicitLyr&PlaceDecl != 0 {
+		o.ln("\t" + lyrImport)
 	}
 	g.userImports(PlaceDecl)
 	o.str(")\n\n")
@@ -248,7 +248,7 @@ func (g *cgGen) genDecl() *GenFile {
 	o.str("var " + NameHook + " func(*" + NameRuntime + ".Ctx, *" + NameRuntime + ".Writer, Props, " + NameRuntime + ".Slots" + params + ") error\n\n")
 	o.str("func Render(" + NameCtx + " *" + NameRuntime + ".Ctx, " + NameW + " *" + NameRuntime + ".Writer, " + NameProps + " Props, " + NameSlots + " " + NameRuntime + ".Slots) error {\n")
 	o.str("\tif " + NameHook + " == nil {\n")
-	o.str("\t\tpanic(" + strconv.Quote("orbit: "+g.a.Info.Path+" not linked; import "+g.in.Options.Module+"/"+GenDir+"/app") + ")\n")
+	o.str("\t\tpanic(" + strconv.Quote("lyr: "+g.a.Info.Path+" not linked; import "+g.in.Options.Module+"/"+GenDir+"/app") + ")\n")
 	o.str("\t}\n")
 	call := "\treturn " + NameHook + "(" + NameCtx + ", " + NameW + ", " + NameProps + ", " + NameSlots
 	switch {
@@ -292,8 +292,8 @@ func (g *cgGen) genImpl() *GenFile {
 		o.ln("\t" + NameLocals + " " + strconv.Quote(g.in.Options.Locals))
 	}
 	g.userImports(PlaceImpl)
-	if g.a.ImplicitOrbit&PlaceImpl != 0 {
-		o.ln("\t" + orbitImport)
+	if g.a.ImplicitLyr&PlaceImpl != 0 {
+		o.ln("\t" + lyrImport)
 	}
 	o.str(")\n\n")
 	g.hoisted(PlaceImpl)
@@ -362,10 +362,10 @@ func (g *cgGen) genImpl() *GenFile {
 }
 
 // NameDirect is the import name of the implementation package of the
-// component imported as alias, in the build flavor: "orbit__Card"
+// component imported as alias, in the build flavor: "lyr__Card"
 // (PLAN.md §3.5). Aliases start with an uppercase letter, so it can't
-// clash with Orbit's own orbit__ names.
-func NameDirect(alias string) string { return "orbit__" + alias }
+// clash with Lyr's own lyr__ names.
+func NameDirect(alias string) string { return "lyr__" + alias }
 
 // directCall reports whether the build flavor calls n's implementation
 // directly (PLAN.md §3.5).
@@ -424,8 +424,8 @@ func (g *cgGen) hasConcurrent() bool {
 func (g *cgGen) declaresLocals() bool { return g.tolerant || g.a.UsesLocals }
 
 // stmt writes one body statement and its line break. Each return result is
-// wrapped as orbit__rt.ErrorAt("<path>:L:C", <result>), so a returned error
-// carries the .orbit position of its return; the statement's other code and
+// wrapped as lyr__rt.ErrorAt("<path>:L:C", <result>), so a returned error
+// carries the .lyr position of its return; the statement's other code and
 // each result are copied inline (kind=exact), the wrapper is glue.
 func (g *cgGen) stmt(s Stmt) {
 	o := g.o

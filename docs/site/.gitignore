@@ -1,5 +1,5 @@
-orbit_gen/
-.orbit/
+lyr_gen/
+.lyr/
 dist/
 node_modules/
 

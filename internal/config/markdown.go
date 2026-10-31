@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/orbit-z/orbit/internal/markdown"
+	"github.com/orbit-z/lyr/internal/markdown"
 )
 
 // parseMarkdown parses the "markdown" key (PLAN.md §8): gfm, smartypants,

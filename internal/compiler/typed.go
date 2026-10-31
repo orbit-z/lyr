@@ -11,7 +11,7 @@ import (
 	"go/types"
 )
 
-// Unit is one .orbit file going through the typed pass: its codegen input
+// Unit is one .lyr file going through the typed pass: its codegen input
 // and the pass-1 output generated from it (Input.Typed nil).
 type Unit struct {
 	Input *Input
@@ -33,7 +33,7 @@ type Unit struct {
 // "source", nil), or a map of fake packages).
 type ExportLoader interface {
 	// Load prepares paths, the direct imports of the generated packages
-	// that aren't under <module>/orbit_gen, and returns an importer for them
+	// that aren't under <module>/lyr_gen, and returns an importer for them
 	// and their dependencies, recording positions in fset. The importer
 	// must be safe for concurrent use. An error means no export data at
 	// all; a single unreadable package is an error from Import instead.
@@ -50,9 +50,9 @@ type TypedUnit struct {
 	// package has type errors (the later go build reports them), or export
 	// data for one of its imports couldn't be read (with a warning).
 	Checked bool
-	// Diagnostics are the typed pass's errors at .orbit positions: the
+	// Diagnostics are the typed pass's errors at .lyr positions: the
 	// server:defer Props that aren't JSON-serializable (PLAN.md §3.4).
-	// Only a checked unit has them, plus the orbit.JSON arguments and
+	// Only a checked unit has them, plus the lyr.JSON arguments and
 	// set:json values that encoding/json can never encode (PLAN.md §5c),
 	// and the class:list items that aren't a string or []string (§2.3).
 	Diagnostics []Diagnostic
@@ -68,15 +68,15 @@ type CheckResult struct {
 	// Update, the changed units first, then the importers re-checked
 	// because a decl package changed.
 	Units []TypedUnit
-	// Warnings are not tied to an .orbit position, e.g. "orbit: can't read
+	// Warnings are not tied to a .lyr position, e.g. "lyr: can't read
 	// export data for example.com/blog/internal/posts: …; using Expr
 	// fallbacks".
 	Warnings []string
 }
 
 // Checker type-checks generated packages from their pass-1 source and picks
-// typed writes. It is resident in orbit dev (hot and incremental) and used
-// once by orbit build/generate (TypedPass). Methods must not be called
+// typed writes. It is resident in lyr dev (hot and incremental) and used
+// once by lyr build/generate (TypedPass). Methods must not be called
 // concurrently.
 type Checker struct {
 	loader ExportLoader
@@ -93,8 +93,8 @@ type Checker struct {
 
 // Preload starts loading export data for paths in the background (the
 // go list -export of the next Check or Update), so that it overlaps the
-// work before that call (PLAN.md §3.3 Engine): orbit generate starts it
-// once the .orbit files are parsed, with their Go imports, and orbit dev
+// work before that call (PLAN.md §3.3 Engine): lyr generate starts it
+// once the .lyr files are parsed, with their Go imports, and lyr dev
 // when a user .go file changes, with the paths of the last load. The next
 // Check, or Update that needs a load, uses it when every path it needs is
 // among paths, and otherwise loads as usual: a wrong guess costs time,
@@ -127,9 +127,9 @@ func (c *Checker) Check(ctx context.Context, units []Unit) (*CheckResult, error)
 	return c.check(ctx, units)
 }
 
-// Update re-checks after an edit (orbit dev, PLAN.md §3.3 Dev). changed are
+// Update re-checks after an edit (lyr dev, PLAN.md §3.3 Dev). changed are
 // new pass-1 units for edited or added files; removed are project-relative
-// .orbit paths of deleted files. A unit whose decl content is unchanged
+// .lyr paths of deleted files. A unit whose decl content is unchanged
 // re-checks only its impl package; a changed decl package re-checks it and
 // every unit importing it. Load reruns only after Invalidate. Requires an
 // earlier Check. May be implemented after milestone 4 as a full Check over
@@ -139,12 +139,12 @@ func (c *Checker) Update(ctx context.Context, changed []Unit, removed []string) 
 }
 
 // Invalidate drops the loaded export data, so the next Update reloads it:
-// call it when a user .go file, go.mod or orbit.json changes.
+// call it when a user .go file, go.mod or lyr.json changes.
 func (c *Checker) Invalidate() {
 	c.invalidate()
 }
 
-// TypedPass is the one-shot pass of orbit build and orbit generate:
+// TypedPass is the one-shot pass of lyr build and lyr generate:
 // NewChecker(loader).Check(ctx, units).
 func TypedPass(ctx context.Context, units []Unit, loader ExportLoader) (*CheckResult, error) {
 	return NewChecker(loader).Check(ctx, units)

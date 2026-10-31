@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"net/http"
@@ -10,14 +10,14 @@ import (
 
 func slashRoutes() []Route {
 	return []Route{
-		{Pattern: "/", File: "src/pages/index.orbit", Render: page("home")},
-		{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/", File: "src/pages/index.lyr", Render: page("home")},
+		{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].lyr", Render: func(c *Ctx, w *Writer) error {
 			w.Raw("post " + c.Param("slug"))
 			return nil
 		}},
-		{Pattern: "/search", File: "src/pages/search.orbit", Render: page("search")},
-		{Pattern: "/rss.xml", File: "src/pages/rss.xml.orbit", Render: page("rss")},
-		{Pattern: "/docs", File: "src/pages/docs.orbit", Render: page("docs page")},
+		{Pattern: "/search", File: "src/pages/search.lyr", Render: page("search")},
+		{Pattern: "/rss.xml", File: "src/pages/rss.xml.lyr", Render: page("rss")},
+		{Pattern: "/docs", File: "src/pages/docs.lyr", Render: page("docs page")},
 	}
 }
 
@@ -47,7 +47,7 @@ func TestTrailingSlashAlways(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "robots.txt"), "robots")
 	writeFile(t, filepath.Join(dir, "docs"), "public docs") // files come before pages
-	writeFile(t, filepath.Join(dir, "_orbit", "app-1234.js"), "js")
+	writeFile(t, filepath.Join(dir, "_lyr", "app-1234.js"), "js")
 	s := testSite(t, slashRoutes(), WithStaticDir(dir), WithTrailingSlash(TrailingSlashAlways))
 	for _, tt := range []struct{ target, body string }{
 		{"/", "home"},
@@ -57,7 +57,7 @@ func TestTrailingSlashAlways(t *testing.T) {
 		{"/rss.xml", "rss"},
 		{"/robots.txt", "robots"},
 		{"/docs", "public docs"},
-		{"/_orbit/app-1234.js", "js"},
+		{"/_lyr/app-1234.js", "js"},
 	} {
 		if rec := do(s.Handler(), "GET", tt.target); rec.Code != 200 || rec.Body.String() != tt.body {
 			t.Errorf("GET %s: got %d %q, want 200 %q", tt.target, rec.Code, rec.Body, tt.body)
@@ -66,7 +66,7 @@ func TestTrailingSlashAlways(t *testing.T) {
 	// Never redirected: these reach next untouched.
 	for _, target := range []string{
 		"/blog/hello/x", "/blog/v1.2", "/rss.xml/", "/robots", "/x", "/blog//",
-		"//evil.example", "/_orbit/x", "/_orbit/app-1234.js/",
+		"//evil.example", "/_lyr/x", "/_lyr/app-1234.js/",
 	} {
 		next := &nextHandler{}
 		rec := do(s.Middleware(next), "GET", target)
@@ -75,13 +75,13 @@ func TestTrailingSlashAlways(t *testing.T) {
 		}
 	}
 	// Island URLs are answered by the island endpoint, never redirected.
-	if rec := do(s.Handler(), "GET", "/_orbit/island/0000000000000000/x"); rec.Code != 404 {
+	if rec := do(s.Handler(), "GET", "/_lyr/island/0000000000000000/x"); rec.Code != 404 {
 		t.Errorf("island URL: got %d %q", rec.Code, rec.Header().Get("Location"))
 	}
 }
 
-// Orbit first: a mux route that isn't a page in either form reaches next.
-func TestTrailingSlashOrbitFirst(t *testing.T) {
+// Lyr first: a mux route that isn't a page in either form reaches next.
+func TestTrailingSlashLyrFirst(t *testing.T) {
 	for _, m := range []struct {
 		mode   TrailingSlash
 		target string
@@ -109,7 +109,7 @@ func TestServeAllocsAlways(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("allocation counts (not under -short or -race)")
 	}
-	t.Setenv("ORBIT_DEV", "")
+	t.Setenv("LYR_DEV", "")
 	s := testSite(t, allocRoutes, WithSite("https://example.com"), WithTrailingSlash(TrailingSlashAlways))
 	h := s.Middleware(http.NotFoundHandler())
 	for _, target := range []string{"/", "/blog/hello-world/", "/hello/"} {
@@ -133,14 +133,14 @@ func TestServeAllocsAlways(t *testing.T) {
 
 // slashFirstSite is slashRoutes with public files (robots.txt, and docs
 // and LICENSE without an extension, docs named like a page) and an
-// /_orbit/ asset.
+// /_lyr/ asset.
 func slashFirstSite(t *testing.T, mode TrailingSlash) *Site {
 	t.Helper()
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "robots.txt"), "robots")
 	writeFile(t, filepath.Join(dir, "docs"), "public docs")
 	writeFile(t, filepath.Join(dir, "LICENSE"), "MIT")
-	writeFile(t, filepath.Join(dir, "_orbit", "app-1234.js"), "js")
+	writeFile(t, filepath.Join(dir, "_lyr", "app-1234.js"), "js")
 	return testSite(t, slashRoutes(), WithStaticDir(dir), WithTrailingSlash(mode))
 }
 
@@ -160,8 +160,8 @@ func TestSiteTrailingSlash(t *testing.T) {
 				{"/rss.xml/", "/rss.xml"},
 			}, []string{
 				"/", "/blog/hello", "/search?q=go", "/docs", "/rss.xml", "/x",
-				"/unknown/", "/x//", "/blog//", "//evil.example/", "/_orbit/x/", "/_orbit/app-1234.js/",
-				"/_orbit/island/0000000000000000/x/", "/robots.txt",
+				"/unknown/", "/x//", "/blog//", "//evil.example/", "/_lyr/x/", "/_lyr/app-1234.js/",
+				"/_lyr/island/0000000000000000/x/", "/robots.txt",
 			}},
 			{TrailingSlashAlways, []redirect{
 				{"/blog/hello", "/blog/hello/"},
@@ -169,12 +169,12 @@ func TestSiteTrailingSlash(t *testing.T) {
 				{"/blog/a%20b", "/blog/a%20b/"},
 				{"/search", "/search/"},
 			}, []string{
-				"/", "/blog/hello/", "/search/?q=go", "/rss.xml", "/robots.txt", "/LICENSE", "/_orbit/app-1234.js",
-				"/blog/v1.2", "/rss.xml/", "/unknown", "/x//", "//evil.example", "/_orbit/x",
-				"/_orbit/island/0000000000000000/x",
+				"/", "/blog/hello/", "/search/?q=go", "/rss.xml", "/robots.txt", "/LICENSE", "/_lyr/app-1234.js",
+				"/blog/v1.2", "/rss.xml/", "/unknown", "/x//", "//evil.example", "/_lyr/x",
+				"/_lyr/island/0000000000000000/x",
 			}},
 		} {
-			t.Setenv("ORBIT_DEV", dev)
+			t.Setenv("LYR_DEV", dev)
 			s := slashFirstSite(t, m.mode)
 			name := "mode=" + modeName[m.mode] + " dev=" + dev
 			for _, method := range []string{"GET", "HEAD", "POST"} {
@@ -225,7 +225,7 @@ func TestTrailingSlashAgrees(t *testing.T) {
 	redirects := 0
 	for _, dev := range []string{"", "1"} {
 		for _, mode := range []TrailingSlash{TrailingSlashNever, TrailingSlashAlways} {
-			t.Setenv("ORBIT_DEV", dev)
+			t.Setenv("LYR_DEV", dev)
 			s := matchSite(t, WithTrailingSlash(mode))
 			first := s.TrailingSlash(&nextHandler{})
 			inside := s.Middleware(&nextHandler{})
@@ -288,17 +288,17 @@ func TestTrailingSlashAllocs(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("allocation counts (not under -short or -race)")
 	}
-	t.Setenv("ORBIT_DEV", "")
+	t.Setenv("LYR_DEV", "")
 	for _, m := range []struct {
 		mode            TrailingSlash
 		pass, redirects []string
 	}{
 		{TrailingSlashNever,
-			[]string{"/", "/blog/hello", "/search?q=go", "/unknown/", "/_orbit/x/", "/x//", "//evil.example/", "/robots.txt"},
+			[]string{"/", "/blog/hello", "/search?q=go", "/unknown/", "/_lyr/x/", "/x//", "//evil.example/", "/robots.txt"},
 			[]string{"/blog/hello/", "/search/?q=go"}},
 		{TrailingSlashAlways,
-			[]string{"/", "/blog/hello/", "/unknown", "/rss.xml", "/robots.txt", "/docs", "/_orbit/app-1234.js",
-				"/_orbit/island/0000000000000000/x", "//evil.example"},
+			[]string{"/", "/blog/hello/", "/unknown", "/rss.xml", "/robots.txt", "/docs", "/_lyr/app-1234.js",
+				"/_lyr/island/0000000000000000/x", "//evil.example"},
 			[]string{"/blog/hello", "/search?q=go"}},
 	} {
 		s := slashFirstSite(t, m.mode)
@@ -328,9 +328,9 @@ func TestTrailingSlashAllocs(t *testing.T) {
 }
 
 func benchTrailingSlash(b *testing.B, mode TrailingSlash, target string, wantStatus int) {
-	b.Setenv("ORBIT_DEV", "")
-	b.Setenv("ORBIT_STATIC", "")
-	b.Setenv("ORBIT_PUBLIC", "")
+	b.Setenv("LYR_DEV", "")
+	b.Setenv("LYR_STATIC", "")
+	b.Setenv("LYR_PUBLIC", "")
 	s := NewSite(slashRoutes(), nil, WithStaticDir(b.TempDir()), WithTrailingSlash(mode))
 	h := s.TrailingSlash(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(299) }))
 	fw := newFakeResponseWriter()

@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
-// Incremental is the resident typed pass of orbit dev (PLAN.md §3.3 Dev):
+// Incremental is the resident typed pass of lyr dev (PLAN.md §3.3 Dev):
 // it keeps one compiler.Checker between edits and re-checks only the files
 // whose pass-1 output changed (and the importers of a changed decl
 // package), reusing the previous output of every other file. It is not
@@ -35,7 +35,7 @@ func NewIncremental(checker *compiler.Checker) *Incremental {
 }
 
 // Invalidate drops the loaded export data: call it when a user .go file,
-// go.mod or orbit.json changed, so the next Typecheck reruns go list
+// go.mod or lyr.json changed, so the next Typecheck reruns go list
 // -export and re-checks every file. It starts that go list right away
 // (Checker.Preload), over the packages of the last load, so that it runs
 // during the front and esbuild; a new import loads again.
@@ -47,7 +47,7 @@ func (in *Incremental) Invalidate() {
 // Changed reports whether p (after Front) differs from the last Typecheck
 // in anything the generated Go code depends on: a file added or removed,
 // or a different pass-1 output. When it reports false, regenerating would
-// write nothing for the .orbit files.
+// write nothing for the .lyr files.
 func (in *Incremental) Changed(p *Project) bool {
 	if !in.checked || len(p.Files) != len(in.prev) {
 		return true
@@ -61,7 +61,7 @@ func (in *Incremental) Changed(p *Project) bool {
 	return false
 }
 
-// Typecheck is Project.Typecheck for orbit dev: the first call checks
+// Typecheck is Project.Typecheck for lyr dev: the first call checks
 // every file; later ones Update the checker with the files whose pass-1
 // output changed and the removed ones. It sets every File's Output, adds
 // the typed pass's diagnostics to p.Diagnostics, and returns the
@@ -107,7 +107,7 @@ func (in *Incremental) Typecheck(ctx context.Context, p *Project) (warnings []st
 		} else if old != nil {
 			f.Output, f.Typed, f.Writes, f.Types, diags = old.out, old.typed, old.writes, old.types, old.diags
 		} else {
-			return nil, 0, fmt.Errorf("orbit: %s was not type-checked", f.Path)
+			return nil, 0, fmt.Errorf("lyr: %s was not type-checked", f.Path)
 		}
 		for _, d := range diags {
 			ds = append(ds, fromCompiler(f, d))

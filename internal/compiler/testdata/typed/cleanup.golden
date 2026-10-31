@@ -1,14 +1,14 @@
 -- go build --
-src/components/Broken.orbit:2:22: undefined: Missing
-src/components/Card.orbit:5:6: helper redeclared in this block
-	src/components/Card.orbit:4:6: other declaration of helper
-src/components/Card.orbit:6:16: cannot use props (variable of struct type Props) as string value in variable declaration
-src/components/Card.orbit:8:8: props.Titel undefined (type Props has no field or method Titel)
-src/pages/index.orbit:6:13: cannot use x (variable of struct type Card.Props) as int value in variable declaration
-src/pages/index.orbit:7:22: cannot use x (variable of struct type Card.Props) as UICard.Props value in variable declaration
-src/pages/index.orbit:9:7: unknown field Titel in struct literal of type Card.Props
+src/components/Broken.lyr:2:22: undefined: Missing
+src/components/Card.lyr:5:6: helper redeclared in this block
+	src/components/Card.lyr:4:6: other declaration of helper
+src/components/Card.lyr:6:16: cannot use props (variable of struct type Props) as string value in variable declaration
+src/components/Card.lyr:8:8: props.Titel undefined (type Props has no field or method Titel)
+src/pages/index.lyr:6:13: cannot use x (variable of struct type Card.Props) as int value in variable declaration
+src/pages/index.lyr:7:22: cannot use x (variable of struct type Card.Props) as UICard.Props value in variable declaration
+src/pages/index.lyr:9:7: unknown field Titel in struct literal of type Card.Props
 -- go vet --
-src/components/Broken.orbit:2:22: undefined: Missing
-src/components/Card.orbit:5:6: helper redeclared in this block
-src/components/Other.orbit:4:13: fmt.Printf format %d has arg "s" of wrong type string
-src/pages/index.orbit:6:13: cannot use x (variable of struct type Card.Props) as int value in variable declaration
+src/components/Broken.lyr:2:22: undefined: Missing
+src/components/Card.lyr:5:6: helper redeclared in this block
+src/components/Other.lyr:4:13: fmt.Printf format %d has arg "s" of wrong type string
+src/pages/index.lyr:6:13: cannot use x (variable of struct type Card.Props) as int value in variable declaration

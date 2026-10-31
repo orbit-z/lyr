@@ -9,8 +9,8 @@ import (
 	"testing"
 	"unicode/utf16"
 
-	"github.com/orbit-z/orbit/internal/check"
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/check"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // utf16Col is the UTF-16 column of byte offset off in its line.
@@ -74,7 +74,7 @@ func TestBlankText(t *testing.T) {
 
 func TestBuildVdocs(t *testing.T) {
 	ws := memWorkspace(t, map[string]string{
-		"src/pages/index.orbit": `---
+		"src/pages/index.lyr": `---
 ---
 <script>const a: number = 1;</script>
 <script src="./x.ts"></script>
@@ -87,19 +87,19 @@ func TestBuildVdocs(t *testing.T) {
 <script type="application/json" set:json={1}></script>
 <script is:inline src="https://example.com/x.js"></script>
 `,
-		"src/pages/open.orbit": "---\n---\n<p>x</p>\n<script>\nlet unclosed = 1;\n",
+		"src/pages/open.lyr": "---\n---\n<p>x</p>\n<script>\nlet unclosed = 1;\n",
 	})
-	docs := ws.vdocsOf("src/pages/index.orbit")
+	docs := ws.vdocsOf("src/pages/index.lyr")
 	var got []string
 	for _, d := range docs {
 		got = append(got, strings.TrimPrefix(uriToPath(d.uri), ws.root+"/")+" "+d.kind.languageID())
 	}
 	want := []string{
-		".orbit/lsp/src/pages/index.orbit.0.ts typescript",
-		".orbit/lsp/src/pages/index.orbit.2.ts typescript", // 1 is the src script, like orbit check's names
-		".orbit/lsp/src/pages/index.orbit.inline.js javascript",
-		".orbit/lsp/src/pages/index.orbit.3.ts typescript",
-		".orbit/lsp/src/pages/index.orbit.module.0.js javascript",
+		".lyr/lsp/src/pages/index.lyr.0.ts typescript",
+		".lyr/lsp/src/pages/index.lyr.2.ts typescript", // 1 is the src script, like lyr check's names
+		".lyr/lsp/src/pages/index.lyr.inline.js javascript",
+		".lyr/lsp/src/pages/index.lyr.3.ts typescript",
+		".lyr/lsp/src/pages/index.lyr.module.0.js javascript",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("documents:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -117,44 +117,44 @@ func TestBuildVdocs(t *testing.T) {
 		t.Error("the classic document holds a processed script")
 	}
 	// The unclosed script (tolerant parse) still gets a document.
-	if d := ws.vdocsOf("src/pages/open.orbit"); len(d) != 1 || !strings.Contains(d[0].text, "let unclosed = 1;") {
+	if d := ws.vdocsOf("src/pages/open.lyr"); len(d) != 1 || !strings.Contains(d[0].text, "let unclosed = 1;") {
 		t.Errorf("unclosed script: %v", d)
 	}
 	// Positions route by content span, end inclusive.
-	src := ws.byPath["src/pages/index.orbit"].Src
-	if d := ws.vdocAt("src/pages/index.orbit", strings.Index(src, "const b")); d == nil || d != docs[1] {
+	src := ws.byPath["src/pages/index.lyr"].Src
+	if d := ws.vdocAt("src/pages/index.lyr", strings.Index(src, "const b")); d == nil || d != docs[1] {
 		t.Errorf("vdocAt const b: %v", d)
 	}
-	if d := ws.vdocAt("src/pages/index.orbit", strings.Index(src, "<script>")); d != nil {
+	if d := ws.vdocAt("src/pages/index.lyr", strings.Index(src, "<script>")); d != nil {
 		t.Errorf("vdocAt on the tag: %v", d.uri)
 	}
 	// URIs map back.
 	for _, d := range docs {
-		if ws.vdocByURI(d.uri) != d || orbitOfVdocPath(ws.rel(uriToPath(d.uri))) != "src/pages/index.orbit" {
+		if ws.vdocByURI(d.uri) != d || lyrOfVdocPath(ws.rel(uriToPath(d.uri))) != "src/pages/index.lyr" {
 			t.Errorf("%s doesn't map back", d.uri)
 		}
 	}
 }
 
 func TestTsconfigText(t *testing.T) {
-	ws := memWorkspace(t, map[string]string{"src/pages/index.orbit": "<p/>", "tsconfig.json": `{"include": ["src/**/*.ts"]}`})
+	ws := memWorkspace(t, map[string]string{"src/pages/index.lyr": "<p/>", "tsconfig.json": `{"include": ["src/**/*.ts"]}`})
 	u, err := check.ReadUserTsconfig(ws.root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got, want := tsconfigText(ws.root), check.Tsconfig(u); got != want {
-		t.Errorf("in-memory tsconfig:\n%s\nwant orbit check's:\n%s", got, want)
+		t.Errorf("in-memory tsconfig:\n%s\nwant lyr check's:\n%s", got, want)
 	}
-	if ws.tsconfigURI() != pathToURI(filepath.Join(ws.root, ".orbit", "lsp", "tsconfig.json")) {
+	if ws.tsconfigURI() != pathToURI(filepath.Join(ws.root, ".lyr", "lsp", "tsconfig.json")) {
 		t.Errorf("tsconfig URI %s", ws.tsconfigURI())
 	}
 }
 
 func TestTypesPaths(t *testing.T) {
 	for _, tc := range []struct{ rel, want string }{
-		{"orbit_gen/types/go.d.ts", "orbit_gen/types/go.d.ts"},
-		{"orbit_gen/types/src/components/Like.orbit.d.ts", "orbit_gen/types/src/components/Like.orbit.d.ts"},
-		{"src/components/Like.orbit.d.ts", "orbit_gen/types/src/components/Like.orbit.d.ts"},
+		{"lyr_gen/types/go.d.ts", "lyr_gen/types/go.d.ts"},
+		{"lyr_gen/types/src/components/Like.lyr.d.ts", "lyr_gen/types/src/components/Like.lyr.d.ts"},
+		{"src/components/Like.lyr.d.ts", "lyr_gen/types/src/components/Like.lyr.d.ts"},
 		{"src/scripts/util.ts", ""},
 	} {
 		got, _ := typesRel(tc.rel)
@@ -162,10 +162,10 @@ func TestTypesPaths(t *testing.T) {
 			t.Errorf("typesRel(%s) = %q, want %q", tc.rel, got, tc.want)
 		}
 	}
-	if got := tsOverlayRel("orbit_gen/types/src/components/Like.orbit.d.ts"); got != "src/components/Like.orbit.d.ts" {
+	if got := tsOverlayRel("lyr_gen/types/src/components/Like.lyr.d.ts"); got != "src/components/Like.lyr.d.ts" {
 		t.Errorf("unit overlay at %s", got)
 	}
-	if got := tsOverlayRel("orbit_gen/types/go.d.ts"); got != "orbit_gen/types/go.d.ts" {
+	if got := tsOverlayRel("lyr_gen/types/go.d.ts"); got != "lyr_gen/types/go.d.ts" {
 		t.Errorf("go.d.ts overlay at %s", got)
 	}
 }
@@ -177,21 +177,21 @@ func tsUnitServer(t *testing.T, files map[string]string, documentChanges bool) (
 	return s, ws
 }
 
-const likeOrbit = `---
+const likeLyr = `---
 type like struct {
 	Likes int ` + "`json:\"likes\"`" + `
 }
 ---
-<like-button data-like={orbit.JSON(like{1})}></like-button>
+<like-button data-like={lyr.JSON(like{1})}></like-button>
 <script>
-  import { data } from "./Like.orbit";
+  import { data } from "./Like.lyr";
   const n = data(document.body, "like").likes;
 </script>
 `
 
 func TestTSMapping(t *testing.T) {
-	s, ws := tsUnitServer(t, map[string]string{"src/components/Like.orbit": likeOrbit}, true)
-	const p = "src/components/Like.orbit"
+	s, ws := tsUnitServer(t, map[string]string{"src/components/Like.lyr": likeLyr}, true)
+	const p = "src/components/Like.lyr"
 	src := ws.byPath[p].Src
 	lines := ws.lines[p]
 	d := ws.vdocsOf(p)[0]
@@ -204,12 +204,12 @@ func TestTSMapping(t *testing.T) {
 	os.MkdirAll(filepath.Dir(goFile), 0o755)
 	os.WriteFile(goFile, []byte("package posts\n\ntype Post struct {\n\tTitle string\n}\n"), 0o644)
 	ws.tsTypes = []compiler.TSFile{
-		{Path: "orbit_gen/types/go.d.ts", Sources: map[int]compiler.TSSource{
-			6: {File: p, Orbit: true, Start: strings.Index(src, "Likes"), End: strings.Index(src, "Likes") + 5},
+		{Path: "lyr_gen/types/go.d.ts", Sources: map[int]compiler.TSSource{
+			6: {File: p, Lyr: true, Start: strings.Index(src, "Likes"), End: strings.Index(src, "Likes") + 5},
 			9: {File: goFile, Line: 4, Col: 1, Name: "Title"},
 		}},
-		{Path: "orbit_gen/types/src/components/Like.orbit.d.ts", Sources: map[int]compiler.TSSource{
-			8: {File: p, Orbit: true, Start: strings.Index(src, "data-like"), End: strings.Index(src, "data-like") + 9},
+		{Path: "lyr_gen/types/src/components/Like.lyr.d.ts", Sources: map[int]compiler.TSSource{
+			8: {File: p, Lyr: true, Start: strings.Index(src, "data-like"), End: strings.Index(src, "data-like") + 9},
 		}},
 	}
 	loc := func(rel string, line int) string {
@@ -218,27 +218,27 @@ func TestTSMapping(t *testing.T) {
 	t.Run("definition locations", func(t *testing.T) {
 		vr := rangeAt("data(")
 		vloc, _ := json.Marshal(map[string]any{"uri": d.uri, "range": vr})
-		raw := jsonRaw("[" + string(vloc) + "," + loc("orbit_gen/types/go.d.ts", 6) + "," + loc("orbit_gen/types/go.d.ts", 9) + "," +
-			loc("src/components/Like.orbit.d.ts", 8) + "," + loc("src/scripts/util.ts", 3) + "," + loc("orbit_gen/types/client.d.ts", 2) + "]")
+		raw := jsonRaw("[" + string(vloc) + "," + loc("lyr_gen/types/go.d.ts", 6) + "," + loc("lyr_gen/types/go.d.ts", 9) + "," +
+			loc("src/components/Like.lyr.d.ts", 8) + "," + loc("src/scripts/util.ts", 3) + "," + loc("lyr_gen/types/client.d.ts", 2) + "]")
 		var got []location
 		json.Unmarshal(m.locations(raw, false), &got)
 		if len(got) != 6 {
 			t.Fatalf("%d locations: %v", len(got), got)
 		}
-		orbitURI := ws.orbitURI(p)
-		if got[0].URI != orbitURI || got[0].Range != vr {
+		lyrURI := ws.lyrURI(p)
+		if got[0].URI != lyrURI || got[0].Range != vr {
 			t.Errorf("virtual document location → %v", got[0])
 		}
-		if got[1].URI != orbitURI || got[1].Range != rangeAt("Likes") {
+		if got[1].URI != lyrURI || got[1].Range != rangeAt("Likes") {
 			t.Errorf("go.d.ts member → %v, want the Likes field", got[1])
 		}
 		if got[2].URI != pathToURI(goFile) || got[2].Range.Start != (Position{Line: 3, Character: 1}) || got[2].Range.End.Character != 6 {
 			t.Errorf("go.d.ts member of a .go file → %v", got[2])
 		}
-		if got[3].URI != orbitURI || got[3].Range != rangeAt("data-like") {
+		if got[3].URI != lyrURI || got[3].Range != rangeAt("data-like") {
 			t.Errorf("unit key → %v, want the data-like attribute", got[3])
 		}
-		if !strings.HasSuffix(got[4].URI, "src/scripts/util.ts") || !strings.HasSuffix(got[5].URI, "orbit_gen/types/client.d.ts") {
+		if !strings.HasSuffix(got[4].URI, "src/scripts/util.ts") || !strings.HasSuffix(got[5].URI, "lyr_gen/types/client.d.ts") {
 			t.Errorf("other files changed: %v %v", got[4], got[5])
 		}
 		// References drop the generated ones.
@@ -271,17 +271,17 @@ func TestTSMapping(t *testing.T) {
 	})
 	t.Run("rename touching generated types is refused", func(t *testing.T) {
 		we := `{"changes":{"` + d.uri + `":[{"range":` + string(mustJSON(rangeAt(".likes"))) + `,"newText":"count"}],"` +
-			pathToURI(filepath.Join(ws.root, "orbit_gen/types/go.d.ts")) + `":[{"range":{"start":{"line":6,"character":6},"end":{"line":6,"character":11}},"newText":"count"}]}}`
+			pathToURI(filepath.Join(ws.root, "lyr_gen/types/go.d.ts")) + `":[{"range":{"start":{"line":6,"character":6},"end":{"line":6,"character":11}},"newText":"count"}]}}`
 		if _, refused := m.workspaceEdit(jsonRaw(we), true); !refused {
 			t.Error("not refused")
 		}
 		out, refused := m.workspaceEdit(jsonRaw(we), false)
-		if refused || !strings.Contains(string(out), ws.orbitURI(p)) || strings.Contains(string(out), "orbit_gen") || strings.Contains(string(out), ".orbit/lsp") {
+		if refused || !strings.Contains(string(out), ws.lyrURI(p)) || strings.Contains(string(out), "lyr_gen") || strings.Contains(string(out), ".lyr/lsp") {
 			t.Errorf("mapped edit %s", out)
 		}
 		s.caps.documentChanges = false
 		out, _ = m.workspaceEdit(jsonRaw(we), false)
-		if !strings.HasPrefix(string(out), `{"changes":{"`+ws.orbitURI(p)) {
+		if !strings.HasPrefix(string(out), `{"changes":{"`+ws.lyrURI(p)) {
 			t.Errorf("changes form: %s", out)
 		}
 		s.caps.documentChanges = true
@@ -296,13 +296,13 @@ func TestTSMapping(t *testing.T) {
 			t.Fatalf("items %v", list.Items)
 		}
 		w := decodeObj(list.Items[0]["data"])
-		if w.str("orbit") != "ts" || w.str("u") != d.uri || string(w["d"]) != `{"name":"like"}` {
+		if w.str("lyr") != "ts" || w.str("u") != d.uri || string(w["d"]) != `{"name":"like"}` {
 			t.Errorf("data %s", list.Items[0]["data"])
 		}
 		if _, ok := list.Items[1]["textEdit"]; ok {
 			t.Errorf("an edit outside the script was kept: %v", list.Items[1])
 		}
-		// Items without the marker (gopls's, Orbit's) resolve to themselves.
+		// Items without the marker (gopls's, Lyr's) resolve to themselves.
 		item := jsonRaw(`{"label":"x","data":{"other":1}}`)
 		res, _ := s.tsResolve(context.Background(), item)
 		if string(res.(jsonRaw)) != string(item) {
@@ -311,7 +311,7 @@ func TestTSMapping(t *testing.T) {
 	})
 	t.Run("off-region triggers answer empty", func(t *testing.T) {
 		pos := lines.position(strings.Index(src, "const n"), encUTF16)
-		params, _ := json.Marshal(map[string]any{"textDocument": map[string]any{"uri": ws.orbitURI(p)}, "position": pos,
+		params, _ := json.Marshal(map[string]any{"textDocument": map[string]any{"uri": ws.lyrURI(p)}, "position": pos,
 			"context": map[string]any{"triggerKind": 2, "triggerCharacter": ":"}})
 		res, err, ok := s.tsRoute(context.Background(), "textDocument/completion", params)
 		if !ok || err != nil {
@@ -324,7 +324,7 @@ func TestTSMapping(t *testing.T) {
 			t.Error("the child was started for an off-region trigger")
 		}
 		// Outside a script: not routed.
-		params, _ = json.Marshal(map[string]any{"textDocument": map[string]any{"uri": ws.orbitURI(p)},
+		params, _ = json.Marshal(map[string]any{"textDocument": map[string]any{"uri": ws.lyrURI(p)},
 			"position": lines.position(strings.Index(src, "Likes"), encUTF16)})
 		if _, _, ok := s.tsRoute(context.Background(), "textDocument/hover", params); ok {
 			t.Error("a frontmatter position was routed to TypeScript")

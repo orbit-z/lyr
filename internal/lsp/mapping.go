@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
-// Position mapping between .orbit files and the generated Go files gopls
+// Position mapping between .lyr files and the generated Go files gopls
 // sees (PLAN.md §9 Positions). gopls ignores line directives, so every
-// location it reports in orbit_gen/** is translated through that file's
+// location it reports in lyr_gen/** is translated through that file's
 // source map; locations in the user's own files pass through.
 
 type jsonRaw = json.RawMessage
@@ -61,7 +61,7 @@ func isNull(raw jsonRaw) bool {
 	return len(raw) == 0 || string(raw) == "null"
 }
 
-// toGo maps a byte offset of the .orbit file at p to its generated code:
+// toGo maps a byte offset of the .lyr file at p to its generated code:
 // the segment that contains off (end inclusive, so a cursor right after
 // "props." maps) in the impl or decl file, preferring one that contains it
 // strictly over one that ends at it. exact segments map by arithmetic, span
@@ -76,11 +76,11 @@ func (ws *workspace) toGo(p string, off int) (*genFile, int, bool) {
 			continue
 		}
 		for _, s := range g.smap.Segments {
-			if s.Kind == compiler.SegEcho || s.Kind == compiler.SegSpread || off < s.OrbitStart || off > s.OrbitEnd {
+			if s.Kind == compiler.SegEcho || s.Kind == compiler.SegSpread || off < s.LyrStart || off > s.LyrEnd {
 				continue
 			}
 			r := 1
-			if off < s.OrbitEnd {
+			if off < s.LyrEnd {
 				r = 2
 			}
 			if r > rank {
@@ -91,15 +91,15 @@ func (ws *workspace) toGo(p string, off int) (*genFile, int, bool) {
 	if best == nil {
 		return nil, 0, false
 	}
-	return best, seg.GoStart + min(off-seg.OrbitStart, seg.GoEnd-seg.GoStart), true
+	return best, seg.GoStart + min(off-seg.LyrStart, seg.GoEnd-seg.GoStart), true
 }
 
-// fromGo maps a byte offset of a generated file back to its .orbit file.
+// fromGo maps a byte offset of a generated file back to its .lyr file.
 func (g *genFile) fromGo(goOff int) (int, bool) {
 	if g.smap == nil {
 		return 0, false
 	}
-	return g.smap.OrbitOffset(goOff)
+	return g.smap.LyrOffset(goOff)
 }
 
 // mapper translates gopls's locations for one response, with the gopls
@@ -134,7 +134,7 @@ func (m mapper) location(uri string, r Range) (outURI string, out Range, gen *ge
 	}
 	g := m.ws.gen[rel]
 	if g == nil {
-		return "", Range{}, nil, false // a stale generated file of no .orbit file
+		return "", Range{}, nil, false // a stale generated file of no .lyr file
 	}
 	start, end := m.genRange(g, r)
 	ostart, ok1 := g.fromGo(start)
@@ -145,11 +145,11 @@ func (m mapper) location(uri string, r Range) (outURI string, out Range, gen *ge
 	if !ok2 || oend < ostart {
 		oend = ostart
 	}
-	lines := m.ws.lines[g.orbit]
+	lines := m.ws.lines[g.lyr]
 	if lines == nil {
 		return "", Range{}, g, false
 	}
-	return m.ws.orbitURI(g.orbit), lines.rangeOf(ostart, oend, encUTF16), g, true
+	return m.ws.lyrURI(g.lyr), lines.rangeOf(ostart, oend, encUTF16), g, true
 }
 
 // reencode converts a range in a user file from gopls's encoding to UTF-16.
@@ -256,13 +256,13 @@ func (m mapper) mapLink(o obj, fallback func(g *genFile, r Range) (string, Range
 	o.set("targetRange", ntr)
 	o.set("targetSelectionRange", nts)
 	// originSelectionRange is in the requesting document: the caller's
-	// .orbit file, which gopls saw as generated code. Without a reliable
+	// .lyr file, which gopls saw as generated code. Without a reliable
 	// mapping, drop it (the editor then highlights the word itself).
 	delete(o, "originSelectionRange")
 	return true
 }
 
-// mapTextEdits maps the edits of one generated file into its .orbit file,
+// mapTextEdits maps the edits of one generated file into its .lyr file,
 // dropping edits whose range doesn't map (echo lines, glue). It returns the
 // mapped edits and how many were dropped.
 func (m mapper) mapTextEdits(g *genFile, edits []jsonRaw) (out []jsonRaw, dropped int) {
@@ -277,10 +277,10 @@ func (m mapper) mapTextEdits(g *genFile, edits []jsonRaw) (out []jsonRaw, droppe
 	return out, dropped
 }
 
-// orbitRange maps a gopls range in g to its .orbit file (UTF-16); ok is
+// lyrRange maps a gopls range in g to its .lyr file (UTF-16); ok is
 // false when either end doesn't map.
-func (m mapper) orbitRange(g *genFile, r Range) (Range, bool) {
-	lines := m.ws.lines[g.orbit]
+func (m mapper) lyrRange(g *genFile, r Range) (Range, bool) {
+	lines := m.ws.lines[g.lyr]
 	if lines == nil {
 		return Range{}, false
 	}
@@ -302,7 +302,7 @@ func (m mapper) mapEditRanges(g *genFile, o obj) bool {
 		if !has {
 			continue
 		}
-		nr, ok := m.orbitRange(g, r)
+		nr, ok := m.lyrRange(g, r)
 		if !ok {
 			return false
 		}
@@ -312,7 +312,7 @@ func (m mapper) mapEditRanges(g *genFile, o obj) bool {
 }
 
 // mapWorkspaceEdit maps a WorkspaceEdit from gopls: edits in generated
-// files move to their .orbit files (unmappable ones dropped), others pass
+// files move to their .lyr files (unmappable ones dropped), others pass
 // through. With changes set, documentChanges' text edits are converted to
 // the changes form (for clients without documentChanges support). It
 // returns the edit and the number of dropped edits.
@@ -343,7 +343,7 @@ func (m mapper) mapWorkspaceEdit(raw jsonRaw, toChanges bool) (jsonRaw, int) {
 		}
 		out, d := m.mapTextEdits(g, edits)
 		dropped += d
-		return m.ws.orbitURI(g.orbit), out
+		return m.ws.lyrURI(g.lyr), out
 	}
 	if raw, ok := o["changes"]; ok {
 		var ch map[string][]jsonRaw
@@ -382,7 +382,7 @@ func (m mapper) mapWorkspaceEdit(raw jsonRaw, toChanges bool) (jsonRaw, int) {
 			if u != td.str("uri") {
 				td.set("uri", u)
 				td["version"] = jsonRaw("null")
-				if doc := m.ws.docs[m.ws.orbitPath(u)]; doc != nil {
+				if doc := m.ws.docs[m.ws.lyrPath(u)]; doc != nil {
 					td.set("version", doc.version)
 				}
 			}
@@ -428,12 +428,12 @@ func identAt(src []byte, off int) string {
 }
 
 // paramsFallback maps definition results that land on generated code with
-// no .orbit source (PLAN.md §9 Definition): the generated Params type of a
+// no .lyr source (PLAN.md §9 Definition): the generated Params type of a
 // page's decl.go, and the params (or props) binding in its render, go to
-// the page's own .orbit file (Params comes from the file name), or to the
+// the page's own .lyr file (Params comes from the file name), or to the
 // component's Props declaration.
 func (m mapper) paramsFallback(g *genFile, r Range) (string, Range, bool) {
-	f := m.ws.byPath[g.orbit]
+	f := m.ws.byPath[g.lyr]
 	if f == nil {
 		return "", Range{}, false
 	}
@@ -444,22 +444,22 @@ func (m mapper) paramsFallback(g *genFile, r Range) (string, Range, bool) {
 		if !inParams(g, f, off) {
 			return "", Range{}, false
 		}
-		return m.ws.orbitURI(g.orbit), top, true
+		return m.ws.lyrURI(g.lyr), top, true
 	}
 	switch id {
 	case "params":
 		if f.Info.Role == compiler.RolePage {
-			return m.ws.orbitURI(g.orbit), top, true
+			return m.ws.lyrURI(g.lyr), top, true
 		}
 	case "props":
 		if p := f.Analysis.Props; p.Declared {
-			if lines := m.ws.lines[g.orbit]; lines != nil {
-				return m.ws.orbitURI(g.orbit), lines.rangeOf(p.Span.Start, p.Span.Start, encUTF16), true
+			if lines := m.ws.lines[g.lyr]; lines != nil {
+				return m.ws.lyrURI(g.lyr), lines.rangeOf(p.Span.Start, p.Span.Start, encUTF16), true
 			}
 		}
 	}
 	return "", Range{}, false
 }
 
-// absOrbit is the absolute path of a project path.
-func (ws *workspace) absOrbit(p string) string { return filepath.Join(ws.root, filepath.FromSlash(p)) }
+// absLyr is the absolute path of a project path.
+func (ws *workspace) absLyr(p string) string { return filepath.Join(ws.root, filepath.FromSlash(p)) }

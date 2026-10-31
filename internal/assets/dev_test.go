@@ -24,7 +24,7 @@ func readDevManifest(t *testing.T, devDir string) devManifest {
 
 func devFiles(t *testing.T, devDir string) []string {
 	t.Helper()
-	entries, err := os.ReadDir(filepath.Join(devDir, "_orbit"))
+	entries, err := os.ReadDir(filepath.Join(devDir, "_lyr"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,12 +35,12 @@ func devFiles(t *testing.T, devDir string) []string {
 	return names
 }
 
-// TestDevRebuild drives the incremental API as orbit dev will: a style
+// TestDevRebuild drives the incremental API as lyr dev will: a style
 // edit is a Rebuild of the same esbuild context, with a new hash in the
 // dev manifest and the old file removed; a new page recreates the context.
 func TestDevRebuild(t *testing.T) {
 	dir := project(t, basicFiles)
-	devDir := filepath.Join(dir, ".orbit", "dev")
+	devDir := filepath.Join(dir, ".lyr", "dev")
 	b := New(Options{Root: dir, Dev: true}).(*esbuildBundler)
 	defer b.Close()
 
@@ -53,19 +53,19 @@ func TestDevRebuild(t *testing.T) {
 		t.Fatal(err)
 	}
 	m1 := readDevManifest(t, devDir)
-	css1 := m1.Pages["src/pages/index.orbit"][0].URL
+	css1 := m1.Pages["src/pages/index.lyr"][0].URL
 	if !strings.HasSuffix(css1, ".css") {
 		t.Fatalf("manifest: %+v", m1)
 	}
 	for _, f := range res.Files {
-		if _, err := os.Stat(filepath.Join(devDir, "_orbit", f.Name)); err != nil {
+		if _, err := os.Stat(filepath.Join(devDir, "_lyr", f.Name)); err != nil {
 			t.Errorf("%s not written: %v", f.Name, err)
 		}
 	}
 
 	// Edit the card's style: same entries, so a Rebuild.
-	card := filepath.Join(dir, "src/components/Card.orbit")
-	src := strings.Replace(basicFiles["src/components/Card.orbit"], "color: red", "color: green", 1)
+	card := filepath.Join(dir, "src/components/Card.lyr")
+	src := strings.Replace(basicFiles["src/components/Card.lyr"], "color: red", "color: green", 1)
 	if err := os.WriteFile(card, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestDevRebuild(t *testing.T) {
 		t.Fatal(err)
 	}
 	m2 := readDevManifest(t, devDir)
-	css2 := m2.Pages["src/pages/index.orbit"][0].URL
+	css2 := m2.Pages["src/pages/index.lyr"][0].URL
 	if css2 == css1 {
 		t.Errorf("CSS URL unchanged after an edit: %s", css2)
 	}
@@ -93,15 +93,15 @@ func TestDevRebuild(t *testing.T) {
 		t.Errorf("old CSS %s not removed: %v", css1, err)
 	}
 	if got, want := len(devFiles(t, devDir)), len(res.Files); got != want {
-		t.Errorf("_orbit has %d files, want %d: %v", got, want, devFiles(t, devDir))
+		t.Errorf("_lyr has %d files, want %d: %v", got, want, devFiles(t, devDir))
 	}
 
 	// A new page with a style: new entries, new context.
-	if err := os.WriteFile(filepath.Join(dir, "src/pages/new.orbit"), []byte("<p>new</p>\n<style>p{color:red}</style>\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "src/pages/new.lyr"), []byte("<p>new</p>\n<style>p{color:red}</style>\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	in := basicInput(t, dir)
-	in.Pages = append(in.Pages, Page{File: "src/pages/new.orbit", Modules: []string{"src/pages/new.orbit"}})
+	in.Pages = append(in.Pages, Page{File: "src/pages/new.lyr", Modules: []string{"src/pages/new.lyr"}})
 	res, err = b.Bundle(in)
 	if err != nil {
 		t.Fatal(err)
@@ -110,13 +110,13 @@ func TestDevRebuild(t *testing.T) {
 	if b.contexts != 2 {
 		t.Errorf("contexts = %d after a new page, want 2", b.contexts)
 	}
-	if len(res.Pages["src/pages/new.orbit"]) != 1 {
-		t.Errorf("new page assets: %+v", res.Pages["src/pages/new.orbit"])
+	if len(res.Pages["src/pages/new.lyr"]) != 1 {
+		t.Errorf("new page assets: %+v", res.Pages["src/pages/new.lyr"])
 	}
 }
 
 // TestDeterministic checks that the output doesn't depend on where the
-// project is: orbit generate and orbit build on different machines write
+// project is: lyr generate and lyr build on different machines write
 // the same manifest.
 func TestDeterministic(t *testing.T) {
 	a, b := project(t, basicFiles), project(t, basicFiles)
@@ -132,11 +132,11 @@ func TestDeterministic(t *testing.T) {
 }
 
 // TestDevRebuildChunks: shared chunks (PLAN.md §5e) are written to
-// .orbit/dev/_orbit/ and listed as modulepreload rows; an edit of the
+// .lyr/dev/_lyr/ and listed as modulepreload rows; an edit of the
 // shared file renames the chunk, and the old one is pruned.
 func TestDevRebuildChunks(t *testing.T) {
 	dir := project(t, basicFiles)
-	devDir := filepath.Join(dir, ".orbit", "dev")
+	devDir := filepath.Join(dir, ".lyr", "dev")
 	b := New(Options{Root: dir, Dev: true}).(*esbuildBundler)
 	defer b.Close()
 	preload := func() string {
@@ -151,18 +151,18 @@ func TestDevRebuildChunks(t *testing.T) {
 		}
 		m := readDevManifest(t, devDir)
 		var urls []string
-		for _, page := range []string{"src/pages/index.orbit", "src/pages/blog/[slug].orbit"} {
+		for _, page := range []string{"src/pages/index.lyr", "src/pages/blog/[slug].lyr"} {
 			as := m.Pages[page]
 			if len(as) != 3 || as[2].Kind != "modulepreload" {
 				t.Fatalf("%s manifest rows %+v", page, as)
 			}
 			urls = append(urls, as[2].URL)
 		}
-		if urls[0] != urls[1] || !strings.HasPrefix(urls[0], "/_orbit/chunk-") {
+		if urls[0] != urls[1] || !strings.HasPrefix(urls[0], "/_lyr/chunk-") {
 			t.Fatalf("preloads %v", urls)
 		}
 		if got, want := len(devFiles(t, devDir)), len(res.Files); got != want {
-			t.Errorf("_orbit has %d files, want %d: %v", got, want, devFiles(t, devDir))
+			t.Errorf("_lyr has %d files, want %d: %v", got, want, devFiles(t, devDir))
 		}
 		return urls[0]
 	}
@@ -195,12 +195,12 @@ func TestBundleImports(t *testing.T) {
 		"node_modules/fancy/fancy.css":    ".fancy-lib { color: purple }\n",
 		"src/lib/math.ts":                 "export const twice = (n: number): number => n * 2;\n",
 		"src/fonts/a.woff2":               "font",
-		"src/pages/index.orbit": "<p>x</p>\n<style>\n  @font-face { font-family: A; src: url(\"../fonts/a.woff2\") }\n  p { color: red }\n</style>\n" +
+		"src/pages/index.lyr": "<p>x</p>\n<style>\n  @font-face { font-family: A; src: url(\"../fonts/a.woff2\") }\n  p { color: red }\n</style>\n" +
 			"<script>\n  import \"fancy/fancy.css\";\n  import fancy from \"fancy\";\n  import { twice } from \"@lib/math\";\n  console.log(fancy(), twice(2));\n</script>\n",
 	})
-	res := bundle(t, Options{Root: dir}, input(t, dir, map[string][]string{"src/pages/index.orbit": {"src/pages/index.orbit"}}))
+	res := bundle(t, Options{Root: dir}, input(t, dir, map[string][]string{"src/pages/index.lyr": {"src/pages/index.lyr"}}))
 	noErrors(t, res)
-	as := res.Pages["src/pages/index.orbit"]
+	as := res.Pages["src/pages/index.lyr"]
 	if len(as) != 2 {
 		t.Fatalf("assets %+v", as)
 	}
@@ -209,7 +209,7 @@ func TestBundleImports(t *testing.T) {
 	if p, lib := strings.Index(css, "{color:red}"), strings.Index(css, ".fancy-lib"); p < 0 || lib < 0 || p > lib {
 		t.Errorf("CSS:\n%s", css)
 	}
-	if !strings.Contains(css, `url("/_orbit/a-`) {
+	if !strings.Contains(css, `url("/_lyr/a-`) {
 		t.Errorf("font URL not rewritten:\n%s", css)
 	}
 	js := string(res.File(as[1].URL).Contents)

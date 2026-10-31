@@ -1,5 +1,5 @@
 // Command harness drives gopls over stdio to answer the LSP questions of the
-// Orbit milestone-0 spike (PLAN.md §9). See ../FINDINGS.md.
+// Lyr milestone-0 spike (PLAN.md §9). See ../FINDINGS.md.
 package main
 
 import (
@@ -19,7 +19,7 @@ var (
 )
 
 func main() {
-	dump := flag.String("dump", "", "write a copy of the project with orbit_gen to `dir` (for go build/vet sanity checks) and exit")
+	dump := flag.String("dump", "", "write a copy of the project with lyr_gen to `dir` (for go build/vet sanity checks) and exit")
 	gopls := flag.String("gopls", "", "gopls binary (default: spike bin/gopls)")
 	dumpLine := flag.Bool("dumpline", false, "with -dump: emit Card's Props (with a doc comment and a deliberate posts.Postt error) using own-line //line directives")
 	delay := flag.String("delay", "", "gopls diagnosticsDelay setting to send (e.g. 50ms)")
@@ -51,8 +51,8 @@ func main() {
 		}
 		return
 	}
-	if _, err := os.Stat(filepath.Join(projectDir, "orbit_gen")); err == nil {
-		log.Fatal("project/orbit_gen exists on disk; the overlay-only checks need it absent")
+	if _, err := os.Stat(filepath.Join(projectDir, "lyr_gen")); err == nil {
+		log.Fatal("project/lyr_gen exists on disk; the overlay-only checks need it absent")
 	}
 	sessions := []struct {
 		name string
@@ -100,7 +100,7 @@ func defaultGen() genSet {
 const scratchProps = `_ = "Héllo ✓"; _ = Card.Props{}`
 
 func genPaths(root string) (cardDecl, cardImpl, pageDecl, pageImpl string) {
-	g := filepath.Join(root, "orbit_gen")
+	g := filepath.Join(root, "lyr_gen")
 	return filepath.Join(g, "decl/components/card/decl.go"),
 		filepath.Join(g, "impl/components/card/render.go"),
 		filepath.Join(g, "decl/pages/index/decl.go"),

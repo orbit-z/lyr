@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Orbit vs. Astro SSR benchmark. See bench/README.md.
+# Lyr vs. Astro SSR benchmark. See bench/README.md.
 #
 #   bench/run.sh            full run (5 s warm-up + 20 s per run, about 5 minutes)
 #   QUICK=1 bench/run.sh    smoke run (1 s + 3 s per run)
 #
 # Settings (environment):
 #   CONCURRENCY=64  WARMUP=5s  DURATION=20s
-#   SERVERS="orbit-1 orbit-all astro-1 astro"
+#   SERVERS="lyr-1 lyr-all astro-1 astro"
 #   SCENARIOS="cards fetch fetch-deferred fetch-deferred-page fetch-cached"
 #   SERVER_CPUS=0-3,8-11  ONE_CPU=0  LOAD_CPUS=4-7,12-15   (taskset lists)
 #   SKIP_BUILD=1  (reuse the existing builds)
@@ -14,7 +14,7 @@ set -euo pipefail
 
 BENCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(dirname "$BENCH")"
-ORBIT_SITE="$BENCH/orbit-site"
+LYR_SITE="$BENCH/lyr-site"
 ASTRO_SITE="$BENCH/astro-site"
 
 QUICK="${QUICK:-0}"
@@ -26,7 +26,7 @@ else
 	DURATION="${DURATION:-20s}"
 fi
 CONCURRENCY="${CONCURRENCY:-64}"
-SERVERS="${SERVERS:-orbit-1 orbit-all astro-1 astro}"
+SERVERS="${SERVERS:-lyr-1 lyr-all astro-1 astro}"
 # fetch-deferred-page requests only /fetch-deferred (its island is never
 # fetched), for the page's TTFB on its own.
 SCENARIOS="${SCENARIOS:-cards fetch fetch-deferred fetch-deferred-page fetch-cached}"
@@ -36,7 +36,7 @@ SCENARIOS="${SCENARIOS:-cards fetch fetch-deferred fetch-deferred-page fetch-cac
 SERVER_CPUS="${SERVER_CPUS:-0-3,8-11}"
 ONE_CPU="${ONE_CPU:-0}"
 LOAD_CPUS="${LOAD_CPUS:-4-7,12-15}"
-ORBIT_PORT=4400
+LYR_PORT=4400
 ASTRO_PORT=4401
 
 RESULTS="$BENCH/results"
@@ -70,8 +70,8 @@ pin() { # pin CPUS CMD...
 log "building the load generator"
 (cd "$BENCH/load" && go build -o "$LOAD" .)
 if [[ "${SKIP_BUILD:-0}" != 1 ]]; then
-	log "building bench/orbit-site (go tool orbit build)"
-	(cd "$ORBIT_SITE" && go tool orbit build)
+	log "building bench/lyr-site (go tool lyr build)"
+	(cd "$LYR_SITE" && go tool lyr build)
 	log "building bench/astro-site (npm ci && npm run build)"
 	(cd "$ASTRO_SITE" && npm ci --no-audit --no-fund --loglevel=error && ASTRO_TELEMETRY_DISABLED=1 npm run build --silent >/dev/null)
 fi
@@ -90,13 +90,13 @@ wait_ready() { # URL
 	return 1
 }
 
-port_of() { if [[ "$1" == astro* ]]; then echo "$ASTRO_PORT"; else echo "$ORBIT_PORT"; fi; }
+port_of() { if [[ "$1" == astro* ]]; then echo "$ASTRO_PORT"; else echo "$LYR_PORT"; fi; }
 
 # ensure_cached SERVER URL: stores the page in the route cache (the first
 # request is a MISS) and fails unless the next response is a HIT, so a cached
 # run measures hits only.
 ensure_cached() {
-	local header=X-Orbit-Cache got
+	local header=X-Lyr-Cache got
 	if [[ "$1" == astro* ]]; then header=X-Astro-Cache; fi
 	curl -fs -o /dev/null "$2"
 	got="$(curl -fs -o /dev/null -D - "$2" | tr -d '\r' | awk -v h="$header" 'tolower($1) == tolower(h ":") {print $2}')"
@@ -115,18 +115,18 @@ start_server() { # NAME; sets SERVER_PID
 	read -ra one <<<"$(pinner "$ONE_CPU")"
 	read -ra all <<<"$(pinner "$SERVER_CPUS")"
 	case "$1" in
-	orbit-1)
-		(cd "$ORBIT_SITE" && GOMAXPROCS=1 PORT="$ORBIT_PORT" exec "${one[@]}" ./dist/server) &
+	lyr-1)
+		(cd "$LYR_SITE" && GOMAXPROCS=1 PORT="$LYR_PORT" exec "${one[@]}" ./dist/server) &
 		;;
-	orbit-all)
-		(cd "$ORBIT_SITE" && PORT="$ORBIT_PORT" exec "${all[@]}" ./dist/server) &
+	lyr-all)
+		(cd "$LYR_SITE" && PORT="$LYR_PORT" exec "${all[@]}" ./dist/server) &
 		;;
 	astro)
 		(cd "$ASTRO_SITE" && NODE_ENV=production HOST=127.0.0.1 PORT="$ASTRO_PORT" exec "${all[@]}" node ./dist/server/entry.mjs) >/dev/null &
 		;;
 	astro-1)
 		# The same single process, with all its threads (GC, libuv) on one CPU,
-		# like orbit-1.
+		# like lyr-1.
 		(cd "$ASTRO_SITE" && NODE_ENV=production HOST=127.0.0.1 PORT="$ASTRO_PORT" exec "${one[@]}" node ./dist/server/entry.mjs) >/dev/null &
 		;;
 	*)
@@ -148,23 +148,23 @@ stop_server() {
 
 # --- equivalence check ---------------------------------------------------------
 log "checking that both sites serve the same content"
-start_server orbit-all
-ORBIT_PID="$SERVER_PID"
+start_server lyr-all
+LYR_PID="$SERVER_PID"
 SERVER_PID=""
 start_server astro
 ASTRO_PID="$SERVER_PID"
 CHECK="$WORK/check.txt"
 {
-	"$LOAD" check -a "http://127.0.0.1:$ORBIT_PORT/cards" -b "http://127.0.0.1:$ASTRO_PORT/cards"
-	"$LOAD" check -a "http://127.0.0.1:$ORBIT_PORT/fetch" -b "http://127.0.0.1:$ASTRO_PORT/fetch"
-	"$LOAD" check -island -a "http://127.0.0.1:$ORBIT_PORT/fetch-deferred" -b "http://127.0.0.1:$ASTRO_PORT/fetch-deferred"
-	"$LOAD" check -a "http://127.0.0.1:$ORBIT_PORT/fetch-cached" -b "http://127.0.0.1:$ASTRO_PORT/fetch-cached"
+	"$LOAD" check -a "http://127.0.0.1:$LYR_PORT/cards" -b "http://127.0.0.1:$ASTRO_PORT/cards"
+	"$LOAD" check -a "http://127.0.0.1:$LYR_PORT/fetch" -b "http://127.0.0.1:$ASTRO_PORT/fetch"
+	"$LOAD" check -island -a "http://127.0.0.1:$LYR_PORT/fetch-deferred" -b "http://127.0.0.1:$ASTRO_PORT/fetch-deferred"
+	"$LOAD" check -a "http://127.0.0.1:$LYR_PORT/fetch-cached" -b "http://127.0.0.1:$ASTRO_PORT/fetch-cached"
 } | tee "$CHECK"
 # The check stored /fetch-cached on both servers: its next response is a hit.
-ensure_cached orbit-all "http://127.0.0.1:$ORBIT_PORT/fetch-cached"
+ensure_cached lyr-all "http://127.0.0.1:$LYR_PORT/fetch-cached"
 ensure_cached astro "http://127.0.0.1:$ASTRO_PORT/fetch-cached"
 stop_server
-SERVER_PID="$ORBIT_PID"
+SERVER_PID="$LYR_PID"
 stop_server
 
 # --- load ----------------------------------------------------------------------
@@ -185,13 +185,13 @@ done
 
 # --- report --------------------------------------------------------------------
 mkdir -p "$RESULTS"
-orbit_commit="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
-if [[ -n "$(git -C "$ROOT" status --porcelain 2>/dev/null)" ]]; then orbit_commit="$orbit_commit (dirty)"; fi
+lyr_commit="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+if [[ -n "$(git -C "$ROOT" status --porcelain 2>/dev/null)" ]]; then lyr_commit="$lyr_commit (dirty)"; fi
 astro_v="$(node -p "require('$ASTRO_SITE/node_modules/astro/package.json').version")"
 node_adapter_v="$(node -p "require('$ASTRO_SITE/node_modules/@astrojs/node/package.json').version")"
 mem_gb="$(awk '/MemTotal/ {printf "%.0f GB", $2/1048576}' /proc/meminfo)"
 check_summary="$(sed 's/http:\/\/127.0.0.1:[0-9]*//g; s/?[^ ]*//g' "$CHECK" | tr '\n' ';')"
-pinning="server $SERVER_CPUS (orbit-1: CPU $ONE_CPU, GOMAXPROCS=1; astro-1: CPU $ONE_CPU), load generator $LOAD_CPUS"
+pinning="server $SERVER_CPUS (lyr-1: CPU $ONE_CPU, GOMAXPROCS=1; astro-1: CPU $ONE_CPU), load generator $LOAD_CPUS"
 if [[ "$PIN" == 0 ]]; then pinning="none"; fi
 
 "$LOAD" report -in "$RUNS" -md "$RESULTS/$STAMP.md" -json "$RESULTS/$STAMP.json" \
@@ -202,7 +202,7 @@ if [[ "$PIN" == 0 ]]; then pinning="none"; fi
 	-m "kernel=$(uname -sr)" \
 	-m "go=$(go version | awk '{print $3}')" \
 	-m "node=$(node --version)" \
-	-m "orbit commit=$orbit_commit" \
+	-m "lyr commit=$lyr_commit" \
 	-m "astro=$astro_v, @astrojs/node $node_adapter_v (standalone, single process)" \
 	-m "load=closed loop, $CONCURRENCY keep-alive connections, $WARMUP warm-up + $DURATION measured per run, fresh server process per run" \
 	-m "pinning=$pinning" \

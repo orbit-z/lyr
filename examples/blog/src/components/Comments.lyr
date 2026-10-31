@@ -1,0 +1,31 @@
+---
+import (
+	CommentThread "./CommentThread.lyr"
+	"example.com/blog/internal/posts"
+)
+
+type Props struct {
+	PostID int
+}
+
+// Slow: the post page renders this component with server:defer.
+comments, err := posts.Comments(props.PostID)
+if err != nil {
+	return err
+}
+---
+<section class="comments">
+  <h2>Comments</h2>
+  {if len(comments) == 0}
+    <p>No comments yet.</p>
+  {else}
+    <CommentThread comments={comments} />
+  {/if}
+</section>
+<style>
+  .comments {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+</style>

@@ -1,0 +1,6 @@
+---
+type Props struct {
+	Attrs lyr.RestAttrs
+}
+---
+<div {...props.Attrs}><slot name="head" /><slot /></div>

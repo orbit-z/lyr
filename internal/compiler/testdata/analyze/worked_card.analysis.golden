@@ -1,6 +1,6 @@
-info src/components/worked_card.orbit component route=""
+info src/components/worked_card.lyr component route=""
 goimport name="" path="example.com/blog/internal/posts" @11-44 "\"example.com/blog/internal/posts\"" path=@11-44 place=both
-implicit orbit: none
+implicit lyr: none
 decl type @45-108 place=decl Props@50-55
   "type Props struct {\n    Post     posts.Post\n    Featured boo…"
 decl func @109-168 place=impl href@114-118

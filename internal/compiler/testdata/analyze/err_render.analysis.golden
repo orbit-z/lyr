@@ -1,5 +1,5 @@
-info src/components/err_render.orbit component route=""
-implicit orbit: none
+info src/components/err_render.lyr component route=""
+implicit lyr: none
 decl func @4-20 place=impl Render@9-15
   "func Render() {}"
 decl const @21-50 place=impl A@30-31 Render2@37-44

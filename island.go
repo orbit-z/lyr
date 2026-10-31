@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ import (
 // §3.4, §5b "Deferred island requests").
 
 // For generated code. Island is one entry of the server:defer island
-// table, created by NewIsland in the generated orbit_gen/app.
+// table, created by NewIsland in the generated lyr_gen/app.
 type Island struct {
 	id     string
 	file   string
@@ -25,8 +25,8 @@ type Island struct {
 }
 
 // For generated code. NewIsland is one entry of the island table that
-// the generated orbit_gen/app passes to NewSite: a component used with server:defer
-// somewhere in the project. id is its component ID, file its .orbit path.
+// the generated lyr_gen/app passes to NewSite: a component used with server:defer
+// somewhere in the project. id is its component ID, file its .lyr path.
 // On an island request, the opened props are decoded into a P with
 // encoding/json (unknown fields are ignored, missing ones stay zero) and
 // render is called with no slots.
@@ -44,19 +44,19 @@ func NewIsland[P any](id, file string, render func(*Ctx, *Writer, P, Slots) erro
 // Props: the island request gets a 400.
 type islandPropsError struct{ err error }
 
-func (e *islandPropsError) Error() string { return "orbit: island props: " + e.err.Error() }
+func (e *islandPropsError) Error() string { return "lyr: island props: " + e.err.Error() }
 
 // islandPrefix is the reserved path of island requests:
-// /_orbit/island/<buildID>/<id>.
-const islandPrefix = "/_orbit/island/"
+// /_lyr/island/<buildID>/<id>.
+const islandPrefix = "/_lyr/island/"
 
 // For generated code. Defer is emitted at each server:defer call site: it
 // encodes props as JSON, seals them with the site's island key and writes the placeholder
 //
-//	<orbit-island src="/_orbit/island/<buildID>/<id>" props="<token>">fallback</orbit-island>
+//	<lyr-island src="/_lyr/island/<buildID>/<id>" props="<token>">fallback</lyr-island>
 //
 // fallback may be nil. The same props, component and build always give the
-// same token. A JSON encoding error is the render error, at the .orbit
+// same token. A JSON encoding error is the render error, at the .lyr
 // position of the call site.
 func Defer(c *Ctx, w *Writer, id string, props any, fallback Renderer) error {
 	if w.err != nil {
@@ -64,8 +64,8 @@ func Defer(c *Ctx, w *Writer, id string, props any, fallback Renderer) error {
 	}
 	data, err := json.Marshal(props)
 	if err != nil {
-		err = fmt.Errorf("orbit: <%s server:defer>: props can't be encoded as JSON: %w", islandName(id), err)
-		if _, file, line, ok := runtime.Caller(1); ok && strings.HasSuffix(file, ".orbit") {
+		err = fmt.Errorf("lyr: <%s server:defer>: props can't be encoded as JSON: %w", islandName(id), err)
+		if _, file, line, ok := runtime.Caller(1); ok && strings.HasSuffix(file, ".lyr") {
 			err = &posError{pos: fmt.Sprintf("%s:%d", relativeFile(file), line), err: err}
 		}
 		w.setErr(err)
@@ -76,7 +76,7 @@ func Defer(c *Ctx, w *Writer, id string, props any, fallback Renderer) error {
 		kr = defaultKeyring()
 	}
 	b := w.buf
-	b.WriteString(`<orbit-island src="/_orbit/island/`)
+	b.WriteString(`<lyr-island src="/_lyr/island/`)
 	b.WriteString(kr.buildID)
 	b.WriteByte('/')
 	escapeAttrString(b, id)
@@ -91,7 +91,7 @@ func Defer(c *Ctx, w *Writer, id string, props any, fallback Renderer) error {
 			return err
 		}
 	}
-	w.Raw("</orbit-island>")
+	w.Raw("</lyr-island>")
 	return w.err
 }
 
@@ -279,7 +279,7 @@ func (s *Site) islandFailed(w http.ResponseWriter, r *http.Request, err error, h
 				return
 			}
 		}
-		log.Printf("orbit: %s %s: %v", r.Method, r.URL.Path, err)
+		log.Printf("lyr: %s %s: %v", r.Method, r.URL.Path, err)
 		if !s.dev {
 			emptyStatus(w, http.StatusInternalServerError)
 			return

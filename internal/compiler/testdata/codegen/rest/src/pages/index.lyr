@@ -1,0 +1,36 @@
+---
+import Button "../components/Button.lyr"
+import Field "../components/Field.lyr"
+import Input "../components/Input.lyr"
+import Wrap "../components/Wrap.lyr"
+
+type Slug string
+
+type point struct{ X, Y int }
+
+shelf := "s-81"
+n, u, f, f32 := -3, uint(7), 0.5, float32(0.1)
+on, off := true, false
+var slug Slug = "a&b"
+cls := "  x  y "
+extra := lyr.Attrs{"data-extra": 1, "name": "spread", "class": "from-map"}
+fwd := lyr.RestOf(lyr.Attrs{"id": "fwd", "class": "fwd"})
+---
+<main>
+<Button variant="quiet" name="shelf" data-shelf={shelf} required class="mt-2">Save</Button>
+<Button variant="static" name='a "q"' value=bare disabled>Static</Button>
+<Button variant="kinds" data-n={n} data-u={u} data-f={f} data-f32={f32} data-on={on} data-off={off}
+	data-slug={slug} href={lyr.URL("javascript:trusted")} formaction={"javascript:no"} data-json={lyr.JSON(point{1, 2})}
+	data-any={point{3, 4}} data-nil={nil} {shelf} style={lyr.CSS(`content:"&"`)} src={lyr.CSS("javascript:css")}>Kinds</Button>
+<Button variant="link" href="/docs" class:list={"a", "b": on, cls}>Link</Button>
+<Button variant="lone" class={cls} aria-label="lone">Lone</Button>
+<Input label="spread" {...extra} />
+<Input label="merged" {...extra} name="tag" class="own" />
+<Input label="fwd" attrs={fwd} />
+<Field label="field" class="mt-2" data-x={n} />
+<Wrap {...fwd} />
+<Wrap />
+</main>
+<style>
+	main { display: grid; }
+</style>

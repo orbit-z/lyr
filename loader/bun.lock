@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "orbit-loader",
+      "name": "lyr-loader",
       "devDependencies": {
         "happy-dom": "20.14.6",
       },

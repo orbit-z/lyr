@@ -3,7 +3,7 @@
 // primitives.
 //
 //   - Two 32-byte keys are derived from the master key with HKDF-SHA256, with
-//     the info strings "orbit island mac" and "orbit island enc".
+//     the info strings "lyr island mac" and "lyr island enc".
 //   - nonce = HMAC-SHA256(macKey, lp(componentID) ‖ lp(buildID) ‖ props)[:12],
 //     where lp is a 4-byte big-endian length prefix.
 //   - token = base64url-nopad(nonce ‖ AES-256-GCM(encKey).Seal(nonce, props, ad)),
@@ -71,11 +71,11 @@ func New(key []byte) (*Sealer, error) {
 	if len(key) != KeySize {
 		return nil, errors.New("islandcrypto: the key must be 32 bytes")
 	}
-	macKey, err := hkdf.Key(sha256.New, key, nil, "orbit island mac", 32)
+	macKey, err := hkdf.Key(sha256.New, key, nil, "lyr island mac", 32)
 	if err != nil {
 		return nil, err
 	}
-	encKey, err := hkdf.Key(sha256.New, key, nil, "orbit island enc", 32)
+	encKey, err := hkdf.Key(sha256.New, key, nil, "lyr island enc", 32)
 	if err != nil {
 		return nil, err
 	}

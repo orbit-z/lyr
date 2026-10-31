@@ -1,6 +1,6 @@
 ---
 title: About
-layout: ../layouts/Base.orbit
+layout: ../layouts/Base.lyr
 ---
 
 ## First version

@@ -1,5 +1,5 @@
 //go:build !race
 
-package orbit
+package lyr
 
 const raceEnabled = false

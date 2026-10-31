@@ -1,7 +1,7 @@
-// Command server serves the Orbit documentation site.
+// Command server serves the Lyr documentation site.
 //
-// Environment: PORT or ORBIT_ADDR (where to listen, see orbit.ListenAndServe),
-// SITE_URL (the site's public URL, overriding orbit.json's "site"; used for
+// Environment: PORT or LYR_ADDR (where to listen, see lyr.ListenAndServe),
+// SITE_URL (the site's public URL, overriding lyr.json's "site"; used for
 // canonical URLs, Open Graph tags, the sitemap and robots.txt) and DOCS_DIR
 // (read the Markdown from that directory instead of the embedded copy).
 package main
@@ -11,11 +11,11 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 
-	"github.com/orbit-z/orbit/docs/site/internal/content"
-	"github.com/orbit-z/orbit/docs/site/orbit_gen/app"
-	"github.com/orbit-z/orbit/docs/site/src/locals"
+	"github.com/orbit-z/lyr/docs/site/internal/content"
+	"github.com/orbit-z/lyr/docs/site/lyr_gen/app"
+	"github.com/orbit-z/lyr/docs/site/src/locals"
 )
 
 func main() {
@@ -30,9 +30,9 @@ func main() {
 		log.Printf("docs: %s", p)
 	}
 
-	var opts []orbit.Option
+	var opts []lyr.Option
 	if u := os.Getenv("SITE_URL"); u != "" {
-		opts = append(opts, orbit.WithSite(u))
+		opts = append(opts, lyr.WithSite(u))
 	}
 	site := app.New(opts...) // generated from src/: routes, pages and assets
 
@@ -44,11 +44,11 @@ func main() {
 		w.Header().Set("Cache-Control", "no-store")
 		_, _ = w.Write([]byte("ok\n"))
 	})
-	// Everything else goes to Orbit: pages, /_orbit/* assets and public/ files.
+	// Everything else goes to Lyr: pages, /_lyr/* assets and public/ files.
 	mux.Handle("/", site.Handler())
 
 	// Trailing-slash redirects first, as in Astro.
-	if err := orbit.ListenAndServe(site.TrailingSlash(gzipped(theme(mux)))); err != nil {
+	if err := lyr.ListenAndServe(site.TrailingSlash(gzipped(theme(mux)))); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -57,7 +57,7 @@ func main() {
 // the typed locals that the layout renders as <html data-theme>.
 func theme(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r, l := orbit.EnsureLocals[locals.Locals](r)
+		r, l := lyr.EnsureLocals[locals.Locals](r)
 		if c, err := r.Cookie("theme"); err == nil && (c.Value == "light" || c.Value == "dark") {
 			l.Theme = c.Value
 		}

@@ -1,16 +1,16 @@
-# Benchmarks: Orbit vs. Astro
+# Benchmarks: Lyr vs. Astro
 
 This directory holds the head-to-head SSR benchmark from `PLAN.md` §4b. Results are published in `docs/performance.md`.
 
 | Path | What it is |
 |---|---|
-| `orbit-site/` | The Orbit site, created with `orbit new` (its `go.mod` replaces the module with `../..`, so it always benchmarks this checkout). |
+| `lyr-site/` | The Lyr site, created with `lyr new` (its `go.mod` replaces the module with `../..`, so it always benchmarks this checkout). |
 | `astro-site/` | The same site in Astro: `output: 'server'`, `@astrojs/node` in standalone mode. Versions are pinned exactly in `package.json` and `package-lock.json`. |
 | `load/` | The load generator, a separate Go module that uses only the standard library (`run`, `check` and `report` subcommands). |
 | `run.sh` | Builds both sites, checks they serve the same content, runs every scenario and writes the report. |
-| `go/` | Go-only render benchmarks: Orbit vs. templ vs. `html/template`. They're separate from this harness. |
+| `go/` | Go-only render benchmarks: Lyr vs. templ vs. `html/template`. They're separate from this harness. |
 | `profile/` | CPU profiles of both servers on `/cards` under the same load, summarized by category (`profile/run.sh`, see `profile/README.md`). |
-| `lsp/` | `orbit lsp` startup, request latency and memory on the 200-file synthetic project, with and without `orbit_gen/` on disk. A separate Go module, separate from this harness (see `lsp/README.md`). |
+| `lsp/` | `lyr lsp` startup, request latency and memory on the 200-file synthetic project, with and without `lyr_gen/` on disk. A separate Go module, separate from this harness (see `lsp/README.md`). |
 
 ## Running
 
@@ -27,10 +27,10 @@ Settings are environment variables:
 |---|---|---|
 | `CONCURRENCY` | `64` | concurrent keep-alive connections (closed loop) |
 | `WARMUP`, `DURATION` | `5s`, `20s` | warm-up (not recorded) and measured window, per run |
-| `SERVERS` | `orbit-1 orbit-all astro-1 astro` | which servers to run |
+| `SERVERS` | `lyr-1 lyr-all astro-1 astro` | which servers to run |
 | `SCENARIOS` | `cards fetch fetch-deferred fetch-deferred-page fetch-cached` | which pages to run |
-| `SERVER_CPUS` | `0-3,8-11` | CPUs for `orbit-all` and Astro |
-| `ONE_CPU` | `0` | the single CPU for `orbit-1` and `astro-1` |
+| `SERVER_CPUS` | `0-3,8-11` | CPUs for `lyr-all` and Astro |
+| `ONE_CPU` | `0` | the single CPU for `lyr-1` and `astro-1` |
 | `LOAD_CPUS` | `4-7,12-15` | CPUs for the load generator |
 | `SKIP_BUILD` | unset | `1` reuses the existing builds |
 
@@ -42,14 +42,14 @@ Run on a quiet machine: close browsers and builds, and use a fixed CPU governor 
 
 | Scenario | Page | What it measures |
 |---|---|---|
-| 1. Render-heavy | `/cards` | A layout and 500 `Card`s. Each card has string, int, bool, URL and slice props, text with `<&>` and quotes that must be escaped, a default slot, two nested `Badge` components, a conditional, and scoped CSS. The page is about 260 KB (Orbit) and 300 KB (Astro). This is the template engine itself. |
+| 1. Render-heavy | `/cards` | A layout and 500 `Card`s. Each card has string, int, bool, URL and slice props, text with `<&>` and quotes that must be escaped, a default slot, two nested `Badge` components, a conditional, and scoped CSS. The page is about 260 KB (Lyr) and 300 KB (Astro). This is the template engine itself. |
 | 2. Fetch | `/fetch` | The frontmatter waits 10 ms (`time.Sleep` / `setTimeout`) to simulate a data fetch, then renders a 20-item list. This measures concurrency over I/O waits. |
-| 3. Cores | all pages | Each framework runs twice: `orbit-1` (`GOMAXPROCS=1`) and `astro-1` (the same Node process, all its threads) pinned to one CPU, and `orbit-all` and `astro` on every server CPU. |
+| 3. Cores | all pages | Each framework runs twice: `lyr-1` (`GOMAXPROCS=1`) and `astro-1` (the same Node process, all its threads) pinned to one CPU, and `lyr-all` and `astro` on every server CPU. |
 | 4. Deferred | `/fetch-deferred` | The same 10 ms list moved into a `server:defer` component with a fallback (an Astro server island on the Astro side). Each iteration GETs the page, then the island URL taken from it, as the browser's loader does. It reports page latency and TTFB, plus the island request's latency on its own. |
 | 4b. Deferred page alone | `/fetch-deferred` | Only the page, with its island never fetched (`fetch-deferred-page`): the page's TTFB without the island renders competing for the server. |
-| 5. Cached | `/fetch-cached` | The `/fetch` page stored in the route cache, fresh for an hour: `ctx.Cache().Set(orbit.CacheOptions{MaxAge: time.Hour})` with `orbit.WithCache(cache.NewMemory(…))` in `orbit-site/cmd/server`, and `Astro.cache.set({ maxAge: 3600 })` with `cache: { provider: memoryCache() }` in `astro.config.mjs`. Before each run the script requests the page once (a MISS, which stores it) and fails unless the next response is a HIT (`X-Orbit-Cache: HIT` / `X-Astro-Cache: HIT`), so the run measures cache hits only. The other pages never call `Set`, so they aren't cached. |
+| 5. Cached | `/fetch-cached` | The `/fetch` page stored in the route cache, fresh for an hour: `ctx.Cache().Set(lyr.CacheOptions{MaxAge: time.Hour})` with `lyr.WithCache(cache.NewMemory(…))` in `lyr-site/cmd/server`, and `Astro.cache.set({ maxAge: 3600 })` with `cache: { provider: memoryCache() }` in `astro.config.mjs`. Before each run the script requests the page once (a MISS, which stores it) and fails unless the next response is a HIT (`X-Lyr-Cache: HIT` / `X-Astro-Cache: HIT`), so the run measures cache hits only. The other pages never call `Set`, so they aren't cached. |
 
-The data (`orbit-site/internal/data/data.go`, `astro-site/src/data.ts`) is generated identically on both sides, once at startup.
+The data (`lyr-site/internal/data/data.go`, `astro-site/src/data.ts`) is generated identically on both sides, once at startup.
 
 ## Method
 
@@ -61,20 +61,20 @@ The data (`orbit-site/internal/data/data.go`, `astro-site/src/data.ts`) is gener
 - **Server metrics**: the generator samples `/proc/<pid>/status` every 100 ms during the window. **RSS steady** is the median VmRSS, **peak** the maximum, and VmHWM is in the JSON. **CPU cores** is the server's utime+stime over the window divided by wall time (1.00 means one core fully busy), and **CPU ms / 1k req** is the same time per 1000 iterations: a cost per request that doesn't depend on how many cores the server had.
 - **Loader CPU**: the generator's own CPU use. If it approaches the number of `LOAD_CPUS`, that run was limited by the load generator, not the server, and its req/s is only a lower bound.
 - **A fresh server process for each (server, scenario) pair**, so each RSS figure belongs to its scenario.
-- **Content check** (`load check`): before measuring, the script fetches every page from both servers. It requires a 200 and compares the **visible text** (tags, scripts, styles and comments stripped, entities decoded, whitespace dropped), which must be identical; for scenario 4 it also compares the island responses. The check also stores `/fetch-cached` on both servers and asserts the next response is a HIT. Byte sizes are reported and differ, because the scope attributes have different names (`data-o-xxxxxxxx` vs `data-astro-cid-xxxxxxxx`). Both sides use the JSX whitespace rules (Astro v7's default, and Orbit's).
+- **Content check** (`load check`): before measuring, the script fetches every page from both servers. It requires a 200 and compares the **visible text** (tags, scripts, styles and comments stripped, entities decoded, whitespace dropped), which must be identical; for scenario 4 it also compares the island responses. The check also stores `/fetch-cached` on both servers and asserts the next response is a HIT. Byte sizes are reported and differ, because the scope attributes have different names (`data-l-xxxxxxxx` vs `data-astro-cid-xxxxxxxx`). Both sides use the JSX whitespace rules (Astro v7's default, and Lyr's).
 
 ## Fairness choices
 
-- **Same markup**: the components and pages mirror each other line for line, with the same elements, classes, scoped styles and data. Both sites link their CSS as files, because Astro's `build.inlineStylesheets` is set to `'never'` to match Orbit. On the Astro side `data-featured={featured || undefined}` emits the attribute only when true, as Orbit's bool attribute does, so the CSS means the same thing on both sides.
+- **Same markup**: the components and pages mirror each other line for line, with the same elements, classes, scoped styles and data. Both sites link their CSS as files, because Astro's `build.inlineStylesheets` is set to `'never'` to match Lyr. On the Astro side `data-featured={featured || undefined}` emits the attribute only when true, as Lyr's bool attribute does, so the CSS means the same thing on both sides.
 - **Single process for Node**: `node ./dist/server/entry.mjs` with `NODE_ENV=production`. There's no cluster mode and no Bun, as `PLAN.md` requires.
 - **CPU pinning**: the servers and the load generator are pinned with `taskset` to separate physical cores.
-  - `orbit-1` gets one CPU with `GOMAXPROCS=1`.
-  - Astro and `orbit-all` get the same 8 CPUs (4 cores). Node runs JavaScript on one thread, but its GC and libuv helper threads can use the other CPUs; the "CPU cores" column shows how much they do (about 1.1).
-  - So the `orbit-1` vs. `astro` comparison gives Node slightly *more* CPU than Orbit, never less. `astro-1` pins all of Node's threads to `orbit-1`'s single CPU, for a strict one-CPU comparison.
-- **Keep-alive** connections on both servers. Neither compresses: Orbit never does, and `@astrojs/node` doesn't by default.
+  - `lyr-1` gets one CPU with `GOMAXPROCS=1`.
+  - Astro and `lyr-all` get the same 8 CPUs (4 cores). Node runs JavaScript on one thread, but its GC and libuv helper threads can use the other CPUs; the "CPU cores" column shows how much they do (about 1.1).
+  - So the `lyr-1` vs. `astro` comparison gives Node slightly *more* CPU than Lyr, never less. `astro-1` pins all of Node's threads to `lyr-1`'s single CPU, for a strict one-CPU comparison.
+- **Keep-alive** connections on both servers. Neither compresses: Lyr never does, and `@astrojs/node` doesn't by default.
 - **Warm-up** before each measured window, so the V8 JIT and Go's caches and pools are warm.
-- **Island key**: Orbit's build embeds a fresh `ORBIT_KEY`, and Astro's build generates its own server-island key. Neither needs configuration for a single-process benchmark.
-- **Responses**: Orbit buffers each response and sends it with a `Content-Length`; Astro streams with chunked encoding. That's each framework's normal behavior, and it's what's measured.
+- **Island key**: Lyr's build embeds a fresh `LYR_KEY`, and Astro's build generates its own server-island key. Neither needs configuration for a single-process benchmark.
+- **Responses**: Lyr buffers each response and sends it with a `Content-Length`; Astro streams with chunked encoding. That's each framework's normal behavior, and it's what's measured.
 
 ## Versions
 

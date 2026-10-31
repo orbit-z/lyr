@@ -1,13 +1,13 @@
-// orbit dev live reload (PLAN.md §7.1): reload the page on every "reload"
+// lyr dev live reload (PLAN.md §7.1): reload the page on every "reload"
 // event. If the connection drops, reconnect with backoff, and reload once
-// it's back (orbit dev restarted, or the page missed an event).
+// it's back (lyr dev restarted, or the page missed an event).
 (() => {
-  if (window.__orbitReload) return;
-  window.__orbitReload = true;
+  if (window.__lyrReload) return;
+  window.__lyrReload = true;
   let delay = 250;
   let lost = false;
   const connect = () => {
-    const es = new EventSource("/__orbit/events");
+    const es = new EventSource("/__lyr/events");
     es.addEventListener("reload", () => location.reload());
     es.onopen = () => {
       if (lost) location.reload();

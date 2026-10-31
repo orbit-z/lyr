@@ -1,7 +1,0 @@
----
-type Props struct {
-	Label any
-	Attrs orbit.RestAttrs
-}
----
-<button {...props.Attrs}>{props.Label}</button>

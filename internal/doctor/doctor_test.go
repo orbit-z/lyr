@@ -11,11 +11,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/pin"
-	"github.com/orbit-z/orbit/internal/project"
-	"github.com/orbit-z/orbit/internal/tailwind"
-	"github.com/orbit-z/orbit/internal/tsengine"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/pin"
+	"github.com/orbit-z/lyr/internal/project"
+	"github.com/orbit-z/lyr/internal/tailwind"
+	"github.com/orbit-z/lyr/internal/tsengine"
 )
 
 const healthyGoMod = `module example.com/blog
@@ -24,9 +24,9 @@ go 1.27
 
 toolchain go1.27.3
 
-tool github.com/orbit-z/orbit/cmd/orbit
+tool github.com/orbit-z/lyr/cmd/lyr
 
-require github.com/orbit-z/orbit v0.1.0
+require github.com/orbit-z/lyr v0.1.0
 `
 
 // fakes is a fake world: commands on PATH, their outputs and binaries'
@@ -47,7 +47,7 @@ func healthy() *fakes {
 		path: map[string]string{"go": "/usr/bin/go", "gopls": "/bin/gopls", "bun": "/bin/bun"},
 		out: map[string]string{
 			"go env GOVERSION GOTOOLCHAIN": "go1.27.3\nauto\n",
-			"go list -f {{with .Module}}{{.Version}}{{with .Replace}} => {{.Path}}{{end}}{{end}} github.com/orbit-z/orbit/cmd/orbit": "v0.1.0\n",
+			"go list -f {{with .Module}}{{.Version}}{{with .Replace}} => {{.Path}}{{end}}{{end}} github.com/orbit-z/lyr/cmd/lyr": "v0.1.0\n",
 			"/bin/bun --version": "1.4.4\n",
 		},
 		errs: map[string]error{},
@@ -107,14 +107,14 @@ func newProject(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	files := map[string]string{
-		"go.mod":                    healthyGoMod,
-		".gitignore":                "orbit_gen/\n.orbit/\ndist/\nnode_modules/\n",
-		"src/pages/index.orbit":     "<h1>Hi</h1>\n",
-		"cmd/server/main.go":        "package main\n\nfunc main() {}\n",
-		"orbit_gen/app/app.go":      compiler.GenHeader + "\n\npackage app\n",
-		"src/locals/locals.go":      "package locals\n\ntype Locals struct{ RequestID string }\n",
-		"internal/auth/auth.go":     "package auth\n",
-		"src/components/Card.orbit": "<p>card</p>\n",
+		"go.mod":                  healthyGoMod,
+		".gitignore":              "lyr_gen/\n.lyr/\ndist/\nnode_modules/\n",
+		"src/pages/index.lyr":     "<h1>Hi</h1>\n",
+		"cmd/server/main.go":      "package main\n\nfunc main() {}\n",
+		"lyr_gen/app/app.go":      compiler.GenHeader + "\n\npackage app\n",
+		"src/locals/locals.go":    "package locals\n\ntype Locals struct{ RequestID string }\n",
+		"internal/auth/auth.go":   "package auth\n",
+		"src/components/Card.lyr": "<p>card</p>\n",
 	}
 	for rel, content := range files {
 		write(t, dir, rel, content)
@@ -133,7 +133,7 @@ func write(t *testing.T, dir, rel, content string) {
 	}
 }
 
-var projectChecks = []string{"go", "cli", "gopls", "bun", "typescript", "tailwind", "orbit_gen", "gitignore", "config", "tsconfig"}
+var projectChecks = []string{"go", "cli", "gopls", "bun", "typescript", "tailwind", "lyr_gen", "gitignore", "config", "tsconfig"}
 
 func TestHealthy(t *testing.T) {
 	dir := newProject(t)
@@ -154,15 +154,15 @@ func TestHealthy(t *testing.T) {
 	var b bytes.Buffer
 	r.WriteText(&b)
 	want := "✓ go: go1.27.3 (go.mod: go 1.27, toolchain go1.27.3)\n" +
-		"✓ cli: orbit v0.1.0 hands commands to the pinned go tool orbit (v0.1.0)\n" +
+		"✓ cli: lyr v0.1.0 hands commands to the pinned go tool lyr (v0.1.0)\n" +
 		"✓ gopls: v0.24.0, built with go1.27.3\n" +
 		"✓ bun: 1.4.4\n" +
 		"✓ typescript: TypeScript 7.0.2 through bun x (fetched into Bun's cache on first use)\n" +
 		"✓ tailwind: Tailwind CSS 4.3.3 through bun x (fetched into Bun's cache on first use)\n" +
-		"✓ orbit_gen: up to date\n" +
-		"✓ gitignore: covers orbit_gen/, .orbit/ and dist/\n" +
-		"✓ config: no orbit.json (defaults); server ./cmd/server\n" +
-		"✓ tsconfig: no typed script data (orbit.JSON, set:json) to check\n"
+		"✓ lyr_gen: up to date\n" +
+		"✓ gitignore: covers lyr_gen/, .lyr/ and dist/\n" +
+		"✓ config: no lyr.json (defaults); server ./cmd/server\n" +
+		"✓ tsconfig: no typed script data (lyr.JSON, set:json) to check\n"
 	if b.String() != want {
 		t.Errorf("text:\n%s\nwant:\n%s", b.String(), want)
 	}
@@ -186,19 +186,19 @@ func TestChecks(t *testing.T) {
 		{"gopls missing", func(t *testing.T, _ string, f *fakes) { delete(f.path, "gopls") },
 			"gopls", Error, "not found on PATH", "go install golang.org/x/tools/gopls@latest"},
 		{"bun missing", func(t *testing.T, _ string, f *fakes) { delete(f.path, "bun"); f.path["tsc"] = fakeTSC(t, f, "7.0.2") },
-			"bun", Warning, "not found (1.4.4 or later needed); orbit check will skip TypeScript type checking", "curl -fsSL https://bun.sh/install | bash"},
+			"bun", Warning, "not found (1.4.4 or later needed); lyr check will skip TypeScript type checking", "curl -fsSL https://bun.sh/install | bash"},
 		{"bun old", func(t *testing.T, _ string, f *fakes) { f.out["/bin/bun --version"] = "1.3.2" },
 			"bun", Warning, "1.3.2 is older than 1.4.4", "bun upgrade"},
 		{"typescript on PATH", func(t *testing.T, _ string, f *fakes) { f.path["tsc"] = fakeTSC(t, f, "7.1.0") },
 			"typescript", OK, "tsc 7.1.0 (", ""},
 		{"typescript missing, not needed", func(t *testing.T, _ string, f *fakes) { delete(f.path, "bun") },
-			"typescript", OK, "not needed (no <script> blocks in .orbit files)", ""},
+			"typescript", OK, "not needed (no <script> blocks in .lyr files)", ""},
 		{"typescript missing, needed", func(t *testing.T, dir string, f *fakes) {
-			write(t, dir, "src/components/Card.orbit", "<p>card</p>\n<script>\n  console.log(1);\n</script>\n")
+			write(t, dir, "src/components/Card.lyr", "<p>card</p>\n<script>\n  console.log(1);\n</script>\n")
 			delete(f.path, "bun")
 		}, "typescript", Warning, "not found (7.0.2 or later needed); TypeScript features in <script> blocks are off in the editor", tsengine.Install},
 		{"typescript too old, is:inline counts", func(t *testing.T, dir string, f *fakes) {
-			write(t, dir, "src/components/Card.orbit", "<p>card</p>\n<script is:inline>var x = 1;</script>\n")
+			write(t, dir, "src/components/Card.lyr", "<p>card</p>\n<script is:inline>var x = 1;</script>\n")
 			delete(f.path, "bun")
 			f.path["tsc"] = fakeTSC(t, f, "6.0.3")
 		}, "typescript", Warning, "is TypeScript 6.0.3, which has no language server (7.0.2 or later needed)", tsengine.Install},
@@ -214,20 +214,20 @@ func TestChecks(t *testing.T) {
 			delete(f.path, "bun")
 		}, "tailwind", Error, "the Tailwind CSS CLI (v4) was not found; needed by src/styles/global.css", tailwind.Install(runtime.GOOS, runtime.GOARCH)},
 		{"tailwind v3, a block needs it", func(t *testing.T, dir string, f *fakes) {
-			write(t, dir, "src/components/Card.orbit", "<p class=\"t\">card</p>\n<style>\n  .t { @apply font-bold; }\n</style>\n")
+			write(t, dir, "src/components/Card.lyr", "<p class=\"t\">card</p>\n<style>\n  .t { @apply font-bold; }\n</style>\n")
 			delete(f.path, "bun")
 			f.path["tailwindcss"] = "/bin/tailwindcss"
 			f.out["/bin/tailwindcss --help"] = "tailwindcss v3.4.17\n"
-		}, "tailwind", Error, "/bin/tailwindcss is Tailwind CSS 3.4.17, and Orbit needs v4; needed by src/components/Card.orbit", tailwind.Install(runtime.GOOS, runtime.GOARCH)},
+		}, "tailwind", Error, "/bin/tailwindcss is Tailwind CSS 3.4.17, and Lyr needs v4; needed by src/components/Card.lyr", tailwind.Install(runtime.GOOS, runtime.GOARCH)},
 		{"tailwind scans build output", func(t *testing.T, dir string, f *fakes) {
 			write(t, dir, "src/styles/global.css", "@import \"tailwindcss\";\n")
-			write(t, dir, ".gitignore", "orbit_gen/\n")
-		}, "tailwind", Warning, "Tailwind CSS 4.3.3 through bun x (fetched into Bun's cache on first use); .gitignore doesn't cover .orbit/, dist/, so Tailwind scans them (slower runs)", `printf '.orbit/\ndist/\n' >> .gitignore`},
+			write(t, dir, ".gitignore", "lyr_gen/\n")
+		}, "tailwind", Warning, "Tailwind CSS 4.3.3 through bun x (fetched into Bun's cache on first use); .gitignore doesn't cover .lyr/, dist/, so Tailwind scans them (slower runs)", `printf '.lyr/\ndist/\n' >> .gitignore`},
 		{"go missing", func(t *testing.T, _ string, f *fakes) { delete(f.path, "go") },
 			"go", Error, "go command not found", installGo},
 		{"go.mod go too old", func(t *testing.T, dir string, f *fakes) {
 			write(t, dir, "go.mod", strings.Replace(healthyGoMod, "go 1.27", "go 1.26", 1))
-		}, "go", Error, "go.mod has go 1.26; Orbit needs go 1.27 or later", "go mod edit -go=1.27"},
+		}, "go", Error, "go.mod has go 1.26; Lyr needs go 1.27 or later", "go mod edit -go=1.27"},
 		{"no toolchain line", func(t *testing.T, dir string, f *fakes) {
 			write(t, dir, "go.mod", strings.Replace(healthyGoMod, "toolchain go1.27.3\n", "", 1))
 		}, "go", Warning, "no toolchain line, so go picks go1.27.0", "go get toolchain@go1.27.3"},
@@ -235,65 +235,65 @@ func TestChecks(t *testing.T) {
 			f.out["go env GOVERSION GOTOOLCHAIN"] = "go1.26.2\nlocal\n"
 		}, "go", Error, "the active toolchain go1.26.2 is older than go 1.27 in go.mod", "go env -w GOTOOLCHAIN=auto"},
 		{"pinned CLI doesn't load", func(t *testing.T, _ string, f *fakes) {
-			f.errs["go list -f {{with .Module}}{{.Version}}{{with .Replace}} => {{.Path}}{{end}}{{end}} github.com/orbit-z/orbit/cmd/orbit"] = errors.New("missing go.sum entry")
-		}, "cli", Error, "go tool orbit can't load the pinned CLI: missing go.sum entry", "go mod tidy"},
+			f.errs["go list -f {{with .Module}}{{.Version}}{{with .Replace}} => {{.Path}}{{end}}{{end}} github.com/orbit-z/lyr/cmd/lyr"] = errors.New("missing go.sum entry")
+		}, "cli", Error, "go tool lyr can't load the pinned CLI: missing go.sum entry", "go mod tidy"},
 		{"running pinned", func(t *testing.T, _ string, f *fakes) { f.self = pin.Self{Pinned: true, Version: "v0.1.0"} },
-			"cli", OK, "running the project's pinned CLI (go tool orbit, v0.1.0)", ""},
+			"cli", OK, "running the project's pinned CLI (go tool lyr, v0.1.0)", ""},
 		{"version mismatch", func(t *testing.T, dir string, f *fakes) {
-			write(t, dir, "go.mod", strings.Replace(healthyGoMod, "tool github.com/orbit-z/orbit/cmd/orbit\n", "", 1))
+			write(t, dir, "go.mod", strings.Replace(healthyGoMod, "tool github.com/orbit-z/lyr/cmd/lyr\n", "", 1))
 			f.self = pin.Self{Version: "v0.2.0"}
-		}, "cli", Error, "this orbit is v0.2.0, but go.mod requires github.com/orbit-z/orbit v0.1.0 (no tool directive)", "go get -tool github.com/orbit-z/orbit/cmd/orbit@v0.1.0"},
+		}, "cli", Error, "this lyr is v0.2.0, but go.mod requires github.com/orbit-z/lyr v0.1.0 (no tool directive)", "go get -tool github.com/orbit-z/lyr/cmd/lyr@v0.1.0"},
 		{"mismatch skipped with a local replace", func(t *testing.T, dir string, f *fakes) {
-			write(t, dir, "go.mod", strings.Replace(healthyGoMod, "tool github.com/orbit-z/orbit/cmd/orbit\n", "", 1)+"replace github.com/orbit-z/orbit => ../orbit\n")
+			write(t, dir, "go.mod", strings.Replace(healthyGoMod, "tool github.com/orbit-z/lyr/cmd/lyr\n", "", 1)+"replace github.com/orbit-z/lyr => ../lyr\n")
 			f.self = pin.Self{Version: "(devel)"}
-		}, "cli", OK, "go.mod replaces github.com/orbit-z/orbit with ../orbit", ""},
-		{"orbit_gen deleted", func(t *testing.T, dir string, f *fakes) { os.RemoveAll(filepath.Join(dir, "orbit_gen")) },
-			"orbit_gen", Warning, "orbit_gen/ is missing", "orbit generate"},
-		{"orbit_gen stale", func(t *testing.T, _ string, f *fakes) {
-			f.gen = &project.WriteResult{Written: []string{"orbit_gen/impl/pages/index/render.go"}, Removed: []string{"orbit_gen/impl/x/render.go"}}
-		}, "orbit_gen", Warning, "out of date: 2 files differ from what orbit generate writes (orbit_gen/impl/pages/index/render.go)", "orbit generate"},
+		}, "cli", OK, "go.mod replaces github.com/orbit-z/lyr with ../lyr", ""},
+		{"lyr_gen deleted", func(t *testing.T, dir string, f *fakes) { os.RemoveAll(filepath.Join(dir, "lyr_gen")) },
+			"lyr_gen", Warning, "lyr_gen/ is missing", "lyr generate"},
+		{"lyr_gen stale", func(t *testing.T, _ string, f *fakes) {
+			f.gen = &project.WriteResult{Written: []string{"lyr_gen/impl/pages/index/render.go"}, Removed: []string{"lyr_gen/impl/x/render.go"}}
+		}, "lyr_gen", Warning, "out of date: 2 files differ from what lyr generate writes (lyr_gen/impl/pages/index/render.go)", "lyr generate"},
 		{"only the manifest differs", func(t *testing.T, _ string, f *fakes) {
 			f.gen = &project.WriteResult{Written: []string{project.ManifestFile}}
-		}, "orbit_gen", OK, "up to date", ""},
+		}, "lyr_gen", OK, "up to date", ""},
 		{"sources have errors", func(t *testing.T, _ string, f *fakes) {
-			f.diags = []project.Diagnostic{{File: "src/pages/index.orbit", Pos: compiler.Position{Line: 2, Col: 3}, Severity: compiler.SeverityError, Message: "unknown prop"}}
-		}, "orbit_gen", Warning, "orbit generate fails with src/pages/index.orbit:2:3: unknown prop", "orbit generate"},
-		{"bad orbit.json", func(t *testing.T, dir string, f *fakes) { write(t, dir, "orbit.json", `{"compressHTML": "none"}`) },
-			"config", Error, `orbit.json: compressHTML must be "jsx", "html" (or true) or false, not "none"`, "fix orbit.json"},
-		{"orbit.json syntax", func(t *testing.T, dir string, f *fakes) { write(t, dir, "orbit.json", "{\n  \"site\": 1,\n}") },
-			"config", Error, "orbit.json:", "fix orbit.json"},
-		{"server entry missing", func(t *testing.T, dir string, f *fakes) { write(t, dir, "orbit.json", `{"server": "./cmd/web"}`) },
-			"config", Error, `orbit.json: server "./cmd/web" doesn't exist`, "create ./cmd/web, or remove server from orbit.json to use ./cmd/server"},
+			f.diags = []project.Diagnostic{{File: "src/pages/index.lyr", Pos: compiler.Position{Line: 2, Col: 3}, Severity: compiler.SeverityError, Message: "unknown prop"}}
+		}, "lyr_gen", Warning, "lyr generate fails with src/pages/index.lyr:2:3: unknown prop", "lyr generate"},
+		{"bad lyr.json", func(t *testing.T, dir string, f *fakes) { write(t, dir, "lyr.json", `{"compressHTML": "none"}`) },
+			"config", Error, `lyr.json: compressHTML must be "jsx", "html" (or true) or false, not "none"`, "fix lyr.json"},
+		{"lyr.json syntax", func(t *testing.T, dir string, f *fakes) { write(t, dir, "lyr.json", "{\n  \"site\": 1,\n}") },
+			"config", Error, "lyr.json:", "fix lyr.json"},
+		{"server entry missing", func(t *testing.T, dir string, f *fakes) { write(t, dir, "lyr.json", `{"server": "./cmd/web"}`) },
+			"config", Error, `lyr.json: server "./cmd/web" doesn't exist`, "create ./cmd/web, or remove server from lyr.json to use ./cmd/server"},
 		{"generated server", func(t *testing.T, dir string, f *fakes) { os.RemoveAll(filepath.Join(dir, "cmd")) },
 			"config", OK, "server: the generated default (no ./cmd/server)", ""},
 		{"locals imports app", func(t *testing.T, dir string, f *fakes) {
 			write(t, dir, "src/locals/locals.go", "package locals\n\nimport _ \"example.com/blog/internal/auth\"\n\ntype Locals struct{}\n")
-			write(t, dir, "internal/auth/auth.go", "package auth\n\nimport _ \"example.com/blog/orbit_gen/app\"\n")
-		}, "config", Error, "src/locals/locals.go:3:10: src/locals can't import example.com/blog/orbit_gen/app", "move the code that needs orbit_gen/app from src/locals into cmd/server"},
-		{"gitignore entries missing", func(t *testing.T, dir string, f *fakes) { write(t, dir, ".gitignore", "orbit_gen\nnode_modules/\n") },
-			"gitignore", Warning, ".gitignore doesn't cover .orbit/, dist/", `printf '.orbit/\ndist/\n' >> .gitignore`},
+			write(t, dir, "internal/auth/auth.go", "package auth\n\nimport _ \"example.com/blog/lyr_gen/app\"\n")
+		}, "config", Error, "src/locals/locals.go:3:10: src/locals can't import example.com/blog/lyr_gen/app", "move the code that needs lyr_gen/app from src/locals into cmd/server"},
+		{"gitignore entries missing", func(t *testing.T, dir string, f *fakes) { write(t, dir, ".gitignore", "lyr_gen\nnode_modules/\n") },
+			"gitignore", Warning, ".gitignore doesn't cover .lyr/, dist/", `printf '.lyr/\ndist/\n' >> .gitignore`},
 		{"gitignore negated", func(t *testing.T, dir string, f *fakes) {
-			write(t, dir, ".gitignore", "/orbit_gen/\n.orbit/\ndist/**\n!orbit_gen\n")
+			write(t, dir, ".gitignore", "/lyr_gen/\n.lyr/\ndist/**\n!lyr_gen\n")
 		},
-			"gitignore", Warning, ".gitignore doesn't cover orbit_gen/", `printf 'orbit_gen/\n' >> .gitignore`},
+			"gitignore", Warning, ".gitignore doesn't cover lyr_gen/", `printf 'lyr_gen/\n' >> .gitignore`},
 		{"no gitignore", func(t *testing.T, dir string, f *fakes) { os.Remove(filepath.Join(dir, ".gitignore")) },
-			"gitignore", Warning, "no .gitignore, so orbit_gen/, .orbit/, dist/ aren't ignored", `printf 'orbit_gen/\n.orbit/\ndist/\n' >> .gitignore`},
-		{"committed orbit_gen", func(t *testing.T, dir string, f *fakes) {
-			write(t, dir, ".gitignore", "orbit_gen/static/\n.orbit/\ndist/\n")
+			"gitignore", Warning, "no .gitignore, so lyr_gen/, .lyr/, dist/ aren't ignored", `printf 'lyr_gen/\n.lyr/\ndist/\n' >> .gitignore`},
+		{"committed lyr_gen", func(t *testing.T, dir string, f *fakes) {
+			write(t, dir, ".gitignore", "lyr_gen/static/\n.lyr/\ndist/\n")
 		},
-			"gitignore", OK, "covers orbit_gen/static/, .orbit/ and dist/", ""},
+			"gitignore", OK, "covers lyr_gen/static/, .lyr/ and dist/", ""},
 		{"tsconfig without rootDirs", func(t *testing.T, dir string, f *fakes) {
-			write(t, dir, "src/components/Like.orbit", "<p data-n={orbit.JSON(1)}></p>\n")
+			write(t, dir, "src/components/Like.lyr", "<p data-n={lyr.JSON(1)}></p>\n")
 			write(t, dir, "tsconfig.json", "{\n  // comment\n  \"compilerOptions\": {\"strict\": true},\n  \"include\": [\"src/**/*.ts\"],\n}\n")
-		}, "tsconfig", Warning, "tsconfig.json's rootDirs lacks orbit_gen/types", tsconfigFix},
+		}, "tsconfig", Warning, "tsconfig.json's rootDirs lacks lyr_gen/types", tsconfigFix},
 		{"tsconfig with rootDirs", func(t *testing.T, dir string, f *fakes) {
-			write(t, dir, "src/components/Like.orbit", "<script type=\"application/json\" id=\"x\" set:json={1}></script>\n")
-			write(t, dir, "tsconfig.json", `{"compilerOptions": {"rootDirs": [".", "./orbit_gen/types/"]}}`)
-		}, "tsconfig", OK, "rootDirs includes orbit_gen/types", ""},
+			write(t, dir, "src/components/Like.lyr", "<script type=\"application/json\" id=\"x\" set:json={1}></script>\n")
+			write(t, dir, "tsconfig.json", `{"compilerOptions": {"rootDirs": [".", "./lyr_gen/types/"]}}`)
+		}, "tsconfig", OK, "rootDirs includes lyr_gen/types", ""},
 		{"no tsconfig", func(t *testing.T, dir string, f *fakes) {
-			write(t, dir, "src/components/Like.orbit", "<p data-n={orbit.JSON(1)}></p>\n")
+			write(t, dir, "src/components/Like.lyr", "<p data-n={lyr.JSON(1)}></p>\n")
 			os.Remove(filepath.Join(dir, "tsconfig.json"))
-		}, "tsconfig", Warning, "no tsconfig.json", `create tsconfig.json (orbit new writes one) with "rootDirs": [".", "orbit_gen/types"]`},
+		}, "tsconfig", Warning, "no tsconfig.json", `create tsconfig.json (lyr new writes one) with "rootDirs": [".", "lyr_gen/types"]`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -330,7 +330,7 @@ func TestOutsideProject(t *testing.T) {
 	r := Run(context.Background(), f.env(t.TempDir()))
 	want := []Check{
 		{Name: "go", Status: OK, Message: "go1.23.4 (switches to the Go 1.27 toolchain in projects, GOTOOLCHAIN=auto)"},
-		{Name: "gopls", Status: Error, Message: "gopls v0.21.0 was built with go1.26.0, older than go 1.27, the oldest Go Orbit supports", Fix: installGopls},
+		{Name: "gopls", Status: Error, Message: "gopls v0.21.0 was built with go1.26.0, older than go 1.27, the oldest Go Lyr supports", Fix: installGopls},
 		{Name: "bun", Status: OK, Message: "1.4.4"},
 		{Name: "typescript", Status: OK, Message: "TypeScript 7.0.2 through bun x (fetched into Bun's cache on first use)"},
 		{Name: "tailwind", Status: OK, Message: "Tailwind CSS 4.3.3 through bun x (fetched into Bun's cache on first use)"},

@@ -1,10 +1,10 @@
 ---
 import (
-	Layout "../layouts/Base.orbit"
+	Layout "../layouts/Base.lyr"
 	"fmt"
 	"strings"
 
-	Card "./Card.orbit"
+	Card "./Card.lyr"
 	"example.com/x/internal/posts"
 )
 import "errors"

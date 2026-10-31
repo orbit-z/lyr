@@ -1,10 +1,10 @@
-errors_classlist.orbit:1:6: class:list takes a list in braces, e.g. class:list={"card", "active": active}
-errors_classlist.orbit:2:6: class:list takes a list in braces, e.g. class:list={"card", "active": active}
-errors_classlist.orbit:3:22: syntax error in class:list: missing ',' in composite literal
-errors_classlist.orbit:4:23: class:list items can't be nested lists; list the classes directly, or use a []string
-errors_classlist.orbit:5:23: a class:list condition must be a bool expression, e.g. class:list={"card", "active": active}
-errors_classlist.orbit:6:23: only one class:list is allowed per tag
-errors_classlist.orbit:7:7: class:list only works on HTML elements and components
-errors_classlist.orbit:8:11: class:list only works on HTML elements and components
-errors_classlist.orbit:9:8: class:list only works on HTML elements and components
-errors_classlist.orbit:10:24: {…} in a start tag must be a name, as in {title}, or a spread, as in {...attrs}
+errors_classlist.lyr:1:6: class:list takes a list in braces, e.g. class:list={"card", "active": active}
+errors_classlist.lyr:2:6: class:list takes a list in braces, e.g. class:list={"card", "active": active}
+errors_classlist.lyr:3:22: syntax error in class:list: missing ',' in composite literal
+errors_classlist.lyr:4:23: class:list items can't be nested lists; list the classes directly, or use a []string
+errors_classlist.lyr:5:23: a class:list condition must be a bool expression, e.g. class:list={"card", "active": active}
+errors_classlist.lyr:6:23: only one class:list is allowed per tag
+errors_classlist.lyr:7:7: class:list only works on HTML elements and components
+errors_classlist.lyr:8:11: class:list only works on HTML elements and components
+errors_classlist.lyr:9:8: class:list only works on HTML elements and components
+errors_classlist.lyr:10:24: {…} in a start tag must be a name, as in {title}, or a spread, as in {...attrs}

@@ -1,9 +1,9 @@
 package project
 
 import (
-	"github.com/orbit-z/orbit/internal/assets"
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/markdown"
+	"github.com/orbit-z/lyr/internal/assets"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/markdown"
 )
 
 // AssetInput returns the bundler input of the project (PLAN.md §5): every
@@ -28,7 +28,7 @@ func (p *Project) AssetInput() *assets.Input {
 }
 
 // AssetGraph returns the files whose assets the page includes, in
-// module-evaluation order: depth first through the .orbit imports, a
+// module-evaluation order: depth first through the .lyr imports, a
 // file's imports first, in import order, then the file itself; each file
 // once (so recursive and mutually recursive components are fine), the page
 // last. Like Astro, it is static: every imported component counts, whether
@@ -47,7 +47,7 @@ func (p *Project) AssetGraph(page *File) []string {
 		}
 		seen[f.Path] = true
 		if f.Analysis != nil {
-			for _, im := range f.Analysis.OrbitImports {
+			for _, im := range f.Analysis.LyrImports {
 				if g := byPath[im.Resolved]; g != nil {
 					visit(g)
 				}

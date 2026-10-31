@@ -1,4 +1,0 @@
----
-import "example.com/blog/internal/orbit"
----
-<p data-x={orbit.JSON(1)}></p>

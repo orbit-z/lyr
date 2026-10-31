@@ -8,33 +8,33 @@ import (
 	"os"
 	"strings"
 
-	index "example.com/blog/orbit_gen/decl/pages/index"
-	_ "example.com/blog/orbit_gen/impl/components/box"
-	_ "example.com/blog/orbit_gen/impl/components/ping"
-	_ "example.com/blog/orbit_gen/impl/components/pong"
-	_ "example.com/blog/orbit_gen/impl/components/slow"
-	_ "example.com/blog/orbit_gen/impl/components/tree"
-	_ "example.com/blog/orbit_gen/impl/pages/index"
-	_ "example.com/blog/orbit_gen/impl/pages/sub"
-	"github.com/orbit-z/orbit"
+	index "example.com/blog/lyr_gen/decl/pages/index"
+	_ "example.com/blog/lyr_gen/impl/components/box"
+	_ "example.com/blog/lyr_gen/impl/components/ping"
+	_ "example.com/blog/lyr_gen/impl/components/pong"
+	_ "example.com/blog/lyr_gen/impl/components/slow"
+	_ "example.com/blog/lyr_gen/impl/components/tree"
+	_ "example.com/blog/lyr_gen/impl/pages/index"
+	_ "example.com/blog/lyr_gen/impl/pages/sub"
+	"github.com/orbit-z/lyr"
 )
 
 func main() {
 	// Under NewWriter, server:concurrent renders inline.
 	var buf bytes.Buffer
-	if err := index.Render(&orbit.Ctx{URL: &url.URL{Path: "/"}}, orbit.NewWriter(&buf), index.Props{}, orbit.Slots{}); err != nil {
+	if err := index.Render(&lyr.Ctx{URL: &url.URL{Path: "/"}}, lyr.NewWriter(&buf), index.Props{}, lyr.Slots{}); err != nil {
 		panic(err)
 	}
 	inline := strings.Replace(buf.String(), "</head>", `<link rel="stylesheet" href="/x.css"></head>`, 1)
 
 	// Through a Site, the marked components run in their goroutines.
-	dir, _ := os.MkdirTemp("", "orbit-conc")
+	dir, _ := os.MkdirTemp("", "lyr-conc")
 	defer os.RemoveAll(dir)
-	site := orbit.NewSite([]orbit.Route{{
-		Pattern: "/", File: "src/pages/index.orbit",
-		Render: func(c *orbit.Ctx, w *orbit.Writer) error { return index.Render(c, w, index.Props{}, orbit.Slots{}) },
-		Assets: []orbit.Asset{{Kind: "css", URL: "/x.css"}},
-	}}, nil, orbit.WithStaticDir(dir))
+	site := lyr.NewSite([]lyr.Route{{
+		Pattern: "/", File: "src/pages/index.lyr",
+		Render: func(c *lyr.Ctx, w *lyr.Writer) error { return index.Render(c, w, index.Props{}, lyr.Slots{}) },
+		Assets: []lyr.Asset{{Kind: "css", URL: "/x.css"}},
+	}}, nil, lyr.WithStaticDir(dir))
 	rec := httptest.NewRecorder()
 	site.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
 	fmt.Println(rec.Body.String())

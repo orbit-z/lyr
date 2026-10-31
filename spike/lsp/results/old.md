@@ -7,7 +7,7 @@ diagnostics:
 {
   "diagnostics": [
     {
-      "message": "github.com/bertrandkhe/orbit is not used in this module",
+      "message": "github.com/bertrandkhe/lyr is not used in this module",
       "range": {
         "end": {
           "character": 43,
@@ -25,13 +25,13 @@ diagnostics:
   "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/go.mod"
 }
 ```
-- `orbit_gen/decl/components/card/decl.go` v1: 0 diagnostics
-- `orbit_gen/decl/pages/index/decl.go` v1: 0 diagnostics
-- `orbit_gen/impl/components/card/render.go` v1: 0 diagnostics
-- `orbit_gen/impl/pages/index/render.go` v1: 0 diagnostics
+- `lyr_gen/decl/components/card/decl.go` v1: 0 diagnostics
+- `lyr_gen/decl/pages/index/decl.go` v1: 0 diagnostics
+- `lyr_gen/impl/components/card/render.go` v1: 0 diagnostics
+- `lyr_gen/impl/pages/index/render.go` v1: 0 diagnostics
 ### Card.Props{|}
-request: `orbit_gen/impl/pages/index/render.go` at 45:31 (0-based, utf-16), latency 2ms
-isIncomplete=true, 58 items: [Post Featured Post.Slug Post.Title posts.Post{} orbit posts orbit__complete orbit__render Card Orbit__Render Props Render Prerender any …(+43)]
+request: `lyr_gen/impl/pages/index/render.go` at 45:31 (0-based, utf-16), latency 2ms
+isIncomplete=true, 58 items: [Post Featured Post.Slug Post.Title posts.Post{} lyr posts lyr__complete lyr__render Card Lyr__Render Props Render Prerender any …(+43)]
 item Post:
 ```json
 {
@@ -108,7 +108,7 @@ params:
       "source": "compiler"
     }
   ],
-  "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go",
+  "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go",
   "version": 1
 }
 ```

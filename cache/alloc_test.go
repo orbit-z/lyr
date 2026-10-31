@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 )
 
 func TestGetAllocs(t *testing.T) {
@@ -14,9 +14,9 @@ func TestGetAllocs(t *testing.T) {
 		t.Skip("allocation counts (not under -short or -race)")
 	}
 	m := NewMemory(MemoryOptions{})
-	// The zero CacheKey is the only one a test outside package orbit can
+	// The zero CacheKey is the only one a test outside package lyr can
 	// make: its hash and string are those of the key "" with hash 0.
-	var key orbit.CacheKey
+	var key lyr.CacheKey
 	e := response("/", time.Hour, time.Hour, time.Now(), "posts", "home")
 	m.Put(key, e)
 	if m.Get(key) != e {
@@ -26,7 +26,7 @@ func TestGetAllocs(t *testing.T) {
 		t.Errorf("MemoryProvider.Get hit: %v allocs, want 0", n)
 	}
 
-	s := NewStore(StoreOptions[orbit.HTML]{})
+	s := NewStore(StoreOptions[lyr.HTML]{})
 	s.Set("sidebar:v1", "<nav></nav>", time.Hour, "posts")
 	if n := testing.AllocsPerRun(1000, func() { s.Get("sidebar:v1") }); n != 0 {
 		t.Errorf("Store.Get hit: %v allocs, want 0", n)
@@ -38,7 +38,7 @@ func TestGetAllocs(t *testing.T) {
 
 func BenchmarkMemoryGetHit(b *testing.B) {
 	m := NewMemory(MemoryOptions{})
-	var key orbit.CacheKey
+	var key lyr.CacheKey
 	m.Put(key, response("/", time.Hour, 0, time.Now()))
 	b.ReportAllocs()
 	for b.Loop() {
@@ -50,7 +50,7 @@ func BenchmarkMemoryGetHit(b *testing.B) {
 
 func BenchmarkMemoryGetMiss(b *testing.B) {
 	m := NewMemory(MemoryOptions{})
-	var key orbit.CacheKey
+	var key lyr.CacheKey
 	b.ReportAllocs()
 	for b.Loop() {
 		m.Get(key)
@@ -61,7 +61,7 @@ func BenchmarkMemoryGetMiss(b *testing.B) {
 // case CLOCK's read lock is for (run with -cpu 16).
 func BenchmarkMemoryGetHitParallel(b *testing.B) {
 	m := NewMemory(MemoryOptions{})
-	var key orbit.CacheKey
+	var key lyr.CacheKey
 	m.Put(key, response("/", time.Hour, 0, time.Now()))
 	b.ReportAllocs()
 	b.RunParallel(func(pb *testing.PB) {
@@ -92,7 +92,7 @@ func BenchmarkMemoryPut(b *testing.B) {
 }
 
 func BenchmarkStoreGetHit(b *testing.B) {
-	s := NewStore(StoreOptions[orbit.HTML]{})
+	s := NewStore(StoreOptions[lyr.HTML]{})
 	s.Set("sidebar:v1", "<nav></nav>", time.Hour)
 	b.ReportAllocs()
 	for b.Loop() {
@@ -103,7 +103,7 @@ func BenchmarkStoreGetHit(b *testing.B) {
 }
 
 func BenchmarkStoreGetMiss(b *testing.B) {
-	s := NewStore(StoreOptions[orbit.HTML]{})
+	s := NewStore(StoreOptions[lyr.HTML]{})
 	b.ReportAllocs()
 	for b.Loop() {
 		s.Get("sidebar:v1")
@@ -111,7 +111,7 @@ func BenchmarkStoreGetMiss(b *testing.B) {
 }
 
 func BenchmarkStoreGetHitParallel(b *testing.B) {
-	s := NewStore(StoreOptions[orbit.HTML]{})
+	s := NewStore(StoreOptions[lyr.HTML]{})
 	s.Set("sidebar:v1", "<nav></nav>", time.Hour)
 	b.ReportAllocs()
 	b.RunParallel(func(pb *testing.PB) {
@@ -122,7 +122,7 @@ func BenchmarkStoreGetHitParallel(b *testing.B) {
 }
 
 func BenchmarkStoreSet(b *testing.B) {
-	s := NewStore(StoreOptions[orbit.HTML]{})
+	s := NewStore(StoreOptions[lyr.HTML]{})
 	keys := make([]string, 4096)
 	for i := range keys {
 		keys[i] = "fragment:" + strconv.Itoa(i)
@@ -138,9 +138,9 @@ func BenchmarkStoreSet(b *testing.B) {
 // BenchmarkStoreLoadHit is Load's hit path, the fragment cache's common
 // case.
 func BenchmarkStoreLoadHit(b *testing.B) {
-	s := NewStore(StoreOptions[orbit.HTML]{})
+	s := NewStore(StoreOptions[lyr.HTML]{})
 	s.Set("sidebar:v1", "<nav></nav>", time.Hour, "posts")
-	load := func(context.Context) (orbit.HTML, error) { return "", nil }
+	load := func(context.Context) (lyr.HTML, error) { return "", nil }
 	ctx := context.Background()
 	b.ReportAllocs()
 	for b.Loop() {

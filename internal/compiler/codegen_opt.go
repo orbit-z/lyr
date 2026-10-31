@@ -1,6 +1,6 @@
 package compiler
 
-// Component props of type orbit.Opt[T] (PLAN.md §2.6 (Q3)): a static value,
+// Component props of type lyr.Opt[T] (PLAN.md §2.6 (Q3)): a static value,
 // a bare attribute or a T expression is wrapped (Some), an Opt[T]
 // expression is passed as is. Pass 1 sees the field's type as written in
 // the target's Props; an expression that isn't a basic literal is a
@@ -14,7 +14,7 @@ import (
 )
 
 // isOptProp reports whether the field key of props has a type written as
-// orbit.Opt[…].
+// lyr.Opt[…].
 func isOptProp(props *PropsInfo, key string) bool {
 	for i := range props.Fields {
 		if props.Fields[i].Name == key {
@@ -38,7 +38,7 @@ func isBasicLit(code string) bool {
 	return ok
 }
 
-// optProp emits the value of a prop of type orbit.Opt[T] (field f), after
+// optProp emits the value of a prop of type lyr.Opt[T] (field f), after
 // "Key: ".
 func (g *cgGen) optProp(f cgField) {
 	o := g.o
@@ -70,7 +70,7 @@ func (g *cgGen) optProp(f cgField) {
 }
 
 // optPropSite emits the SiteOptProp of an expression passed to a prop of
-// type orbit.Opt[T]: OptOf in pass 1, then as the typed pass decided.
+// type lyr.Opt[T]: OptOf in pass 1, then as the typed pass decided.
 func (g *cgGen) optPropSite(f cgField) {
 	o := g.o
 	a := f.attr
@@ -108,9 +108,9 @@ func (g *cgGen) optPropSite(f cgField) {
 }
 
 // htmlSite emits the SiteHTML of a set:html value (PLAN.md §2.6, "Typed
-// optional values"): orbit__rt.SetHTML(orbit__w, pos, x) until the typed
-// pass has accepted it, then orbit__w.HTML(x) or the if of an
-// orbit.Opt[orbit.HTML]. A value of another type is the typed pass's error
+// optional values"): lyr__rt.SetHTML(lyr__w, pos, x) until the typed
+// pass has accepted it, then lyr__w.HTML(x) or the if of an
+// lyr.Opt[lyr.HTML]. A value of another type is the typed pass's error
 // and keeps SetHTML (which takes any type, so Go doesn't report it again).
 func (g *cgGen) htmlSite(node Node, a *Attr) {
 	o := g.o

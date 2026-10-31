@@ -1,0 +1,12 @@
+---
+import Cond "../components/Cond.lyr"
+import Button "../components/Button.lyr"
+import Mine "../components/Mine.lyr"
+
+on, off := true, false
+---
+<Cond on rel="noopener" n={3} f={1.5} link="/l" />
+<Cond off rel="x" link="javascript:x" />
+<Button label={lyr.If(on, "L")} aria-pressed={off} aria-hidden={on} data-x={on} data-y={off} draggable={off} aria-live aria-current={lyr.If(on, "page")} data-gone={lyr.If(off, "no")} />
+<Button label={lyr.If(off, "L")} {...lyr.Attrs{"aria-pressed": on, "data-z": on, "spellcheck": off}} />
+<Mine />

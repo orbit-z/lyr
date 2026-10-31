@@ -6,7 +6,7 @@ import (
 )
 
 // genOnlyDoc starts the doc comment of every runtime name that only
-// generated code calls (package orbit's "# Generated code" section).
+// generated code calls (package lyr's "# Generated code" section).
 const genOnlyDoc = "For generated code."
 
 // genOnlyNames are the runtime's generated-code-only names: package-level

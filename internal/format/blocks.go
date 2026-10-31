@@ -15,7 +15,7 @@ import (
 
 	"github.com/evanw/esbuild/pkg/api"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // bunSlots bounds the bun fmt processes running at once, across files.
@@ -35,7 +35,7 @@ var jsTypes = map[string]bool{
 // BlockLang returns what a <script> or <style> block holds, as an
 // extension: "ts" for a processed script, "js" for any other script with
 // no type or a JavaScript one, "css" for a style, "" for the rest (JSON,
-// other types). orbit fmt formats by it, and the language server's
+// other types). lyr fmt formats by it, and the language server's
 // TypeScript documents follow it (PLAN.md §6.1 "Which", §9b).
 func BlockLang(n compiler.Node) string { return blockExt(n) }
 

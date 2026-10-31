@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // MarkdownChecker is the language server's typed pass while the user types
 // (PLAN.md §9, §9b): it type-checks only the Markdown files that have a
-// layout and, with TypecheckScope's Data and Security scopes, the .orbit
-// files with orbit.JSON or set:json sites (whose Types the editor's
+// layout and, with TypecheckScope's Data and Security scopes, the .lyr
+// files with lyr.JSON or set:json sites (whose Types the editor's
 // TypeScript reads) and those with style or on* warning candidates (whose
 // warnings the editor shows, PLAN.md §2.7), plus the files whose generated decl packages they import (transitively),
 // and keeps its
@@ -39,7 +39,7 @@ func NewMarkdownChecker(loader compiler.ExportLoader) *MarkdownChecker {
 }
 
 // Invalidate drops the loaded export data, so the next Typecheck reruns go
-// list -export: call it when a user .go file, go.mod or orbit.json changes.
+// list -export: call it when a user .go file, go.mod or lyr.json changes.
 func (m *MarkdownChecker) Invalidate() { m.checker = nil }
 
 // Typecheck runs the typed pass over p (after Front) for its Markdown files
@@ -57,8 +57,8 @@ func (m *MarkdownChecker) Typecheck(ctx context.Context, p *Project) (checked in
 // those depend on).
 type CheckScope struct {
 	Markdown bool // the Markdown files with a layout
-	Data     bool // the .orbit files with a data contract (HasData)
-	// Security is the .orbit files with style or on* warning candidates
+	Data     bool // the .lyr files with a data contract (HasData)
+	// Security is the .lyr files with style or on* warning candidates
 	// (HasSecurity), with spreads on component tags (HasSpread) or with
 	// set:html={expr} values (HasSetHTML), whose
 	// errors only the typed pass finds (PLAN.md §2.11 (Q5)).
@@ -123,10 +123,10 @@ func (m *MarkdownChecker) TypecheckScope(ctx context.Context, p *Project, scope 
 	return len(files), loaded, nil
 }
 
-// HasData reports whether the .orbit file f (after Front) has a data
+// HasData reports whether the .lyr file f (after Front) has a data
 // contract to type-check (PLAN.md §5c): a set:json block or a direct
-// orbit.JSON call in a data-* attribute, or another data-* attribute in a
-// file that calls JSON (its value may be an orbit.JSONValue from a
+// lyr.JSON call in a data-* attribute, or another data-* attribute in a
+// file that calls JSON (its value may be a lyr.JSONValue from a
 // variable). Other data-* attributes carry no keys.
 func HasData(f *File) bool {
 	if f == nil || f.MD != nil || f.Pass1 == nil {
@@ -140,10 +140,10 @@ func HasData(f *File) bool {
 	return len(f.Pass1.JSONSites) > 0 && strings.Contains(f.Src, "JSON(")
 }
 
-// HasSecurity reports whether the .orbit file f (after Front) has a
+// HasSecurity reports whether the .lyr file f (after Front) has a
 // candidate for a style or on* security warning (PLAN.md §2.7): such an
 // attribute with an expression value on an HTML element, or passed through
-// to a component's orbit.RestAttrs field (its pass-1 call sites). Only then
+// to a component's lyr.RestAttrs field (its pass-1 call sites). Only then
 // can the typed pass warn in f.
 func HasSecurity(f *File) bool {
 	if f == nil || f.MD != nil || f.Pass1 == nil {
@@ -158,7 +158,7 @@ func HasSecurity(f *File) bool {
 	return false
 }
 
-// HasSpread reports whether the .orbit file f (after Front) has a spread
+// HasSpread reports whether the .lyr file f (after Front) has a spread
 // on a component tag (PLAN.md §2.11): only the typed pass can tell whether
 // it sets props or pass-through attributes, and find its errors.
 func HasSpread(f *File) bool {
@@ -173,9 +173,9 @@ func HasSpread(f *File) bool {
 	return false
 }
 
-// HasSetHTML reports whether the .orbit file f (after Front) has a
+// HasSetHTML reports whether the .lyr file f (after Front) has a
 // set:html={expr} value that the typed pass checks (PLAN.md §2.6): only it
-// reports a value that isn't an orbit.HTML or an orbit.Opt[orbit.HTML].
+// reports a value that isn't a lyr.HTML or a lyr.Opt[lyr.HTML].
 func HasSetHTML(f *File) bool {
 	if f == nil || f.MD != nil || f.Pass1 == nil {
 		return false

@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-// Gate is orbit dev's class-candidate gate (PLAN.md §5d, Q4): the set of
+// Gate is lyr dev's class-candidate gate (PLAN.md §5d, Q4): the set of
 // whitespace-separated tokens of the files Tailwind scans. Tailwind's
 // candidates never contain whitespace, so an edit can only bring a new
 // class with a token that isn't in the set; an edit that only removes,

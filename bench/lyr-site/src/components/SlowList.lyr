@@ -1,0 +1,9 @@
+---
+import (
+    "example.com/lyrbench/internal/data"
+    ItemList "./ItemList.lyr"
+)
+
+items := data.Fetch()
+---
+<ItemList items={items} />

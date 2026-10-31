@@ -1,6 +1,6 @@
-info src/components/docs.orbit component route=""
+info src/components/docs.lyr component route=""
 goimport name="" path="strings" @11-20 "\"strings\"" path=@11-20 place=impl
-implicit orbit: none
+implicit lyr: none
 decl type @61-71 place=impl A@66-67
   "type A int"
 decl type @122-132 place=impl B@127-128 doc=@95-121 "// Doc of B,\n// two lines."

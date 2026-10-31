@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/tsengine"
+	"github.com/orbit-z/lyr/internal/tsengine"
 )
 
 // tsStubEnv makes the test binary act as a TypeScript 7 stub (TestMain):
@@ -21,7 +21,7 @@ import (
 // answers to the requests it sends) in <file>, one JSON object per line.
 // Modes: "ok" answers hover and pulls diagnostics, and asks for a
 // diagnostic refresh after the first pull; "crash" exits on a hover.
-const tsStubEnv = "ORBIT_LSP_TEST_TS_STUB"
+const tsStubEnv = "LYR_LSP_TEST_TS_STUB"
 
 func runStubTS() {
 	mode, file, _ := strings.Cut(os.Getenv(tsStubEnv), ":")
@@ -181,9 +181,9 @@ count := 1
 
 func TestTSStub(t *testing.T) {
 	file := useTSStub(t, "ok")
-	dir := writeProject(t, map[string]string{"src/components/Card.orbit": scriptCard, "src/pages/index.orbit": "---\n---\n<p>hi</p>\n"})
+	dir := writeProject(t, map[string]string{"src/components/Card.lyr": scriptCard, "src/pages/index.lyr": "---\n---\n<p>hi</p>\n"})
 	c := startInProcess(t, dir, nil)
-	const card = "src/components/Card.orbit"
+	const card = "src/components/Card.lyr"
 	text := c.open(card)
 
 	h, _ := c.hover(card, at(t, text, `console.log`, 0, 2))
@@ -219,16 +219,16 @@ func TestTSStub(t *testing.T) {
 			opened += decodeObj(decodeObj(r.Params)["textDocument"]).str("uri") + "\n"
 		}
 	}
-	for _, want := range []string{"/.orbit/lsp/tsconfig.json", "/.orbit/lsp/src/components/Card.orbit.0.ts"} {
+	for _, want := range []string{"/.lyr/lsp/tsconfig.json", "/.lyr/lsp/src/components/Card.lyr.0.ts"} {
 		if !strings.Contains(opened, want) {
 			t.Errorf("the child didn't open %s:\n%s", want, opened)
 		}
 	}
 	// The editor got the child's configuration registration (prefixed)
-	// and Orbit's own watcher, never the child's broad watcher.
+	// and Lyr's own watcher, never the child's broad watcher.
 	c.waitFor("registrations", 10*time.Second, func() bool {
 		all := strings.Join(c.registrations, "\n")
-		return strings.Contains(all, `"ts:c1"`) && strings.Contains(all, "orbit-ts-files")
+		return strings.Contains(all, `"ts:c1"`) && strings.Contains(all, "lyr-ts-files")
 	})
 	c.mu.Lock()
 	all := strings.Join(c.registrations, "\n")
@@ -250,9 +250,9 @@ func TestTSStub(t *testing.T) {
 
 func TestTSStubCrash(t *testing.T) {
 	file := useTSStub(t, "crash")
-	dir := writeProject(t, map[string]string{"src/components/Card.orbit": scriptCard})
+	dir := writeProject(t, map[string]string{"src/components/Card.lyr": scriptCard})
 	c := startInProcess(t, dir, nil)
-	const card = "src/components/Card.orbit"
+	const card = "src/components/Card.lyr"
 	text := c.open(card)
 	pos := at(t, text, `console.log`, 0, 2)
 	for i := range 3 {
@@ -283,11 +283,11 @@ func TestTSMissingEngine(t *testing.T) {
 		return tsengine.Engine{}, errors.New("TypeScript 7.0.2 or later not found")
 	}
 	t.Cleanup(func() { findEngine = old })
-	dir := writeProject(t, map[string]string{"src/components/Card.orbit": scriptCard,
-		"src/components/Other.orbit": strings.Replace(scriptCard, "card", "other", 1)})
+	dir := writeProject(t, map[string]string{"src/components/Card.lyr": scriptCard,
+		"src/components/Other.lyr": strings.Replace(scriptCard, "card", "other", 1)})
 	c := startInProcess(t, dir, nil)
-	text := c.open("src/components/Card.orbit")
-	c.open("src/components/Other.orbit")
+	text := c.open("src/components/Card.lyr")
+	c.open("src/components/Other.lyr")
 	c.waitFor("the notice", 10*time.Second, func() bool {
 		for _, m := range c.messages {
 			if strings.Contains(m, tsNoticePrefix) {
@@ -297,7 +297,7 @@ func TestTSMissingEngine(t *testing.T) {
 		return false
 	})
 	// Script requests answer nothing; one notice in all.
-	res := c.call("textDocument/completion", c.textPos("src/components/Card.orbit", at(t, text, "console.", 0, len("console."))))
+	res := c.call("textDocument/completion", c.textPos("src/components/Card.lyr", at(t, text, "console.", 0, len("console."))))
 	if labels := completionLabels(t, res); len(labels) != 0 {
 		t.Errorf("completion in a script without TypeScript: %v", labels)
 	}
@@ -320,7 +320,7 @@ func TestTSMissingEngine(t *testing.T) {
 	if _, err := exec.LookPath("gopls"); err != nil {
 		return
 	}
-	if h, _ := c.hover("src/components/Card.orbit", at(t, text, "count :=", 0, 1)); !strings.Contains(h, "count int") {
+	if h, _ := c.hover("src/components/Card.lyr", at(t, text, "count :=", 0, 1)); !strings.Contains(h, "count int") {
 		t.Errorf("Go hover without TypeScript: %q", h)
 	}
 }

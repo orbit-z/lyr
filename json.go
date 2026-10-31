@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -8,9 +8,9 @@ import (
 // JSONValue is a value to write as JSON, made by JSON. It's opaque; the zero
 // value encodes as null.
 //
-// As an attribute value (data-post={orbit.JSON(post)}) it's written
+// As an attribute value (data-post={lyr.JSON(post)}) it's written
 // single-quoted, and a data-* attribute of an HTML element is typed for the
-// component's scripts (import { data } from "./X.orbit"). In content it's
+// component's scripts (import { data } from "./X.lyr"). In content it's
 // written as HTML-escaped text, like a string. It also implements
 // json.Marshaler, so it encodes as its value anywhere encoding/json sees it.
 type JSONValue struct {
@@ -112,10 +112,10 @@ func (w *Writer) encodeJSON(v any, mode jsonMode) error {
 }
 
 // jsonError is the render error for a value encoding/json can't encode,
-// prefixed with the .orbit position when there is one.
+// prefixed with the .lyr position when there is one.
 func jsonError(pos, what string, err error) error {
 	if pos == "" {
-		return &jsonErr{what: "orbit: " + what, err: err}
+		return &jsonErr{what: "lyr: " + what, err: err}
 	}
 	return &posError{pos: pos, err: &jsonErr{what: what, err: err}}
 }
@@ -131,16 +131,16 @@ func (e *jsonErr) Unwrap() error { return e.err }
 
 // JSONAttr writes v as an attribute's value, the bytes between the single
 // quotes that codegen writes around it (` name='`, JSONAttr, `'`): the JSON
-// text with ', &, < and > as character references. pos is the .orbit
-// position of the value, for an encoding error ("src/x.orbit:9:24:
-// orbit.JSON: json: unsupported value: NaN"), which becomes the sticky
+// text with ', &, < and > as character references. pos is the .lyr
+// position of the value, for an encoding error ("src/x.lyr:9:24:
+// lyr.JSON: json: unsupported value: NaN"), which becomes the sticky
 // error.
 func (w *Writer) JSONAttr(pos string, v JSONValue) {
 	if w.err != nil {
 		return
 	}
 	if err := w.encodeJSON(v.v, jsonAttrSingle); err != nil {
-		w.setErr(jsonError(pos, "orbit.JSON", err))
+		w.setErr(jsonError(pos, "lyr.JSON", err))
 	}
 }
 
@@ -148,7 +148,7 @@ func (w *Writer) JSONAttr(pos string, v JSONValue) {
 // <script> element: <, >, &, U+2028 and U+2029 become \u escapes, so the
 // output can't contain </script> or <!--. A JSONValue is written as its
 // value. An encoding error becomes the sticky error, prefixed with pos, the
-// .orbit position of the set:json.
+// .lyr position of the set:json.
 func (w *Writer) JSON(pos string, v any) {
 	if w.err != nil {
 		return
@@ -169,7 +169,7 @@ func (w *Writer) attrJSON(name string, v JSONValue) {
 	w.buf.WriteString(`='`)
 	if err := w.encodeJSON(v.v, jsonAttrSingle); err != nil {
 		w.buf.Truncate(start)
-		w.setErr(jsonError("", "orbit.JSON", err))
+		w.setErr(jsonError("", "lyr.JSON", err))
 		return
 	}
 	w.buf.WriteByte('\'')
@@ -184,6 +184,6 @@ func (w *Writer) textJSON(v JSONValue, escape bool) {
 		mode = jsonRaw
 	}
 	if err := w.encodeJSON(v.v, mode); err != nil {
-		w.setErr(jsonError("", "orbit.JSON", err))
+		w.setErr(jsonError("", "lyr.JSON", err))
 	}
 }

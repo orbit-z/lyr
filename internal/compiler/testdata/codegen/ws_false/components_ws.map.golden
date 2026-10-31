@@ -1,15 +1,15 @@
-orbit_gen/decl/components/ws/decl.go (src/components/Ws.orbit)
-orbit_gen/impl/components/ws/render.go (src/components/Ws.orbit)
-  exact 2:1 "items := []string{\"a\", \"b\"}" -> 624-651 "items := []string{\"a\", \"b\"}"
-  exact 3:1 "name := \"<you>\"" -> 725-740 "name := \"<you>\""
-  echo  - -> 770-775 "items"
-  echo  - -> 781-785 "name"
-  exact 7:8 "name" -> 901-905 "name"
-  exact 13:10 "_, it := range items" -> 1101-1121 "_, it := range items"
-  exact 14:12 "it" -> 1247-1249 "it"
-  exact 17:33 "\" \"" -> 1438-1441 "\" \""
-  exact 18:7 "len(items) > 1" -> 1559-1573 "len(items) > 1"
+lyr_gen/decl/components/ws/decl.go (src/components/Ws.lyr)
+lyr_gen/impl/components/ws/render.go (src/components/Ws.lyr)
+  exact 2:1 "items := []string{\"a\", \"b\"}" -> 576-603 "items := []string{\"a\", \"b\"}"
+  exact 3:1 "name := \"<you>\"" -> 674-689 "name := \"<you>\""
+  echo  - -> 719-724 "items"
+  echo  - -> 730-734 "name"
+  exact 7:8 "name" -> 844-848 "name"
+  exact 13:10 "_, it := range items" -> 1040-1060 "_, it := range items"
+  exact 14:12 "it" -> 1179-1181 "it"
+  exact 17:33 "\" \"" -> 1362-1365 "\" \""
+  exact 18:7 "len(items) > 1" -> 1479-1493 "len(items) > 1"
 call sites
-  content key=84 "name" call="orbit__w.Expr(\n/*line ../../../../src/components/Ws.orbit:7:8*/name/*line render.go:25:77*/,\n\t)"
-  content key=230 "it" call="orbit__w.Expr(\n/*line ../../../../src/components/Ws.orbit:14:12*/it/*line render.go:31:77*/,\n\t\t)"
-  content key=290 "\" \"" call="orbit__w.Expr(\n/*line ../../../../src/components/Ws.orbit:17:33*/\" \"/*line render.go:37:78*/,\n\t)"
+  content key=84 "name" call="lyr__w.Expr(\n/*line ../../../../src/components/Ws.lyr:7:8*/name/*line render.go:25:75*/,\n\t)"
+  content key=230 "it" call="lyr__w.Expr(\n/*line ../../../../src/components/Ws.lyr:14:12*/it/*line render.go:31:75*/,\n\t\t)"
+  content key=290 "\" \"" call="lyr__w.Expr(\n/*line ../../../../src/components/Ws.lyr:17:33*/\" \"/*line render.go:37:76*/,\n\t)"

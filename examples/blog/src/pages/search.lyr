@@ -1,0 +1,67 @@
+---
+import (
+	Button "../components/Button.lyr"
+	Card "../components/Card.lyr"
+	Base "../layouts/Base.lyr"
+	"example.com/blog/internal/posts"
+)
+
+q := ctx.Request.URL.Query().Get("q")
+results := posts.Search(q)
+
+// Every title, for the search box's suggestions (see the script below).
+all, err := posts.All()
+if err != nil {
+	return err
+}
+titles := make([]string, len(all))
+for i, p := range all {
+	titles[i] = p.Title
+}
+---
+<Base title="Search">
+  <h1>Search</h1>
+  <form action="/search" role="search">
+    <input type="search" name="q" value={q} list="post-titles" placeholder="go, security, …" aria-label="Search posts">
+    <datalist id="post-titles"></datalist>
+    <Button variant="primary" type="submit" aria-label="Run the search" class="search-button">Search</Button>
+  </form>
+  {if q == ""}
+    <p>Type something to search.</p>
+  {else if len(results) == 0}
+    <p>No posts match <strong>{q}</strong>.</p>
+  {else}
+    <p>Results for <strong>{q}</strong>:</p>
+    {for _, post := range results}
+      <Card post={post} />
+    {/for}
+  {/if}
+  <script type="application/json" id="post-titles-data" set:json={titles}></script>
+</Base>
+<style>
+  form {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  /* Passed to <Button> with class, so this page's scoped rule matches it. */
+  .search-button {
+    white-space: nowrap;
+  }
+  input {
+    flex: 1;
+  }
+</style>
+<script>
+  // The suggestions code loads on the first focus of the search box only:
+  // a dynamic import() is a chunk of its own (PLAN.md §5e).
+  const input = document.querySelector<HTMLInputElement>('input[name="q"]');
+  input?.addEventListener(
+    "focus",
+    async () => {
+      const { fillSuggestions } = await import("../scripts/suggestions");
+      fillSuggestions("post-titles-data", "post-titles");
+    },
+    { once: true },
+  );
+</script>

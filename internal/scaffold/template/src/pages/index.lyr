@@ -1,0 +1,14 @@
+---
+import (
+	"time"
+
+	Base "../layouts/Base.lyr"
+)
+
+year := time.Now().Year()
+---
+<Base title="My Lyr site">
+  <h1>Welcome to Lyr</h1>
+  <p>Edit <code>src/pages/index.lyr</code> and save: the page reloads.</p>
+  <footer>Rendered by Lyr in {year}</footer>
+</Base>

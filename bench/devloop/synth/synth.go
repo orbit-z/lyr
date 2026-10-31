@@ -1,4 +1,4 @@
-// Package synth generates the synthetic Orbit project shared by the
+// Package synth generates the synthetic Lyr project shared by the
 // benchmarks in bench/devloop and bench/lsp (see bench/devloop/README.md,
 // "The project").
 package synth
@@ -12,7 +12,7 @@ import (
 
 // Shape is the size of the synthetic project.
 type Shape struct {
-	Files      int // .orbit files in total
+	Files      int // .lyr files in total
 	Pages      int
 	Layouts    int // always 2: Base, and Docs (which wraps Base)
 	Components int // Files - Pages - Layouts, Badge included
@@ -29,7 +29,7 @@ func NewShape(files int) Shape {
 func (s Shape) Chain() int { return s.Components - 1 }
 
 // target is the component edited by the body/frontmatter/CSS/TS edits:
-// index.orbit renders it (through target-1), so the body edit is visible
+// index.lyr renders it (through target-1), so the body edit is visible
 // at "/". It has a scoped style and a script (target%4 == 0).
 func (s Shape) Target() int { return (s.Chain() / 3) &^ 3 }
 
@@ -42,11 +42,11 @@ func (s Shape) BadgeImporters() []int {
 	return out
 }
 
-func CompPath(i int) string { return fmt.Sprintf("src/components/C%d.orbit", i) }
+func CompPath(i int) string { return fmt.Sprintf("src/components/C%d.lyr", i) }
 
 // Paths of the files the devloop edits touch.
 const (
-	BadgePath = "src/components/Badge.orbit"
+	BadgePath = "src/components/Badge.lyr"
 	DataPath  = "internal/data/data.go"
 )
 
@@ -91,9 +91,9 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 
-	"example.com/devloop/orbit_gen/app"
+	"example.com/devloop/lyr_gen/app"
 	"example.com/devloop/src/locals"
 )
 
@@ -101,7 +101,7 @@ var lastID atomic.Int64
 
 func requestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r, l := orbit.EnsureLocals[locals.Locals](r)
+		r, l := lyr.EnsureLocals[locals.Locals](r)
 		l.RequestID = "req-" + strconv.FormatInt(lastID.Add(1), 10)
 		l.Theme = "light"
 		next.ServeHTTP(w, r)
@@ -112,21 +112,21 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/ping", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("pong")) })
 	mux.Handle("/", app.New().Handler())
-	if err := orbit.ListenAndServe(requestID(mux)); err != nil {
+	if err := lyr.ListenAndServe(requestID(mux)); err != nil {
 		log.Fatal(err)
 	}
 }
 `,
-		BadgePath: BadgeOrbit(""),
-		"src/layouts/Base.orbit": `---
+		BadgePath: BadgeLyr(""),
+		"src/layouts/Base.lyr": `---
 type Props struct{ Title string }
 ---
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{props.Title}</title></head>
 <body class={locals.Theme}><slot /></body></html>
 `,
-		"src/layouts/Docs.orbit": `---
-import Base "./Base.orbit"
+		"src/layouts/Docs.lyr": `---
+import Base "./Base.lyr"
 
 type Props struct {
 	Title   string
@@ -145,10 +145,10 @@ type Props struct {
 		badge[i] = true
 	}
 	for i := range n {
-		files[CompPath(i)] = ComponentOrbit(i, n, badge[i], "", "", "", "")
+		files[CompPath(i)] = ComponentLyr(i, n, badge[i], "", "", "", "")
 	}
 	for i := range s.Pages {
-		name, src := PageOrbit(s, i)
+		name, src := PageLyr(s, i)
 		files[name] = src
 	}
 	return files
@@ -194,7 +194,7 @@ func Name(i int) string {
 ` + api
 }
 
-func BadgeOrbit(extra string) string {
+func BadgeLyr(extra string) string {
 	return `---
 import "example.com/devloop/internal/data"
 
@@ -207,19 +207,19 @@ type Props struct {
 `
 }
 
-// ComponentOrbit is component i of n. The edit parameters are inserted
+// ComponentLyr is component i of n. The edit parameters are inserted
 // verbatim: tmpl into the template body, front into the frontmatter body,
 // css into the scoped style, ts into the script.
-func ComponentOrbit(i, n int, badge bool, tmpl, front, css, ts string) string {
+func ComponentLyr(i, n int, badge bool, tmpl, front, css, ts string) string {
 	var imports, calls strings.Builder
 	for _, j := range []int{i + 1, i + 2} {
 		if j < n {
-			fmt.Fprintf(&imports, "\tC%d \"./C%d.orbit\"\n", j, j)
+			fmt.Fprintf(&imports, "\tC%d \"./C%d.lyr\"\n", j, j)
 			fmt.Fprintf(&calls, "  {if props.Depth > 0}<C%d title={props.Title} count={props.Count + 1} items={props.Items} depth={props.Depth - 1}><span>{props.Count}</span><p slot=\"footer\">f</p></C%d>{/if}\n", j, j)
 		}
 	}
 	if badge {
-		imports.WriteString("\tBadge \"./Badge.orbit\"\n")
+		imports.WriteString("\tBadge \"./Badge.lyr\"\n")
 		calls.WriteString("  {for _, it := range props.Items}<Badge label={props.Title} item={it} />{/for}\n")
 	}
 	src := fmt.Sprintf(`---
@@ -272,25 +272,25 @@ status := data.Status(props.Count %% 2)
 	return src
 }
 
-// PageOrbit returns page i: page 0 is the index (rendering the edit
+// PageLyr returns page i: page 0 is the index (rendering the edit
 // target), then [slug], [...rest] and plain pages; odd pages use the Docs
 // layout.
-func PageOrbit(s Shape, i int) (name, src string) {
+func PageLyr(s Shape, i int) (name, src string) {
 	n := s.Chain()
 	c := (i * 4) % n
 	if i == 0 {
 		c = max(s.Target()-1, 0)
 	}
-	name = fmt.Sprintf("src/pages/p%d.orbit", i)
+	name = fmt.Sprintf("src/pages/p%d.lyr", i)
 	title := `"Page"`
 	switch {
 	case i == 0:
-		name = "src/pages/index.orbit"
+		name = "src/pages/index.lyr"
 	case i%4 == 1:
-		name = fmt.Sprintf("src/pages/s%d/[slug].orbit", i)
+		name = fmt.Sprintf("src/pages/s%d/[slug].lyr", i)
 		title = "params.Slug"
 	case i%8 == 2:
-		name = fmt.Sprintf("src/pages/r%d/[...rest].orbit", i)
+		name = fmt.Sprintf("src/pages/r%d/[...rest].lyr", i)
 		title = "params.Rest"
 	}
 	up := "../"
@@ -304,8 +304,8 @@ func PageOrbit(s Shape, i int) (name, src string) {
 	src = fmt.Sprintf(`---
 import (
 	"example.com/devloop/internal/data"
-	%s "%slayouts/%s.orbit"
-	C%d "%scomponents/C%d.orbit"
+	%s "%slayouts/%s.lyr"
+	C%d "%scomponents/C%d.lyr"
 )
 
 items := data.Items(3)
@@ -320,11 +320,11 @@ items := data.Items(3)
 
 // NewPage is the page added by the new-page edit.
 func NewPage(k int) (name, src string) {
-	return fmt.Sprintf("src/pages/added%d.orbit", k), fmt.Sprintf(`---
+	return fmt.Sprintf("src/pages/added%d.lyr", k), fmt.Sprintf(`---
 import (
 	"example.com/devloop/internal/data"
-	Base "../layouts/Base.orbit"
-	C3 "../components/C3.orbit"
+	Base "../layouts/Base.lyr"
+	C3 "../components/C3.lyr"
 )
 
 items := data.Items(2)
@@ -336,10 +336,10 @@ items := data.Items(2)
 `, k, k, k)
 }
 
-// WriteProject writes files and a go.mod requiring the runtime at orbitRoot.
-func WriteProject(dir, orbitRoot string, files map[string]string) error {
+// WriteProject writes files and a go.mod requiring the runtime at lyrRoot.
+func WriteProject(dir, lyrRoot string, files map[string]string) error {
 	gomod := "module example.com/devloop\n\ngo 1.27\n\ntoolchain go1.27.3\n\n" +
-		"require github.com/orbit-z/orbit v0.0.0\n\nreplace github.com/orbit-z/orbit => " + filepath.ToSlash(orbitRoot) + "\n"
+		"require github.com/orbit-z/lyr v0.0.0\n\nreplace github.com/orbit-z/lyr => " + filepath.ToSlash(lyrRoot) + "\n"
 	if err := WriteFile(dir, "go.mod", gomod); err != nil {
 		return err
 	}

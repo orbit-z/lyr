@@ -13,7 +13,7 @@ import (
 // attributes. The rest case's typed index page is pinned by a golden.
 func TestRestTyped(t *testing.T) {
 	const page = `---
-import Button "../components/Button.orbit"
+import Button "../components/Button.lyr"
 
 type Slug string
 
@@ -22,18 +22,18 @@ var slug Slug = "x"
 var v any = "y"
 ---
 <Button data-s={s} href={s} data-n={n} data-u={u} data-f={f} data-f32={f32} data-b={b}
-	data-slug={slug} src={orbit.URL(s)} data-j={orbit.JSON(n)} data-v={v} data-nil={nil} />
+	data-slug={slug} src={lyr.URL(s)} data-j={lyr.JSON(n)} data-v={v} data-nil={nil} />
 <Button class={n} />
 `
 	const button = `---
-type Props struct{ Attrs orbit.RestAttrs }
+type Props struct{ Attrs lyr.RestAttrs }
 
 n := 1
 ---
 <button {...props.Attrs} />
 <p class={n} {...props.Attrs}>x</p>
 `
-	p := plFront(map[string]string{"src/pages/index.orbit": page, "src/components/Button.orbit": button}, Options{Module: testModule})
+	p := plFront(map[string]string{"src/pages/index.lyr": page, "src/components/Button.lyr": button}, Options{Module: testModule})
 	if ds := p.diagnostics(); len(ds) > 0 {
 		t.Fatalf("front diagnostics:\n%s", strings.Join(ds, "\n"))
 	}
@@ -47,7 +47,7 @@ n := 1
 		for _, d := range pf.typed.Diagnostics {
 			got = append(got, d.Format(pf.path, pf.f.Lines))
 		}
-		if pf.path != "src/pages/index.orbit" {
+		if pf.path != "src/pages/index.lyr" {
 			continue
 		}
 		for _, cs := range pf.pass1.CallSites {
@@ -57,8 +57,8 @@ n := 1
 		}
 	}
 	want := []string{
-		"src/components/Button.orbit:7:11: class={…} merged with pass-through attributes must be a string or []string, not int",
-		"src/pages/index.orbit:12:16: class={…} merged with pass-through attributes must be a string or []string, not int",
+		"src/components/Button.lyr:7:11: class={…} merged with pass-through attributes must be a string or []string, not int",
+		"src/pages/index.lyr:12:16: class={…} merged with pass-through attributes must be a string or []string, not int",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("got:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -90,40 +90,40 @@ func TestRestTypedGolden(t *testing.T) {
 	m := newGenModule(t)
 	p := plPipeline(t, m, plReadCase(t, c), c.opts)
 	for _, pf := range p.files {
-		if pf.path == "src/pages/index.orbit" {
+		if pf.path == "src/pages/index.lyr" {
 			golden(t, "testdata/codegen/rest/pages_index.render.go.typed.golden", string(pf.typed.Output.Impl.Content))
 		}
 	}
 }
 
 // TestRestErrors: the call-site errors of pass-through attributes, each at
-// its .orbit position. A spread on a component without a RestAttrs field
+// its .lyr position. A spread on a component without a RestAttrs field
 // (<Card {...attrs} />) is the typed pass's error (TestSpreadErrors).
 func TestRestErrors(t *testing.T) {
 	const page = `---
-import Button "../components/Button.orbit"
-import Card "../components/Card.orbit"
+import Button "../components/Button.lyr"
+import Card "../components/Card.lyr"
 
-attrs := orbit.Attrs{}
+attrs := lyr.Attrs{}
 ---
 <Button name="a" data-x="1" NAME="b" />
-<Button attrs={orbit.RestOf(attrs)} name="a" />
-<Button attrs={orbit.RestOf(attrs)} {...attrs} />
+<Button attrs={lyr.RestOf(attrs)} name="a" />
+<Button attrs={lyr.RestOf(attrs)} {...attrs} />
 <Card {...attrs} />
 <Card name="a" />
 <Button class="a" class="b" />
 `
 	p := plFront(map[string]string{
-		"src/pages/index.orbit":       page,
-		"src/components/Button.orbit": "---\ntype Props struct{ Attrs orbit.RestAttrs }\n---\n<button {...props.Attrs} />\n",
-		"src/components/Card.orbit":   "---\ntype Props struct{ Title string }\n---\n<p>{props.Title}</p>\n",
+		"src/pages/index.lyr":       page,
+		"src/components/Button.lyr": "---\ntype Props struct{ Attrs lyr.RestAttrs }\n---\n<button {...props.Attrs} />\n",
+		"src/components/Card.lyr":   "---\ntype Props struct{ Title string }\n---\n<p>{props.Title}</p>\n",
 	}, Options{Module: testModule})
 	want := []string{
-		"src/pages/index.orbit:7:29: attribute NAME is passed twice to <Button>",
-		"src/pages/index.orbit:8:2: <Button> gets attrs={…} and pass-through attributes; use {...x} to merge them",
-		"src/pages/index.orbit:9:2: <Button> gets attrs={…} and pass-through attributes; use {...x} to merge them",
-		`src/pages/index.orbit:11:7: unknown prop "name" on <Card> (props: title; add an orbit.RestAttrs field to pass HTML attributes through)`,
-		"src/pages/index.orbit:12:19: attribute class is passed twice to <Button>",
+		"src/pages/index.lyr:7:29: attribute NAME is passed twice to <Button>",
+		"src/pages/index.lyr:8:2: <Button> gets attrs={…} and pass-through attributes; use {...x} to merge them",
+		"src/pages/index.lyr:9:2: <Button> gets attrs={…} and pass-through attributes; use {...x} to merge them",
+		`src/pages/index.lyr:11:7: unknown prop "name" on <Card> (props: title; add a lyr.RestAttrs field to pass HTML attributes through)`,
+		"src/pages/index.lyr:12:19: attribute class is passed twice to <Button>",
 	}
 	if got := p.diagnostics(); strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("got:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -139,22 +139,22 @@ import (
 	"bytes"
 	"testing"
 
-	_ "example.com/blog/orbit_gen/impl/components/button"
-	_ "example.com/blog/orbit_gen/impl/components/field"
-	_ "example.com/blog/orbit_gen/impl/components/input"
-	_ "example.com/blog/orbit_gen/impl/components/wrap"
-	allocs "example.com/blog/orbit_gen/decl/pages/allocs"
-	_ "example.com/blog/orbit_gen/impl/pages/allocs"
-	"github.com/orbit-z/orbit"
+	_ "example.com/blog/lyr_gen/impl/components/button"
+	_ "example.com/blog/lyr_gen/impl/components/field"
+	_ "example.com/blog/lyr_gen/impl/components/input"
+	_ "example.com/blog/lyr_gen/impl/components/wrap"
+	allocs "example.com/blog/lyr_gen/decl/pages/allocs"
+	_ "example.com/blog/lyr_gen/impl/pages/allocs"
+	"github.com/orbit-z/lyr"
 )
 
 func TestAllocs(t *testing.T) {
 	var buf bytes.Buffer
-	w := orbit.NewWriter(&buf)
-	ctx := &orbit.Ctx{}
+	w := lyr.NewWriter(&buf)
+	ctx := &lyr.Ctx{}
 	n := testing.AllocsPerRun(100, func() {
 		buf.Reset()
-		if err := allocs.Render(ctx, w, allocs.Props{}, orbit.Slots{}); err != nil {
+		if err := allocs.Render(ctx, w, allocs.Props{}, lyr.Slots{}); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -163,12 +163,12 @@ func TestAllocs(t *testing.T) {
 
 func BenchmarkRender(b *testing.B) {
 	var buf bytes.Buffer
-	w := orbit.NewWriter(&buf)
-	ctx := &orbit.Ctx{}
+	w := lyr.NewWriter(&buf)
+	ctx := &lyr.Ctx{}
 	b.ReportAllocs()
 	for b.Loop() {
 		buf.Reset()
-		allocs.Render(ctx, w, allocs.Props{}, orbit.Slots{})
+		allocs.Render(ctx, w, allocs.Props{}, lyr.Slots{})
 	}
 }
 `
@@ -222,7 +222,7 @@ func TestRestDirectAllocs(t *testing.T) {
 	if got := allocs(); got != "1" {
 		t.Errorf("hook flavor: %s allocations per render, want 1", got)
 	}
-	if os.Getenv("ORBIT_REST_BENCH") != "" { // the numbers in PLAN.md §2.5
+	if os.Getenv("LYR_REST_BENCH") != "" { // the numbers in PLAN.md §2.5
 		for _, args := range [][]string{{"-overlay=" + OverlayFile}, nil} {
 			out, err := m.goCmd(append(append([]string{"test", "-run=^$", "-bench=.", "-benchtime=200000x", "-count=5"}, args...), "./alloc")...)
 			if err != nil {

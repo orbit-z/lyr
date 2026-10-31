@@ -9,32 +9,32 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // The Markdown typed check (PLAN.md §9): the typed diagnostics of Markdown
 // frontmatter (mdtyped.go) refresh while the user types. mdCheckDelay
-// after the last edit of an open Markdown file, of the layout an .orbit
+// after the last edit of an open Markdown file, of the layout a .lyr
 // buffer declares for a compiled Markdown file, or of a Markdown file or a
 // Go file on disk, a background goroutine compiles a strict copy of the
 // current buffers and runs the typed pass over the Markdown files that
 // have a layout and the decl packages they import, nothing else
 // (project.MarkdownChecker). Its compiler.Checker is kept between runs, so
-// go list -export runs once, and again after a .go, go.mod, orbit.json or
-// orbit_gen/ change. Checks run one at a time; a result whose snapshot predates the
+// go list -export runs once, and again after a .go, go.mod, lyr.json or
+// lyr_gen/ change. Checks run one at a time; a result whose snapshot predates the
 // latest such change is dropped (the next check, already scheduled,
 // replaces it). It never blocks requests or the readiness barrier, and it
 // doesn't touch gopls or the generated files.
 //
 // While the TypeScript child runs, the same check also keeps the emitted
-// .d.ts files fresh (PLAN.md §9b Q5): it type-checks the .orbit files with
-// orbit.JSON or set:json sites too, after an edit of one that has or had
+// .d.ts files fresh (PLAN.md §9b Q5): it type-checks the .lyr files with
+// lyr.JSON or set:json sites too, after an edit of one that has or had
 // sites or a Go file change, and its contracts (dataChanged, ws.tsEdit)
 // are re-emitted in memory and sent to the child.
 //
 // It also refreshes the style and on* security warnings (sectyped.go):
-// while an .orbit file has a candidate, it type-checks the files with
+// while a .lyr file has a candidate, it type-checks the files with
 // candidates too, after an edit of one that has or had candidates or a Go
 // file change (securityChanged, ws.secEdit).
 
@@ -47,7 +47,7 @@ type markdownCheck struct {
 	proj *project.Project
 	edit uint64
 	// md, data and sec are the scope: Markdown files with a layout,
-	// .orbit files with JSON sites (at tsEdit), .orbit files with
+	// .lyr files with JSON sites (at tsEdit), .lyr files with
 	// security warning candidates (at secEdit).
 	md, data, sec bool
 	tsEdit        uint64
@@ -103,7 +103,7 @@ func (s *Server) markdownChanged(ws *workspace) {
 }
 
 // dataChanged records a change that the data contracts may depend on (an
-// edit of an .orbit file that has or had JSON sites, a Go file change),
+// edit of a .lyr file that has or had JSON sites, a Go file change),
 // and schedules the typed check while the TypeScript child runs (with
 // s.mu held).
 func (s *Server) dataChanged(ws *workspace) {
@@ -214,7 +214,7 @@ type mdTestHooks struct {
 	done func(adopted bool)
 }
 
-// isMarkdownLayout reports whether the .orbit file at p is the layout of
+// isMarkdownLayout reports whether the .lyr file at p is the layout of
 // a compiled Markdown file.
 func (ws *workspace) isMarkdownLayout(p string) bool {
 	for _, f := range ws.proj.Files {
@@ -227,14 +227,14 @@ func (ws *workspace) isMarkdownLayout(p string) bool {
 
 // invalidatesExports reports whether a change of the module-relative
 // path rel can change the export data of the packages the generated code
-// imports: a Go file outside orbit_gen/, go.mod, go.sum, go.work or
-// orbit.json.
+// imports: a Go file outside lyr_gen/, go.mod, go.sum, go.work or
+// lyr.json.
 func invalidatesExports(rel string) bool {
 	switch path.Base(rel) {
 	case "go.mod", "go.sum", "go.work", "go.work.sum":
 		return true
 	}
-	if rel == "orbit.json" {
+	if rel == "lyr.json" {
 		return true
 	}
 	return strings.HasSuffix(rel, ".go") && !isGenPath(rel) && !strings.HasPrefix(rel, "../")

@@ -1,4 +1,4 @@
-// Command gen copies Orbit's docs (docs/*.md and docs/reference/*.md,
+// Command gen copies Lyr's docs (docs/*.md and docs/reference/*.md,
 // except DECISIONS.md) and the repository's CHANGELOG.md into
 // internal/content/md, so the server can embed them. go generate runs it in
 // internal/content, three levels below docs/.

@@ -1,4 +1,4 @@
-// Package doctor implements orbit doctor (PLAN.md §6): it checks the
+// Package doctor implements lyr doctor (PLAN.md §6): it checks the
 // environment (Go, gopls, Bun, TypeScript, Tailwind) and, inside a project, go.mod, the pinned
 // CLI, the generated code, .gitignore and the config, and reports each as
 // ok, warning or error with the command that fixes it.
@@ -22,11 +22,11 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/check"
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/config"
-	"github.com/orbit-z/orbit/internal/pin"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/check"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/config"
+	"github.com/orbit-z/lyr/internal/pin"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // Status is a check's outcome.
@@ -38,7 +38,7 @@ const (
 	Error   Status = "error"
 )
 
-// Check is the result of one check, as orbit doctor --json prints it.
+// Check is the result of one check, as lyr doctor --json prints it.
 type Check struct {
 	Name    string `json:"name"`
 	Status  Status `json:"status"`
@@ -85,7 +85,7 @@ type Env struct {
 	BuildInfo func(path string) (*debug.BuildInfo, error)
 	// Self is the running CLI (pin.Current).
 	Self pin.Self
-	// Generate returns what orbit generate would change in the project at
+	// Generate returns what lyr generate would change in the project at
 	// root, without writing (project.Generator.Plan plus
 	// project.DiffGenerated), and the diagnostics that stop it.
 	Generate func(ctx context.Context, root string) (*project.WriteResult, []project.Diagnostic, error)
@@ -133,18 +133,18 @@ func generate(ctx context.Context, root string) (*project.WriteResult, []project
 
 // The minimum versions and the fix commands.
 const (
-	minGo         = "go1.27"
-	installGo     = "install Go 1.27 or later from https://go.dev/dl/"
-	installGopls  = "go install golang.org/x/tools/gopls@latest"
-	orbitGenerate = "orbit generate"
+	minGo        = "go1.27"
+	installGo    = "install Go 1.27 or later from https://go.dev/dl/"
+	installGopls = "go install golang.org/x/tools/gopls@latest"
+	lyrGenerate  = "lyr generate"
 )
 
-// recommendedGopls is the gopls version Orbit's editor support was
+// recommendedGopls is the gopls version Lyr's editor support was
 // verified with (PLAN.md §9).
 var recommendedGopls = check.Version{Major: 0, Minor: 24, Patch: 0}
 
 // Run runs every check: the environment checks, plus the project checks
-// when env.Dir is inside an Orbit project (a module root with go.mod and
+// when env.Dir is inside a Lyr project (a module root with go.mod and
 // src/, PLAN.md §9).
 func Run(ctx context.Context, env Env) *Report {
 	d := &doctor{env: env, ctx: ctx}
@@ -217,9 +217,9 @@ func (d *doctor) goCheck() Check {
 		// names, unless GOTOOLCHAIN=local.
 		switch {
 		case version.Compare(active, "go1.21") < 0:
-			return warn(name, installGo, "%s is older than go 1.27, which Orbit projects need, and too old to switch toolchains", active)
+			return warn(name, installGo, "%s is older than go 1.27, which Lyr projects need, and too old to switch toolchains", active)
 		case gotoolchain == "local":
-			return warn(name, "go env -w GOTOOLCHAIN=auto", "%s is older than go 1.27, which Orbit projects need, and GOTOOLCHAIN=local stops it from switching", active)
+			return warn(name, "go env -w GOTOOLCHAIN=auto", "%s is older than go 1.27, which Lyr projects need, and GOTOOLCHAIN=local stops it from switching", active)
 		}
 		return ok(name, "%s (switches to the Go 1.27 toolchain in projects, GOTOOLCHAIN=%s)", active, gotoolchain)
 	}
@@ -232,7 +232,7 @@ func (d *doctor) goCheck() Check {
 		if mod.Go != "" {
 			have = "has go " + mod.Go
 		}
-		return fail(name, "go mod edit -go=1.27", "go.mod %s; Orbit needs go 1.27 or later", have)
+		return fail(name, "go mod edit -go=1.27", "go.mod %s; Lyr needs go 1.27 or later", have)
 	}
 	if version.IsValid(active) && version.Compare(active, "go"+mod.Go) < 0 {
 		return fail(name, "go env -w GOTOOLCHAIN=auto", "the active toolchain %s is older than go %s in go.mod", active, mod.Go)
@@ -260,17 +260,17 @@ func (d *doctor) cliCheck() Check {
 		have = "unknown"
 	}
 	if mod.HasTool(pin.Tool) {
-		// The global CLI re-execs go tool orbit: check that the go command
+		// The global CLI re-execs go tool lyr: check that the go command
 		// can load the pinned CLI, without building it.
 		out, err := d.env.Run(d.ctx, d.root, "go", "list", "-f", "{{with .Module}}{{.Version}}{{with .Replace}} => {{.Path}}{{end}}{{end}}", pin.Tool)
 		if err != nil {
-			return fail(name, "go mod tidy", "go tool orbit can't load the pinned CLI: %v", err)
+			return fail(name, "go mod tidy", "go tool lyr can't load the pinned CLI: %v", err)
 		}
 		pinned := strings.TrimSpace(string(out))
 		if self.Pinned {
-			return ok(name, "running the project's pinned CLI (go tool orbit, %s)", pinned)
+			return ok(name, "running the project's pinned CLI (go tool lyr, %s)", pinned)
 		}
-		return ok(name, "orbit %s hands commands to the pinned go tool orbit (%s)", have, pinned)
+		return ok(name, "lyr %s hands commands to the pinned go tool lyr (%s)", have, pinned)
 	}
 	if self.Pinned {
 		return ok(name, "running %s %s from the module graph", pin.Tool, have)
@@ -280,12 +280,12 @@ func (d *doctor) cliCheck() Check {
 		return fail(name, "go get -tool "+pin.Tool+"@latest", "go.mod doesn't require %s", pin.Module)
 	}
 	if e := pin.Mismatch(mod, self); e != nil {
-		return fail(name, e.Fix(), "this orbit is %s, but go.mod requires %s %s (no tool directive)", e.Have, pin.Module, e.Want)
+		return fail(name, e.Fix(), "this lyr is %s, but go.mod requires %s %s (no tool directive)", e.Have, pin.Module, e.Want)
 	}
 	if r := mod.Replacement(pin.Module, want); r != nil && r.Local() {
-		return ok(name, "orbit %s; go.mod replaces %s with %s, so versions aren't compared", have, pin.Module, r.New)
+		return ok(name, "lyr %s; go.mod replaces %s with %s, so versions aren't compared", have, pin.Module, r.New)
 	}
-	return ok(name, "orbit %s matches go.mod", have)
+	return ok(name, "lyr %s matches go.mod", have)
 }
 
 // goplsCheck: the gopls on PATH, with the LSP's refuse rule (PLAN.md §9
@@ -295,7 +295,7 @@ func (d *doctor) goplsCheck() Check {
 	const name = "gopls"
 	path, err := d.env.LookPath("gopls")
 	if err != nil {
-		return fail(name, installGopls, "not found on PATH; orbit lsp needs it for Go features in .orbit files")
+		return fail(name, installGopls, "not found on PATH; lyr lsp needs it for Go features in .lyr files")
 	}
 	bi, err := d.env.BuildInfo(path)
 	if err != nil {
@@ -306,7 +306,7 @@ func (d *doctor) goplsCheck() Check {
 	if v == "" {
 		v = "(unknown version)"
 	}
-	want, where := minGo, "go 1.27, the oldest Go Orbit supports"
+	want, where := minGo, "go 1.27, the oldest Go Lyr supports"
 	if d.mod != nil && d.mod.Go != "" && version.IsValid("go"+d.mod.Go) {
 		want, where = "go"+d.mod.Go, "go "+d.mod.Go+" in go.mod"
 	}
@@ -319,11 +319,11 @@ func (d *doctor) goplsCheck() Check {
 	return ok(name, "%s, built with %s", v, goVersion)
 }
 
-// bunCheck: Bun ≥ check.MinBun, for orbit check's TypeScript half; a
+// bunCheck: Bun ≥ check.MinBun, for lyr check's TypeScript half; a
 // warning only.
 func (d *doctor) bunCheck() Check {
 	const name = "bun"
-	const skips = "orbit check will skip TypeScript type checking"
+	const skips = "lyr check will skip TypeScript type checking"
 	path, err := d.env.LookPath("bun")
 	if err != nil {
 		return warn(name, check.InstallBun, "not found (%s or later needed); %s", check.MinBun, skips)
@@ -339,19 +339,19 @@ func (d *doctor) bunCheck() Check {
 	return ok(name, "%s", v)
 }
 
-// genCheck: orbit_gen/ exists and is what orbit generate would write now.
+// genCheck: lyr_gen/ exists and is what lyr generate would write now.
 // The generated files carry no source hash, so the project is regenerated
-// in memory and compared with the disk. orbit_gen/manifest/manifest.go is
-// left out: it lists asset URLs, orbit dev writes it empty, and orbit build
+// in memory and compared with the disk. lyr_gen/manifest/manifest.go is
+// left out: it lists asset URLs, lyr dev writes it empty, and lyr build
 // rewrites it anyway.
 func (d *doctor) genCheck() Check {
-	const name = "orbit_gen"
+	const name = "lyr_gen"
 	if fi, err := os.Stat(filepath.Join(d.root, compiler.GenDir)); err != nil || !fi.IsDir() {
-		return warn(name, orbitGenerate, "orbit_gen/ is missing")
+		return warn(name, lyrGenerate, "lyr_gen/ is missing")
 	}
 	diff, diags, err := d.env.Generate(d.ctx, d.root)
 	if err != nil {
-		return warn(name, orbitGenerate, "can't regenerate to compare: %v", err)
+		return warn(name, lyrGenerate, "can't regenerate to compare: %v", err)
 	}
 	if project.HasErrors(diags) {
 		var first string
@@ -368,7 +368,7 @@ func (d *doctor) genCheck() Check {
 		if n > 1 {
 			more = fmt.Sprintf(" (and %d more)", n-1)
 		}
-		return warn(name, orbitGenerate, "can't check: orbit generate fails with %s%s", first, more)
+		return warn(name, lyrGenerate, "can't check: lyr generate fails with %s%s", first, more)
 	}
 	var stale []string
 	for _, p := range append(diff.Written, diff.Removed...) {
@@ -381,14 +381,14 @@ func (d *doctor) genCheck() Check {
 		if len(stale) > 1 {
 			files = fmt.Sprintf("%d files differ", len(stale))
 		}
-		return warn(name, orbitGenerate, "out of date: %s from what orbit generate writes (%s)", files, stale[0])
+		return warn(name, lyrGenerate, "out of date: %s from what lyr generate writes (%s)", files, stale[0])
 	}
 	return ok(name, "up to date")
 }
 
-// gitignoreCheck: .gitignore covers orbit_gen/, .orbit/ and dist/. A
-// committed orbit_gen/ (PLAN.md §6 "Fresh clones and CI") ignores only
-// orbit_gen/static/, and that's accepted too.
+// gitignoreCheck: .gitignore covers lyr_gen/, .lyr/ and dist/. A
+// committed lyr_gen/ (PLAN.md §6 "Fresh clones and CI") ignores only
+// lyr_gen/static/, and that's accepted too.
 func (d *doctor) gitignoreCheck() Check {
 	const name = "gitignore"
 	data, err := os.ReadFile(filepath.Join(d.root, ".gitignore"))
@@ -396,13 +396,13 @@ func (d *doctor) gitignoreCheck() Check {
 		return warn(name, "", "can't read .gitignore: %v", err)
 	}
 	ignored := ignoredNames(string(data))
-	gen := "orbit_gen/"
-	if !ignored["orbit_gen"] && ignored["orbit_gen/static"] {
-		gen = "orbit_gen/static/"
-		ignored["orbit_gen"] = true
+	gen := "lyr_gen/"
+	if !ignored["lyr_gen"] && ignored["lyr_gen/static"] {
+		gen = "lyr_gen/static/"
+		ignored["lyr_gen"] = true
 	}
 	var missing []string
-	for _, n := range []string{"orbit_gen", ".orbit", "dist"} {
+	for _, n := range []string{"lyr_gen", ".lyr", "dist"} {
 		if !ignored[n] {
 			missing = append(missing, n+"/")
 		}
@@ -414,7 +414,7 @@ func (d *doctor) gitignoreCheck() Check {
 		}
 		return warn(name, fix, ".gitignore doesn't cover %s", strings.Join(missing, ", "))
 	}
-	return ok(name, "covers %s, .orbit/ and dist/", gen)
+	return ok(name, "covers %s, .lyr/ and dist/", gen)
 }
 
 // ignoredNames returns the directory names a .gitignore ignores with a
@@ -436,25 +436,25 @@ func ignoredNames(gitignore string) map[string]bool {
 	return ignored
 }
 
-// configCheck: orbit.json is valid, the server entry exists, and
-// src/locals doesn't lead to orbit_gen/app.
+// configCheck: lyr.json is valid, the server entry exists, and
+// src/locals doesn't lead to lyr_gen/app.
 func (d *doctor) configCheck() Check {
 	const name = "config"
 	cfg, err := config.Load(d.root)
 	if err != nil {
-		return fail(name, "fix orbit.json", "%v", err)
+		return fail(name, "fix lyr.json", "%v", err)
 	}
 	entry, generated := cfg.ServerEntry(d.root)
 	if !generated {
 		if fi, err := os.Stat(filepath.Join(d.root, filepath.FromSlash(entry))); err != nil || !fi.IsDir() {
-			return fail(name, "create "+entry+", or remove server from orbit.json to use "+config.DefaultServer,
-				"orbit.json: server %q doesn't exist", entry)
+			return fail(name, "create "+entry+", or remove server from lyr.json to use "+config.DefaultServer,
+				"lyr.json: server %q doesn't exist", entry)
 		}
 	}
 	if d.mod != nil {
 		for _, dg := range project.CheckLocals(d.root, d.mod.Module) {
 			if dg.Severity == compiler.SeverityError {
-				return fail(name, "move the code that needs orbit_gen/app from src/locals into cmd/server", "%s", dg.String())
+				return fail(name, "move the code that needs lyr_gen/app from src/locals into cmd/server", "%s", dg.String())
 			}
 		}
 	}
@@ -462,10 +462,10 @@ func (d *doctor) configCheck() Check {
 	if generated {
 		server = "server: the generated default (no " + config.DefaultServer + ")"
 	}
-	if _, err := os.Stat(filepath.Join(d.root, "orbit.json")); err != nil {
-		return ok(name, "no orbit.json (defaults); %s", server)
+	if _, err := os.Stat(filepath.Join(d.root, "lyr.json")); err != nil {
+		return ok(name, "no lyr.json (defaults); %s", server)
 	}
-	return ok(name, "orbit.json valid; %s", server)
+	return ok(name, "lyr.json valid; %s", server)
 }
 
 func firstLine(s string) string {

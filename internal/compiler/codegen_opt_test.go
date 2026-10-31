@@ -36,7 +36,7 @@ func optSiteKind(w TypedWrite) string {
 // §2.6, "Typed optional values"): Opt values lowered on attributes, in
 // content and in class:list, props of type Opt[T] passed as is or
 // wrapped, pass-through Opt attributes as RestOpt, and the style trust of
-// an Opt[orbit.CSS]. The byte identity with the fallback is
+// an Opt[lyr.CSS]. The byte identity with the fallback is
 // TestPipelineTypedVsFallback's.
 func TestOptTypedGolden(t *testing.T) {
 	c := loadCase(t, "testdata/codegen/opt")
@@ -51,7 +51,7 @@ func TestOptTypedGolden(t *testing.T) {
 			t.Errorf("%s", d.Format(pf.path, pf.f.Lines)) // no style warning either
 		}
 		switch pf.path {
-		case "src/components/Opt.orbit", "src/pages/index.orbit", "src/pages/allocs.orbit":
+		case "src/components/Opt.lyr", "src/pages/index.lyr", "src/pages/allocs.lyr":
 			pkg, _ := PackageFor(pf.path)
 			golden(t, "testdata/codegen/opt/"+strings.ReplaceAll(pkg.Rel, "/", "_")+".render.go.typed.golden", string(pf.typed.Output.Impl.Content))
 		}
@@ -60,28 +60,28 @@ func TestOptTypedGolden(t *testing.T) {
 		}
 	}
 	for code, want := range map[string]string{
-		// Opt.orbit: attributes and content.
+		// Opt.lyr: attributes and content.
 		"o": "opt", "none": "opt", // last: class={none} "u": "opt", "bad": "opt", "i": "opt", "f": "opt", "b": "opt", "bt": "opt",
 		"fl": "opt", "h": "opt", "css": "opt", "j": "opt", "sl": "opt", "nest": "opt", "nestNone": "opt", "anyo": "opt",
-		"orbit.NonZero(props.S)": "opt", "orbit.Some(props.S)": "opt", "(o) /* c */": "opt", "orbit.NonZero(k)": "opt",
-		"orbit.If(k != 1, k)": "if", `orbit.If(props.On, css.Or(""))`: "if",
+		"lyr.NonZero(props.S)": "opt", "lyr.Some(props.S)": "opt", "(o) /* c */": "opt", "lyr.NonZero(k)": "opt",
+		"lyr.If(k != 1, k)": "if", `lyr.If(props.On, css.Or(""))`: "if",
 		"mine": "", // a type defined over an Opt
 		// class:list items.
 		"cls": "class", "clss": "class",
 		// Props of type Opt[T].
-		`orbit.If(ext, "noopener")`: "asis", "summary": "wrap", "describedBy": "restopt", "n": "wrap", "ext": "wrap",
-		`orbit.CSS("color: red")`: "wrap", `Link.Slug("s")`: "wrap", `orbit.If(ext, "c")`: "wrapif",
-		"orbit.NonZero(summary)": "asis", `orbit.If(!ext, "never")`: "asis",
-		"orbit.NonZero(it.Rel)": "restopt", "it.Title": "wrap", "it.ID": "wrap",
+		`lyr.If(ext, "noopener")`: "asis", "summary": "wrap", "describedBy": "restopt", "n": "wrap", "ext": "wrap",
+		`lyr.CSS("color: red")`: "wrap", `Link.Slug("s")`: "wrap", `lyr.If(ext, "c")`: "wrapif",
+		"lyr.NonZero(summary)": "asis", `lyr.If(!ext, "never")`: "asis",
+		"lyr.NonZero(it.Rel)": "restopt", "it.Title": "wrap", "it.ID": "wrap",
 		// Pass-through attributes.
-		`orbit.If(ext, "help")`: "restopt", `orbit.If(!ext, "no")`: "restopt", `orbit.Some("javascript:x")`: "restopturl",
-		"orbit.Some(n)": "restopt", "orbit.Some(true)": "restopt", `orbit.If(it.ID == 2, "help")`: "restopt",
-		// allocs.orbit.
-		`orbit.If(it.Href == current, "page")`: "folded", "orbit.NonZero(it.ID)": "opt", "orbit.NonZero(it.Title)": "opt",
-		// set:html of an Opt[orbit.HTML] (user decision, 2026-10-27), and
-		// of an orbit.HTML (the plain write).
-		"orbit.None[orbit.HTML]()": "opt", `orbit.If(props.On, orbit.HTML("<i>if</i>"))`: "opt",
-		"orbit.NonZero(orbit.HTML(it.Rel))": "opt", `h.Or("")`: "html",
+		`lyr.If(ext, "help")`: "restopt", `lyr.If(!ext, "no")`: "restopt", `lyr.Some("javascript:x")`: "restopturl",
+		"lyr.Some(n)": "restopt", "lyr.Some(true)": "restopt", `lyr.If(it.ID == 2, "help")`: "restopt",
+		// allocs.lyr.
+		`lyr.If(it.Href == current, "page")`: "folded", "lyr.NonZero(it.ID)": "opt", "lyr.NonZero(it.Title)": "opt",
+		// set:html of an Opt[lyr.HTML] (user decision, 2026-10-27), and
+		// of a lyr.HTML (the plain write).
+		"lyr.None[lyr.HTML]()": "opt", `lyr.If(props.On, lyr.HTML("<i>if</i>"))`: "opt",
+		"lyr.NonZero(lyr.HTML(it.Rel))": "opt", `h.Or("")`: "html",
 	} {
 		got, ok := kinds[code]
 		if !ok {
@@ -125,10 +125,10 @@ func TestOptAllocs(t *testing.T) {
 	m.writeOverlay(builds)
 	// condAllocTestSrc, with the opt case's components linked (the hook
 	// flavor calls them through their hooks).
-	m.write("alloc/alloc_test.go", strings.Replace(condAllocTestSrc, `_ "example.com/blog/orbit_gen/impl/pages/allocs"`,
-		`_ "example.com/blog/orbit_gen/impl/pages/allocs"
-	_ "example.com/blog/orbit_gen/impl/components/link"
-	_ "example.com/blog/orbit_gen/impl/components/button"`, 1))
+	m.write("alloc/alloc_test.go", strings.Replace(condAllocTestSrc, `_ "example.com/blog/lyr_gen/impl/pages/allocs"`,
+		`_ "example.com/blog/lyr_gen/impl/pages/allocs"
+	_ "example.com/blog/lyr_gen/impl/components/link"
+	_ "example.com/blog/lyr_gen/impl/components/button"`, 1))
 	allocs := func(args ...string) string {
 		out, err := m.goCmd(append(append([]string{"test", "-count=1", "-v"}, args...), "./alloc")...)
 		if err != nil {
@@ -154,9 +154,9 @@ func TestOptAllocs(t *testing.T) {
 // take T.
 func TestOptPropErrors(t *testing.T) {
 	srcs := map[string]string{
-		"src/components/Link.orbit": "---\ntype Slug string\n\ntype Props struct {\n\tRel orbit.Opt[string]\n\tID  orbit.Opt[Slug]\n\tN   orbit.Opt[int]\n}\n---\n<a rel={props.Rel} id={props.ID} data-n={props.N}></a>\n",
-		"src/pages/index.orbit": "---\nimport Link \"../components/Link.orbit\"\n\nconst c = \"k\"\nn := 3\nvar s string\nvar o orbit.Opt[int]\n---\n" +
-			"<Link rel={n} />\n<Link id={c} n={o} />\n<Link id={s} />\n<Link rel={orbit.Some(2)} />\n",
+		"src/components/Link.lyr": "---\ntype Slug string\n\ntype Props struct {\n\tRel lyr.Opt[string]\n\tID  lyr.Opt[Slug]\n\tN   lyr.Opt[int]\n}\n---\n<a rel={props.Rel} id={props.ID} data-n={props.N}></a>\n",
+		"src/pages/index.lyr": "---\nimport Link \"../components/Link.lyr\"\n\nconst c = \"k\"\nn := 3\nvar s string\nvar o lyr.Opt[int]\n---\n" +
+			"<Link rel={n} />\n<Link id={c} n={o} />\n<Link id={s} />\n<Link rel={lyr.Some(2)} />\n",
 	}
 	m := newGenModule(t)
 	pl := plPipeline(t, m, srcs, Options{Module: testModule})
@@ -167,9 +167,9 @@ func TestOptPropErrors(t *testing.T) {
 		}
 	}
 	want := []string{
-		"src/pages/index.orbit:9:12: prop rel of <Link> is orbit.Opt[string]; got int",
-		"src/pages/index.orbit:11:11: prop id of <Link> is orbit.Opt[link.Slug]; got string",
-		"src/pages/index.orbit:12:12: prop rel of <Link> is orbit.Opt[string]; got orbit.Opt[int]",
+		"src/pages/index.lyr:9:12: prop rel of <Link> is lyr.Opt[string]; got int",
+		"src/pages/index.lyr:11:11: prop id of <Link> is lyr.Opt[link.Slug]; got string",
+		"src/pages/index.lyr:12:12: prop rel of <Link> is lyr.Opt[string]; got lyr.Opt[int]",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("got:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -186,17 +186,17 @@ func TestOptPropErrors(t *testing.T) {
 }
 
 // TestSetHTMLTypeError: a set:html value that isn't assignable to
-// orbit.HTML or an orbit.Opt[orbit.HTML] is the typed pass's Orbit-worded
+// lyr.HTML or a lyr.Opt[lyr.HTML] is the typed pass's Lyr-worded
 // error at the value (PLAN.md §2.6, user decision 2026-10-28); untyped
 // constants, HTML values and Opt[HTML] values aren't. The pass-2 output
 // still builds and vets (the bad sites keep SetHTML), so Go never reports
 // them a second time.
 func TestSetHTMLTypeError(t *testing.T) {
 	srcs := map[string]string{
-		"src/pages/index.orbit": "---\ntype Mine orbit.HTML\n\nconst nbsp = \"&nbsp;\"\nconst typed string = \"x\"\nconst h orbit.HTML = \"<b>\"\nbody := \"<p>\"\nn := 3\nvar m Mine\nvar o orbit.Opt[orbit.HTML]\nok := true\n---\n" +
+		"src/pages/index.lyr": "---\ntype Mine lyr.HTML\n\nconst nbsp = \"&nbsp;\"\nconst typed string = \"x\"\nconst h lyr.HTML = \"<b>\"\nbody := \"<p>\"\nn := 3\nvar m Mine\nvar o lyr.Opt[lyr.HTML]\nok := true\n---\n" +
 			"<div set:html={body}></div>\n<div set:html={nbsp}></div>\n<div set:html={nbsp + \"x\" + (nbsp)}></div>\n<div set:html={typed}></div>\n" +
-			"<div set:html={h}></div>\n<div set:html={orbit.HTML(body)}></div>\n<div set:html={n}></div>\n<div set:html={m}></div>\n" +
-			"<div set:html={o}></div>\n<Fragment set:html={orbit.If(ok, h)} />\n<div set:html={nbsp + body}></div>\n",
+			"<div set:html={h}></div>\n<div set:html={lyr.HTML(body)}></div>\n<div set:html={n}></div>\n<div set:html={m}></div>\n" +
+			"<div set:html={o}></div>\n<Fragment set:html={lyr.If(ok, h)} />\n<div set:html={nbsp + body}></div>\n",
 	}
 	m := newGenModule(t)
 	pl := plPipeline(t, m, srcs, Options{Module: testModule})
@@ -206,13 +206,13 @@ func TestSetHTMLTypeError(t *testing.T) {
 			got = append(got, d.Format(pf.path, pf.f.Lines))
 		}
 	}
-	const fix = ": convert a trusted value with orbit.HTML(…), or use set:text"
+	const fix = ": convert a trusted value with lyr.HTML(…), or use set:text"
 	want := []string{
-		"src/pages/index.orbit:13:16: set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not string" + fix,
-		"src/pages/index.orbit:16:16: set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not string" + fix,
-		"src/pages/index.orbit:19:16: set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not int" + fix,
-		"src/pages/index.orbit:20:16: set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not index_impl.Mine" + fix,
-		"src/pages/index.orbit:23:16: set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not string" + fix,
+		"src/pages/index.lyr:13:16: set:html needs lyr.HTML or lyr.Opt[lyr.HTML], not string" + fix,
+		"src/pages/index.lyr:16:16: set:html needs lyr.HTML or lyr.Opt[lyr.HTML], not string" + fix,
+		"src/pages/index.lyr:19:16: set:html needs lyr.HTML or lyr.Opt[lyr.HTML], not int" + fix,
+		"src/pages/index.lyr:20:16: set:html needs lyr.HTML or lyr.Opt[lyr.HTML], not index_impl.Mine" + fix,
+		"src/pages/index.lyr:23:16: set:html needs lyr.HTML or lyr.Opt[lyr.HTML], not string" + fix,
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("got:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

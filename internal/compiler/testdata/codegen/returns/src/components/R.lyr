@@ -1,0 +1,55 @@
+---
+import (
+	"errors"
+	"fmt"
+	"io/fs"
+)
+
+type Props struct {
+	Mode string
+}
+
+// helper's return is its own: not wrapped.
+func helper(fail bool) error {
+	if fail {
+		return errors.New("helper")
+	}
+	return nil
+}
+
+check := func() error {
+	return errors.New("closure") // returns from the closure: not wrapped
+}
+
+if props.Mode == "top" {
+	return errors.New("boom")
+}
+for i := 0; i < 3; i++ {
+	if props.Mode == "for" && i == 2 {
+		return fmt.Errorf("loop %d", i)
+	}
+}
+switch props.Mode {
+case "switch":
+	return fmt.Errorf("open: %w", fs.ErrNotExist)
+case "notfound":
+	return lyr.ErrNotFound
+case "redirect":
+	return ctx.Redirect("/login", 302)
+case "nil":
+	return nil
+case "closure":
+	return check()
+case "helper":
+	return helper(true)
+case "multi":
+	return fmt.Errorf(
+		"multi %s",
+		props.Mode,
+	)
+}
+{
+	if props.Mode == "block" { return errors.New("block") } else if props.Mode == "two" { return errors.New("two") }
+}
+---
+<p>ok {props.Mode}</p>

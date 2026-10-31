@@ -1,0 +1,4 @@
+{
+  "site": "https://lyr.example",
+  "watch": ["../*.md", "../reference/*.md", "../../CHANGELOG.md"]
+}

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/check"
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/check"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 var update = flag.Bool("update", false, "rewrite the golden files")
@@ -48,13 +48,13 @@ func render(path, src string, opts Options) string {
 }
 
 func runGolden(t *testing.T, dir string, opts Options) {
-	files, err := filepath.Glob(filepath.Join(dir, "*.orbit"))
+	files, err := filepath.Glob(filepath.Join(dir, "*.lyr"))
 	if err != nil || len(files) == 0 {
 		t.Fatalf("no golden inputs in %s: %v", dir, err)
 	}
 	for _, file := range files {
 		name := filepath.Base(file)
-		t.Run(strings.TrimSuffix(name, ".orbit"), func(t *testing.T) {
+		t.Run(strings.TrimSuffix(name, ".lyr"), func(t *testing.T) {
 			src, err := os.ReadFile(file)
 			if err != nil {
 				t.Fatal(err)
@@ -62,7 +62,7 @@ func runGolden(t *testing.T, dir string, opts Options) {
 			o := opts
 			o.Path = name
 			got := render(name, string(src), o)
-			golden := strings.TrimSuffix(file, ".orbit") + ".golden"
+			golden := strings.TrimSuffix(file, ".lyr") + ".golden"
 			if *update {
 				if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
 					t.Fatal(err)

@@ -5,23 +5,23 @@ import "strconv"
 // Dynamic tags (PLAN.md §2.8): <Tag …>…</Tag> with Tag a string variable.
 // The tag name is evaluated once, at the start tag, by TagOpen; the
 // attributes and the ">" are written only when it opened an element (not
-// for orbit.Fragment); TagClose writes the end tag of a non-void element:
+// for lyr.Fragment); TagClose writes the end tag of a non-void element:
 //
-//	orbit__t1 := orbit__w.TagOpen("src/x.orbit:3:2", "Tag",
+//	lyr__t1 := lyr__w.TagOpen("src/x.lyr:3:2", "Tag",
 //	Tag,
 //	true)
-//	if orbit__t1.Attrs() {
+//	if lyr__t1.Attrs() {
 //		…attributes…
-//		orbit__w.Raw(` data-o-5c7d1e2f>`)
+//		lyr__w.Raw(` data-l-5c7d1e2f>`)
 //	}
 //	…children…
-//	orbit__w.TagClose(orbit__t1)
+//	lyr__w.TagClose(lyr__t1)
 
 // dynElement emits a dynamic tag.
 func (g *cgGen) dynElement(n *Element, c *wsCtx, i int) {
 	o := g.o
 	g.dynTags++
-	v := "orbit__t" + strconv.Itoa(g.dynTags)
+	v := "lyr__t" + strconv.Itoa(g.dynTags)
 	var set *Attr
 	for _, a := range n.Attrs {
 		if (a.Directive == SetHTML || a.Directive == SetText) && set == nil {
@@ -75,8 +75,8 @@ func (g *cgGen) dynElement(n *Element, c *wsCtx, i int) {
 }
 
 // spreadOf emits a spread {...x} on an HTML element:
-// orbit__rt.SpreadOf(orbit__w, pos, x), for an orbit.Attrs (sorted) or an
-// orbit.AttrList (in order) (PLAN.md §2.9).
+// lyr__rt.SpreadOf(lyr__w, pos, x), for a lyr.Attrs (sorted) or an
+// lyr.AttrList (in order) (PLAN.md §2.9).
 func (g *cgGen) spreadOf(a *Attr) {
 	o := g.o
 	o.flush()

@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// notFoundPattern is the reserved Route.Pattern of src/pages/404.orbit.
+// notFoundPattern is the reserved Route.Pattern of src/pages/404.lyr.
 // It has no leading slash, so it can never be a URL pattern: the router keeps
 // that route aside (router.notFound) instead of putting it in the trie, so
 // the 404 page has no URL of its own and /404 isn't routable.
@@ -50,7 +50,7 @@ type node struct {
 // router matches request paths against the page routes.
 type router struct {
 	root     node
-	notFound *Route // the 404.orbit route, or nil
+	notFound *Route // the 404.lyr route, or nil
 	// always is set in TrailingSlashAlways mode: page URLs end with "/",
 	// except "/" and extension routes.
 	always bool
@@ -197,8 +197,8 @@ func parsePattern(pattern, file string) ([]routeSeg, error) {
 		return nil, malformed("must not end with /")
 	}
 	parts := strings.Split(pattern[1:], "/")
-	if parts[0] == "_orbit" {
-		return nil, fmt.Errorf("%s: route %s is under /_orbit/, which Orbit reserves for its assets and islands; rename the page or its directory",
+	if parts[0] == "_lyr" {
+		return nil, fmt.Errorf("%s: route %s is under /_lyr/, which Lyr reserves for its assets and islands; rename the page or its directory",
 			file, pattern)
 	}
 	segs := make([]routeSeg, 0, len(parts))
@@ -253,7 +253,7 @@ func parseSegment(p string, last bool, file string) (*routeSeg, error) {
 			name := p[open+1 : open+end]
 			if !strings.ContainsAny(name, "[") {
 				name = strings.TrimPrefix(name, "...")
-				suggest := "[" + name + "].orbit"
+				suggest := "[" + name + "].lyr"
 				if !last {
 					suggest = "[" + name + "]/"
 				}
@@ -450,11 +450,11 @@ func unhex(c byte) byte {
 // trailing-slash path whose slash-less form matches a page: "/blog/hello/"
 // → "/blog/hello". In always mode it's a path without a trailing slash or a
 // file extension whose form with one matches a non-extension page:
-// "/blog/hello" → "/blog/hello/". "/", paths under /_orbit/ and paths that
+// "/blog/hello" → "/blog/hello/". "/", paths under /_lyr/ and paths that
 // would give a protocol-relative Location ("//…") are never redirected;
 // otherwise ok is false and the request should reach next untouched.
 func (rt *router) redirectTarget(path, rawQuery string) (string, bool) {
-	if len(path) < 2 || strings.HasPrefix(path, "/_orbit/") {
+	if len(path) < 2 || strings.HasPrefix(path, "/_lyr/") {
 		return "", false
 	}
 	var target string

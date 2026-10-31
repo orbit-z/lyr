@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // Control block completion (PLAN.md §9 Request routing): right after a "{"
@@ -258,7 +258,7 @@ func (c cursor) blockItems(site blockSite, snippets bool) []any {
 	return items
 }
 
-// mergeBlockItems puts Orbit's keyword items before the items of gopls's
+// mergeBlockItems puts Lyr's keyword items before the items of gopls's
 // (mapped) completion list, whose sortTexts get a "1" prefix so the
 // keywords sort first.
 func mergeBlockItems(items []any, list jsonRaw) any {

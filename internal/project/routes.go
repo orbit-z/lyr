@@ -5,21 +5,21 @@ import (
 	"path"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // NotFoundFile is the page that renders not-found responses, and
 // NotFoundPattern its reserved route pattern (the runtime's router keeps it
 // out of the URL trie, so /404 isn't routable).
 const (
-	NotFoundFile    = "src/pages/404.orbit"
+	NotFoundFile    = "src/pages/404.lyr"
 	NotFoundPattern = "404"
 )
 
-// RouteFor returns the role and route pattern of the .orbit file at the
+// RouteFor returns the role and route pattern of the .lyr file at the
 // project-relative path p (PLAN.md §4): a file under src/pages is a page
-// whose route is its path there without .orbit, with index as its
-// directory's root ("/" for src/pages/index.orbit); src/pages/404.orbit gets
+// whose route is its path there without .lyr, with index as its
+// directory's root ("/" for src/pages/index.lyr); src/pages/404.lyr gets
 // the reserved pattern "404". As in Astro, a file under src/pages whose name,
 // or the name of a directory on its path, starts with "_" isn't routed: it's
 // a component. Anything else is a component with no route.
@@ -37,7 +37,7 @@ func RouteFor(p string) (compiler.Role, string) {
 	if compiler.IsMarkdown(rest) {
 		rest = strings.TrimSuffix(rest, path.Ext(rest)) // a Markdown page (PLAN.md §2.4)
 	} else {
-		rest = strings.TrimSuffix(rest, ".orbit")
+		rest = strings.TrimSuffix(rest, ".lyr")
 	}
 	if rest == "404" {
 		return compiler.RolePage, NotFoundPattern
@@ -51,7 +51,7 @@ func RouteFor(p string) (compiler.Role, string) {
 
 // checkRoute returns the problem with a page's route pattern, or "": a
 // segment that mixes text and a parameter, a rest param that isn't last, a
-// route under /_orbit/, unbalanced brackets or an empty param name. The
+// route under /_lyr/, unbalanced brackets or an empty param name. The
 // messages match the runtime router's (router.go), which rejects the same
 // patterns at startup. Param names that can't become Go fields, and params
 // whose field names collide, are reported by compiler.Analyze.
@@ -60,8 +60,8 @@ func checkRoute(pattern string) string {
 		return ""
 	}
 	parts := strings.Split(strings.TrimPrefix(pattern, "/"), "/")
-	if parts[0] == "_orbit" {
-		return fmt.Sprintf("route %s is under /_orbit/, which Orbit reserves for its assets and islands; rename the page or its directory", pattern)
+	if parts[0] == "_lyr" {
+		return fmt.Sprintf("route %s is under /_lyr/, which Lyr reserves for its assets and islands; rename the page or its directory", pattern)
 	}
 	for i, seg := range parts {
 		last := i == len(parts)-1
@@ -83,7 +83,7 @@ func checkRoute(pattern string) string {
 			if end := strings.IndexByte(seg[open:], ']'); end > 1 {
 				if name := seg[open+1 : open+end]; !strings.Contains(name, "[") {
 					name = strings.TrimPrefix(name, "...")
-					suggest := "[" + name + "].orbit"
+					suggest := "[" + name + "].lyr"
 					if !last {
 						suggest = "[" + name + "]/"
 					}

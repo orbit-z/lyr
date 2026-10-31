@@ -3,7 +3,7 @@ package build
 import "testing"
 
 func TestLDFlagsWithIslandKey(t *testing.T) {
-	const x = "-X github.com/orbit-z/orbit.buildKey=K+/= -X github.com/orbit-z/orbit.buildID=0123456789abcdef"
+	const x = "-X github.com/orbit-z/lyr.buildKey=K+/= -X github.com/orbit-z/lyr.buildID=0123456789abcdef"
 	for _, tt := range []struct{ goflags, want string }{
 		{"", "-ldflags=" + x},
 		{"-mod=mod", "-ldflags=" + x},

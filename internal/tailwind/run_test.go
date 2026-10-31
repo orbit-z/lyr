@@ -56,7 +56,7 @@ func TestFind(t *testing.T) {
 		{"v3 refused, bun x", "", map[string]string{"tailwindcss": "/t", "bun": "/b"}, map[string]string{"/t": "tailwindcss v3.4.17\n"},
 			"Tailwind CSS 4.3.3 through bun x"},
 		{"v3 refused, nothing else", "", map[string]string{"tailwindcss": "/t"}, map[string]string{"/t": "tailwindcss v3.4.17\n"},
-			"the Tailwind CSS CLI (v4) was not found; /t is Tailwind CSS 3.4.17, and Orbit needs v4"},
+			"the Tailwind CSS CLI (v4) was not found; /t is Tailwind CSS 3.4.17, and Lyr needs v4"},
 		{"not found", "", nil, nil, "the Tailwind CSS CLI (v4) was not found"},
 		{"broken", "", map[string]string{"tailwindcss": "/t"}, nil, "the Tailwind CSS CLI (v4) was not found; /t --help: exit status 1 "},
 	}
@@ -109,16 +109,16 @@ func TestCleanMessage(t *testing.T) {
 }
 
 func TestCLIError(t *testing.T) {
-	in := Inline(Source{File: "/p/x.orbit", Line: 10, Col: 3, Dir: "/p",
+	in := Inline(Source{File: "/p/x.lyr", Line: 10, Col: 3, Dir: "/p",
 		Text: ".a { color: red }\n  .b { @apply p-2 nope; }\n"}, InlineOptions{})
 	tests := []struct {
 		stderr, want string
 	}{
 		{"│ Error: Cannot apply unknown utility class `nope`. Are you using CSS modules or similar and missing `@reference`? https://x\n",
-			"/p/x.orbit:11:8: Cannot apply unknown utility class `nope`."},
-		{"│ CssSyntaxError: stdin.css:2:3: Missing closing } at .a\n", "/p/x.orbit:11:3: Missing closing } at .a"},
-		{"│ Error: Can't resolve 'daisyui' in '/p'\n", "/p/x.orbit:10:3: Can't resolve 'daisyui' in '/p'"},
-		{"", "/p/x.orbit:10:3: tailwindcss failed"},
+			"/p/x.lyr:11:8: Cannot apply unknown utility class `nope`."},
+		{"│ CssSyntaxError: stdin.css:2:3: Missing closing } at .a\n", "/p/x.lyr:11:3: Missing closing } at .a"},
+		{"│ Error: Can't resolve 'daisyui' in '/p'\n", "/p/x.lyr:10:3: Can't resolve 'daisyui' in '/p'"},
+		{"", "/p/x.lyr:10:3: tailwindcss failed"},
 	}
 	for _, tt := range tests {
 		if got := in.cliError(tt.stderr).Error(); got != tt.want {
@@ -147,7 +147,7 @@ func TestProcessor(t *testing.T) {
 	find := fakeCLI(t, `echo x >> `+count+`; cat; echo "/* $(wc -l < `+count+`) */"`)
 	p := NewProcessorWith(dir, find)
 	root := Input{Inlined: Inline(Source{Text: "@import \"tailwindcss\";", Dir: dir, File: dir + "/g.css"}, InlineOptions{}), Dir: dir, Root: true}
-	block := Input{Inlined: Inline(Source{Text: ".a { @apply x; }", Dir: dir, File: dir + "/c.orbit"}, InlineOptions{}), Dir: dir}
+	block := Input{Inlined: Inline(Source{Text: ".a { @apply x; }", Dir: dir, File: dir + "/c.lyr"}, InlineOptions{}), Dir: dir}
 	process := func(in Input) string {
 		t.Helper()
 		out, err := p.Process(t.Context(), in)
@@ -207,7 +207,7 @@ func TestProcessor(t *testing.T) {
 	f := NewProcessorWith(dir, fakeCLI(t, "cat >/dev/null; echo '│ Error: boom' >&2; exit 1"))
 	_, err := f.Process(t.Context(), block)
 	var te *Error
-	if !errors.As(err, &te) || te.Msg != "boom" || te.File != dir+"/c.orbit" || te.Line != 1 {
+	if !errors.As(err, &te) || te.Msg != "boom" || te.File != dir+"/c.lyr" || te.Line != 1 {
 		t.Fatalf("error: %v", err)
 	}
 	f.Process(t.Context(), block)
@@ -236,25 +236,25 @@ func TestGate(t *testing.T) {
 		os.MkdirAll(filepath.Dir(p), 0o755)
 		os.WriteFile(p, []byte(s), 0o644)
 	}
-	write("src/a.orbit", `<p class="flex p-4">hi</p>`)
-	write("orbit_gen/x.go", `"skipped-token"`)
-	g := NewGate(dir, func(rel string) bool { return rel == "orbit_gen" })
-	if g.Changed([]string{"src/a.orbit"}) {
+	write("src/a.lyr", `<p class="flex p-4">hi</p>`)
+	write("lyr_gen/x.go", `"skipped-token"`)
+	g := NewGate(dir, func(rel string) bool { return rel == "lyr_gen" })
+	if g.Changed([]string{"src/a.lyr"}) {
 		t.Error("unchanged file seen as new")
 	}
-	write("src/a.orbit", `<p class="flex p-4">hi</p>  <p`)
-	if g.Changed([]string{"src/a.orbit"}) {
+	write("src/a.lyr", `<p class="flex p-4">hi</p>  <p`)
+	if g.Changed([]string{"src/a.lyr"}) {
 		t.Error("repeated tokens seen as new")
 	}
 	write("src/b.go", `x := "skipped-token"`)
 	if !g.Changed([]string{"src/b.go"}) {
 		t.Error("tokens of a skipped directory were seeded")
 	}
-	write("src/a.orbit", `<p class="flex p-8">hi</p>`)
-	if !g.Changed([]string{"src/a.orbit"}) {
+	write("src/a.lyr", `<p class="flex p-8">hi</p>`)
+	if !g.Changed([]string{"src/a.lyr"}) {
 		t.Error("new class not seen")
 	}
-	if g.Changed([]string{"src/a.orbit", "src/gone.orbit", "src/x.css"}) {
+	if g.Changed([]string{"src/a.lyr", "src/gone.lyr", "src/x.css"}) {
 		t.Error("second look, a removed file or a .css file seen as new")
 	}
 	os.MkdirAll(filepath.Join(dir, "src/new"), 0o755)

@@ -1,5 +1,5 @@
-info src/components/err_unexported.orbit component route=""
-implicit orbit: none
+info src/components/err_unexported.lyr component route=""
+implicit lyr: none
 decl type @4-37 place=decl item@9-13
   "type item struct {\n\tName string\n}"
 decl type @39-54 place=decl hidden@44-50

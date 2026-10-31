@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/islandcrypto"
+	"github.com/orbit-z/lyr/internal/islandcrypto"
 )
 
 const commentsID = "Comments-9b1e44a2"
@@ -86,31 +86,31 @@ func headPage(body string) func(*Ctx, *Writer) error {
 }
 
 var islandTable = []Island{
-	NewIsland(commentsID, "src/components/Comments.orbit", comments),
-	NewIsland("Other-00000000", "src/components/Other.orbit", otherIsland),
+	NewIsland(commentsID, "src/components/Comments.lyr", comments),
+	NewIsland("Other-00000000", "src/components/Other.lyr", otherIsland),
 }
 
 func islandRoutes() []Route {
 	return []Route{
-		{Pattern: "/post", File: "src/pages/post.orbit", Render: deferPage, Islands: true,
-			Assets: []Asset{{Kind: "css", URL: "/_orbit/post-1234.css"}}},
-		{Pattern: "/plain", File: "src/pages/plain.orbit", Render: headPage("plain"),
-			Assets: []Asset{{Kind: "css", URL: "/_orbit/plain-1234.css"}}},
-		{Pattern: "/lazy", File: "src/pages/lazy.orbit", Render: headPage("lazy"),
-			Assets: []Asset{{Kind: "lazy", ID: "Counter-1c2d3e4f", URL: "/_orbit/Counter-ABCD.js"}, {Kind: "lazy", ID: "Counter-1c2d3e4f", URL: "/_orbit/Inner-EFGH.js"}, {Kind: "lazy", ID: "Counter-1c2d3e4f", URL: "/_orbit/Counter-ABCD.js"}, {Kind: "lazy", ID: "x</script>", URL: "/_orbit/x.js"}}},
+		{Pattern: "/post", File: "src/pages/post.lyr", Render: deferPage, Islands: true,
+			Assets: []Asset{{Kind: "css", URL: "/_lyr/post-1234.css"}}},
+		{Pattern: "/plain", File: "src/pages/plain.lyr", Render: headPage("plain"),
+			Assets: []Asset{{Kind: "css", URL: "/_lyr/plain-1234.css"}}},
+		{Pattern: "/lazy", File: "src/pages/lazy.lyr", Render: headPage("lazy"),
+			Assets: []Asset{{Kind: "lazy", ID: "Counter-1c2d3e4f", URL: "/_lyr/Counter-ABCD.js"}, {Kind: "lazy", ID: "Counter-1c2d3e4f", URL: "/_lyr/Inner-EFGH.js"}, {Kind: "lazy", ID: "Counter-1c2d3e4f", URL: "/_lyr/Counter-ABCD.js"}, {Kind: "lazy", ID: "x</script>", URL: "/_lyr/x.js"}}},
 	}
 }
 
 func islandSite(t testing.TB, opts ...Option) *Site {
 	t.Helper()
 	if tt, ok := t.(*testing.T); ok {
-		tt.Setenv("ORBIT_STATIC", "")
-		tt.Setenv("ORBIT_PUBLIC", "")
+		tt.Setenv("LYR_STATIC", "")
+		tt.Setenv("LYR_PUBLIC", "")
 	}
 	return NewSite(islandRoutes(), islandTable, append([]Option{WithStaticDir(t.TempDir())}, opts...)...)
 }
 
-var placeholderRe = regexp.MustCompile(`<orbit-island src="(/_orbit/island/([0-9a-f]{16})/([^"]+))" props="([^"]*)">`)
+var placeholderRe = regexp.MustCompile(`<lyr-island src="(/_lyr/island/([0-9a-f]{16})/([^"]+))" props="([^"]*)">`)
 
 // placeholder renders /post?mode=… on h and returns the island URL path
 // and the token.
@@ -125,12 +125,12 @@ func placeholder(t testing.TB, h http.Handler, mode string) (src, token string) 
 }
 
 func TestDeferPlaceholder(t *testing.T) {
-	t.Setenv("ORBIT_KEY", "")
+	t.Setenv("LYR_KEY", "")
 	s := islandSite(t)
 	rec := do(s.Handler(), "GET", "/post")
 	body := rec.Body.String()
 	tok := sealerOf(testKeyring()).Seal(commentsID, testBuildID, []byte(`{"PostID":42,"Mode":""}`))
-	want := `<body><orbit-island src="/_orbit/island/0000000000000000/Comments-9b1e44a2" props="` + tok + `"><p>Loading…</p></orbit-island></body>`
+	want := `<body><lyr-island src="/_lyr/island/0000000000000000/Comments-9b1e44a2" props="` + tok + `"><p>Loading…</p></lyr-island></body>`
 	if !strings.Contains(body, want) {
 		t.Errorf("page = %s\nwant it to contain %s", body, want)
 	}
@@ -147,7 +147,7 @@ func TestDeferNoFallbackAndMarshalError(t *testing.T) {
 	if err := Defer(c, w, "X-1", struct{ A int }{1}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(buf.String(), `<orbit-island src="/_orbit/island/0000000000000000/X-1" props="`) || !strings.HasSuffix(buf.String(), `"></orbit-island>`) {
+	if !strings.HasPrefix(buf.String(), `<lyr-island src="/_lyr/island/0000000000000000/X-1" props="`) || !strings.HasSuffix(buf.String(), `"></lyr-island>`) {
 		t.Errorf("placeholder = %s", buf.String())
 	}
 	buf.Reset()
@@ -159,7 +159,7 @@ func TestDeferNoFallbackAndMarshalError(t *testing.T) {
 }
 
 func TestIslandEndpoint(t *testing.T) {
-	t.Setenv("ORBIT_KEY", "")
+	t.Setenv("LYR_KEY", "")
 	s := islandSite(t)
 	h := s.Handler()
 	src, tok := placeholder(t, h, "")
@@ -221,14 +221,14 @@ func TestIslandEndpoint(t *testing.T) {
 		{"flipped byte", src + "?p=" + flipped, 400},
 		{"missing token", src, 400},
 		{"empty token", src + "?p=", 400},
-		{"other component", "/_orbit/island/0000000000000000/Other-00000000?p=" + tok, 400},
-		{"other build ID", "/_orbit/island/1111111111111111/" + commentsID + "?p=" + tok, 400},
+		{"other component", "/_lyr/island/0000000000000000/Other-00000000?p=" + tok, 400},
+		{"other build ID", "/_lyr/island/1111111111111111/" + commentsID + "?p=" + tok, 400},
 		{"other key", src + "?p=" + foreign, 400},
 		{"props of the wrong type", src + "?p=" + badJSON, 400},
 		{"props not JSON", src + "?p=" + notJSON, 400},
-		{"unknown component", "/_orbit/island/0000000000000000/Nope-00000000?p=" + tok, 404},
-		{"no component", "/_orbit/island/0000000000000000", 404},
-		{"no build ID", "/_orbit/island//" + commentsID + "?p=" + tok, 404},
+		{"unknown component", "/_lyr/island/0000000000000000/Nope-00000000?p=" + tok, 404},
+		{"no component", "/_lyr/island/0000000000000000", 404},
+		{"no build ID", "/_lyr/island//" + commentsID + "?p=" + tok, 404},
 		{"extra segment", src + "/x?p=" + tok, 404},
 	} {
 		rec := do(h, "GET", tt.target)
@@ -239,13 +239,13 @@ func TestIslandEndpoint(t *testing.T) {
 }
 
 func TestIslandErrors(t *testing.T) {
-	t.Setenv("ORBIT_KEY", "")
+	t.Setenv("LYR_KEY", "")
 	for _, dev := range []bool{false, true} {
 		t.Run(fmt.Sprint("dev=", dev), func(t *testing.T) {
 			if dev {
-				t.Setenv("ORBIT_DEV", "1")
+				t.Setenv("LYR_DEV", "1")
 			} else {
-				t.Setenv("ORBIT_DEV", "")
+				t.Setenv("LYR_DEV", "")
 			}
 			logs := captureLog(t)
 			h := islandSite(t).Handler()
@@ -281,7 +281,7 @@ func TestIslandErrors(t *testing.T) {
 }
 
 func TestIslandMiddleware(t *testing.T) {
-	t.Setenv("ORBIT_KEY", "")
+	t.Setenv("LYR_KEY", "")
 	s := islandSite(t)
 	outer := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -315,26 +315,26 @@ func TestIslandKeys(t *testing.T) {
 		return do(island.Handler(), "GET", src+"?p="+tok).Code == 200
 	}
 
-	t.Setenv("ORBIT_KEY", key1)
+	t.Setenv("LYR_KEY", key1)
 	a, b := islandSite(t), islandSite(t)
 	if !opens(a, b) || !opens(b, a) {
-		t.Error("two sites with the same ORBIT_KEY don't open each other's tokens")
+		t.Error("two sites with the same LYR_KEY don't open each other's tokens")
 	}
 	srcA, tokA := placeholder(t, a.Handler(), "")
 	if srcB, tokB := placeholder(t, b.Handler(), ""); srcA != srcB || tokA != tokB {
 		t.Error("two instances with the same key and build ID give different URLs")
 	}
-	t.Setenv("ORBIT_KEY", key2)
+	t.Setenv("LYR_KEY", key2)
 	c := islandSite(t)
 	if opens(a, c) {
-		t.Error("a site with another ORBIT_KEY opened the token")
+		t.Error("a site with another LYR_KEY opened the token")
 	}
 	if !opens(islandSite(t, WithKey(bytes.Repeat([]byte{1}, 32))), a) {
-		t.Error("WithKey doesn't override ORBIT_KEY")
+		t.Error("WithKey doesn't override LYR_KEY")
 	}
 
 	// A second build: same key, another build ID.
-	t.Setenv("ORBIT_KEY", key1)
+	t.Setenv("LYR_KEY", key1)
 	build2 := islandSite(t)
 	build2.keys = &keyring{seal: build2.keys.seal, buildID: "1111111111111111"}
 	src2, tok2 := placeholder(t, build2.Handler(), "")
@@ -342,29 +342,29 @@ func TestIslandKeys(t *testing.T) {
 		t.Error("another build ID gives the same URL")
 	}
 	if !opens(build2, a) || !opens(a, build2) {
-		t.Error("builds that share ORBIT_KEY don't open each other's tokens")
+		t.Error("builds that share LYR_KEY don't open each other's tokens")
 	}
 
-	// Without ORBIT_KEY, two builds have different embedded keys.
-	t.Setenv("ORBIT_KEY", "")
+	// Without LYR_KEY, two builds have different embedded keys.
+	t.Setenv("LYR_KEY", "")
 	p1, p2 := islandSite(t), islandSite(t)
 	p1.keys = &keyring{seal: mustSealer(bytes.Repeat([]byte{3}, 32)), buildID: "2222222222222222"}
 	p2.keys = &keyring{seal: mustSealer(bytes.Repeat([]byte{4}, 32)), buildID: "3333333333333333"}
 	if opens(p1, p2) {
-		t.Error("separate builds without ORBIT_KEY opened each other's tokens")
+		t.Error("separate builds without LYR_KEY opened each other's tokens")
 	}
 }
 
 func TestIslandKeyInvalid(t *testing.T) {
 	for _, tt := range []struct{ env, want string }{
-		{"not base64!", "ORBIT_KEY isn't valid standard base64"},
-		{base64.StdEncoding.EncodeToString(make([]byte, 16)), "ORBIT_KEY decodes to 16 bytes"},
-		{base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{0xff}, 32)), "ORBIT_KEY isn't valid standard base64"},
+		{"not base64!", "LYR_KEY isn't valid standard base64"},
+		{base64.StdEncoding.EncodeToString(make([]byte, 16)), "LYR_KEY decodes to 16 bytes"},
+		{base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{0xff}, 32)), "LYR_KEY isn't valid standard base64"},
 	} {
-		t.Setenv("ORBIT_KEY", tt.env)
+		t.Setenv("LYR_KEY", tt.env)
 		msg := panicMessage(func() { islandSite(t) })
-		if !strings.Contains(msg, tt.want) || !strings.Contains(msg, "orbit create-key") {
-			t.Errorf("ORBIT_KEY=%q: panic %q, want %q", tt.env, msg, tt.want)
+		if !strings.Contains(msg, tt.want) || !strings.Contains(msg, "lyr create-key") {
+			t.Errorf("LYR_KEY=%q: panic %q, want %q", tt.env, msg, tt.want)
 		}
 		if strings.Contains(msg, tt.env) {
 			t.Errorf("the panic message %q shows the key", msg)
@@ -373,7 +373,7 @@ func TestIslandKeyInvalid(t *testing.T) {
 	if msg := panicMessage(func() { WithKey(make([]byte, 31)) }); !strings.Contains(msg, "32 bytes") {
 		t.Errorf("WithKey(31 bytes): panic %q", msg)
 	}
-	t.Setenv("ORBIT_KEY", "")
+	t.Setenv("LYR_KEY", "")
 	if msg := panicMessage(func() {
 		NewSite(nil, []Island{islandTable[0], islandTable[0]})
 	}); !strings.Contains(msg, "registered twice") {
@@ -388,13 +388,13 @@ func panicMessage(f func()) (msg string) {
 }
 
 func TestIslandTestKey(t *testing.T) {
-	t.Setenv("ORBIT_KEY", "")
+	t.Setenv("LYR_KEY", "")
 	s := islandSite(t)
 	if s.keys != testKeyring() || s.keys.buildID != testBuildID {
 		t.Errorf("under go test: keys %p (build ID %q), want the fixed test keyring", s.keys, s.keys.buildID)
 	}
-	// orbittest.Render's path uses the fixed key too, even with ORBIT_KEY.
-	t.Setenv("ORBIT_KEY", base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{9}, 32)))
+	// lyrtest.Render's path uses the fixed key too, even with LYR_KEY.
+	t.Setenv("LYR_KEY", base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{9}, 32)))
 	html, err := testRender(httptest.NewRequest("GET", "/", nil), nil, nil, func(c, w any) error {
 		return Defer(c.(*Ctx), w.(*Writer), commentsID, commentsProps{PostID: 1}, nil)
 	})
@@ -403,12 +403,12 @@ func TestIslandTestKey(t *testing.T) {
 		t.Errorf("testRender = %q, %v", html, err)
 	}
 	if s2 := islandSite(t); s2.keys == testKeyring() {
-		t.Error("ORBIT_KEY doesn't override the test key")
+		t.Error("LYR_KEY doesn't override the test key")
 	}
 }
 
 func TestRenderComponentDefer(t *testing.T) {
-	t.Setenv("ORBIT_KEY", base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{5}, 32)))
+	t.Setenv("LYR_KEY", base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{5}, 32)))
 	s := islandSite(t)
 	frag := func(c *Ctx, w *Writer, p commentsProps, _ Slots) error {
 		return Defer(c, w, commentsID, p, nil)
@@ -430,22 +430,22 @@ func TestRenderComponentDefer(t *testing.T) {
 const escLT, escGT = "\\u003c", "\\u003e"
 
 func TestLoaderInjection(t *testing.T) {
-	t.Setenv("ORBIT_KEY", "")
+	t.Setenv("LYR_KEY", "")
 	for _, dev := range []bool{false, true} {
 		t.Run(fmt.Sprint("dev=", dev), func(t *testing.T) {
 			if dev {
-				t.Setenv("ORBIT_DEV", "1")
+				t.Setenv("LYR_DEV", "1")
 			} else {
-				t.Setenv("ORBIT_DEV", "")
+				t.Setenv("LYR_DEV", "")
 			}
 			h := islandSite(t).Handler()
 			devJSON := fmt.Sprint(dev)
 
 			post := do(h, "GET", "/post").Body.String()
 			wantPost := `<title>Post</title>` + loaderStyle +
-				`<script type="application/json" id="orbit-loader">{"dev":` + devJSON + `}</script>` +
+				`<script type="application/json" id="lyr-loader">{"dev":` + devJSON + `}</script>` +
 				`<script type="module">` + loaderIslandsJS + `</script>` +
-				`<link rel="stylesheet" href="/_orbit/post-1234.css"></head>`
+				`<link rel="stylesheet" href="/_lyr/post-1234.css"></head>`
 			if !strings.Contains(post, wantPost) {
 				t.Errorf("/post = %s\nwant it to contain %s", post, wantPost)
 			}
@@ -455,14 +455,14 @@ func TestLoaderInjection(t *testing.T) {
 
 			lazy := do(h, "GET", "/lazy").Body.String()
 			wantLazy := `<head>` + loaderStyle +
-				`<script type="application/json" id="orbit-loader">{"dev":` + devJSON + `,"lazy":{"Counter-1c2d3e4f":["/_orbit/Counter-ABCD.js","/_orbit/Inner-EFGH.js"],"x` + escLT + `/script` + escGT + `":["/_orbit/x.js"]}}</script>` +
+				`<script type="application/json" id="lyr-loader">{"dev":` + devJSON + `,"lazy":{"Counter-1c2d3e4f":["/_lyr/Counter-ABCD.js","/_lyr/Inner-EFGH.js"],"x` + escLT + `/script` + escGT + `":["/_lyr/x.js"]}}</script>` +
 				`<script type="module">` + loaderLazyJS + `</script></head>`
 			if lazy != `<html>`+wantLazy+`<body>lazy</body></html>` {
 				t.Errorf("/lazy = %s\nwant %s", lazy, wantLazy)
 			}
 
 			plain := do(h, "GET", "/plain").Body.String()
-			if plain != `<html><head><link rel="stylesheet" href="/_orbit/plain-1234.css"></head><body>plain</body></html>` {
+			if plain != `<html><head><link rel="stylesheet" href="/_lyr/plain-1234.css"></head><body>plain</body></html>` {
 				t.Errorf("/plain = %s", plain)
 			}
 		})
@@ -549,12 +549,12 @@ func BenchmarkIslandOpen(b *testing.B) {
 }
 
 func BenchmarkIslandEndpoint(b *testing.B) {
-	os.Setenv("ORBIT_STATIC", "")
-	s := NewSite(nil, []Island{NewIsland(commentsID, "c.orbit", benchComponent)}, WithStaticDir(b.TempDir()))
+	os.Setenv("LYR_STATIC", "")
+	s := NewSite(nil, []Island{NewIsland(commentsID, "c.lyr", benchComponent)}, WithStaticDir(b.TempDir()))
 	h := s.Handler()
 	for _, sz := range benchSizes {
 		data := fmt.Sprintf(`{"Text":"%s"}`, benchPropsOf(sz.n).Text)
-		target := "/_orbit/island/" + s.keys.buildID + "/" + commentsID + "?p=" + sealerOf(s.keys).Seal(commentsID, s.keys.buildID, []byte(data))
+		target := "/_lyr/island/" + s.keys.buildID + "/" + commentsID + "?p=" + sealerOf(s.keys).Seal(commentsID, s.keys.buildID, []byte(data))
 		req := httptest.NewRequest("GET", target, nil)
 		w := newFakeResponseWriter()
 		b.Run(sz.name, func(b *testing.B) {
@@ -573,7 +573,7 @@ func BenchmarkIslandEndpoint(b *testing.B) {
 // BenchmarkServeIslandsPage serves a page with a server:defer placeholder
 // and the injected loader.
 func BenchmarkServeIslandsPage(b *testing.B) {
-	os.Setenv("ORBIT_STATIC", "")
+	os.Setenv("LYR_STATIC", "")
 	s := NewSite(islandRoutes(), islandTable, WithStaticDir(b.TempDir()))
 	h := s.Handler()
 	req := httptest.NewRequest("GET", "/post", nil)
@@ -586,7 +586,7 @@ func BenchmarkServeIslandsPage(b *testing.B) {
 }
 
 func BenchmarkServeLazyPage(b *testing.B) {
-	os.Setenv("ORBIT_STATIC", "")
+	os.Setenv("LYR_STATIC", "")
 	s := NewSite(islandRoutes(), islandTable, WithStaticDir(b.TempDir()))
 	h := s.Handler()
 	req := httptest.NewRequest("GET", "/lazy", nil)

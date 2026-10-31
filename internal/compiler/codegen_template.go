@@ -217,7 +217,7 @@ func (g *cgGen) site(kind SiteKind, node Node, a *Attr, code GoCode) {
 	}
 }
 
-// ifSite emits a lowered orbit.If site (PLAN.md §2.6, IfWrite): both
+// ifSite emits a lowered lyr.If site (PLAN.md §2.6, IfWrite): both
 // arguments into temporaries, in order, then the typed write of the value
 // (or the folded constant) under the condition. Its call site's Call is the
 // write in the if body, and Arg the value there (empty when folded).
@@ -226,15 +226,15 @@ func (g *cgGen) ifSite(cs CallSite, a *Attr, tw TypedWrite) {
 	iw := tw.If
 	o.flush()
 	if iw.Opt {
-		// An orbit.Opt value: its expression stays, so nothing to keep.
+		// A lyr.Opt value: its expression stays, so nothing to keep.
 		o.ln("{")
 		o.depth++
 		o.ind()
-		o.str("orbit__o :=\n")
+		o.str("lyr__o :=\n")
 		o.exact(iw.Val)
 		o.str("\n")
-		o.ln("orbit__v, orbit__c := orbit__o.Get()")
-		o.ln("if orbit__c {")
+		o.ln("lyr__v, lyr__c := lyr__o.Get()")
+		o.ln("if lyr__c {")
 		o.depth++
 		g.ifWrite(&cs, a, tw)
 		o.depth--
@@ -260,17 +260,17 @@ func (g *cgGen) ifSite(cs CallSite, a *Attr, tw TypedWrite) {
 	o.depth++
 	o.ind()
 	if iw.Folded {
-		o.str("orbit__c :=\n")
+		o.str("lyr__c :=\n")
 		o.exact(iw.Cond)
 		o.str("\n")
 	} else {
-		o.str("orbit__c, orbit__v :=\n")
+		o.str("lyr__c, lyr__v :=\n")
 		o.exact(iw.Cond)
 		o.str(",\n")
 		o.exact(iw.Val)
 		o.str("\n")
 	}
-	o.ln("if orbit__c {")
+	o.ln("if lyr__c {")
 	o.depth++
 	if iw.Folded {
 		o.html(iw.Text)
@@ -287,7 +287,7 @@ func (g *cgGen) ifSite(cs CallSite, a *Attr, tw TypedWrite) {
 	g.sites = append(g.sites, cs)
 }
 
-// ifWrite emits the write of orbit__v in a lowered If: tw's typed write, or
+// ifWrite emits the write of lyr__v in a lowered If: tw's typed write, or
 // Attr/Expr for a value with none.
 func (g *cgGen) ifWrite(cs *CallSite, a *Attr, tw TypedWrite) {
 	o := g.o
@@ -322,7 +322,7 @@ func (g *cgGen) ifWrite(cs *CallSite, a *Attr, tw TypedWrite) {
 	if cs.Kind == SiteAttr && !pieces {
 		o.str(strconv.Quote(a.Name) + ", ")
 	}
-	arg := "orbit__v"
+	arg := "lyr__v"
 	if tw.Conv != "" {
 		arg = tw.Conv + "(" + arg + ")"
 	}
@@ -338,7 +338,7 @@ func (g *cgGen) ifWrite(cs *CallSite, a *Attr, tw TypedWrite) {
 	}
 }
 
-// position is the "<path>:L:C" of an offset in the .orbit file, as runtime
+// position is the "<path>:L:C" of an offset in the .lyr file, as runtime
 // errors print it (ErrorAt, JSONAttr, JSON).
 func (g *cgGen) position(off int) string { return g.a.Info.Path + ":" + g.o.pos(off) }
 
@@ -351,7 +351,7 @@ func attrValuePos(a *Attr) int {
 	return a.Start
 }
 
-// emptySite emits the empty orbit__w.Expr( ) of a {} in Tolerant mode, so
+// emptySite emits the empty lyr__w.Expr( ) of a {} in Tolerant mode, so
 // gopls can complete in it.
 func (g *cgGen) emptySite(n *Expr) {
 	o := g.o
@@ -365,7 +365,7 @@ func (g *cgGen) emptySite(n *Expr) {
 		// one, gopls offers almost nothing (as for an empty ${}, piece);
 		// there's no code for Go to report an error on.
 		at := len(o.b)
-		o.segs = append(o.segs, Segment{Kind: SegExact, OrbitStart: n.Code.Start, OrbitEnd: n.Code.End, GoStart: at, GoEnd: at})
+		o.segs = append(o.segs, Segment{Kind: SegExact, LyrStart: n.Code.Start, LyrEnd: n.Code.End, GoStart: at, GoEnd: at})
 		arg = Span{at, at}
 	} else {
 		arg = o.exact(n.Code.Span)
@@ -377,7 +377,7 @@ func (g *cgGen) emptySite(n *Expr) {
 	o.str("\n")
 }
 
-// write emits orbit__w.<method>(<code>) for writes that aren't call sites
+// write emits lyr__w.<method>(<code>) for writes that aren't call sites
 // (set:html, set:json, spreads).
 func (g *cgGen) write(method string, code GoCode) {
 	o := g.o
@@ -470,7 +470,7 @@ func (g *cgGen) setContent(set *Attr, node Node) {
 	switch set.Directive {
 	case SetHTML:
 		if l := wholeLiteral(g.src, set.Code); l != nil && !l.Const() {
-			// Converted to orbit.HTML when every piece is inert (PLAN.md
+			// Converted to lyr.HTML when every piece is inert (PLAN.md
 			// §2.10 (Q4)).
 			o := g.o
 			o.flush()
@@ -494,7 +494,7 @@ func (g *cgGen) setContent(set *Attr, node Node) {
 
 // unscopedElements never get the scope attribute: Astro's
 // NeverScopedElements (document metadata and legacy frames), minus the
-// ones Orbit models as other nodes (Fragment, slot, script, style).
+// ones Lyr models as other nodes (Fragment, slot, script, style).
 var unscopedElements = map[string]bool{
 	"base": true, "font": true, "frame": true, "frameset": true, "head": true,
 	"link": true, "meta": true, "noframes": true, "noscript": true, "title": true,
@@ -701,7 +701,7 @@ type cgField struct {
 	node   Node
 	// rest is the value of the target's RestAttrs field (attr is nil).
 	rest *cgRest
-	// opt is set for a field of type orbit.Opt[T] (PLAN.md §2.6 (Q3)):
+	// opt is set for a field of type lyr.Opt[T] (PLAN.md §2.6 (Q3)):
 	// the field's zero value, "Alias.Props{}.Field", which the wrapping
 	// helpers take first.
 	opt string
@@ -723,14 +723,14 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	var props *PropsInfo
 	qual := "" // "Card." or "" for <Self>
 	// The unknown-prop error's hint, for a target that can take an
-	// orbit.RestAttrs field (not a Markdown import).
-	hint := "; add an orbit.RestAttrs field to pass HTML attributes through"
+	// lyr.RestAttrs field (not a Markdown import).
+	hint := "; add a lyr.RestAttrs field to pass HTML attributes through"
 	if n.Self {
 		props = &g.a.Props
 	} else {
 		imp := g.imports[n.Name]
 		if imp == nil {
-			g.errorf(n.NameSpan, "unknown component <%s>: no .orbit import with this alias (or declare a variable %s for a dynamic tag)", n.Name, n.Name)
+			g.errorf(n.NameSpan, "unknown component <%s>: no .lyr import with this alias (or declare a variable %s for a dynamic tag)", n.Name, n.Name)
 			g.brokenComponent(n, c, i)
 			return
 		}
@@ -752,7 +752,7 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	var fields []cgField
 	var pre []GoCode // Go code of broken attributes, for Tolerant mode
 	cl, merged := classAttrs(&n.Tag)
-	// A target with an orbit.RestAttrs field collects the attributes that
+	// A target with a lyr.RestAttrs field collects the attributes that
 	// match no other field (PLAN.md §2.5); its class too when it has no
 	// class prop.
 	restField := props.Rest
@@ -884,7 +884,7 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	}
 	defer func() {
 		if lazy {
-			o.html("</orbit-lazy>")
+			o.html("</lyr-lazy>")
 		}
 	}()
 	o.flush()
@@ -1030,7 +1030,7 @@ func (g *cgGen) fieldValue(f cgField) {
 	}
 }
 
-// deferCall emits a server:defer call site (PLAN.md §3.4): orbit__rt.Defer
+// deferCall emits a server:defer call site (PLAN.md §3.4): lyr__rt.Defer
 // with the component ID, the Props literal and the fallback renderer
 // (compiled here, in the parent, with its scope attribute) or nil.
 func (g *cgGen) deferCall(call *cgCall, id string, slots []cgSlot, c *wsCtx) {
@@ -1079,10 +1079,10 @@ func (g *cgGen) deferCall(call *cgCall, id string, slots []cgSlot, c *wsCtx) {
 	g.defers = append(g.defers, DeferSite{Attr: n.Defer.Span, Tag: call.tag, Lit: lit})
 }
 
-// lazyOpen is the <orbit-lazy> start tag of a client:idle|visible|media
+// lazyOpen is the <lyr-lazy> start tag of a client:idle|visible|media
 // call site, folded into the surrounding Raw (PLAN.md §3.4).
 func lazyOpen(id string, a *Attr) string {
-	s := `<orbit-lazy component="` + attrEscaper.Replace(id) + `" client="` + strings.TrimPrefix(a.Name, "client:") + `"`
+	s := `<lyr-lazy component="` + attrEscaper.Replace(id) + `" client="` + strings.TrimPrefix(a.Name, "client:") + `"`
 	if a.Kind != AttrEmpty && !a.IsExpr() && a.Value != "" {
 		s += ` opts="` + attrEscaper.Replace(a.Value) + `"`
 	}
@@ -1137,7 +1137,7 @@ func (g *cgGen) groupSlots(children []Node) []cgSlot {
 	return slots
 }
 
-// closure emits a slot renderer: func(orbit__w *orbit__rt.Writer) error {…}.
+// closure emits a slot renderer: func(lyr__w *lyr__rt.Writer) error {…}.
 func (g *cgGen) closure(nodes []Node, c *wsCtx) {
 	o := g.o
 	o.str("func(" + NameW + " *" + NameRuntime + ".Writer) error {" + g.ctxPrologue(nodes) + "\n")
@@ -1162,7 +1162,7 @@ func (g *cgGen) brokenComponent(n *Component, c *wsCtx, i int) {
 // ctxPrologue is the start of a slot closure whose content uses the Ctx:
 // slot content can run in a server:concurrent component's goroutine, so it
 // takes that goroutine's Ctx from its Writer (PLAN.md §3.6). It rebinds
-// orbit__ctx when the content calls a component (or uses ctx), and ctx
+// lyr__ctx when the content calls a component (or uses ctx), and ctx
 // when the content references the implicit ctx. It's on the closure's
 // first line, so no line moves.
 func (g *cgGen) ctxPrologue(nodes []Node) string {

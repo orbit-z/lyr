@@ -1,0 +1,9 @@
+---
+user := ctx.Request.Header.Get("User")
+if user == "" {
+	return ctx.Redirect("/login", 302)
+} else {
+	return lyr.ErrNotFound
+}
+---
+<p>{user}</p>

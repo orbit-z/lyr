@@ -1,0 +1,15 @@
+---
+type Slug string
+
+type Props struct {
+	Href  string
+	Rel   lyr.Opt[string] // unset = no rel attribute
+	Title lyr.Opt[string]
+	ID    lyr.Opt[Slug]
+	N     lyr.Opt[int]
+	F     lyr.Opt[float64]
+	On    lyr.Opt[bool]
+	Style lyr.Opt[lyr.CSS]
+}
+---
+<a href={props.Href} rel={props.Rel} title={props.Title} id={props.ID} data-n={props.N} data-f={props.F} hidden={props.On} style={props.Style}><slot /></a>

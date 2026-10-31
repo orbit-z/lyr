@@ -34,7 +34,7 @@ const mod = "example.com/site"
 var (
 	dir     = flag.String("dir", "sites/s50", "site directory")
 	mode    = flag.String("mode", "pkgs-all", "pkgs-all | pkgs-all-deps | pkgs-one | custom-all | custom-one | custom-hot")
-	one     = flag.String("pkg", "components/c017", "comma-separated packages (under orbit_gen/impl/) for the *-one modes")
+	one     = flag.String("pkg", "components/c017", "comma-separated packages (under lyr_gen/impl/) for the *-one modes")
 	n       = flag.Int("n", 5, "iterations")
 	par     = flag.Int("par", runtime.GOMAXPROCS(0), "parallel type-check workers (custom modes)")
 	rewrite = flag.Bool("rewrite", false, "after the last iteration, rewrite Expr calls to typed writes in place")
@@ -55,13 +55,13 @@ func main() {
 		var r *result
 		switch *mode {
 		case "pkgs-all":
-			r = loadPackages([]string{"./orbit_gen/impl/..."}, false)
+			r = loadPackages([]string{"./lyr_gen/impl/..."}, false)
 		case "pkgs-all-deps":
-			r = loadPackages([]string{"./orbit_gen/impl/..."}, true)
+			r = loadPackages([]string{"./lyr_gen/impl/..."}, true)
 		case "pkgs-one":
 			var pats []string
 			for _, p := range strings.Split(*one, ",") {
-				pats = append(pats, mod+"/orbit_gen/impl/"+p)
+				pats = append(pats, mod+"/lyr_gen/impl/"+p)
 			}
 			r = loadPackages(pats, false)
 		case "custom-all":
@@ -96,7 +96,7 @@ func main() {
 		stats := typed.Stats{}
 		nfiles := 0
 		for _, p := range last.pkgs {
-			env := typed.NewEnv(typed.FindOrbit(p.types))
+			env := typed.NewEnv(typed.FindLyr(p.types))
 			src := map[string][]byte{}
 			for _, f := range p.files {
 				name := p.fset.File(f.Pos()).Name()
@@ -170,14 +170,14 @@ func loadPackages(patterns []string, deps bool) *result {
 func oneDirs() []string {
 	var dirs []string
 	for _, p := range strings.Split(*one, ",") {
-		dirs = append(dirs, filepath.Join(*dir, "orbit_gen/impl", p))
+		dirs = append(dirs, filepath.Join(*dir, "lyr_gen/impl", p))
 	}
 	return dirs
 }
 
 func implDirs() []string {
 	var dirs []string
-	filepath.WalkDir(filepath.Join(*dir, "orbit_gen/impl"), func(p string, d os.DirEntry, err error) error {
+	filepath.WalkDir(filepath.Join(*dir, "lyr_gen/impl"), func(p string, d os.DirEntry, err error) error {
 		if err == nil && !d.IsDir() && strings.HasSuffix(p, ".go") {
 			if dd := filepath.Dir(p); len(dirs) == 0 || dirs[len(dirs)-1] != dd {
 				dirs = append(dirs, dd)
@@ -355,7 +355,7 @@ func custom(dirs []string, h *hotState) *result {
 	return r
 }
 
-// srcImporter type-checks orbit_gen/decl packages from source on first use
+// srcImporter type-checks lyr_gen/decl packages from source on first use
 // (memoized, safe for concurrent use) and imports everything else from
 // export data. Only non-generated packages (user code, runtime, std) need
 // go list -export, so a user-package edit compiles just that package before
@@ -401,13 +401,13 @@ func customSrcDecl() *result {
 	impls := parseDirs(fset, implDirs())
 	var declDirs []string
 	for _, p := range impls {
-		declDirs = append(declDirs, filepath.Join(*dir, "orbit_gen/decl", strings.TrimPrefix(p.path, mod+"/orbit_gen/impl/")))
+		declDirs = append(declDirs, filepath.Join(*dir, "lyr_gen/decl", strings.TrimPrefix(p.path, mod+"/lyr_gen/impl/")))
 	}
 	decls := parseDirs(fset, declDirs)
 	t1 := time.Now()
 	var ext []string
 	for _, p := range directImports(append(append([]parsed{}, impls...), decls...)) {
-		if !strings.HasPrefix(p, mod+"/orbit_gen/") {
+		if !strings.HasPrefix(p, mod+"/lyr_gen/") {
 			ext = append(ext, p)
 		}
 	}

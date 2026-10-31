@@ -14,8 +14,8 @@ import (
 	"time"
 )
 
-// Pinned is the Tailwind CSS version Orbit names for the bun x fallback
-// and in its install lines: raised with Orbit releases, at least two weeks
+// Pinned is the Tailwind CSS version Lyr names for the bun x fallback
+// and in its install lines: raised with Lyr releases, at least two weeks
 // old.
 const Pinned = "4.3.3"
 
@@ -123,7 +123,7 @@ func (e *NotFound) Error() string {
 func (e *NotFound) details() string {
 	var s []string
 	for _, o := range e.Old {
-		s = append(s, o+", and Orbit needs v4")
+		s = append(s, o+", and Lyr needs v4")
 	}
 	return strings.Join(append(s, e.Problems...), "; ")
 }

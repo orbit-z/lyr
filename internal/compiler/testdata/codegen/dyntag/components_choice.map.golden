@@ -1,15 +1,15 @@
-orbit_gen/decl/components/choice/decl.go (src/components/Choice.orbit)
-  exact 2:1 "type Props struct {\n\tWrapped bool\n\tClass   string\n\tLabel   string\n}" -> 159-226 "type Props struct {\n\tWrapped bool\n\tClass   string\n\tLabel   string\n}"
-orbit_gen/impl/components/choice/render.go (src/components/Choice.orbit)
-  exact 8:1 "Wrap := orbit.Cond(props.Wrapped, \"div\", orbit.Fragment)" -> 674-730 "Wrap := orbit.Cond(props.Wrapped, \"div\", orbit.Fragment)"
-  echo  - -> 761-765 "Wrap"
-  exact 10:2 "Wrap" -> 894-898 "Wrap"
-  exact 10:14 "props.Class" -> 1034-1045 "props.Class"
-  exact 11:42 "!props.Wrapped" -> 1194-1208 "!props.Wrapped"
-  exact 11:29 "props.Class" -> 1310-1321 "props.Class"
-  exact 11:83 "props.Label" -> 1471-1482 "props.Label"
+lyr_gen/decl/components/choice/decl.go (src/components/Choice.lyr)
+  exact 2:1 "type Props struct {\n\tWrapped bool\n\tClass   string\n\tLabel   string\n}" -> 151-218 "type Props struct {\n\tWrapped bool\n\tClass   string\n\tLabel   string\n}"
+lyr_gen/impl/components/choice/render.go (src/components/Choice.lyr)
+  exact 8:1 "Wrap := lyr.Cond(props.Wrapped, \"div\", lyr.Fragment)" -> 622-674 "Wrap := lyr.Cond(props.Wrapped, \"div\", lyr.Fragment)"
+  echo  - -> 705-709 "Wrap"
+  exact 10:2 "Wrap" -> 830-834 "Wrap"
+  exact 10:14 "props.Class" -> 964-975 "props.Class"
+  exact 11:42 "!props.Wrapped" -> 1118-1132 "!props.Wrapped"
+  exact 11:29 "props.Class" -> 1230-1241 "props.Class"
+  exact 11:83 "props.Label" -> 1385-1396 "props.Label"
 call sites
-  content key=135 "Wrap" call="orbit__w.TagOpen(\"src/components/Choice.orbit:10:2\", \"Wrap\",\n/*line ../../../../src/components/Choice.orbit:10:2*/Wrap/*line render.go:23:82*/,\n\ttrue)"
-  attr class key=147 "props.Class" call="orbit__w.Attr(\"class\",\n/*line ../../../../src/components/Choice.orbit:10:14*/props.Class/*line render.go:27:90*/,\n\t\t)"
-  class key=189 "props.Class" call="orbit__w.ClassAny(\n/*line ../../../../src/components/Choice.orbit:11:29*/props.Class/*line render.go:34:90*/,\n\t\t)"
-  content key=243 "props.Label" call="orbit__w.Expr(\n/*line ../../../../src/components/Choice.orbit:11:83*/props.Label/*line render.go:39:90*/,\n\t)"
+  content key=131 "Wrap" call="lyr__w.TagOpen(\"src/components/Choice.lyr:10:2\", \"Wrap\",\n/*line ../../../../src/components/Choice.lyr:10:2*/Wrap/*line render.go:23:80*/,\n\ttrue)"
+  attr class key=143 "props.Class" call="lyr__w.Attr(\"class\",\n/*line ../../../../src/components/Choice.lyr:10:14*/props.Class/*line render.go:27:88*/,\n\t\t)"
+  class key=185 "props.Class" call="lyr__w.ClassAny(\n/*line ../../../../src/components/Choice.lyr:11:29*/props.Class/*line render.go:34:88*/,\n\t\t)"
+  content key=239 "props.Label" call="lyr__w.Expr(\n/*line ../../../../src/components/Choice.lyr:11:83*/props.Label/*line render.go:39:88*/,\n\t)"

@@ -10,19 +10,19 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/config"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/config"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
-// The workspace (PLAN.md §9 Startup and Open documents): every .orbit file
+// The workspace (PLAN.md §9 Startup and Open documents): every .lyr file
 // of the project parsed in tolerant mode and generated in memory, the
 // editor's open buffers, and the generated files as gopls sees them. The
-// language server never writes orbit_gen/: a generated file whose disk
+// language server never writes lyr_gen/: a generated file whose disk
 // content differs from the in-memory one is sent to gopls as an overlay.
 // All fields are guarded by Server.mu.
 
-// workspace is one Orbit project.
+// workspace is one Lyr project.
 type workspace struct {
 	root   string // absolute module root
 	module string
@@ -30,20 +30,20 @@ type workspace struct {
 	goVersion string
 	proj      *project.Project
 	byPath    map[string]*project.File
-	// lines indexes each .orbit file's current source (File.Src).
+	// lines indexes each .lyr file's current source (File.Src).
 	lines map[string]*lineIndex
-	// docs are the .orbit files open in the editor, by project path.
+	// docs are the .lyr files open in the editor, by project path.
 	docs map[string]*document
 	// gen are the generated files by module-relative path.
 	gen map[string]*genFile
-	// genMissing is set when orbit_gen/ didn't exist at startup.
+	// genMissing is set when lyr_gen/ didn't exist at startup.
 	genMissing bool
 	// gopls receives overlay notifications once it is running; nil
 	// before, and when Go features are disabled.
 	gopls *Conn
 	// goplsDiags are gopls's latest diagnostics per generated file.
 	goplsDiags map[string]goplsDiags
-	// published is the last diagnostics JSON published per .orbit path.
+	// published is the last diagnostics JSON published per .lyr path.
 	published map[string]string
 	// scratch are the scratch files open in gopls, by module-relative
 	// path (complete.go).
@@ -55,7 +55,7 @@ type workspace struct {
 	// (mdtyped.go), by project path.
 	mdTyped map[string][]mdTypedDiag
 	// secTyped are the latest typed check's style and on* warnings of
-	// .orbit files (sectyped.go), by project path.
+	// .lyr files (sectyped.go), by project path.
 	secTyped map[string][]secTypedDiag
 	// secEdit counts the changes to what the security warnings depend on
 	// (securityChanged): a typed check's warnings are adopted only when
@@ -66,7 +66,7 @@ type workspace struct {
 	// adopted only when none happened since its snapshot.
 	mdEdit uint64
 
-	// The TypeScript side (PLAN.md §9b): the virtual documents by .orbit
+	// The TypeScript side (PLAN.md §9b): the virtual documents by .lyr
 	// path (tsdocs.go), the data contracts and the .d.ts files emitted
 	// from them in memory with their side tables (nil until a typed check
 	// ran), the ones open in the child as overlays by URI, and a counter of
@@ -78,12 +78,12 @@ type workspace struct {
 	tsEdit     uint64
 }
 
-// document is an .orbit or Markdown file open in the editor.
+// document is a .lyr or Markdown file open in the editor.
 type document struct {
 	uri     string
 	version int
 	// md is set for a Markdown document, and text is its buffer (an
-	// .orbit file's is its File.Src).
+	// .lyr file's is its File.Src).
 	md   bool
 	text string
 }
@@ -92,11 +92,11 @@ type document struct {
 // overlay when open, else from disk, which then holds the same bytes) and
 // its source map.
 type genFile struct {
-	rel   string // module-relative path, orbit_gen/…/render.go
-	abs   string
-	uri   string
-	orbit string // the .orbit file's project path
-	decl  bool
+	rel  string // module-relative path, lyr_gen/…/render.go
+	abs  string
+	uri  string
+	lyr  string // the .lyr file's project path
+	decl bool
 	// content, lines and smap describe the in-memory generated file.
 	content []byte
 	lines   *lineIndex
@@ -106,7 +106,7 @@ type genFile struct {
 	version int
 	// tol is non-nil while gopls reads the file from disk although the
 	// workspace generates it in tolerant mode: content, lines and smap are
-	// then the typed output orbit generate wrote, which a typed check
+	// then the typed output lyr generate wrote, which a typed check
 	// found on disk (disk.go), and tol and tolMap are the tolerant output
 	// it stands for. The file's first change switches it back to its
 	// tolerant output, as an overlay.
@@ -133,7 +133,7 @@ func findRoot(dir string) (string, error) {
 		}
 		parent := filepath.Dir(root)
 		if parent == root {
-			return "", errors.New("no Orbit project (a go.mod next to a src/ directory) at or above " + dir)
+			return "", errors.New("no Lyr project (a go.mod next to a src/ directory) at or above " + dir)
 		}
 		d = parent
 	}
@@ -181,28 +181,28 @@ func (ws *workspace) rel(abs string) string {
 	return filepath.ToSlash(r)
 }
 
-// orbitPath returns the project path of an .orbit file URI, or "".
-func (ws *workspace) orbitPath(uri string) string {
+// lyrPath returns the project path of a .lyr file URI, or "".
+func (ws *workspace) lyrPath(uri string) string {
 	r := ws.rel(uriToPath(uri))
-	if !strings.HasPrefix(r, project.SrcDir+"/") || !strings.HasSuffix(r, ".orbit") {
+	if !strings.HasPrefix(r, project.SrcDir+"/") || !strings.HasSuffix(r, ".lyr") {
 		return ""
 	}
 	return r
 }
 
-// docPath returns the project path of an .orbit or Markdown file URI
+// docPath returns the project path of a .lyr or Markdown file URI
 // under src/, or "": the documents the server follows (PLAN.md §9).
 func (ws *workspace) docPath(uri string) string {
 	r := ws.rel(uriToPath(uri))
-	if isOrbitSource(r) || isMarkdownSource(r) {
+	if isLyrSource(r) || isMarkdownSource(r) {
 		return r
 	}
 	return ""
 }
 
-// orbitURI is the URI to report an .orbit file under: the editor's own
+// lyrURI is the URI to report a .lyr file under: the editor's own
 // when the file is open, so diagnostics land on its document.
-func (ws *workspace) orbitURI(p string) string {
+func (ws *workspace) lyrURI(p string) string {
 	if d := ws.docs[p]; d != nil {
 		return d.uri
 	}
@@ -218,7 +218,7 @@ func (ws *workspace) file(p string) (*project.File, *lineIndex) {
 	return f, ws.lines[p]
 }
 
-// genOf returns the decl and impl files of the .orbit file at p.
+// genOf returns the decl and impl files of the .lyr file at p.
 func (ws *workspace) genOf(p string) (decl, impl *genFile) {
 	f := ws.byPath[p]
 	if f == nil {
@@ -236,7 +236,7 @@ func (ws *workspace) genAt(abs string) *genFile {
 	return ws.gen[r]
 }
 
-// setSource replaces the source of the .orbit file at p (an editor buffer
+// setSource replaces the source of the .lyr file at p (an editor buffer
 // or the disk content), adding the file to the project if it's new, and
 // regenerates what depends on it.
 func (ws *workspace) setSource(p, src string) {
@@ -259,7 +259,7 @@ func (ws *workspace) setSource(p, src string) {
 	ws.syncAll()
 }
 
-// remove drops the .orbit file at p from the project (deleted on disk).
+// remove drops the .lyr file at p from the project (deleted on disk).
 func (ws *workspace) remove(p string) {
 	if ws.byPath[p] == nil {
 		return
@@ -331,7 +331,7 @@ func (ws *workspace) syncGen(f *project.File, out *compiler.GenFile, decl bool) 
 	g := ws.gen[out.Path]
 	if g == nil {
 		abs := filepath.Join(ws.root, filepath.FromSlash(out.Path))
-		g = &genFile{rel: out.Path, abs: abs, uri: pathToURI(abs), orbit: f.Path, decl: decl}
+		g = &genFile{rel: out.Path, abs: abs, uri: pathToURI(abs), lyr: f.Path, decl: decl}
 		ws.gen[out.Path] = g
 	} else if g.tol != nil {
 		if bytes.Equal(g.tol, out.Content) {
@@ -414,7 +414,7 @@ func (ws *workspace) recheckDisk(g *genFile) {
 		// back to the tolerant output, as an overlay.
 		ws.useTolerant(g)
 		ws.pushOverlay(g)
-	case g.open && match && ws.docs[g.orbit] == nil:
+	case g.open && match && ws.docs[g.lyr] == nil:
 		g.open = false
 		ws.gopls.Notify("textDocument/didClose", map[string]any{"textDocument": map[string]any{"uri": g.uri}})
 	case !g.open && !match:
@@ -422,7 +422,7 @@ func (ws *workspace) recheckDisk(g *genFile) {
 	}
 }
 
-// isGenPath reports whether a module-relative path is in orbit_gen/.
+// isGenPath reports whether a module-relative path is in lyr_gen/.
 func isGenPath(rel string) bool {
 	return strings.HasPrefix(rel, compiler.GenDir+"/")
 }
@@ -463,8 +463,8 @@ func (ws *workspace) setMarkdown(p, src string, removed bool) bool {
 	return true
 }
 
-// isOrbitSource reports whether a module-relative path is an .orbit file
+// isLyrSource reports whether a module-relative path is a .lyr file
 // under src/.
-func isOrbitSource(rel string) bool {
-	return strings.HasPrefix(rel, project.SrcDir+"/") && path.Ext(rel) == ".orbit"
+func isLyrSource(rel string) bool {
+	return strings.HasPrefix(rel, project.SrcDir+"/") && path.Ext(rel) == ".lyr"
 }

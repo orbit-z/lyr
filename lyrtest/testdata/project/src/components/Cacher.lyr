@@ -1,0 +1,8 @@
+---
+// Cacher renders its default slot to a string, as a fragment cache does.
+html, err := lyr.RenderHTML(ctx, slots.Default)
+if err != nil {
+	return err
+}
+---
+<Fragment set:html={html} />

@@ -10,7 +10,7 @@ import (
 )
 
 // GoMod is the part of a go.mod file the CLI reads, for the CLI version
-// pinning and orbit doctor (PLAN.md §6).
+// pinning and lyr doctor (PLAN.md §6).
 type GoMod struct {
 	Module    string
 	Go        string // the go directive, such as "1.27"; "" if missing

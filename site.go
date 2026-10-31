@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -18,17 +18,17 @@ import (
 	"unsafe"
 )
 
-// Site is a whole Orbit site: its pages, router, static files and options.
-// It's created by the generated orbit_gen/app.New(), and is safe for
+// Site is a whole Lyr site: its pages, router, static files and options.
+// It's created by the generated lyr_gen/app.New(), and is safe for
 // concurrent use.
 type Site struct {
 	router *router
 	site   *url.URL // ctx.Site; nil when unset
-	dev    bool     // ORBIT_DEV=1
-	assets fileSet  // /_orbit/* files
+	dev    bool     // LYR_DEV=1
+	assets fileSet  // /_lyr/* files
 	public fileSet  // public/ files
-	// devAssets, in dev with ORBIT_STATIC set, gives the page assets from
-	// $ORBIT_STATIC/manifest.json; nil in production.
+	// devAssets, in dev with LYR_STATIC set, gives the page assets from
+	// $LYR_STATIC/manifest.json; nil in production.
 	devAssets *devManifest
 	keys      *keyring           // island key and build ID
 	islands   map[string]*Island // the island table, by component ID
@@ -69,15 +69,15 @@ type siteOptions struct {
 }
 
 // NewSite builds a site from its routes and islands. The generated
-// orbit_gen/app.New() calls it; tests and hand-built sites can call it
-// too. It compiles the routes and panics if they're invalid; orbit build reports the same errors
-// at build time. It reads the environment once: ORBIT_DEV, ORBIT_STATIC,
-// ORBIT_KEY and, in dev, ORBIT_PUBLIC. In dev, page assets come from
-// $ORBIT_STATIC/manifest.json when it exists (orbit dev writes it).
+// lyr_gen/app.New() calls it; tests and hand-built sites can call it
+// too. It compiles the routes and panics if they're invalid; lyr build reports the same errors
+// at build time. It reads the environment once: LYR_DEV, LYR_STATIC,
+// LYR_KEY and, in dev, LYR_PUBLIC. In dev, page assets come from
+// $LYR_STATIC/manifest.json when it exists (lyr dev writes it).
 //
-// The island key is WithKey's, else $ORBIT_KEY (standard base64 of 32 bytes;
+// The island key is WithKey's, else $LYR_KEY (standard base64 of 32 bytes;
 // anything else panics), else the fixed test key under go test, else the key
-// embedded by orbit build, else a random key for the process (with a
+// embedded by lyr build, else a random key for the process (with a
 // warning on stderr when the site has islands). A duplicate island ID
 // panics.
 func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
@@ -93,7 +93,7 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 	s := &Site{
 		router: rt,
 		site:   o.site,
-		dev:    os.Getenv("ORBIT_DEV") == "1",
+		dev:    os.Getenv("LYR_DEV") == "1",
 		keys:   resolveKeyring(o.key),
 
 		onError: o.onError,
@@ -113,7 +113,7 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 	for i := range islands {
 		isl := &islands[i]
 		if prev, ok := s.islands[isl.id]; ok {
-			panic(fmt.Sprintf("orbit: island %s is registered twice (%s and %s)", isl.id, prev.file, isl.file))
+			panic(fmt.Sprintf("lyr: island %s is registered twice (%s and %s)", isl.id, prev.file, isl.file))
 		}
 		isl.cache = new(cacheState)
 		s.islands[isl.id] = isl
@@ -130,10 +130,10 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 	s.assets = resolveStatic(o, s.dev)
 	s.public = s.assets
 	if s.dev {
-		if dir := os.Getenv("ORBIT_PUBLIC"); dir != "" {
+		if dir := os.Getenv("LYR_PUBLIC"); dir != "" {
 			s.public = newDirFiles(dir, true)
 		}
-		if dir := os.Getenv("ORBIT_STATIC"); dir != "" {
+		if dir := os.Getenv("LYR_STATIC"); dir != "" {
 			s.devAssets = newDevManifest(dir)
 		}
 	}
@@ -141,18 +141,18 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 }
 
 // WithSite sets the absolute site URL exposed as ctx.Site. The generated
-// app.New() passes orbit.json's "site" first, so a caller's option wins. A
+// app.New() passes lyr.json's "site" first, so a caller's option wins. A
 // value that isn't an absolute URL (with a scheme and a host) panics.
 func WithSite(rawURL string) Option {
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Scheme == "" || u.Host == "" {
-		panic(fmt.Sprintf("orbit: WithSite(%q): the site must be an absolute URL, such as \"https://example.com\"", rawURL))
+		panic(fmt.Sprintf("lyr: WithSite(%q): the site must be an absolute URL, such as \"https://example.com\"", rawURL))
 	}
 	return func(o *siteOptions) { o.site = u }
 }
 
 // TrailingSlash is a site's trailing-slash mode: whether page URLs end
-// with "/". Set it in orbit.json ("trailingSlash"); see WithTrailingSlash.
+// with "/". Set it in lyr.json ("trailingSlash"); see WithTrailingSlash.
 type TrailingSlash uint8
 
 const (
@@ -167,23 +167,23 @@ const (
 )
 
 // WithTrailingSlash sets the trailing-slash mode. The generated app.New()
-// passes orbit.json's "trailingSlash" first (only for "always"), so a
-// caller's option wins. Set the mode in orbit.json rather than here:
-// orbit generate writes Markdown's Post.URL and rewritten .md links in the
-// orbit.json mode, so overriding it makes each of those links redirect once.
+// passes lyr.json's "trailingSlash" first (only for "always"), so a
+// caller's option wins. Set the mode in lyr.json rather than here:
+// lyr generate writes Markdown's Post.URL and rewritten .md links in the
+// lyr.json mode, so overriding it makes each of those links redirect once.
 func WithTrailingSlash(mode TrailingSlash) Option {
 	return func(o *siteOptions) { o.slash = mode }
 }
 
-// WithStaticDir sets the directory of built static files (the /_orbit/
+// WithStaticDir sets the directory of built static files (the /_lyr/
 // assets and public/ files), replacing the default: client/ in the server
-// binary's directory. $ORBIT_STATIC still wins when it's set.
+// binary's directory. $LYR_STATIC still wins when it's set.
 func WithStaticDir(dir string) Option {
 	return func(o *siteOptions) { o.staticDir = dir }
 }
 
 // WithStaticFS serves the static files from fsys, laid out like dist/client.
-// orbit build --embed uses it with the embedded files. $ORBIT_STATIC and
+// lyr build --embed uses it with the embedded files. $LYR_STATIC and
 // WithStaticDir win over it.
 func WithStaticFS(fsys fs.FS) Option {
 	return func(o *siteOptions) { o.staticFS = fsys }
@@ -196,27 +196,27 @@ type errorHandler = func(w http.ResponseWriter, r *http.Request, err error) bool
 // become the built-in 500: errors returned by a page or any component it
 // renders (the 404 page and deferred islands included) and recovered
 // panics. ErrNotFound and redirects never reach h; they keep their usual
-// answers. h returns true when it wrote the response, false to let Orbit
+// answers. h returns true when it wrote the response, false to let Lyr
 // send the 500 and log the error.
 //
 // Nothing has been written when h runs: the page's output and the headers
 // it set with ctx.Header are dropped, and h can send any status, headers and
 // body. err keeps the user's error for errors.Is and errors.As, and its text
-// starts with the .orbit position of the failing return. For an island
+// starts with the .lyr position of the failing return. For an island
 // request, r is the island request (the page is r.Referer()), and
 // Cache-Control: private, no-store and X-Robots-Tag: noindex are already set
-// on w. Orbit doesn't log an error h answers, and doesn't recover a panic in
+// on w. Lyr doesn't log an error h answers, and doesn't recover a panic in
 // h. With several WithErrorHandler options, the last one wins.
 func WithErrorHandler(h func(w http.ResponseWriter, r *http.Request, err error) bool) Option {
 	return func(o *siteOptions) { o.onError = h }
 }
 
 // ServeError answers err as a page's render error would be answered: a
-// *RedirectError redirects, ErrNotFound renders 404.orbit, and any other
+// *RedirectError redirects, ErrNotFound renders 404.lyr, and any other
 // error goes to the WithErrorHandler handler, then to the built-in 500 with
 // its log line. Use it in custom handlers:
 //
-//	if err := orbit.RenderComponent(w, r, card.Render, props); err != nil {
+//	if err := lyr.RenderComponent(w, r, card.Render, props); err != nil {
 //		site.ServeError(w, r, err)
 //	}
 //
@@ -228,9 +228,9 @@ func (s *Site) ServeError(w http.ResponseWriter, r *http.Request, err error) {
 	s.renderFailed(w, r, err, nil, nil, false)
 }
 
-// Middleware serves the requests Orbit owns and passes the rest to next,
-// untouched. In order: island requests (/_orbit/island/…, GET, HEAD and
-// POST; other methods get a 405), static files (/_orbit/* assets and public/ files,
+// Middleware serves the requests Lyr owns and passes the rest to next,
+// untouched. In order: island requests (/_lyr/island/…, GET, HEAD and
+// POST; other methods get a 405), static files (/_lyr/* assets and public/ files,
 // GET and HEAD only), then pages (all methods), including the 308 redirect
 // of a path whose other form is a page URL: /x/ to /x by default, /x to /x/
 // with TrailingSlashAlways.
@@ -238,12 +238,12 @@ func (s *Site) Middleware(next http.Handler) http.Handler {
 	return &middleware{site: s, next: next}
 }
 
-// Handler is Middleware(NotFound()): Orbit's pages, with 404.orbit for
+// Handler is Middleware(NotFound()): Lyr's pages, with 404.lyr for
 // everything else.
 func (s *Site) Handler() http.Handler { return s.Middleware(s.NotFound()) }
 
-// NotFound renders 404.orbit with a 404 status, or sends an empty 404 if the
-// site has no 404.orbit. Use it as the catch-all of your own mux when Orbit
+// NotFound renders 404.lyr with a 404 status, or sends an empty 404 if the
+// site has no 404.lyr. Use it as the catch-all of your own mux when Lyr
 // comes first.
 func (s *Site) NotFound() http.Handler { return notFoundHandler{s} }
 
@@ -283,16 +283,16 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // TrailingSlash redirects the non-canonical form of a page URL (per
-// orbit.json's trailingSlash: /x/ to /x by default, /x to /x/ with
+// lyr.json's trailingSlash: /x/ to /x by default, /x to /x/ with
 // TrailingSlashAlways) with a 308 before calling next, so middleware inside
 // it never sees the other form: Astro's order. Put it outermost, inside an
 // access logger if you want the redirects logged:
 //
-//	orbit.ListenAndServe(site.TrailingSlash(logging(auth(mux))))
+//	lyr.ListenAndServe(site.TrailingSlash(logging(auth(mux))))
 //
-// It covers Orbit's pages only, with exactly site.Middleware's rule: a path
+// It covers Lyr's pages only, with exactly site.Middleware's rule: a path
 // is redirected only when its other form is a page URL; island URLs,
-// /_orbit/ assets, public/ files, "//…" paths and file-extension paths
+// /_lyr/ assets, public/ files, "//…" paths and file-extension paths
 // never are. Your own routes keep their own redirects. Anything else
 // reaches next untouched, and a canonical path costs one byte check.
 // site.Middleware keeps its own redirect, so a request this one passed
@@ -386,7 +386,7 @@ func (h notFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.site.serveNotFound(w, r)
 }
 
-// serveNotFound renders 404.orbit, or writes an empty 404.
+// serveNotFound renders 404.lyr, or writes an empty 404.
 func (s *Site) serveNotFound(w http.ResponseWriter, r *http.Request) {
 	route := s.router.notFound
 	if route == nil {
@@ -513,7 +513,7 @@ func contentLength(n int) []string {
 // panicError is a panic recovered while rendering.
 type panicError struct {
 	value any
-	pos   string // "file.orbit:line" of the innermost .orbit frame, or ""
+	pos   string // "file.lyr:line" of the innermost .lyr frame, or ""
 }
 
 // Unwrap returns the panic value when it's an error, so errors.Is and
@@ -546,26 +546,26 @@ func callRender(render func(*Ctx, *Writer) error, c *Ctx, w *Writer) (err error)
 }
 
 // recoveredPanic returns the *panicError for a recovered panic value p,
-// with the innermost .orbit frame of the panicking goroutine. It's called
+// with the innermost .lyr frame of the panicking goroutine. It's called
 // from a deferred recover. A *panicError is kept as is: All re-panics a
 // load's panic with the load's own position (PLAN.md §4f).
 func recoveredPanic(p any) *panicError {
 	if pe, ok := p.(*panicError); ok {
 		return pe
 	}
-	return &panicError{value: p, pos: orbitFrame()}
+	return &panicError{value: p, pos: lyrFrame()}
 }
 
-// orbitFrame returns "file:line" of the innermost stack frame in a .orbit
+// lyrFrame returns "file:line" of the innermost stack frame in a .lyr
 // file (generated code carries line directives), or "". It's called from a
 // deferred recover, while the panicking frames are still on the stack.
-func orbitFrame() string {
+func lyrFrame() string {
 	var pcs [64]uintptr
 	n := runtime.Callers(3, pcs[:])
 	frames := runtime.CallersFrames(pcs[:n])
 	for {
 		f, more := frames.Next()
-		if strings.HasSuffix(f.File, ".orbit") {
+		if strings.HasSuffix(f.File, ".lyr") {
 			return relativeFile(f.File) + ":" + strconv.Itoa(f.Line)
 		}
 		if !more {
@@ -576,7 +576,7 @@ func orbitFrame() string {
 
 // relativeFile shortens an absolute frame path (the compiler resolves
 // relative line directives) to a slash path relative to the working
-// directory, such as src/pages/blog/[slug].orbit, when it's inside it.
+// directory, such as src/pages/blog/[slug].lyr, when it's inside it.
 func relativeFile(file string) string {
 	wd, err := os.Getwd()
 	if err != nil || !filepath.IsAbs(file) {
@@ -632,7 +632,7 @@ const (
 // serverError logs err and writes the built-in 500 page. Only in dev does
 // the page show the error.
 func (s *Site) serverError(w http.ResponseWriter, r *http.Request, err error) {
-	log.Printf("orbit: %s %s: %v", r.Method, r.URL.Path, err)
+	log.Printf("lyr: %s %s: %v", r.Method, r.URL.Path, err)
 	var body bytes.Buffer
 	body.WriteString(errorPageStart)
 	if s.dev {

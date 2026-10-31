@@ -19,13 +19,13 @@ func IsMarkdown(p string) bool {
 }
 
 // TrimSourceExt returns the base name of a component file without its
-// extension: .orbit or a Markdown one.
+// extension: .lyr or a Markdown one.
 func TrimSourceExt(p string) string {
 	base := path.Base(p)
 	if IsMarkdown(base) {
 		return strings.TrimSuffix(base, path.Ext(base))
 	}
-	return strings.TrimSuffix(base, ".orbit")
+	return strings.TrimSuffix(base, ".lyr")
 }
 
 // PropList is the parenthesized part of the unknown-prop error for a

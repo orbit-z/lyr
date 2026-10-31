@@ -1,0 +1,43 @@
+---
+type Props struct {
+	On bool
+	S  string
+}
+
+type Slug string
+type Flag bool
+
+// A type defined over an Opt is a new struct type: not lowered.
+type MyOpt lyr.Opt[string]
+
+o := lyr.Some("a&\"b")
+none := lyr.None[string]()
+u := lyr.Some(lyr.URL("javascript:ok()"))
+bad := lyr.Some(" javascript:x")
+i := lyr.Some(-3)
+f := lyr.Some(float32(0.1))
+b := lyr.Some(false)
+bt := lyr.Some(true)
+fl := lyr.Some(Flag(true))
+h := lyr.Some(lyr.HTML("<b>h</b>"))
+css := lyr.Some(lyr.CSS("color: red"))
+j := lyr.Some(lyr.JSON(map[string]int{"a": 1}))
+sl := lyr.Some(Slug("s&t"))
+nest := lyr.Some(lyr.Some("in"))
+nestNone := lyr.Some(lyr.None[string]())
+anyo := lyr.Some[any](7)
+cls := lyr.Some("x  y")
+clss := lyr.Some([]string{"p", "q"})
+var mine MyOpt
+---
+<a title={o} rel={none} href={u} src={bad} id={lyr.NonZero(props.S)} tabindex={i} data-f={f} aria-pressed={b} hidden={bt} disabled={b} data-flag={fl} data-h={h} style={css} data-j={j} data-slug={sl} data-nest={nest} data-nn={nestNone} data-any={anyo}>a</a>
+<p>{o}|{none}|{i}|{f}|{b}|{h}|{sl}|{nest}|{nestNone}|{anyo}|{lyr.NonZero(props.S)}|{lyr.Some(props.S)}|{(o) /* c */}</p>
+<p set:text={o}></p>
+<p class:list={"k", cls, clss, none}>c</p>
+<p class="z" class:list={cls}>d</p><p class={none}>f</p>
+{for k := range 3}
+  <i data-k={lyr.If(k != 1, k)} title={lyr.NonZero(k)}>{lyr.NonZero(k)}</i>
+{/for}
+<p title={mine}>defined</p>
+<p style={lyr.If(props.On, css.Or(""))}>s</p>
+<div set:html={h}></div><div set:html={lyr.None[lyr.HTML]()}></div><div set:html={lyr.If(props.On, lyr.HTML("<i>if</i>"))}></div><Fragment set:html={h} /><div set:html={h.Or("")}></div>

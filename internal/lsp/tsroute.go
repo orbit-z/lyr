@@ -13,7 +13,7 @@ import (
 // Requests in <script> blocks (PLAN.md §9b "Request routing"): a cursor in
 // a script's content goes to the TypeScript child, with the document URI
 // swapped for the virtual document's and the position unchanged (the
-// virtual document has the .orbit file's lines and UTF-16 columns).
+// virtual document has the .lyr file's lines and UTF-16 columns).
 // Results come back with virtual URIs swapped back, .d.ts locations
 // mapped to their Go declaration or attribute (the side table), and edits
 // kept inside the scripts.
@@ -68,7 +68,7 @@ func (s *Server) tsRoute(ctx context.Context, method string, params jsonRaw) (re
 		if ws == nil {
 			return nil, nil
 		}
-		p := ws.orbitPath(uri)
+		p := ws.lyrPath(uri)
 		lines := ws.lines[p]
 		if p == "" || lines == nil {
 			return ws, nil
@@ -101,7 +101,7 @@ func (s *Server) tsRoute(ctx context.Context, method string, params jsonRaw) (re
 	}
 	s.mu.Lock()
 	ws, d := at() // the documents may have been rebuilt or opened meanwhile
-	if d == nil || ws.docs[d.orbit] == nil && !d.open {
+	if d == nil || ws.docs[d.lyr] == nil && !d.open {
 		s.mu.Unlock()
 		return empty()
 	}
@@ -109,8 +109,8 @@ func (s *Server) tsRoute(ctx context.Context, method string, params jsonRaw) (re
 		s.tsOpenAll(ws)
 	}
 	if !d.open {
-		// An .orbit file the editor didn't open: open its documents.
-		s.tsSyncFile(ws, d.orbit)
+		// A .lyr file the editor didn't open: open its documents.
+		s.tsSyncFile(ws, d.lyr)
 		if _, d = at(); d == nil || !d.open {
 			s.mu.Unlock()
 			return empty()
@@ -129,8 +129,8 @@ func (s *Server) tsRoute(ctx context.Context, method string, params jsonRaw) (re
 		fwd["context"] = cx.marshal()
 	}
 	var name string
-	if f := ws.byPath[d.orbit]; f != nil && method == "textDocument/rename" {
-		name = identAt([]byte(f.Src), ws.lines[d.orbit].offset(pos, encUTF16))
+	if f := ws.byPath[d.lyr]; f != nil && method == "textDocument/rename" {
+		name = identAt([]byte(f.Src), ws.lines[d.lyr].offset(pos, encUTF16))
 	}
 	s.mu.Unlock()
 
@@ -157,7 +157,7 @@ func (s *Server) tsRoute(ctx context.Context, method string, params jsonRaw) (re
 	case "textDocument/rename":
 		edit, refused := m.workspaceEdit(raw, true)
 		if refused {
-			return nil, renameErr("can't rename %s: Orbit's generated types (orbit_gen/types) declare it, from Go: "+
+			return nil, renameErr("can't rename %s: Lyr's generated types (lyr_gen/types) declare it, from Go: "+
 				"rename the Go field or its json tag in the frontmatter or the .go file instead", name), true
 		}
 		return edit, nil, true
@@ -165,7 +165,7 @@ func (s *Server) tsRoute(ctx context.Context, method string, params jsonRaw) (re
 		return m.codeActions(raw), nil, true
 	}
 	// hover, signatureHelp, documentHighlight, prepareRename: positions
-	// are in the requesting document, the same in the .orbit file.
+	// are in the requesting document, the same in the .lyr file.
 	return raw, nil, true
 }
 
@@ -178,7 +178,7 @@ func (s *Server) tsResolve(ctx context.Context, params jsonRaw) (any, *rpcError)
 		return nil, nil
 	}
 	w := decodeObj(item["data"])
-	if w == nil || w.str("orbit") != tsResolveMarker {
+	if w == nil || w.str("lyr") != tsResolveMarker {
 		return params, nil
 	}
 	item["data"] = w["d"]
@@ -210,7 +210,7 @@ func (s *Server) tsResolve(ctx context.Context, params jsonRaw) (any, *rpcError)
 	return s.tsMapper(ws).item(res, d).marshal(), nil
 }
 
-// tsMapper maps the child's results into .orbit files (with s.mu held).
+// tsMapper maps the child's results into .lyr files (with s.mu held).
 type tsMapper struct {
 	s  *Server
 	ws *workspace
@@ -257,7 +257,7 @@ func (m tsMapper) item(o obj, d *vdoc) obj {
 		}
 	}
 	if data, ok := o["data"]; ok && !isNull(data) {
-		w := obj{"orbit": jsonRaw(`"` + tsResolveMarker + `"`), "d": data}
+		w := obj{"lyr": jsonRaw(`"` + tsResolveMarker + `"`), "d": data}
 		w.set("u", d.uri)
 		o["data"] = w.marshal()
 	}
@@ -267,7 +267,7 @@ func (m tsMapper) item(o obj, d *vdoc) obj {
 // inScript reports whether every range of a TextEdit or InsertReplaceEdit
 // lies inside one of d's scripts.
 func (m tsMapper) inScript(d *vdoc, e obj) bool {
-	lines := m.ws.lines[d.orbit]
+	lines := m.ws.lines[d.lyr]
 	if lines == nil {
 		return false
 	}
@@ -300,7 +300,7 @@ func (d *vdoc) containsRange(start, end int) bool {
 // top of the file, in the blanked frontmatter) moves to the first
 // content line of the first script. Others are dropped.
 func (m tsMapper) vdocEdits(d *vdoc, edits []obj) []obj {
-	lines := m.ws.lines[d.orbit]
+	lines := m.ws.lines[d.lyr]
 	if lines == nil {
 		return nil
 	}
@@ -334,20 +334,20 @@ type tsLoc struct {
 }
 
 // location maps one of the child's locations: a virtual document's to its
-// .orbit file (same range), an emitted .d.ts file's through the side table
+// .lyr file (same range), an emitted .d.ts file's through the side table
 // to its Go declaration or attribute (unchanged without an entry, but
-// under orbit_gen/types), others unchanged. ok is false for a location in
+// under lyr_gen/types), others unchanged. ok is false for a location in
 // a virtual document of no current file.
 func (m tsMapper) location(uri string, r Range) (tsLoc, bool) {
 	rel := m.ws.rel(uriToPath(uri))
 	if rel == "" {
 		return tsLoc{uri: uri, rng: r}, true
 	}
-	if orbit := orbitOfVdocPath(rel); orbit != "" {
-		if m.ws.byPath[orbit] == nil {
+	if lyr := lyrOfVdocPath(rel); lyr != "" {
+		if m.ws.byPath[lyr] == nil {
 			return tsLoc{}, false
 		}
-		return tsLoc{uri: m.ws.orbitURI(orbit), rng: r}, true
+		return tsLoc{uri: m.ws.lyrURI(lyr), rng: r}, true
 	}
 	if isVdocPath(rel) {
 		return tsLoc{}, false // the in-memory tsconfig
@@ -374,13 +374,13 @@ func (m tsMapper) fromSideTable(typesPath string, line int) (tsLoc, bool) {
 		if !ok {
 			return tsLoc{}, false
 		}
-		if src.Orbit {
+		if src.Lyr {
 			lines := m.ws.lines[src.File]
 			if lines == nil {
 				return tsLoc{}, false
 			}
 			n := len(lines.src)
-			return tsLoc{uri: m.ws.orbitURI(src.File), rng: lines.rangeOf(min(src.Start, n), min(src.End, n), encUTF16)}, true
+			return tsLoc{uri: m.ws.lyrURI(src.File), rng: lines.rangeOf(min(src.Start, n), min(src.End, n), encUTF16)}, true
 		}
 		abs := src.File
 		if !filepath.IsAbs(abs) {
@@ -473,7 +473,7 @@ func (m tsMapper) locations(raw jsonRaw, dropGenerated bool) jsonRaw {
 }
 
 // workspaceEdit maps a WorkspaceEdit of the child: edits of virtual
-// documents go to their .orbit files (kept inside the scripts), edits of
+// documents go to their .lyr files (kept inside the scripts), edits of
 // other files pass through. An edit of an emitted .d.ts file is dropped,
 // and with rename set, refused is true (a rename that would rename
 // generated types). The result uses documentChanges or changes, as the
@@ -499,15 +499,15 @@ func (m tsMapper) workspaceEdit(raw jsonRaw, rename bool) (out jsonRaw, refused 
 			}
 			return
 		}
-		if orbit := orbitOfVdocPath(rel); orbit != "" {
+		if lyr := lyrOfVdocPath(rel); lyr != "" {
 			d := m.ws.vdocByURI(uri)
 			if d == nil {
 				return
 			}
 			edits = m.vdocEdits(d, edits)
-			uri = m.ws.orbitURI(orbit)
+			uri = m.ws.lyrURI(lyr)
 			version = jsonRaw("null")
-			if doc := m.ws.docs[orbit]; doc != nil {
+			if doc := m.ws.docs[lyr]; doc != nil {
 				version = jsonRaw(fmt.Sprint(doc.version))
 			}
 		} else if rel != "" && isVdocPath(rel) {
@@ -572,7 +572,7 @@ func (m tsMapper) workspaceEdit(raw jsonRaw, rename bool) (out jsonRaw, refused 
 }
 
 // codeActions keeps the child's quick fixes whose edits map (PLAN.md §9b
-// Q4: kind quickfix only, no commands Orbit couldn't run).
+// Q4: kind quickfix only, no commands Lyr couldn't run).
 func (m tsMapper) codeActions(raw jsonRaw) jsonRaw {
 	var list []obj
 	if json.Unmarshal(raw, &list) != nil {

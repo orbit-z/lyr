@@ -118,8 +118,8 @@ func rulePatternShape(pattern string) (string, error) {
 		return "", fmt.Errorf("the pattern must not end with /")
 	}
 	parts := strings.Split(pattern[1:], "/")
-	if parts[0] == "_orbit" {
-		return "", fmt.Errorf("/_orbit/ paths are Orbit's own; rules never apply to them")
+	if parts[0] == "_lyr" {
+		return "", fmt.Errorf("/_lyr/ paths are Lyr's own; rules never apply to them")
 	}
 	var shape strings.Builder
 	names := map[string]bool{}

@@ -18,10 +18,10 @@ import (
 	"github.com/yuin/goldmark/text"
 	"github.com/yuin/goldmark/util"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
-// Heading is one heading of a document (orbit.Heading in generated code).
+// Heading is one heading of a document (lyr.Heading in generated code).
 type Heading struct {
 	Depth int
 	Slug  string
@@ -46,7 +46,7 @@ type Link struct {
 type Resolver func(target string) (url string, exists bool)
 
 // CanonicalURL returns the canonical URL of a page route (PLAN.md §4e): the
-// route itself, or with always (orbit.json "trailingSlash": "always") the
+// route itself, or with always (lyr.json "trailingSlash": "always") the
 // route plus "/", except "/" and an extension route, whose last segment has
 // a file extension (/rss.xml).
 func CanonicalURL(route string, always bool) string {

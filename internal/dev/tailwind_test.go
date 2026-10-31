@@ -8,18 +8,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/tailwind/tailwindtest"
+	"github.com/orbit-z/lyr/internal/tailwind/tailwindtest"
 )
 
 // twFixture is the dev fixture with a Tailwind root imported from the
 // layout and a block input in Card.
 func twFixture(t *testing.T) string {
 	dir := fixture(t)
-	writeFile(t, dir, ".gitignore", "orbit_gen/\n.orbit/\ndist/\n")
+	writeFile(t, dir, ".gitignore", "lyr_gen/\n.lyr/\ndist/\n")
 	writeFile(t, dir, "src/styles/global.css", "@import \"tailwindcss\";\n.site { color: red }\n")
-	edit(t, dir, "src/layouts/Base.orbit", "<style>", "<style is:global>\n  @import \"../styles/global.css\";\n</style>\n<style>")
-	edit(t, dir, "src/components/Card.orbit", `<p class="card">`, `<p class="card tw-one">`)
-	writeFile(t, dir, "src/components/Card.orbit", readFile(t, dir, "src/components/Card.orbit")+
+	edit(t, dir, "src/layouts/Base.lyr", "<style>", "<style is:global>\n  @import \"../styles/global.css\";\n</style>\n<style>")
+	edit(t, dir, "src/components/Card.lyr", `<p class="card">`, `<p class="card tw-one">`)
+	writeFile(t, dir, "src/components/Card.lyr", readFile(t, dir, "src/components/Card.lyr")+
 		"\n<style>\n  @reference \"../styles/global.css\";\n  .card { @apply font-bold; }\n  .x { @apply italic; }\n</style>\n")
 	return dir
 }
@@ -39,12 +39,12 @@ func devCSS(t *testing.T, dir string) string {
 	var m struct {
 		Pages map[string][]struct{ Kind, URL string }
 	}
-	if err := json.Unmarshal([]byte(readFile(t, dir, ".orbit/dev/manifest.json")), &m); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, dir, ".lyr/dev/manifest.json")), &m); err != nil {
 		t.Fatal(err)
 	}
-	for _, a := range m.Pages["src/pages/index.orbit"] {
+	for _, a := range m.Pages["src/pages/index.lyr"] {
 		if a.Kind == "css" {
-			return readFile(t, dir, ".orbit/dev"+a.URL)
+			return readFile(t, dir, ".lyr/dev"+a.URL)
 		}
 	}
 	t.Fatalf("no stylesheet: %+v", m)
@@ -79,8 +79,8 @@ func TestPipelineTailwind(t *testing.T) {
 	// A new class in a template: the root reruns, in parallel with the Go
 	// stages, then esbuild.
 	tp.reset()
-	edit(t, dir, "src/components/Card.orbit", "tw-one", "tw-one tw-two")
-	out := tp.run(t, "src/components/Card.orbit")
+	edit(t, dir, "src/components/Card.lyr", "tw-one", "tw-one tw-two")
+	out := tp.run(t, "src/components/Card.lyr")
 	st := tp.got()
 	if !out.Assets || out.Bin == "" || !slices.Contains(st, "tailwind") || !slices.Contains(st, "esbuild-tailwind") || slices.Contains(st, "esbuild") {
 		t.Errorf("new class: stages %v, %+v", st, out)
@@ -97,8 +97,8 @@ func TestPipelineTailwind(t *testing.T) {
 
 	// No new token: nothing reruns.
 	tp.reset()
-	edit(t, dir, "src/components/Card.orbit", "tw-one tw-two", "tw-one  tw-two")
-	out = tp.run(t, "src/components/Card.orbit")
+	edit(t, dir, "src/components/Card.lyr", "tw-one tw-two", "tw-one  tw-two")
+	out = tp.run(t, "src/components/Card.lyr")
 	if st := tp.got(); slices.Contains(st, "tailwind") || slices.Contains(st, "esbuild-tailwind") || runs() != 3 {
 		t.Errorf("no new token: stages %v, %d runs", st, runs())
 	}
@@ -106,8 +106,8 @@ func TestPipelineTailwind(t *testing.T) {
 	// A new token that doesn't change the CSS: Tailwind reruns, esbuild
 	// doesn't.
 	tp.reset()
-	edit(t, dir, "src/components/Card.orbit", "card {props.Post}", "Card {props.Post}")
-	out = tp.run(t, "src/components/Card.orbit")
+	edit(t, dir, "src/components/Card.lyr", "card {props.Post}", "Card {props.Post}")
+	out = tp.run(t, "src/components/Card.lyr")
 	if st := tp.got(); !slices.Contains(st, "tailwind") || slices.Contains(st, "esbuild-tailwind") || out.Assets || runs() != 4 {
 		t.Errorf("same CSS: stages %v, %+v, %d runs", st, out, runs())
 	}
@@ -122,8 +122,8 @@ func TestPipelineTailwind(t *testing.T) {
 
 	// A block edit that brings no new token: only the block reruns.
 	tp.reset()
-	edit(t, dir, "src/components/Card.orbit", "  .x { @apply italic; }\n", "")
-	out = tp.run(t, "src/components/Card.orbit")
+	edit(t, dir, "src/components/Card.lyr", "  .x { @apply italic; }\n", "")
+	out = tp.run(t, "src/components/Card.lyr")
 	if runs() != 7 || !out.Assets || strings.Contains(devCSS(t, dir), "--applied: italic") {
 		t.Errorf("block edit: %d runs, %+v", runs(), out)
 	}
@@ -134,31 +134,31 @@ func TestPipelineTailwind(t *testing.T) {
 	// A failed run: the overlay, and the last CSS stays.
 	before := devCSS(t, dir)
 	tp.reset()
-	edit(t, dir, "src/components/Card.orbit", "@apply font-bold;", "@apply font-bold; /* FAIL_TW */")
-	o, err := tp.pipeline.run(t.Context(), NewChange([]string{"src/components/Card.orbit"}, nil), true)
+	edit(t, dir, "src/components/Card.lyr", "@apply font-bold;", "@apply font-bold; /* FAIL_TW */")
+	o, err := tp.pipeline.run(t.Context(), NewChange([]string{"src/components/Card.lyr"}, nil), true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if o.Failure == nil || !strings.Contains(o.Failure.Text, "src/components/Card.orbit:") || !strings.Contains(o.Failure.Text, "Cannot apply unknown utility class `nope`") {
+	if o.Failure == nil || !strings.Contains(o.Failure.Text, "src/components/Card.lyr:") || !strings.Contains(o.Failure.Text, "Cannot apply unknown utility class `nope`") {
 		t.Errorf("failed run: %+v", o.Failure)
 	}
 	if css := devCSS(t, dir); css != before {
 		t.Errorf("the CSS changed after a failed run")
 	}
-	edit(t, dir, "src/components/Card.orbit", " /* FAIL_TW */", "")
-	if out := tp.run(t, "src/components/Card.orbit"); !out.Assets {
+	edit(t, dir, "src/components/Card.lyr", " /* FAIL_TW */", "")
+	if out := tp.run(t, "src/components/Card.lyr"); !out.Assets {
 		t.Errorf("after the fix: %+v", out)
 	}
 }
 
-// TestDevTailwind runs orbit dev with the real CLI: adding a class to a
+// TestDevTailwind runs lyr dev with the real CLI: adding a class to a
 // template reloads the page with a stylesheet that has it, with one go
 // build.
 func TestDevTailwind(t *testing.T) {
 	needE2E(t)
 	tailwindtest.Real(t)
 	dir := twFixture(t)
-	edit(t, dir, "src/components/Card.orbit", "tw-one", "italic")
+	edit(t, dir, "src/components/Card.lyr", "tw-one", "italic")
 	s := startSession(t, dir)
 	defer s.stop()
 	css := func() string {
@@ -176,7 +176,7 @@ func TestDevTailwind(t *testing.T) {
 	}
 	events := s.events()
 	builds := s.count("gobuild")
-	edit(t, dir, "src/components/Card.orbit", "italic", "italic underline")
+	edit(t, dir, "src/components/Card.lyr", "italic", "italic underline")
 	waitReload(t, events, "new class")
 	if c := css(); !strings.Contains(c, ".underline") {
 		t.Errorf("no .underline after the edit:\n%s", c)
@@ -197,8 +197,8 @@ func TestPipelineNoTailwind(t *testing.T) {
 	log := tailwindtest.Fake(t, "")
 	tp := newTestPipeline(t, dir)
 	tp.run(t)
-	edit(t, dir, "src/components/Card.orbit", "card {props.Post}", "Card tw-x {props.Post}")
-	tp.run(t, "src/components/Card.orbit")
+	edit(t, dir, "src/components/Card.lyr", "card {props.Post}", "Card tw-x {props.Post}")
+	tp.run(t, "src/components/Card.lyr")
 	if tp.tw.Active() || tp.gate != nil || len(tailwindtest.Log(t, log)) != 0 {
 		t.Errorf("Tailwind ran for a project without it")
 	}

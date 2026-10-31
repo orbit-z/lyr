@@ -1,6 +1,0 @@
----
-import orbit "github.com/orbit-z/orbit"
-
-type Props struct{ Body orbit.HTML }
----
-<div set:html={props.Body}></div>

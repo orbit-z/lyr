@@ -1,7 +1,7 @@
-// Command lsp measures orbit lsp as an editor sees it (PLAN.md §9): startup
+// Command lsp measures lyr lsp as an editor sees it (PLAN.md §9): startup
 // up to the readiness barrier, completion/hover/definition/references
-// latency, and the memory of orbit lsp and its gopls, on bench/devloop's
-// synthetic project, with and without orbit_gen/ on disk. See README.md.
+// latency, and the memory of lyr lsp and its gopls, on bench/devloop's
+// synthetic project, with and without lyr_gen/ on disk. See README.md.
 package main
 
 import (
@@ -17,22 +17,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/orbit-z/orbit/bench/devloop/synth"
+	"github.com/orbit-z/lyr/bench/devloop/synth"
 )
 
 func main() {
 	quick := os.Getenv("QUICK") == "1"
-	files := flag.Int("files", 200, "number of .orbit files in the synthetic project")
+	files := flag.Int("files", 200, "number of .lyr files in the synthetic project")
 	runs := flag.Int("runs", 20, "measured runs per request kind (after one warm-up run)")
-	starts := flag.Int("starts", 3, "orbit lsp processes started per mode (startup timings)")
-	modes := flag.String("modes", "overlay,disk", "modes to run: overlay (no orbit_gen/ on disk), disk (orbit generate first)")
-	orbitRoot := flag.String("orbit", "../..", "path to the Orbit repository")
+	starts := flag.Int("starts", 3, "lyr lsp processes started per mode (startup timings)")
+	modes := flag.String("modes", "overlay,disk", "modes to run: overlay (no lyr_gen/ on disk), disk (lyr generate first)")
+	lyrRoot := flag.String("lyr", "../..", "path to the Lyr repository")
 	dir := flag.String("dir", "", "project directory (default: a new temporary directory)")
 	keep := flag.Bool("keep", false, "keep the project directory")
 	jsonOut := flag.String("json", "", "also write every sample to this JSON file")
-	verbose := flag.Bool("v", false, "print orbit lsp's log after each session")
+	verbose := flag.Bool("v", false, "print lyr lsp's log after each session")
 	trace := flag.String("trace", "", "run gopls with -rpc.trace, logging to this file (prefix; one file per session)")
-	typescript := flag.String("typescript", os.Getenv("ORBIT_BENCH_TYPESCRIPT"), "TypeScript 7 engine (the typescriptPath option; default: orbit lsp's own lookup)")
+	typescript := flag.String("typescript", os.Getenv("LYR_BENCH_TYPESCRIPT"), "TypeScript 7 engine (the typescriptPath option; default: lyr lsp's own lookup)")
 	flag.Parse()
 	if quick {
 		*files, *runs, *starts = 50, 3, 1
@@ -45,7 +45,7 @@ func main() {
 		}
 		cfg.modes = append(cfg.modes, m)
 	}
-	if err := run(cfg, *orbitRoot, *dir, *keep, *jsonOut); err != nil {
+	if err := run(cfg, *lyrRoot, *dir, *keep, *jsonOut); err != nil {
 		fmt.Fprintln(os.Stderr, "lsp:", err)
 		os.Exit(1)
 	}
@@ -56,7 +56,7 @@ type config struct {
 	modes               []string
 	verbose             bool
 	trace               string // gopls -rpc.trace log prefix
-	typescript          string // typescriptPath, "" for orbit lsp's lookup
+	typescript          string // typescriptPath, "" for lyr lsp's lookup
 	initOpts            map[string]any
 }
 
@@ -67,11 +67,11 @@ type probes struct {
 	next                int    // a component imported by comp
 }
 
-// startSample is one orbit lsp start: each event's time since the process
+// startSample is one lyr lsp start: each event's time since the process
 // started (0 when it didn't happen).
 type startSample struct {
 	Initialize      time.Duration `json:"initialize"`
-	OrbitDiag       time.Duration `json:"orbit_diagnostic"`
+	LyrDiag         time.Duration `json:"lyr_diagnostic"`
 	GoplsDiag       time.Duration `json:"gopls_diagnostic"`
 	FirstHover      time.Duration `json:"first_hover"`
 	FirstCompletion time.Duration `json:"first_completion"`
@@ -89,7 +89,7 @@ type startSample struct {
 }
 
 type memSample struct {
-	Orbit mem `json:"orbit_lsp_kib"`
+	Lyr   mem `json:"lyr_lsp_kib"`
 	Gopls mem `json:"gopls_kib"`
 	TS    mem `json:"typescript_kib"`
 }
@@ -123,16 +123,16 @@ var latencyRows = []struct{ key, label string }{
 	{"ts-references", "`<script>`: references, after that"},
 }
 
-func run(cfg config, orbitRoot, dir string, keep bool, jsonOut string) error {
-	orbitRoot, err := filepath.Abs(orbitRoot)
+func run(cfg config, lyrRoot, dir string, keep bool, jsonOut string) error {
+	lyrRoot, err := filepath.Abs(lyrRoot)
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(filepath.Join(orbitRoot, "orbit.go")); err != nil {
-		return fmt.Errorf("-orbit %s: not the Orbit repository (run from bench/lsp or pass -orbit)", orbitRoot)
+	if _, err := os.Stat(filepath.Join(lyrRoot, "lyr.go")); err != nil {
+		return fmt.Errorf("-lyr %s: not the Lyr repository (run from bench/lsp or pass -lyr)", lyrRoot)
 	}
 	if dir == "" {
-		if dir, err = os.MkdirTemp("", "orbit-bench-lsp-"); err != nil {
+		if dir, err = os.MkdirTemp("", "lyr-bench-lsp-"); err != nil {
 			return err
 		}
 		if !keep {
@@ -143,8 +143,8 @@ func run(cfg config, orbitRoot, dir string, keep bool, jsonOut string) error {
 	if err := os.MkdirAll(bin, 0o755); err != nil {
 		return err
 	}
-	orbitBin := filepath.Join(bin, "orbit")
-	if err := runCmd(orbitRoot, "go", "build", "-o", orbitBin, "./cmd/orbit"); err != nil {
+	lyrBin := filepath.Join(bin, "lyr")
+	if err := runCmd(lyrRoot, "go", "build", "-o", lyrBin, "./cmd/lyr"); err != nil {
 		return err
 	}
 	goplsPath, err := exec.LookPath("gopls")
@@ -153,12 +153,12 @@ func run(cfg config, orbitRoot, dir string, keep bool, jsonOut string) error {
 	}
 	goplsVersion, _ := exec.Command(goplsPath, "version").Output()
 	if cfg.trace != "" {
-		// orbit lsp starts the goplsPath init option with no arguments.
+		// lyr lsp starts the goplsPath init option with no arguments.
 		if cfg.trace, err = filepath.Abs(cfg.trace); err != nil {
 			return err
 		}
 		script := filepath.Join(bin, "gopls-trace")
-		sh := fmt.Sprintf("#!/bin/sh\nexec %q -rpc.trace -logfile \"$ORBIT_BENCH_TRACE\" \"$@\"\n", goplsPath)
+		sh := fmt.Sprintf("#!/bin/sh\nexec %q -rpc.trace -logfile \"$LYR_BENCH_TRACE\" \"$@\"\n", goplsPath)
 		if err := os.WriteFile(script, []byte(sh), 0o755); err != nil {
 			return err
 		}
@@ -175,38 +175,38 @@ func run(cfg config, orbitRoot, dir string, keep bool, jsonOut string) error {
 	// is "as it is" rather than always cold.
 	s := synth.NewShape(cfg.files)
 	files := synth.ProjectFiles(s, "lsp")
-	if err := synth.WriteProject(dir, orbitRoot, files); err != nil {
+	if err := synth.WriteProject(dir, lyrRoot, files); err != nil {
 		return err
 	}
-	// orbit generate and a go build warm the Go build cache for the
+	// lyr generate and a go build warm the Go build cache for the
 	// project's dependencies (and fill in go.mod's indirect requires).
-	if err := runCmd(dir, orbitBin, "generate"); err != nil {
+	if err := runCmd(dir, lyrBin, "generate"); err != nil {
 		return err
 	}
 	if err := runCmd(dir, "go", "build", "-o", filepath.Join(bin, "server"), "./cmd/server"); err != nil {
 		return err
 	}
-	gen, saved := filepath.Join(dir, "orbit_gen"), filepath.Join(dir, ".orbit_gen.saved")
+	gen, saved := filepath.Join(dir, "lyr_gen"), filepath.Join(dir, ".lyr_gen.saved")
 
 	t := s.Target()
-	p := probes{comp: synth.CompPath(t), index: "src/pages/index.orbit", next: t + 1}
+	p := probes{comp: synth.CompPath(t), index: "src/pages/index.lyr", next: t + 1}
 	p.compText = files[p.comp]
 	idx := files[p.index]
 	i := strings.Index(idx, "</h1>")
 	if i < 0 {
-		return fmt.Errorf("index.orbit has no </h1>")
+		return fmt.Errorf("index.lyr has no </h1>")
 	}
 	i += len("</h1>")
 	idx = idx[:i] + "\n  <p>{nope}</p>" + idx[i:]
-	// …and an unknown prop on its component, which Orbit reports itself.
+	// …and an unknown prop on its component, which Lyr reports itself.
 	i = strings.Index(idx, `title="x"`)
 	if i < 0 {
-		return fmt.Errorf("index.orbit has no title=\"x\"")
+		return fmt.Errorf("index.lyr has no title=\"x\"")
 	}
 	p.indexText = idx[:i] + `bogus="x" ` + idx[i:]
 
 	goVersion, _ := exec.Command("go", "env", "GOVERSION").Output()
-	fmt.Printf("# lsp: %d .orbit files (%d pages, %d layouts, %d components), %d starts per mode, %d runs + 1 warm-up per request\n",
+	fmt.Printf("# lsp: %d .lyr files (%d pages, %d layouts, %d components), %d starts per mode, %d runs + 1 warm-up per request\n",
 		s.Files, s.Pages, s.Layouts, s.Components, cfg.starts, cfg.runs)
 	fmt.Printf("# %s, %s, GOMAXPROCS=%d, NumCPU=%d, project %s\n", strings.TrimSpace(string(goVersion)),
 		firstLine(string(goplsVersion)), runtime.GOMAXPROCS(0), runtime.NumCPU(), dir)
@@ -229,7 +229,7 @@ func run(cfg config, orbitRoot, dir string, keep bool, jsonOut string) error {
 		}
 		r := &modeResult{Mode: mode, Latency: map[string][]time.Duration{}}
 		for k := range cfg.starts {
-			if err := runStart(cfg, orbitBin, dir, p, r, k == cfg.starts-1); err != nil {
+			if err := runStart(cfg, lyrBin, dir, p, r, k == cfg.starts-1); err != nil {
 				return fmt.Errorf("%s mode, start %d: %w", mode, k+1, err)
 			}
 		}
@@ -252,29 +252,29 @@ func run(cfg config, orbitRoot, dir string, keep bool, jsonOut string) error {
 	return nil
 }
 
-// runStart starts orbit lsp once, records its startup events and, when
+// runStart starts lyr lsp once, records its startup events and, when
 // measure is set, the request latencies and memory.
-func runStart(cfg config, orbitBin, dir string, p probes, r *modeResult, measure bool) error {
+func runStart(cfg config, lyrBin, dir string, p probes, r *modeResult, measure bool) error {
 	var env []string
 	if cfg.trace != "" {
-		env = append(env, fmt.Sprintf("ORBIT_BENCH_TRACE=%s.%s.%d.log", cfg.trace, r.Mode, len(r.Starts)+1))
+		env = append(env, fmt.Sprintf("LYR_BENCH_TRACE=%s.%s.%d.log", cfg.trace, r.Mode, len(r.Starts)+1))
 	}
-	sess, dInit, err := startSession(orbitBin, dir, cfg.initOpts, env...)
+	sess, dInit, err := startSession(lyrBin, dir, cfg.initOpts, env...)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		sess.shutdown()
 		if cfg.verbose {
-			fmt.Fprintf(os.Stderr, "--- orbit lsp log (%s) ---\n%s\n", r.Mode, sess.logText())
+			fmt.Fprintf(os.Stderr, "--- lyr lsp log (%s) ---\n%s\n", r.Mode, sess.logText())
 		}
 	}()
 	smp := startSample{Initialize: dInit}
 	sess.expectDiag("gopls", p.index, func(ds []diag) bool {
-		return slices.ContainsFunc(ds, func(d diag) bool { return d.Source != "orbit" && strings.Contains(d.Message, "nope") })
+		return slices.ContainsFunc(ds, func(d diag) bool { return d.Source != "lyr" && strings.Contains(d.Message, "nope") })
 	})
-	sess.expectDiag("orbit", p.index, func(ds []diag) bool {
-		return slices.ContainsFunc(ds, func(d diag) bool { return d.Source == "orbit" && strings.Contains(d.Message, "bogus") })
+	sess.expectDiag("lyr", p.index, func(ds []diag) bool {
+		return slices.ContainsFunc(ds, func(d diag) bool { return d.Source == "lyr" && strings.Contains(d.Message, "bogus") })
 	})
 	sess.open(p.comp, p.compText)
 	sess.open(p.index, p.indexText)
@@ -317,11 +317,11 @@ func runStart(cfg config, orbitBin, dir string, p probes, r *modeResult, measure
 	if !sess.waitFor(60*time.Second, func() bool { return len(sess.diagHit) == 2 }) {
 		r.Warnings = append(r.Warnings, fmt.Sprintf("start: a diagnostic for %s never arrived (seen: %v; last: %v)", p.index, sess.diagHit, sess.lastDiags[indexURI]))
 	}
-	sess.waitFor(5*time.Second, func() bool { _, ok := sess.progEnd["Orbit"]; return ok })
+	sess.waitFor(5*time.Second, func() bool { _, ok := sess.progEnd["Lyr"]; return ok })
 	sess.mu.Lock()
-	smp.OrbitDiag = sess.diagHit["orbit"]
+	smp.LyrDiag = sess.diagHit["lyr"]
 	smp.GoplsDiag = sess.diagHit["gopls"]
-	smp.BarrierProgress = sess.progEnd["Orbit"]
+	smp.BarrierProgress = sess.progEnd["Lyr"]
 	sess.mu.Unlock()
 	smp.LogGoplsReady, _ = sess.logDuration("gopls ready in ")
 	smp.LogBarrier, _ = sess.logDuration("readiness barrier: ")
@@ -330,13 +330,13 @@ func runStart(cfg config, orbitBin, dir string, p probes, r *modeResult, measure
 		return nil
 	}
 	o, g, ts := sess.memory()
-	r.MemBarrier = memSample{Orbit: o, Gopls: g, TS: ts}
+	r.MemBarrier = memSample{Lyr: o, Gopls: g, TS: ts}
 	r.Rename = sess.hasRename()
 	if err := measureLatency(cfg, sess, p, r); err != nil {
 		return fmt.Errorf("%w\n%s", err, sess.logText())
 	}
 	o, g, ts = sess.memory()
-	r.MemAfter = memSample{Orbit: o, Gopls: g, TS: ts}
+	r.MemAfter = memSample{Lyr: o, Gopls: g, TS: ts}
 	if err := measureTS(cfg, sess, p, r); err != nil {
 		return fmt.Errorf("%w\n%s", err, sess.logText())
 	}

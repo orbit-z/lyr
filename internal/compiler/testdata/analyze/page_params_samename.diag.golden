@@ -1,1 +1,1 @@
-src/pages/[id]/[id].orbit:1:1: route params [id] and [id] both become params.ID; rename one
+src/pages/[id]/[id].lyr:1:1: route params [id] and [id] both become params.ID; rename one

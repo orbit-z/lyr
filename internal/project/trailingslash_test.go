@@ -15,8 +15,8 @@ func TestTrailingSlashAlwaysProject(t *testing.T) {
 	for k, v := range mdFiles {
 		files[k] = v
 	}
-	files["orbit.json"] = `{"trailingSlash": "always"}`
-	files["src/pages/rss.xml.orbit"] = "---\nctx.Header().Set(\"Content-Type\", \"application/rss+xml\")\n---\n<rss></rss>\n"
+	files["lyr.json"] = `{"trailingSlash": "always"}`
+	files["src/pages/rss.xml.lyr"] = "---\nctx.Header().Set(\"Content-Type\", \"application/rss+xml\")\n---\n<rss></rss>\n"
 	files["internal/apptest/app_test.go"] = `package apptest
 
 import (
@@ -25,7 +25,7 @@ import (
 	"strings"
 	"testing"
 
-	"example.com/blog/orbit_gen/app"
+	"example.com/blog/lyr_gen/app"
 )
 
 func get(t *testing.T, method, path string) (int, string, string) {
@@ -42,9 +42,9 @@ func TestPages(t *testing.T) {
 		location     string
 		want         []string
 	}{
-		{"GET", "/blog/hello/", 200, "", []string{"<title>Hello, Orbit</title>",
+		{"GET", "/blog/hello/", 200, "", []string{"<title>Hello, Lyr</title>",
 			"<a href=\"/blog/routing-guide/#setup\">routing guide</a>"}},
-		{"GET", "/", 200, "", []string{"<a href=\"/blog/hello/\">Hello, Orbit</a> (1)"}},
+		{"GET", "/", 200, "", []string{"<a href=\"/blog/hello/\">Hello, Lyr</a> (1)"}},
 		{"GET", "/rss.xml", 200, "", []string{"<rss></rss>"}},
 		{"GET", "/blog/hello", 308, "/blog/hello/", nil},
 		{"HEAD", "/blog/hello", 308, "/blog/hello/", nil},
@@ -73,10 +73,10 @@ func TestPages(t *testing.T) {
 	if got := joinLines(diagStrings(res.Diagnostics)); got != want {
 		t.Fatalf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
-	if decl := p.read("orbit_gen/decl/pages/blog/hello_md/decl.go"); !strings.Contains(decl, `const URL = "/blog/hello/"`) {
+	if decl := p.read("lyr_gen/decl/pages/blog/hello_md/decl.go"); !strings.Contains(decl, `const URL = "/blog/hello/"`) {
 		t.Errorf("hello.md decl:\n%s", decl)
 	}
-	if app := p.read("orbit_gen/app/app.go"); !strings.Contains(app, "defaults := []orbit.Option{orbit.WithTrailingSlash(orbit.TrailingSlashAlways)}") {
+	if app := p.read("lyr_gen/app/app.go"); !strings.Contains(app, "defaults := []lyr.Option{lyr.WithTrailingSlash(lyr.TrailingSlashAlways)}") {
 		t.Errorf("app.go:\n%s", app)
 	}
 	if out, err := p.goCmd("test", "./internal/apptest"); err != nil {

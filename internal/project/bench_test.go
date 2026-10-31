@@ -1,6 +1,6 @@
 package project
 
-// Generate-speed benchmarks: the full orbit generate pipeline on a synthetic
+// Generate-speed benchmarks: the full lyr generate pipeline on a synthetic
 // 200-file project (40 pages, half of them with route params, and 160
 // components with props, default and named slots, nested calls and Go
 // package imports). Run with
@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/assets"
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/assets"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 const (
@@ -66,11 +66,11 @@ func Items(n int) []Item {
 		var imports, calls strings.Builder
 		for _, j := range []int{i + 1, i + 2} {
 			if j < benchComponents {
-				fmt.Fprintf(&imports, "\tC%d \"./C%d.orbit\"\n", j, j)
+				fmt.Fprintf(&imports, "\tC%d \"./C%d.lyr\"\n", j, j)
 				fmt.Fprintf(&calls, "  {if props.Depth > 0}<C%d title={props.Title} count={props.Count + 1} items={props.Items} depth={props.Depth - 1}><span>{props.Count}</span><p slot=\"footer\">f</p></C%d>{/if}\n", j, j)
 			}
 		}
-		files[fmt.Sprintf("src/components/C%d.orbit", i)] = fmt.Sprintf(`---
+		files[fmt.Sprintf("src/components/C%d.lyr", i)] = fmt.Sprintf(`---
 import (
 	"fmt"
 	"strings"
@@ -103,22 +103,22 @@ status := data.Status(props.Count %% 2)
 </section>
 `, imports.String(), i, calls.String())
 	}
-	files["src/layouts/Base.orbit"] = `---
+	files["src/layouts/Base.lyr"] = `---
 type Props struct{ Title string }
 ---
 <!DOCTYPE html>
 <html><head><title>{props.Title}</title></head><body><slot /></body></html>
 `
 	for i := range benchPages {
-		name := fmt.Sprintf("src/pages/p%d.orbit", i)
+		name := fmt.Sprintf("src/pages/p%d.lyr", i)
 		title := `"Page"`
 		switch i % 4 {
 		case 0, 1:
-			name = fmt.Sprintf("src/pages/s%d/[slug].orbit", i)
+			name = fmt.Sprintf("src/pages/s%d/[slug].lyr", i)
 			title = "params.Slug"
 		case 2:
 			if i%8 == 2 {
-				name = fmt.Sprintf("src/pages/r%d/[...rest].orbit", i)
+				name = fmt.Sprintf("src/pages/r%d/[...rest].lyr", i)
 				title = "params.Rest"
 			}
 		}
@@ -126,8 +126,8 @@ type Props struct{ Title string }
 		files[name] = fmt.Sprintf(`---
 import (
 	"example.com/blog/internal/data"
-	Base "../../layouts/Base.orbit"
-	C%d "../../components/C%d.orbit"
+	Base "../../layouts/Base.lyr"
+	C%d "../../components/C%d.lyr"
 )
 
 items := data.Items(3)
@@ -191,21 +191,21 @@ func benchGenerator(dir string) *Generator {
 	return &Generator{Root: dir, Env: []string{"GOFLAGS=-mod=mod", "GOWORK=off"}}
 }
 
-// BenchmarkGenerate measures orbit generate on the synthetic project:
+// BenchmarkGenerate measures lyr generate on the synthetic project:
 //   - cold: a fresh project and Generator per run, with a user package the
 //     build cache hasn't seen (std and the runtime are cached), and no
-//     orbit_gen/;
+//     lyr_gen/;
 //   - warm: the same project again after one component body edit (its
 //     render.go rewritten);
 //   - nochange: the same project again with no edit (nothing rewritten);
 //   - emptycache: like cold, with an empty GOCACHE, so go list also
-//     compiles std and the runtime (only with ORBIT_BENCH_EMPTYCACHE=1: it
+//     compiles std and the runtime (only with LYR_BENCH_EMPTYCACHE=1: it
 //     takes seconds per run).
 func BenchmarkGenerate(b *testing.B) {
 	needGo(b)
 	b.Run("emptycache", func(b *testing.B) {
-		if os.Getenv("ORBIT_BENCH_EMPTYCACHE") != "1" {
-			b.Skip("set ORBIT_BENCH_EMPTYCACHE=1")
+		if os.Getenv("LYR_BENCH_EMPTYCACHE") != "1" {
+			b.Skip("set LYR_BENCH_EMPTYCACHE=1")
 		}
 		var ts []Timings
 		written := 0
@@ -243,7 +243,7 @@ func BenchmarkGenerate(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()
-			p.write("src/components/C7.orbit", strings.Replace(benchFiles("")["src/components/C7.orbit"],
+			p.write("src/components/C7.lyr", strings.Replace(benchFiles("")["src/components/C7.lyr"],
 				"upper := strings.ToUpper(props.Title)", fmt.Sprintf("upper := strings.ToUpper(props.Title) + %q", fmt.Sprint(i)), 1))
 			b.StartTimer()
 			res := benchRun(b, g)
@@ -291,9 +291,9 @@ func BenchmarkPass2(b *testing.B) {
 	}
 }
 
-// BenchmarkBuildFiles measures what orbit build adds to generate for the
+// BenchmarkBuildFiles measures what lyr build adds to generate for the
 // build flavor (PLAN.md §3.5): the SCC rule, re-emitting every file with a
-// direct call site, and writing .orbit/build.
+// direct call site, and writing .lyr/build.
 func BenchmarkBuildFiles(b *testing.B) {
 	needGo(b)
 	p := newTestProject(b, benchFiles("buildfiles"))
@@ -321,7 +321,7 @@ func BenchmarkAssets(b *testing.B) {
 	files := benchFiles("assets")
 	files["src/scripts/util.ts"] = "export const twice = (n: number): number => n * 2;\n"
 	for i := 0; i < benchComponents; i += 6 {
-		name := fmt.Sprintf("src/components/C%d.orbit", i)
+		name := fmt.Sprintf("src/components/C%d.lyr", i)
 		files[name] += fmt.Sprintf("\n<style>\n  .c%d h2 { color: red; }\n  .c%d li:hover { color: blue; }\n</style>\n"+
 			"<script>\n  import { twice } from \"../scripts/util\";\n  const n: number = twice(%d);\n  document.querySelectorAll(\".c%d\").forEach((el) => el.setAttribute(\"data-n\", String(n)));\n</script>\n", i, i, i, i)
 	}
@@ -345,7 +345,7 @@ func BenchmarkAssets(b *testing.B) {
 			defer bl.Close()
 			for b.Loop() {
 				if tt.name == "prod" {
-					bl.Close() // a fresh context each time, as orbit build
+					bl.Close() // a fresh context each time, as lyr build
 				}
 				ds, err := proj.Bundle(bl)
 				if err != nil || HasErrors(ds) {

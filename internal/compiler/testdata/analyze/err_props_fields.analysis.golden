@@ -1,6 +1,6 @@
-info src/components/err_props_fields.orbit component route=""
+info src/components/err_props_fields.lyr component route=""
 goimport name="" path="time" @11-17 "\"time\"" path=@11-17 place=decl
-implicit orbit: none
+implicit lyr: none
 decl type @19-48 place=decl Base@24-28
   "type Base struct{ ID string }"
 decl type @50-221 place=decl Props@55-60

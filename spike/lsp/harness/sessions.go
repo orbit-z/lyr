@@ -77,7 +77,7 @@ func newSession(gopls, logName string, encodings []string, documentChanges bool,
 	s := &session{c: c, r: &report{}, enc: "utf-16", docs: map[string]*doc{}}
 	init, _, err := c.call("initialize", map[string]any{
 		"processId":        os.Getpid(),
-		"clientInfo":       map[string]any{"name": "orbit-spike"},
+		"clientInfo":       map[string]any{"name": "lyr-spike"},
 		"rootUri":          uriOf(projectDir),
 		"workspaceFolders": []any{map[string]any{"uri": uriOf(projectDir), "name": "blog"}},
 		"capabilities":     clientCaps(encodings, documentChanges),
@@ -247,9 +247,9 @@ func sessionMain(gopls string) *report {
 	r.p("negotiated positionEncoding: **%s**", s.enc)
 	r.js("initialize result (trimmed)", init, 3000)
 
-	_, statErr := os.Stat(filepath.Join(projectDir, "orbit_gen"))
+	_, statErr := os.Stat(filepath.Join(projectDir, "lyr_gen"))
 	r.h("1. Overlay-only packages")
-	r.p("orbit_gen on disk: %v (stat err: %v)", statErr == nil, statErr)
+	r.p("lyr_gen on disk: %v (stat err: %v)", statErr == nil, statErr)
 	gs := defaultGen()
 	m := s.c.diagMark()
 	s.openAll(gs)
@@ -362,7 +362,7 @@ func sessionMain(gopls string) *report {
 	s.change("pageImpl", bad)
 	s.waitVersion(m, "pageImpl", 30*time.Second)
 	s.settle(1500*time.Millisecond, 20*time.Second)
-	r.p("page impl errors: `title := hoem` (index.orbit:6:10), `{titel}` (9:5), key `Psot` (11:9)")
+	r.p("page impl errors: `title := hoem` (index.lyr:6:10), `{titel}` (9:5), key `Psot` (11:9)")
 	r.p("expected generated-file positions (0-based utf-8): hoem=%v titel=%v Psot=%v",
 		posOf(bad, "hoem", 0, 0, s.enc), posOf(bad, "titel", 0, 0, s.enc), posOf(bad, "Psot", 0, 0, s.enc))
 	s.dumpDiags("all latest diagnostics")
@@ -373,7 +373,7 @@ func sessionMain(gopls string) *report {
 	s.change("cardDecl", badDecl)
 	s.waitVersion(m, "cardDecl", 30*time.Second)
 	s.settle(1500*time.Millisecond, 20*time.Second)
-	r.p("Card decl error: `posts.Postt` (Card.orbit:4:20); expected gen pos %v", posOf(badDecl, "Postt", 0, 0, s.enc))
+	r.p("Card decl error: `posts.Postt` (Card.lyr:4:20); expected gen pos %v", posOf(badDecl, "Postt", 0, 0, s.enc))
 	s.dumpDiags("all latest diagnostics")
 	s.change("cardDecl", gs.cardDecl)
 	s.settle(1500*time.Millisecond, 20*time.Second)
@@ -410,7 +410,7 @@ func sessionMain(gopls string) *report {
 	pr = s.tdp("pageImpl", p)
 	pr["newName"] = "Highlighted"
 	s.req("rename `Featured` → `Highlighted` from the key in page impl", "textDocument/rename", pr, 6000)
-	s.req("prepareRename on generated glue `orbit__w` (page impl)", "textDocument/prepareRename", s.tdp("pageImpl", posOf(pi, "orbit__w.Raw", 0, 1, s.enc)), 800)
+	s.req("prepareRename on generated glue `lyr__w` (page impl)", "textDocument/prepareRename", s.tdp("pageImpl", posOf(pi, "lyr__w.Raw", 0, 1, s.enc)), 800)
 
 	s.serverRequests()
 	return r

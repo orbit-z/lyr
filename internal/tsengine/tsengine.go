@@ -1,7 +1,7 @@
 // Package tsengine finds TypeScript 7's native compiler, whose language
-// server (tsc --lsp --stdio) gives <script> blocks in .orbit files their
+// server (tsc --lsp --stdio) gives <script> blocks in .lyr files their
 // TypeScript features in the editor (PLAN.md §9b "Finding the engine").
-// orbit lsp starts it; orbit doctor reports it. Node is never run: an npm
+// lyr lsp starts it; lyr doctor reports it. Node is never run: an npm
 // install's Node shim (typescript/bin/tsc) is resolved to the native
 // binary of its platform package, as the package's own getExePath.js
 // does.
@@ -23,11 +23,11 @@ import (
 	"time"
 )
 
-// Pinned is the TypeScript version Orbit names for the bun x fallback and
-// in its docs: raised with Orbit releases, at least two weeks old.
+// Pinned is the TypeScript version Lyr names for the bun x fallback and
+// in its docs: raised with Lyr releases, at least two weeks old.
 const Pinned = "7.0.2"
 
-// Min is the oldest TypeScript with a language server Orbit uses.
+// Min is the oldest TypeScript with a language server Lyr uses.
 var Min = Version{7, 0, 2}
 
 // Install is the fix line for a missing or too-old engine.

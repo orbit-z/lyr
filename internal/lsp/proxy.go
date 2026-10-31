@@ -19,8 +19,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/config"
 )
 
 // The gopls side (PLAN.md §9 Startup steps 4–6 and Acting as gopls's
@@ -34,7 +34,7 @@ const installGopls = "go install golang.org/x/tools/gopls@latest"
 // goplsTool is the tool directive that pins gopls in go.mod.
 const goplsTool = "golang.org/x/tools/gopls"
 
-// minGo is the oldest Go Orbit supports, for a go.mod without a go
+// minGo is the oldest Go Lyr supports, for a go.mod without a go
 // directive.
 const minGo = "go1.27"
 
@@ -81,7 +81,7 @@ func (s *Server) startGopls(ws *workspace) {
 	bin, args, err := s.lookupGopls(ws)
 	if err != nil {
 		s.logf("%v", err)
-		s.showMessage(msgError, "Orbit: "+err.Error()+", so Go features in .orbit files are off (template features keep working). Install it with: "+installGopls)
+		s.showMessage(msgError, "Lyr: "+err.Error()+", so Go features in .lyr files are off (template features keep working). Install it with: "+installGopls)
 		return
 	}
 	cmd := exec.Command(bin, args...)
@@ -95,7 +95,7 @@ func (s *Server) startGopls(ws *workspace) {
 	}
 	if err := cmd.Start(); err != nil {
 		s.logf("starting gopls: %v", err)
-		s.showMessage(msgError, fmt.Sprintf("Orbit: can't start %s: %v. Go features in .orbit files are off.", bin, err))
+		s.showMessage(msgError, fmt.Sprintf("Lyr: can't start %s: %v. Go features in .lyr files are off.", bin, err))
 		return
 	}
 	proc := &goplsProc{cmd: cmd, conn: newConn(stdout, stdin), exited: make(chan struct{})}
@@ -113,7 +113,7 @@ func (s *Server) startGopls(ws *workspace) {
 	// folder and gets the project's folder once the overlays are open.
 	placeholder := ""
 	if ws.overlayOnlyCount() >= reloadMin {
-		if dir, err := os.MkdirTemp("", "orbit-lsp-"); err == nil {
+		if dir, err := os.MkdirTemp("", "lyr-lsp-"); err == nil {
 			placeholder = dir
 			s.placeholder = pathToURI(dir)
 			defer os.RemoveAll(dir)
@@ -135,7 +135,7 @@ func (s *Server) startGopls(ws *workspace) {
 	if err != nil {
 		s.logf("gopls initialize: %v", err)
 		s.stopGopls()
-		s.showMessage(msgError, fmt.Sprintf("Orbit: gopls failed to start (%v). Go features in .orbit files are off.", err))
+		s.showMessage(msgError, fmt.Sprintf("Lyr: gopls failed to start (%v). Go features in .lyr files are off.", err))
 		return
 	}
 	var res struct {
@@ -240,7 +240,7 @@ func (s *Server) goplsInitParams(ws *workspace, folder string) map[string]any {
 	uri := pathToURI(folder)
 	return map[string]any{
 		"processId":        os.Getpid(),
-		"clientInfo":       map[string]any{"name": "orbit lsp"},
+		"clientInfo":       map[string]any{"name": "lyr lsp"},
 		"rootUri":          uri,
 		"workspaceFolders": []any{map[string]any{"uri": uri, "name": filepath.Base(folder)}},
 		"capabilities":     caps,
@@ -299,7 +299,7 @@ func goplsVersions(info string) (goVersion, gopls string) {
 // message to show, or "".
 func (s *Server) refuseGopls(ws *workspace, bin, info string) string {
 	goV, goplsV := goplsVersions(info)
-	want, where := minGo, "go 1.27, the oldest Go Orbit supports"
+	want, where := minGo, "go 1.27, the oldest Go Lyr supports"
 	if ws.goVersion != "" && version.IsValid("go"+ws.goVersion) {
 		want, where = "go"+ws.goVersion, "go "+ws.goVersion+" in go.mod"
 	}
@@ -309,9 +309,9 @@ func (s *Server) refuseGopls(ws *workspace, bin, info string) string {
 	if goplsV == "" {
 		goplsV = bin
 	}
-	return fmt.Sprintf("Orbit: gopls %s was built with %s, older than %s, so it can't type-check this project. "+
-		"Go features in .orbit files are off (template features keep working). Install a current gopls with: %s "+
-		"(orbit doctor checks it), then restart the language server.", goplsV, goV, where, installGopls)
+	return fmt.Sprintf("Lyr: gopls %s was built with %s, older than %s, so it can't type-check this project. "+
+		"Go features in .lyr files are off (template features keep working). Install a current gopls with: %s "+
+		"(lyr doctor checks it), then restart the language server.", goplsV, goV, where, installGopls)
 }
 
 // stopGopls shuts gopls down (shutdown, exit, then kill after a grace
@@ -360,7 +360,7 @@ func (s *Server) goplsExited() {
 	s.markReady()
 	s.markLoaded()
 	if !down {
-		s.showMessage(msgError, "Orbit: gopls exited unexpectedly; Go features in .orbit files are off until the language server restarts.")
+		s.showMessage(msgError, "Lyr: gopls exited unexpectedly; Go features in .lyr files are off until the language server restarts.")
 	}
 }
 
@@ -390,7 +390,7 @@ func (s *Server) barrierTargets(ws *workspace) []barrierTarget {
 		}
 		t := barrierTarget{rel: rel, uri: g.uri, pkg: ws.module + "/" + path.Dir(rel),
 			pos: g.lines.position(off+len("\npackage "), s.goplsEnc)}
-		if ws.docs[g.orbit] != nil {
+		if ws.docs[g.lyr] != nil {
 			first = append(first, t)
 		} else {
 			rest = append(rest, t)
@@ -402,7 +402,7 @@ func (s *Server) barrierTargets(ws *workspace) []barrierTarget {
 // barrier is the readiness barrier (PLAN.md §9 step 6). gopls loads an
 // overlay-only package lazily, with its own go list, and reverse lookups
 // miss importers until every one is loaded. The barrier asks gopls which
-// packages under orbit_gen/ it knows (gopls.packages, which waits for the
+// packages under lyr_gen/ it knows (gopls.packages, which waits for the
 // workspace load), then loads each missing target with a
 // documentHighlight, the open documents' first, a few at a time. It
 // returns the targets it loaded that way. References and rename wait for
@@ -418,7 +418,7 @@ func (s *Server) barrier(c *Conn, ws *workspace, targets []barrierTarget) []barr
 	if len(targets) == 0 {
 		return nil
 	}
-	token := s.progressBegin("Orbit", fmt.Sprintf("Loading %d generated files", len(targets)))
+	token := s.progressBegin("Lyr", fmt.Sprintf("Loading %d generated files", len(targets)))
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	missing := targets
@@ -449,11 +449,11 @@ func (s *Server) barrier(c *Conn, ws *workspace, targets []barrierTarget) []barr
 	return missing
 }
 
-// internalToken is the work-done token of Orbit's own gopls commands: their
+// internalToken is the work-done token of Lyr's own gopls commands: their
 // progress isn't forwarded to the editor.
-const internalToken = "orbit-internal"
+const internalToken = "lyr-internal"
 
-// goplsPackages returns the package paths under orbit_gen/ that gopls has
+// goplsPackages returns the package paths under lyr_gen/ that gopls has
 // loaded, after its workspace load; ok is false if gopls can't tell (a
 // gopls without the gopls.packages command).
 func (s *Server) goplsPackages(ctx context.Context, c *Conn, ws *workspace) (map[string]bool, bool) {
@@ -490,7 +490,7 @@ func (s *Server) progressBegin(title, msg string) string {
 	if !ok {
 		return ""
 	}
-	token := fmt.Sprintf("orbit-%d", progressTokens.Add(1))
+	token := fmt.Sprintf("lyr-%d", progressTokens.Add(1))
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if _, err := s.client.Call(ctx, "window/workDoneProgress/create", map[string]any{"token": token}); err != nil {
@@ -538,7 +538,7 @@ func (s *Server) fromGopls(c *Conn, m *message) {
 
 // generatedFileWarning reports whether a showMessage is gopls's "Warning:
 // editing render.go, a generated file.", sent on each overlay's first
-// didChange: the user edits the .orbit file, not render.go.
+// didChange: the user edits the .lyr file, not render.go.
 func generatedFileWarning(params jsonRaw) bool {
 	msg := decodeObj(params).str("message")
 	return strings.Contains(msg, "a generated file") && strings.Contains(msg, "editing")
@@ -643,7 +643,7 @@ func (s *Server) configuration(ctx context.Context, params jsonRaw, ask bool) js
 			if _, set := o["diagnosticsDelay"]; !set {
 				o.set("diagnosticsDelay", "50ms")
 			}
-			// Orbit's gopls sees only the project's module, so it needs no
+			// Lyr's gopls sees only the project's module, so it needs no
 			// zero-config views for open files, whose selection costs each
 			// didOpen time proportional to the files already open (it walks
 			// each one's directories): ~1 s over 400 overlays.

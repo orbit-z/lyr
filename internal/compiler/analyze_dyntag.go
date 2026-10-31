@@ -56,7 +56,7 @@ func (s *anState) dynTags(file *ast.File, tf *gotoken.File, tmplStart int, y *an
 		})
 	}
 	aliases := map[string]bool{}
-	for _, o := range s.a.OrbitImports {
+	for _, o := range s.a.LyrImports {
 		aliases[o.Alias] = true
 	}
 	dyn := map[*Component]bool{}
@@ -122,7 +122,7 @@ func (s *anState) probeDecl(p *anProbe, file *ast.File, tf *gotoken.File, tmplSt
 		if dn, ok := obj.Decl.(ast.Node); ok {
 			ast.Inspect(dn, func(n ast.Node) bool {
 				if d, ok := n.(*ast.Ident); ok && d.Obj == obj && d.Name == id.Name {
-					if sp, ok := s.bodyOrbitSpan(d, tf, tmplStart, y); ok {
+					if sp, ok := s.bodyLyrSpan(d, tf, tmplStart, y); ok {
 						decl = sp
 					}
 					return false
@@ -143,16 +143,16 @@ func (s *anState) probeDecl(p *anProbe, file *ast.File, tf *gotoken.File, tmplSt
 	return Span{}, false
 }
 
-// bodyOrbitSpan maps an identifier of the body file to its .orbit span: in
+// bodyLyrSpan maps an identifier of the body file to its .lyr span: in
 // the frontmatter part, or in a copied template region.
-func (s *anState) bodyOrbitSpan(id *ast.Ident, tf *gotoken.File, tmplStart int, y *anSynth) (Span, bool) {
+func (s *anState) bodyLyrSpan(id *ast.Ident, tf *gotoken.File, tmplStart int, y *anSynth) (Span, bool) {
 	if a, ok := s.fmOff(tf, id.Pos(), s.bodyPrefix); ok && tf.Offset(id.Pos()) < tmplStart {
 		return Span{a, a + len(id.Name)}, true
 	}
 	off := tf.Offset(id.Pos()) - tmplStart
 	for _, sg := range y.segs {
 		if sg.goStart <= off && off < sg.goStart+sg.n {
-			a := sg.orbit + off - sg.goStart
+			a := sg.lyr + off - sg.goStart
 			return Span{a, a + len(id.Name)}, true
 		}
 	}

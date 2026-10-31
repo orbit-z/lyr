@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // diags formats d's diagnostics as "L:C: message" lines.
@@ -20,7 +20,7 @@ func diags(d *Doc) string {
 
 func TestFrontmatter(t *testing.T) {
 	src := `---
-title: Hello, Orbit
+title: Hello, Lyr
 date: 2026-10-26
 at: 2026-10-26T09:30:00+02:00
 draft: false
@@ -35,7 +35,7 @@ author:
 authors:
   - name: Ada
   - name: Grace
-layout: ../layouts/Post.orbit
+layout: ../layouts/Post.lyr
 ---
 Body.
 `
@@ -44,7 +44,7 @@ Body.
 		t.Fatalf("diagnostics:\n%s", s)
 	}
 	want := []string{
-		`Title string = "Hello, Orbit"`,
+		`Title string = "Hello, Lyr"`,
 		`Date time.Time = time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)`,
 		`At time.Time = time.Date(2026, 10, 26, 9, 30, 0, 0, time.FixedZone("", 7200))`,
 		`Draft bool = false`,
@@ -63,7 +63,7 @@ Body.
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("fields:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
-	if d.Layout != "src/pages/layouts/Post.orbit" || d.LayoutRaw != "../layouts/Post.orbit" {
+	if d.Layout != "src/pages/layouts/Post.lyr" || d.LayoutRaw != "../layouts/Post.lyr" {
 		t.Errorf("layout %q (%q)", d.Layout, d.LayoutRaw)
 	}
 	if p := d.Lines.Position(d.LayoutPos); p.Line != 17 || p.Col != 9 {
@@ -77,8 +77,8 @@ Body.
 	}
 
 	// A root-relative layout resolves from the project root.
-	d = Parse("src/pages/blog/hello.md", "---\nlayout: /src/layouts/Post.orbit\n---\n", Options{}, nil, nil)
-	if s := diags(d); s != "" || d.Layout != "src/layouts/Post.orbit" {
+	d = Parse("src/pages/blog/hello.md", "---\nlayout: /src/layouts/Post.lyr\n---\n", Options{}, nil, nil)
+	if s := diags(d); s != "" || d.Layout != "src/layouts/Post.lyr" {
 		t.Errorf("root-relative layout %q, diagnostics:\n%s", d.Layout, s)
 	}
 }
@@ -96,10 +96,10 @@ func TestFrontmatterErrors(t *testing.T) {
 		{"mixed list", "---\ntags: [a, 1]\n---\n", "2:7: frontmatter tags: a list's items must all have the same type (string and int)"},
 		{"not a map", "---\n- a\n---\n", "2:1: the frontmatter must be YAML keys and values (key: value)"},
 		{"unclosed", "---\ntitle: x\n", "1:1: the frontmatter has no closing --- line"},
-		{"layout not orbit", "---\nlayout: ./Post.md\n---\n", "2:9: layout ./Post.md must be an .orbit file"},
-		{"layout outside", "---\nlayout: ../../../X.orbit\n---\n", "2:9: layout ../../../X.orbit is outside src/"},
-		{"layout root-relative outside", "---\nlayout: /layouts/X.orbit\n---\n", "2:9: layout /layouts/X.orbit is outside src/"},
-		{"layout no alias", "---\nlayout: ~/X.orbit\n---\n", `2:9: layout: no tsconfig.json paths alias matches "~/X.orbit"; use a relative or root-relative path ("/src/…"), or add "~/*": ["./src/*"] to compilerOptions.paths`},
+		{"layout not lyr", "---\nlayout: ./Post.md\n---\n", "2:9: layout ./Post.md must be a .lyr file"},
+		{"layout outside", "---\nlayout: ../../../X.lyr\n---\n", "2:9: layout ../../../X.lyr is outside src/"},
+		{"layout root-relative outside", "---\nlayout: /layouts/X.lyr\n---\n", "2:9: layout /layouts/X.lyr is outside src/"},
+		{"layout no alias", "---\nlayout: ~/X.lyr\n---\n", `2:9: layout: no tsconfig.json paths alias matches "~/X.lyr"; use a relative or root-relative path ("/src/…"), or add "~/*": ["./src/*"] to compilerOptions.paths`},
 		{"nested", "---\nauthor:\n  name:\n---\n", `3:8: frontmatter key "author.name" has no value; delete the line or give it a value`},
 		{"multibyte", "---\ntitré: x\n---\n", `2:1: frontmatter key "titré" can't become a Go field name; use letters, digits, - and _, starting with a letter`},
 		{"column after multibyte", "---\na: [é, !!str x]\n---\n", "2:9: YAML tags (!!str) aren't supported in frontmatter"},
@@ -115,24 +115,24 @@ func TestFrontmatterErrors(t *testing.T) {
 }
 
 // TestNullValue: a top-level key with no value leaves a layout prop of
-// type orbit.Opt none (PLAN.md §2.6), and is an error at generate time
+// type lyr.Opt none (PLAN.md §2.6), and is an error at generate time
 // anywhere else: no layout, or a prop of another type. It's not in
 // Frontmatter.
 func TestNullValue(t *testing.T) {
-	layout := &compiler.ComponentInfo{Path: "src/layouts/Post.orbit", Name: "Post", Pkg: compiler.GenPackage{Rel: "layouts/post", Name: "post"},
+	layout := &compiler.ComponentInfo{Path: "src/layouts/Post.lyr", Name: "Post", Pkg: compiler.GenPackage{Rel: "layouts/post", Name: "post"},
 		Props: compiler.PropsInfo{Declared: true, Listable: true, Fields: []compiler.PropField{
-			{Name: "Title", Type: "string"}, {Name: "Subtitle", Type: "orbit.Opt[ string ]"}, {Name: "Note", Type: "orbit.Opt[string]"}}}}
+			{Name: "Title", Type: "string"}, {Name: "Subtitle", Type: "lyr.Opt[ string ]"}, {Name: "Note", Type: "lyr.Opt[string]"}}}}
 	in := GenInput{
 		Info:    compiler.FileInfo{Path: "src/pages/x.md", Role: compiler.RolePage, Route: "/x"},
 		Pkg:     compiler.GenPackage{Rel: "pages/x_md", Name: "x_md"},
 		Options: compiler.Options{Module: "example.com/blog"},
-		Index:   compiler.ComponentIndex{"src/layouts/Post.orbit": layout},
+		Index:   compiler.ComponentIndex{"src/layouts/Post.lyr": layout},
 	}
 	for _, tt := range []struct{ src, want string }{
 		{"---\ntitle: Hi\nsubtitle:\n---\n", `3:10: frontmatter key "subtitle" has no value; delete the line or give it a value`},
 		{"---\nsubtitle: null\n---\n", `2:11: frontmatter key "subtitle" has no value; delete the line or give it a value`},
-		{"---\ntitle: ~\nlayout: ../layouts/Post.orbit\n---\n", `2:8: frontmatter key "title" has no value; delete the line or give it a value`},
-		{"---\nsubtitle: null\nnote: Hi\nlayout: ../layouts/Post.orbit\n---\n", ""},
+		{"---\ntitle: ~\nlayout: ../layouts/Post.lyr\n---\n", `2:8: frontmatter key "title" has no value; delete the line or give it a value`},
+		{"---\nsubtitle: null\nnote: Hi\nlayout: ../layouts/Post.lyr\n---\n", ""},
 	} {
 		d := Parse("src/pages/x.md", tt.src, Options{}, nil, nil)
 		if s := diags(d); s != "" {
@@ -152,7 +152,7 @@ func TestNullValue(t *testing.T) {
 		}
 		if tt.want == "" {
 			impl := string(out.Impl.Content)
-			if strings.Contains(impl, "p.Subtitle") || !strings.Contains(impl, `p.Note = orbit__rt.Wrap(p.Note, "Hi")`) {
+			if strings.Contains(impl, "p.Subtitle") || !strings.Contains(impl, `p.Note = lyr__rt.Wrap(p.Note, "Hi")`) {
 				t.Errorf("impl:\n%s", impl)
 			}
 		}
@@ -274,12 +274,12 @@ func TestCanonicalURL(t *testing.T) {
 }
 
 func TestHighlight(t *testing.T) {
-	src := "```go title=\"main.go\"\nfunc main() { fmt.Println(\"<hi>\") }\n```\n\n```orbit\n<p>{x}</p>\n```\n\n```mermaid\ngraph TD; A-->B\n```\n\n```\nplain & simple\n```\n\n    indented <code>\n"
+	src := "```go title=\"main.go\"\nfunc main() { fmt.Println(\"<hi>\") }\n```\n\n```lyr\n<p>{x}</p>\n```\n\n```mermaid\ngraph TD; A-->B\n```\n\n```\nplain & simple\n```\n\n    indented <code>\n"
 	d := Parse("src/pages/x.md", src, Options{}, nil, nil)
 	for _, w := range []string{
 		`<pre class="chroma" tabindex="0" data-language="go"><code><span class="kd">func</span> <span class="nf">main</span><span class="p">()</span>`,
 		`<span class="s">"&lt;hi&gt;"</span>`,
-		`<pre class="chroma" tabindex="0" data-language="orbit"><code><span class="p">&lt;</span><span class="nt">p</span><span class="p">&gt;{</span><span class="nx">x</span>`,
+		`<pre class="chroma" tabindex="0" data-language="lyr"><code><span class="p">&lt;</span><span class="nt">p</span><span class="p">&gt;{</span><span class="nx">x</span>`,
 		`<pre class="chroma" tabindex="0" data-language="mermaid"><code>graph TD; A--&gt;B` + "\n</code></pre>",
 		`<pre class="chroma" tabindex="0" data-language="plaintext"><code>plain &amp; simple` + "\n</code></pre>",
 		`<pre class="chroma" tabindex="0" data-language="plaintext"><code>indented &lt;code&gt;` + "\n</code></pre>",

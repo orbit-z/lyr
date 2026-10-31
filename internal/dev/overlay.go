@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// posLine matches a "file:line:col: message" line of Orbit's or the go
+// posLine matches a "file:line:col: message" line of Lyr's or the go
 // command's cleaned-up output.
 var posLine = regexp.MustCompile(`^([^\s:][^:]*):(\d+):(\d+): (.*)$`)
 
@@ -26,7 +26,7 @@ const maxFrames = 10
 func overlayHTML(root string, f *failure) []byte {
 	var b bytes.Buffer
 	b.WriteString(`<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>Orbit: ` + html.EscapeString(f.Title) + `</title>
+<html lang="en"><head><meta charset="utf-8"><title>Lyr: ` + html.EscapeString(f.Title) + `</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 :root{color-scheme:dark}
@@ -45,7 +45,7 @@ pre.out{margin:0;padding:12px;overflow-x:auto;background:#15171c;border-radius:4
 </style></head>
 <body><main>
 <h1>` + html.EscapeString(f.Title) + `</h1>
-<p class="hint">Fix the error and save: this page reloads by itself. The same messages are in the terminal running orbit dev.</p>
+<p class="hint">Fix the error and save: this page reloads by itself. The same messages are in the terminal running lyr dev.</p>
 `)
 	frames := 0
 	sc := bufio.NewScanner(strings.NewReader(f.Text))

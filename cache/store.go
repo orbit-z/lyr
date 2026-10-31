@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 )
 
 // StoreOptions configure NewStore.
@@ -23,7 +23,7 @@ type StoreOptions[V any] struct {
 	// number of shards is not stored.
 	MaxBytes int64
 	// Size returns the size of a value in bytes, for MaxBytes and Bytes.
-	// When nil, a string, []byte or orbit.HTML counts its length and any
+	// When nil, a string, []byte or lyr.HTML counts its length and any
 	// other value counts 0 (only its key is counted).
 	Size func(V) int64
 	// Now is the clock for expiry; nil means time.Now. Tests set it.
@@ -86,7 +86,7 @@ func defaultSize[V any](v V) int64 {
 		return int64(len(v))
 	case []byte:
 		return int64(len(v))
-	case orbit.HTML:
+	case lyr.HTML:
 		return int64(len(v))
 	}
 	return 0
@@ -131,7 +131,7 @@ func (s *Store[V]) set(h uint64, key string, v V, ttl time.Duration, tags []stri
 //
 // The first caller to miss calls load itself, on its goroutine, with
 // context.WithoutCancel(ctx), and so waits for it whatever happens to ctx:
-// load may use that caller's *orbit.Ctx, as orbit.RenderHTML does. The
+// load may use that caller's *lyr.Ctx, as lyr.RenderHTML does. The
 // other callers wait under their own ctx: when it's done, Load returns
 // ctx.Err() and the load goes on. A load's error is returned to every
 // caller waiting on it, and nothing is stored. A panic in load goes on in

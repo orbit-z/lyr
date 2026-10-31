@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/orbit-z/orbit/internal/build"
+	"github.com/orbit-z/lyr/internal/build"
 )
 
-// Pipeline is the resident rebuild pipeline of orbit dev without the
+// Pipeline is the resident rebuild pipeline of lyr dev without the
 // watcher, the proxy and the server swap, so bench/devloop can measure
-// exactly what orbit dev runs after a save.
+// exactly what lyr dev runs after a save.
 type Pipeline struct{ pl *pipeline }
 
 // Result is the outcome of one Pipeline.Run.
@@ -35,7 +35,7 @@ func NewPipeline(ctx context.Context, root string, env []string) (*Pipeline, err
 }
 
 // Run rebuilds after the given changed paths (relative to the root,
-// slash-separated), as orbit dev does after a debounced batch. The first
+// slash-separated), as lyr dev does after a debounced batch. The first
 // Run builds everything. appRunning says whether a server from an earlier
 // Run is still running.
 func (p *Pipeline) Run(ctx context.Context, paths []string, appRunning bool) (Result, error) {

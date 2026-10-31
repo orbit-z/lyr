@@ -6,15 +6,15 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 func TestDiffGenerated(t *testing.T) {
 	root := t.TempDir()
 	marked := []byte(compiler.GenHeader + "\n\npackage x\n")
 	files := []GenFile{
-		{Path: "orbit_gen/a/a.go", Content: marked},
-		{Path: "orbit_gen/b/b.go", Content: marked},
+		{Path: "lyr_gen/a/a.go", Content: marked},
+		{Path: "lyr_gen/b/b.go", Content: marked},
 	}
 	if _, err := WriteGenerated(root, files); err != nil {
 		t.Fatal(err)
@@ -27,8 +27,8 @@ func TestDiffGenerated(t *testing.T) {
 		t.Errorf("fresh: %+v", diff)
 	}
 
-	// A user file without the marker and orbit_gen/static are left alone.
-	for rel, content := range map[string]string{"orbit_gen/user.go": "package x\n", "orbit_gen/static/client/x.js": compiler.GenHeader + "\n"} {
+	// A user file without the marker and lyr_gen/static are left alone.
+	for rel, content := range map[string]string{"lyr_gen/user.go": "package x\n", "lyr_gen/static/client/x.js": compiler.GenHeader + "\n"} {
 		name := filepath.Join(root, filepath.FromSlash(rel))
 		os.MkdirAll(filepath.Dir(name), 0o755)
 		if err := os.WriteFile(name, []byte(content), 0o644); err != nil {
@@ -36,19 +36,19 @@ func TestDiffGenerated(t *testing.T) {
 		}
 	}
 	changed := []GenFile{
-		{Path: "orbit_gen/b/b.go", Content: append(marked, "// changed\n"...)},
-		{Path: "orbit_gen/c/c.go", Content: marked},
+		{Path: "lyr_gen/b/b.go", Content: append(marked, "// changed\n"...)},
+		{Path: "lyr_gen/c/c.go", Content: marked},
 	}
 	diff, err = DiffGenerated(root, changed)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := &WriteResult{Written: []string{"orbit_gen/b/b.go", "orbit_gen/c/c.go"}, Removed: []string{"orbit_gen/a/a.go"}}
+	want := &WriteResult{Written: []string{"lyr_gen/b/b.go", "lyr_gen/c/c.go"}, Removed: []string{"lyr_gen/a/a.go"}}
 	if !reflect.DeepEqual(diff, want) {
 		t.Errorf("got %+v, want %+v", diff, want)
 	}
 	// Nothing was written.
-	if _, err := os.Stat(filepath.Join(root, "orbit_gen/c/c.go")); err == nil {
+	if _, err := os.Stat(filepath.Join(root, "lyr_gen/c/c.go")); err == nil {
 		t.Error("DiffGenerated wrote a file")
 	}
 	// WriteGenerated does what the diff said.

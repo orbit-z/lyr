@@ -9,8 +9,8 @@ import (
 // The HTML data for tag and attribute completion (PLAN.md §9 Attribute
 // position): a trimmed, hand-curated list of the current elements of the
 // WHATWG HTML standard with their element-specific attributes, the global
-// attributes (no event handlers: Orbit warns on on* attributes) and a few
-// ARIA ones. The descriptions are Orbit's own.
+// attributes (no event handlers: Lyr warns on on* attributes) and a few
+// ARIA ones. The descriptions are Lyr's own.
 
 //go:embed htmldata.json
 var htmlDataJSON []byte

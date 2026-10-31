@@ -8,12 +8,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/tailwind"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/tailwind"
 )
 
 // tailwindCheck: the Tailwind CSS v4 CLI (PLAN.md §5d). An error inside a
-// project with a Tailwind input, since orbit build fails without it; a
+// project with a Tailwind input, since lyr build fails without it; a
 // warning when .gitignore lets Tailwind scan generated code and build
 // output (slower runs); otherwise informational.
 func (d *doctor) tailwindCheck() Check {
@@ -43,7 +43,7 @@ func (d *doctor) tailwindCheck() Check {
 	data, _ := os.ReadFile(filepath.Join(d.root, ".gitignore"))
 	ignored := ignoredNames(string(data))
 	var missing []string
-	for _, n := range []string{"orbit_gen", ".orbit", "dist"} {
+	for _, n := range []string{"lyr_gen", ".lyr", "dist"} {
 		if !ignored[n] {
 			missing = append(missing, n+"/")
 		}
@@ -66,8 +66,8 @@ func tailwindInput(root string) string {
 		if de.IsDir() {
 			return nil
 		}
-		isCSS, isOrbit := strings.HasSuffix(p, ".css"), strings.HasSuffix(p, ".orbit")
-		if !isCSS && !isOrbit {
+		isCSS, isLyr := strings.HasSuffix(p, ".css"), strings.HasSuffix(p, ".lyr")
+		if !isCSS && !isLyr {
 			return nil
 		}
 		data, err := os.ReadFile(p)

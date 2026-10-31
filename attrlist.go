@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -283,7 +283,7 @@ func checkList(pos string, l AttrList) error {
 
 // For generated code. SpreadOf writes the spread {...a} of an HTML
 // element: an Attrs as Spread writes it (sorted by name), an AttrList as
-// SpreadList does (in order). pos is the .orbit position of the spread,
+// SpreadList does (in order). pos is the .lyr position of the spread,
 // for a name error.
 func SpreadOf[T Attrs | AttrList](w *Writer, pos string, a T) {
 	// A pointer in the interface, so that the value isn't boxed.
@@ -349,7 +349,7 @@ func (l *AttrList) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	if d, ok := tok.(json.Delim); !ok || d != '{' {
-		return errors.New("orbit: AttrList must be a JSON object")
+		return errors.New("lyr: AttrList must be a JSON object")
 	}
 	out := AttrList{}
 	for dec.More() {
@@ -369,7 +369,7 @@ func (l *AttrList) UnmarshalJSON(data []byte) error {
 			out = append(out, A(name, v))
 		case nil:
 		default:
-			return fmt.Errorf("orbit: AttrList attribute %q must be a string, true, false or null", name)
+			return fmt.Errorf("lyr: AttrList attribute %q must be a string, true, false or null", name)
 		}
 	}
 	if _, err := dec.Token(); err != nil {

@@ -1,9 +1,9 @@
-info src/components/err_rest_embedded.orbit component route=""
+info src/components/err_rest_embedded.lyr component route=""
 goimport name="" path="net/http" @11-21 "\"net/http\"" path=@11-21 place=decl
-implicit orbit: decl
-decl type @23-80 place=decl Props@28-33
-  "type Props struct {\n\thttp.Header\n\tAttrs orbit.RestAttrs\n}"
+implicit lyr: decl
+decl type @23-78 place=decl Props@28-33
+  "type Props struct {\n\thttp.Header\n\tAttrs lyr.RestAttrs\n}"
 echo []
 terminating false
-props declared=true listable=false span=@28-80
-  field @57-62 "Attrs" type="orbit.RestAttrs" doc=""
+props declared=true listable=false span=@28-78
+  field @57-62 "Attrs" type="lyr.RestAttrs" doc=""

@@ -6,7 +6,7 @@ import (
 	"github.com/alecthomas/chroma/v2"
 )
 
-// twCSS is Chroma's CSS lexer for <style> content in ```orbit blocks,
+// twCSS is Chroma's CSS lexer for <style> content in ```lyr blocks,
 // taught Tailwind's @apply (PLAN.md §5d), which it otherwise lexes as
 // error tokens inside a rule. Each "@apply" is masked as "--app:" (the
 // same length, a custom property Chroma knows), the masked text is

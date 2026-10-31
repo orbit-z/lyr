@@ -1,0 +1,9 @@
+info src/components/explicit_lyr.lyr component route=""
+goimport name="lyr" path="github.com/orbit-z/lyr" @11-39 "lyr \"github.com/orbit-z/lyr\"" path=@15-39 place=decl
+implicit lyr: none
+decl type @41-75 place=decl Props@46-51
+  "type Props struct{ Body lyr.HTML }"
+echo []
+terminating false
+props declared=true listable=true span=@46-75
+  field @60-64 "Body" type="lyr.HTML" doc=""

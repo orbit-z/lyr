@@ -1,0 +1,12 @@
+---
+type Props struct {
+	Wrapped bool
+	Class   string
+	Label   string
+}
+
+Wrap := lyr.Cond(props.Wrapped, "div", lyr.Fragment)
+---
+<Wrap class={props.Class}>
+  <label class:list={"row", props.Class: !props.Wrapped}><input type="checkbox"> {props.Label}</label>
+</Wrap>

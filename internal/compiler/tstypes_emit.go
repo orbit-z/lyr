@@ -1,9 +1,9 @@
 package compiler
 
 // The .d.ts emitter of the typed server→client bridge (PLAN.md §5c "Where
-// the types live"): orbit_gen/types/go.d.ts declares every Go named type
-// reached (module "orbit:types"), client.d.ts the untyped "orbit:client"
-// runtime, and one module per .orbit file with data declares its data
+// the types live"): lyr_gen/types/go.d.ts declares every Go named type
+// reached (module "lyr:types"), client.d.ts the untyped "lyr:client"
+// runtime, and one module per .lyr file with data declares its data
 // contract.
 
 import (
@@ -14,10 +14,10 @@ import (
 	"unicode"
 )
 
-// UnitTypes is one .orbit file's data contract.
+// UnitTypes is one .lyr file's data contract.
 type UnitTypes struct {
-	// Path is the project-relative .orbit path:
-	// "src/components/LikeButton.orbit".
+	// Path is the project-relative .lyr path:
+	// "src/components/LikeButton.lyr".
 	Path string
 	// Data are the data-* keys by dataset name, sorted by Name.
 	Data []TSKey
@@ -33,16 +33,16 @@ type TSKey struct {
 	// Types are the union members (TS with refs), deduplicated, in order.
 	Types []string
 	// Sites are the doc comment text per site, e.g.
-	// "data-post (LikeButton.orbit:9:14)".
+	// "data-post (LikeButton.lyr:9:14)".
 	Sites []string
-	// Spans are the attribute names of the sites in the .orbit file
+	// Spans are the attribute names of the sites in the .lyr file
 	// (byte offsets), in Sites order.
 	Spans []Span
 }
 
 // TSFile is one emitted declaration file.
 type TSFile struct {
-	// Path is module-relative, under orbit_gen/types/.
+	// Path is module-relative, under lyr_gen/types/.
 	Path    string
 	Content []byte
 	// Sources is the side table of the language server (PLAN.md §9b):
@@ -55,15 +55,15 @@ type TSFile struct {
 const tsTypesDir = GenDir + "/types"
 
 const clientDTS = GenHeader + `
-declare module "orbit:client" {
+declare module "lyr:client" {
   export function data<T = unknown>(el: Element, key: string): T;
   export function json<T = unknown>(id: string): T;
 }
 `
 
-// EmitTypes returns orbit_gen/types/go.d.ts and orbit_gen/types/client.d.ts
+// EmitTypes returns lyr_gen/types/go.d.ts and lyr_gen/types/client.d.ts
 // (always, even with no units or types), and
-// orbit_gen/types/<Path>.d.ts for each unit with at least one Data or JSON
+// lyr_gen/types/<Path>.d.ts for each unit with at least one Data or JSON
 // key. The output is deterministic and sorted by Path.
 func EmitTypes(units []*UnitTypes) []TSFile {
 	var decls []TSDecl
@@ -317,10 +317,10 @@ func (n *tsNames) goDTS() ([]byte, map[int]TSSource) {
 	var b dtsBuilder
 	b.WriteString(GenHeader + "\n")
 	if len(n.order) == 0 {
-		b.WriteString("declare module \"orbit:types\" {}\n")
+		b.WriteString("declare module \"lyr:types\" {}\n")
 		return []byte(b.String()), nil
 	}
-	b.WriteString("declare module \"orbit:types\" {\n")
+	b.WriteString("declare module \"lyr:types\" {\n")
 	for i, t := range n.order {
 		if i == 0 || n.order[i-1].ns != t.ns {
 			if i > 0 {
@@ -373,7 +373,7 @@ func (n *tsNames) unitDTS(u *UnitTypes) ([]byte, map[int]TSSource) {
 		if len(k.Spans) == 0 {
 			return TSSource{}
 		}
-		return TSSource{File: u.Path, Orbit: true, Start: k.Spans[0].Start, End: k.Spans[0].End}
+		return TSSource{File: u.Path, Lyr: true, Start: k.Spans[0].Start, End: k.Spans[0].End}
 	}
 	section := func(iface, doc, fn, sig string, keys []TSKey) {
 		body.WriteString("\n/** " + tsComment(doc) + " */\n")
@@ -404,7 +404,7 @@ func (n *tsNames) unitDTS(u *UnitTypes) ([]byte, map[int]TSSource) {
 		body.mark(first)
 		body.WriteString("export declare function " + fn + "<K extends " + lits + ">(" + sig + "): " + iface + "[K];\n")
 	}
-	section("Data", "The orbit.JSON data-* attributes written by "+u.Path+", by dataset name.", "data", "el: Element, key: K", u.Data)
+	section("Data", "The lyr.JSON data-* attributes written by "+u.Path+", by dataset name.", "data", "el: Element, key: K", u.Data)
 	section("JSONBlocks", "The set:json blocks written by "+u.Path+", by id.", "json", "id: K", u.JSON)
 	var b strings.Builder
 	b.WriteString(GenHeader + "\n")
@@ -415,7 +415,7 @@ func (n *tsNames) unitDTS(u *UnitTypes) ([]byte, map[int]TSSource) {
 			ns = append(ns, s)
 		}
 		slices.Sort(ns)
-		b.WriteString("import type { " + strings.Join(ns, ", ") + " } from \"orbit:types\";\n")
+		b.WriteString("import type { " + strings.Join(ns, ", ") + " } from \"lyr:types\";\n")
 		shift++
 	}
 	b.WriteString(body.String())

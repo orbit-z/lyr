@@ -1,4 +1,4 @@
-src/components/err_clash.orbit:3:2: Item clashes with Item in the component's declaration package (Props uses it); rename one
-src/components/err_clash.orbit:4:2: Props clashes with the generated Props of the component's declaration package; rename it
-src/components/err_clash.orbit:5:2: Render clashes with the generated Render of the component's declaration package; rename it
-src/components/err_clash.orbit:6:2: Kind clashes with Kind in the component's declaration package (Props uses it); rename one
+src/components/err_clash.lyr:3:2: Item clashes with Item in the component's declaration package (Props uses it); rename one
+src/components/err_clash.lyr:4:2: Props clashes with the generated Props of the component's declaration package; rename it
+src/components/err_clash.lyr:5:2: Render clashes with the generated Render of the component's declaration package; rename it
+src/components/err_clash.lyr:6:2: Kind clashes with Kind in the component's declaration package (Props uses it); rename one

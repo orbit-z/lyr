@@ -1,0 +1,4 @@
+---
+import Counter "./Counter.lyr"
+---
+<div class="wrap"><slot /><Counter client:media="(max-width: 600px) and (&quot;x&quot;)" /></div>

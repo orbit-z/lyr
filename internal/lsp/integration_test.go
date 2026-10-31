@@ -10,10 +10,10 @@ import (
 	"time"
 )
 
-// The LSP integration test (PLAN.md §13, the stage-1 bullets): orbit lsp
+// The LSP integration test (PLAN.md §13, the stage-1 bullets): lyr lsp
 // spawned over stdio with the gopls on PATH, on a small project.
 
-const cardOrbit = `---
+const cardLyr = `---
 // Props are the card's inputs.
 type Props struct {
 	// Post is the post's title.
@@ -24,8 +24,8 @@ type Props struct {
 <article class="card">{props.Post}<slot /></article>
 `
 
-const indexOrbit = `---
-import Card "../components/Card.orbit"
+const indexLyr = `---
+import Card "../components/Card.lyr"
 
 suffix := "!"
 greeting := "Héllo ✓ 😀" + suffix
@@ -36,14 +36,14 @@ count := len(greeting)
 <p>{count}</p>
 `
 
-const slugOrbit = `---
+const slugLyr = `---
 heading := "Post " + params.Slug
 ---
 <h1>{heading}</h1>
 `
 
-const badOrbit = `---
-import Card "../components/Card.orbit"
+const badLyr = `---
+import Card "../components/Card.lyr"
 
 x := undefinedThing
 ---
@@ -54,16 +54,16 @@ x := undefinedThing
 func TestIntegration(t *testing.T) {
 	needGopls(t)
 	dir := writeProject(t, map[string]string{
-		"src/components/Card.orbit":   cardOrbit,
-		"src/pages/index.orbit":       indexOrbit,
-		"src/pages/blog/[slug].orbit": slugOrbit,
-		"src/pages/bad.orbit":         badOrbit,
+		"src/components/Card.lyr":   cardLyr,
+		"src/pages/index.lyr":       indexLyr,
+		"src/pages/blog/[slug].lyr": slugLyr,
+		"src/pages/bad.lyr":         badLyr,
 	})
 	c := startClient(t, dir, nil)
-	index := c.open("src/pages/index.orbit")
+	index := c.open("src/pages/index.lyr")
 
 	t.Run("hover frontmatter variable", func(t *testing.T) {
-		text, _ := c.hover("src/pages/index.orbit", at(t, index, "count :=", 0, 1))
+		text, _ := c.hover("src/pages/index.lyr", at(t, index, "count :=", 0, 1))
 		if !strings.Contains(text, "count int") {
 			t.Errorf("hover on count: %q, want the type int", text)
 		}
@@ -78,7 +78,7 @@ func TestIntegration(t *testing.T) {
 			{"frontmatter", at(t, index, "suffix", 1, 2)},
 			{"template", at(t, index, "{suffix}", 0, 3)},
 		} {
-			text, r := c.hover("src/pages/index.orbit", tc.pos)
+			text, r := c.hover("src/pages/index.lyr", tc.pos)
 			if !strings.Contains(text, "suffix string") {
 				t.Errorf("%s: hover %q, want suffix string", tc.name, text)
 			}
@@ -88,7 +88,7 @@ func TestIntegration(t *testing.T) {
 		}
 		// References give UTF-16 ranges that cover exactly the name.
 		res := c.call("textDocument/references", map[string]any{
-			"textDocument": map[string]any{"uri": c.uri("src/pages/index.orbit")},
+			"textDocument": map[string]any{"uri": c.uri("src/pages/index.lyr")},
 			"position":     at(t, index, "suffix", 0, 0),
 			"context":      map[string]any{"includeDeclaration": true},
 		})
@@ -107,23 +107,23 @@ func TestIntegration(t *testing.T) {
 		for _, pos := range []Position{
 			at(t, index, "post={", 0, 1),      // the prop's field key
 			at(t, index, "greeting :=", 0, 1), // a frontmatter variable
-			at(t, index, "Card \"", 0, 1),     // the .orbit import alias
+			at(t, index, "Card \"", 0, 1),     // the .lyr import alias
 		} {
-			text, _ := c.hover("src/pages/index.orbit", pos)
-			if strings.Contains(text, "line ") || strings.Contains(text, "orbit_gen") {
+			text, _ := c.hover("src/pages/index.lyr", pos)
+			if strings.Contains(text, "line ") || strings.Contains(text, "lyr_gen") {
 				t.Errorf("hover at %v shows generated details: %q", pos, text)
 			}
 		}
-		card := c.open("src/components/Card.orbit")
-		text, _ := c.hover("src/components/Card.orbit", at(t, card, "props.Post", 0, 7))
+		card := c.open("src/components/Card.lyr")
+		text, _ := c.hover("src/components/Card.lyr", at(t, card, "props.Post", 0, 7))
 		if !strings.Contains(text, "Post string") || !strings.Contains(text, "post's title") || strings.Contains(text, "line ") {
 			t.Errorf("hover on props.Post: %q", text)
 		}
 	})
 
 	t.Run("misspelled prop diagnostic", func(t *testing.T) {
-		bad, _ := os.ReadFile(filepath.Join(dir, "src/pages/bad.orbit"))
-		ds := c.waitDiag("src/pages/bad.orbit", func(ds []map[string]any) bool { return len(ds) >= 2 })
+		bad, _ := os.ReadFile(filepath.Join(dir, "src/pages/bad.lyr"))
+		ds := c.waitDiag("src/pages/bad.lyr", func(ds []map[string]any) bool { return len(ds) >= 2 })
 		var gotProp, gotGo bool
 		for _, d := range ds {
 			r := diagRange(t, d)
@@ -145,28 +145,28 @@ func TestIntegration(t *testing.T) {
 			}
 		}
 		if !gotProp || !gotGo {
-			t.Errorf("diagnostics of bad.orbit: %v, want the unknown prop and gopls's undefined", ds)
+			t.Errorf("diagnostics of bad.lyr: %v, want the unknown prop and gopls's undefined", ds)
 		}
 	})
 
 	t.Run("definition on a component tag", func(t *testing.T) {
-		locs := c.locations(c.call("textDocument/definition", c.textPos("src/pages/index.orbit", at(t, index, "<Card", 0, 2))))
-		if len(locs) != 1 || uriToPath(locs[0].URI) != filepath.Join(dir, "src/components/Card.orbit") {
+		locs := c.locations(c.call("textDocument/definition", c.textPos("src/pages/index.lyr", at(t, index, "<Card", 0, 2))))
+		if len(locs) != 1 || uriToPath(locs[0].URI) != filepath.Join(dir, "src/components/Card.lyr") {
 			t.Errorf("definition on <Card: %v", locs)
 		}
 		// On an attribute: the Props field.
-		locs = c.locations(c.call("textDocument/definition", c.textPos("src/pages/index.orbit", at(t, index, "featured", 0, 2))))
-		if len(locs) != 1 || uriToPath(locs[0].URI) != filepath.Join(dir, "src/components/Card.orbit") ||
-			rangeText(cardOrbit, locs[0].Range) != "Featured" {
+		locs = c.locations(c.call("textDocument/definition", c.textPos("src/pages/index.lyr", at(t, index, "featured", 0, 2))))
+		if len(locs) != 1 || uriToPath(locs[0].URI) != filepath.Join(dir, "src/components/Card.lyr") ||
+			rangeText(cardLyr, locs[0].Range) != "Featured" {
 			t.Errorf("definition on featured: %v", locs)
 		}
 	})
 
 	t.Run("definition on params", func(t *testing.T) {
-		slug := c.open("src/pages/blog/[slug].orbit")
-		page := filepath.Join(dir, "src/pages/blog/[slug].orbit")
+		slug := c.open("src/pages/blog/[slug].lyr")
+		page := filepath.Join(dir, "src/pages/blog/[slug].lyr")
 		for _, pos := range []Position{at(t, slug, "params.Slug", 0, 8), at(t, slug, "params.Slug", 0, 2)} {
-			locs := c.locations(c.call("textDocument/definition", c.textPos("src/pages/blog/[slug].orbit", pos)))
+			locs := c.locations(c.call("textDocument/definition", c.textPos("src/pages/blog/[slug].lyr", pos)))
 			if len(locs) != 1 || uriToPath(locs[0].URI) != page {
 				t.Errorf("definition at %v: %v, want %s", pos, locs, page)
 			}
@@ -174,33 +174,33 @@ func TestIntegration(t *testing.T) {
 	})
 
 	t.Run("unsaved Props change", func(t *testing.T) {
-		c.change("src/pages/index.orbit", strings.Replace(index, "featured />", "featured tags={nil} />", 1))
-		c.waitDiag("src/pages/index.orbit", func(ds []map[string]any) bool { return hasMessage(ds, `unknown prop "tags"`) })
-		card := strings.Replace(cardOrbit, "Featured bool", "Featured bool\n\tTags     []string", 1)
-		c.change("src/components/Card.orbit", card)
-		c.waitDiag("src/pages/index.orbit", func(ds []map[string]any) bool { return len(ds) == 0 })
+		c.change("src/pages/index.lyr", strings.Replace(index, "featured />", "featured tags={nil} />", 1))
+		c.waitDiag("src/pages/index.lyr", func(ds []map[string]any) bool { return hasMessage(ds, `unknown prop "tags"`) })
+		card := strings.Replace(cardLyr, "Featured bool", "Featured bool\n\tTags     []string", 1)
+		c.change("src/components/Card.lyr", card)
+		c.waitDiag("src/pages/index.lyr", func(ds []map[string]any) bool { return len(ds) == 0 })
 		// gopls agrees: no error in the page's generated code after the
 		// diagnostics delay.
 		time.Sleep(500 * time.Millisecond)
-		if ds := c.waitDiag("src/pages/index.orbit", func([]map[string]any) bool { return true }); len(ds) != 0 {
-			t.Errorf("index.orbit diagnostics after adding Tags: %v", ds)
+		if ds := c.waitDiag("src/pages/index.lyr", func([]map[string]any) bool { return true }); len(ds) != 0 {
+			t.Errorf("index.lyr diagnostics after adding Tags: %v", ds)
 		}
-		if _, err := os.Stat(filepath.Join(dir, "orbit_gen")); !os.IsNotExist(err) {
-			t.Errorf("orbit_gen/ was written: %v", err)
+		if _, err := os.Stat(filepath.Join(dir, "lyr_gen")); !os.IsNotExist(err) {
+			t.Errorf("lyr_gen/ was written: %v", err)
 		}
-		// An orbit.RestAttrs field (PLAN.md §2.5) takes any attribute: no
+		// A lyr.RestAttrs field (PLAN.md §2.5) takes any attribute: no
 		// unknown-prop diagnostic.
-		c.change("src/pages/index.orbit", strings.Replace(index, "featured />", "featured data-x={1} />", 1))
-		c.waitDiag("src/pages/index.orbit", func(ds []map[string]any) bool { return hasMessage(ds, `unknown prop "data-x"`) })
-		c.change("src/components/Card.orbit", strings.Replace(card, "Featured bool", "Featured bool\n\tAttrs    orbit.RestAttrs", 1))
-		c.waitDiag("src/pages/index.orbit", func(ds []map[string]any) bool { return len(ds) == 0 })
+		c.change("src/pages/index.lyr", strings.Replace(index, "featured />", "featured data-x={1} />", 1))
+		c.waitDiag("src/pages/index.lyr", func(ds []map[string]any) bool { return hasMessage(ds, `unknown prop "data-x"`) })
+		c.change("src/components/Card.lyr", strings.Replace(card, "Featured bool", "Featured bool\n\tAttrs    lyr.RestAttrs", 1))
+		c.waitDiag("src/pages/index.lyr", func(ds []map[string]any) bool { return len(ds) == 0 })
 	})
 
 	t.Run("startup messages", func(t *testing.T) {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		if len(c.requests) != 0 {
-			t.Errorf("showMessageRequest without orbit_gen/: %q", c.requests)
+			t.Errorf("showMessageRequest without lyr_gen/: %q", c.requests)
 		}
 		for _, m := range c.messages {
 			if strings.Contains(m, "generated file") || strings.HasPrefix(m, "1:") {
@@ -243,9 +243,9 @@ func TestOldGopls(t *testing.T) {
 		t.Skip("skipping in -short mode")
 	}
 	dir := writeProject(t, map[string]string{
-		"src/components/Card.orbit": cardOrbit,
-		"src/pages/index.orbit":     indexOrbit,
-		"src/pages/bad.orbit":       badOrbit,
+		"src/components/Card.lyr": cardLyr,
+		"src/pages/index.lyr":     indexLyr,
+		"src/pages/bad.lyr":       badLyr,
 	})
 	stub, err := os.Executable()
 	if err != nil {
@@ -261,24 +261,24 @@ func TestOldGopls(t *testing.T) {
 		}
 		return false
 	})
-	index := c.open("src/pages/index.orbit")
-	if text, _ := c.hover("src/pages/index.orbit", at(t, index, "count :=", 0, 1)); text != "" {
+	index := c.open("src/pages/index.lyr")
+	if text, _ := c.hover("src/pages/index.lyr", at(t, index, "count :=", 0, 1)); text != "" {
 		t.Errorf("hover with a refused gopls: %q, want none", text)
 	}
-	locs := c.locations(c.call("textDocument/definition", c.textPos("src/pages/index.orbit", at(t, index, "<Card", 0, 2))))
-	if len(locs) != 1 || uriToPath(locs[0].URI) != filepath.Join(dir, "src/components/Card.orbit") {
+	locs := c.locations(c.call("textDocument/definition", c.textPos("src/pages/index.lyr", at(t, index, "<Card", 0, 2))))
+	if len(locs) != 1 || uriToPath(locs[0].URI) != filepath.Join(dir, "src/components/Card.lyr") {
 		t.Errorf("native definition on <Card: %v", locs)
 	}
-	c.waitDiag("src/pages/bad.orbit", func(ds []map[string]any) bool { return hasMessage(ds, `unknown prop "psot"`) })
+	c.waitDiag("src/pages/bad.lyr", func(ds []map[string]any) bool { return hasMessage(ds, `unknown prop "psot"`) })
 }
 
-// TestReferencesOverlayOnly: with no orbit_gen/ on disk and 50 components,
+// TestReferencesOverlayOnly: with no lyr_gen/ on disk and 50 components,
 // references asked right at startup are complete: the readiness barrier
 // holds them until gopls has loaded every overlay. It also measures startup.
 func TestReferencesOverlayOnly(t *testing.T) { testReferences50(t, false) }
 
-// TestReferencesOnDisk is TestReferencesOverlayOnly with orbit_gen/ on
-// disk, except for the last five components (as if added since orbit
+// TestReferencesOnDisk is TestReferencesOverlayOnly with lyr_gen/ on
+// disk, except for the last five components (as if added since lyr
 // generate ran): those are overlay-only, loaded one by one by the barrier.
 func TestReferencesOnDisk(t *testing.T) { testReferences50(t, true) }
 
@@ -289,15 +289,15 @@ func testReferences50(t *testing.T, onDisk bool) {
 	var page strings.Builder
 	page.WriteString("---\n")
 	for i := range n {
-		fmt.Fprintf(&page, "import C%d \"../components/C%d.orbit\"\n", i, i)
-		files[fmt.Sprintf("src/components/C%d.orbit", i)] = fmt.Sprintf(
+		fmt.Fprintf(&page, "import C%d \"../components/C%d.lyr\"\n", i, i)
+		files[fmt.Sprintf("src/components/C%d.lyr", i)] = fmt.Sprintf(
 			"---\ntype Props struct {\n\tTitle    string\n\tFeatured bool\n}\nlabel := props.Title\n---\n<p class={label}>{props.Featured}</p>\n")
 	}
 	page.WriteString("title := \"x\"\n---\n")
 	for i := range n {
 		fmt.Fprintf(&page, "<C%d title={title} featured />\n", i)
 	}
-	files["src/pages/index.orbit"] = page.String()
+	files["src/pages/index.lyr"] = page.String()
 	dir := writeProject(t, files)
 	mode := "overlay-only"
 	if onDisk {
@@ -307,9 +307,9 @@ func testReferences50(t *testing.T, onDisk bool) {
 
 	c := startClient(t, dir, nil)
 	start := c.start
-	idx := c.open("src/pages/index.orbit")
+	idx := c.open("src/pages/index.lyr")
 	// First hover: how soon Go features answer.
-	text, _ := c.hover("src/pages/index.orbit", at(t, idx, "title :=", 0, 1))
+	text, _ := c.hover("src/pages/index.lyr", at(t, idx, "title :=", 0, 1))
 	firstHover := time.Since(start)
 	if !strings.Contains(text, "title string") {
 		t.Errorf("hover on title: %q", text)
@@ -317,7 +317,7 @@ func testReferences50(t *testing.T, onDisk bool) {
 	var missed []string
 	t0 := time.Now()
 	for i := range n {
-		rel := fmt.Sprintf("src/components/C%d.orbit", i)
+		rel := fmt.Sprintf("src/components/C%d.lyr", i)
 		src := files[rel]
 		res := c.call("textDocument/references", map[string]any{
 			"textDocument": map[string]any{"uri": c.uri(rel)},
@@ -343,19 +343,19 @@ func testReferences50(t *testing.T, onDisk bool) {
 	c.mu.Unlock()
 	t.Logf("%d components, %s: start → first diagnostics %v, → first hover %v; 50 references (barrier included) %v; RSS %s",
 		n, mode, firstDiag.Round(time.Millisecond), firstHover.Round(time.Millisecond), refs.Round(time.Millisecond), rss(c))
-	if _, err := os.Stat(filepath.Join(dir, "orbit_gen")); !onDisk && !os.IsNotExist(err) {
-		t.Errorf("orbit_gen/ was written: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, "lyr_gen")); !onDisk && !os.IsNotExist(err) {
+		t.Errorf("lyr_gen/ was written: %v", err)
 	}
 }
 
-// removeGenerated runs orbit generate in dir, then removes the generated
+// removeGenerated runs lyr generate in dir, then removes the generated
 // packages of components C<from> to C<to-1>.
 func removeGenerated(t *testing.T, dir string, from, to int) {
 	t.Helper()
-	orbitGenerate(t, dir)
+	lyrGenerate(t, dir)
 	for i := from; i < to; i++ {
 		for _, kind := range []string{"decl", "impl"} {
-			pkg := filepath.Join(dir, "orbit_gen", kind, "components", fmt.Sprintf("c%d", i))
+			pkg := filepath.Join(dir, "lyr_gen", kind, "components", fmt.Sprintf("c%d", i))
 			if _, err := os.Stat(pkg); err != nil {
 				t.Fatalf("generated package: %v", err)
 			}
@@ -366,7 +366,7 @@ func removeGenerated(t *testing.T, dir string, from, to int) {
 	}
 }
 
-// rss reports the resident memory of orbit lsp and its gopls (Linux).
+// rss reports the resident memory of lyr lsp and its gopls (Linux).
 func rss(c *testClient) string {
 	self := procRSS(c.cmd.Process.Pid)
 	var children []string
@@ -384,7 +384,7 @@ func rss(c *testClient) string {
 	if self == 0 {
 		return "unknown"
 	}
-	return fmt.Sprintf("orbit lsp %d MB, gopls %d MB", self/1024, gopls/1024)
+	return fmt.Sprintf("lyr lsp %d MB, gopls %d MB", self/1024, gopls/1024)
 }
 
 func procRSS(pid int) int {
@@ -416,9 +416,9 @@ func TestStartupFolder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	many := map[string]string{"src/pages/index.orbit": "<h1>hi</h1>\n"}
+	many := map[string]string{"src/pages/index.lyr": "<h1>hi</h1>\n"}
 	for i := range 10 {
-		many[fmt.Sprintf("src/components/C%d.orbit", i)] = "<p>c</p>\n"
+		many[fmt.Sprintf("src/components/C%d.lyr", i)] = "<p>c</p>\n"
 	}
 	for _, tc := range []struct {
 		name        string
@@ -426,13 +426,13 @@ func TestStartupFolder(t *testing.T) {
 		placeholder bool
 	}{
 		{"many overlay-only files", many, true},
-		{"few overlay-only files", map[string]string{"src/components/Card.orbit": cardOrbit, "src/pages/index.orbit": indexOrbit}, false},
+		{"few overlay-only files", map[string]string{"src/components/Card.lyr": cardLyr, "src/pages/index.lyr": indexLyr}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := writeProject(t, tc.files)
 			recFile := filepath.Join(t.TempDir(), "gopls.jsonl")
 			c := startClient(t, dir, map[string]any{"goplsPath": stub}, stubEnv+"=record:"+recFile)
-			c.open("src/pages/index.orbit")
+			c.open("src/pages/index.lyr")
 			root := pathToURI(dir)
 
 			// Wait for the configuration answer and, with a placeholder,

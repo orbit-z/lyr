@@ -1,0 +1,15 @@
+---
+type Slug string
+
+type Props struct {
+	Title string
+	Slug  Slug
+	Any   any
+	Href  lyr.URL
+	Body  lyr.HTML
+	Style lyr.CSS
+	Class string
+	Attrs lyr.RestAttrs
+}
+---
+<div class={props.Class} style={props.Style}><a href={props.Href}>{props.Title}</a> {props.Slug} {props.Any}<span set:html={props.Body}></span><p {...props.Attrs}></p></div>

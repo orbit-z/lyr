@@ -9,32 +9,32 @@ import (
 	"testing"
 	"time"
 
-	"github.com/orbit-z/orbit"
-	"github.com/orbit-z/orbit/cache"
+	"github.com/orbit-z/lyr"
+	"github.com/orbit-z/lyr/cache"
 )
 
 // newSite builds a site with a Memory provider and two cached pages: / is
 // tagged "home", /blog varies on Accept-Language.
-func newSite(t *testing.T, mem *cache.MemoryProvider, renders *atomic.Int32) (*orbit.Site, http.Handler) {
+func newSite(t *testing.T, mem *cache.MemoryProvider, renders *atomic.Int32) (*lyr.Site, http.Handler) {
 	t.Helper()
-	t.Setenv("ORBIT_DEV", "")
-	t.Setenv("ORBIT_STATIC", t.TempDir())
-	t.Setenv("ORBIT_PUBLIC", "")
-	s := orbit.NewSite([]orbit.Route{
-		{Pattern: "/", File: "src/pages/index.orbit", Render: func(c *orbit.Ctx, w *orbit.Writer) error {
+	t.Setenv("LYR_DEV", "")
+	t.Setenv("LYR_STATIC", t.TempDir())
+	t.Setenv("LYR_PUBLIC", "")
+	s := lyr.NewSite([]lyr.Route{
+		{Pattern: "/", File: "src/pages/index.lyr", Render: func(c *lyr.Ctx, w *lyr.Writer) error {
 			renders.Add(1)
-			c.Cache().Set(orbit.CacheOptions{MaxAge: time.Hour, Tags: []string{"home"}})
+			c.Cache().Set(lyr.CacheOptions{MaxAge: time.Hour, Tags: []string{"home"}})
 			w.Raw("<!DOCTYPE html><html><head></head><body><p>home</p></body></html>")
 			return nil
 		}},
-		{Pattern: "/blog", File: "src/pages/blog.orbit", Render: func(c *orbit.Ctx, w *orbit.Writer) error {
+		{Pattern: "/blog", File: "src/pages/blog.lyr", Render: func(c *lyr.Ctx, w *lyr.Writer) error {
 			renders.Add(1)
-			c.Cache().Set(orbit.CacheOptions{MaxAge: time.Hour})
+			c.Cache().Set(lyr.CacheOptions{MaxAge: time.Hour})
 			c.Header().Set("Vary", "Accept-Language")
 			w.Raw("<!DOCTYPE html><html><head></head><body><p>" + c.Request.Header.Get("Accept-Language") + "</p></body></html>")
 			return nil
 		}},
-	}, nil, orbit.WithCache(mem))
+	}, nil, lyr.WithCache(mem))
 	return s, s.Middleware(http.NotFoundHandler())
 }
 
@@ -53,8 +53,8 @@ func wantState(t *testing.T, rec *httptest.ResponseRecorder, want string) {
 	if rec.Code != 200 {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body)
 	}
-	if got := rec.Header().Get("X-Orbit-Cache"); got != want {
-		t.Errorf("X-Orbit-Cache = %q, want %q", got, want)
+	if got := rec.Header().Get("X-Lyr-Cache"); got != want {
+		t.Errorf("X-Lyr-Cache = %q, want %q", got, want)
 	}
 }
 
@@ -73,7 +73,7 @@ func TestSiteMissThenHit(t *testing.T) {
 		t.Errorf("%d renders, want 1", renders.Load())
 	}
 
-	if err := s.InvalidateCache(context.Background(), orbit.InvalidateOptions{Tags: []string{"home"}}); err != nil {
+	if err := s.InvalidateCache(context.Background(), lyr.InvalidateOptions{Tags: []string{"home"}}); err != nil {
 		t.Fatal(err)
 	}
 	wantState(t, get(h, "/", ""), "MISS")
@@ -96,7 +96,7 @@ func TestSitePathInvalidationDropsVariants(t *testing.T) {
 	wantState(t, get(h, "/", ""), "MISS")
 	before := mem.Len() // the marker, two variants and /
 
-	if err := s.InvalidateCache(context.Background(), orbit.InvalidateOptions{Path: "/blog"}); err != nil {
+	if err := s.InvalidateCache(context.Background(), lyr.InvalidateOptions{Path: "/blog"}); err != nil {
 		t.Fatal(err)
 	}
 	if got := mem.Len(); got != before-3 || got != 1 {

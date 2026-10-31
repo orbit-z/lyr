@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"fmt"
@@ -21,11 +21,11 @@ func routesFor(patterns ...string) []Route {
 func fileFor(p string) string {
 	switch p {
 	case notFoundPattern:
-		return "src/pages/404.orbit"
+		return "src/pages/404.lyr"
 	case "/":
-		return "src/pages/index.orbit"
+		return "src/pages/index.lyr"
 	}
-	return "src/pages" + p + ".orbit"
+	return "src/pages" + p + ".lyr"
 }
 
 func mustRouter(t testing.TB, patterns ...string) *router {
@@ -89,7 +89,7 @@ func TestMatch(t *testing.T) {
 		// root and statics
 		{"/", "/", nil},
 		{"/about", "/about", nil},
-		{"/blog", "/blog", nil}, // blog/index.orbit
+		{"/blog", "/blog", nil}, // blog/index.lyr
 		// priority: static > param > rest
 		{"/blog/new", "/blog/new", nil},
 		{"/blog/hello", "/blog/[slug]", params{"slug": "hello"}},
@@ -158,8 +158,8 @@ func TestMatchWithoutCatchAll(t *testing.T) {
 			t.Errorf("match(%q) = %q, want no match", p, r.Pattern)
 		}
 	}
-	if rt.notFound == nil || rt.notFound.File != "src/pages/404.orbit" {
-		t.Errorf("notFound = %v, want the 404.orbit route", rt.notFound)
+	if rt.notFound == nil || rt.notFound.File != "src/pages/404.lyr" {
+		t.Errorf("notFound = %v, want the 404.lyr route", rt.notFound)
 	}
 }
 
@@ -178,72 +178,72 @@ func TestNewRouterErrors(t *testing.T) {
 		want     []string
 	}{
 		{"mixed text and param", []string{"/blog/post-[id]"}, []string{
-			`src/pages/blog/post-[id].orbit: route segment "post-[id]" mixes text and a parameter; use a whole-segment parameter such as [id].orbit and parse it in the page`,
+			`src/pages/blog/post-[id].lyr: route segment "post-[id]" mixes text and a parameter; use a whole-segment parameter such as [id].lyr and parse it in the page`,
 		}},
-		{"reserved /_orbit prefix", []string{"/_orbit/stats"}, []string{
-			`src/pages/_orbit/stats.orbit: route /_orbit/stats is under /_orbit/, which Orbit reserves for its assets and islands; rename the page or its directory`,
+		{"reserved /_lyr prefix", []string{"/_lyr/stats"}, []string{
+			`src/pages/_lyr/stats.lyr: route /_lyr/stats is under /_lyr/, which Lyr reserves for its assets and islands; rename the page or its directory`,
 		}},
 		{"two params in one segment", []string{"/[lang]-[version]"}, []string{
-			`src/pages/[lang]-[version].orbit: route segment "[lang]-[version]" mixes text and a parameter; use a whole-segment parameter such as [lang].orbit and parse it in the page`,
+			`src/pages/[lang]-[version].lyr: route segment "[lang]-[version]" mixes text and a parameter; use a whole-segment parameter such as [lang].lyr and parse it in the page`,
 		}},
 		{"adjacent params", []string{"/[a][b]"}, []string{
-			`src/pages/[a][b].orbit: route segment "[a][b]" mixes text and a parameter; use a whole-segment parameter such as [a].orbit and parse it in the page`,
+			`src/pages/[a][b].lyr: route segment "[a][b]" mixes text and a parameter; use a whole-segment parameter such as [a].lyr and parse it in the page`,
 		}},
 		{"param then text", []string{"/[id].json"}, []string{
-			`src/pages/[id].json.orbit: route segment "[id].json" mixes text and a parameter; use a whole-segment parameter such as [id].orbit and parse it in the page`,
+			`src/pages/[id].json.lyr: route segment "[id].json" mixes text and a parameter; use a whole-segment parameter such as [id].lyr and parse it in the page`,
 		}},
 		{"mixed directory segment", []string{"/v-[n]/docs"}, []string{
-			`src/pages/v-[n]/docs.orbit: route segment "v-[n]" mixes text and a parameter; use a whole-segment parameter such as [n]/ and parse it in the page`,
+			`src/pages/v-[n]/docs.lyr: route segment "v-[n]" mixes text and a parameter; use a whole-segment parameter such as [n]/ and parse it in the page`,
 		}},
 		{"mixed rest", []string{"/files-[...p]"}, []string{
-			`src/pages/files-[...p].orbit: route segment "files-[...p]" mixes text and a parameter; use a whole-segment parameter such as [p].orbit and parse it in the page`,
+			`src/pages/files-[...p].lyr: route segment "files-[...p]" mixes text and a parameter; use a whole-segment parameter such as [p].lyr and parse it in the page`,
 		}},
 		{"non-trailing rest", []string{"/docs/[...path]/edit"}, []string{
-			`src/pages/docs/[...path]/edit.orbit: rest parameter [...path] must be the last segment of the route; use a whole-segment parameter such as [path] instead`,
+			`src/pages/docs/[...path]/edit.lyr: rest parameter [...path] must be the last segment of the route; use a whole-segment parameter such as [path] instead`,
 		}},
 		{"no leading slash", []string{"blog"}, []string{
-			`src/pagesblog.orbit: invalid route pattern "blog": must start with /`,
+			`src/pagesblog.lyr: invalid route pattern "blog": must start with /`,
 		}},
 		{"empty pattern", []string{""}, []string{
-			`src/pages.orbit: invalid route pattern "": must start with /`,
+			`src/pages.lyr: invalid route pattern "": must start with /`,
 		}},
 		{"trailing slash", []string{"/blog/"}, []string{
-			`src/pages/blog/.orbit: invalid route pattern "/blog/": must not end with /`,
+			`src/pages/blog/.lyr: invalid route pattern "/blog/": must not end with /`,
 		}},
 		{"empty segment", []string{"/a//b"}, []string{
-			`src/pages/a//b.orbit: invalid route pattern "/a//b": empty segment`,
+			`src/pages/a//b.lyr: invalid route pattern "/a//b": empty segment`,
 		}},
 		{"unclosed bracket", []string{"/[id"}, []string{
-			`src/pages/[id.orbit: invalid route pattern "/[id": segment "[id" has unbalanced brackets`,
+			`src/pages/[id.lyr: invalid route pattern "/[id": segment "[id" has unbalanced brackets`,
 		}},
 		{"stray close bracket", []string{"/id]"}, []string{
-			`src/pages/id].orbit: invalid route pattern "/id]": segment "id]" has unbalanced brackets`,
+			`src/pages/id].lyr: invalid route pattern "/id]": segment "id]" has unbalanced brackets`,
 		}},
 		{"nested brackets", []string{"/[a[b]]"}, []string{
-			`src/pages/[a[b]].orbit: invalid route pattern "/[a[b]]": segment "[a[b]]" has unbalanced brackets`,
+			`src/pages/[a[b]].lyr: invalid route pattern "/[a[b]]": segment "[a[b]]" has unbalanced brackets`,
 		}},
 		{"empty param name", []string{"/[]"}, []string{
-			`src/pages/[].orbit: invalid route pattern "/[]": segment "[]" has an empty parameter name`,
+			`src/pages/[].lyr: invalid route pattern "/[]": segment "[]" has an empty parameter name`,
 		}},
 		{"empty rest name", []string{"/[...]"}, []string{
-			`src/pages/[...].orbit: invalid route pattern "/[...]": segment "[...]" has an empty parameter name`,
+			`src/pages/[...].lyr: invalid route pattern "/[...]": segment "[...]" has an empty parameter name`,
 		}},
 		{"repeated param name", []string{"/[a]/[a]"}, []string{
-			`src/pages/[a]/[a].orbit: invalid route pattern "/[a]/[a]": parameter "a" is used twice`,
+			`src/pages/[a]/[a].lyr: invalid route pattern "/[a]/[a]": parameter "a" is used twice`,
 		}},
 		{"duplicate params", []string{"/blog/[slug]", "/blog/[id]"}, []string{
-			`src/pages/blog/[id].orbit: route /blog/[id] is already defined by src/pages/blog/[slug].orbit; remove or rename one of them`,
+			`src/pages/blog/[id].lyr: route /blog/[id] is already defined by src/pages/blog/[slug].lyr; remove or rename one of them`,
 		}},
 		{"duplicate rests", []string{"/[...a]", "/[...b]"}, []string{
-			`src/pages/[...b].orbit: route /[...b] is already defined by src/pages/[...a].orbit; remove or rename one of them`,
+			`src/pages/[...b].lyr: route /[...b] is already defined by src/pages/[...a].lyr; remove or rename one of them`,
 		}},
 		{"duplicate 404", []string{notFoundPattern, notFoundPattern}, []string{
-			`src/pages/404.orbit: route 404 is already defined by src/pages/404.orbit; remove or rename one of them`,
+			`src/pages/404.lyr: route 404 is already defined by src/pages/404.lyr; remove or rename one of them`,
 		}},
 		{"all errors reported", []string{"/a-[b]", "/[...c]/d", "/x/[y]", "/x/[z]"}, []string{
-			`src/pages/a-[b].orbit: route segment "a-[b]"`,
-			`src/pages/[...c]/d.orbit: rest parameter [...c]`,
-			`src/pages/x/[z].orbit: route /x/[z] is already defined by src/pages/x/[y].orbit`,
+			`src/pages/a-[b].lyr: route segment "a-[b]"`,
+			`src/pages/[...c]/d.lyr: rest parameter [...c]`,
+			`src/pages/x/[z].lyr: route /x/[z] is already defined by src/pages/x/[y].lyr`,
 		}},
 	}
 	for _, tt := range tests {
@@ -269,13 +269,13 @@ func TestNewRouterErrors(t *testing.T) {
 }
 
 // The duplicate message names both files even when the files differ from
-// the pattern (blog.orbit next to blog/index.orbit).
+// the pattern (blog.lyr next to blog/index.lyr).
 func TestDuplicateNamesBothFiles(t *testing.T) {
 	_, err := newRouter([]Route{
-		{Pattern: "/blog", File: "src/pages/blog.orbit"},
-		{Pattern: "/blog", File: "src/pages/blog/index.orbit"},
+		{Pattern: "/blog", File: "src/pages/blog.lyr"},
+		{Pattern: "/blog", File: "src/pages/blog/index.lyr"},
 	})
-	want := "src/pages/blog/index.orbit: route /blog is already defined by src/pages/blog.orbit; remove or rename one of them"
+	want := "src/pages/blog/index.lyr: route /blog is already defined by src/pages/blog.lyr; remove or rename one of them"
 	if err == nil || err.Error() != want {
 		t.Errorf("err = %v, want %s", err, want)
 	}
@@ -310,7 +310,7 @@ func TestRedirectTarget(t *testing.T) {
 		{"//", "", "/"},           // the slash-less path is "/"
 		{"/404/", "", ""},         // the 404 page has no URL
 		{"", "", ""},
-		{"/_orbit/x/", "", ""},
+		{"/_lyr/x/", "", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path+"?"+tt.query, func(t *testing.T) {
@@ -324,7 +324,7 @@ func TestRedirectTarget(t *testing.T) {
 
 func TestRedirectNeverToOtherHost(t *testing.T) {
 	rt := mustRouter(t, "/[...rest]")
-	for _, p := range []string{"//evil.example/", "///evil.example/", "/_orbit/island/x/"} {
+	for _, p := range []string{"//evil.example/", "///evil.example/", "/_lyr/island/x/"} {
 		if got, ok := rt.redirectTarget(p, ""); ok {
 			t.Errorf("redirectTarget(%q) = %q, want no redirect", p, got)
 		}

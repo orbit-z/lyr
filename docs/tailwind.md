@@ -1,12 +1,12 @@
 # Using Tailwind
 
-Orbit supports [Tailwind CSS](https://tailwindcss.com) v4 out of the box. There's no integration to install and no `orbit.json` key: put `@import "tailwindcss"` in a stylesheet, and Orbit runs it through Tailwind's CLI before bundling it like any other CSS. Projects that don't use Tailwind don't need the CLI and pay nothing for it.
+Lyr supports [Tailwind CSS](https://tailwindcss.com) v4 out of the box. There's no integration to install and no `lyr.json` key: put `@import "tailwindcss"` in a stylesheet, and Lyr runs it through Tailwind's CLI before bundling it like any other CSS. Projects that don't use Tailwind don't need the CLI and pay nothing for it.
 
 This page shows the setup, then how classes are found, `@apply` in component styles, fonts and other CSS your stylesheet imports, plugins, editors, the dev server and deployment.
 
 ## Install the Tailwind CLI
 
-Orbit runs Tailwind's own CLI, v4. The **standalone CLI** is a single native binary: no Node, no `node_modules`. Install it one of these ways:
+Lyr runs Tailwind's own CLI, v4. The **standalone CLI** is a single native binary: no Node, no `node_modules`. Install it one of these ways:
 
 ```sh
 # Linux x64 (use tailwindcss-linux-arm64, -macos-arm64, -macos-x64 or -windows-x64.exe elsewhere)
@@ -20,13 +20,13 @@ brew install tailwindcss
 bun add -d @tailwindcss/cli@4.3.3   # or: npm i -D @tailwindcss/cli@4.3.3
 ```
 
-Orbit looks for the CLI in this order, only when a stylesheet uses Tailwind:
+Lyr looks for the CLI in this order, only when a stylesheet uses Tailwind:
 
 1. the project's `node_modules/.bin/tailwindcss` (from `@tailwindcss/cli`), run with Node, or with Bun when Node isn't installed;
 2. `tailwindcss` on your `PATH`;
-3. with [Bun](https://bun.sh) installed: `bun x --package @tailwindcss/cli@4.3.3 tailwindcss` (Bun downloads it into its cache the first time). Your project needs no `node_modules` for this: Orbit points Tailwind at the `tailwindcss` package Bun installed with the CLI, so `@import "tailwindcss"` resolves.
+3. with [Bun](https://bun.sh) installed: `bun x --package @tailwindcss/cli@4.3.3 tailwindcss` (Bun downloads it into its cache the first time). Your project needs no `node_modules` for this: Lyr points Tailwind at the `tailwindcss` package Bun installed with the CLI, so `@import "tailwindcss"` resolves.
 
-Tailwind v3 isn't supported: a v3 CLI is skipped, with a message if nothing else is found. A v3-style `tailwind.config.js` still works through v4's [`@config`](https://tailwindcss.com/docs/functions-and-directives#config-directive). Run `orbit doctor` to see which CLI Orbit uses:
+Tailwind v3 isn't supported: a v3 CLI is skipped, with a message if nothing else is found. A v3-style `tailwind.config.js` still works through v4's [`@config`](https://tailwindcss.com/docs/functions-and-directives#config-directive). Run `lyr doctor` to see which CLI Lyr uses:
 
 ```
 ✓ tailwind: tailwindcss 4.3.3 (/home/me/.local/bin/tailwindcss), used by src/styles/global.css
@@ -52,9 +52,9 @@ Tailwind v4 is configured in CSS. Create one stylesheet for the site, for exampl
 @custom-variant hocus (&:hover, &:focus-visible);
 ```
 
-Then include it from your layout. In Astro you'd write `import "../styles/global.css"` in the layout's frontmatter; an Orbit frontmatter is Go, so the import goes in a global style block instead:
+Then include it from your layout. In Astro you'd write `import "../styles/global.css"` in the layout's frontmatter; a Lyr frontmatter is Go, so the import goes in a global style block instead:
 
-```orbit file=src/layouts/Base.orbit
+```lyr file=src/layouts/Base.lyr
 ---
 type Props struct {
 	Title string
@@ -80,13 +80,13 @@ type Props struct {
 
 That's the whole setup. A CSS file is a **Tailwind input** when it imports `tailwindcss` (or `tailwindcss/…`), has a `@tailwind` directive, or uses one of Tailwind's at-rules (`@apply`, `@reference`, `@theme`, `@utility`, `@variant`, `@custom-variant`, `@source`, `@plugin`, `@config`). Comments and strings don't count. Every other CSS file is bundled as before.
 
-Tailwind's output is a stylesheet like any other: Orbit bundles it into the page's stylesheet, in import order, minified and hashed under `/_orbit/` in production, and links it from the page's `<head>`. Nothing runs at request time.
+Tailwind's output is a stylesheet like any other: Lyr bundles it into the page's stylesheet, in import order, minified and hashed under `/_lyr/` in production, and links it from the page's `<head>`. Nothing runs at request time.
 
 ## Use utilities in templates
 
 Write Tailwind's classes in your templates, in plain `class` attributes or in Go strings:
 
-```orbit file=src/components/Card.orbit
+```lyr file=src/components/Card.lyr
 ---
 type Props struct {
 	Title  string
@@ -109,11 +109,11 @@ if !props.Active {
 </style>
 ```
 
-```orbit file=src/pages/index.orbit
+```lyr file=src/pages/index.lyr
 ---
 import (
-	Card "../components/Card.orbit"
-	Base "../layouts/Base.orbit"
+	Card "../components/Card.lyr"
+	Base "../layouts/Base.lyr"
 )
 ---
 <Base title="Home">
@@ -124,8 +124,8 @@ import (
 
 Tailwind finds the classes by scanning your project's files ([automatic source detection](https://tailwindcss.com/docs/detecting-classes-in-source-files)), the same way it scans an Astro project:
 
-- `.orbit` files are scanned, and classes are found in attributes, in `{…}` expressions and in Go string literals in the frontmatter (`size := "p-8"`, `map[bool]string{true: "ring-2"}`). `.go` files elsewhere in your module (a `internal/ui` package that builds class strings) and `.md` files are scanned too.
-- Files your `.gitignore` ignores are skipped, even without a Git repository. The starter's `.gitignore` already ignores `orbit_gen/`, `.orbit/`, `dist/` and `node_modules/`; keep those lines, or Tailwind also scans the generated code (the same classes, only slower). `orbit doctor` warns when they're missing.
+- `.lyr` files are scanned, and classes are found in attributes, in `{…}` expressions and in Go string literals in the frontmatter (`size := "p-8"`, `map[bool]string{true: "ring-2"}`). `.go` files elsewhere in your module (a `internal/ui` package that builds class strings) and `.md` files are scanned too.
+- Files your `.gitignore` ignores are skipped, even without a Git repository. The starter's `.gitignore` already ignores `lyr_gen/`, `.lyr/`, `dist/` and `node_modules/`; keep those lines, or Tailwind also scans the generated code (the same classes, only slower). `lyr doctor` warns when they're missing.
 - Write complete class names. A class built at runtime, such as `fmt.Sprintf("w-%d", n)`, isn't found, as with every framework Tailwind supports. Use a map or a `switch` that spells out each class instead.
 - To scan more, or less, use Tailwind's own directives in the stylesheet: `@source "../../packages/ui";` for classes outside the project, `@source not "../../internal/api";` to skip a large Go tree, `@source inline("bg-red-500");` to always generate a class, or `@import "tailwindcss" source(none);` with your own `@source` list.
 
@@ -134,13 +134,13 @@ Tailwind finds the classes by scanning your project's files ([automatic source d
 A component's `<style>` can use Tailwind's at-rules too. To use `@apply` with your theme, reference the global stylesheet with [`@reference`](https://tailwindcss.com/docs/functions-and-directives#reference-directive), as in Astro: it makes the theme, custom utilities and variants available without emitting the stylesheet a second time. Card's style above becomes:
 
 ```css
-.title[data-o-1a2b3c4d] { font-size: var(--text-lg, 1.125rem); …; font-weight: var(--font-weight-bold, 700) }
-@media (hover: hover) { .title[data-o-1a2b3c4d]:hover { color: var(--color-ember, #d1703f) } }
+.title[data-l-1a2b3c4d] { font-size: var(--text-lg, 1.125rem); …; font-weight: var(--font-weight-bold, 700) }
+@media (hover: hover) { .title[data-l-1a2b3c4d]:hover { color: var(--color-ember, #d1703f) } }
 ```
 
-Orbit [scopes](styles-and-scripts.md#how-scoping-works) the block first and runs Tailwind after, which is Astro's order. So:
+Lyr [scopes](styles-and-scripts.md#how-scoping-works) the block first and runs Tailwind after, which is Astro's order. So:
 
-- `@apply` in a scoped rule applies to the scoped selector, variants included (`.title[data-o-…]:hover`).
+- `@apply` in a scoped rule applies to the scoped selector, variants included (`.title[data-l-…]:hover`).
 - The bodies of `@theme`, `@utility`, `@custom-variant`, `@plugin` and `@source` aren't scoped.
 - Utilities themselves are never scoped. A scoped block that imports `tailwindcss` emits global utilities next to its scoped rules, so import `tailwindcss` once, from a global stylesheet, and use `@reference` in components.
 - Tailwind puts utilities in `@layer utilities`, while your component styles aren't in a layer, so a component's rule wins over a utility on the same property, whatever the specificity ([cascade layers](https://developer.mozilla.org/docs/Learn_web_development/Core/Styling_basics/Cascade_layers)). This is the same in Astro with Tailwind v4.
@@ -154,7 +154,7 @@ A Tailwind stylesheet can `@import` other CSS files, from your project or from n
 bun add @fontsource-variable/figtree
 ```
 
-Its `index.css` refers to `url(./files/figtree-latin-wght-normal.woff2)`, relative to `node_modules/@fontsource-variable/figtree/`. Before running Tailwind, Orbit inlines the CSS files a Tailwind stylesheet imports and rewrites their relative `url()`s, as Astro's Tailwind integration does. The font then ends up in your build like any other asset: `url(/_orbit/figtree-latin-wght-normal-HASH.woff2)`, served from `/_orbit/` with the rest.
+Its `index.css` refers to `url(./files/figtree-latin-wght-normal.woff2)`, relative to `node_modules/@fontsource-variable/figtree/`. Before running Tailwind, Lyr inlines the CSS files a Tailwind stylesheet imports and rewrites their relative `url()`s, as Astro's Tailwind integration does. The font then ends up in your build like any other asset: `url(/_lyr/figtree-latin-wght-normal-HASH.woff2)`, served from `/_lyr/` with the rest.
 
 In detail:
 
@@ -188,7 +188,7 @@ Without `node_modules`, Tailwind's own error (`Can't resolve 'daisyui'`) is show
 
 ## Editor setup
 
-In VS Code, install [Tailwind CSS IntelliSense](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss) for class completion, hover previews and linting. Orbit's extension sets `"tailwindCSS.includeLanguages": { "orbit": "html" }` by default, so it works in `.orbit` files with no setup; if you set `tailwindCSS.includeLanguages` yourself, your object replaces Orbit's default, so include `"orbit": "html"`. Tailwind recommends associating `.css` files with its CSS language mode, so VS Code's CSS validator doesn't flag `@theme` and `@apply`:
+In VS Code, install [Tailwind CSS IntelliSense](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss) for class completion, hover previews and linting. Lyr's extension sets `"tailwindCSS.includeLanguages": { "lyr": "html" }` by default, so it works in `.lyr` files with no setup; if you set `tailwindCSS.includeLanguages` yourself, your object replaces Lyr's default, so include `"lyr": "html"`. Tailwind recommends associating `.css` files with its CSS language mode, so VS Code's CSS validator doesn't flag `@theme` and `@apply`:
 
 ```json file=~/.config/Code/User/settings.json
 {
@@ -196,9 +196,9 @@ In VS Code, install [Tailwind CSS IntelliSense](https://marketplace.visualstudio
 }
 ```
 
-In Neovim, enable the `tailwindcss` language server for `orbit` files: see [Editor setup](editor-setup.md#tailwind-css). Orbit's own language server doesn't complete or check Tailwind classes; the two servers run side by side.
+In Neovim, enable the `tailwindcss` language server for `lyr` files: see [Editor setup](editor-setup.md#tailwind-css). Lyr's own language server doesn't complete or check Tailwind classes; the two servers run side by side.
 
-## In `orbit dev`
+## In `lyr dev`
 
 The dev server reruns Tailwind only when a change can change its output:
 
@@ -209,15 +209,15 @@ The dev server reruns Tailwind only when a change can change its output:
 | a `.css` file, `tsconfig.json` or `package.json` | reruns every Tailwind input, then rebuilds the CSS. |
 | a component's `<style>` that uses Tailwind | reruns that block (and the stylesheets, if the edit brings a new word). |
 
-Orbit decides by keeping the set of words (whitespace-separated tokens) of the files Tailwind scans: Tailwind's classes never contain whitespace, so a new class always comes with a new word. As with Tailwind's own watch mode, the dev stylesheet only grows: a class you stop using stays in it until the next full run (restarting `orbit dev`). Production builds always start from scratch. A failed Tailwind run shows the error overlay and keeps the last good CSS.
+Lyr decides by keeping the set of words (whitespace-separated tokens) of the files Tailwind scans: Tailwind's classes never contain whitespace, so a new class always comes with a new word. As with Tailwind's own watch mode, the dev stylesheet only grows: a class you stop using stays in it until the next full run (restarting `lyr dev`). Production builds always start from scratch. A failed Tailwind run shows the error overlay and keeps the last good CSS.
 
 A Tailwind run takes about 0.1 s on a 200-file project. For a template edit it overlaps the Go rebuild, so the reload comes about 5–20 ms later than without Tailwind; a CSS-only edit (no Go rebuild) waits for it, about 90 ms instead of 20 ms. See [Performance](performance.md#tailwind-css).
 
-## `orbit build`, `orbit check` and deployment
+## `lyr build`, `lyr check` and deployment
 
-`orbit build`, `orbit generate` and `orbit check` run every Tailwind input once, from scratch, before bundling: about 0.1 s more on a 200-file project. The output is the same for the same sources, so builds stay reproducible. `orbit check` reports Tailwind's errors, so an `@apply` of an unknown class fails it (and CI).
+`lyr build`, `lyr generate` and `lyr check` run every Tailwind input once, from scratch, before bundling: about 0.1 s more on a 200-file project. The output is the same for the same sources, so builds stay reproducible. `lyr check` reports Tailwind's errors, so an `@apply` of an unknown class fails it (and CI).
 
-The build needs the CLI. In Docker, add it to the build stage of the [Dockerfile](deploy.md#docker) that `orbit new` writes; `ADD --checksum` verifies the download:
+The build needs the CLI. In Docker, add it to the build stage of the [Dockerfile](deploy.md#docker) that `lyr new` writes; `ADD --checksum` verifies the download:
 
 ```dockerfile
 ADD --checksum=sha256:dc61b3ac6b8c9ca874c0cc4c57b2409791a64c5540404ca5f5367360babc313a \
@@ -229,16 +229,16 @@ Use `tailwindcss-linux-arm64` (sha256 `55fd0b241214eff3de1e8ee4f22796662f2d2e7a4
 
 ## Errors
 
-Tailwind's errors are reported at your file, line and column, like Orbit's own:
+Tailwind's errors are reported at your file, line and column, like Lyr's own:
 
 ```
-src/components/Card.orbit:18:5: Cannot apply unknown utility class `font-boldest`
+src/components/Card.lyr:18:5: Cannot apply unknown utility class `font-boldest`
 ```
 
 Without a v4 CLI, a project that uses Tailwind fails to build with an error at its first Tailwind rule, naming the install commands for your platform (see [Troubleshooting](troubleshooting.md#the-tailwind-css-cli-isnt-found)):
 
 ```
-src/styles/global.css:1:1: @import "tailwindcss" needs the Tailwind CSS CLI v4, which wasn't found; install it: curl -sLo ~/.local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-linux-x64 && chmod +x ~/.local/bin/tailwindcss, or brew install tailwindcss, or bun add -d @tailwindcss/cli@4.3.3; see orbit doctor
+src/styles/global.css:1:1: @import "tailwindcss" needs the Tailwind CSS CLI v4, which wasn't found; install it: curl -sLo ~/.local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-linux-x64 && chmod +x ~/.local/bin/tailwindcss, or brew install tailwindcss, or bun add -d @tailwindcss/cli@4.3.3; see lyr doctor
 ```
 
 ## What's not supported

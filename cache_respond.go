@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -204,7 +204,7 @@ func warnRefused(r *http.Request, p *cacheReq, reason int) {
 	case refuseVaryStar:
 		why = "it has Vary: *"
 	}
-	log.Printf("orbit: %s %s: not cached because %s; later refusals for this route aren't logged", r.Method, r.URL.Path, why)
+	log.Printf("lyr: %s %s: not cached because %s; later refusals for this route aren't logged", r.Method, r.URL.Path, why)
 }
 
 // newEntry builds the stored entry of a rendered response.
@@ -212,7 +212,7 @@ func (sc *siteCache) newEntry(r *http.Request, ph http.Header, p *cacheReq, stat
 	k := p.k
 	h := make(http.Header, len(ph)+4)
 	for name, v := range ph {
-		if name == "X-Orbit-Cache" {
+		if name == "X-Lyr-Cache" {
 			continue
 		}
 		h[name] = slices.Clip(slices.Clone(v))
@@ -284,7 +284,7 @@ func autoETag(body []byte) string {
 	return string(b[:])
 }
 
-// serveEntry writes a stored entry with X-Orbit-Cache: state, or a 304
+// serveEntry writes a stored entry with X-Lyr-Cache: state, or a 304
 // when the request's validators match. The entry's header values are
 // shared, not copied.
 func serveEntry(w http.ResponseWriter, r *http.Request, e *CachedResponse, state []string) {
@@ -292,7 +292,7 @@ func serveEntry(w http.ResponseWriter, r *http.Request, e *CachedResponse, state
 	for name, v := range e.Header {
 		h[name] = v
 	}
-	h["X-Orbit-Cache"] = state
+	h["X-Lyr-Cache"] = state
 	if e.Status/100 == 2 && notModified(r, h) {
 		delete(h, "Content-Length")
 		w.WriteHeader(http.StatusNotModified)
@@ -374,7 +374,7 @@ func (sc *siteCache) revalidate(r *http.Request, bg *cacheReq, old *CachedRespon
 	defer sc.finishFlight(bg, nil)
 	defer func() {
 		if p := recover(); p != nil {
-			log.Printf("orbit: revalidating %s %s: panic: %v; the stale copy is kept", r.Method, r.URL.Path, p)
+			log.Printf("lyr: revalidating %s %s: panic: %v; the stale copy is kept", r.Method, r.URL.Path, p)
 		}
 	}()
 	w := &discardWriter{h: make(http.Header)}
@@ -405,7 +405,7 @@ func (d *discardWriter) Write(b []byte) (int, error) { return len(b), nil }
 
 // logRevalidation logs a background render's error.
 func logRevalidation(r *http.Request, err error) {
-	log.Printf("orbit: revalidating %s %s: %v; the stale copy is kept", r.Method, r.URL.Path, err)
+	log.Printf("lyr: revalidating %s %s: %v; the stale copy is kept", r.Method, r.URL.Path, err)
 }
 
 // ---- pages ----
@@ -515,10 +515,10 @@ func (s *Site) render(c *Ctx, route *Route) (*bytes.Buffer, error) {
 
 // CacheHandler returns a handler that caches h's GET responses on the same
 // flow as pages: route rules match the request path, and h sets options
-// through your Locals' orbit.Cache field or through the ctx.Cache() of a
+// through your Locals' lyr.Cache field or through the ctx.Cache() of a
 // component it renders with RenderComponent. h's response is buffered, and
 // its Content-Type sniffed when it sets none. Without a provider, or under
-// orbit dev, the returned handler is h with nothing added.
+// lyr dev, the returned handler is h with nothing added.
 func (s *Site) CacheHandler(h http.Handler) http.Handler {
 	return &cacheHandler{s: s, h: h}
 }
@@ -603,8 +603,8 @@ func (rec *cacheRecorder) Write(b []byte) (int, error) {
 	return rec.body.Write(b)
 }
 
-// orbitCache gives RenderComponent the request's handle (cacheHolder).
-func (rec *cacheRecorder) orbitCache() *Cache { return rec.kp }
+// lyrCache gives RenderComponent the request's handle (cacheHolder).
+func (rec *cacheRecorder) lyrCache() *Cache { return rec.kp }
 
 func (rec *cacheRecorder) release() {
 	clear(rec.h) // the response keeps the value slices, not the map
@@ -623,4 +623,4 @@ func (rec *cacheRecorder) release() {
 
 // cacheHolder is implemented by a CacheHandler's ResponseWriter, so a
 // component rendered with RenderComponent sets options on its handle.
-type cacheHolder interface{ orbitCache() *Cache }
+type cacheHolder interface{ lyrCache() *Cache }

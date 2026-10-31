@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // TestExtrasGolden compares the generated app.go, manifest.go and default
@@ -28,11 +28,11 @@ func TestExtrasGolden(t *testing.T) {
 		{"locals", `{}`, map[string]string{"src/locals/locals.go": "package locals\n\ntype Locals struct{ User string }\n"}},
 		// A RouteInfo field: app.New() passes WithLocalsRoute (PLAN.md §4g).
 		{"route", `{"site": "https://blog.example.com"}`, map[string]string{
-			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct {\n\tUser    string\n\tMatched orbit.RouteInfo\n}\n",
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/lyr\"\n\ntype Locals struct {\n\tUser    string\n\tMatched lyr.RouteInfo\n}\n",
 		}},
 		// A Cache field: app.New() passes WithLocalsCache (PLAN.md §4h).
 		{"cache", `{}`, map[string]string{
-			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/orbit\"\n\ntype Locals struct {\n\tRoute orbit.RouteInfo\n\tCache orbit.Cache\n}\n",
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/lyr\"\n\ntype Locals struct {\n\tRoute lyr.RouteInfo\n\tCache lyr.Cache\n}\n",
 		}},
 		// routeRules: WithRouteRules with Go literals (PLAN.md §4h).
 		{"rules", `{"routeRules": {"/blog/[...path]": {"maxAge": 300, "swr": 3600, "tags": ["blog", "posts"]}, "/about": {"tags": ["static"]}, "/": {"maxAge": 60}}}`, nil},
@@ -46,7 +46,7 @@ func TestExtrasGolden(t *testing.T) {
 			for k, v := range tt.extra {
 				files[k] = v
 			}
-			files["orbit.json"] = tt.json
+			files["lyr.json"] = tt.json
 			p := newTestProject(t, files)
 			proj, err := Load(p.Dir)
 			if err != nil {
@@ -77,7 +77,7 @@ func TestExtrasGolden(t *testing.T) {
 				if name == "locals" {
 					name = "nosite" // byte-identical
 				}
-				golden := filepath.Join("testdata", "extras", name+"."+strings.ReplaceAll(strings.TrimPrefix(path, "orbit_gen/"), "/", "_")+".golden")
+				golden := filepath.Join("testdata", "extras", name+"."+strings.ReplaceAll(strings.TrimPrefix(path, "lyr_gen/"), "/", "_")+".golden")
 				if *update && name == tt.name {
 					if err := os.MkdirAll(filepath.Dir(golden), 0o755); err != nil {
 						t.Fatal(err)

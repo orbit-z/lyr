@@ -1,12 +1,12 @@
-orbit_gen/decl/pages/term/decl.go (src/pages/term.orbit)
-orbit_gen/impl/pages/term/render.go (src/pages/term.orbit)
-  exact 2:8 "\"fmt\"" -> 200-205 "\"fmt\""
-  exact 4:1 "n, err := 1, error(nil)" -> 745-768 "n, err := 1, error(nil)"
-  exact 5:1 "if err != nil {\n\treturn " -> 838-862 "if err != nil {\n\treturn "
-  exact 6:9 "err" -> 977-980 "err"
-  exact 7:1 "}" -> 1052-1053 "}"
-  echo  - -> 1083-1084 "n"
-  echo  - -> 1090-1093 "err"
-  exact 8:1 "return " -> 1139-1146 "return "
-  exact 8:8 "fmt.Errorf(\"term %d\", n)" -> 1261-1285 "fmt.Errorf(\"term %d\", n)"
+lyr_gen/decl/pages/term/decl.go (src/pages/term.lyr)
+lyr_gen/impl/pages/term/render.go (src/pages/term.lyr)
+  exact 2:8 "\"fmt\"" -> 190-195 "\"fmt\""
+  exact 4:1 "n, err := 1, error(nil)" -> 691-714 "n, err := 1, error(nil)"
+  exact 5:1 "if err != nil {\n\treturn " -> 782-806 "if err != nil {\n\treturn "
+  exact 6:9 "err" -> 915-918 "err"
+  exact 7:1 "}" -> 988-989 "}"
+  echo  - -> 1019-1020 "n"
+  echo  - -> 1026-1029 "err"
+  exact 8:1 "return " -> 1073-1080 "return "
+  exact 8:8 "fmt.Errorf(\"term %d\", n)" -> 1189-1213 "fmt.Errorf(\"term %d\", n)"
 call sites

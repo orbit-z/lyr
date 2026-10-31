@@ -13,18 +13,18 @@ import (
 )
 
 // The on-disk half of the integration test (PLAN.md §9 Startup step 2):
-// with a fresh orbit_gen/ from orbit generate, gopls reads the unedited,
+// with a fresh lyr_gen/ from lyr generate, gopls reads the unedited,
 // error-free files from disk (no overlay), and Go features map through the
 // typed output's source maps.
 
-// orbitGenerate runs orbit generate in dir.
-func orbitGenerate(t *testing.T, dir string) {
+// lyrGenerate runs lyr generate in dir.
+func lyrGenerate(t *testing.T, dir string) {
 	t.Helper()
-	cmd := exec.Command(buildOrbit(t), "generate")
+	cmd := exec.Command(buildLyr(t), "generate")
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod", "GOWORK=off")
 	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("orbit generate: %v\n%s", err, out)
+		t.Fatalf("lyr generate: %v\n%s", err, out)
 	}
 }
 
@@ -58,7 +58,7 @@ func traceGopls(t *testing.T, dir string) (map[string]any, func(method string) [
 		var out []string
 		for _, m := range re.FindAllStringSubmatch(string(b), -1) {
 			rel, err := filepath.Rel(dir, uriToPath(m[1]))
-			if err == nil && strings.HasPrefix(filepath.ToSlash(rel), "orbit_gen/") {
+			if err == nil && strings.HasPrefix(filepath.ToSlash(rel), "lyr_gen/") {
 				out = append(out, filepath.ToSlash(rel))
 			}
 		}
@@ -71,20 +71,20 @@ func traceGopls(t *testing.T, dir string) (map[string]any, func(method string) [
 func TestOnDisk(t *testing.T) {
 	needGopls(t)
 	dir := writeProject(t, map[string]string{
-		"src/components/Card.orbit":   cardOrbit,
-		"src/pages/index.orbit":       indexOrbit,
-		"src/pages/blog/[slug].orbit": slugOrbit,
+		"src/components/Card.lyr":   cardLyr,
+		"src/pages/index.lyr":       indexLyr,
+		"src/pages/blog/[slug].lyr": slugLyr,
 	})
-	orbitGenerate(t, dir)
-	// A file added since: it has no orbit_gen/ files, so it's overlay-only.
-	if err := os.WriteFile(filepath.Join(dir, "src/pages/bad.orbit"), []byte(badOrbit), 0o644); err != nil {
+	lyrGenerate(t, dir)
+	// A file added since: it has no lyr_gen/ files, so it's overlay-only.
+	if err := os.WriteFile(filepath.Join(dir, "src/pages/bad.lyr"), []byte(badLyr), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	opts, sent := traceGopls(t, dir)
 	c := startClient(t, dir, opts)
-	index := c.open("src/pages/index.orbit")
-	card := c.open("src/components/Card.orbit")
-	const indexPath, cardPath = "src/pages/index.orbit", "src/components/Card.orbit"
+	index := c.open("src/pages/index.lyr")
+	card := c.open("src/components/Card.lyr")
+	const indexPath, cardPath = "src/pages/index.lyr", "src/components/Card.lyr"
 
 	// References wait for the readiness barrier.
 	res := c.call("textDocument/references", map[string]any{
@@ -93,7 +93,7 @@ func TestOnDisk(t *testing.T) {
 		"context":      map[string]any{"includeDeclaration": true},
 	})
 	t.Run("only changed files are overlays", func(t *testing.T) {
-		want := []string{"orbit_gen/decl/pages/bad/decl.go", "orbit_gen/impl/pages/bad/render.go"}
+		want := []string{"lyr_gen/decl/pages/bad/decl.go", "lyr_gen/impl/pages/bad/render.go"}
 		if got := sent("didOpen"); !slices.Equal(got, want) {
 			t.Errorf("gopls got didOpen for %v, want only %v", got, want)
 		}
@@ -184,7 +184,7 @@ func TestOnDisk(t *testing.T) {
 	})
 
 	t.Run("diagnostics", func(t *testing.T) {
-		c.waitDiag("src/pages/bad.orbit", func(ds []map[string]any) bool {
+		c.waitDiag("src/pages/bad.lyr", func(ds []map[string]any) bool {
 			return hasMessage(ds, "undefined: undefinedThing") && hasMessage(ds, `unknown prop "psot"`)
 		})
 	})
@@ -196,32 +196,32 @@ func TestOnDisk(t *testing.T) {
 		if !strings.Contains(text, "greeting string") {
 			t.Errorf("hover after the edit: %q", text)
 		}
-		if got := sent("didOpen"); !slices.Contains(got, "orbit_gen/impl/pages/index/render.go") {
-			t.Errorf("no overlay for index.orbit after its edit: %v", got)
+		if got := sent("didOpen"); !slices.Contains(got, "lyr_gen/impl/pages/index/render.go") {
+			t.Errorf("no overlay for index.lyr after its edit: %v", got)
 		}
 
-		// Saved, then orbit generate (or orbit dev) writes orbit_gen/: the
+		// Saved, then lyr generate (or lyr dev) writes lyr_gen/: the
 		// typed check after the watched-file event closes the overlay.
 		if err := os.WriteFile(filepath.Join(dir, indexPath), []byte(edited), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		os.Remove(filepath.Join(dir, "src/pages/bad.orbit")) // orbit generate writes nothing with errors
-		orbitGenerate(t, dir)
-		os.WriteFile(filepath.Join(dir, "src/pages/bad.orbit"), []byte(badOrbit), 0o644)
+		os.Remove(filepath.Join(dir, "src/pages/bad.lyr")) // lyr generate writes nothing with errors
+		lyrGenerate(t, dir)
+		os.WriteFile(filepath.Join(dir, "src/pages/bad.lyr"), []byte(badLyr), 0o644)
 		c.conn.Notify("workspace/didChangeWatchedFiles", map[string]any{"changes": []any{
-			map[string]any{"uri": c.uri("orbit_gen/impl/pages/index/render.go"), "type": 2},
-			map[string]any{"uri": c.uri("orbit_gen/decl/pages/index/decl.go"), "type": 2},
+			map[string]any{"uri": c.uri("lyr_gen/impl/pages/index/render.go"), "type": 2},
+			map[string]any{"uri": c.uri("lyr_gen/decl/pages/index/decl.go"), "type": 2},
 		}})
 		deadline := time.Now().Add(30 * time.Second)
-		for !slices.Contains(sent("didClose"), "orbit_gen/impl/pages/index/render.go") {
+		for !slices.Contains(sent("didClose"), "lyr_gen/impl/pages/index/render.go") {
 			if time.Now().After(deadline) {
-				t.Fatalf("the overlay of index.orbit wasn't closed; didClose: %v", sent("didClose"))
+				t.Fatalf("the overlay of index.lyr wasn't closed; didClose: %v", sent("didClose"))
 			}
 			time.Sleep(50 * time.Millisecond)
 		}
 		text, r := c.hover(indexPath, at(t, edited, "{greeting}", 0, 2))
 		if !strings.Contains(text, "greeting string") || r == nil || rangeText(edited, *r) != "greeting" {
-			t.Errorf("hover through orbit_gen/ after the check: %q %v", text, r)
+			t.Errorf("hover through lyr_gen/ after the check: %q %v", text, r)
 		}
 	})
 }

@@ -18,34 +18,34 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/check"
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/check"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
-// corpusFile is one .orbit source of the corpus.
+// corpusFile is one .lyr source of the corpus.
 type corpusFile struct {
 	name string // repo-relative, with :line for a docs block
 	src  string
 	// clean is true for sources that must be fmt-clean: the starter, the
-	// example blog, the docs site and the docs' orbit blocks.
+	// example blog, the docs site and the docs' lyr blocks.
 	clean bool
 }
 
 const repoRoot = "../.."
 
-// orbitFiles returns the .orbit files under dir (repo-relative), skipping
+// lyrFiles returns the .lyr files under dir (repo-relative), skipping
 // generated and dependency directories.
-func orbitFiles(t testing.TB, dir string, clean bool) []corpusFile {
+func lyrFiles(t testing.TB, dir string, clean bool) []corpusFile {
 	t.Helper()
 	var out []corpusFile
 	err := filepath.WalkDir(filepath.Join(repoRoot, dir), func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() && (d.Name() == "orbit_gen" || d.Name() == "node_modules" || d.Name() == "dist" || strings.HasPrefix(d.Name(), ".") && d.Name() != ".") {
+		if d.IsDir() && (d.Name() == "lyr_gen" || d.Name() == "node_modules" || d.Name() == "dist" || strings.HasPrefix(d.Name(), ".") && d.Name() != ".") {
 			return filepath.SkipDir
 		}
-		if !d.IsDir() && strings.HasSuffix(p, ".orbit") {
+		if !d.IsDir() && strings.HasSuffix(p, ".lyr") {
 			b, err := os.ReadFile(p)
 			if err != nil {
 				return err
@@ -61,7 +61,7 @@ func orbitFiles(t testing.TB, dir string, clean bool) []corpusFile {
 	return out
 }
 
-// DocsBlock is a ```orbit fenced block of a docs page.
+// DocsBlock is a ```lyr fenced block of a docs page.
 type docsBlock struct {
 	file  string
 	line  int
@@ -70,7 +70,7 @@ type docsBlock struct {
 	clean bool
 }
 
-// docsBlocks returns the ```orbit blocks of docs/**/*.md. A block whose
+// docsBlocks returns the ```lyr blocks of docs/**/*.md. A block whose
 // info string has "unformatted" shows code before formatting and is exempt
 // from the fmt-clean rule.
 func docsBlocks(t testing.TB) []docsBlock {
@@ -100,9 +100,9 @@ func docsBlocks(t testing.TB) []docsBlock {
 			l := sc.Text()
 			trimmed := strings.TrimLeft(l, " ")
 			if cur == nil {
-				if strings.HasPrefix(trimmed, "```orbit") {
+				if strings.HasPrefix(trimmed, "```lyr") {
 					indent := len(l) - len(trimmed)
-					info := strings.TrimSpace(strings.TrimPrefix(trimmed, "```orbit"))
+					info := strings.TrimSpace(strings.TrimPrefix(trimmed, "```lyr"))
 					fence = l[:indent] + "```"
 					cur = &docsBlock{file: filepath.ToSlash(rel), line: n, info: info, clean: !hasWord(info, "unformatted")}
 				}
@@ -130,11 +130,11 @@ func hasWord(info, w string) bool {
 // corpus returns every corpus source.
 func corpus(t testing.TB) []corpusFile {
 	var out []corpusFile
-	out = append(out, orbitFiles(t, "internal/scaffold/template", true)...)
-	out = append(out, orbitFiles(t, "examples/blog", true)...)
-	out = append(out, orbitFiles(t, "docs/site", true)...)
-	out = append(out, orbitFiles(t, "internal/compiler/testdata", false)...)
-	out = append(out, orbitFiles(t, "internal/format/testdata", false)...)
+	out = append(out, lyrFiles(t, "internal/scaffold/template", true)...)
+	out = append(out, lyrFiles(t, "examples/blog", true)...)
+	out = append(out, lyrFiles(t, "docs/site", true)...)
+	out = append(out, lyrFiles(t, "internal/compiler/testdata", false)...)
+	out = append(out, lyrFiles(t, "internal/format/testdata", false)...)
 	for _, b := range docsBlocks(t) {
 		out = append(out, corpusFile{name: b.file + ":" + strconv.Itoa(b.line), src: b.text, clean: b.clean})
 	}
@@ -151,7 +151,7 @@ func corpusOptions(t testing.TB) Options {
 }
 
 // TestCorpus formats every corpus file: the starter, examples/blog,
-// docs/site and the docs' orbit blocks must already be formatted; for every
+// docs/site and the docs' lyr blocks must already be formatted; for every
 // file that parses, formatting is idempotent, warns nothing, and keeps the
 // template tree and the Go code (as go/ast trees).
 func TestCorpus(t *testing.T) {
@@ -175,7 +175,7 @@ func TestCorpus(t *testing.T) {
 			t.Errorf("%s: %s", c.name, w.Format(c.name, f.Lines))
 		}
 		if c.clean && out != c.src {
-			t.Errorf("%s isn't formatted (run orbit fmt):\n%s", c.name, Diff(c.name, c.src, out))
+			t.Errorf("%s isn't formatted (run lyr fmt):\n%s", c.name, Diff(c.name, c.src, out))
 		}
 		again, _ := Source(out, o)
 		if again != out {
@@ -331,9 +331,9 @@ func specKey(s goast.Spec) string {
 	return k
 }
 
-var rewriteDocs = flag.Bool("rewrite-docs", false, "format the docs' orbit blocks in place")
+var rewriteDocs = flag.Bool("rewrite-docs", false, "format the docs' lyr blocks in place")
 
-// TestRewriteDocs formats the docs' orbit blocks in place, with
+// TestRewriteDocs formats the docs' lyr blocks in place, with
 // -rewrite-docs (blocks marked unformatted, and blocks that don't parse,
 // are left alone).
 func TestRewriteDocs(t *testing.T) {
@@ -359,7 +359,7 @@ func TestRewriteDocs(t *testing.T) {
 				continue
 			}
 			o := opts
-			o.Path = "x.orbit"
+			o.Path = "x.lyr"
 			out, res := Source(b.text, o)
 			if len(res.Errors) > 0 || out == b.text {
 				continue

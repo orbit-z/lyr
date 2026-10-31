@@ -1,0 +1,14 @@
+---
+import "example.com/x/posts"
+---
+<section>
+    <div>
+        <Card post={posts.Post{
+        Title: "Hello",
+              Tags: []string{"go", "lyr"},
+        }} />
+        {fmt.Sprintf("%s-%s",
+  a,
+          b)}
+    </div>
+</section>

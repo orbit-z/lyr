@@ -1,12 +1,12 @@
-info src/components/err_redeclare.orbit component route=""
-implicit orbit: none
+info src/components/err_redeclare.lyr component route=""
+implicit lyr: none
 stmt @4-14 "props := 1"
 stmt @15-36 "var ctx, other = 1, 2"
 stmt @37-53 "x, slots := 3, 4"
 stmt @54-73 "var (\n\tlocals = 5\n)"
-stmt @74-84 "orbit := 6"
-stmt @85-96 "params := 7"
-stmt @97-131 "if true {\n\tprops := 8\n\t_ = props\n}"
-echo [props ctx other x slots locals orbit params]
+stmt @74-82 "lyr := 6"
+stmt @83-94 "params := 7"
+stmt @95-129 "if true {\n\tprops := 8\n\t_ = props\n}"
+echo [props ctx other x slots locals lyr params]
 terminating false
 props declared=false listable=true span=@0-0

@@ -1,0 +1,22 @@
+---
+import Card "../components/Card.lyr"
+import Frame "../components/Frame.lyr"
+import Tree "../components/Tree.lyr"
+import Box "../components/Box.lyr"
+import About "./about.lyr"
+
+items := []string{"a", "b"}
+---
+<main>
+  {for i, it := range items}
+    <Card title={it}>
+      <p>item {i}: {it}</p>
+      <small slot="footer">#{i}</small>
+    </Card>
+    <Frame title={it}>{it}!</Frame>
+  {/for}
+  <Tree depth={2}><b>{items[0]}</b></Tree>
+  <Box server:defer n={1} />
+  <Card client:visible title="lazy">{items[1]}</Card>
+  <About />
+</main>

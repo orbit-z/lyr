@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
-// Request routing by cursor region (PLAN.md §9): the orbit parser's AST
+// Request routing by cursor region (PLAN.md §9): the lyr parser's AST
 // says whether a position is Go code (proxied to gopls) or template markup
 // (answered natively, or not at all).
 
@@ -16,7 +16,7 @@ import (
 type regionKind uint8
 
 const (
-	// regionNone is template markup Orbit has nothing to say about.
+	// regionNone is template markup Lyr has nothing to say about.
 	regionNone regionKind = iota
 	// regionGo is Go code: the frontmatter, {expr}, attribute expressions,
 	// spreads and control headers.
@@ -25,7 +25,7 @@ const (
 	regionTag
 	// regionProp is a prop's attribute name on a component tag.
 	regionProp
-	// regionImport is an .orbit import's alias or path in the frontmatter.
+	// regionImport is a .lyr import's alias or path in the frontmatter.
 	regionImport
 	// regionTagName is another tag name being typed (<di), or the position
 	// right after a lone "<" in text.
@@ -43,7 +43,7 @@ type region struct {
 	kind regionKind
 	comp *compiler.Component
 	attr *compiler.Attr
-	imp  *compiler.OrbitImport
+	imp  *compiler.LyrImport
 	// node is the tag-shaped node of a regionTag, regionTagName,
 	// regionAttr, regionProp or regionSlot (nil after a lone "<").
 	node compiler.Node
@@ -65,8 +65,8 @@ func classify(f *project.File, off int) region {
 	fm := f.AST.Frontmatter
 	if fm.Present && fm.Code.Contains(off) {
 		if f.Analysis != nil {
-			for i := range f.Analysis.OrbitImports {
-				im := &f.Analysis.OrbitImports[i]
+			for i := range f.Analysis.LyrImports {
+				im := &f.Analysis.LyrImports[i]
 				if im.AliasSpan.Contains(off) || im.PathSpan.Contains(off) {
 					return region{kind: regionImport, imp: im}
 				}
@@ -250,7 +250,7 @@ func (ws *workspace) target(f *project.File, c *compiler.Component) *compiler.Co
 	if c.Self {
 		return ws.proj.Index[f.Path]
 	}
-	for _, im := range f.Analysis.OrbitImports {
+	for _, im := range f.Analysis.LyrImports {
 		if im.Alias == c.Name {
 			return ws.proj.Index[im.Resolved]
 		}
@@ -265,7 +265,7 @@ type location struct {
 }
 
 // nativeDefinition answers definition for template regions: a tag goes to
-// the component's file, an attribute to the Props field, an .orbit import
+// the component's file, an attribute to the Props field, a .lyr import
 // to the imported file. ok is false when the region isn't native.
 func (ws *workspace) nativeDefinition(f *project.File, reg region) (loc *location, ok bool) {
 	switch reg.kind {
@@ -273,13 +273,13 @@ func (ws *workspace) nativeDefinition(f *project.File, reg region) (loc *locatio
 		if ws.byPath[reg.imp.Resolved] == nil {
 			return nil, true
 		}
-		return &location{URI: ws.orbitURI(reg.imp.Resolved)}, true
+		return &location{URI: ws.lyrURI(reg.imp.Resolved)}, true
 	case regionTag:
 		info := ws.target(f, reg.comp)
 		if info == nil {
 			return nil, true
 		}
-		return &location{URI: ws.orbitURI(info.Path)}, true
+		return &location{URI: ws.lyrURI(info.Path)}, true
 	case regionProp:
 		info := ws.target(f, reg.comp)
 		if info == nil {
@@ -295,7 +295,7 @@ func (ws *workspace) nativeDefinition(f *project.File, reg region) (loc *locatio
 				if lines == nil {
 					return nil, true
 				}
-				return &location{URI: ws.orbitURI(info.Path), Range: lines.rangeOf(pf.NameSpan.Start, pf.NameSpan.End, encUTF16)}, true
+				return &location{URI: ws.lyrURI(info.Path), Range: lines.rangeOf(pf.NameSpan.Start, pf.NameSpan.End, encUTF16)}, true
 			}
 		}
 		return nil, false // an embedded or non-listable field: ask gopls
@@ -311,7 +311,7 @@ func (ws *workspace) nativeHover(f *project.File, reg region, lines *lineIndex) 
 		return nil
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "```orbit\n<%s>\n```\n\nComponent `%s`", reg.comp.Name, info.Path)
+	fmt.Fprintf(&b, "```lyr\n<%s>\n```\n\nComponent `%s`", reg.comp.Name, info.Path)
 	b.WriteString(propsAndSlots(info))
 	return map[string]any{
 		"contents": map[string]any{"kind": "markdown", "value": b.String()},

@@ -1,5 +1,5 @@
-info src/pages/redeclare.orbit page route="/redeclare"
-implicit orbit: none
+info src/pages/redeclare.lyr page route="/redeclare"
+implicit lyr: none
 stmt @4-15 "params := 1"
 stmt @16-25 "ctx = nil"
 echo [params]

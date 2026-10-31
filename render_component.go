@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"net/http"
@@ -9,7 +9,7 @@ import (
 // example the response to an htmx request:
 //
 //	btn := likebutton.Props{Slug: r.PathValue("slug"), Likes: n}
-//	if err := orbit.RenderComponent(w, r, likebutton.Render, btn); err != nil {
+//	if err := lyr.RenderComponent(w, r, likebutton.Render, btn); err != nil {
 //		http.Error(w, "render failed", http.StatusInternalServerError)
 //	}
 //
@@ -21,17 +21,17 @@ import (
 //
 // If rendering fails, nothing has been written to w and the error is
 // returned, so the caller can still send its own response. That includes a
-// panic in the component, returned as an error that names the .orbit line,
+// panic in the component, returned as an error that names the .lyr line,
 // and the errors of ctx.Redirect and ErrNotFound, which a page would turn
 // into a redirect or the 404 page.
 //
 // The component's locals are the ones attached to r with EnsureLocals or
 // WithLocals; ctx.Site is nil.
 func RenderComponent[P any](w http.ResponseWriter, r *http.Request, render func(*Ctx, *Writer, P, Slots) error, props P) error {
-	c := acquireCtx(r, nil, os.Getenv("ORBIT_DEV") == "1")
+	c := acquireCtx(r, nil, os.Getenv("LYR_DEV") == "1")
 	c.keys = defaultKeyring()
 	if ch, ok := w.(cacheHolder); ok {
-		c.cacheP = ch.orbitCache() // under Site.CacheHandler (PLAN.md §4h)
+		c.cacheP = ch.lyrCache() // under Site.CacheHandler (PLAN.md §4h)
 	}
 	buf := getBuffer()
 	wr := writerPool.Get().(*Writer)

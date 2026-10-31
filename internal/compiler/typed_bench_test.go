@@ -22,28 +22,28 @@ func tyBenchUnits(t testing.TB, n int) []Unit {
 	for i := range n {
 		var body strings.Builder
 		for _, e := range exprs {
-			fmt.Fprintf(&body, "\torbit__w.Raw(\"<p>\")\n\torbit__w.Expr(\n%s,\n\t)\n", e)
+			fmt.Fprintf(&body, "\tlyr__w.Raw(\"<p>\")\n\tlyr__w.Expr(\n%s,\n\t)\n", e)
 		}
 		for _, a := range attrs {
-			fmt.Fprintf(&body, "\torbit__w.Attr(%q,\n%s,\n\t)\n", a[0], a[1])
+			fmt.Fprintf(&body, "\tlyr__w.Attr(%q,\n%s,\n\t)\n", a[0], a[1])
 		}
-		body.WriteString("\tfor _, tag := range props.Tags {\n\t\torbit__w.Expr(\ntag,\n\t)\n\t}\n")
+		body.WriteString("\tfor _, tag := range props.Tags {\n\t\tlyr__w.Expr(\ntag,\n\t)\n\t}\n")
 		var imports strings.Builder
 		imports.WriteString("\t\"strings\"\n\t\"" + tyPostsPath + "\"\n")
 		body.WriteString("\tif props.N < 0 {\n")
 		for _, d := range []int{1, 7, 13} {
 			j := (i + d) % n
-			fmt.Fprintf(&imports, "\tC%03d \"%s/orbit_gen/decl/components/c%03d\"\n", j, testModule, j)
-			fmt.Fprintf(&body, "\t\tif orbit__err := C%03d.Render(orbit__ctx, orbit__w, C%03d.Props{N: props.N}, orbit__rt.Slots{\n"+
-				"\t\t\tDefault: func(orbit__w *orbit__rt.Writer) error { orbit__w.Expr(\nprops.Post.Title,\n); return orbit__w.Err() },\n"+
-				"\t\t}); orbit__err != nil {\n\t\t\treturn orbit__err\n\t\t}\n", j, j)
+			fmt.Fprintf(&imports, "\tC%03d \"%s/lyr_gen/decl/components/c%03d\"\n", j, testModule, j)
+			fmt.Fprintf(&body, "\t\tif lyr__err := C%03d.Render(lyr__ctx, lyr__w, C%03d.Props{N: props.N}, lyr__rt.Slots{\n"+
+				"\t\t\tDefault: func(lyr__w *lyr__rt.Writer) error { lyr__w.Expr(\nprops.Post.Title,\n); return lyr__w.Err() },\n"+
+				"\t\t}); lyr__err != nil {\n\t\t\treturn lyr__err\n\t\t}\n", j, j)
 		}
 		body.WriteString("\t}\n")
 		units = append(units, tyFixture(t, tyComp{
-			orbit:       fmt.Sprintf("src/components/C%03d.orbit", i),
-			declImports: "\torbit \"" + RuntimePath + "\"\n\t\"" + tyPostsPath + "\"\n",
+			lyr:         fmt.Sprintf("src/components/C%03d.lyr", i),
+			declImports: "\tlyr \"" + RuntimePath + "\"\n\t\"" + tyPostsPath + "\"\n",
 			declBody: "\ntype Props struct {\n\tPost   posts.Post\n\tN      int\n\tTags   []string\n\tStatus posts.Status\n" +
-				"\tPrice  float64\n\tOn     bool\n\tErr    error\n\tHTML   orbit.HTML\n}\n",
+				"\tPrice  float64\n\tOn     bool\n\tErr    error\n\tHTML   lyr.HTML\n}\n",
 			implImports: imports.String(),
 			implTop:     "\nfunc href(p posts.Post) string { return \"/p/\" + string(p.Slug) }\n",
 			body:        body.String(),
@@ -109,7 +109,7 @@ func BenchmarkCheckFullNoGoList(b *testing.B) {
 	}
 }
 
-// BenchmarkCheckHotBody is orbit dev's body edit: one impl package
+// BenchmarkCheckHotBody is lyr dev's body edit: one impl package
 // re-checked by the resident checker (spike: about 0.3 ms).
 func BenchmarkCheckHotBody(b *testing.B) {
 	m := tyBenchModule(b)

@@ -42,7 +42,7 @@ type cssScoper struct {
 	src   string
 	toks  []cssTok
 	i     int
-	scope string // "[data-o-…]"
+	scope string // "[data-l-…]"
 	edits []cssEdit
 	diags []Diagnostic
 	stack []int // prelude's open-bracket stack, reused

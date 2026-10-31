@@ -65,11 +65,11 @@ func ParseBunVersion(s string) (Version, bool) {
 // findBun returns the path of a usable bun, or "" and the skip notice.
 // bun is the configured path, or "" to look it up on PATH.
 func findBun(ctx context.Context, bun string) (path, notice string) {
-	return FindBun(ctx, bun, "orbit check: skipping TypeScript type checking")
+	return FindBun(ctx, bun, "lyr check: skipping TypeScript type checking")
 }
 
 // FindBun returns the path of a usable bun (MinBun or later), or "" and a
-// notice that starts with skipping ("orbit fmt: skipping …") and names the
+// notice that starts with skipping ("lyr fmt: skipping …") and names the
 // command to install or upgrade Bun. bun is the configured path, or "" to
 // look it up on PATH.
 func FindBun(ctx context.Context, bun, skipping string) (path, notice string) {

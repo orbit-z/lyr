@@ -1,2 +1,2 @@
 -- errors --
-err_fm_hoisted.orbit:4:10: expected ';', found ','
+err_fm_hoisted.lyr:4:10: expected ';', found ','

@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -47,7 +47,7 @@ type RestAttrs struct {
 type RestAttr struct {
 	pre, name string
 	kind      restKind
-	s         string // string kinds; the .orbit position for restJSON
+	s         string // string kinds; the .lyr position for restJSON
 	n         uint64 // int, uint and float bits
 	v         any    // restAny, restJSON
 }
@@ -69,7 +69,7 @@ const (
 
 // For generated code. Rest builds the pass-through attributes of a call
 // site: class is the joined class string, tail the pre-escaped static
-// attributes after the last dynamic one (` required data-o-5c7d1e2f`), dyn
+// attributes after the last dynamic one (` required data-l-5c7d1e2f`), dyn
 // the dynamic attributes in source order.
 func Rest(class, tail string, dyn ...RestAttr) RestAttrs {
 	return RestAttrs{class: class, tail: tail, dyn: dyn}
@@ -88,7 +88,7 @@ func RestString(pre, name, s string) RestAttr {
 
 // For generated code. RestStringURL is a dynamic string in a URL attribute (href, src, …):
 // attribute-escaped, with a javascript: or vbscript: URL replaced with
-// about:invalid#orbit.
+// about:invalid#lyr.
 func RestStringURL(pre, name, s string) RestAttr {
 	return RestAttr{pre: pre, name: name, kind: restStringURL, s: s}
 }
@@ -133,14 +133,14 @@ func RestFloat32(pre, name string, f float32) RestAttr {
 }
 
 // For generated code. RestJSON is a dynamic JSONValue attribute, written single-quoted as
-// JSONAttr writes it; pos is the .orbit position of the value, for an
+// JSONAttr writes it; pos is the .lyr position of the value, for an
 // encoding error.
 func RestJSON(pre, name, pos string, v JSONValue) RestAttr {
 	return RestAttr{pre: pre, name: name, kind: restJSON, s: pos, v: v.v}
 }
 
 // For generated code. RestOpt is a dynamic attribute whose value is an
-// Opt (an Opt-typed pass-through attribute, orbit.If included; RestOptURL
+// Opt (an Opt-typed pass-through attribute, lyr.If included; RestOptURL
 // in a URL attribute): omitted when none, else written as its value is
 // (the common types stored unboxed, as the typed constructors store them).
 func RestOpt[T any](pre, name string, o Opt[T]) RestAttr { return restOpt(pre, name, o, false) }
@@ -677,7 +677,7 @@ func (w *Writer) restMap(top, p *RestAttrs, m Attrs) {
 	names := arr[:0]
 	for name := range m {
 		if !validAttrName(name) {
-			w.setErr(fmt.Errorf("orbit: invalid attribute name %q in spread", name))
+			w.setErr(fmt.Errorf("lyr: invalid attribute name %q in spread", name))
 			return
 		}
 		if strings.EqualFold(name, "class") {
@@ -787,7 +787,7 @@ func (a RestAttrs) MarshalJSON() ([]byte, error) {
 		slices.Sort(names)
 		for _, name := range names {
 			if !validAttrName(name) {
-				return nil, fmt.Errorf("orbit: invalid attribute name %q in RestAttrs", name)
+				return nil, fmt.Errorf("lyr: invalid attribute name %q in RestAttrs", name)
 			}
 			if seen[strings.ToLower(name)] {
 				continue
@@ -864,7 +864,7 @@ func (a *RestAttrs) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	if d, ok := tok.(json.Delim); !ok || d != '{' {
-		return errors.New("orbit: RestAttrs must be a JSON object")
+		return errors.New("lyr: RestAttrs must be a JSON object")
 	}
 	var out RestAttrs
 	var tail bytes.Buffer
@@ -875,7 +875,7 @@ func (a *RestAttrs) UnmarshalJSON(data []byte) error {
 		}
 		name, _ := tok.(string)
 		if !validAttrName(name) {
-			return fmt.Errorf("orbit: invalid attribute name %q in RestAttrs", name)
+			return fmt.Errorf("lyr: invalid attribute name %q in RestAttrs", name)
 		}
 		tok, err = dec.Token()
 		if err != nil {
@@ -909,7 +909,7 @@ func (a *RestAttrs) UnmarshalJSON(data []byte) error {
 			}
 		case nil:
 		default:
-			return fmt.Errorf("orbit: RestAttrs attribute %q must be a string, true, false or null", name)
+			return fmt.Errorf("lyr: RestAttrs attribute %q must be a string, true, false or null", name)
 		}
 	}
 	if _, err := dec.Token(); err != nil {

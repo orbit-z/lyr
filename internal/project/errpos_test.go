@@ -6,13 +6,13 @@ import (
 )
 
 // TestReturnedErrorPosition runs a generated site: an error returned from a
-// page's frontmatter is logged with the .orbit position of its return (the
-// compiler wraps each frontmatter return in orbit.ErrorAt), while
+// page's frontmatter is logged with the .lyr position of its return (the
+// compiler wraps each frontmatter return in lyr.ErrorAt), while
 // ErrNotFound and a redirect returned the same way keep their meaning.
 func TestReturnedErrorPosition(t *testing.T) {
 	needGo(t)
 	p := newTestProject(t, map[string]string{
-		"src/pages/x.orbit": `---
+		"src/pages/x.lyr": `---
 import "errors"
 
 if ctx.Param("") == "" {
@@ -21,9 +21,9 @@ if ctx.Param("") == "" {
 ---
 <p>never</p>
 `,
-		"src/pages/gone.orbit": "---\nreturn orbit.ErrNotFound\n---\n",
-		"src/pages/away.orbit": "---\nreturn ctx.Redirect(\"/x\", 303)\n---\n",
-		"src/pages/404.orbit":  "<p>custom 404</p>\n",
+		"src/pages/gone.lyr": "---\nreturn lyr.ErrNotFound\n---\n",
+		"src/pages/away.lyr": "---\nreturn ctx.Redirect(\"/x\", 303)\n---\n",
+		"src/pages/404.lyr":  "<p>custom 404</p>\n",
 		"cmd/server/main.go": `package main
 
 import (
@@ -32,7 +32,7 @@ import (
 	"net/http/httptest"
 	"os"
 
-	"example.com/blog/orbit_gen/app"
+	"example.com/blog/lyr_gen/app"
 )
 
 func main() {
@@ -55,7 +55,7 @@ func main() {
 		t.Fatalf("go run: %v\n%s", err, out)
 	}
 	for _, want := range []string{
-		"orbit: GET /x: src/pages/x.orbit:5:2: boom\n/x 500 ",
+		"lyr: GET /x: src/pages/x.lyr:5:2: boom\n/x 500 ",
 		"/gone 404  \"<p>custom 404</p>",
 		"/away 303 /x ",
 	} {

@@ -113,8 +113,8 @@ func TestProcessorNodePath(t *testing.T) {
 // 'tailwindcss'"). It skips without Bun; the first run downloads the CLI
 // into Bun's cache.
 func TestBunxReal(t *testing.T) {
-	if os.Getenv("ORBIT_TEST_BUNX") == "" {
-		t.Skip("set ORBIT_TEST_BUNX=1 to run the bun x Tailwind test (it may download @tailwindcss/cli)")
+	if os.Getenv("LYR_TEST_BUNX") == "" {
+		t.Skip("set LYR_TEST_BUNX=1 to run the bun x Tailwind test (it may download @tailwindcss/cli)")
 	}
 	if _, err := exec.LookPath("bun"); err != nil {
 		t.Skip("NOTICE: bun not found; skipping the bun x Tailwind test")
@@ -122,7 +122,7 @@ func TestBunxReal(t *testing.T) {
 	root := t.TempDir()
 	styles := filepath.Join(root, "src", "styles")
 	os.MkdirAll(styles, 0o755)
-	os.WriteFile(filepath.Join(root, "src", "x.orbit"), []byte(`<p class="p-4 text-red-500">hi</p>`), 0o644)
+	os.WriteFile(filepath.Join(root, "src", "x.lyr"), []byte(`<p class="p-4 text-red-500">hi</p>`), 0o644)
 	env := DefaultEnv()
 	look := env.LookPath
 	env.LookPath = func(name string) (string, error) {

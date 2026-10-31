@@ -1,7 +1,7 @@
-orbit_gen/decl/components/button/decl.go (src/components/Button.orbit)
-  exact 2:1 "type Props struct {\n\tLabel any\n\tAttrs orbit.RestAttrs\n}" -> 193-248 "type Props struct {\n\tLabel any\n\tAttrs orbit.RestAttrs\n}"
-orbit_gen/impl/components/button/render.go (src/components/Button.orbit)
-  exact 7:13 "props.Attrs" -> 689-700 "props.Attrs"
-  exact 7:27 "props.Label" -> 821-832 "props.Label"
+lyr_gen/decl/components/button/decl.go (src/components/Button.lyr)
+  exact 2:1 "type Props struct {\n\tLabel any\n\tAttrs lyr.RestAttrs\n}" -> 181-234 "type Props struct {\n\tLabel any\n\tAttrs lyr.RestAttrs\n}"
+lyr_gen/impl/components/button/render.go (src/components/Button.lyr)
+  exact 7:13 "props.Attrs" -> 637-648 "props.Attrs"
+  exact 7:27 "props.Label" -> 763-774 "props.Label"
 call sites
-  content key=90 "props.Label" call="orbit__w.Expr(\n/*line ../../../../src/components/Button.orbit:7:27*/props.Label/*line render.go:25:89*/,\n\t)"
+  content key=88 "props.Label" call="lyr__w.Expr(\n/*line ../../../../src/components/Button.lyr:7:27*/props.Label/*line render.go:25:87*/,\n\t)"

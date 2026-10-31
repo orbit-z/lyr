@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"net/http"
@@ -14,23 +14,23 @@ import (
 
 func matchRoutes() []Route {
 	return append(routeTestRoutes(false),
-		Route{Pattern: "/", File: "src/pages/index.orbit", Render: page("home")},
-		Route{Pattern: "/shadow", File: "src/pages/shadow.orbit", Render: page("page")},
-		Route{Pattern: "/rss.xml", File: "src/pages/rss.xml.orbit", Render: page("rss")},
+		Route{Pattern: "/", File: "src/pages/index.lyr", Render: page("home")},
+		Route{Pattern: "/shadow", File: "src/pages/shadow.lyr", Render: page("page")},
+		Route{Pattern: "/rss.xml", File: "src/pages/rss.xml.lyr", Render: page("rss")},
 	)
 }
 
 // matchSite is a site with pages, islands and static files: robots.txt,
-// an /_orbit/ asset and a public file named like the /shadow page.
+// a /_lyr/ asset and a public file named like the /shadow page.
 func matchSite(t *testing.T, opts ...Option) *Site {
 	t.Helper()
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "robots.txt"), "robots")
 	writeFile(t, filepath.Join(dir, "shadow"), "public shadow")
-	writeFile(t, filepath.Join(dir, "_orbit", "app-1234.js"), "js")
-	t.Setenv("ORBIT_STATIC", "")
-	t.Setenv("ORBIT_PUBLIC", "")
-	t.Setenv("ORBIT_KEY", "")
+	writeFile(t, filepath.Join(dir, "_lyr", "app-1234.js"), "js")
+	t.Setenv("LYR_STATIC", "")
+	t.Setenv("LYR_PUBLIC", "")
+	t.Setenv("LYR_KEY", "")
 	return NewSite(matchRoutes(), islandTable, append([]Option{WithStaticDir(dir), withRoute}, opts...)...)
 }
 
@@ -41,33 +41,33 @@ func sameRoute(a, b *RouteInfo) bool {
 func TestSiteMatch(t *testing.T) {
 	s := matchSite(t)
 	build := s.keys.buildID
-	island := routeWant{RouteIsland, islandPattern, "src/components/Comments.orbit", "buildID=" + build + ",id=" + commentsID}
+	island := routeWant{RouteIsland, islandPattern, "src/components/Comments.lyr", "buildID=" + build + ",id=" + commentsID}
 	for _, tt := range []struct {
 		method, target string
 		want           routeWant
 	}{
-		{"GET", "/", routeWant{RoutePage, "/", "src/pages/index.orbit", ""}},
-		{"GET", "/ok", routeWant{RoutePage, "/ok", "src/pages/ok.orbit", ""}},
-		{"POST", "/ok", routeWant{RoutePage, "/ok", "src/pages/ok.orbit", ""}},
-		{"GET", "/ok?x=1", routeWant{RoutePage, "/ok", "src/pages/ok.orbit", ""}},
-		{"GET", "/blog/hello", routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].orbit", "slug=hello"}},
-		{"GET", "/blog/a%20b%2Fc", routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].orbit", "slug=a b/c"}},
-		{"GET", "/docs/a/b/c", routeWant{RoutePage, "/docs/[...path]", "src/pages/docs/[...path].orbit", "path=a/b/c"}},
-		{"GET", "/p/1/2/3/4/5/6/7/8/9", routeWant{RoutePage, "/p/[a]/[b]/[c]/[d]/[e]/[f]/[g]/[h]/[i]", "src/pages/p.orbit", "a=1,b=2,c=3,d=4,e=5,f=6,g=7,h=8,i=9"}},
+		{"GET", "/", routeWant{RoutePage, "/", "src/pages/index.lyr", ""}},
+		{"GET", "/ok", routeWant{RoutePage, "/ok", "src/pages/ok.lyr", ""}},
+		{"POST", "/ok", routeWant{RoutePage, "/ok", "src/pages/ok.lyr", ""}},
+		{"GET", "/ok?x=1", routeWant{RoutePage, "/ok", "src/pages/ok.lyr", ""}},
+		{"GET", "/blog/hello", routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].lyr", "slug=hello"}},
+		{"GET", "/blog/a%20b%2Fc", routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].lyr", "slug=a b/c"}},
+		{"GET", "/docs/a/b/c", routeWant{RoutePage, "/docs/[...path]", "src/pages/docs/[...path].lyr", "path=a/b/c"}},
+		{"GET", "/p/1/2/3/4/5/6/7/8/9", routeWant{RoutePage, "/p/[a]/[b]/[c]/[d]/[e]/[f]/[g]/[h]/[i]", "src/pages/p.lyr", "a=1,b=2,c=3,d=4,e=5,f=6,g=7,h=8,i=9"}},
 		{"GET", "/robots.txt", routeWant{RouteFile, "/robots.txt", "", ""}},
 		{"HEAD", "/robots.txt", routeWant{RouteFile, "/robots.txt", "", ""}},
 		{"POST", "/robots.txt", routeWant{}}, // files are GET and HEAD only; no page: next
-		{"GET", "/_orbit/app-1234.js", routeWant{RouteFile, "/_orbit/app-1234.js", "", ""}},
-		{"GET", "/_orbit/missing.js", routeWant{}},
+		{"GET", "/_lyr/app-1234.js", routeWant{RouteFile, "/_lyr/app-1234.js", "", ""}},
+		{"GET", "/_lyr/missing.js", routeWant{}},
 		{"GET", "/nothing.zip", routeWant{}},
 		{"GET", "/robots.txt/", routeWant{}},
-		{"GET", "/shadow", routeWant{RouteFile, "/shadow", "", ""}},                        // the public file wins
-		{"POST", "/shadow", routeWant{RoutePage, "/shadow", "src/pages/shadow.orbit", ""}}, // files are GET and HEAD only
-		{"GET", "/ok/", routeWant{}},                                                       // the slash redirect
-		{"GET", "/unknown", routeWant{}},                                                   // next, maybe NotFound
-		{"GET", "/_orbit/island/" + build + "/" + commentsID + "?p=x", island},
-		{"DELETE", "/_orbit/island/" + build + "/" + commentsID, island},
-		{"GET", "/_orbit/island/b/Nope-00000000", routeWant{RouteIsland, islandPattern, "", "buildID=b,id=Nope-00000000"}},
+		{"GET", "/shadow", routeWant{RouteFile, "/shadow", "", ""}},                      // the public file wins
+		{"POST", "/shadow", routeWant{RoutePage, "/shadow", "src/pages/shadow.lyr", ""}}, // files are GET and HEAD only
+		{"GET", "/ok/", routeWant{}},                                                     // the slash redirect
+		{"GET", "/unknown", routeWant{}},                                                 // next, maybe NotFound
+		{"GET", "/_lyr/island/" + build + "/" + commentsID + "?p=x", island},
+		{"DELETE", "/_lyr/island/" + build + "/" + commentsID, island},
+		{"GET", "/_lyr/island/b/Nope-00000000", routeWant{RouteIsland, islandPattern, "", "buildID=b,id=Nope-00000000"}},
 	} {
 		ri := s.Match(httptest.NewRequest(tt.method, tt.target, nil))
 		checkRoute(t, tt.method+" "+tt.target, &ri, tt.want)
@@ -89,9 +89,9 @@ var matchCorpus = []string{
 	"/", "/ok", "/ok/", "//ok", "/redirect", "/gone", "/blog/hello", "/blog/hello/", "/blog/a%20b%2Fc",
 	"/blog/a%2F", "/blog/a%2F/", "/blog/hello/?q=go", "/blog/hello?q=go",
 	"/blog", "/docs", "/docs/", "/docs/a/b/c", "/p/1/2/3/4/5/6/7/8/9", "/p/1/2", "/rss.xml", "/rss.xml/",
-	"/robots.txt", "/robots.txt/", "/_orbit/app-1234.js", "/_orbit/missing.js", "/_orbit/", "/shadow", "/shadow/",
-	"/unknown", "/unknown/", "/nothing.zip", "/_orbit/island/", "/_orbit/island/b", "/_orbit/island/b/Nope-00000000",
-	"/_orbit/island/BUILD/" + commentsID, "/_orbit/island/BUILD/" + commentsID + "/extra",
+	"/robots.txt", "/robots.txt/", "/_lyr/app-1234.js", "/_lyr/missing.js", "/_lyr/", "/shadow", "/shadow/",
+	"/unknown", "/unknown/", "/nothing.zip", "/_lyr/island/", "/_lyr/island/b", "/_lyr/island/b/Nope-00000000",
+	"/_lyr/island/BUILD/" + commentsID, "/_lyr/island/BUILD/" + commentsID + "/extra",
 }
 
 var matchMethods = []string{"GET", "HEAD", "POST", "DELETE"}
@@ -103,7 +103,7 @@ func TestSiteMatchAgrees(t *testing.T) {
 	kinds := map[RouteKind]int{}
 	for _, dev := range []string{"", "1"} {
 		for _, mode := range []TrailingSlash{TrailingSlashNever, TrailingSlashAlways} {
-			t.Setenv("ORBIT_DEV", dev)
+			t.Setenv("LYR_DEV", dev)
 			s := matchSite(t, WithTrailingSlash(mode))
 			var got *routeLocals
 			h := attachLocals(s.Middleware(http.NotFoundHandler()), &got)
@@ -128,8 +128,8 @@ func TestSiteMatchAgrees(t *testing.T) {
 	}
 }
 
-// TestSiteMatchThenServe: an early match in Locals is overwritten by Orbit's
-// own fill whenever the request reaches Orbit.
+// TestSiteMatchThenServe: an early match in Locals is overwritten by Lyr's
+// own fill whenever the request reaches Lyr.
 func TestSiteMatchThenServe(t *testing.T) {
 	s := matchSite(t)
 	var got *routeLocals
@@ -144,19 +144,19 @@ func TestSiteMatchThenServe(t *testing.T) {
 			got = l
 		})
 	}
-	// Same route: Orbit fills the same value.
+	// Same route: Lyr fills the same value.
 	early("", s.Handler()).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/blog/hello", nil))
-	checkRoute(t, "same", &got.Route, routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].orbit", "slug=hello"})
-	// Rewritten after Match: Orbit's value wins.
+	checkRoute(t, "same", &got.Route, routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].lyr", "slug=hello"})
+	// Rewritten after Match: Lyr's value wins.
 	early("/ok", s.Handler()).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/blog/hello", nil))
-	checkRoute(t, "rewritten", &got.Route, routeWant{RoutePage, "/ok", "src/pages/ok.orbit", ""})
+	checkRoute(t, "rewritten", &got.Route, routeWant{RoutePage, "/ok", "src/pages/ok.lyr", ""})
 	// No page: RouteNone, then Handler's NotFound records /404.
 	early("", s.Handler()).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/unknown", nil))
 	checkRoute(t, "unknown", &got.Route, routeWant{RouteNotFound, "/404", "", ""})
-	// Answered before Orbit (a gate): the early match stays.
+	// Answered before Lyr (a gate): the early match stays.
 	gate := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/signin", http.StatusSeeOther) })
 	early("", gate).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/blog/hello", nil))
-	checkRoute(t, "gate", &got.Route, routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].orbit", "slug=hello"})
+	checkRoute(t, "gate", &got.Route, routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].lyr", "slug=hello"})
 }
 
 // TestSiteMatchFileDeleted: the documented production deviation. A file in
@@ -165,12 +165,12 @@ func TestSiteMatchThenServe(t *testing.T) {
 // both.
 func TestSiteMatchFileDeleted(t *testing.T) {
 	for _, dev := range []string{"", "1"} {
-		t.Setenv("ORBIT_DEV", dev)
+		t.Setenv("LYR_DEV", dev)
 		dir := t.TempDir()
 		writeFile(t, filepath.Join(dir, "shadow"), "public shadow")
-		t.Setenv("ORBIT_STATIC", "")
-		t.Setenv("ORBIT_PUBLIC", "")
-		t.Setenv("ORBIT_KEY", "")
+		t.Setenv("LYR_STATIC", "")
+		t.Setenv("LYR_PUBLIC", "")
+		t.Setenv("LYR_KEY", "")
 		s := NewSite(matchRoutes(), islandTable, WithStaticDir(dir), withRoute)
 		if err := os.Remove(filepath.Join(dir, "shadow")); err != nil {
 			t.Fatal(err)
@@ -178,7 +178,7 @@ func TestSiteMatchFileDeleted(t *testing.T) {
 		ri := s.Match(httptest.NewRequest("GET", "/shadow", nil))
 		var got *routeLocals
 		attachLocals(s.Middleware(http.NotFoundHandler()), &got).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/shadow", nil))
-		page := routeWant{RoutePage, "/shadow", "src/pages/shadow.orbit", ""}
+		page := routeWant{RoutePage, "/shadow", "src/pages/shadow.lyr", ""}
 		if dev == "" {
 			checkRoute(t, "prod Match", &ri, routeWant{RouteFile, "/shadow", "", ""})
 		} else {
@@ -190,7 +190,7 @@ func TestSiteMatchFileDeleted(t *testing.T) {
 
 // TestSiteMatchCacheHit: a route-cache HIT fills the same route as Match.
 func TestSiteMatchCacheHit(t *testing.T) {
-	s, _ := cacheSite(t, []Route{{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].orbit", Render: func(c *Ctx, w *Writer) error {
+	s, _ := cacheSite(t, []Route{{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].lyr", Render: func(c *Ctx, w *Writer) error {
 		c.Cache().Set(hour)
 		w.Raw("post")
 		return nil
@@ -200,8 +200,8 @@ func TestSiteMatchCacheHit(t *testing.T) {
 	for i, want := range []string{"MISS", "HIT"} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest("GET", "/blog/hello", nil))
-		if rec.Header().Get("X-Orbit-Cache") != want {
-			t.Fatalf("request %d: %q, want %q", i, rec.Header().Get("X-Orbit-Cache"), want)
+		if rec.Header().Get("X-Lyr-Cache") != want {
+			t.Fatalf("request %d: %q, want %q", i, rec.Header().Get("X-Lyr-Cache"), want)
 		}
 		ri := s.Match(httptest.NewRequest("GET", "/blog/hello", nil))
 		if !sameRoute(&ri, &got.Route) || ri.Kind != RoutePage {
@@ -229,7 +229,7 @@ func TestSiteMatchAllocs(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("allocation counts (not under -short or -race)")
 	}
-	t.Setenv("ORBIT_DEV", "")
+	t.Setenv("LYR_DEV", "")
 	s := matchSite(t)
 	for _, tt := range []struct {
 		method, target string
@@ -241,11 +241,11 @@ func TestSiteMatchAllocs(t *testing.T) {
 		{"POST", "/ok", 0},
 		{"GET", "/robots.txt", 0},
 		{"HEAD", "/robots.txt", 0},
-		{"GET", "/_orbit/app-1234.js", 0},
+		{"GET", "/_lyr/app-1234.js", 0},
 		{"GET", "/nothing.zip", 0},
 		{"GET", "/ok/", 0},
 		{"GET", "/unknown", 0},
-		{"GET", "/_orbit/island/" + s.keys.buildID + "/" + commentsID, 0},
+		{"GET", "/_lyr/island/" + s.keys.buildID + "/" + commentsID, 0},
 		{"GET", "/p/1/2/3/4/5/6/7/8/9", 1}, // the 9 values
 	} {
 		r := httptest.NewRequest(tt.method, tt.target, nil)
@@ -284,8 +284,8 @@ func TestSiteMatchAllocs(t *testing.T) {
 }
 
 func BenchmarkSiteMatch(b *testing.B) {
-	b.Setenv("ORBIT_STATIC", "")
-	b.Setenv("ORBIT_DEV", "")
+	b.Setenv("LYR_STATIC", "")
+	b.Setenv("LYR_DEV", "")
 	s := NewSite(matchRoutes(), islandTable, WithStaticDir(b.TempDir()))
 	for _, target := range []string{"/blog/hello", "/unknown"} {
 		r := httptest.NewRequest("GET", target, nil)

@@ -1,0 +1,11 @@
+---
+import (
+	Base "../layouts/Base.lyr"
+	Card "../components/Card.lyr"
+	Slow "../components/Slow.lyr"
+)
+---
+<Base title="Home">
+  <Card post="one" />
+  <Slow server:defer n={7}><p slot="fallback">loading</p></Slow>
+</Base>

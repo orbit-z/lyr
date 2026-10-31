@@ -61,7 +61,7 @@ func TestLaunchContent(t *testing.T) {
 		}
 	}
 
-	// Code blocks are highlighted, orbit blocks with Orbit's lexer.
+	// Code blocks are highlighted, lyr blocks with Lyr's lexer.
 	html := string(d.Page("components").HTML)
 	if !strings.Contains(html, `<pre class="chroma"`) || !strings.Contains(html, `<span class="k">`) {
 		t.Errorf("components.md: code not highlighted")

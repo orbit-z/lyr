@@ -25,8 +25,8 @@ func (s Status) String() string { return "status" }
 `
 
 const (
-	tyDeclCard = testModule + "/orbit_gen/decl/components/card"
-	tyDeclList = testModule + "/orbit_gen/decl/components/list"
+	tyDeclCard = testModule + "/lyr_gen/decl/components/card"
+	tyDeclList = testModule + "/lyr_gen/decl/components/list"
 )
 
 // tyProject is a multi-package fixture: Card (Props uses internal/posts),
@@ -39,32 +39,32 @@ type tyProject struct {
 func newTyProject() *tyProject {
 	return &tyProject{
 		card: tyComp{
-			orbit:       "src/components/Card.orbit",
+			lyr:         "src/components/Card.lyr",
 			declImports: "\t\"" + tyPostsPath + "\"\n",
 			declBody:    "\ntype Props struct {\n\tPost posts.Post\n\tN    int\n}\n",
-			body: "\torbit__w.Expr(\nprops.Post.Title,\n\t)\n" +
-				"\torbit__w.Attr(\"href\",\nprops.Post.Slug,\n\t)\n" +
-				"\torbit__w.Expr(\nprops.N,\n\t)\n",
+			body: "\tlyr__w.Expr(\nprops.Post.Title,\n\t)\n" +
+				"\tlyr__w.Attr(\"href\",\nprops.Post.Slug,\n\t)\n" +
+				"\tlyr__w.Expr(\nprops.N,\n\t)\n",
 		},
 		list: tyComp{
-			orbit:       "src/components/List.orbit",
+			lyr:         "src/components/List.lyr",
 			declImports: "\tCard \"" + tyDeclCard + "\"\n",
 			implImports: "\tCard \"" + tyDeclCard + "\"\n",
 			declBody:    "\ntype Props struct{ Items []Card.Props }\n",
 			body: "\tfor _, it := range props.Items {\n" +
-				"\t\tif orbit__err := Card.Render(orbit__ctx, orbit__w, it, orbit__rt.Slots{}); orbit__err != nil {\n\t\t\treturn orbit__err\n\t\t}\n\t}\n" +
-				"\torbit__w.Expr(\nlen(props.Items),\n\t)\n",
+				"\t\tif lyr__err := Card.Render(lyr__ctx, lyr__w, it, lyr__rt.Slots{}); lyr__err != nil {\n\t\t\treturn lyr__err\n\t\t}\n\t}\n" +
+				"\tlyr__w.Expr(\nlen(props.Items),\n\t)\n",
 		},
 		index: tyComp{
-			orbit:       "src/pages/index.orbit",
+			lyr:         "src/pages/index.lyr",
 			page:        true,
 			implImports: "\tCard \"" + tyDeclCard + "\"\n\tList \"" + tyDeclList + "\"\n",
-			body: "\tif orbit__err := List.Render(orbit__ctx, orbit__w, List.Props{Items: []Card.Props{{N: 1}}}, orbit__rt.Slots{}); orbit__err != nil {\n\t\treturn orbit__err\n\t}\n" +
-				"\torbit__w.Expr(\n\"hi\",\n\t)\n",
+			body: "\tif lyr__err := List.Render(lyr__ctx, lyr__w, List.Props{Items: []Card.Props{{N: 1}}}, lyr__rt.Slots{}); lyr__err != nil {\n\t\treturn lyr__err\n\t}\n" +
+				"\tlyr__w.Expr(\n\"hi\",\n\t)\n",
 		},
 		other: tyComp{
-			orbit: "src/components/Other.orbit",
-			body:  "\torbit__w.Expr(\n1.5,\n\t)\n",
+			lyr:  "src/components/Other.lyr",
+			body: "\tlyr__w.Expr(\n1.5,\n\t)\n",
 		},
 	}
 }
@@ -114,7 +114,7 @@ func TestCheckerFullAndUpdate(t *testing.T) {
 		if res.Units[i].Output == u.Pass1 {
 			t.Errorf("%s: not re-emitted", u.Pass1.Impl.Path)
 		}
-		if !strings.Contains(string(res.Units[i].Output.Impl.Content), "orbit__w."+strings.Split(want[i][0], "/")[0]+"(") {
+		if !strings.Contains(string(res.Units[i].Output.Impl.Content), "lyr__w."+strings.Split(want[i][0], "/")[0]+"(") {
 			t.Errorf("%s: re-emitted output lacks the typed write:\n%s", u.Pass1.Impl.Path, res.Units[i].Output.Impl.Content)
 		}
 	}
@@ -141,10 +141,10 @@ func TestCheckerFullAndUpdate(t *testing.T) {
 	}
 
 	// A body edit re-checks only that impl package.
-	p.card.body += "\torbit__w.Expr(\nprops.Post.Slug,\n\t)\n"
+	p.card.body += "\tlyr__w.Expr(\nprops.Post.Slug,\n\t)\n"
 	card := tyFixture(t, p.card)
 	res = update([]Unit{card}, nil)
-	if got := tyPaths(res); !reflect.DeepEqual(got, []string{"orbit_gen/impl/components/card/render.go"}) {
+	if got := tyPaths(res); !reflect.DeepEqual(got, []string{"lyr_gen/impl/components/card/render.go"}) {
 		t.Errorf("body edit re-checked %v", got)
 	}
 	if d, i := c.state.stats.decl.Load(), c.state.stats.impl.Load(); d != 0 || i != 1 {
@@ -157,13 +157,13 @@ func TestCheckerFullAndUpdate(t *testing.T) {
 	// A Props edit re-checks that decl, the decls importing it (List) and
 	// every impl importing either; Other isn't touched.
 	p.card.declBody = "\ntype Props struct {\n\tPost  posts.Post\n\tN     int\n\tExtra bool\n}\n"
-	p.card.body += "\torbit__w.Attr(\"hidden\",\nprops.Extra,\n\t)\n"
+	p.card.body += "\tlyr__w.Attr(\"hidden\",\nprops.Extra,\n\t)\n"
 	card = tyFixture(t, p.card)
 	res = update([]Unit{card}, nil)
 	if got, want := tyPaths(res), []string{
-		"orbit_gen/impl/components/card/render.go",
-		"orbit_gen/impl/components/list/render.go",
-		"orbit_gen/impl/pages/index/render.go",
+		"lyr_gen/impl/components/card/render.go",
+		"lyr_gen/impl/components/list/render.go",
+		"lyr_gen/impl/pages/index/render.go",
 	}; !reflect.DeepEqual(got, want) {
 		t.Errorf("Props edit re-checked %v, want %v", got, want)
 	}
@@ -190,12 +190,12 @@ func TestCheckerFullAndUpdate(t *testing.T) {
 	}
 
 	// Removing a file nobody imports re-checks nothing.
-	res = update(nil, []string{"src/components/Other.orbit"})
+	res = update(nil, []string{"src/components/Other.lyr"})
 	if len(res.Units) != 0 {
 		t.Errorf("removal re-checked %v", tyPaths(res))
 	}
 	// Removing Card makes its importers fall back.
-	res = update(nil, []string{"src/components/Card.orbit"})
+	res = update(nil, []string{"src/components/Card.lyr"})
 	if got := tyChecked(res); got != "false false " {
 		t.Errorf("after removing Card: %v checked %s", tyPaths(res), got)
 	}
@@ -214,10 +214,10 @@ func TestCheckerFullAndUpdate(t *testing.T) {
 
 	// A new external import reloads too.
 	p.other.implImports = "\t\"strconv\"\n"
-	p.other.body = "\torbit__w.Expr(\nstrconv.Itoa(1),\n\t)\n"
+	p.other.body = "\tlyr__w.Expr(\nstrconv.Itoa(1),\n\t)\n"
 	other := tyFixture(t, p.other)
 	res = update([]Unit{other}, nil)
-	if l.loads != 3 || len(res.Units) != 4 || res.Units[0].Output.Impl.Path != "orbit_gen/impl/components/other/render.go" {
+	if l.loads != 3 || len(res.Units) != 4 || res.Units[0].Output.Impl.Path != "lyr_gen/impl/components/other/render.go" {
 		t.Errorf("new import: loads=%d units=%v", l.loads, tyPaths(res))
 	}
 	if got := tyGot(other, res.Units[0]); !reflect.DeepEqual(got, []string{"String"}) {
@@ -260,7 +260,7 @@ func TestCheckerFallbacks(t *testing.T) {
 		if got := tyChecked(res); got != "false false false true " {
 			t.Errorf("checked = %s", got)
 		}
-		want := []string{"orbit: can't read export data for " + tyPostsPath + ": open /cache/xx-d: no such file or directory; using Expr fallbacks"}
+		want := []string{"lyr: can't read export data for " + tyPostsPath + ": open /cache/xx-d: no such file or directory; using Expr fallbacks"}
 		if !reflect.DeepEqual(res.Warnings, want) {
 			t.Errorf("warnings = %q, want %q", res.Warnings, want)
 		}
@@ -276,7 +276,7 @@ func TestCheckerFallbacks(t *testing.T) {
 		if got := tyChecked(res); got != "false false false false " {
 			t.Errorf("checked = %s", got)
 		}
-		want := []string{"orbit: can't load export data: go list -export: go: updates to go.mod needed; using Expr fallbacks"}
+		want := []string{"lyr: can't load export data: go list -export: go: updates to go.mod needed; using Expr fallbacks"}
 		if !reflect.DeepEqual(res.Warnings, want) {
 			t.Errorf("warnings = %q, want %q", res.Warnings, want)
 		}
@@ -287,11 +287,11 @@ func TestCheckerFallbacks(t *testing.T) {
 		}
 	})
 	t.Run("decl import cycle", func(t *testing.T) {
-		a := tyComp{orbit: "src/components/A.orbit", declImports: "\tB \"" + testModule + "/orbit_gen/decl/components/b\"\n",
-			declBody: "\ntype Props struct{ B *B.Props }\n", body: "\torbit__w.Expr(\n\"a\",\n\t)\n"}
-		b := tyComp{orbit: "src/components/B.orbit", declImports: "\tA \"" + testModule + "/orbit_gen/decl/components/a\"\n",
-			declBody: "\ntype Props struct{ A *A.Props }\n", body: "\torbit__w.Expr(\n\"b\",\n\t)\n"}
-		o := tyComp{orbit: "src/components/O.orbit", body: "\torbit__w.Expr(\n\"o\",\n\t)\n"}
+		a := tyComp{lyr: "src/components/A.lyr", declImports: "\tB \"" + testModule + "/lyr_gen/decl/components/b\"\n",
+			declBody: "\ntype Props struct{ B *B.Props }\n", body: "\tlyr__w.Expr(\n\"a\",\n\t)\n"}
+		b := tyComp{lyr: "src/components/B.lyr", declImports: "\tA \"" + testModule + "/lyr_gen/decl/components/a\"\n",
+			declBody: "\ntype Props struct{ A *A.Props }\n", body: "\tlyr__w.Expr(\n\"b\",\n\t)\n"}
+		o := tyComp{lyr: "src/components/O.lyr", body: "\tlyr__w.Expr(\n\"o\",\n\t)\n"}
 		res := tyCheckWith(t, tyLoader(), []Unit{tyFixture(t, a), tyFixture(t, b), tyFixture(t, o)})
 		if got := tyChecked(res); got != "false false true " {
 			t.Errorf("checked = %s", got)

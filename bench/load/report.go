@@ -66,7 +66,7 @@ var scenarioTitles = map[string]string{
 // Markdown renders the report as Markdown tables, one per scenario.
 func (rep *Report) Markdown() string {
 	var b strings.Builder
-	b.WriteString("# Orbit vs. Astro: SSR benchmark\n\n")
+	b.WriteString("# Lyr vs. Astro: SSR benchmark\n\n")
 	if len(rep.Meta) > 0 {
 		b.WriteString("| | |\n|---|---|\n")
 		keys := make([]string, 0, len(rep.Meta))

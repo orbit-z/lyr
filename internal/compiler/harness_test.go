@@ -103,7 +103,7 @@ func (m *genModule) buildErrors() (build, vet string) {
 
 // run writes mainSrc as cmd/render/main.go and returns what go run prints.
 // mainSrc imports the decl packages it renders and the impl packages (as _)
-// that link them; there is no orbit_gen/app before milestone 5.
+// that link them; there is no lyr_gen/app before milestone 5.
 func (m *genModule) run(mainSrc string) string {
 	m.t.Helper()
 	m.write("cmd/render/main.go", mainSrc)
@@ -117,29 +117,29 @@ func (m *genModule) run(mainSrc string) string {
 // islandPlaceholder matches the parts of a server:defer placeholder that
 // change on every go run (a random build ID and key outside go test): the
 // runtime's own tests check the tokens.
-var islandPlaceholder = regexp.MustCompile(`/_orbit/island/[0-9a-f]{16}/([^"]*)" props="[A-Za-z0-9_-]*"`)
+var islandPlaceholder = regexp.MustCompile(`/_lyr/island/[0-9a-f]{16}/([^"]*)" props="[A-Za-z0-9_-]*"`)
 
 func normalizeIslands(s string) string {
-	return islandPlaceholder.ReplaceAllString(s, `/_orbit/island/*/$1" props="*"`)
+	return islandPlaceholder.ReplaceAllString(s, `/_lyr/island/*/$1" props="*"`)
 }
 
 // TestHarness checks the harness itself with a hand-written package in the
 // generated layout.
 func TestHarness(t *testing.T) {
 	m := newGenModule(t)
-	m.write("orbit_gen/decl/components/hello/decl.go", GenHeader+`
+	m.write("lyr_gen/decl/components/hello/decl.go", GenHeader+`
 
 package hello
 
-import orbit__rt "github.com/orbit-z/orbit"
+import lyr__rt "github.com/orbit-z/lyr"
 
 type Props struct{ Name string }
 
-func Render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit__props Props, orbit__slots orbit__rt.Slots) error {
-	orbit__w.Raw("<p>hello ")
-	orbit__w.String(orbit__props.Name)
-	orbit__w.Raw("</p>")
-	return orbit__w.Err()
+func Render(lyr__ctx *lyr__rt.Ctx, lyr__w *lyr__rt.Writer, lyr__props Props, lyr__slots lyr__rt.Slots) error {
+	lyr__w.Raw("<p>hello ")
+	lyr__w.String(lyr__props.Name)
+	lyr__w.Raw("</p>")
+	return lyr__w.Err()
 }
 `)
 	m.buildAndVet()
@@ -149,13 +149,13 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/orbit-z/orbit"
-	hello "example.com/blog/orbit_gen/decl/components/hello"
+	"github.com/orbit-z/lyr"
+	hello "example.com/blog/lyr_gen/decl/components/hello"
 )
 
 func main() {
 	var buf bytes.Buffer
-	if err := hello.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), hello.Props{Name: "<you>"}, orbit.Slots{}); err != nil {
+	if err := hello.Render(&lyr.Ctx{}, lyr.NewWriter(&buf), hello.Props{Name: "<you>"}, lyr.Slots{}); err != nil {
 		panic(err)
 	}
 	fmt.Print(buf.String())

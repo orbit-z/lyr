@@ -7,8 +7,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/check"
-	"github.com/orbit-z/orbit/internal/format"
+	"github.com/orbit-z/lyr/internal/check"
+	"github.com/orbit-z/lyr/internal/format"
 )
 
 const fmtPage = "---\nimport \"strings\"\n\ntitle:=strings.ToUpper( \"é—ü\" )\n---\n<h1 title={ title+\"😀\" }>é😀 { title }</h1>\n<p>{len(title)+1}</p>\n<script>\nconst a=1\n</script>\n"
@@ -35,9 +35,9 @@ func TestFormatting(t *testing.T) {
 		t.Skip("skipping in -short mode")
 	}
 	dir := writeProject(t, map[string]string{
-		"src/pages/index.orbit": fmtPage,
-		"src/pages/bad.orbit":   "<div>{ x }\n",
-		"src/pages/about.md":    "# About\n",
+		"src/pages/index.lyr": fmtPage,
+		"src/pages/bad.lyr":   "<div>{ x }\n",
+		"src/pages/about.md":  "# About\n",
 	})
 	stub, err := os.Executable()
 	if err != nil {
@@ -61,15 +61,15 @@ func TestFormatting(t *testing.T) {
 
 	// The edits give the CLI's output, with UTF-16 ranges over non-ASCII
 	// text; an unsaved buffer is what's formatted.
-	text := c.open("src/pages/index.orbit")
+	text := c.open("src/pages/index.lyr")
 	text += "<p>{ 1+2 }</p>\n"
-	c.change("src/pages/index.orbit", text)
+	c.change("src/pages/index.lyr", text)
 	var edits []TextEdit
-	if err := json.Unmarshal(format1("src/pages/index.orbit"), &edits); err != nil {
+	if err := json.Unmarshal(format1("src/pages/index.lyr"), &edits); err != nil {
 		t.Fatal(err)
 	}
 	bun, _ := check.FindBun(context.Background(), "", "")
-	want, res := format.Source(text, format.Options{Path: "src/pages/index.orbit", Bun: bun, BunDir: dir})
+	want, res := format.Source(text, format.Options{Path: "src/pages/index.lyr", Bun: bun, BunDir: dir})
 	if len(res.Errors) > 0 {
 		t.Fatal(res.Errors)
 	}
@@ -81,8 +81,8 @@ func TestFormatting(t *testing.T) {
 	}
 
 	// A syntax error: no edits.
-	c.open("src/pages/bad.orbit")
-	if res := format1("src/pages/bad.orbit"); string(res) != "[]" {
+	c.open("src/pages/bad.lyr")
+	if res := format1("src/pages/bad.lyr"); string(res) != "[]" {
 		t.Errorf("syntax error: got %s, want []", res)
 	}
 	// Markdown: null.

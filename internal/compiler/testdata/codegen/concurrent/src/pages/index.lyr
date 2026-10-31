@@ -1,0 +1,24 @@
+---
+import (
+	Box "../components/Box.lyr"
+	Ping "../components/Ping.lyr"
+	Slow "../components/Slow.lyr"
+	Tree "../components/Tree.lyr"
+	Sub "./sub.lyr"
+)
+
+names := []string{"x", "y"}
+---
+<html><head><title>t</title></head><body>
+<Slow server:concurrent name="a" ms={5} />
+<Slow server:concurrent name="b" ms={1}><em>{names[0]}</em></Slow>
+<Box server:concurrent><Slow name="in-box" />{ctx.URL.Path}<span slot="footer">static</span></Box>
+<Box>{ctx.URL.Path}</Box>
+<Box><Box><b>{ctx.URL.Path}</b></Box></Box>
+{for _, ctx := range names}<Box><Slow server:concurrent name={ctx} /></Box>{/for}
+<Slow server:concurrent client:idle name="lazy" />
+<ul><Tree server:concurrent /></ul>
+<Ping server:concurrent n={3} />
+<Sub server:concurrent />
+<footer>end</footer>
+</body></html>

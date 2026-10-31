@@ -11,12 +11,12 @@ import (
 	"testing"
 )
 
-// Tests of the build flavor (PLAN.md §3.5): orbit build overlays impl
-// files with direct calls on orbit_gen/, which stays as orbit generate
+// Tests of the build flavor (PLAN.md §3.5): lyr build overlays impl
+// files with direct calls on lyr_gen/, which stays as lyr generate
 // writes it.
 
 // flavorTest is a go test, written into a project, that GETs each route
-// (from FLAVOR_ROUTES, comma-separated) through orbittest.Get and writes
+// (from FLAVOR_ROUTES, comma-separated) through lyrtest.Get and writes
 // the responses to FLAVOR_OUT.
 const flavorTest = `package flavor_test
 
@@ -26,16 +26,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/orbittest"
+	"github.com/orbit-z/lyr/lyrtest"
 
-	"MODULE/orbit_gen/app"
+	"MODULE/lyr_gen/app"
 )
 
 func TestDump(t *testing.T) {
 	h := app.New().Handler()
 	var b strings.Builder
 	for _, path := range strings.Split(os.Getenv("FLAVOR_ROUTES"), ",") {
-		rec := orbittest.Get(t, h, path)
+		rec := lyrtest.Get(t, h, path)
 		fmt.Fprintf(&b, "== %s %d\n%s\n", path, rec.Code, rec.Body.String())
 	}
 	if err := os.WriteFile(os.Getenv("FLAVOR_OUT"), []byte(b.String()), 0o644); err != nil {
@@ -45,11 +45,11 @@ func TestDump(t *testing.T) {
 `
 
 // islandToken matches what differs between two test binaries: the island
-// build ID and token (a random key without orbit build).
-var islandToken = regexp.MustCompile(`/_orbit/island/[0-9a-f]{16}/([^"]*)" props="[A-Za-z0-9_-]*"`)
+// build ID and token (a random key without lyr build).
+var islandToken = regexp.MustCompile(`/_lyr/island/[0-9a-f]{16}/([^"]*)" props="[A-Za-z0-9_-]*"`)
 
 // checkFlavors runs flavorTest in dir (module module) with and without
-// -overlay=.orbit/build/overlay.json, after an orbit build, and checks that
+// -overlay=.lyr/build/overlay.json, after a lyr build, and checks that
 // every route's response is byte-identical between the flavors.
 func checkFlavors(t *testing.T, dir, module string, routes []string) {
 	t.Helper()
@@ -67,9 +67,9 @@ func checkFlavors(t *testing.T, dir, module string, routes []string) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return islandToken.ReplaceAllString(string(b), `/_orbit/island/*/$1" props="*"`)
+		return islandToken.ReplaceAllString(string(b), `/_lyr/island/*/$1" props="*"`)
 	}
-	hook, direct := dump(), dump("-overlay=.orbit/build/overlay.json")
+	hook, direct := dump(), dump("-overlay=.lyr/build/overlay.json")
 	if hook != direct {
 		t.Errorf("the build flavor serves different responses:\n--- hook\n%s\n--- build flavor\n%s", hook, direct)
 	}
@@ -97,42 +97,42 @@ func readTree(t *testing.T, dir string) map[string]string {
 	return out
 }
 
-// checkBuildFlavor checks the disk after an orbit build in dir: orbit_gen/
-// is what orbit generate writes (gen, read after it), .orbit/build holds
-// the overlay with want among its files, and a second orbit build writes
-// the same .orbit/build.
+// checkBuildFlavor checks the disk after a lyr build in dir: lyr_gen/
+// is what lyr generate writes (gen, read after it), .lyr/build holds
+// the overlay with want among its files, and a second lyr build writes
+// the same .lyr/build.
 func checkBuildFlavor(t *testing.T, dir string, gen map[string]string, want string) {
 	t.Helper()
-	if got := readTree(t, filepath.Join(dir, "orbit_gen")); !reflect.DeepEqual(got, gen) {
-		t.Error("orbit build left orbit_gen/ different from orbit generate's output")
+	if got := readTree(t, filepath.Join(dir, "lyr_gen")); !reflect.DeepEqual(got, gen) {
+		t.Error("lyr build left lyr_gen/ different from lyr generate's output")
 	}
-	first := readTree(t, filepath.Join(dir, ".orbit/build"))
+	first := readTree(t, filepath.Join(dir, ".lyr/build"))
 	if _, ok := first["overlay.json"]; !ok {
-		t.Fatalf("no .orbit/build/overlay.json; files: %v", first)
+		t.Fatalf("no .lyr/build/overlay.json; files: %v", first)
 	}
-	if _, ok := first[want]; !ok || !strings.Contains(first["overlay.json"], `".orbit/build/`+want+`"`) {
+	if _, ok := first[want]; !ok || !strings.Contains(first["overlay.json"], `".lyr/build/`+want+`"`) {
 		t.Errorf("%s isn't overlaid:\n%s", want, first["overlay.json"])
 	}
-	if code, out := runOrbit(t, dir, "build"); code != 0 || out != "" {
-		t.Fatalf("second orbit build: exit %d\n%s", code, out)
+	if code, out := runLyr(t, dir, "build"); code != 0 || out != "" {
+		t.Fatalf("second lyr build: exit %d\n%s", code, out)
 	}
-	if again := readTree(t, filepath.Join(dir, ".orbit/build")); !reflect.DeepEqual(first, again) {
-		t.Error("two orbit build runs wrote different .orbit/build trees")
+	if again := readTree(t, filepath.Join(dir, ".lyr/build")); !reflect.DeepEqual(first, again) {
+		t.Error("two lyr build runs wrote different .lyr/build trees")
 	}
 }
 
-// TestBuildOverlayInGOFLAGS checks that orbit build refuses an -overlay in
+// TestBuildOverlayInGOFLAGS checks that lyr build refuses an -overlay in
 // GOFLAGS, which its own -overlay would silently replace.
 func TestBuildOverlayInGOFLAGS(t *testing.T) {
 	needE2E(t)
 	t.Parallel()
 	dir := fixture(t, false)
-	code, out := runOrbitEnv(t, dir, []string{"GOFLAGS=-mod=mod -overlay=x.json"}, "build")
-	if want := "orbit: -overlay in GOFLAGS isn't supported (orbit build passes its own)\n"; code != 1 || out != want {
-		t.Errorf("orbit build: exit %d\n%s\nwant exit 1\n%s", code, out, want)
+	code, out := runLyrEnv(t, dir, []string{"GOFLAGS=-mod=mod -overlay=x.json"}, "build")
+	if want := "lyr: -overlay in GOFLAGS isn't supported (lyr build passes its own)\n"; code != 1 || out != want {
+		t.Errorf("lyr build: exit %d\n%s\nwant exit 1\n%s", code, out, want)
 	}
-	if exists(filepath.Join(dir, "orbit_gen")) || exists(filepath.Join(dir, "dist")) {
-		t.Error("orbit build wrote files before refusing")
+	if exists(filepath.Join(dir, "lyr_gen")) || exists(filepath.Join(dir, "dist")) {
+		t.Error("lyr build wrote files before refusing")
 	}
 }
 
@@ -145,13 +145,13 @@ func TestBuildFlavorTagsEmbed(t *testing.T) {
 	dir := fixture(t, false)
 	writeFile(t, dir, "internal/tagged/on.go", "//go:build fixturetag\n\npackage tagged\n\nconst Word = \"tagged\"\n")
 	writeFile(t, dir, "internal/tagged/off.go", "//go:build !fixturetag\n\npackage tagged\n\nconst Word = \"untagged\"\n")
-	writeFile(t, dir, "src/pages/word.orbit", "---\nimport \"example.com/site/internal/tagged\"\nimport Base \"../layouts/Base.orbit\"\n---\n<Base title=\"word\"><p>{tagged.Word}</p></Base>\n")
-	code, out := runOrbitEnv(t, dir, []string{"GOFLAGS=-mod=mod -tags=fixturetag"}, "build", "--embed")
+	writeFile(t, dir, "src/pages/word.lyr", "---\nimport \"example.com/site/internal/tagged\"\nimport Base \"../layouts/Base.lyr\"\n---\n<Base title=\"word\"><p>{tagged.Word}</p></Base>\n")
+	code, out := runLyrEnv(t, dir, []string{"GOFLAGS=-mod=mod -tags=fixturetag"}, "build", "--embed")
 	if code != 0 || out != "" {
-		t.Fatalf("orbit build --embed: exit %d\n%s", code, out)
+		t.Fatalf("lyr build --embed: exit %d\n%s", code, out)
 	}
-	if b, err := os.ReadFile(filepath.Join(dir, ".orbit/build/overlay.json")); err != nil || !strings.Contains(string(b), "pages/word/render.go") {
-		t.Errorf("word.orbit isn't overlaid (%v):\n%s", err, b)
+	if b, err := os.ReadFile(filepath.Join(dir, ".lyr/build/overlay.json")); err != nil || !strings.Contains(string(b), "pages/word/render.go") {
+		t.Errorf("word.lyr isn't overlaid (%v):\n%s", err, b)
 	}
 	alone := t.TempDir()
 	bin, err := os.ReadFile(filepath.Join(dir, "dist/server"))
@@ -173,16 +173,16 @@ func TestBuildFlavorTagsEmbed(t *testing.T) {
 	}
 }
 
-// runOrbitEnv is runOrbit with env appended after goEnv.
-func runOrbitEnv(t *testing.T, dir string, env []string, args ...string) (int, string) {
+// runLyrEnv is runLyr with env appended after goEnv.
+func runLyrEnv(t *testing.T, dir string, env []string, args ...string) (int, string) {
 	t.Helper()
-	cmd := exec.Command(orbitCLI(t), args...)
+	cmd := exec.Command(lyrCLI(t), args...)
 	cmd.Dir = dir
 	cmd.Env = append(append(os.Environ(), goEnv...), env...)
 	out, err := cmd.CombinedOutput()
 	var exit *exec.ExitError
 	if err != nil && !errors.As(err, &exit) {
-		t.Fatalf("orbit %v: %v", args, err)
+		t.Fatalf("lyr %v: %v", args, err)
 	}
 	return cmd.ProcessState.ExitCode(), string(out)
 }

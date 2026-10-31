@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"fmt"
@@ -85,7 +85,7 @@ func (w *Writer) Classes(ss []string) {
 
 // For generated code. ClassAny writes a class:list item whose type codegen didn't know: a
 // string kind as Class, a slice of a string kind as Classes. Any other
-// type is a render error (orbit build reports it at the item first).
+// type is a render error (lyr build reports it at the item first).
 func (w *Writer) ClassAny(v any) {
 	if w.err != nil {
 		return
@@ -126,7 +126,7 @@ func classValue(v any) (string, bool) {
 }
 
 func classTypeError(v any) error {
-	return fmt.Errorf("orbit: class:list item must be a string or []string, not %T", v)
+	return fmt.Errorf("lyr: class:list item must be a string or []string, not %T", v)
 }
 
 // For generated code. JoinClasses joins the classes of parts with single spaces, dropping
@@ -214,7 +214,7 @@ func ClassIf(cond bool, s string) string {
 
 // For generated code. ClassString converts a class:list item whose type codegen didn't know to
 // a string for JoinClasses: a string kind as is, a slice of a string kind
-// joined with spaces. It panics for any other type (orbit build reports it
+// joined with spaces. It panics for any other type (lyr build reports it
 // at the item first).
 func ClassString(v any) string {
 	switch v := v.(type) {

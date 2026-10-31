@@ -15,7 +15,7 @@ import (
 // (and its client's answer to a workspace/configuration it asks after
 // initialized) to <file>, one JSON object per line, for the startup order
 // test.
-const stubEnv = "ORBIT_LSP_TEST_GOPLS_STUB"
+const stubEnv = "LYR_LSP_TEST_GOPLS_STUB"
 
 // stubRecord is one line of a recording stub's file.
 type stubRecord struct {

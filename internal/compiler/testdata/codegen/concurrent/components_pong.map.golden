@@ -1,13 +1,13 @@
-orbit_gen/decl/components/pong/decl.go (src/components/Pong.orbit)
-  exact 4:1 "type Props struct {\n\tN int\n}" -> 155-183 "type Props struct {\n\tN int\n}"
-orbit_gen/impl/components/pong/render.go (src/components/Pong.orbit)
-  exact 2:8 "Ping" -> 210-214 "Ping"
-  span  2:13 "\"./Ping.orbit\"" -> 215-264 "\"example.com/blog/orbit_gen/decl/components/ping\""
-  exact 8:10 "props.N" -> 801-808 "props.N"
-  exact 8:34 "props.N > 0" -> 1057-1068 "props.N > 0"
-  span  8:47 "Ping" -> 1165-1185 "orbit__rt.Concurrent"
-  span  8:47 "Ping" -> 1284-1295 "Ping.Render"
-  span  8:70 "n" -> 1388-1389 "N"
-  exact 8:73 "props.N - 1" -> 1466-1477 "props.N - 1"
+lyr_gen/decl/components/pong/decl.go (src/components/Pong.lyr)
+  exact 4:1 "type Props struct {\n\tN int\n}" -> 147-175 "type Props struct {\n\tN int\n}"
+lyr_gen/impl/components/pong/render.go (src/components/Pong.lyr)
+  exact 2:8 "Ping" -> 200-204 "Ping"
+  span  2:13 "\"./Ping.lyr\"" -> 205-252 "\"example.com/blog/lyr_gen/decl/components/ping\""
+  exact 8:10 "props.N" -> 745-752 "props.N"
+  exact 8:34 "props.N > 0" -> 981-992 "props.N > 0"
+  span  8:47 "Ping" -> 1085-1103 "lyr__rt.Concurrent"
+  span  8:47 "Ping" -> 1196-1207 "Ping.Render"
+  span  8:70 "n" -> 1298-1299 "N"
+  exact 8:73 "props.N - 1" -> 1374-1385 "props.N - 1"
 call sites
-  content key=74 "props.N" call="orbit__w.Expr(\n/*line ../../../../src/components/Pong.orbit:8:10*/props.N/*line render.go:24:83*/,\n\t)"
+  content key=72 "props.N" call="lyr__w.Expr(\n/*line ../../../../src/components/Pong.lyr:8:10*/props.N/*line render.go:24:81*/,\n\t)"

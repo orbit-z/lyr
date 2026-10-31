@@ -54,7 +54,7 @@ func TestFindBun(t *testing.T) {
 		t.Errorf("1.4.4 refused: %s", notice)
 	}
 	_, notice := findBun(ctx, fakeBun(t, "1.3.2"))
-	if want := "orbit check: skipping TypeScript type checking: bun 1.3.2 is older than 1.4.4; upgrade it with: bun upgrade"; notice != want {
+	if want := "lyr check: skipping TypeScript type checking: bun 1.3.2 is older than 1.4.4; upgrade it with: bun upgrade"; notice != want {
 		t.Errorf("old bun notice %q, want %q", notice, want)
 	}
 	t.Setenv("PATH", t.TempDir())

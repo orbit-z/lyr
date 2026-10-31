@@ -1,5 +1,5 @@
-// Package build is the orbit build pipeline (PLAN.md §6): load the config,
-// bundle the assets and generate orbit_gen/, stage dist/client from the
+// Package build is the lyr build pipeline (PLAN.md §6): load the config,
+// bundle the assets and generate lyr_gen/, stage dist/client from the
 // bundles and public/, build the server entry with go build, and clean the
 // go command's error output (§3.3).
 //
@@ -23,10 +23,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/assets"
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/config"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/assets"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/config"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // Output paths, relative to the project root.
@@ -40,7 +40,7 @@ const (
 type Options struct {
 	// Root is the module root.
 	Root string
-	// Embed is --embed: the server embeds dist/client (orbit.json's
+	// Embed is --embed: the server embeds dist/client (lyr.json's
 	// "embed": true turns it on too).
 	Embed bool
 	// Env is appended to the process environment of the go commands
@@ -55,9 +55,9 @@ type Options struct {
 type Result struct {
 	// Generate is the generate step's result: its diagnostics and warnings.
 	Generate *project.Result
-	// Public are the errors about public/ files ("public/_orbit/x.js: …").
+	// Public are the errors about public/ files ("public/_lyr/x.js: …").
 	Public []string
-	// GoOutput is go build's output, cleaned (positions in .orbit files,
+	// GoOutput is go build's output, cleaned (positions in .lyr files,
 	// the user's names); set when go build printed anything.
 	GoOutput []byte
 	// GoFailed is set when go build failed.
@@ -71,7 +71,7 @@ func (r *Result) Failed() bool {
 
 // Run builds the project at o.Root into dist/. Problems in the user's files
 // are in the Result; the error is for problems that stop the build early
-// (no go.mod, an invalid orbit.json, I/O errors, a missing go command, ctx
+// (no go.mod, an invalid lyr.json, I/O errors, a missing go command, ctx
 // cancellation).
 func Run(ctx context.Context, o Options) (*Result, error) {
 	root, err := filepath.Abs(o.Root)
@@ -127,7 +127,7 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 		return res, nil
 	}
 
-	// PLAN.md §3.5: the build flavor, overlaid on orbit_gen/.
+	// PLAN.md §3.5: the build flavor, overlaid on lyr_gen/.
 	buildFiles, err := p.BuildFiles()
 	if err != nil {
 		return nil, err
@@ -191,7 +191,7 @@ func goBuild(ctx context.Context, root, out, entry string, flags, env []string) 
 var dotSlash = regexp.MustCompile(`(?m)(^|\s)\./([^\s:]+:\d+)`)
 
 // CleanOutput cleans go build output run from the project root (PLAN.md
-// §3.3 "Error output"): .orbit positions lose Go's "./" and their bracketed
+// §3.3 "Error output"): .lyr positions lose Go's "./" and their bracketed
 // generated positions, generated names become the user's (both by
 // project.CleanGoOutput), and any other "./path:L" position loses its "./".
 // "# pkg" header lines are kept.
@@ -200,14 +200,14 @@ func CleanOutput(p *project.Project, out []byte) []byte {
 	return dotSlash.ReplaceAll(out, []byte("$1$2"))
 }
 
-// runtimePkg is the import path of the Orbit runtime, whose buildKey and
+// runtimePkg is the import path of the Lyr runtime, whose buildKey and
 // buildID variables islandLDFlags sets.
-const runtimePkg = "github.com/orbit-z/orbit"
+const runtimePkg = "github.com/orbit-z/lyr"
 
 // islandLDFlags returns the -ldflags flag of a build (PLAN.md §6): the
 // -ldflags already in goflags, the effective GOFLAGS (a -ldflags on the
 // command line replaces the one in GOFLAGS, so both are passed), plus a fresh random island key and
-// build ID set with -X, so nothing random is written to orbit_gen/.
+// build ID set with -X, so nothing random is written to lyr_gen/.
 func islandLDFlags(goflags string) string {
 	key := make([]byte, 32)
 	rand.Read(key)
@@ -216,9 +216,9 @@ func islandLDFlags(goflags string) string {
 	return ldflagsWithIslandKey(goflags, base64.StdEncoding.EncodeToString(key), hex.EncodeToString(id))
 }
 
-// ErrOverlayFlag is the error for an -overlay flag in GOFLAGS: orbit build
+// ErrOverlayFlag is the error for an -overlay flag in GOFLAGS: lyr build
 // passes its own (PLAN.md §3.5), which would silently replace it.
-var ErrOverlayFlag = errors.New("-overlay in GOFLAGS isn't supported (orbit build passes its own)")
+var ErrOverlayFlag = errors.New("-overlay in GOFLAGS isn't supported (lyr build passes its own)")
 
 // hasFlag reports whether goflags (the value of GOFLAGS) sets the go flag
 // name, as -name=… or --name=… (GOFLAGS flags always have a value).
@@ -241,7 +241,7 @@ func ldflagsWithIslandKey(goflags, key, id string) string {
 // MergeLDFlags returns a -ldflags flag holding the -ldflags of goflags (the
 // value of GOFLAGS), then add. A -ldflags on the go command line replaces
 // the one in GOFLAGS, so a command that passes its own must pass both
-// (orbit build adds the island key, orbit dev -w).
+// (lyr build adds the island key, lyr dev -w).
 func MergeLDFlags(goflags, add string) string {
 	ld := ""
 	for _, f := range splitQuoted(goflags) {

@@ -1,0 +1,25 @@
+---
+import (
+	"github.com/orbit-z/lyr/bench/go/data"
+
+	Card "../components/Card.lyr"
+	Header "../components/Header.lyr"
+	Layout "../layouts/Layout.lyr"
+)
+
+items := data.Items
+---
+<Layout title={data.PageTitle}>
+  <Header title={data.PageTitle} links={data.Nav} />
+  <main>
+    <ul class="cards">
+      {for _, it := range items}
+        <li>
+          <Card id={it.ID} title={it.Title} count={it.Count} featured={it.Featured} href={it.Href} body={it.Body}>
+            <em>#{it.ID}</em>
+          </Card>
+        </li>
+      {/for}
+    </ul>
+  </main>
+</Layout>

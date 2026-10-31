@@ -33,9 +33,9 @@ var tyCases = []struct{ attr, expr, want string }{
 	{"", `float32(0.1)`, "Float32"}, // typed constant
 	{"", `raw`, "Bytes"},            // []byte
 	{"", `rawNamed`, "Expr"},        // type RawBytes []byte: fmt prints [..]
-	{"", `orbit.HTML("<b>x</b>")`, "HTML"},
+	{"", `lyr.HTML("<b>x</b>")`, "HTML"},
 	{"", `h`, "HTML"},
-	{"", `orbit.URL("/a?b&c")`, "String/string"},
+	{"", `lyr.URL("/a?b&c")`, "String/string"},
 	{"", `created`, "Stringer"},   // time.Time
 	{"", `author`, "Stringer"},    // *Author, pointer-receiver String
 	{"", `nilAuthor`, "Stringer"}, // nil *Author: Expr's nil case is for nil interfaces only
@@ -50,8 +50,8 @@ var tyCases = []struct{ attr, expr, want string }{
 	{"", `stringerIface`, "Expr"}, // static fmt.Stringer: the dynamic value may be an error
 	{"", `errStringer`, "Error"},  // interface embedding error and String
 	{"", `anyV`, "Expr"},          // any
-	{"", `rend`, "Render"},        // orbit.Renderer
-	{"", `func(w *orbit.Writer) error { w.Raw("<i>r</i>"); return nil }`, "Render/orbit__rt.Renderer"},
+	{"", `rend`, "Render"},        // lyr.Renderer
+	{"", `func(w *lyr.Writer) error { w.Raw("<i>r</i>"); return nil }`, "Render/lyr__rt.Renderer"},
 	{"", `"a < b"`, "String"},     // untyped string constant
 	{"", `42`, "Int/int64"},       // untyped int constant
 	{"", `'x'`, "Int/int64"},      // untyped rune → int32
@@ -72,15 +72,15 @@ var tyCases = []struct{ attr, expr, want string }{
 	{"", `alias`, "String"},         // type AliasStr = string
 	{"", `aliasAny`, "Expr"},        // type AliasAny = any
 	{"", `fmtd`, "Expr"},            // type Fmtd int with Format: fmt.Sprint calls it
-	{"", `myHTML`, "String/string"}, // type MyHTML orbit.HTML: not HTML to Expr, escaped
+	{"", `myHTML`, "String/string"}, // type MyHTML lyr.HTML: not HTML to Expr, escaped
 	{"", `nilRend`, "Render"},       // nil Renderer writes nothing either way
 
 	{"title", `s`, "attr:AttrValue"},
 	{"href", `s`, "attr:URL"},
 	{"href", `"javascript:alert(1)"`, "attr:URL"},
 	{"src", `" VbScript:x()"`, "attr:URL"},
-	{"href", `"/q?a=\"<'>\"&b"`, "attr:URL"},                         // needs escaping
-	{"href", `orbit.URL("/a?x=\"<y>\"&z")`, "attr:AttrValue/string"}, // escaped, unfiltered
+	{"href", `"/q?a=\"<'>\"&b"`, "attr:URL"},                       // needs escaping
+	{"href", `lyr.URL("/a?x=\"<y>\"&z")`, "attr:AttrValue/string"}, // escaped, unfiltered
 	{"title", `"a<b\"c&d"`, "attr:AttrValue"},
 	{"title", `slug`, "attr:AttrValue/string"},
 	{"href", `jsSlug`, "attr:URL/string"}, // a named string is filtered too
@@ -88,8 +88,8 @@ var tyCases = []struct{ attr, expr, want string }{
 	{"title", `code`, "Attr"},             // named string with Error()
 	{"title", `fmts`, "Attr"},             // named string with Format()
 	{"title", `h`, "attr:AttrValue/string"},
-	{"href", `orbit.HTML("javascript:x()")`, "attr:URL/string"},
-	{"href", `orbit.URL("javascript:ok()")`, "attr:AttrValue/string"}, // trusted: unfiltered
+	{"href", `lyr.HTML("javascript:x()")`, "attr:URL/string"},
+	{"href", `lyr.URL("javascript:ok()")`, "attr:AttrValue/string"}, // trusted: unfiltered
 	{"hidden", `ok`, "AttrBool"},
 	{"hidden", `!ok`, "AttrBool"},
 	{"hidden", `true`, "AttrBool"},
@@ -140,7 +140,7 @@ type Ratio float32
 type AliasStr = string
 type AliasAny = any
 type RawBytes []byte
-type MyHTML orbit.HTML
+type MyHTML lyr.HTML
 type Fmtd int
 
 func (Fmtd) Format(f fmt.State, verb rune) { fmt.Fprint(f, "formatted") }
@@ -205,7 +205,7 @@ const tyCaseVars = `	s := "Tom & Jerry"
 	var aliasAny AliasAny = 3
 	raw := []byte("<raw>")
 	rawNamed := RawBytes("ab")
-	h := orbit.HTML("<hr>")
+	h := lyr.HTML("<hr>")
 	myHTML := MyHTML("<em>")
 	created := time.Date(2026, 10, 25, 0, 0, 0, 0, time.UTC)
 	author := &Author{Name: "Ann"}
@@ -221,8 +221,8 @@ const tyCaseVars = `	s := "Tom & Jerry"
 		String() string
 	} = myErr
 	var anyV any = Slug("s")
-	var rend orbit.Renderer = func(w *orbit.Writer) error { w.Raw("<r/>"); return nil }
-	var nilRend orbit.Renderer
+	var rend lyr.Renderer = func(w *lyr.Writer) error { w.Raw("<r/>"); return nil }
+	var nilRend lyr.Renderer
 	str := "p"
 	sp := &str
 	tags := []string{"a", "b<"}
@@ -236,21 +236,21 @@ const tyCaseVars = `	s := "Tom & Jerry"
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _ = sp, tags, m, up, c128, ratio, alias, aliasAny, fmtd, fmts, myHTML, nilRend, jsSlug, onOff
 `
 
-// tyCasesComp is the cases as one component at orbit.
-func tyCasesComp(orbit string) tyComp {
+// tyCasesComp is the cases as one component at lyr.
+func tyCasesComp(lyr string) tyComp {
 	var body strings.Builder
 	body.WriteString(tyCaseVars)
 	for _, c := range tyCases {
-		body.WriteString("\torbit__w.Raw(\"\\n\")\n")
+		body.WriteString("\tlyr__w.Raw(\"\\n\")\n")
 		if c.attr == "" {
-			fmt.Fprintf(&body, "\torbit__w.Expr(\n%s,\n\t)\n", c.expr)
+			fmt.Fprintf(&body, "\tlyr__w.Expr(\n%s,\n\t)\n", c.expr)
 		} else {
-			fmt.Fprintf(&body, "\torbit__w.Attr(%s,\n%s,\n\t)\n", strconv.Quote(c.attr), c.expr)
+			fmt.Fprintf(&body, "\tlyr__w.Attr(%s,\n%s,\n\t)\n", strconv.Quote(c.attr), c.expr)
 		}
 	}
 	return tyComp{
-		orbit:       orbit,
-		implImports: "\t\"errors\"\n\t\"fmt\"\n\t\"strings\"\n\t\"time\"\n\torbit \"" + RuntimePath + "\"\n",
+		lyr:         lyr,
+		implImports: "\t\"errors\"\n\t\"fmt\"\n\t\"strings\"\n\t\"time\"\n\tlyr \"" + RuntimePath + "\"\n",
 		implTop:     tyCaseDecls,
 		body:        body.String(),
 	}
@@ -260,8 +260,8 @@ func tyCasesComp(orbit string) tyComp {
 // then renders the cases with the real runtime both ways (Expr, and typed
 // re-emitted) and compares the bytes.
 func TestClassify(t *testing.T) {
-	exprU := tyFixture(t, tyCasesComp("src/components/Cases.orbit"))
-	typedU := tyFixture(t, tyCasesComp("src/components/TypedCases.orbit"))
+	exprU := tyFixture(t, tyCasesComp("src/components/Cases.lyr"))
+	typedU := tyFixture(t, tyCasesComp("src/components/TypedCases.lyr"))
 	g := newTyGen(exprU, typedU)
 	c := NewChecker(&tyTestLoader{})
 	c.generate = g.generate
@@ -293,19 +293,19 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/orbit-z/orbit"
-	cases "example.com/blog/orbit_gen/decl/components/cases"
-	typedcases "example.com/blog/orbit_gen/decl/components/typedcases"
-	_ "example.com/blog/orbit_gen/impl/components/cases"
-	_ "example.com/blog/orbit_gen/impl/components/typedcases"
+	"github.com/orbit-z/lyr"
+	cases "example.com/blog/lyr_gen/decl/components/cases"
+	typedcases "example.com/blog/lyr_gen/decl/components/typedcases"
+	_ "example.com/blog/lyr_gen/impl/components/cases"
+	_ "example.com/blog/lyr_gen/impl/components/typedcases"
 )
 
 func main() {
 	var a, b bytes.Buffer
-	if err := cases.Render(&orbit.Ctx{}, orbit.NewWriter(&a), cases.Props{}, orbit.Slots{}); err != nil {
+	if err := cases.Render(&lyr.Ctx{}, lyr.NewWriter(&a), cases.Props{}, lyr.Slots{}); err != nil {
 		panic(err)
 	}
-	if err := typedcases.Render(&orbit.Ctx{}, orbit.NewWriter(&b), typedcases.Props{}, orbit.Slots{}); err != nil {
+	if err := typedcases.Render(&lyr.Ctx{}, lyr.NewWriter(&b), typedcases.Props{}, lyr.Slots{}); err != nil {
 		panic(err)
 	}
 	fmt.Print(a.String(), "\x00", b.String())
@@ -333,7 +333,7 @@ func main() {
 
 // TestClassifyNoRuntime: without the runtime package, nothing is typed.
 func TestClassifyNoRuntime(t *testing.T) {
-	u := tyFixture(t, tyComp{orbit: "src/components/A.orbit", body: "\torbit__w.Expr(\n\"x\",\n\t)\n"})
+	u := tyFixture(t, tyComp{lyr: "src/components/A.lyr", body: "\tlyr__w.Expr(\n\"x\",\n\t)\n"})
 	l := &tyTestLoader{fail: map[string]bool{RuntimePath: true}}
 	res := tyCheck(t, NewChecker(l), []Unit{u})
 	if res.Units[0].Checked || res.Units[0].Output != u.Pass1 {

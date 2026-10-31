@@ -17,7 +17,7 @@ func tyGoListLoader(m *genModule, flags ...string) *GoListLoader {
 func TestGoListLoader(t *testing.T) {
 	m := newGenModule(t)
 	m.write("internal/posts/posts.go", tyPostsSrc)
-	m.write("internal/posts/extra.go", "//go:build orbitextra\n\npackage posts\n\nconst Extra = 2.5\n")
+	m.write("internal/posts/extra.go", "//go:build lyrextra\n\npackage posts\n\nconst Extra = 2.5\n")
 	p := newTyProject()
 	units := p.units(t)
 	c := NewChecker(tyGoListLoader(m))
@@ -38,12 +38,12 @@ func TestGoListLoader(t *testing.T) {
 	p.other.declImports = "\t\"" + tyPostsPath + "\"\n"
 	p.other.declBody = "\ntype Props struct{ P posts.Post }\n"
 	p.other.implImports = "\t\"" + tyPostsPath + "\"\n"
-	p.other.body = "\torbit__w.Expr(\nposts.Extra,\n\t)\n"
+	p.other.body = "\tlyr__w.Expr(\nposts.Extra,\n\t)\n"
 	other := []Unit{tyFixture(t, p.other)}
 	for _, tc := range []struct {
 		flags   []string
 		checked bool
-	}{{nil, false}, {[]string{"-tags=orbitextra"}, true}} {
+	}{{nil, false}, {[]string{"-tags=lyrextra"}, true}} {
 		c := NewChecker(tyGoListLoader(m, tc.flags...))
 		c.generate = newTyGen(other...).generate
 		res := tyCheck(t, c, other)
@@ -69,7 +69,7 @@ func TestGoListLoaderErrors(t *testing.T) {
 	if got := tyChecked(res); got != "false false false true " {
 		t.Errorf("checked = %s", got)
 	}
-	if len(res.Warnings) != 1 || !strings.HasPrefix(res.Warnings[0], "orbit: can't read export data for "+tyPostsPath+": ") ||
+	if len(res.Warnings) != 1 || !strings.HasPrefix(res.Warnings[0], "lyr: can't read export data for "+tyPostsPath+": ") ||
 		!strings.HasSuffix(res.Warnings[0], "; using Expr fallbacks") || strings.Contains(res.Warnings[0], "\n") {
 		t.Errorf("warnings = %q", res.Warnings)
 	}

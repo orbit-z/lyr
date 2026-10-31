@@ -9,19 +9,19 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 
-	"github.com/orbit-z/orbit/bench/go/data"
-	"github.com/orbit-z/orbit/bench/go/htmltpl"
-	"github.com/orbit-z/orbit/bench/go/orbit_gen/app"
-	"github.com/orbit-z/orbit/bench/go/orbit_gen/decl/pages/cards"
-	"github.com/orbit-z/orbit/bench/go/templpage"
+	"github.com/orbit-z/lyr/bench/go/data"
+	"github.com/orbit-z/lyr/bench/go/htmltpl"
+	"github.com/orbit-z/lyr/bench/go/lyr_gen/app"
+	"github.com/orbit-z/lyr/bench/go/lyr_gen/decl/pages/cards"
+	"github.com/orbit-z/lyr/bench/go/templpage"
 )
 
 // The three engines render the same cards page into a reused buffer.
 
-func renderOrbit(c *orbit.Ctx, w *orbit.Writer) error {
-	return cards.Render(c, w, cards.Props{}, orbit.Slots{})
+func renderLyr(c *lyr.Ctx, w *lyr.Writer) error {
+	return cards.Render(c, w, cards.Props{}, lyr.Slots{})
 }
 
 func renderTempl(buf *bytes.Buffer) error {
@@ -51,13 +51,13 @@ func normalize(s string) string {
 	return doctype.ReplaceAllString(s, "<!DOCTYPE html>")
 }
 
-func render(t *testing.T) (orbitHTML, templHTML, stdHTML string) {
+func render(t *testing.T) (lyrHTML, templHTML, stdHTML string) {
 	t.Helper()
 	var buf bytes.Buffer
-	if err := renderOrbit(new(orbit.Ctx), orbit.NewWriter(&buf)); err != nil {
+	if err := renderLyr(new(lyr.Ctx), lyr.NewWriter(&buf)); err != nil {
 		t.Fatal(err)
 	}
-	orbitHTML = buf.String()
+	lyrHTML = buf.String()
 	buf.Reset()
 	if err := renderTempl(&buf); err != nil {
 		t.Fatal(err)
@@ -67,7 +67,7 @@ func render(t *testing.T) (orbitHTML, templHTML, stdHTML string) {
 	if err := renderHTMLTemplate(&buf); err != nil {
 		t.Fatal(err)
 	}
-	return orbitHTML, templHTML, buf.String()
+	return lyrHTML, templHTML, buf.String()
 }
 
 // TestEquivalent checks that the engines produce the same page, modulo
@@ -76,7 +76,7 @@ func TestEquivalent(t *testing.T) {
 	o, tp, h := render(t)
 	o, tp, h = normalize(o), normalize(tp), normalize(h)
 	if n := strings.Count(o, `<article class="card"`); n != data.NumCards {
-		t.Fatalf("orbit rendered %d cards, want %d", n, data.NumCards)
+		t.Fatalf("lyr rendered %d cards, want %d", n, data.NumCards)
 	}
 	for _, want := range []string{
 		"<title>500 cards &amp; more</title>",
@@ -85,7 +85,7 @@ func TestEquivalent(t *testing.T) {
 		`<span class="count">37</span><div class="extra"><em>#1</em></div>`,
 	} {
 		if !strings.Contains(o, want) {
-			t.Errorf("orbit output lacks %q", want)
+			t.Errorf("lyr output lacks %q", want)
 		}
 	}
 	for name, got := range map[string]string{"templ": tp, "html/template": h} {
@@ -95,7 +95,7 @@ func TestEquivalent(t *testing.T) {
 				i++
 			}
 			lo := max(0, i-80)
-			t.Errorf("%s differs from orbit at byte %d:\n orbit: %q\n %s: %q", name, i,
+			t.Errorf("%s differs from lyr at byte %d:\n lyr: %q\n %s: %q", name, i,
 				o[lo:min(len(o), i+80)], name, got[lo:min(len(got), i+80)])
 		}
 	}
@@ -120,14 +120,14 @@ func TestServe(t *testing.T) {
 // Pure render: each engine writes the page into a reused buffer.
 
 func BenchmarkRender(b *testing.B) {
-	b.Run("engine=orbit", func(b *testing.B) {
+	b.Run("engine=lyr", func(b *testing.B) {
 		var buf bytes.Buffer
-		w := orbit.NewWriter(&buf)
-		c := new(orbit.Ctx)
+		w := lyr.NewWriter(&buf)
+		c := new(lyr.Ctx)
 		b.ReportAllocs()
 		for b.Loop() {
 			buf.Reset()
-			if err := renderOrbit(c, w); err != nil {
+			if err := renderLyr(c, w); err != nil {
 				b.Fatal(err)
 			}
 		}
@@ -158,7 +158,7 @@ func BenchmarkRender(b *testing.B) {
 }
 
 // fakeResponseWriter is a reusable http.ResponseWriter that discards the
-// body, so the serve benchmarks measure Orbit's handler, not net/http.
+// body, so the serve benchmarks measure Lyr's handler, not net/http.
 type fakeResponseWriter struct {
 	h      http.Header
 	status int

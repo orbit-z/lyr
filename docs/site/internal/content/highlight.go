@@ -5,15 +5,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/orbit-z/orbit"
-	"github.com/orbit-z/orbit/internal/markdown"
+	"github.com/orbit-z/lyr"
+	"github.com/orbit-z/lyr/internal/markdown"
 )
 
-// Code blocks are highlighted by Orbit's own Markdown package, the one
-// `orbit generate` uses for .md pages: Chroma's token classes, with Orbit's
-// lexer for orbit blocks. The site may import it: Go's internal rule allows
-// any package under github.com/orbit-z/orbit, and this module's path is
-// github.com/orbit-z/orbit/docs/site.
+// Code blocks are highlighted by Lyr's own Markdown package, the one
+// `lyr generate` uses for .md pages: Chroma's token classes, with Lyr's
+// lexer for lyr blocks. The site may import it: Go's internal rule allows
+// any package under github.com/orbit-z/lyr, and this module's path is
+// github.com/orbit-z/lyr/docs/site.
 
 // highlight returns code as highlighted HTML; ok is false for a language
 // Chroma doesn't know, or none.
@@ -48,12 +48,12 @@ url := "/blog/" + props.Post.Slug
 </style>
 `
 
-// HomeExample is the home page's .orbit example, highlighted.
-var HomeExample = sync.OnceValue(func() orbit.HTML {
-	if h, ok := highlight("orbit", homeExample); ok {
-		return orbit.HTML(h)
+// HomeExample is the home page's .lyr example, highlighted.
+var HomeExample = sync.OnceValue(func() lyr.HTML {
+	if h, ok := highlight("lyr", homeExample); ok {
+		return lyr.HTML(h)
 	}
-	return orbit.HTML(html.EscapeString(homeExample))
+	return lyr.HTML(html.EscapeString(homeExample))
 })
 
 // HighlightCSS is the stylesheet of highlighted code: Chroma's github theme

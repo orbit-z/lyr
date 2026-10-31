@@ -1,0 +1,496 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Lyr",
+  "scopeName": "source.lyr",
+  "fileTypes": ["lyr"],
+  "patterns": [
+    { "include": "#frontmatter" },
+    { "include": "#template" }
+  ],
+  "repository": {
+    "frontmatter": {
+      "comment": "Go frontmatter between the leading --- lines (PLAN.md §2.2).",
+      "name": "meta.frontmatter.lyr",
+      "begin": "\\A(---)\\s*$",
+      "end": "^(---)\\s*$",
+      "beginCaptures": { "1": { "name": "punctuation.definition.frontmatter.begin.lyr" } },
+      "endCaptures": { "1": { "name": "punctuation.definition.frontmatter.end.lyr" } },
+      "contentName": "meta.embedded.block.go",
+      "patterns": [{ "include": "source.go" }, { "include": "#keep" }]
+    },
+
+    "template": {
+      "patterns": [
+        { "include": "#html-comment" },
+        { "include": "#template-comment" },
+        { "include": "#control" },
+        { "include": "#expression" },
+        { "include": "#script-json" },
+        { "include": "#script" },
+        { "include": "#style" },
+        { "include": "#doctype" },
+        { "include": "#component-tag" },
+        { "include": "#html-tag" },
+        { "include": "#entity" },
+        { "include": "#text-lt" },
+        { "include": "text.html.basic" }
+      ]
+    },
+
+    "html-comment": {
+      "comment": "{…} inside an HTML comment isn't an expression.",
+      "name": "comment.block.html",
+      "begin": "<!--",
+      "end": "-->",
+      "beginCaptures": { "0": { "name": "punctuation.definition.comment.html" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.comment.html" } }
+    },
+
+    "template-comment": {
+      "comment": "{/* … */}: a template comment, emits nothing.",
+      "name": "comment.block.lyr",
+      "begin": "(\\{)\\s*(/\\*)",
+      "end": "(\\*/)\\s*(\\})",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.comment.begin.lyr" },
+        "2": { "name": "punctuation.definition.comment.begin.lyr" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.comment.end.lyr" },
+        "2": { "name": "punctuation.definition.comment.end.lyr" }
+      }
+    },
+
+    "control": {
+      "patterns": [
+        {
+          "comment": "{else if cond}",
+          "name": "meta.control.else-if.lyr",
+          "begin": "(\\{)\\s*(else)\\s+(if)\\b",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": { "name": "punctuation.section.embedded.begin.lyr" },
+            "2": { "name": "keyword.control.conditional.lyr" },
+            "3": { "name": "keyword.control.conditional.lyr" }
+          },
+          "endCaptures": { "0": { "name": "punctuation.section.embedded.end.lyr" } },
+          "contentName": "meta.embedded.expression.go",
+          "patterns": [{ "include": "#go" }]
+        },
+        {
+          "comment": "{else}",
+          "name": "meta.control.else.lyr",
+          "match": "(\\{)\\s*(else)\\s*(\\})",
+          "captures": {
+            "1": { "name": "punctuation.section.embedded.begin.lyr" },
+            "2": { "name": "keyword.control.conditional.lyr" },
+            "3": { "name": "punctuation.section.embedded.end.lyr" }
+          }
+        },
+        {
+          "comment": "{if cond}",
+          "name": "meta.control.if.lyr",
+          "begin": "(\\{)\\s*(if)\\b",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": { "name": "punctuation.section.embedded.begin.lyr" },
+            "2": { "name": "keyword.control.conditional.lyr" }
+          },
+          "endCaptures": { "0": { "name": "punctuation.section.embedded.end.lyr" } },
+          "contentName": "meta.embedded.expression.go",
+          "patterns": [{ "include": "#go" }]
+        },
+        {
+          "comment": "{for clause}",
+          "name": "meta.control.for.lyr",
+          "begin": "(\\{)\\s*(for)\\b",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": { "name": "punctuation.section.embedded.begin.lyr" },
+            "2": { "name": "keyword.control.loop.lyr" }
+          },
+          "endCaptures": { "0": { "name": "punctuation.section.embedded.end.lyr" } },
+          "contentName": "meta.embedded.expression.go",
+          "patterns": [{ "include": "#go" }]
+        },
+        {
+          "comment": "{switch clause}, also a tagless {switch}",
+          "name": "meta.control.switch.lyr",
+          "begin": "(\\{)\\s*(switch)\\b",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": { "name": "punctuation.section.embedded.begin.lyr" },
+            "2": { "name": "keyword.control.conditional.lyr" }
+          },
+          "endCaptures": { "0": { "name": "punctuation.section.embedded.end.lyr" } },
+          "contentName": "meta.embedded.expression.go",
+          "patterns": [{ "include": "#go" }]
+        },
+        {
+          "comment": "{case list}",
+          "name": "meta.control.case.lyr",
+          "begin": "(\\{)\\s*(case)\\b",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": { "name": "punctuation.section.embedded.begin.lyr" },
+            "2": { "name": "keyword.control.conditional.lyr" }
+          },
+          "endCaptures": { "0": { "name": "punctuation.section.embedded.end.lyr" } },
+          "contentName": "meta.embedded.expression.go",
+          "patterns": [{ "include": "#go" }]
+        },
+        {
+          "comment": "{default}",
+          "name": "meta.control.default.lyr",
+          "match": "(\\{)\\s*(default)\\s*(\\})",
+          "captures": {
+            "1": { "name": "punctuation.section.embedded.begin.lyr" },
+            "2": { "name": "keyword.control.conditional.lyr" },
+            "3": { "name": "punctuation.section.embedded.end.lyr" }
+          }
+        },
+        {
+          "comment": "{/if}, {/switch} and {/for}",
+          "name": "meta.control.end.lyr",
+          "match": "(\\{)\\s*(/)\\s*(?:(if|switch)|(for))\\s*(\\})",
+          "captures": {
+            "1": { "name": "punctuation.section.embedded.begin.lyr" },
+            "2": { "name": "keyword.control.lyr" },
+            "3": { "name": "keyword.control.conditional.lyr" },
+            "4": { "name": "keyword.control.loop.lyr" },
+            "5": { "name": "punctuation.section.embedded.end.lyr" }
+          }
+        }
+      ]
+    },
+
+    "expression": {
+      "comment": "{expr}, also an attribute value a={expr} and the shorthand {a}.",
+      "name": "meta.expression.lyr",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": { "0": { "name": "punctuation.section.embedded.begin.lyr" } },
+      "endCaptures": { "0": { "name": "punctuation.section.embedded.end.lyr" } },
+      "contentName": "meta.embedded.expression.go",
+      "patterns": [{ "include": "#go" }]
+    },
+
+    "spread": {
+      "comment": "{...attrs} in a tag.",
+      "name": "meta.attribute.spread.lyr",
+      "begin": "(\\{)\\s*(\\.\\.\\.)",
+      "end": "\\}",
+      "beginCaptures": {
+        "1": { "name": "punctuation.section.embedded.begin.lyr" },
+        "2": { "name": "keyword.operator.spread.lyr" }
+      },
+      "endCaptures": { "0": { "name": "punctuation.section.embedded.end.lyr" } },
+      "contentName": "meta.embedded.expression.go",
+      "patterns": [{ "include": "#go" }]
+    },
+
+    "go": {
+      "comment": "Go inside {…}. Strings, runes, comments and nested braces are matched here, so a } inside them never ends the expression (the compiler's Go-aware scanner, PLAN.md §2.3); the rest is source.go.",
+      "patterns": [
+        { "include": "#go-string" },
+        { "include": "#template-literal" },
+        { "include": "#go-rune" },
+        { "include": "#go-block-comment" },
+        { "include": "#go-line-comment" },
+        { "include": "#go-braces" },
+        { "include": "source.go" }
+      ]
+    },
+    "go-string": {
+      "name": "string.quoted.double.go",
+      "begin": "\"",
+      "end": "\"|$",
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.go" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.string.end.go" } },
+      "patterns": [{ "name": "constant.character.escape.go", "match": "\\\\(?:[abfnrtv\\\\'\"]|[0-7]{3}|x\\h{2}|u\\h{4}|U\\h{8})" }]
+    },
+    "template-literal": {
+      "comment": "In the template every backtick string is a JavaScript template literal (PLAN.md §2.10): JavaScript's escapes, ${…} pieces holding Go (nested literals included). Listed before source.go so it wins over Go's raw string; the frontmatter keeps Go's raw strings.",
+      "name": "string.template.lyr",
+      "begin": "`",
+      "end": "`",
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.template.begin.lyr" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.string.template.end.lyr" } },
+      "patterns": [
+        {
+          "name": "constant.character.escape.lyr",
+          "match": "\\\\(?:[\\\\`$nrtbfv'\"]|0(?![0-9])|x\\h{2}|u\\h{4}|u\\{\\h+\\}|$)"
+        },
+        { "name": "invalid.illegal.unknown-escape.lyr", "match": "\\\\." },
+        {
+          "name": "meta.template.expression.lyr",
+          "begin": "\\$\\{",
+          "end": "\\}",
+          "beginCaptures": { "0": { "name": "punctuation.definition.template-expression.begin.lyr" } },
+          "endCaptures": { "0": { "name": "punctuation.definition.template-expression.end.lyr" } },
+          "contentName": "meta.embedded.expression.go",
+          "patterns": [{ "include": "#go" }]
+        }
+      ]
+    },
+    "go-rune": {
+      "name": "string.quoted.rune.go",
+      "match": "'(?:\\\\(?:[^']|')[^']*|[^'\\\\])'"
+    },
+    "go-block-comment": {
+      "name": "comment.block.go",
+      "begin": "/\\*",
+      "end": "\\*/",
+      "beginCaptures": { "0": { "name": "punctuation.definition.comment.go" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.comment.go" } }
+    },
+    "go-line-comment": {
+      "name": "comment.line.double-slash.go",
+      "match": "(//).*$",
+      "captures": { "1": { "name": "punctuation.definition.comment.go" } }
+    },
+    "go-braces": {
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": { "0": { "name": "punctuation.definition.begin.bracket.curly.go" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.end.bracket.curly.go" } },
+      "patterns": [{ "include": "#go" }]
+    },
+
+    "script-json": {
+      "comment": "<script type=\"application/json\"> and ld+json (set:json): JSON, never bundled.",
+      "name": "meta.tag.script.json.lyr",
+      "begin": "(<)(script)(?=[^>]*\\btype\\s*=\\s*[\"']?application/(?:ld\\+)?json\\b)",
+      "end": "(</)(script)\\s*(>)|(/>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" },
+        "3": { "name": "punctuation.definition.tag.end.html" },
+        "4": { "name": "punctuation.definition.tag.end.html" }
+      },
+      "patterns": [
+        {
+          "begin": ">",
+          "end": "(?=</script\\s*>)",
+          "beginCaptures": { "0": { "name": "punctuation.definition.tag.end.html" } },
+          "contentName": "meta.embedded.block.json",
+          "patterns": [{ "include": "source.json" }, { "include": "#keep" }]
+        },
+        { "include": "#attributes" }
+      ]
+    },
+    "script": {
+      "comment": "<script>: TypeScript, opaque (no {…} expressions).",
+      "name": "meta.tag.script.lyr",
+      "begin": "(<)(script)(?=[\\s/>]|$)",
+      "end": "(</)(script)\\s*(>)|(/>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" },
+        "3": { "name": "punctuation.definition.tag.end.html" },
+        "4": { "name": "punctuation.definition.tag.end.html" }
+      },
+      "patterns": [
+        {
+          "begin": ">",
+          "end": "(?=</script\\s*>)",
+          "beginCaptures": { "0": { "name": "punctuation.definition.tag.end.html" } },
+          "contentName": "meta.embedded.block.ts",
+          "patterns": [{ "include": "source.ts" }, { "include": "#keep" }]
+        },
+        { "include": "#attributes" }
+      ]
+    },
+    "style": {
+      "comment": "<style>: CSS, opaque (no {…} expressions).",
+      "name": "meta.tag.style.lyr",
+      "begin": "(<)(style)(?=[\\s/>]|$)",
+      "end": "(</)(style)\\s*(>)|(/>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" },
+        "3": { "name": "punctuation.definition.tag.end.html" },
+        "4": { "name": "punctuation.definition.tag.end.html" }
+      },
+      "patterns": [
+        {
+          "begin": ">",
+          "end": "(?=</style\\s*>)",
+          "beginCaptures": { "0": { "name": "punctuation.definition.tag.end.html" } },
+          "contentName": "meta.embedded.block.css",
+          "patterns": [{ "include": "source.css" }, { "include": "#keep" }]
+        },
+        { "include": "#attributes" }
+      ]
+    },
+
+    "doctype": {
+      "name": "meta.tag.metadata.doctype.html",
+      "begin": "(<!)([Dd][Oo][Cc][Tt][Yy][Pp][Ee])",
+      "end": ">",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" }
+      },
+      "endCaptures": { "0": { "name": "punctuation.definition.tag.end.html" } }
+    },
+
+    "component-tag": {
+      "comment": "Capitalized tags are components (PLAN.md §2.3); <Self> and <Fragment> are built in, and <>…</> is the shorthand for <Fragment>.",
+      "patterns": [
+        {
+          "name": "meta.tag.component.lyr",
+          "match": "(</?)(>)",
+          "captures": {
+            "1": { "name": "punctuation.definition.tag.begin.html" },
+            "2": { "name": "punctuation.definition.tag.end.html" }
+          }
+        },
+        {
+          "name": "meta.tag.component.lyr",
+          "begin": "(<)(?:(Self)|(Fragment)|([A-Z][A-Za-z0-9_]*))(?=[\\s/>]|$)",
+          "end": "/?>",
+          "beginCaptures": {
+            "1": { "name": "punctuation.definition.tag.begin.html" },
+            "2": { "name": "support.class.component.self.lyr" },
+            "3": { "name": "support.class.component.fragment.lyr" },
+            "4": { "name": "support.class.component.lyr" }
+          },
+          "endCaptures": { "0": { "name": "punctuation.definition.tag.end.html" } },
+          "patterns": [{ "include": "#attributes" }]
+        },
+        {
+          "name": "meta.tag.component.lyr",
+          "match": "(</)(?:(Self)|(Fragment)|([A-Z][A-Za-z0-9_]*))\\s*(>)",
+          "captures": {
+            "1": { "name": "punctuation.definition.tag.begin.html" },
+            "2": { "name": "support.class.component.self.lyr" },
+            "3": { "name": "support.class.component.fragment.lyr" },
+            "4": { "name": "support.class.component.lyr" },
+            "5": { "name": "punctuation.definition.tag.end.html" }
+          }
+        }
+      ]
+    },
+
+    "html-tag": {
+      "patterns": [
+        {
+          "name": "meta.tag.html",
+          "begin": "(<)([A-Za-z][\\w:.-]*)(?=[\\s/>]|$)",
+          "end": "/?>",
+          "beginCaptures": {
+            "1": { "name": "punctuation.definition.tag.begin.html" },
+            "2": { "name": "entity.name.tag.html" }
+          },
+          "endCaptures": { "0": { "name": "punctuation.definition.tag.end.html" } },
+          "patterns": [{ "include": "#attributes" }]
+        },
+        {
+          "name": "meta.tag.html",
+          "match": "(</)([A-Za-z][\\w:.-]*)\\s*(>)",
+          "captures": {
+            "1": { "name": "punctuation.definition.tag.begin.html" },
+            "2": { "name": "entity.name.tag.html" },
+            "3": { "name": "punctuation.definition.tag.end.html" }
+          }
+        }
+      ]
+    },
+
+    "attributes": {
+      "patterns": [
+        { "include": "#spread" },
+        { "include": "#expression" },
+        { "include": "#directive" },
+        {
+          "name": "entity.other.attribute-name.html",
+          "match": "[^\\s\"'<>/=\\{\\}`]+"
+        },
+        {
+          "match": "(=)\\s*([^\\s\"'=<>`\\{\\}]+)",
+          "captures": {
+            "1": { "name": "punctuation.separator.key-value.html" },
+            "2": { "name": "string.unquoted.html" }
+          }
+        },
+        { "name": "punctuation.separator.key-value.html", "match": "=" },
+        {
+          "name": "string.quoted.double.html",
+          "begin": "\"",
+          "end": "\"",
+          "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.html" } },
+          "endCaptures": { "0": { "name": "punctuation.definition.string.end.html" } },
+          "patterns": [{ "include": "#entity" }]
+        },
+        {
+          "name": "string.quoted.single.html",
+          "begin": "'",
+          "end": "'",
+          "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.html" } },
+          "endCaptures": { "0": { "name": "punctuation.definition.string.end.html" } },
+          "patterns": [{ "include": "#entity" }]
+        }
+      ]
+    },
+
+    "directive": {
+      "comment": "Lyr directives: set:html, set:text, set:json, client:*, server:*, is:inline, is:global, class:list, slot.",
+      "patterns": [
+        {
+          "name": "entity.other.attribute-name.directive.lyr",
+          "match": "(?<![^\\s])(class)(:)(list)(?=[\\s=/>]|$)",
+          "captures": {
+            "1": { "name": "entity.other.attribute-name.namespace.lyr" },
+            "2": { "name": "punctuation.separator.namespace.lyr" },
+            "3": { "name": "entity.other.attribute-name.localname.lyr" }
+          }
+        },
+        {
+          "name": "entity.other.attribute-name.directive.lyr",
+          "match": "(?<![^\\s])(set|client|server|is)(:)([A-Za-z][\\w-]*)(?=[\\s=/>]|$)",
+          "captures": {
+            "1": { "name": "entity.other.attribute-name.namespace.lyr" },
+            "2": { "name": "punctuation.separator.namespace.lyr" },
+            "3": { "name": "entity.other.attribute-name.localname.lyr" }
+          }
+        },
+        {
+          "name": "entity.other.attribute-name.directive.lyr",
+          "match": "(?<![^\\s])slot(?=[\\s=/>]|$)"
+        }
+      ]
+    },
+
+    "entity": {
+      "name": "constant.character.entity.html",
+      "match": "(&)(?:[A-Za-z][A-Za-z0-9]*|#[0-9]+|#[xX][0-9A-Fa-f]+)(;)",
+      "captures": {
+        "1": { "name": "punctuation.definition.entity.html" },
+        "2": { "name": "punctuation.definition.entity.html" }
+      }
+    },
+
+    "keep": {
+      "comment": "Never matches. vscode-textmate drops a rule whose only pattern is a missing grammar (a disabled built-in Go extension, or the snapshot tests, which load no other grammar); this keeps the embedded block, so {…} stays opaque in it.",
+      "match": "(?!)"
+    },
+
+    "text-lt": {
+      "comment": "A < that doesn't start a tag (a < b, <3, <=) is text; <> is a fragment (PLAN.md §2.3).",
+      "match": "<(?![A-Za-z/!>])"
+    }
+  }
+}

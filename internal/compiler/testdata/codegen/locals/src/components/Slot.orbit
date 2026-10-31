@@ -1,4 +1,0 @@
----
-import Doc "./Doc.orbit"
----
-<Doc><b>{locals.User}</b></Doc>

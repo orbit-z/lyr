@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"os"
 
-	"example.com/blog/orbit_gen/app"
-	orbit "example.com/blog/orbitrt"
+	"example.com/blog/lyr_gen/app"
+	lyr "example.com/blog/lyrrt"
 )
 
 func main() {
 	for _, r := range app.Routes {
 		var buf bytes.Buffer
-		w := orbit.NewWriter(&buf)
-		if err := r.Render(&orbit.Ctx{}, w, nil); err != nil {
+		w := lyr.NewWriter(&buf)
+		if err := r.Render(&lyr.Ctx{}, w, nil); err != nil {
 			fmt.Fprintln(os.Stderr, "render error:", err)
 			os.Exit(1)
 		}

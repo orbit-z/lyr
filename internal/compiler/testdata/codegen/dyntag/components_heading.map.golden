@@ -1,13 +1,13 @@
-orbit_gen/decl/components/heading/decl.go (src/components/Heading.orbit)
-  exact 4:1 "type Props struct {\n\tLevel int\n\tText  string\n}" -> 161-207 "type Props struct {\n\tLevel int\n\tText  string\n}"
-orbit_gen/impl/components/heading/render.go (src/components/Heading.orbit)
-  exact 2:8 "\"strconv\"" -> 219-228 "\"strconv\""
-  exact 9:1 "Heading := \"h\" + strconv.Itoa(props.Level)" -> 728-770 "Heading := \"h\" + strconv.Itoa(props.Level)"
-  echo  - -> 801-808 "Heading"
-  exact 11:2 "Heading" -> 942-949 "Heading"
-  exact 11:33 "props.Text" -> 1123-1133 "props.Text"
-  exact 11:46 "props.Text" -> 1273-1283 "props.Text"
+lyr_gen/decl/components/heading/decl.go (src/components/Heading.lyr)
+  exact 4:1 "type Props struct {\n\tLevel int\n\tText  string\n}" -> 153-199 "type Props struct {\n\tLevel int\n\tText  string\n}"
+lyr_gen/impl/components/heading/render.go (src/components/Heading.lyr)
+  exact 2:8 "\"strconv\"" -> 209-218 "\"strconv\""
+  exact 9:1 "Heading := \"h\" + strconv.Itoa(props.Level)" -> 678-720 "Heading := \"h\" + strconv.Itoa(props.Level)"
+  echo  - -> 751-758 "Heading"
+  exact 11:2 "Heading" -> 884-891 "Heading"
+  exact 11:33 "props.Text" -> 1057-1067 "props.Text"
+  exact 11:46 "props.Text" -> 1201-1211 "props.Text"
 call sites
-  content key=118 "Heading" call="orbit__w.TagOpen(\"src/components/Heading.orbit:11:2\", \"Heading\",\n/*line ../../../../src/components/Heading.orbit:11:2*/Heading/*line render.go:25:86*/,\n\ttrue)"
-  attr id key=149 "props.Text" call="orbit__w.Attr(\"id\",\n/*line ../../../../src/components/Heading.orbit:11:33*/props.Text/*line render.go:30:90*/,\n\t\t)"
-  content key=162 "props.Text" call="orbit__w.Expr(\n/*line ../../../../src/components/Heading.orbit:11:46*/props.Text/*line render.go:35:90*/,\n\t)"
+  content key=118 "Heading" call="lyr__w.TagOpen(\"src/components/Heading.lyr:11:2\", \"Heading\",\n/*line ../../../../src/components/Heading.lyr:11:2*/Heading/*line render.go:25:84*/,\n\ttrue)"
+  attr id key=149 "props.Text" call="lyr__w.Attr(\"id\",\n/*line ../../../../src/components/Heading.lyr:11:33*/props.Text/*line render.go:30:88*/,\n\t\t)"
+  content key=162 "props.Text" call="lyr__w.Expr(\n/*line ../../../../src/components/Heading.lyr:11:46*/props.Text/*line render.go:35:88*/,\n\t)"

@@ -27,7 +27,7 @@ title := "Hi"
 
 func TestTemplateLiteralLSP(t *testing.T) {
 	needGopls(t)
-	const path = "src/components/Card.orbit"
+	const path = "src/components/Card.lyr"
 	files := map[string]string{path: tlCard}
 	dir := writeProject(t, maps2(files))
 	c := startClient(t, dir, nil)
@@ -118,7 +118,7 @@ func TestTemplateLiteralLSP(t *testing.T) {
 // TestClassifyTemplateLiteral: a literal's static text is no region; its
 // pieces, from right after "${" to right before "}", are Go.
 func TestClassifyTemplateLiteral(t *testing.T) {
-	const path = "src/components/Card.orbit"
+	const path = "src/components/Card.lyr"
 	ws := memWorkspace(t, map[string]string{path: tlCard})
 	f := ws.byPath[path]
 	for _, tc := range []struct {

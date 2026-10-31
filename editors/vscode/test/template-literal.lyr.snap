@@ -1,0 +1,282 @@
+>---
+#^^^ source.lyr meta.frontmatter.lyr punctuation.definition.frontmatter.begin.lyr
+>import Card "../components/Card.lyr"
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>
+>type Props struct {
+#^^^^^^^^^^^^^^^^^^^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>	Slug  string
+#^^^^^^^^^^^^^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>	Index int
+#^^^^^^^^^^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>	Open  bool
+#^^^^^^^^^^^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>}
+#^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>
+>var re = regexp.MustCompile(`\d+ ${raw}`)
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>---
+#^^^ source.lyr meta.frontmatter.lyr punctuation.definition.frontmatter.end.lyr
+><a href={`/fiction/${props.Slug}`} aria-label={`Chapter ${props.Index + 1} of ${title}`}>
+#^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+# ^ source.lyr meta.tag.html entity.name.tag.html
+#  ^ source.lyr meta.tag.html
+#   ^^^^ source.lyr meta.tag.html entity.other.attribute-name.html
+#       ^ source.lyr meta.tag.html punctuation.separator.key-value.html
+#        ^ source.lyr meta.tag.html meta.expression.lyr punctuation.section.embedded.begin.lyr
+#         ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.begin.lyr
+#          ^^^^^^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                   ^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.begin.lyr
+#                     ^^^^^^^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#                               ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.end.lyr
+#                                ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.end.lyr
+#                                 ^ source.lyr meta.tag.html meta.expression.lyr punctuation.section.embedded.end.lyr
+#                                  ^ source.lyr meta.tag.html
+#                                   ^^^^^^^^^^ source.lyr meta.tag.html entity.other.attribute-name.html
+#                                             ^ source.lyr meta.tag.html punctuation.separator.key-value.html
+#                                              ^ source.lyr meta.tag.html meta.expression.lyr punctuation.section.embedded.begin.lyr
+#                                               ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.begin.lyr
+#                                                ^^^^^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                                                        ^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.begin.lyr
+#                                                          ^^^^^^^^^^^^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#                                                                         ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.end.lyr
+#                                                                          ^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                                                                              ^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.begin.lyr
+#                                                                                ^^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#                                                                                     ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.end.lyr
+#                                                                                      ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.end.lyr
+#                                                                                       ^ source.lyr meta.tag.html meta.expression.lyr punctuation.section.embedded.end.lyr
+#                                                                                        ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+>	<Card title={`Chapter ${props.Index + 1}`} />
+#^ source.lyr
+# ^ source.lyr meta.tag.component.lyr punctuation.definition.tag.begin.html
+#  ^^^^ source.lyr meta.tag.component.lyr support.class.component.lyr
+#      ^ source.lyr meta.tag.component.lyr
+#       ^^^^^ source.lyr meta.tag.component.lyr entity.other.attribute-name.html
+#            ^ source.lyr meta.tag.component.lyr punctuation.separator.key-value.html
+#             ^ source.lyr meta.tag.component.lyr meta.expression.lyr punctuation.section.embedded.begin.lyr
+#              ^ source.lyr meta.tag.component.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.begin.lyr
+#               ^^^^^^^^ source.lyr meta.tag.component.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                       ^^ source.lyr meta.tag.component.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.begin.lyr
+#                         ^^^^^^^^^^^^^^^ source.lyr meta.tag.component.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#                                        ^ source.lyr meta.tag.component.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.end.lyr
+#                                         ^ source.lyr meta.tag.component.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.end.lyr
+#                                          ^ source.lyr meta.tag.component.lyr meta.expression.lyr punctuation.section.embedded.end.lyr
+#                                           ^ source.lyr meta.tag.component.lyr
+#                                            ^^ source.lyr meta.tag.component.lyr punctuation.definition.tag.end.html
+></a>
+#^^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#  ^ source.lyr meta.tag.html entity.name.tag.html
+#   ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+><span>{` · ${n} words`}</span>
+#^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+# ^^^^ source.lyr meta.tag.html entity.name.tag.html
+#     ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+#      ^ source.lyr meta.expression.lyr punctuation.section.embedded.begin.lyr
+#       ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.begin.lyr
+#        ^^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#           ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.begin.lyr
+#             ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#              ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.end.lyr
+#               ^^^^^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                     ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.end.lyr
+#                      ^ source.lyr meta.expression.lyr punctuation.section.embedded.end.lyr
+#                       ^^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#                         ^^^^ source.lyr meta.tag.html entity.name.tag.html
+#                             ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+><button aria-label={lyr.If(props.Open, `Close ${title}`)}>x</button>
+#^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+# ^^^^^^ source.lyr meta.tag.html entity.name.tag.html
+#       ^ source.lyr meta.tag.html
+#        ^^^^^^^^^^ source.lyr meta.tag.html entity.other.attribute-name.html
+#                  ^ source.lyr meta.tag.html punctuation.separator.key-value.html
+#                   ^ source.lyr meta.tag.html meta.expression.lyr punctuation.section.embedded.begin.lyr
+#                    ^^^^^^^^^^^^^^^^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go
+#                                       ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.begin.lyr
+#                                        ^^^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                                              ^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.begin.lyr
+#                                                ^^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#                                                     ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.end.lyr
+#                                                      ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.end.lyr
+#                                                       ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go
+#                                                        ^ source.lyr meta.tag.html meta.expression.lyr punctuation.section.embedded.end.lyr
+#                                                         ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+#                                                          ^ source.lyr
+#                                                           ^^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#                                                             ^^^^^^ source.lyr meta.tag.html entity.name.tag.html
+#                                                                   ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+>{if props.Slug == `a-${b}`}<i>a</i>{/if}
+#^ source.lyr meta.control.if.lyr punctuation.section.embedded.begin.lyr
+# ^^ source.lyr meta.control.if.lyr keyword.control.conditional.lyr
+#   ^^^^^^^^^^^^^^^ source.lyr meta.control.if.lyr meta.embedded.expression.go
+#                  ^ source.lyr meta.control.if.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.begin.lyr
+#                   ^^ source.lyr meta.control.if.lyr meta.embedded.expression.go string.template.lyr
+#                     ^^ source.lyr meta.control.if.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.begin.lyr
+#                       ^ source.lyr meta.control.if.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#                        ^ source.lyr meta.control.if.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.end.lyr
+#                         ^ source.lyr meta.control.if.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.end.lyr
+#                          ^ source.lyr meta.control.if.lyr punctuation.section.embedded.end.lyr
+#                           ^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#                            ^ source.lyr meta.tag.html entity.name.tag.html
+#                             ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+#                              ^ source.lyr
+#                               ^^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#                                 ^ source.lyr meta.tag.html entity.name.tag.html
+#                                  ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+#                                   ^ source.lyr meta.control.end.lyr punctuation.section.embedded.begin.lyr
+#                                    ^ source.lyr meta.control.end.lyr keyword.control.lyr
+#                                     ^^ source.lyr meta.control.end.lyr keyword.control.conditional.lyr
+#                                       ^ source.lyr meta.control.end.lyr punctuation.section.embedded.end.lyr
+>{switch props.Slug}
+#^ source.lyr meta.control.switch.lyr punctuation.section.embedded.begin.lyr
+# ^^^^^^ source.lyr meta.control.switch.lyr keyword.control.conditional.lyr
+#       ^^^^^^^^^^^ source.lyr meta.control.switch.lyr meta.embedded.expression.go
+#                  ^ source.lyr meta.control.switch.lyr punctuation.section.embedded.end.lyr
+>	{case `draft`}<i>d</i>
+#^ source.lyr
+# ^ source.lyr meta.control.case.lyr punctuation.section.embedded.begin.lyr
+#  ^^^^ source.lyr meta.control.case.lyr keyword.control.conditional.lyr
+#      ^ source.lyr meta.control.case.lyr meta.embedded.expression.go
+#       ^ source.lyr meta.control.case.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.begin.lyr
+#        ^^^^^ source.lyr meta.control.case.lyr meta.embedded.expression.go string.template.lyr
+#             ^ source.lyr meta.control.case.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.end.lyr
+#              ^ source.lyr meta.control.case.lyr punctuation.section.embedded.end.lyr
+#               ^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#                ^ source.lyr meta.tag.html entity.name.tag.html
+#                 ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+#                  ^ source.lyr
+#                   ^^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#                     ^ source.lyr meta.tag.html entity.name.tag.html
+#                      ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+>{/switch}
+#^ source.lyr meta.control.end.lyr punctuation.section.embedded.begin.lyr
+# ^ source.lyr meta.control.end.lyr keyword.control.lyr
+#  ^^^^^^ source.lyr meta.control.end.lyr keyword.control.conditional.lyr
+#        ^ source.lyr meta.control.end.lyr punctuation.section.embedded.end.lyr
+><p class:list={{`btn-${size}`, "on": props.Open, `x-${k}`: true}}>c</p>
+#^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+# ^ source.lyr meta.tag.html entity.name.tag.html
+#  ^ source.lyr meta.tag.html
+#   ^^^^^ source.lyr meta.tag.html entity.other.attribute-name.directive.lyr entity.other.attribute-name.namespace.lyr
+#        ^ source.lyr meta.tag.html entity.other.attribute-name.directive.lyr punctuation.separator.namespace.lyr
+#         ^^^^ source.lyr meta.tag.html entity.other.attribute-name.directive.lyr entity.other.attribute-name.localname.lyr
+#             ^ source.lyr meta.tag.html punctuation.separator.key-value.html
+#              ^ source.lyr meta.tag.html meta.expression.lyr punctuation.section.embedded.begin.lyr
+#               ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go punctuation.definition.begin.bracket.curly.go
+#                ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.begin.lyr
+#                 ^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                     ^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.begin.lyr
+#                       ^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#                           ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.end.lyr
+#                            ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.end.lyr
+#                             ^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go
+#                               ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.begin.go
+#                                ^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.quoted.double.go
+#                                  ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.end.go
+#                                   ^^^^^^^^^^^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go
+#                                                 ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.begin.lyr
+#                                                  ^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                                                    ^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.begin.lyr
+#                                                      ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#                                                       ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.end.lyr
+#                                                        ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.end.lyr
+#                                                         ^^^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go
+#                                                               ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go punctuation.definition.end.bracket.curly.go
+#                                                                ^ source.lyr meta.tag.html meta.expression.lyr punctuation.section.embedded.end.lyr
+#                                                                 ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+#                                                                  ^ source.lyr
+#                                                                   ^^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#                                                                     ^ source.lyr meta.tag.html entity.name.tag.html
+#                                                                      ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+><p title={`line one
+#^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+# ^ source.lyr meta.tag.html entity.name.tag.html
+#  ^ source.lyr meta.tag.html
+#   ^^^^^ source.lyr meta.tag.html entity.other.attribute-name.html
+#        ^ source.lyr meta.tag.html punctuation.separator.key-value.html
+#         ^ source.lyr meta.tag.html meta.expression.lyr punctuation.section.embedded.begin.lyr
+#          ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.begin.lyr
+#           ^^^^^^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr
+>line ${two} \
+#^^^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#     ^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.begin.lyr
+#       ^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#          ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.end.lyr
+#           ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#            ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr constant.character.escape.lyr
+>end`}>m</p>
+#^^^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#   ^ source.lyr meta.tag.html meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.end.lyr
+#    ^ source.lyr meta.tag.html meta.expression.lyr punctuation.section.embedded.end.lyr
+#     ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+#      ^ source.lyr
+#       ^^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#         ^ source.lyr meta.tag.html entity.name.tag.html
+#          ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+><p>{`esc \` \${ \n \x41 \u0041 \u{1F600} \0 \d`}</p>
+#^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+# ^ source.lyr meta.tag.html entity.name.tag.html
+#  ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+#   ^ source.lyr meta.expression.lyr punctuation.section.embedded.begin.lyr
+#    ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.begin.lyr
+#     ^^^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#         ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr constant.character.escape.lyr
+#           ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#            ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr constant.character.escape.lyr
+#              ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr constant.character.escape.lyr
+#                  ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                   ^^^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr constant.character.escape.lyr
+#                       ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                        ^^^^^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr constant.character.escape.lyr
+#                              ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                               ^^^^^^^^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr constant.character.escape.lyr
+#                                        ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                                         ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr constant.character.escape.lyr
+#                                           ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                                            ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr invalid.illegal.unknown-escape.lyr
+#                                              ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.end.lyr
+#                                               ^ source.lyr meta.expression.lyr punctuation.section.embedded.end.lyr
+#                                                ^^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#                                                  ^ source.lyr meta.tag.html entity.name.tag.html
+#                                                   ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+><p>{`a ${f(`x ${g(`y ${z}`)}`)} b ${m["}"]} c`}</p>
+#^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+# ^ source.lyr meta.tag.html entity.name.tag.html
+#  ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+#   ^ source.lyr meta.expression.lyr punctuation.section.embedded.begin.lyr
+#    ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.begin.lyr
+#     ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#       ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.begin.lyr
+#         ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#           ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.begin.lyr
+#            ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr
+#              ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.begin.lyr
+#                ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#                  ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.begin.lyr
+#                   ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr
+#                     ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.begin.lyr
+#                       ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#                        ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.end.lyr
+#                         ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.end.lyr
+#                          ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#                           ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.end.lyr
+#                            ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.end.lyr
+#                             ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#                              ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.end.lyr
+#                               ^^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                                  ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.begin.lyr
+#                                    ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#                                      ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.begin.go
+#                                       ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.quoted.double.go
+#                                        ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.end.go
+#                                         ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr meta.embedded.expression.go
+#                                          ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr meta.template.expression.lyr punctuation.definition.template-expression.end.lyr
+#                                           ^^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr
+#                                             ^ source.lyr meta.expression.lyr meta.embedded.expression.go string.template.lyr punctuation.definition.string.template.end.lyr
+#                                              ^ source.lyr meta.expression.lyr punctuation.section.embedded.end.lyr
+#                                               ^^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#                                                 ^ source.lyr meta.tag.html entity.name.tag.html
+#                                                  ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+>

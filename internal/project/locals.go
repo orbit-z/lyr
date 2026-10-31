@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // LocalsDir is the optional package that declares the typed locals
@@ -22,17 +22,17 @@ const LocalsDir = "src/locals"
 // detectLocals looks for type Locals in the Go package at src/locals, with
 // go/parser and no type checking (PLAN.md §5b "Typed locals"). It returns
 // the package's import path when the package declares Locals, else "" (the
-// generated code then uses orbit.NoLocals); the names of Locals' fields of
-// type orbit.RouteInfo, which Orbit fills (PLAN.md §4g), and orbit.Cache,
+// generated code then uses lyr.NoLocals); the names of Locals' fields of
+// type lyr.RouteInfo, which Lyr fills (PLAN.md §4g), and lyr.Cache,
 // the request's cache handle (PLAN.md §4h); and the problems found:
 //
 //   - a package name other than locals;
 //   - a Locals that's a defined type but not a struct (an alias is
 //     accepted: its target can't be checked without types, and it has no
 //     RouteInfo field);
-//   - more than one orbit.RouteInfo (or orbit.Cache) field, an embedded or
+//   - more than one lyr.RouteInfo (or lyr.Cache) field, an embedded or
 //     unexported one, or a pointer to one;
-//   - an import of orbit_gen/app or an implementation package, directly or
+//   - an import of lyr_gen/app or an implementation package, directly or
 //     through the module's own packages: the implementation package of
 //     every component that uses locals imports src/locals, so that would be
 //     an import cycle (rejected even before any component uses locals).
@@ -85,34 +85,34 @@ func detectLocals(root, module string) (path string, fields localsFields, _ []Di
 	return module + "/" + LocalsDir, fields, nil
 }
 
-// localsFields are the names of Locals' fields that Orbit knows by type, or
+// localsFields are the names of Locals' fields that Lyr knows by type, or
 // "".
 type localsFields struct {
-	Route string // orbit.RouteInfo (PLAN.md §4g)
-	Cache string // orbit.Cache (PLAN.md §4h)
+	Route string // lyr.RouteInfo (PLAN.md §4g)
+	Cache string // lyr.Cache (PLAN.md §4h)
 }
 
-// markerField returns the name of the field of type orbit.<typ> in the
+// markerField returns the name of the field of type lyr.<typ> in the
 // Locals struct st of file f, or "" (PLAN.md §4g, §4h). The type is the
 // marker: any exported name works. Two such fields, an embedded or
 // unexported one, and a pointer are errors; example is the field name the
-// messages suggest, verb what Orbit does with the field.
+// messages suggest, verb what Lyr does with the field.
 func markerField(fset *token.FileSet, rel string, f *ast.File, st *ast.StructType, typ, example, verb string) (string, []Diagnostic) {
-	orbitName := ""
+	lyrName := ""
 	for _, im := range f.Imports {
 		if p, err := strconv.Unquote(im.Path.Value); err != nil || p != compiler.RuntimePath {
 			continue
 		}
-		orbitName = "orbit"
+		lyrName = "lyr"
 		if im.Name != nil {
-			orbitName = im.Name.Name
+			lyrName = im.Name.Name
 		}
 	}
-	if orbitName == "" || orbitName == "_" {
+	if lyrName == "" || lyrName == "_" {
 		return "", nil
 	}
 	isMarker := func(e ast.Expr) bool {
-		if orbitName == "." {
+		if lyrName == "." {
 			id, ok := e.(*ast.Ident)
 			return ok && id.Name == typ
 		}
@@ -121,11 +121,11 @@ func markerField(fset *token.FileSet, rel string, f *ast.File, st *ast.StructTyp
 			return false
 		}
 		x, ok := sel.X.(*ast.Ident)
-		return ok && x.Name == orbitName
+		return ok && x.Name == lyrName
 	}
 	var name string
 	var ds []Diagnostic
-	full := "orbit." + typ
+	full := "lyr." + typ
 	verbBase := strings.TrimSuffix(verb, "s")
 	for _, fld := range st.Fields.List {
 		ft, ptr := fld.Type, false
@@ -142,11 +142,11 @@ func markerField(fset *token.FileSet, rel string, f *ast.File, st *ast.StructTyp
 		for _, id := range fld.Names {
 			switch {
 			case ptr:
-				ds = append(ds, goError(fset, rel, id.Pos(), "Locals field "+id.Name+" must be an "+full+", not a pointer: Orbit "+verb+" it in place"))
+				ds = append(ds, goError(fset, rel, id.Pos(), "Locals field "+id.Name+" must be a "+full+", not a pointer: Lyr "+verb+" it in place"))
 			case !id.IsExported():
-				ds = append(ds, goError(fset, rel, id.Pos(), "Locals field "+id.Name+" must be exported for Orbit to "+verbBase+" it, such as "+example+" "+full))
+				ds = append(ds, goError(fset, rel, id.Pos(), "Locals field "+id.Name+" must be exported for Lyr to "+verbBase+" it, such as "+example+" "+full))
 			case name != "":
-				ds = append(ds, goError(fset, rel, id.Pos(), "Locals has two "+full+" fields ("+name+", "+id.Name+"); Orbit "+verb+" one"))
+				ds = append(ds, goError(fset, rel, id.Pos(), "Locals has two "+full+" fields ("+name+", "+id.Name+"); Lyr "+verb+" one"))
 			default:
 				name = id.Name
 			}
@@ -156,7 +156,7 @@ func markerField(fset *token.FileSet, rel string, f *ast.File, st *ast.StructTyp
 }
 
 // CheckLocals returns the problems with src/locals that Load finds (and
-// Front reports): orbit doctor's config check runs it on its own.
+// Front reports): lyr doctor's config check runs it on its own.
 func CheckLocals(root, module string) []Diagnostic {
 	_, _, ds := detectLocals(root, module)
 	return ds
@@ -195,7 +195,7 @@ func parseGoDir(fset *token.FileSet, dir string, mode parser.Mode) []parsedGo {
 }
 
 // checkLocalsImports reports the imports of src/locals that lead to
-// orbit_gen/app or an implementation package, directly or through the
+// lyr_gen/app or an implementation package, directly or through the
 // module's own packages (read with parser.ImportsOnly). Each offending
 // import of src/locals is reported once, with the shortest chain.
 func checkLocalsImports(fset *token.FileSet, root, module string, files []parsedGo) []Diagnostic {
@@ -262,9 +262,9 @@ func inModule(module, p string) bool {
 }
 
 // forbiddenFromLocals reports whether src/locals can't import p: the
-// generated packages that import src/locals, orbit_gen/app and the
-// implementation packages, orbit_gen/link (which imports them all) and
-// orbit_gen/cmd/server (which imports app).
+// generated packages that import src/locals, lyr_gen/app and the
+// implementation packages, lyr_gen/link (which imports them all) and
+// lyr_gen/cmd/server (which imports app).
 func forbiddenFromLocals(module, p string) bool {
 	rel, ok := strings.CutPrefix(p, module+"/"+compiler.GenDir+"/")
 	if !ok {

@@ -19,25 +19,25 @@ import (
 var cases = []struct{ expr, want string }{
 	{`s`, "String"},
 	{`post.Title`, "String"},
-	{`slug`, "String/string"},          // type Slug string, no methods
-	{`tag`, "Stringer"},                // type Tag string with String()
-	{`n`, "Int/int64"},                 // int
-	{`i64`, "Int"},                     // int64
-	{`u8`, "Uint/uint64"},              // uint8
-	{`by`, "Uint/uint64"},              // byte
-	{`status`, "Stringer"},             // type Status int with String()
-	{`count`, "Int/int64"},             // type Count int, no methods
-	{`ok`, "Bool"},                     // bool
-	{`flag`, "Bool/bool"},              // type Flag bool
-	{`f64`, "Float"},                   // float64
-	{`f32`, "Float/float64"},           // float32
-	{`price`, "Float/float64"},         // type Price float64: fmt %v == strconv g -1 64
-	{`ratio`, "Expr"},                  // type Ratio float32: fmt uses bitSize 32, Expr widens
-	{`raw`, "Bytes"},                   // []byte
-	{`rawNamed`, "Expr"},               // type RawBytes []byte: fmt prints [..]
-	{`orbit.HTML("<b>x</b>")`, "HTML"}, // constant of type HTML
-	{`h`, "HTML"},                      // HTML var
-	{`orbit.URL("/a?b&c")`, "String/string"},
+	{`slug`, "String/string"},        // type Slug string, no methods
+	{`tag`, "Stringer"},              // type Tag string with String()
+	{`n`, "Int/int64"},               // int
+	{`i64`, "Int"},                   // int64
+	{`u8`, "Uint/uint64"},            // uint8
+	{`by`, "Uint/uint64"},            // byte
+	{`status`, "Stringer"},           // type Status int with String()
+	{`count`, "Int/int64"},           // type Count int, no methods
+	{`ok`, "Bool"},                   // bool
+	{`flag`, "Bool/bool"},            // type Flag bool
+	{`f64`, "Float"},                 // float64
+	{`f32`, "Float/float64"},         // float32
+	{`price`, "Float/float64"},       // type Price float64: fmt %v == strconv g -1 64
+	{`ratio`, "Expr"},                // type Ratio float32: fmt uses bitSize 32, Expr widens
+	{`raw`, "Bytes"},                 // []byte
+	{`rawNamed`, "Expr"},             // type RawBytes []byte: fmt prints [..]
+	{`lyr.HTML("<b>x</b>")`, "HTML"}, // constant of type HTML
+	{`h`, "HTML"},                    // HTML var
+	{`lyr.URL("/a?b&c")`, "String/string"},
 	{`created`, "Stringer"},   // time.Time
 	{`author`, "Stringer"},    // *Author, pointer-receiver String
 	{`nilAuthor`, "Stringer"}, // nil *Author: Expr's nil case is for nil interfaces only
@@ -52,8 +52,8 @@ var cases = []struct{ expr, want string }{
 	{`stringerIface`, "Expr"}, // static fmt.Stringer: dynamic value may be an error
 	{`errStringer`, "Error"},  // interface embedding error and String
 	{`anyV`, "Expr"},          // any
-	{`rend`, "Render"},        // orbit.Renderer
-	{`func(w *orbit.Writer) error { w.Raw("<i>r</i>"); return nil }`, "Render/orbit.Renderer"},
+	{`rend`, "Render"},        // lyr.Renderer
+	{`func(w *lyr.Writer) error { w.Raw("<i>r</i>"); return nil }`, "Render/lyr.Renderer"},
 	{`"a < b"`, "String"},            // untyped string constant
 	{`42`, "Int/int64"},              // untyped int constant
 	{`'x'`, "Int/int64"},             // untyped rune -> int32
@@ -82,7 +82,7 @@ import (
 	"strings"
 	"time"
 
-	orbit "github.com/bertrandkhe/orbit"
+	lyr "github.com/bertrandkhe/lyr"
 )
 
 type Slug string
@@ -136,7 +136,7 @@ var (
 	_ = time.Now
 )
 
-func cases(orbit__w *orbit.Writer) {
+func cases(lyr__w *lyr.Writer) {
 	s := "Tom & Jerry"
 	post := Post{Title: "Hi <there>"}
 	slug := Slug("a&b")
@@ -157,7 +157,7 @@ func cases(orbit__w *orbit.Writer) {
 	var aliasAny AliasAny = 3
 	raw := []byte("<raw>")
 	rawNamed := RawBytes("ab")
-	h := orbit.HTML("<hr>")
+	h := lyr.HTML("<hr>")
 	created := time.Date(2026, 10, 25, 0, 0, 0, 0, time.UTC)
 	author := &Author{Name: "Ann"}
 	var nilAuthor *Author
@@ -172,7 +172,7 @@ func cases(orbit__w *orbit.Writer) {
 		String() string
 	} = myErr
 	var anyV any = Slug("s")
-	var rend orbit.Renderer = func(w *orbit.Writer) error { w.Raw("<r/>"); return nil }
+	var rend lyr.Renderer = func(w *lyr.Writer) error { w.Raw("<r/>"); return nil }
 	str := "p"
 	sp := &str
 	tags := []string{"a", "b"}
@@ -188,14 +188,14 @@ func source() string {
 	var b strings.Builder
 	b.WriteString(decls)
 	for _, c := range cases {
-		fmt.Fprintf(&b, "\torbit__w.Raw(\"\\n\")\n\torbit__w.Expr(%s)\n", c.expr)
+		fmt.Fprintf(&b, "\tlyr__w.Raw(\"\\n\")\n\tlyr__w.Expr(%s)\n", c.expr)
 	}
 	b.WriteString("}\n")
 	return b.String()
 }
 
 func stubDir(t *testing.T) string {
-	d, err := filepath.Abs("../orbitstub")
+	d, err := filepath.Abs("../lyrstub")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,12 +203,12 @@ func stubDir(t *testing.T) string {
 }
 
 func checkStub(t *testing.T, fset *token.FileSet) *types.Package {
-	f, err := parser.ParseFile(fset, filepath.Join(stubDir(t), "orbit.go"), nil, 0)
+	f, err := parser.ParseFile(fset, filepath.Join(stubDir(t), "lyr.go"), nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	conf := types.Config{Importer: importer.Default()}
-	pkg, err := conf.Check("github.com/bertrandkhe/orbit", fset, []*ast.File{f}, nil)
+	pkg, err := conf.Check("github.com/bertrandkhe/lyr", fset, []*ast.File{f}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,31 +216,31 @@ func checkStub(t *testing.T, fset *token.FileSet) *types.Package {
 }
 
 type mapImporter struct {
-	orbit *types.Package
-	def   types.Importer
+	lyr *types.Package
+	def types.Importer
 }
 
 func (m mapImporter) Import(path string) (*types.Package, error) {
-	if path == orbitPath {
-		return m.orbit, nil
+	if path == lyrPath {
+		return m.lyr, nil
 	}
 	return m.def.Import(path)
 }
 
 func TestClassify(t *testing.T) {
 	fset := token.NewFileSet()
-	orbit := checkStub(t, fset)
+	lyr := checkStub(t, fset)
 	src := source()
 	f, err := parser.ParseFile(fset, "t.go", src, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}}
-	conf := types.Config{Importer: mapImporter{orbit, importer.Default()}}
+	conf := types.Config{Importer: mapImporter{lyr, importer.Default()}}
 	if _, err := conf.Check("t", fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
-	env := NewEnv(orbit)
+	env := NewEnv(lyr)
 	i := 0
 	ast.Inspect(f, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
@@ -295,11 +295,11 @@ func runCases(t *testing.T, src string) string {
 			t.Fatal(err)
 		}
 	}
-	write("go.mod", "module t\n\ngo 1.27\n\ntoolchain go1.27.3\n\nrequire github.com/bertrandkhe/orbit v0.0.0\n\nreplace github.com/bertrandkhe/orbit => "+stubDir(t)+"\n")
+	write("go.mod", "module t\n\ngo 1.27\n\ntoolchain go1.27.3\n\nrequire github.com/bertrandkhe/lyr v0.0.0\n\nreplace github.com/bertrandkhe/lyr => "+stubDir(t)+"\n")
 	write("t.go", strings.Replace(src, "package t", "package main", 1)+`
 func main() {
 	var buf bytes.Buffer
-	cases(orbit.NewWriter(&buf))
+	cases(lyr.NewWriter(&buf))
 	os.Stdout.Write(buf.Bytes())
 }
 `)

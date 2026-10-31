@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 // A marked component renders in its own goroutine, into its own pooled
 // Writer, buffer and Ctx (a copy of the forking one). The forking Writer
 // records a hole (its buffer offset and the child Writer) and keeps
-// rendering. The entry point (a page, an island, RenderComponent, orbittest,
+// rendering. The entry point (a page, an island, RenderComponent, lyrtest,
 // or a RenderHTML capture for its own content) joins once at the end: it
 // waits for every goroutine of the render, then copies the buffers in
 // output order into one, inserting the head tags at the first </head> in
@@ -53,7 +53,7 @@ var groupPool = sync.Pool{New: func() any { return new(group) }}
 
 // errAborted is a child's error after it panicked with
 // http.ErrAbortHandler; the join re-panics with http.ErrAbortHandler.
-var errAborted = errors.New("orbit: render aborted (http.ErrAbortHandler)")
+var errAborted = errors.New("lyr: render aborted (http.ErrAbortHandler)")
 
 // testForkHook, when set (tests only), is called with +1 for each child
 // Ctx/Writer/buffer set taken from the pools and -1 for each returned.
@@ -99,7 +99,7 @@ func CtxOf(w *Writer, c *Ctx) *Ctx {
 // render is joined, in source order. It returns w's error, and starts
 // nothing, when w has already failed.
 //
-// It renders inline, as a plain call, when w belongs to no Orbit render
+// It renders inline, as a plain call, when w belongs to no Lyr render
 // (NewWriter), past the concurrency limit (WithConcurrencyLimit), and
 // inside an attribute value.
 func Concurrent[P any](c *Ctx, w *Writer, render func(*Ctx, *Writer, P, Slots) error, props P, slots Slots) error {

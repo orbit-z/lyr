@@ -1,3 +1,3 @@
 -- errors --
-err_header.orbit:1:10: expected operand, found '{'
-err_header.orbit:3:3: expected ';', found 'EOF'
+err_header.lyr:1:10: expected operand, found '{'
+err_header.lyr:3:3: expected ';', found 'EOF'

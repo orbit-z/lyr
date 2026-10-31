@@ -1,0 +1,18 @@
+---
+import (
+    "time"
+
+    "example.com/lyrbench/internal/data"
+    Layout "../layouts/Layout.lyr"
+    ItemList "../components/ItemList.lyr"
+)
+
+// The fetch page, stored by the route cache: fresh for an hour, so a
+// benchmark run measures cache hits.
+items := data.Fetch()
+ctx.Cache().Set(lyr.CacheOptions{MaxAge: time.Hour})
+---
+<Layout title="Fetched list">
+  <h1>Latest items</h1>
+  <ItemList items={items} />
+</Layout>

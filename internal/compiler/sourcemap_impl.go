@@ -11,10 +11,10 @@ func (m *SourceMap) goOffset(off int) (int, bool) {
 	}
 	best := -1
 	for i, s := range m.Segments {
-		if s.Kind == SegEcho || s.Kind == SegSpread || off < s.OrbitStart || off > s.OrbitEnd {
+		if s.Kind == SegEcho || s.Kind == SegSpread || off < s.LyrStart || off > s.LyrEnd {
 			continue
 		}
-		if off < s.OrbitEnd {
+		if off < s.LyrEnd {
 			best = i
 			break
 		}
@@ -26,12 +26,12 @@ func (m *SourceMap) goOffset(off int) (int, bool) {
 		return 0, false
 	}
 	s := m.Segments[best]
-	return s.GoStart + min(off-s.OrbitStart, s.GoEnd-s.GoStart), true
+	return s.GoStart + min(off-s.LyrStart, s.GoEnd-s.GoStart), true
 }
 
-// orbitOffset implements OrbitOffset, by binary search over the sorted Go
+// lyrOffset implements LyrOffset, by binary search over the sorted Go
 // ranges.
-func (m *SourceMap) orbitOffset(goOff int) (int, bool) {
+func (m *SourceMap) lyrOffset(goOff int) (int, bool) {
 	if m == nil {
 		return 0, false
 	}
@@ -45,7 +45,7 @@ func (m *SourceMap) orbitOffset(goOff int) (int, bool) {
 		if s.Kind == SegEcho {
 			return 0, false
 		}
-		return s.OrbitStart + min(goOff-s.GoStart, s.OrbitEnd-s.OrbitStart), true
+		return s.LyrStart + min(goOff-s.GoStart, s.LyrEnd-s.LyrStart), true
 	}
 	return 0, false
 }

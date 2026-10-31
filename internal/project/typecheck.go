@@ -9,16 +9,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/markdown"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/markdown"
 )
 
 // FrontPreload is Front, and starts checker's go list -export
-// (Checker.Preload) as soon as the .orbit files are parsed, so that it runs
+// (Checker.Preload) as soon as the .lyr files are parsed, so that it runs
 // during pass 1 and whatever comes before the Typecheck with checker (the
-// esbuild bundles, in orbit build). It preloads the packages the generated
+// esbuild bundles, in lyr build). It preloads the packages the generated
 // code will import, as far as parsing tells: the runtime, src/locals, every
-// .orbit file's Go imports, and time when there are Markdown files (their
+// .lyr file's Go imports, and time when there are Markdown files (their
 // frontmatter dates). When that guess misses a package, Typecheck loads
 // again.
 func (p *Project) FrontPreload(checker *compiler.Checker) bool {
@@ -26,7 +26,7 @@ func (p *Project) FrontPreload(checker *compiler.Checker) bool {
 }
 
 // goImports is FrontPreload's guess, after parsing, of the packages outside
-// orbit_gen/ that the generated code imports.
+// lyr_gen/ that the generated code imports.
 func (p *Project) goImports() []string {
 	set := map[string]bool{compiler.RuntimePath: true}
 	if p.Options.Locals != "" {

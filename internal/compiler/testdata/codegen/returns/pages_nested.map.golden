@@ -1,8 +1,8 @@
-orbit_gen/decl/pages/nested/decl.go (src/pages/nested.orbit)
-orbit_gen/impl/pages/nested/render.go (src/pages/nested.orbit)
-  exact 2:8 "R" -> 206-207 "R"
-  span  2:10 "\"../components/R.orbit\"" -> 208-254 "\"example.com/blog/orbit_gen/decl/components/r\""
-  span  4:7 "R" -> 839-847 "R.Render"
-  span  4:9 "mode" -> 952-956 "Mode"
-  span  4:14 "\"top\"" -> 1030-1035 "\"top\""
+lyr_gen/decl/pages/nested/decl.go (src/pages/nested.lyr)
+lyr_gen/impl/pages/nested/render.go (src/pages/nested.lyr)
+  exact 2:8 "R" -> 196-197 "R"
+  span  2:10 "\"../components/R.lyr\"" -> 198-242 "\"example.com/blog/lyr_gen/decl/components/r\""
+  span  4:7 "R" -> 779-787 "R.Render"
+  span  4:9 "mode" -> 886-890 "Mode"
+  span  4:14 "\"top\"" -> 962-967 "\"top\""
 call sites

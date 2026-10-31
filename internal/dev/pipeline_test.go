@@ -117,16 +117,16 @@ func TestPipelineStages(t *testing.T) {
 
 	// Template edit: Go stages, no esbuild.
 	tp.reset()
-	edit(t, dir, "src/components/Card.orbit", "card {props.Post}", "Card {props.Post}")
-	out = tp.run(t, "src/components/Card.orbit")
+	edit(t, dir, "src/components/Card.lyr", "card {props.Post}", "Card {props.Post}")
+	out = tp.run(t, "src/components/Card.lyr")
 	if st := tp.got(); slices.Contains(st, "esbuild") || !slices.Contains(st, "gobuild") || out.Assets || out.Bin == "" {
 		t.Errorf("template edit: stages %v, %+v", st, out)
 	}
 
 	// CSS edit: esbuild only.
 	tp.reset()
-	edit(t, dir, "src/layouts/Base.orbit", "color: navy;", "color: teal;")
-	out = tp.run(t, "src/layouts/Base.orbit")
+	edit(t, dir, "src/layouts/Base.lyr", "color: navy;", "color: teal;")
+	out = tp.run(t, "src/layouts/Base.lyr")
 	if st := tp.got(); !slices.Equal(st, []string{"front", "esbuild"}) || !out.Assets || out.Bin != "" {
 		t.Errorf("CSS edit: stages %v, %+v", st, out)
 	}
@@ -148,7 +148,7 @@ func TestPipelineStages(t *testing.T) {
 	}
 
 	// The dev manifest is there, and the compiled one stays empty.
-	if _, err := os.Stat(dir + "/.orbit/dev/manifest.json"); err != nil {
+	if _, err := os.Stat(dir + "/.lyr/dev/manifest.json"); err != nil {
 		t.Error(err)
 	}
 }
@@ -193,8 +193,8 @@ func TestGoBuildEnv(t *testing.T) {
 		{nil, nil, []string{}},
 		{
 			[]string{"HOME=/h", "GOGC=100", "GOFLAGS=-mod=mod", "GOMEMLIMIT=1GiB", "GOGCX=1"},
-			[]string{"ORBIT_DEV=1", "GOGC=off"},
-			[]string{"HOME=/h", "GOFLAGS=-mod=mod", "GOGCX=1", "ORBIT_DEV=1"},
+			[]string{"LYR_DEV=1", "GOGC=off"},
+			[]string{"HOME=/h", "GOFLAGS=-mod=mod", "GOGCX=1", "LYR_DEV=1"},
 		},
 	} {
 		if got := goBuildEnv(tc.environ, tc.extra); !slices.Equal(got, tc.want) {

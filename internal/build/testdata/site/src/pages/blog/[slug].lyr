@@ -1,0 +1,27 @@
+---
+import (
+	"net/http"
+	"time"
+
+	Base "../../layouts/Base.lyr"
+	Comments "../../components/Comments.lyr"
+	Share "../../components/Share.lyr"
+)
+
+switch params.Slug {
+case "nope":
+	return lyr.ErrNotFound
+case "old":
+	return ctx.Redirect("/blog/hello", http.StatusMovedPermanently)
+case "boom":
+	panic("kaboom")
+case "teapot":
+	ctx.SetStatus(http.StatusTeapot)
+	ctx.Header().Set("X-Fixture", "teapot")
+}
+---
+<Base title={params.Slug}>
+  <h1>Post {params.Slug}</h1>
+  <Comments server:defer postID={42} since={time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)}><p slot="fallback">Loading comments…</p></Comments>
+  <Share client:visible="200px" />
+</Base>

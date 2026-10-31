@@ -1,0 +1,17 @@
+---
+import Card "../components/Card.lyr"
+import Bare "../components/Bare.lyr"
+import Embed "../components/Embed.lyr"
+import Gone "../components/Gone.lyr"
+import Unused "../components/Card.lyr"
+---
+<Crad title="x" />
+<Card psot={1} title="ok" is-open />
+<Card server:defer title="d" />
+<Card client:idle title="i" />
+<Card client:visible title="v" />
+<Card client:load title="l" />
+<Bare x="1" />
+<Embed name="e" extra={2} />
+<Gone a={1} />
+<Self foo="x" />

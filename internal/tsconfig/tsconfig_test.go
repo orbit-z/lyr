@@ -32,47 +32,47 @@ func TestResolve(t *testing.T) {
 		files map[string]string
 		want  []want
 	}{
-		{"none", map[string]string{}, []want{{"@/x.orbit", "", false}}},
-		{"no paths", map[string]string{"tsconfig.json": `{"compilerOptions": {"strict": true}}`}, []want{{"@/x.orbit", "", false}}},
-		{"broken file", map[string]string{"tsconfig.json": `{"compilerOptions": `}, []want{{"@/x.orbit", "", false}}},
+		{"none", map[string]string{}, []want{{"@/x.lyr", "", false}}},
+		{"no paths", map[string]string{"tsconfig.json": `{"compilerOptions": {"strict": true}}`}, []want{{"@/x.lyr", "", false}}},
+		{"broken file", map[string]string{"tsconfig.json": `{"compilerOptions": `}, []want{{"@/x.lyr", "", false}}},
 		{"no baseUrl: relative to the tsconfig", map[string]string{"tsconfig.json": `{"compilerOptions": {"paths": {"@/*": ["./src/*"]}}}`},
-			[]want{{"@/components/Card.orbit", "src/components/Card.orbit", true}, {"@x/Card.orbit", "", false}, {"~/Card.orbit", "", false}}},
+			[]want{{"@/components/Card.lyr", "src/components/Card.lyr", true}, {"@x/Card.lyr", "", false}, {"~/Card.lyr", "", false}}},
 		{"baseUrl", map[string]string{"tsconfig.json": `{"compilerOptions": {"baseUrl": "src", "paths": {"@c/*": ["components/*"]}}}`},
-			[]want{{"@c/Card.orbit", "src/components/Card.orbit", true},
+			[]want{{"@c/Card.lyr", "src/components/Card.lyr", true},
 				// No entry matches: baseUrl-relative, as TypeScript (and Astro) resolve bare paths.
-				{"layouts/Base.orbit", "src/layouts/Base.orbit", true}}},
+				{"layouts/Base.lyr", "src/layouts/Base.lyr", true}}},
 		{"JSONC", map[string]string{"tsconfig.json": "{\n  // comment\n  \"compilerOptions\": {\n    /* block */ \"paths\": {\"@/*\": [\"src/*\",],},\n  },\n}\n"},
-			[]want{{"@/a.orbit", "src/a.orbit", true}}},
+			[]want{{"@/a.lyr", "src/a.lyr", true}}},
 		{"longest prefix and exact keys", map[string]string{"tsconfig.json": `{"compilerOptions": {"paths": {
-			"@/*": ["src/*"], "@/ui/*": ["src/components/ui/*"], "@/ui/Button.orbit": ["src/special/Button.orbit"], "*.orbit": ["src/any/*.orbit"]}}}`},
-			[]want{{"@/x.orbit", "src/x.orbit", true}, {"@/ui/Card.orbit", "src/components/ui/Card.orbit", true},
-				{"@/ui/Button.orbit", "src/special/Button.orbit", true}, {"Card.orbit", "src/any/Card.orbit", true}}},
+			"@/*": ["src/*"], "@/ui/*": ["src/components/ui/*"], "@/ui/Button.lyr": ["src/special/Button.lyr"], "*.lyr": ["src/any/*.lyr"]}}}`},
+			[]want{{"@/x.lyr", "src/x.lyr", true}, {"@/ui/Card.lyr", "src/components/ui/Card.lyr", true},
+				{"@/ui/Button.lyr", "src/special/Button.lyr", true}, {"Card.lyr", "src/any/Card.lyr", true}}},
 		{"several targets: the first existing", map[string]string{
-			"tsconfig.json":             `{"compilerOptions": {"paths": {"@/*": ["src/a/*", "src/b/*"]}}}`,
-			"src/b/Only.orbit":          "",
-			"src/a/Both.orbit":          "",
-			"src/b/Both.orbit":          "",
-			"src/components/Card.orbit": ""},
-			[]want{{"@/Only.orbit", "src/b/Only.orbit", true}, {"@/Both.orbit", "src/a/Both.orbit", true}, {"@/None.orbit", "src/a/None.orbit", true}}},
+			"tsconfig.json":           `{"compilerOptions": {"paths": {"@/*": ["src/a/*", "src/b/*"]}}}`,
+			"src/b/Only.lyr":          "",
+			"src/a/Both.lyr":          "",
+			"src/b/Both.lyr":          "",
+			"src/components/Card.lyr": ""},
+			[]want{{"@/Only.lyr", "src/b/Only.lyr", true}, {"@/Both.lyr", "src/a/Both.lyr", true}, {"@/None.lyr", "src/a/None.lyr", true}}},
 		{"extends: local file, paths relative to it", map[string]string{
-			"tsconfig.json":          `{"extends": "./config/base", "compilerOptions": {"strict": true}}`,
-			"config/base.json":       `{"compilerOptions": {"paths": {"@/*": ["../src/*"]}}}`,
-			"src/components/X.orbit": ""},
-			[]want{{"@/components/X.orbit", "src/components/X.orbit", true}}},
+			"tsconfig.json":        `{"extends": "./config/base", "compilerOptions": {"strict": true}}`,
+			"config/base.json":     `{"compilerOptions": {"paths": {"@/*": ["../src/*"]}}}`,
+			"src/components/X.lyr": ""},
+			[]want{{"@/components/X.lyr", "src/components/X.lyr", true}}},
 		{"extends: own paths override, base baseUrl", map[string]string{
 			"tsconfig.json": `{"extends": ["./a.json", "./b.json"], "compilerOptions": {"paths": {"~/*": ["src/*"]}}}`,
 			"a.json":        `{"compilerOptions": {"baseUrl": "."}}`,
 			"b.json":        `{"compilerOptions": {"paths": {"@/*": ["src/*"]}}}`},
-			[]want{{"~/x.orbit", "src/x.orbit", true}, {"@/x.orbit", "@/x.orbit", true}}},
+			[]want{{"~/x.lyr", "src/x.lyr", true}, {"@/x.lyr", "@/x.lyr", true}}},
 		{"extends: a package under node_modules", map[string]string{
 			"tsconfig.json":                          `{"extends": "astro/tsconfigs/base"}`,
 			"node_modules/astro/tsconfigs/base.json": `{"compilerOptions": {"paths": {"@/*": ["../../../src/*"]}}}`},
-			[]want{{"@/x.orbit", "src/x.orbit", true}}},
+			[]want{{"@/x.lyr", "src/x.lyr", true}}},
 		{"extends: missing package ignored", map[string]string{
 			"tsconfig.json": `{"extends": "nope/base", "compilerOptions": {"paths": {"@/*": ["src/*"]}}}`},
-			[]want{{"@/x.orbit", "src/x.orbit", true}}},
+			[]want{{"@/x.lyr", "src/x.lyr", true}}},
 		{"outside the project", map[string]string{"tsconfig.json": `{"compilerOptions": {"paths": {"@lib/*": ["../lib/*"]}}}`},
-			[]want{{"@lib/x.orbit", "../lib/x.orbit", true}}},
+			[]want{{"@lib/x.lyr", "../lib/x.lyr", true}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := writeFiles(t, tc.files)
@@ -106,8 +106,8 @@ func TestFilesAndSpellings(t *testing.T) {
 	if !slices.Equal(a.Files, []string{"tsconfig.json", "tsconfig.base.json"}) {
 		t.Errorf("Files %v", a.Files)
 	}
-	got := a.Spellings("src/components/Card.orbit", nil)
-	if want := []string{"@c/Card.orbit", "@/components/Card.orbit", "src/components/Card.orbit"}; !slices.Equal(got, want) {
+	got := a.Spellings("src/components/Card.lyr", nil)
+	if want := []string{"@c/Card.lyr", "@/components/Card.lyr", "src/components/Card.lyr"}; !slices.Equal(got, want) {
 		t.Errorf("Spellings %v, want %v", got, want)
 	}
 	if got := a.Prefixes(); !slices.Equal(got, []string{"@c/", "@/"}) {

@@ -1,2 +1,2 @@
 -- errors --
-err_script.orbit:7:12: <script>: Expression expected.
+err_script.lyr:7:12: <script>: Expression expected.

@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 
 	"github.com/evanw/esbuild/pkg/api"
-	"github.com/orbit-z/orbit/internal/tailwind"
+	"github.com/orbit-z/lyr/internal/tailwind"
 )
 
 // esbuildBundler is the Bundler built on esbuild's Go API. It keeps one
@@ -23,7 +23,7 @@ import (
 // or <script> only needs a Rebuild.
 type esbuildBundler struct {
 	opts   Options
-	outdir string // virtual output directory: <root>/_orbit (nothing is written)
+	outdir string // virtual output directory: <root>/_lyr (nothing is written)
 
 	mu   sync.RWMutex
 	plan *plan // read by the plugin during a build
@@ -44,11 +44,11 @@ type esbuildBundler struct {
 
 // New returns the esbuild Bundler.
 func New(opts Options) Bundler {
-	return &esbuildBundler{opts: opts, outdir: filepath.Join(opts.Root, "_orbit"), tw: opts.Tailwind}
+	return &esbuildBundler{opts: opts, outdir: filepath.Join(opts.Root, "_lyr"), tw: opts.Tailwind}
 }
 
 // fileLoaders are the extensions that CSS (url(…)) and scripts may import
-// as files: copied to /_orbit/ with a hashed name, and referenced by URL.
+// as files: copied to /_lyr/ with a hashed name, and referenced by URL.
 var fileLoaders = []string{".avif", ".bmp", ".eot", ".gif", ".ico", ".jpeg", ".jpg", ".otf", ".png", ".svg", ".ttf", ".webp", ".woff", ".woff2"}
 
 func (b *esbuildBundler) buildOptions(p *plan) api.BuildOptions {
@@ -58,8 +58,8 @@ func (b *esbuildBundler) buildOptions(p *plan) api.BuildOptions {
 	}
 	eps := make([]api.EntryPoint, len(p.entries))
 	for i, spec := range p.entries {
-		// "orbit-page:blog-slug.ts" → [name] blog-slug,
-		// "orbit:lazy/Counter-1c2d3e4f.ts" → Counter
+		// "lyr-page:blog-slug.ts" → [name] blog-slug,
+		// "lyr:lazy/Counter-1c2d3e4f.ts" → Counter
 		eps[i] = api.EntryPoint{InputPath: spec, OutputPath: p.outName[spec]}
 	}
 	o := api.BuildOptions{
@@ -79,7 +79,7 @@ func (b *esbuildBundler) buildOptions(p *plan) api.BuildOptions {
 		Plugins:             []api.Plugin{b.plugin()},
 		// Code splitting (PLAN.md §5e): the modules that several entries
 		// import, and dynamic import() targets, are chunks, flat in
-		// /_orbit/ next to the entries.
+		// /_lyr/ next to the entries.
 		Splitting:  !b.noSplit,
 		ChunkNames: "[name]-[hash]",
 	}
@@ -103,7 +103,7 @@ func (b *esbuildBundler) current() *plan {
 // plugin serves the virtual modules of the current plan.
 func (b *esbuildBundler) plugin() api.Plugin {
 	return api.Plugin{
-		Name: "orbit",
+		Name: "lyr",
 		Setup: func(pb api.PluginBuild) {
 			pb.OnResolve(api.OnResolveOptions{Filter: "^" + pageNamespace + ":"}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
 				return api.OnResolveResult{Path: strings.TrimPrefix(a.Path, pageNamespace+":"), Namespace: pageNamespace}, nil
@@ -112,13 +112,13 @@ func (b *esbuildBundler) plugin() api.Plugin {
 				css := b.current().highlight
 				return api.OnLoadResult{Contents: &css, Loader: api.LoaderCSS, ResolveDir: b.opts.Root}, nil
 			})
-			pb.OnResolve(api.OnResolveOptions{Filter: "^orbit:(script|style)/"}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
+			pb.OnResolve(api.OnResolveOptions{Filter: "^lyr:(script|style)/"}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
 				if a.Path == highlightSpec {
 					return api.OnResolveResult{Path: strings.TrimPrefix(a.Path, stylePrefix), Namespace: highlightNamespace}, nil
 				}
 				blk := b.current().blocks[a.Path]
 				if blk.block == nil {
-					return api.OnResolveResult{}, fmt.Errorf("unknown Orbit module %s", a.Path)
+					return api.OnResolveResult{}, fmt.Errorf("unknown Lyr module %s", a.Path)
 				}
 				return api.OnResolveResult{
 					Path:      filepath.Join(b.opts.Root, filepath.FromSlash(blk.file)),
@@ -126,15 +126,15 @@ func (b *esbuildBundler) plugin() api.Plugin {
 					Suffix:    blk.suffix,
 				}, nil
 			})
-			pb.OnResolve(api.OnResolveOptions{Filter: `^orbit:(client|types)$`}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
+			pb.OnResolve(api.OnResolveOptions{Filter: `^lyr:(client|types)$`}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
 				return api.OnResolveResult{Path: a.Path, Namespace: clientNamespace}, nil
 			})
 			pb.OnLoad(api.OnLoadOptions{Filter: ".*", Namespace: clientNamespace}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
 				src := ""
-				if a.Path == "orbit:client" {
+				if a.Path == "lyr:client" {
 					src = clientTS
 				}
-				// orbit:types only has types: empty at runtime.
+				// lyr:types only has types: empty at runtime.
 				return api.OnLoadResult{Contents: &src, Loader: api.LoaderTS, ResolveDir: b.opts.Root}, nil
 			})
 			pb.OnResolve(api.OnResolveOptions{Filter: "^" + lazyPrefix}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
@@ -158,7 +158,7 @@ func (b *esbuildBundler) plugin() api.Plugin {
 				}
 				return api.OnLoadResult{Contents: &src, Loader: loader, ResolveDir: b.opts.Root}, nil
 			})
-			pb.OnLoad(api.OnLoadOptions{Filter: `\.orbit$`, Namespace: "file"}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
+			pb.OnLoad(api.OnLoadOptions{Filter: `\.lyr$`, Namespace: "file"}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
 				// Called once per block copy: a prefix cut, not filepath.Rel
 				// (its Clean calls showed in profiles).
 				rel, ok := strings.CutPrefix(a.Path, b.opts.Root+string(filepath.Separator))
@@ -284,7 +284,7 @@ func (b *esbuildBundler) collect(p *plan, r api.BuildResult, res *Result) error 
 	if err := json.Unmarshal([]byte(r.Metafile), &meta); err != nil {
 		return fmt.Errorf("esbuild metafile: %w", err)
 	}
-	files := map[string][]byte{} // by name under /_orbit/
+	files := map[string][]byte{} // by name under /_lyr/
 	for _, of := range r.OutputFiles {
 		rel, err := filepath.Rel(b.outdir, of.Path)
 		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
@@ -293,8 +293,8 @@ func (b *esbuildBundler) collect(p *plan, r api.BuildResult, res *Result) error 
 		files[filepath.ToSlash(rel)] = of.Contents
 	}
 	// The metafile's output keys, and the paths of their imports, are
-	// relative to the working directory: "_orbit/index-HASH.js".
-	name := func(key string) string { return strings.TrimPrefix(filepath.ToSlash(key), "_orbit/") }
+	// relative to the working directory: "_lyr/index-HASH.js".
+	name := func(key string) string { return strings.TrimPrefix(filepath.ToSlash(key), "_lyr/") }
 	outs := make(map[string]metaOutput, len(meta.Outputs)) // by name
 	for key, out := range meta.Outputs {
 		outs[name(key)] = out
@@ -428,7 +428,7 @@ func (b *esbuildBundler) dropEmptyChunks(p *plan, outs map[string]metaOutput, fi
 	for _, out := range outs {
 		for _, imp := range out.Imports {
 			if imp.Kind == "dynamic-import" {
-				dynamic[strings.TrimPrefix(filepath.ToSlash(imp.Path), "_orbit/")] = true
+				dynamic[strings.TrimPrefix(filepath.ToSlash(imp.Path), "_lyr/")] = true
 			}
 		}
 	}
@@ -478,7 +478,7 @@ func (b *esbuildBundler) diagnostic(m api.Message, warning bool) Diagnostic {
 	d := Diagnostic{Warning: warning, Message: m.Text}
 	if loc := m.Location; loc != nil {
 		file := loc.File
-		if i := strings.Index(file, "?orbit-"); i >= 0 {
+		if i := strings.Index(file, "?lyr-"); i >= 0 {
 			file = file[:i]
 		}
 		if filepath.IsAbs(file) {

@@ -1,0 +1,4 @@
+lyr_gen/
+.lyr/
+dist/
+node_modules/

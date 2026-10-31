@@ -1,10 +1,10 @@
 package compiler
 
 // The typed pass of a SiteOptProp (PLAN.md §2.6 (Q3)): the value of a
-// component prop of type orbit.Opt[T], emitted in pass 1 as
-// orbit__rt.OptOf(Alias.Props{}.Field, x), is passed as is when it's an
+// component prop of type lyr.Opt[T], emitted in pass 1 as
+// lyr__rt.OptOf(Alias.Props{}.Field, x), is passed as is when it's an
 // Opt[T], wrapped when it's a T (or a constant T can hold), rewritten to
-// WrapIf for an orbit.If whose value is an untyped constant, and an error
+// WrapIf for a lyr.If whose value is an untyped constant, and an error
 // otherwise.
 
 import (

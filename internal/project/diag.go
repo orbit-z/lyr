@@ -6,12 +6,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // Diagnostic is an error or warning about a project file.
 type Diagnostic struct {
-	// File is the project-relative path ("src/pages/index.orbit").
+	// File is the project-relative path ("src/pages/index.lyr").
 	File string
 	// Pos is the position in File; the zero Position means the diagnostic
 	// is about the whole file (route errors), printed without line:col.
@@ -19,15 +19,15 @@ type Diagnostic struct {
 	Severity compiler.Severity
 	Message  string
 	// Span is the byte range in File for a diagnostic with a position in an
-	// .orbit file (the LSP underlines it); zero for file-level ones and for
+	// .lyr file (the LSP underlines it); zero for file-level ones and for
 	// those about other files.
 	Span compiler.Span
 	// off orders diagnostics within a file.
 	off int
 }
 
-// String formats d as the CLI prints it: "src/x.orbit:L:C: message", or
-// "src/x.orbit: message" for a file-level diagnostic, with "warning: "
+// String formats d as the CLI prints it: "src/x.lyr:L:C: message", or
+// "src/x.lyr: message" for a file-level diagnostic, with "warning: "
 // before the message of a warning.
 func (d Diagnostic) String() string {
 	msg := d.Message

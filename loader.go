@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -11,23 +11,23 @@ import (
 // loaderLazyJS) are built from loader/*.ts into loader_gen.go. The contract
 // with the loader:
 //
-//	<style>orbit-island,orbit-lazy{display:contents}</style>
-//	<script type="application/json" id="orbit-loader">{"dev":false,"lazy":{…}}</script>
+//	<style>lyr-island,lyr-lazy{display:contents}</style>
+//	<script type="application/json" id="lyr-loader">{"dev":false,"lazy":{…}}</script>
 //	<script type="module">…loaderIslandsJS…</script>   (when Route.Islands)
 //	<script type="module">…loaderLazyJS…</script>      (when the page has lazy assets)
 
 //go:generate go run ./loader/internal/gen
 
-const loaderStyle = `<style>orbit-island,orbit-lazy{display:contents}</style>`
+const loaderStyle = `<style>lyr-island,lyr-lazy{display:contents}</style>`
 
 // loaderConfig is the JSON config the loader reads from
-// <script id="orbit-loader">.
+// <script id="lyr-loader">.
 type loaderConfig struct {
 	Dev  bool    `json:"dev"`
 	Lazy lazyMap `json:"lazy,omitempty"`
 }
 
-// lazyMap maps a component ID to the entry URLs its <orbit-lazy> markers
+// lazyMap maps a component ID to the entry URLs its <lyr-lazy> markers
 // import, in module-evaluation order: the tagged component's entry plus
 // every lazy-on-this-page component in its subtree (one "lazy" asset each).
 type lazyMap map[string][]string
@@ -57,11 +57,11 @@ func loaderHead(dev, islands bool, assets []Asset) string {
 	}
 	data, err := json.Marshal(loaderConfig{Dev: dev, Lazy: lazy})
 	if err != nil {
-		panic("orbit: loader config: " + err.Error()) // a map of string lists always encodes
+		panic("lyr: loader config: " + err.Error()) // a map of string lists always encodes
 	}
 	var b bytes.Buffer
 	b.WriteString(loaderStyle)
-	b.WriteString(`<script type="application/json" id="orbit-loader">`)
+	b.WriteString(`<script type="application/json" id="lyr-loader">`)
 	// Escaped for a script context, like set:json: no </script> or <!--.
 	json.HTMLEscape(&b, data)
 	b.WriteString(`</script>`)

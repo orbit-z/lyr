@@ -1,0 +1,7 @@
+---
+import Layout "../layouts/Layout.lyr"
+---
+<Layout title="Page not found">
+  <h1>Page not found</h1>
+  <p><a href="/cards">Cards</a></p>
+</Layout>

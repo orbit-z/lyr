@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // SrcDir and PagesDir are the project-relative source directories.
@@ -17,7 +17,7 @@ const (
 	PagesDir = "src/pages"
 )
 
-// Discover returns the project-relative, "/"-separated paths of every .orbit
+// Discover returns the project-relative, "/"-separated paths of every .lyr
 // and Markdown file under root/src, sorted. Directories and files whose names start with
 // "." are skipped. Symlinked directories are followed, except when they lead
 // back to a directory already being walked (a loop).
@@ -25,7 +25,7 @@ func Discover(root string) ([]string, error) {
 	src := filepath.Join(root, SrcDir)
 	fi, err := os.Stat(src)
 	if err != nil || !fi.IsDir() {
-		return nil, fmt.Errorf("%s has no %s/ directory; run orbit in an Orbit project", root, SrcDir)
+		return nil, fmt.Errorf("%s has no %s/ directory; run lyr in a Lyr project", root, SrcDir)
 	}
 	var out []string
 	var walk func(dir, rel string, active []os.FileInfo) error
@@ -61,7 +61,7 @@ func Discover(root string) ([]string, error) {
 				if err := walk(full, relName, append(active, fi)); err != nil {
 					return err
 				}
-			case typ.IsRegular() && (strings.HasSuffix(name, ".orbit") || compiler.IsMarkdown(name)):
+			case typ.IsRegular() && (strings.HasSuffix(name, ".lyr") || compiler.IsMarkdown(name)):
 				out = append(out, relName)
 			}
 		}

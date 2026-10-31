@@ -1,5 +1,5 @@
 // Package tsconfig reads the import aliases of a project's tsconfig.json:
-// compilerOptions.paths and baseUrl, with TypeScript's semantics, so .orbit
+// compilerOptions.paths and baseUrl, with TypeScript's semantics, so .lyr
 // and Markdown component imports can use them as in Astro (PLAN.md §2.2).
 // esbuild reads the same file for scripts (§5).
 package tsconfig
@@ -200,7 +200,7 @@ func (a *Aliases) MultiTarget() bool {
 // exact key, else the longest matching prefix) and then, when no entry
 // matches, baseUrl. Of several targets, the first one for which exists
 // reports true wins, else the first one. The result is project-relative
-// and "/"-separated ("src/components/Card.orbit", or "../x" outside the
+// and "/"-separated ("src/components/Card.lyr", or "../x" outside the
 // project); ok is false when nothing matches. exists gets
 // project-relative paths too; nil means every file exists.
 func (a *Aliases) Resolve(spec string, exists func(string) bool) (string, bool) {

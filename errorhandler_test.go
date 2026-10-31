@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"errors"
@@ -19,7 +19,7 @@ var errUnavailable = errors.New("catalog: unavailable")
 // ehInner is a nested component that fails with the error named by
 // ?fail=; ehOuter renders it, so the error crosses two components.
 func ehInner(c *Ctx, w *Writer, p struct{}, s Slots) error {
-	if err := w.Enter("src/components/Inner.orbit"); err != nil {
+	if err := w.Enter("src/components/Inner.lyr"); err != nil {
 		return err
 	}
 	defer w.Leave()
@@ -42,11 +42,11 @@ func ehInner(c *Ctx, w *Writer, p struct{}, s Slots) error {
 	case "redirect":
 		return c.Redirect("/elsewhere", http.StatusFound)
 	}
-	return ErrorAt("src/components/Inner.orbit:4:3", err)
+	return ErrorAt("src/components/Inner.lyr:4:3", err)
 }
 
 func ehOuter(c *Ctx, w *Writer, p struct{}, s Slots) error {
-	if err := w.Enter("src/components/Outer.orbit"); err != nil {
+	if err := w.Enter("src/components/Outer.lyr"); err != nil {
 		return err
 	}
 	defer w.Leave()
@@ -64,7 +64,7 @@ func ehPage(c *Ctx, w *Writer) error {
 	w.HeadEnd()
 	w.Raw("</head><body>partial")
 	if err := ehOuter(c, w, struct{}{}, Slots{}); err != nil {
-		return ErrorAt("src/pages/book.orbit:9:2", err)
+		return ErrorAt("src/pages/book.lyr:9:2", err)
 	}
 	w.Raw("</body></html>")
 	return nil
@@ -92,9 +92,9 @@ func answerError(calls *[]error) func(w http.ResponseWriter, r *http.Request, er
 
 func ehRoutes() []Route {
 	return []Route{
-		{Pattern: "/book", File: "src/pages/book.orbit", Render: ehPage,
-			Assets: []Asset{{Kind: "css", URL: "/_orbit/book-1234.css"}}},
-		{Pattern: "404", File: "src/pages/404.orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/book", File: "src/pages/book.lyr", Render: ehPage,
+			Assets: []Asset{{Kind: "css", URL: "/_lyr/book-1234.css"}}},
+		{Pattern: "404", File: "src/pages/404.lyr", Render: func(c *Ctx, w *Writer) error {
 			if c.URL.Query().Get("fail404") != "" {
 				return errors.New("404 page blocked")
 			}
@@ -106,8 +106,8 @@ func ehRoutes() []Route {
 
 func TestErrorHandler(t *testing.T) {
 	for _, dev := range []string{"", "1"} {
-		t.Run("ORBIT_DEV="+dev, func(t *testing.T) {
-			t.Setenv("ORBIT_DEV", dev)
+		t.Run("LYR_DEV="+dev, func(t *testing.T) {
+			t.Setenv("LYR_DEV", dev)
 			var calls []error
 			s := testSite(t, ehRoutes(), WithErrorHandler(answerError(&calls)))
 			h := s.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -161,7 +161,7 @@ func TestErrorHandler(t *testing.T) {
 			// The error text starts with the innermost return's position.
 			calls = calls[:0]
 			do(h, "GET", "/book?fail=unavailable")
-			if got := calls[0].Error(); got != "src/components/Inner.orbit:4:3: catalog: unavailable" {
+			if got := calls[0].Error(); got != "src/components/Inner.lyr:4:3: catalog: unavailable" {
 				t.Errorf("handler's err = %q", got)
 			}
 
@@ -170,7 +170,7 @@ func TestErrorHandler(t *testing.T) {
 				logs := captureLog(t)
 				rec := do(h, "GET", "/book?fail="+fail)
 				if rec.Code != 500 || !strings.Contains(rec.Body.String(), "500 Internal Server Error") ||
-					strings.Count(logs.String(), "\n") != 1 || !strings.HasPrefix(logs.String(), "orbit: GET /book: ") {
+					strings.Count(logs.String(), "\n") != 1 || !strings.HasPrefix(logs.String(), "lyr: GET /book: ") {
 					t.Errorf("%s: got %d %q, log %q", fail, rec.Code, rec.Body, logs)
 				}
 				if (dev == "1") != strings.Contains(rec.Body.String(), "<pre>") {
@@ -230,7 +230,7 @@ func TestErrorHandlerLastWins(t *testing.T) {
 }
 
 func TestErrorHandlerIsland(t *testing.T) {
-	t.Setenv("ORBIT_KEY", "")
+	t.Setenv("LYR_KEY", "")
 	var gotURL, gotReferer string
 	var gotHead http.Header
 	s := islandSite(t, WithErrorHandler(func(w http.ResponseWriter, r *http.Request, err error) bool {
@@ -281,7 +281,7 @@ func TestErrorHandlerIsland(t *testing.T) {
 		t.Errorf("too big: got %d, handler saw %q", rec.Code, gotURL)
 	}
 	// Props that don't decode into the component's Props.
-	if rec := do(h, "GET", "/_orbit/island/0000000000000000/"+commentsID+"?p="+sealProps(t, s, `{"PostID":"x"}`)); rec.Code != 400 || gotURL != "" {
+	if rec := do(h, "GET", "/_lyr/island/0000000000000000/"+commentsID+"?p="+sealProps(t, s, `{"PostID":"x"}`)); rec.Code != 400 || gotURL != "" {
 		t.Errorf("bad props: got %d, handler saw %q", rec.Code, gotURL)
 	}
 }
@@ -310,7 +310,7 @@ func TestServeError(t *testing.T) {
 		t.Errorf("not found: got %d %q", rec.Code, rec.Body)
 	}
 	logs := captureLog(t)
-	if rec := serve(errors.New("other")); rec.Code != 500 || logs.String() != "orbit: GET /fragment: other\n" {
+	if rec := serve(errors.New("other")); rec.Code != 500 || logs.String() != "lyr: GET /fragment: other\n" {
 		t.Errorf("unhandled: got %d, log %q", rec.Code, logs)
 	}
 	if rec := serve(nil); rec.Code != 200 || rec.Body.Len() != 0 || len(rec.Header()) != 0 {

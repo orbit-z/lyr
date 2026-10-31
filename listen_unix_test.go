@@ -1,6 +1,6 @@
 //go:build unix
 
-package orbit
+package lyr
 
 import (
 	"net"
@@ -26,7 +26,7 @@ func TestListenAndServeSignal(t *testing.T) {
 	}
 	addr := ln.Addr().String()
 	ln.Close()
-	t.Setenv("ORBIT_ADDR", addr)
+	t.Setenv("LYR_ADDR", addr)
 
 	errc := make(chan error, 1)
 	go func() { errc <- ListenAndServe(http.NotFoundHandler()) }()

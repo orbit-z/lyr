@@ -1,2 +1,2 @@
 -- errors --
-err_fm_unclosed.orbit:1:1: frontmatter isn't closed; add a --- line after it
+err_fm_unclosed.lyr:1:1: frontmatter isn't closed; add a --- line after it

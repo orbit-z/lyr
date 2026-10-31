@@ -11,7 +11,7 @@ func newComponentInfo(f *File, a *Analysis) *ComponentInfo {
 		Path:  a.Info.Path,
 		Role:  a.Info.Role,
 		Pkg:   pkg,
-		Name:  strings.TrimSuffix(path.Base(a.Info.Path), ".orbit"),
+		Name:  strings.TrimSuffix(path.Base(a.Info.Path), ".lyr"),
 		ID:    ComponentID(a.Info.Path),
 		Props: a.Props,
 	}

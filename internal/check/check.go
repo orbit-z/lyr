@@ -1,12 +1,12 @@
-// Package check is orbit check (PLAN.md §6): type-check a project without
+// Package check is lyr check (PLAN.md §6): type-check a project without
 // building it.
 //
-// The Go half runs the generate pipeline (Orbit's own checks) and then
-// go vet ./orbit_gen/..., cleaned like build errors (§3.3). The TypeScript
-// half extracts every processed inline <script> to .orbit/check/, mirroring
-// the src/ tree so relative imports resolve as from the .orbit file, writes
+// The Go half runs the generate pipeline (Lyr's own checks) and then
+// go vet ./lyr_gen/..., cleaned like build errors (§3.3). The TypeScript
+// half extracts every processed inline <script> to .lyr/check/, mirroring
+// the src/ tree so relative imports resolve as from the .lyr file, writes
 // a tsconfig.json that extends the user's, runs bun check and maps its
-// positions back to the .orbit files. Without Bun ≥ 1.4.4, the TypeScript
+// positions back to the .lyr files. Without Bun ≥ 1.4.4, the TypeScript
 // half is skipped with a notice.
 package check
 
@@ -23,8 +23,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/build"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/build"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // Options configure a check.
@@ -74,7 +74,7 @@ func (r *Result) Failed() bool {
 
 // Run checks the project at o.Root. Problems in the user's files are in
 // the Result; the error is for problems that stop the check early (no
-// go.mod, an invalid orbit.json, I/O errors, a missing go command, ctx
+// go.mod, an invalid lyr.json, I/O errors, a missing go command, ctx
 // cancellation).
 func Run(ctx context.Context, o Options) (*Result, error) {
 	start := time.Now()
@@ -93,8 +93,8 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 	res.Timings.Generate = time.Since(start)
 	p := res.Generate.Project
 
-	// The halves are independent: go vet reads orbit_gen/, bun check reads
-	// src/ and .orbit/check/.
+	// The halves are independent: go vet reads lyr_gen/, bun check reads
+	// src/ and .lyr/check/.
 	var wg sync.WaitGroup
 	var vetErr, tsErr error
 	if !res.Generate.HasErrors() {
@@ -125,9 +125,9 @@ func joinErr(ctx context.Context, errs ...error) error {
 	return errors.Join(errs...)
 }
 
-// vet runs go vet ./orbit_gen/... from the project root.
+// vet runs go vet ./lyr_gen/... from the project root.
 func (r *Result) vet(ctx context.Context, p *project.Project, env []string) error {
-	cmd := exec.CommandContext(ctx, "go", "vet", "./orbit_gen/...")
+	cmd := exec.CommandContext(ctx, "go", "vet", "./lyr_gen/...")
 	cmd.Dir = p.Root
 	cmd.Env = append(os.Environ(), env...)
 	var b bytes.Buffer

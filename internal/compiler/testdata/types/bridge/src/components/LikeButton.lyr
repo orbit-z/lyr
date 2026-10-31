@@ -1,0 +1,18 @@
+---
+import "example.com/blog/internal/posts"
+
+type Props struct {
+	Post  posts.Post
+	Liked bool
+}
+---
+<like-button data-post={lyr.JSON(props.Post)} data-liked={lyr.JSON(props.Liked)}>
+	<button type="button">♥ <span>{props.Post.Likes}</span></button>
+</like-button>
+<script>
+	import { data } from "./LikeButton.lyr";
+
+	const el = document.querySelector("like-button")!;
+	const post = data(el, "post");
+	console.log(post.slug, data(el, "liked"));
+</script>

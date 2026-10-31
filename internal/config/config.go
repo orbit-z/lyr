@@ -1,4 +1,4 @@
-// Package config loads a project's orbit.json (PLAN.md §8) and reads its
+// Package config loads a project's lyr.json (PLAN.md §8) and reads its
 // module path from go.mod.
 package config
 
@@ -12,21 +12,21 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/markdown"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/markdown"
 )
 
 // FileName is the config file's name, at the project root.
-const FileName = "orbit.json"
+const FileName = "lyr.json"
 
-// DefaultServer is the server entry used when orbit.json has no "server" and
+// DefaultServer is the server entry used when lyr.json has no "server" and
 // the directory exists (PLAN.md §5b).
 const DefaultServer = "./cmd/server"
 
 // GeneratedServer is the package of the generated default server entry.
 const GeneratedServer = "./" + compiler.GenDir + "/cmd/server"
 
-// Config is a project's orbit.json. Every key is optional.
+// Config is a project's lyr.json. Every key is optional.
 type Config struct {
 	// Site is the absolute site URL ("https://example.com"), "" when unset.
 	Site string
@@ -40,11 +40,11 @@ type Config struct {
 	// TrailingSlashAlways is "trailingSlash": "always": page URLs end with
 	// "/" (PLAN.md §4e). The default, "never", is false.
 	TrailingSlashAlways bool
-	// Sourcemap is "sourcemap": true: orbit build writes external source
+	// Sourcemap is "sourcemap": true: lyr build writes external source
 	// maps next to the bundles, not linked from them (PLAN.md §5).
 	Sourcemap bool
 	// Watch are the "watch" globs: extra files whose changes restart the
-	// app in orbit dev (PLAN.md §7), relative to the project root.
+	// app in lyr dev (PLAN.md §7), relative to the project root.
 	Watch []string
 	// Markdown is the "markdown" key (PLAN.md §2.4, §8); the zero value is
 	// the default.
@@ -54,7 +54,7 @@ type Config struct {
 	RouteRules []RouteRule
 }
 
-// Load reads dir/orbit.json. A missing file gives the defaults.
+// Load reads dir/lyr.json. A missing file gives the defaults.
 func Load(dir string) (*Config, error) {
 	data, err := os.ReadFile(filepath.Join(dir, FileName))
 	if errors.Is(err, fs.ErrNotExist) {
@@ -66,7 +66,7 @@ func Load(dir string) (*Config, error) {
 	return Parse(data)
 }
 
-// Parse parses the contents of an orbit.json. Errors start with "orbit.json"
+// Parse parses the contents of a lyr.json. Errors start with "lyr.json"
 // (and the line and column of a JSON syntax error). Unknown keys are ignored,
 // as encoding/json ignores unknown fields.
 func Parse(data []byte) (*Config, error) {
@@ -133,7 +133,7 @@ func Parse(data []byte) (*Config, error) {
 		default:
 			hint := ""
 			if v == "ignore" {
-				hint = `; Orbit has no "ignore" mode: each page has one URL`
+				hint = `; Lyr has no "ignore" mode: each page has one URL`
 			}
 			return nil, fmt.Errorf(`%s: trailingSlash must be "never" or "always", not %s%s`, FileName, bytes.TrimSpace(raw.Slash), hint)
 		}

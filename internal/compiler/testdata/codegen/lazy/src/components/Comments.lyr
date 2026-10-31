@@ -1,0 +1,9 @@
+---
+import Counter "./Counter.lyr"
+
+type Props struct {
+	PostID int
+	Title  string
+}
+---
+<section>Comments for {props.PostID}: <Counter client:visible /></section>

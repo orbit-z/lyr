@@ -1,0 +1,25 @@
+---
+import (
+    "strconv"
+    A "./A.lyr"
+)
+
+type Tag struct {
+    Text string
+}
+
+type Props struct {
+    Depth int
+    Tag   Tag
+}
+
+func label(n int) string { return "B" + strconv.Itoa(n) }
+
+name := label(props.Depth)
+---
+<section class="b">
+  <p>{name}: {props.Tag.Text}</p>
+  {if props.Depth < 4}
+    <A depth={props.Depth + 1} item={A.Item{Name: name}} />
+  {/if}
+</section>

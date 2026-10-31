@@ -1,2 +1,2 @@
-src/pages/props.orbit:2:6: pages don't receive props; move this to a component or read params
-src/pages/props.orbit:7:2: Params is generated from the page's route; rename this type
+src/pages/props.lyr:2:6: pages don't receive props; move this to a component or read params
+src/pages/props.lyr:7:2: Params is generated from the page's route; rename this type

@@ -1,10 +1,10 @@
 # Styles and scripts
 
-Orbit scopes each component's `<style>` to that component, bundles its `<script>` as TypeScript, and links one stylesheet and one script per page, with no Node.js required.
+Lyr scopes each component's `<style>` to that component, bundles its `<script>` as TypeScript, and links one stylesheet and one script per page, with no Node.js required.
 
 ## A component with a style and a script
 
-```orbit file=src/components/Counter.orbit
+```lyr file=src/components/Counter.lyr
 ---
 type Props struct {
 	Label string
@@ -42,11 +42,11 @@ type Props struct {
 </script>
 ```
 
-```orbit file=src/pages/index.orbit
+```lyr file=src/pages/index.lyr
 ---
 import (
-	Counter "../components/Counter.orbit"
-	Layout "../layouts/Base.orbit"
+	Counter "../components/Counter.lyr"
+	Layout "../layouts/Base.lyr"
 )
 ---
 <Layout title="Counters">
@@ -55,7 +55,7 @@ import (
 </Layout>
 ```
 
-When Orbit builds this page, it:
+When Lyr builds this page, it:
 
 - takes the `<style>` and `<script>` out of the template, so they don't appear inside `<counter-button>`;
 - rewrites the CSS so `button { … }` only matches buttons rendered by `Counter`;
@@ -68,46 +68,46 @@ The script appears once on the page, even though `Counter` renders twice. The cu
 
 ## How scoping works
 
-Every component with a scoped `<style>` gets a **scope ID**: `o-` plus the first 8 hex characters of the SHA-256 of its path relative to the project root, with `/` separators (`src/components/Counter.orbit` → `o-8a161775`). The ID only depends on that path, so it's the same on every machine and every OS.
+Every component with a scoped `<style>` gets a **scope ID**: `o-` plus the first 8 hex characters of the SHA-256 of its path relative to the project root, with `/` separators (`src/components/Counter.lyr` → `o-8a161775`). The ID only depends on that path, so it's the same on every machine and every OS.
 
-Orbit then does two things:
+Lyr then does two things:
 
-1. It adds a `data-o-8a161775` attribute, after the element's other attributes, to every HTML element in the component's template. As in Astro, the document-metadata elements `<head>`, `<title>`, `<meta>`, `<link>`, `<base>` and `<noscript>` (and the legacy `<font>`, `<frame>`, `<frameset>`, `<noframes>`) don't get it, nor do `is:inline` `<script>`/`<style>` tags; `<html>` and `<body>` do.
-2. It adds the attribute selector `[data-o-8a161775]` to the last part (the last compound selector) of each CSS selector, as Astro does with its default `scopedStyleStrategy: "attribute"`.
+1. It adds a `data-l-8a161775` attribute, after the element's other attributes, to every HTML element in the component's template. As in Astro, the document-metadata elements `<head>`, `<title>`, `<meta>`, `<link>`, `<base>` and `<noscript>` (and the legacy `<font>`, `<frame>`, `<frameset>`, `<noframes>`) don't get it, nor do `is:inline` `<script>`/`<style>` tags; `<html>` and `<body>` do.
+2. It adds the attribute selector `[data-l-8a161775]` to the last part (the last compound selector) of each CSS selector, as Astro does with its default `scopedStyleStrategy: "attribute"`.
 
 So the `Counter` above renders as:
 
 ```html
-<counter-button data-o-8a161775><button type="button" data-o-8a161775>Apples</button><output data-o-8a161775>0</output></counter-button>
+<counter-button data-l-8a161775><button type="button" data-l-8a161775>Apples</button><output data-l-8a161775>0</output></counter-button>
 ```
 
 and its CSS becomes (before minification):
 
 ```css
-counter-button[data-o-8a161775] { display: flex; gap: 0.5rem; align-items: center; }
-button[data-o-8a161775] { font-weight: bold; }
+counter-button[data-l-8a161775] { display: flex; gap: 0.5rem; align-items: center; }
+button[data-l-8a161775] { font-weight: bold; }
 ```
 
-The attribute selector adds one attribute's worth of specificity: `button[data-o-8a161775]` is (0,1,1) where `button` is (0,0,1). So a component's scoped rules beat global rules with the same selector, such as a layout's `<style is:global> a { … }`, whatever order the stylesheets end up in. Between scoped rules, the comparison is the same as without scoping, since every scoped selector gets the same +1.
+The attribute selector adds one attribute's worth of specificity: `button[data-l-8a161775]` is (0,1,1) where `button` is (0,0,1). So a component's scoped rules beat global rules with the same selector, such as a layout's `<style is:global> a { … }`, whatever order the stylesheets end up in. Between scoped rules, the comparison is the same as without scoping, since every scoped selector gets the same +1.
 
 What follows from this:
 
 - **Only the last compound is scoped.** In `.theme-dark .card`, `.card` must be in this component, but `.theme-dark` can be anywhere, for example on `<body>`.
-- **Pseudo-classes and pseudo-elements come after the scope**, as in Astro: `a:hover` becomes `a[data-o-8a161775]:hover`, `p::first-line` becomes `p[data-o-8a161775]::first-line`, and `:hover` alone becomes `[data-o-8a161775]:hover`.
+- **Pseudo-classes and pseudo-elements come after the scope**, as in Astro: `a:hover` becomes `a[data-l-8a161775]:hover`, `p::first-line` becomes `p[data-l-8a161775]::first-line`, and `:hover` alone becomes `[data-l-8a161775]:hover`.
 - **At-rules**: rules inside `@media`, `@supports`, `@layer`, `@container`, `@scope`, `@starting-style` and `@document` are scoped too. The bodies of every other at-rule (`@keyframes`, `@font-face`, `@page`, `@property`, …) are left alone, since they contain no selectors. Keyframe names aren't scoped: they're global, as in plain CSS.
 - **`html`, `body` and `:root` are never scoped**, as in Astro: `html { … }`, `body { … }` and `:root { --accent: … }` work in a scoped style, and in `body .card` only `.card` is scoped.
 - **Nesting**: nested rules are scoped like top-level ones (`.card { .title { … } }` scopes both). A nested selector whose last part holds `&` (`&:hover`, `.dark &`) isn't scoped again, since `&` is the already scoped parent.
-- Selector arguments of `:is()`, `:not()`, `:where()` and `:has()` aren't rewritten; the scope goes before them: `li:not(.done)` becomes `li[data-o-8a161775]:not(.done)`.
+- Selector arguments of `:is()`, `:not()`, `:where()` and `:has()` aren't rewritten; the scope goes before them: `li:not(.done)` becomes `li[data-l-8a161775]:not(.done)`.
 - **Child components aren't affected.** A parent's scoped styles don't match the elements inside a child component's template, because those carry the child's scope attribute (or none).
 - **Slot content belongs to the parent.** Markup you pass into a component's slot is compiled in the file where you write it, so it carries *that* file's scope attribute. Style it from the parent, not from the child. The same goes for the `fallback` of a [`server:defer`](lazy-loading.md) component.
-- **No scoped style, no attributes.** A component without a scoped `<style>` gets no `data-o-…` attributes at all.
+- **No scoped style, no attributes.** A component without a scoped `<style>` gets no `data-l-…` attributes at all.
 - **Markdown has no scope.** A Markdown file has no `<style>`, so its elements carry no scope attribute, like slot content from a file without styles: a layout's plain `h2 { … }` doesn't reach the Markdown's `<h2>`. Use `:global(…)` under an element of the layout (below), or an `is:global` style. See [Styling Markdown content](markdown.md#styling-markdown-content).
 
 ## Escaping the scope: `:global(…)`
 
 Wrap part of a selector in `:global(…)` to leave that part unscoped:
 
-```orbit file=src/components/Prose.orbit
+```lyr file=src/components/Prose.lyr
 <div class="prose">
   <slot />
 </div>
@@ -122,13 +122,13 @@ Wrap part of a selector in `:global(…)` to leave that part unscoped:
 </style>
 ```
 
-Here `.prose` must be this component's element, but `p` and `a:hover` match any paragraph or link inside it, including the ones passed in through the slot or rendered by child components. As in Astro, the scope goes on the nearest part of the selector that isn't inside `:global(…)`: the first rule becomes `.prose[data-o-…] p`. A selector that is entirely `:global(…)` isn't scoped at all. A part that mixes `:global(…)` with other selectors (`.a:global(.b)`) counts as global, and the `:global(` wrapper is removed from the output (`.a.b`).
+Here `.prose` must be this component's element, but `p` and `a:hover` match any paragraph or link inside it, including the ones passed in through the slot or rendered by child components. As in Astro, the scope goes on the nearest part of the selector that isn't inside `:global(…)`: the first rule becomes `.prose[data-l-…] p`. A selector that is entirely `:global(…)` isn't scoped at all. A part that mixes `:global(…)` with other selectors (`.a:global(.b)`) counts as global, and the `:global(` wrapper is removed from the output (`.a.b`).
 
 ## Global styles: `is:global`
 
 Add `is:global` to a `<style>` to skip scoping for the whole tag. This is typical in a layout:
 
-```orbit file=src/layouts/Base.orbit
+```lyr file=src/layouts/Base.lyr
 ---
 type Props struct {
 	Title string
@@ -160,13 +160,13 @@ type Props struct {
 
 An `is:global` style is still taken out of the template, bundled and minified with the rest of the page's CSS; it just isn't rewritten. A component can have both a scoped `<style>` and an `is:global` one.
 
-**Order in the page's stylesheet**: styles follow the import graph, the way modules are evaluated: a component's imports come first, in import order, then the component's own styles. So a page that imports `Base.orbit` and then `Card.orbit` gets the layout's styles, then the card's, then the page's own. Each component's styles appear once. Scoped rules carry one extra attribute of specificity, so they beat global rules with the same selector whatever the order; between rules of equal specificity, this order decides.
+**Order in the page's stylesheet**: styles follow the import graph, the way modules are evaluated: a component's imports come first, in import order, then the component's own styles. So a page that imports `Base.lyr` and then `Card.lyr` gets the layout's styles, then the card's, then the page's own. Each component's styles appear once. Scoped rules carry one extra attribute of specificity, so they beat global rules with the same selector whatever the order; between rules of equal specificity, this order decides.
 
 A page that renders highlighted Markdown code blocks (its own, or an imported Markdown file's) gets the code-highlighting CSS **first** in its stylesheet, before every component's styles, so your rules for `.chroma` and its token classes win. See [Markdown: Code blocks](markdown.md#code-blocks).
 
-## Which scripts Orbit processes
+## Which scripts Lyr processes
 
-Orbit follows Astro's rule. A `<script>` is **processed** (compiled as TypeScript, bundled, deduplicated and linked from `<head>`) only if it has:
+Lyr follows Astro's rule. A `<script>` is **processed** (compiled as TypeScript, bundled, deduplicated and linked from `<head>`) only if it has:
 
 - no attributes at all, or
 - only a `src` attribute that points at a local file with a relative path.
@@ -194,14 +194,14 @@ A script that isn't processed stays in the template where you wrote it:
 
 Use this for JSON-LD, third-party snippets that must stay verbatim, and small scripts that must run before the page renders:
 
-```orbit file=src/components/ThemeInit.orbit
+```lyr file=src/components/ThemeInit.lyr
 <script is:inline>
   document.documentElement.dataset.theme =
     localStorage.getItem("theme") ?? "light";
 </script>
 ```
 
-As in Astro, Orbit removes the `is:inline` directive itself and leaves everything else in the tag untouched. `is:inline` also works on `<style>`: the style is emitted where it is, unscoped and unbundled.
+As in Astro, Lyr removes the `is:inline` directive itself and leaves everything else in the tag untouched. `is:inline` also works on `<style>`: the style is emitted where it is, unscoped and unbundled.
 
 A `<script>` or `<style>` with `set:html={…}` (or `set:text`) is inline too, as in Astro, with the directive's value as its content: `<script is:inline set:html={themeInit}></script>` writes a script built in Go. See [`set:html`](reference/template-syntax.md#directives).
 
@@ -212,26 +212,26 @@ Each page gets its own bundle. Its contents are decided statically, from imports
 - the page's own processed scripts and styles, plus
 - those of every component it imports, directly or through other components, including components it renders with `server:defer`.
 
-A component's script and style are included **once per page**, however many times the component renders, and even if it only renders under an `{if}` that is false for this request. Like Astro, Orbit looks at which components a page *imports*, not at which ones actually render.
+A component's script and style are included **once per page**, however many times the component renders, and even if it only renders under an `{if}` that is false for this request. Like Astro, Lyr looks at which components a page *imports*, not at which ones actually render.
 
-The bundle is built by esbuild, which runs inside the `orbit` CLI (no Node.js needed). For each page you get:
+The bundle is built by esbuild, which runs inside the `lyr` CLI (no Node.js needed). For each page you get:
 
-- one minified CSS file and one minified ES module, with content-hashed names under `/_orbit/`;
+- one minified CSS file and one minified ES module, with content-hashed names under `/_lyr/`;
 - a `<link rel="stylesheet">` and a `<script type="module">` inserted just before the page's first `</head>` (usually in your layout), followed by a `<link rel="modulepreload">` for each [shared chunk](#shared-chunks-and-import) the module imports. Without a `</head>`, they go right after `<!DOCTYPE …>`, or at the very start.
 
 A page whose bundle has no scripts gets no JS file and no `<script>` tag. A page that uses `server:defer` or `client:*` also gets a small inline loader script in its `<head>`; see [Lazy loading](lazy-loading.md).
 
-Files that your CSS or scripts reference by URL, such as fonts and images in `url(…)` (`.woff`, `.woff2`, `.ttf`, `.otf`, `.eot`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.avif`, `.ico`, `.bmp`), are copied to `/_orbit/` with a hashed name, and the reference is rewritten to that URL. A relative `url(…)` in a `<style>` resolves from the `.orbit` file's directory.
+Files that your CSS or scripts reference by URL, such as fonts and images in `url(…)` (`.woff`, `.woff2`, `.ttf`, `.otf`, `.eot`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.avif`, `.ico`, `.bmp`), are copied to `/_lyr/` with a hashed name, and the reference is rewritten to that URL. A relative `url(…)` in a `<style>` resolves from the `.lyr` file's directory.
 
-Files under `/_orbit/` are served with `Cache-Control: public, max-age=31536000, immutable`, since a change produces a new name.
+Files under `/_lyr/` are served with `Cache-Control: public, max-age=31536000, immutable`, since a change produces a new name.
 
 ### Shared chunks and `import()`
 
 The page bundles, the [lazy entries](#loading-a-components-scripts-lazily-client) and the targets of dynamic `import()` are built together, with esbuild's code splitting:
 
 - **The blocks stay in their page's bundle.** A page's module holds the `<script>` blocks of the page and of every component it imports (not lazily), in import order, as before. A component used on ten pages has its block copied into ten bundles: blocks are small, and this keeps each page at one module plus its shared chunks.
-- **Imported files are shared.** A `.ts`/`.js` file, an npm package or `orbit:client` that several bundles import (pages, lazy entries, `import()` chunks) is in one file of its own, `/_orbit/chunk-<hash>.js`, which each of them imports. It's downloaded and cached once, and evaluated **once per page**, with one module state: a counter in `src/scripts/util.ts` imported by the page bundle and by a lazy component is the same counter.
-- **`import()` loads code on demand.** `await import("../lib/quickSearch")` in a script becomes a request for `/_orbit/quickSearch-<hash>.js`, made when that line runs. Its code isn't in any page bundle. Use it for heavy code that only some interactions need (an editor, a search engine):
+- **Imported files are shared.** A `.ts`/`.js` file, an npm package or `lyr:client` that several bundles import (pages, lazy entries, `import()` chunks) is in one file of its own, `/_lyr/chunk-<hash>.js`, which each of them imports. It's downloaded and cached once, and evaluated **once per page**, with one module state: a counter in `src/scripts/util.ts` imported by the page bundle and by a lazy component is the same counter.
+- **`import()` loads code on demand.** `await import("../lib/quickSearch")` in a script becomes a request for `/_lyr/quickSearch-<hash>.js`, made when that line runs. Its code isn't in any page bundle. Use it for heavy code that only some interactions need (an editor, a search engine):
 
   ```ts
   button.addEventListener("click", async () => {
@@ -245,17 +245,17 @@ The page bundles, the [lazy entries](#loading-a-components-scripts-lazily-client
 - **CSS stays in the page stylesheet.** CSS that a dynamically imported module imports (`import "./quickSearch.css"` in `quickSearch.ts`) is in the stylesheet of every page that can reach that `import()`, like a lazy component's CSS: it's there before the code runs, with no flash of unstyled content. Each page still has exactly one stylesheet.
 - **Evaluation order.** A page's blocks run in import order, after the modules they import (each module after its own imports, as in any ES module graph). Two shared chunks that don't import each other run in the order esbuild puts them, which may differ from the order of the `import` lines: with `import "./polyfill"; import "lib"` in one script, `lib` may run before `polyfill` if they end up in different chunks. **A module that needs another module's side effects should import it itself.**
 
-Chunk names are esbuild's: `chunk-<hash>.js` for shared code, `<module>-<hash>.js` for an `import()` target (named after the imported file). Hashes are content hashes, so editing a shared file renames its chunk and the files that import it, and nothing else. `orbit build --verbose` lists each page's chunks (see [CLI](reference/cli.md#orbit-build)).
+Chunk names are esbuild's: `chunk-<hash>.js` for shared code, `<module>-<hash>.js` for an `import()` target (named after the imported file). Hashes are content hashes, so editing a shared file renames its chunk and the files that import it, and nothing else. `lyr build --verbose` lists each page's chunks (see [CLI](reference/cli.md#lyr-build)).
 
 ## Loading a component's scripts lazily: `client:*`
 
 By default, a component's script is part of the page bundle and runs when the page loads. Put a `client:*` directive on a component tag to load its scripts later instead:
 
-```orbit file=src/pages/about.orbit
+```lyr file=src/pages/about.lyr
 ---
 import (
-	Counter "../components/Counter.orbit"
-	Layout "../layouts/Base.orbit"
+	Counter "../components/Counter.lyr"
+	Layout "../layouts/Base.lyr"
 )
 ---
 <Layout title="About">
@@ -268,12 +268,12 @@ Here `Counter` still renders on the server as usual, but its script loads only w
 
 How it affects bundling:
 
-- **A separate entry per component.** Each component that has a processed `<script>` and at least one lazy call site gets its own esbuild entry, built with the same settings into a hashed `/_orbit/*.js` file. The loader `import()`s it the first time an instance meets its strategy, and at most once per page.
+- **A separate entry per component.** Each component that has a processed `<script>` and at least one lazy call site gets its own esbuild entry, built with the same settings into a hashed `/_lyr/*.js` file. The loader `import()`s it the first time an instance meets its strategy, and at most once per page.
 - **The whole subtree.** The directive covers the component's own scripts and those of every component it renders, transitively.
 - **Eager wins, per page.** If any call site of a component on the page loads it eagerly (no directive, or `client:load`), its scripts stay in the page bundle, and its lazy call sites on that page load nothing extra.
 - **Styles are unaffected.** A lazy component's CSS stays in the page's stylesheet.
 - **Shared code is shared.** A module imported both by a lazy entry and by the page bundle (for example `src/scripts/util.ts`) is a [shared chunk](#shared-chunks-and-import) that both import: it runs once per page, with one module state, whichever loads first.
-- **The wrapper element.** A lazy call site is wrapped in an `<orbit-lazy>` element styled `display: contents`, so it doesn't affect layout, but it is in the DOM: a child selector such as `.list > .item` doesn't match across it.
+- **The wrapper element.** A lazy call site is wrapped in a `<lyr-lazy>` element styled `display: contents`, so it doesn't affect layout, but it is in the DOM: a child selector such as `.list > .item` doesn't match across it.
 
 ## Custom elements: the recommended pattern
 
@@ -283,11 +283,11 @@ A processed script is a module that runs **once per page**. If it looks up eleme
 - elements added later by your own code or by a library such as htmx;
 - for a `client:*` component, instances that arrive later inside a deferred island.
 
-A custom element has none of these problems: the browser calls its `connectedCallback` for every instance, whenever it's added to the document. That's why the `Counter` above is written as one, and why Orbit recommends this pattern for every component script, and especially for lazy and deferred components.
+A custom element has none of these problems: the browser calls its `connectedCallback` for every instance, whenever it's added to the document. That's why the `Counter` above is written as one, and why Lyr recommends this pattern for every component script, and especially for lazy and deferred components.
 
 ## Importing TypeScript files
 
-Processed scripts can import `.ts`, `.tsx` and `.js` files from anywhere in your project. Relative paths resolve from the `.orbit` file's directory:
+Processed scripts can import `.ts`, `.tsx` and `.js` files from anywhere in your project. Relative paths resolve from the `.lyr` file's directory:
 
 ```ts file=src/scripts/greet.ts
 export function greet(name: string): string {
@@ -295,7 +295,7 @@ export function greet(name: string): string {
 }
 ```
 
-```orbit file=src/components/Greeter.orbit
+```lyr file=src/components/Greeter.lyr
 <greeter-button>
   <button type="button">Say hello</button>
 </greeter-button>
@@ -318,7 +318,7 @@ export function greet(name: string): string {
 
 You can also point `src` at a local file instead of writing the code inline. The tag must have no other attributes:
 
-```orbit file=src/components/Clock.orbit
+```lyr file=src/components/Clock.lyr
 <live-clock></live-clock>
 
 <script src="../scripts/clock.ts"></script>
@@ -342,25 +342,25 @@ class LiveClock extends HTMLElement {
 customElements.define("live-clock", LiveClock);
 ```
 
-A script or a `.ts` file can also import a **component's `.orbit` file**, by relative path, to read the data that component writes with `orbit.JSON` and `set:json`, typed from its Go values: `import { data } from "../components/LikeButton.orbit"`. It never imports the component itself, only a tiny reader; see [Typed data with `orbit.JSON`](#typed-data-with-orbitjson) below.
+A script or a `.ts` file can also import a **component's `.lyr` file**, by relative path, to read the data that component writes with `lyr.JSON` and `set:json`, typed from its Go values: `import { data } from "../components/LikeButton.lyr"`. It never imports the component itself, only a tiny reader; see [Typed data with `lyr.JSON`](#typed-data-with-lyrjson) below.
 
-Scripts may import `.tsx` files too (esbuild applies your `tsconfig.json`'s `jsx` settings). That's different from a framework component: Orbit has no framework islands, and importing a `.tsx`, `.jsx`, `.svelte` or `.vue` file from a component's *frontmatter* is a compile error.
+Scripts may import `.tsx` files too (esbuild applies your `tsconfig.json`'s `jsx` settings). That's different from a framework component: Lyr has no framework islands, and importing a `.tsx`, `.jsx`, `.svelte` or `.vue` file from a component's *frontmatter* is a compile error.
 
 ## Passing data from the server to scripts
 
 `{…}` doesn't work inside `<script>`, and a processed script is bundled once per page, so it can't see one component's props anyway. Hand data from Go to the browser in one of three ways:
 
-- **`orbit.JSON`** in a `data-*` attribute, for structured data that belongs to one element, typed for your script;
+- **`lyr.JSON`** in a `data-*` attribute, for structured data that belongs to one element, typed for your script;
 - **plain `data-*` attributes**, for a few scalar values;
 - **`set:json`**, for a larger block of data, such as a list.
 
 [Passing data to client scripts](components.md#passing-data-to-client-scripts) covers them in more detail.
 
-### Typed data with `orbit.JSON`
+### Typed data with `lyr.JSON`
 
-`data-like={orbit.JSON(v)}` writes `v` as JSON (encoded with `encoding/json`, so `json` struct tags apply). The script reads it with `data(el, key)` from the component's module, `./LikeButton.orbit` (here from a `.ts` file, so `../components/LikeButton.orbit`), and gets it back with the TypeScript type of the Go value:
+`data-like={lyr.JSON(v)}` writes `v` as JSON (encoded with `encoding/json`, so `json` struct tags apply). The script reads it with `data(el, key)` from the component's module, `./LikeButton.lyr` (here from a `.ts` file, so `../components/LikeButton.lyr`), and gets it back with the TypeScript type of the Go value:
 
-```orbit file=src/components/LikeButton.orbit
+```lyr file=src/components/LikeButton.lyr
 ---
 type like struct {
 	Slug  string `json:"slug"`
@@ -372,7 +372,7 @@ type Props struct {
 	Likes int
 }
 ---
-<like-button data-like={orbit.JSON(like{Slug: props.Slug, Likes: props.Likes})}>
+<like-button data-like={lyr.JSON(like{Slug: props.Slug, Likes: props.Likes})}>
   <button type="button">♥ <span>{props.Likes}</span></button>
 </like-button>
 
@@ -380,7 +380,7 @@ type Props struct {
 ```
 
 ```ts file=src/scripts/like-button.ts
-import { data } from "../components/LikeButton.orbit";
+import { data } from "../components/LikeButton.lyr";
 
 class LikeButton extends HTMLElement {
   connectedCallback() {
@@ -401,13 +401,13 @@ class LikeButton extends HTMLElement {
 customElements.define("like-button", LikeButton);
 ```
 
-This renders `<like-button data-like='{"slug":"hello","likes":7}'>`. The types come from `orbit_gen/types/`, which `orbit generate` (and `build`, `dev`, `check`) writes; [`orbit check`](#type-checking-with-orbit-check) uses them, and so does your editor, in `<script>` blocks (where the language server keeps them in step with your unsaved Go edits) and in `.ts` files. The mapping from Go types to TypeScript is in [Client modules](reference/client-modules.md).
+This renders `<like-button data-like='{"slug":"hello","likes":7}'>`. The types come from `lyr_gen/types/`, which `lyr generate` (and `build`, `dev`, `check`) writes; [`lyr check`](#type-checking-with-lyr-check) uses them, and so does your editor, in `<script>` blocks (where the language server keeps them in step with your unsaved Go edits) and in `.ts` files. The mapping from Go types to TypeScript is in [Client modules](reference/client-modules.md).
 
 ### `data-*` attributes and custom elements
 
 For a few scalar values, render them into plain `data-*` attributes and read them with `el.dataset`. They're escaped like any other attribute, and cost less to write than JSON. This pairs well with a custom element: the browser runs its `connectedCallback` for every instance on the page, including ones added later, and `this.dataset` holds that instance's data.
 
-```orbit file=src/components/LikeCount.orbit
+```lyr file=src/components/LikeCount.lyr
 ---
 type Props struct {
 	Slug  string
@@ -443,9 +443,9 @@ Attribute values are always strings in the browser: convert numbers and booleans
 
 ### JSON blocks with `set:json`
 
-For structured data, put `set:json={expr}` on an empty `<script type="application/json">` with an `id`. Orbit encodes the value with `encoding/json` (so `json` struct tags apply) and writes it as the script's content. The script reads it with `json(id)` from the component's module, typed from the Go value:
+For structured data, put `set:json={expr}` on an empty `<script type="application/json">` with an `id`. Lyr encodes the value with `encoding/json` (so `json` struct tags apply) and writes it as the script's content. The script reads it with `json(id)` from the component's module, typed from the Go value:
 
-```orbit file=src/components/NavMenu.orbit
+```lyr file=src/components/NavMenu.lyr
 ---
 type link struct {
 	Title string `json:"title"`
@@ -462,7 +462,7 @@ links := []link{
 <script type="application/json" id="nav-links" set:json={links}></script>
 
 <script>
-  import { json } from "./NavMenu.orbit";
+  import { json } from "./NavMenu.lyr";
 
   const links = json("nav-links"); // NavMenu.link[] | null
   const nav = document.querySelector(".nav-menu")!;
@@ -487,10 +487,10 @@ What you need to know:
 - **Only on JSON scripts.** `set:json` is valid only on `<script type="application/json">`; anywhere else it's a compile error. Like any script with attributes, this one is never processed or bundled: it stays in the HTML where you wrote it.
 - **One per id.** The script is part of the template, so a component rendered twice emits it twice. Use `set:json` in a component that renders once per page (a page or a layout), or give each instance its own `id`. For per-instance data, prefer `data-*` attributes.
 - **Typed by `id`.** `json(id)` takes the block's `id`, which must be a static string to be typed (with a dynamic `id={…}`, read the block with `JSON.parse` yourself). Like `data`, it throws if the page has no element with that `id`. A slice is typed `T[] | null`, since a nil slice encodes as `null`.
-- **Encoding errors.** A type `encoding/json` can never encode (a func, a channel) is a compile error at the value. A value it can't encode (a NaN float, a cyclic structure) fails the render with an error at the `.orbit` position of the `set:json`:
+- **Encoding errors.** A type `encoding/json` can never encode (a func, a channel) is a compile error at the value. A value it can't encode (a NaN float, a cyclic structure) fails the render with an error at the `.lyr` position of the `set:json`:
 
   ```text
-  src/pages/index.orbit:16:47: set:json: json: unsupported value: NaN
+  src/pages/index.lyr:16:47: set:json: json: unsupported value: NaN
   ```
 
 ## npm packages
@@ -515,10 +515,10 @@ Then import them in a processed script:
 
 The package is bundled into each page that uses it. Nothing is loaded from a CDN at runtime.
 
-If an import can't be resolved, the build fails with an error at the `.orbit` file, line and column of the import, like every other Orbit error:
+If an import can't be resolved, the build fails with an error at the `.lyr` file, line and column of the import, like every other Lyr error:
 
 ```
-src/components/Dates.orbit:2:21: Could not resolve "dayjs"
+src/components/Dates.lyr:2:21: Could not resolve "dayjs"
 ```
 
 ### Importing CSS from a script
@@ -534,7 +534,7 @@ A processed script can import a stylesheet, typically one that ships with an npm
 </script>
 ```
 
-The imported CSS joins the page's stylesheet, minified and hashed with the rest; esbuild bundles it as it does any CSS import, and Orbit links it from the same `<link rel="stylesheet">`. It isn't scoped: it applies to the whole page, as the library expects. A component whose scripts load lazily with `client:*` still has its imported CSS in the page's stylesheet, like its own `<style>`.
+The imported CSS joins the page's stylesheet, minified and hashed with the rest; esbuild bundles it as it does any CSS import, and Lyr links it from the same `<link rel="stylesheet">`. It isn't scoped: it applies to the whole page, as the library expects. A component whose scripts load lazily with `client:*` still has its imported CSS in the page's stylesheet, like its own `<style>`.
 
 ## TypeScript
 
@@ -544,12 +544,12 @@ Scripts with `is:inline`, and any other unprocessed script, aren't compiled: wri
 
 ### `tsconfig.json`
 
-esbuild reads the `tsconfig.json` nearest to each `.orbit` file (and to each imported `.ts` file) and honors its `paths`, `baseUrl` and `jsx` settings. Its `target` only decides how class fields are compiled (as esbuild does): the bundles are written for modern browsers (`esnext`). `orbit new` scaffolds:
+esbuild reads the `tsconfig.json` nearest to each `.lyr` file (and to each imported `.ts` file) and honors its `paths`, `baseUrl` and `jsx` settings. Its `target` only decides how class fields are compiled (as esbuild does): the bundles are written for modern browsers (`esnext`). `lyr new` scaffolds:
 
 - `tsconfig.json`, modeled on Astro's `strict` preset;
 - `src/env.d.ts`, an empty place for your own global type declarations.
 
-You don't need a `package.json` or the `typescript` package: [`orbit check`](#type-checking-with-orbit-check) uses Bun's built-in type checker.
+You don't need a `package.json` or the `typescript` package: [`lyr check`](#type-checking-with-lyr-check) uses Bun's built-in type checker.
 
 The scaffolded `tsconfig.json`:
 
@@ -567,36 +567,36 @@ The scaffolded `tsconfig.json`:
     "allowJs": true,
     "allowImportingTsExtensions": true,
     "skipLibCheck": true,
-    "rootDirs": [".", "orbit_gen/types"],
+    "rootDirs": [".", "lyr_gen/types"],
     "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src/**/*.ts", "orbit_gen/types/*.d.ts"]
+  "include": ["src/**/*.ts", "lyr_gen/types/*.d.ts"]
 }
 ```
 
-It's yours to change. `paths` gives scripts and component imports the `@/` alias for `src/` (see [Import aliases](components.md#import-aliases)). The `rootDirs` and `include` entries let TypeScript find the generated types of `import … from "./X.orbit"` in `orbit_gen/types/` (see [Typed data with `orbit.JSON`](#typed-data-with-orbitjson)). A project created before they existed needs them only for your editor's TypeScript in `.ts` files: `orbit check` and the TypeScript features in `<script>` blocks add them themselves, and `orbit doctor` warns when a project uses typed data without them.
+It's yours to change. `paths` gives scripts and component imports the `@/` alias for `src/` (see [Import aliases](components.md#import-aliases)). The `rootDirs` and `include` entries let TypeScript find the generated types of `import … from "./X.lyr"` in `lyr_gen/types/` (see [Typed data with `lyr.JSON`](#typed-data-with-lyrjson)). A project created before they existed needs them only for your editor's TypeScript in `.ts` files: `lyr check` and the TypeScript features in `<script>` blocks add them themselves, and `lyr doctor` warns when a project uses typed data without them.
 
-### Type checking with `orbit check`
+### Type checking with `lyr check`
 
-esbuild only **strips** types; it never checks them. So `orbit build` and `orbit dev` accept a script with a type error. Your editor shows type errors as you type, in `<script>` blocks too, with TypeScript 7 installed (see [Editor setup](editor-setup.md#typescript-in-script-blocks)), but only for the files you have open. To check the whole project, as in CI, run:
+esbuild only **strips** types; it never checks them. So `lyr build` and `lyr dev` accept a script with a type error. Your editor shows type errors as you type, in `<script>` blocks too, with TypeScript 7 installed (see [Editor setup](editor-setup.md#typescript-in-script-blocks)), but only for the files you have open. To check the whole project, as in CI, run:
 
 ```sh
-orbit check
+lyr check
 ```
 
-`orbit check` checks your Go code first (see the [CLI reference](reference/cli.md#orbit-check)). For TypeScript it uses `bun check`, the TypeScript type checker built into [Bun](https://bun.sh) 1.4.4 and later:
+`lyr check` checks your Go code first (see the [CLI reference](reference/cli.md#lyr-check)). For TypeScript it uses `bun check`, the TypeScript type checker built into [Bun](https://bun.sh) 1.4.4 and later:
 
-1. It extracts each processed inline `<script>` to `.orbit/check/` as a `.ts` file, with a generated `tsconfig.json` that extends yours and checks the extracted scripts plus the files your `include` lists (`src/**/*.ts` by default), minus your `exclude`. The extracted files mirror `src/`, so relative imports (`../scripts/greet`) resolve from the `.orbit` file's directory, as they do in the bundle. A `<script src="…">` file is checked as one of your `.ts` files.
-2. It runs `bun check --no-pretty -p .orbit/check`.
-3. It maps every error back to the line and column in your `.orbit` file.
+1. It extracts each processed inline `<script>` to `.lyr/check/` as a `.ts` file, with a generated `tsconfig.json` that extends yours and checks the extracted scripts plus the files your `include` lists (`src/**/*.ts` by default), minus your `exclude`. The extracted files mirror `src/`, so relative imports (`../scripts/greet`) resolve from the `.lyr` file's directory, as they do in the bundle. A `<script src="…">` file is checked as one of your `.ts` files.
+2. It runs `bun check --no-pretty -p .lyr/check`.
+3. It maps every error back to the line and column in your `.lyr` file.
 
-The check includes the generated types in `orbit_gen/types/`, so it also catches a script that reads data the server doesn't send: a field that isn't in the Go type, a key the template doesn't write, or a nullable value used as if it were present.
+The check includes the generated types in `lyr_gen/types/`, so it also catches a script that reads data the server doesn't send: a field that isn't in the Go type, a key the template doesn't write, or a nullable value used as if it were present.
 
 `bun check` reports the same errors as `tsc` and uses all your cores, and it needs no `typescript` package in your project.
 
 For example, this script:
 
-```orbit file=src/components/Total.orbit expect-error
+```lyr file=src/components/Total.lyr expect-error
 <output class="total"></output>
 
 <script>
@@ -604,16 +604,16 @@ For example, this script:
 </script>
 ```
 
-is reported at its `.orbit` position, in the same `file:line:col: message` format as every other error, with the TypeScript error code kept in the message:
+is reported at its `.lyr` position, in the same `file:line:col: message` format as every other error, with the TypeScript error code kept in the message:
 
 ```text
-src/components/Total.orbit:4:9: error TS2322: Type 'string' is not assignable to type 'number'.
+src/components/Total.lyr:4:9: error TS2322: Type 'string' is not assignable to type 'number'.
 ```
 
 The same goes for the data a script reads. A nil slice or map encodes as `null`, so a `[]string` field is typed `string[] | null`, and using it directly is an error:
 
 ```ts file=src/scripts/tags.ts expect-error
-import { data } from "../components/TagList.orbit";
+import { data } from "../components/TagList.lyr";
 
 for (const el of document.querySelectorAll("tag-list")) {
   const tags = data(el, "tags");
@@ -627,7 +627,7 @@ src/scripts/tags.ts:5:20: error TS18047: 'tags.names' is possibly 'null'.
 
 with this component:
 
-```orbit file=src/components/TagList.orbit
+```lyr file=src/components/TagList.lyr
 ---
 type tags struct {
 	Names []string `json:"names"`
@@ -637,32 +637,32 @@ type Props struct {
 	Tags []string
 }
 ---
-<tag-list data-tags={orbit.JSON(tags{Names: props.Tags})}></tag-list>
+<tag-list data-tags={lyr.JSON(tags{Names: props.Tags})}></tag-list>
 ```
 
-Check for `null` (`tags.names ?? []`), or tag the field `omitempty` (or `omitzero`): a nil slice is then left out, so the field is typed optional and non-null (`names?: string[]`). An error inside a generated `orbit_gen/types/` file would be a bug in Orbit; it's printed with that path, prefixed `internal: `.
+Check for `null` (`tags.names ?? []`), or tag the field `omitempty` (or `omitzero`): a nil slice is then left out, so the field is typed optional and non-null (`names?: string[]`). An error inside a generated `lyr_gen/types/` file would be a bug in Lyr; it's printed with that path, prefixed `internal: `.
 
-**Bun 1.4.4 or later is required** for the TypeScript half. Without Bun, or with an older one, `orbit check` skips the TypeScript half, prints a notice with the command to install or upgrade Bun (`bun upgrade`), and still runs the Go checks. Its exit code then reflects the Go checks only. `orbit doctor` reports a missing or old Bun as a warning, never as an error, since nothing else in Orbit needs it.
+**Bun 1.4.4 or later is required** for the TypeScript half. Without Bun, or with an older one, `lyr check` skips the TypeScript half, prints a notice with the command to install or upgrade Bun (`bun upgrade`), and still runs the Go checks. Its exit code then reflects the Go checks only. `lyr doctor` reports a missing or old Bun as a warning, never as an error, since nothing else in Lyr needs it.
 
 ## Source maps
 
-In `orbit dev`, every CSS and JS bundle has a linked source map, so the browser's dev tools show your `.orbit` files, at the line and column where you wrote the code, and your `.ts` files. A breakpoint set in `src/components/Counter.orbit` stops in the bundled code for it.
+In `lyr dev`, every CSS and JS bundle has a linked source map, so the browser's dev tools show your `.lyr` files, at the line and column where you wrote the code, and your `.ts` files. A breakpoint set in `src/components/Counter.lyr` stops in the bundled code for it.
 
-Production builds have no source maps unless you set [`"sourcemap": true`](configuration.md#sourcemap) in `orbit.json`; the maps are then written next to the bundles but not linked from them. In a scoped style, the inserted `[data-o-…]` shifts the columns after it on the same line, so a CSS position can be a few columns off; lines are always right.
+Production builds have no source maps unless you set [`"sourcemap": true`](configuration.md#sourcemap) in `lyr.json`; the maps are then written next to the bundles but not linked from them. In a scoped style, the inserted `[data-l-…]` shifts the columns after it on the same line, so a CSS position can be a few columns off; lines are always right.
 
 ## Tailwind CSS
 
-Orbit supports Tailwind CSS v4 through Tailwind's CLI, with no integration and no `orbit.json` key: a stylesheet that imports `tailwindcss` (or uses `@apply`, `@reference`, `@theme`, `@utility` and Tailwind's other at-rules) goes through Tailwind before esbuild bundles it, and the result is part of the page's stylesheet like any other CSS. Include your Tailwind stylesheet from the layout with `<style is:global> @import "../styles/global.css"; </style>`.
+Lyr supports Tailwind CSS v4 through Tailwind's CLI, with no integration and no `lyr.json` key: a stylesheet that imports `tailwindcss` (or uses `@apply`, `@reference`, `@theme`, `@utility` and Tailwind's other at-rules) goes through Tailwind before esbuild bundles it, and the result is part of the page's stylesheet like any other CSS. Include your Tailwind stylesheet from the layout with `<style is:global> @import "../styles/global.css"; </style>`.
 
-In a component's scoped `<style>`, `@reference "../styles/global.css";` plus `@apply` works as in Astro: the block is scoped first, then Tailwind applies the utilities to the scoped selectors (`.title[data-o-…]:hover`). Utilities themselves are never scoped, and since Tailwind puts them in `@layer utilities`, a component's own rule wins over a utility on the same property. CSS files your Tailwind stylesheet imports, such as a Fontsource font, are inlined with their `url()`s rewritten, so fonts end up hashed under `/_orbit/`. See [Using Tailwind](tailwind.md).
+In a component's scoped `<style>`, `@reference "../styles/global.css";` plus `@apply` works as in Astro: the block is scoped first, then Tailwind applies the utilities to the scoped selectors (`.title[data-l-…]:hover`). Utilities themselves are never scoped, and since Tailwind puts them in `@layer utilities`, a component's own rule wins over a utility on the same property. CSS files your Tailwind stylesheet imports, such as a Fontsource font, are inlined with their `url()`s rewritten, so fonts end up hashed under `/_lyr/`. See [Using Tailwind](tailwind.md).
 
-## Styles and scripts in `orbit dev`
+## Styles and scripts in `lyr dev`
 
 Editing only the contents of a `<style>` or `<script>` (or a `.ts` file they import) rebuilds just the CSS and JS, with no Go rebuild, then reloads the page.
 
-Adding or removing a component's scoped `<style>` or a processed `<script>`, or toggling `is:global`, also changes the HTML (scope attributes, bundle entries), so Orbit rebuilds the Go code too. See [Dev server](dev-server.md#what-a-change-rebuilds).
+Adding or removing a component's scoped `<style>` or a processed `<script>`, or toggling `is:global`, also changes the HTML (scope attributes, bundle entries), so Lyr rebuilds the Go code too. See [Dev server](dev-server.md#what-a-change-rebuilds).
 
-With Tailwind, a template edit that adds a class reruns Tailwind in parallel with the Go rebuild, then rebuilds the CSS; a style or script edit waits for its Tailwind run (about 90 ms instead of 20 ms on a 200-file project). See [Using Tailwind](tailwind.md#in-orbit-dev).
+With Tailwind, a template edit that adds a class reruns Tailwind in parallel with the Go rebuild, then rebuilds the CSS; a style or script edit waits for its Tailwind run (about 90 ms instead of 20 ms on a 200-file project). See [Using Tailwind](tailwind.md#in-lyr-dev).
 
 ## See also
 
@@ -670,6 +670,6 @@ With Tailwind, a template edit that adds a class reruns Tailwind in parallel wit
 - [Lazy loading](lazy-loading.md): `client:*` strategies and `server:defer` islands
 - [Components](components.md): templates, slots, and the warnings for `style={…}` and `on*={…}`
 - [Dev server](dev-server.md): how style and script edits reload
-- [CLI reference](reference/cli.md): `orbit check`, `orbit build`
+- [CLI reference](reference/cli.md): `lyr check`, `lyr build`
 - [Template syntax](reference/template-syntax.md): `is:inline`, `is:global`, `set:json`, `client:*` and other directives
 - [Client modules](reference/client-modules.md): `data`, `json` and the Go-to-TypeScript type mapping

@@ -1,6 +1,6 @@
 package compiler
 
-// Source maps between a .orbit file and one generated Go file (PLAN.md §3.3,
+// Source maps between a .lyr file and one generated Go file (PLAN.md §3.3,
 // §9). Owned by agent B (milestone 4); the LSP (milestone 12) consumes it.
 
 // SegmentKind says how a segment's two ranges correspond.
@@ -13,15 +13,15 @@ const (
 	SegExact SegmentKind = iota
 	// SegSpan maps a whole range to a whole range of a different length:
 	// attribute name is-open → field key IsOpen, a tag name → its
-	// Card.Render (or Render for <Self>), an .orbit import path → the decl
+	// Card.Render (or Render for <Self>), a .lyr import path → the decl
 	// import path. Offsets clamp.
 	SegSpan
 	// SegEcho is a generated "_ = name" (Go range: the name). It maps to no
-	// .orbit range (OrbitStart = OrbitEnd = -1); an LSP rename drops edits
+	// .lyr range (LyrStart = LyrEnd = -1); an LSP rename drops edits
 	// there.
 	SegEcho
 	// SegSpread is a field assignment generated for a props spread,
-	// orbit__p.F = orbit__s1.F (PLAN.md §2.11): it maps back like SegSpan,
+	// lyr__p.F = lyr__s1.F (PLAN.md §2.11): it maps back like SegSpan,
 	// to the whole {...x} (so a Go error there lands on the spread), but
 	// GoOffset never picks it (the operand's own exact segment serves the
 	// cursor), and an LSP rename drops edits there like an echo's (the next
@@ -29,25 +29,25 @@ const (
 	SegSpread
 )
 
-// Segment is one mapped range. Orbit offsets are bytes into the .orbit
+// Segment is one mapped range. Lyr offsets are bytes into the .lyr
 // file, Go offsets bytes into GenFile.Content; ends are exclusive.
 type Segment struct {
-	Kind                 SegmentKind
-	OrbitStart, OrbitEnd int
-	GoStart, GoEnd       int
+	Kind             SegmentKind
+	LyrStart, LyrEnd int
+	GoStart, GoEnd   int
 }
 
 // SourceMap holds the segments of one generated file.
 type SourceMap struct {
-	// Orbit is the project-relative .orbit path, Gen the module-relative
+	// Lyr is the project-relative .lyr path, Gen the module-relative
 	// generated file (GenFile.Path).
-	Orbit, Gen string
+	Lyr, Gen string
 	// Segments are sorted by GoStart and don't overlap on the Go side.
 	Segments []Segment
 }
 
-// GoOffset maps a .orbit offset to the generated file. It finds the segment
-// whose orbit range contains off, end inclusive (so a cursor right after
+// GoOffset maps a .lyr offset to the generated file. It finds the segment
+// whose lyr range contains off, end inclusive (so a cursor right after
 // "props." maps); exact segments map by arithmetic, span segments clamp to
 // the Go range, echo and spread segments never match. ok is false outside every
 // segment.
@@ -55,8 +55,8 @@ func (m *SourceMap) GoOffset(off int) (goOff int, ok bool) {
 	return m.goOffset(off)
 }
 
-// OrbitOffset maps a generated-file offset back to the .orbit file, with the
+// LyrOffset maps a generated-file offset back to the .lyr file, with the
 // same rules; an offset in an echo segment or in glue returns ok false.
-func (m *SourceMap) OrbitOffset(goOff int) (off int, ok bool) {
-	return m.orbitOffset(goOff)
+func (m *SourceMap) LyrOffset(goOff int) (off int, ok bool) {
+	return m.lyrOffset(goOff)
 }

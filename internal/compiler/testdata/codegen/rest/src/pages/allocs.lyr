@@ -1,0 +1,11 @@
+---
+import Button "../components/Button.lyr"
+import Field "../components/Field.lyr"
+import Wrap "../components/Wrap.lyr"
+
+id, n, on := "s-81", 3, true
+---
+<Button variant="q" name="a" required class="mt-2">Static</Button>
+<Button variant="d" name="x" data-id={id} data-n={n} disabled={on} class="mt-2">Dynamic</Button>
+<Wrap name="w" />
+<Field label="f" class="mt-2" />

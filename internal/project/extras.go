@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/config"
 )
 
-// GenFile is one file to write under orbit_gen/.
+// GenFile is one file to write under lyr_gen/.
 type GenFile struct {
 	// Path is relative to the module root, "/"-separated.
 	Path    string
@@ -31,17 +31,17 @@ const (
 	LinkFile     = compiler.GenDir + "/link/link.go"
 	ManifestFile = compiler.GenDir + "/manifest/manifest.go"
 	ServerFile   = compiler.GenDir + "/cmd/server/main.go"
-	// StaticDocFile makes orbit_gen/static a package even before an
+	// StaticDocFile makes lyr_gen/static a package even before an
 	// --embed build writes its static.go, so go mod tidy and go vet, which
 	// load every build tag, find the package that embed.go imports.
 	StaticDocFile = StaticDir + "/doc.go"
 )
 
-// GenFiles returns every generated file: each .orbit file's decl.go and
-// render.go (its final Output), then orbit_gen/app (app.go and the
-// orbit_embed-tagged embed.go), orbit_gen/link, orbit_gen/manifest and,
-// when the project has no server entry, orbit_gen/cmd/server, then the
-// TypeScript declarations of the client modules under orbit_gen/types
+// GenFiles returns every generated file: each .lyr file's decl.go and
+// render.go (its final Output), then lyr_gen/app (app.go and the
+// lyr_embed-tagged embed.go), lyr_gen/link, lyr_gen/manifest and,
+// when the project has no server entry, lyr_gen/cmd/server, then the
+// TypeScript declarations of the client modules under lyr_gen/types
 // (PLAN.md §5c).
 func (p *Project) GenFiles() []GenFile {
 	files := make([]GenFile, 0, 2*len(p.Files)+6)
@@ -63,8 +63,8 @@ func (p *Project) GenFiles() []GenFile {
 	return files
 }
 
-// typesFiles returns the .d.ts files under orbit_gen/types (PLAN.md §5c):
-// go.d.ts and client.d.ts, and one module per .orbit file with keys, from
+// typesFiles returns the .d.ts files under lyr_gen/types (PLAN.md §5c):
+// go.d.ts and client.d.ts, and one module per .lyr file with keys, from
 // every File's Types.
 func (p *Project) typesFiles() []GenFile {
 	var files []GenFile
@@ -90,29 +90,29 @@ func (p *Project) TypeFiles() []compiler.TSFile {
 // with "_" doubled and "/" turned into "_" (pages/blog/slug_param →
 // pages_blog_slug__param). Segments never start with "_" (PackageFor
 // prefixes them), so distinct Rels give distinct aliases, and every alias
-// starts with "pages_", so none is orbit or manifest.
+// starts with "pages_", so none is lyr or manifest.
 func pageAlias(pkg compiler.GenPackage) string {
 	return strings.ReplaceAll(strings.ReplaceAll(pkg.Rel, "_", "__"), "/", "_")
 }
 
 // islandAlias is the import name of an island's decl package in app.go:
 // "island_" plus its pageAlias, so it never clashes with a page alias,
-// orbit or manifest.
+// lyr or manifest.
 func islandAlias(pkg compiler.GenPackage) string { return "island_" + pageAlias(pkg) }
 
-// appGo generates orbit_gen/app/app.go: the route table, the import of
-// orbit_gen/link (which links every implementation package), and New
+// appGo generates lyr_gen/app/app.go: the route table, the import of
+// lyr_gen/link (which links every implementation package), and New
 // (PLAN.md §3.1, §3.2).
 func (p *Project) appGo() []byte {
 	var b bytes.Buffer
 	b.WriteString(compiler.GenHeader + "\n\n")
-	fmt.Fprintf(&b, "// Package app wires the pages of %s into an orbit.Site: the\n", p.Module)
+	fmt.Fprintf(&b, "// Package app wires the pages of %s into a lyr.Site: the\n", p.Module)
 	b.WriteString("// route table, the import that links every component, and New.\n")
 	b.WriteString("package app\n\nimport (\n")
 	if slices.ContainsFunc(p.Config.RouteRules, func(r config.RouteRule) bool { return r.MaxAge != 0 || r.SWR != 0 }) {
 		b.WriteString("\t\"time\"\n\n")
 	}
-	fmt.Fprintf(&b, "\torbit %q\n\n", compiler.RuntimePath)
+	fmt.Fprintf(&b, "\tlyr %q\n\n", compiler.RuntimePath)
 	fmt.Fprintf(&b, "\t_ %q\n", p.Module+"/"+compiler.GenDir+"/link")
 	fmt.Fprintf(&b, "\t%q\n", p.Module+"/"+compiler.GenDir+"/manifest")
 	if p.localsFields != (localsFields{}) {
@@ -138,33 +138,33 @@ func (p *Project) appGo() []byte {
 		}
 	}
 	b.WriteString(")\n\n")
-	b.WriteString("// embedded is set by embed.go in an orbit build --embed binary (build tag\n")
-	b.WriteString("// orbit_embed): it serves the static files embedded in the binary.\n")
-	b.WriteString("var embedded []orbit.Option\n\n")
+	b.WriteString("// embedded is set by embed.go in a lyr build --embed binary (build tag\n")
+	b.WriteString("// lyr_embed): it serves the static files embedded in the binary.\n")
+	b.WriteString("var embedded []lyr.Option\n\n")
 	b.WriteString("// New returns the site: every page of src/pages, with its assets. Options\n")
-	b.WriteString("// passed here come after the ones from orbit.json and --embed, so they win.\n")
-	b.WriteString("func New(opts ...orbit.Option) *orbit.Site {\n")
+	b.WriteString("// passed here come after the ones from lyr.json and --embed, so they win.\n")
+	b.WriteString("func New(opts ...lyr.Option) *lyr.Site {\n")
 	var defaults []string
 	if p.Config.Site != "" {
-		defaults = append(defaults, "orbit.WithSite("+strconv.Quote(p.Config.Site)+")")
+		defaults = append(defaults, "lyr.WithSite("+strconv.Quote(p.Config.Site)+")")
 	}
 	if p.Config.TrailingSlashAlways {
-		defaults = append(defaults, "orbit.WithTrailingSlash(orbit.TrailingSlashAlways)")
+		defaults = append(defaults, "lyr.WithTrailingSlash(lyr.TrailingSlashAlways)")
 	}
 	if f := p.localsFields.Route; f != "" {
-		// Orbit fills Locals' orbit.RouteInfo field (PLAN.md §4g).
-		defaults = append(defaults, "orbit.WithLocalsRoute(func(l *locals.Locals) *orbit.RouteInfo { return &l."+f+" })")
+		// Lyr fills Locals' lyr.RouteInfo field (PLAN.md §4g).
+		defaults = append(defaults, "lyr.WithLocalsRoute(func(l *locals.Locals) *lyr.RouteInfo { return &l."+f+" })")
 	}
 	if f := p.localsFields.Cache; f != "" {
-		// Locals' orbit.Cache field is the request's cache handle (PLAN.md §4h).
-		defaults = append(defaults, "orbit.WithLocalsCache(func(l *locals.Locals) *orbit.Cache { return &l."+f+" })")
+		// Locals' lyr.Cache field is the request's cache handle (PLAN.md §4h).
+		defaults = append(defaults, "lyr.WithLocalsCache(func(l *locals.Locals) *lyr.Cache { return &l."+f+" })")
 	}
 	if rules := p.Config.RouteRules; len(rules) > 0 {
-		// orbit.json "routeRules" (PLAN.md §4h).
+		// lyr.json "routeRules" (PLAN.md §4h).
 		var rb strings.Builder
-		rb.WriteString("orbit.WithRouteRules(")
+		rb.WriteString("lyr.WithRouteRules(")
 		for _, r := range rules {
-			fmt.Fprintf(&rb, "\n\t\torbit.RouteRule{Pattern: %s, Options: orbit.CacheOptions{", strconv.Quote(r.Pattern))
+			fmt.Fprintf(&rb, "\n\t\tlyr.RouteRule{Pattern: %s, Options: lyr.CacheOptions{", strconv.Quote(r.Pattern))
 			var fs []string
 			if r.MaxAge != 0 {
 				fs = append(fs, fmt.Sprintf("MaxAge: %d * time.Second", r.MaxAge))
@@ -185,20 +185,20 @@ func (p *Project) appGo() []byte {
 		defaults = append(defaults, rb.String())
 	}
 	if len(defaults) > 0 {
-		fmt.Fprintf(&b, "\tdefaults := []orbit.Option{%s}\n", strings.Join(defaults, ", "))
+		fmt.Fprintf(&b, "\tdefaults := []lyr.Option{%s}\n", strings.Join(defaults, ", "))
 	} else {
-		b.WriteString("\tvar defaults []orbit.Option\n")
+		b.WriteString("\tvar defaults []lyr.Option\n")
 	}
 	b.WriteString("\tdefaults = append(defaults, embedded...)\n")
-	b.WriteString("\treturn orbit.NewSite(routes(), islands(), append(defaults, opts...)...)\n}\n\n")
+	b.WriteString("\treturn lyr.NewSite(routes(), islands(), append(defaults, opts...)...)\n}\n\n")
 	b.WriteString("// routes returns a fresh route table, sorted by file.\n")
-	b.WriteString("func routes() []orbit.Route {\n\treturn []orbit.Route{\n")
+	b.WriteString("func routes() []lyr.Route {\n\treturn []lyr.Route{\n")
 	for _, f := range pages {
 		a := pageAlias(f.Pkg)
 		b.WriteString("\t\t{\n")
 		fmt.Fprintf(&b, "\t\t\tPattern: %s,\n", strconv.Quote(f.Info.Route))
 		fmt.Fprintf(&b, "\t\t\tFile: %s,\n", strconv.Quote(f.Path))
-		fmt.Fprintf(&b, "\t\t\tRender: func(c *orbit.Ctx, w *orbit.Writer) error {\n\t\t\t\treturn %s.Render(c, w, %s.Props{}, orbit.Slots{})\n\t\t\t},\n", a, a)
+		fmt.Fprintf(&b, "\t\t\tRender: func(c *lyr.Ctx, w *lyr.Writer) error {\n\t\t\t\treturn %s.Render(c, w, %s.Props{}, lyr.Slots{})\n\t\t\t},\n", a, a)
 		fmt.Fprintf(&b, "\t\t\tAssets: manifest.Pages[%s],\n", strconv.Quote(f.Path))
 		if p.HasIslands(f) {
 			b.WriteString("\t\t\tIslands: true,\n")
@@ -208,13 +208,13 @@ func (p *Project) appGo() []byte {
 	b.WriteString("\t}\n}\n\n")
 	b.WriteString("// islands returns the island table: every component used with server:defer,\n")
 	b.WriteString("// sorted by file (PLAN.md §3.4). Only these can be rendered by URL.\n")
-	b.WriteString("func islands() []orbit.Island {\n")
+	b.WriteString("func islands() []lyr.Island {\n")
 	if len(islands) == 0 {
 		b.WriteString("\treturn nil\n}\n")
 	} else {
-		b.WriteString("\treturn []orbit.Island{\n")
+		b.WriteString("\treturn []lyr.Island{\n")
 		for _, f := range islands {
-			fmt.Fprintf(&b, "\t\torbit.NewIsland(%s, %s, %s.Render),\n",
+			fmt.Fprintf(&b, "\t\tlyr.NewIsland(%s, %s, %s.Render),\n",
 				strconv.Quote(compiler.ComponentID(f.Path)), strconv.Quote(f.Path), islandAlias(f.Pkg))
 		}
 		b.WriteString("\t}\n}\n")
@@ -222,7 +222,7 @@ func (p *Project) appGo() []byte {
 	return gofmt(b.Bytes())
 }
 
-// linkGo generates orbit_gen/link/link.go: a blank import of every
+// linkGo generates lyr_gen/link/link.go: a blank import of every
 // implementation package, whose package-level initializer sets its decl
 // package's hook (PLAN.md §3.1 Linking). The imports are sorted as gofmt
 // sorts them, so the file is gofmt-clean without running gofmt.
@@ -230,7 +230,7 @@ func (p *Project) linkGo() []byte {
 	var b bytes.Buffer
 	b.WriteString(compiler.GenHeader + "\n\n")
 	fmt.Fprintf(&b, "// Package link links every component of %s: each import sets the\n", p.Module)
-	b.WriteString("// Render hook of a declaration package. orbit_gen/app imports it.\n")
+	b.WriteString("// Render hook of a declaration package. lyr_gen/app imports it.\n")
 	b.WriteString("package link\n")
 	if len(p.Files) > 0 {
 		paths := make([]string, len(p.Files))
@@ -247,22 +247,22 @@ func (p *Project) linkGo() []byte {
 	return b.Bytes()
 }
 
-// appEmbedGo generates orbit_gen/app/embed.go, compiled only with the
-// orbit_embed build tag that orbit build --embed sets: app.New() then serves
-// the static files embedded by orbit_gen/static (PLAN.md §6 orbit build step
-// 6). Without the tag, orbit_gen/static isn't needed.
+// appEmbedGo generates lyr_gen/app/embed.go, compiled only with the
+// lyr_embed build tag that lyr build --embed sets: app.New() then serves
+// the static files embedded by lyr_gen/static (PLAN.md §6 lyr build step
+// 6). Without the tag, lyr_gen/static isn't needed.
 func (p *Project) appEmbedGo() []byte {
 	var b bytes.Buffer
 	b.WriteString(compiler.GenHeader + "\n\n")
-	b.WriteString("//go:build orbit_embed\n\n")
+	b.WriteString("//go:build lyr_embed\n\n")
 	b.WriteString("package app\n\nimport (\n")
-	fmt.Fprintf(&b, "\torbit %q\n\n", compiler.RuntimePath)
+	fmt.Fprintf(&b, "\tlyr %q\n\n", compiler.RuntimePath)
 	fmt.Fprintf(&b, "\t%q\n)\n\n", p.Module+"/"+StaticDir)
-	b.WriteString("func init() {\n\tembedded = []orbit.Option{orbit.WithStaticFS(static.FS)}\n}\n")
+	b.WriteString("func init() {\n\tembedded = []lyr.Option{lyr.WithStaticFS(static.FS)}\n}\n")
 	return gofmt(b.Bytes())
 }
 
-// manifestGo generates orbit_gen/manifest/manifest.go: each page's bundled
+// manifestGo generates lyr_gen/manifest/manifest.go: each page's bundled
 // assets (p.Assets), in <head> order. Pages without assets aren't listed;
 // app.go's manifest.Pages[file] then gives nil.
 func (p *Project) manifestGo() []byte {
@@ -270,8 +270,8 @@ func (p *Project) manifestGo() []byte {
 	b.WriteString(compiler.GenHeader + "\n\n")
 	b.WriteString("// Package manifest lists the assets of every page.\n")
 	b.WriteString("package manifest\n\n")
-	fmt.Fprintf(&b, "import orbit %q\n\n", compiler.RuntimePath)
-	b.WriteString("// Pages maps a page's .orbit path to its CSS and JS assets.\n")
+	fmt.Fprintf(&b, "import lyr %q\n\n", compiler.RuntimePath)
+	b.WriteString("// Pages maps a page's .lyr path to its CSS and JS assets.\n")
 	var pages []string
 	if p.Assets != nil {
 		for page := range p.Assets.Pages {
@@ -279,11 +279,11 @@ func (p *Project) manifestGo() []byte {
 		}
 	}
 	if len(pages) == 0 {
-		b.WriteString("var Pages = map[string][]orbit.Asset{}\n")
+		b.WriteString("var Pages = map[string][]lyr.Asset{}\n")
 		return gofmt(b.Bytes())
 	}
 	slices.Sort(pages)
-	b.WriteString("var Pages = map[string][]orbit.Asset{\n")
+	b.WriteString("var Pages = map[string][]lyr.Asset{\n")
 	for _, page := range pages {
 		fmt.Fprintf(&b, "\t%s: {\n", strconv.Quote(page))
 		for _, a := range p.Assets.Pages[page] {
@@ -299,18 +299,18 @@ func (p *Project) manifestGo() []byte {
 	return gofmt(b.Bytes())
 }
 
-// serverGo generates the default server entry, orbit_gen/cmd/server.
+// serverGo generates the default server entry, lyr_gen/cmd/server.
 func (p *Project) serverGo() []byte {
 	var b bytes.Buffer
 	b.WriteString(compiler.GenHeader + "\n\n")
 	b.WriteString("// Command server is the default server entry, generated because the project\n")
 	b.WriteString("// has no cmd/server: it serves the pages and nothing else.\n")
 	b.WriteString("package main\n\nimport (\n\t\"log\"\n\n")
-	fmt.Fprintf(&b, "\torbit %q\n\n", compiler.RuntimePath)
+	fmt.Fprintf(&b, "\tlyr %q\n\n", compiler.RuntimePath)
 	fmt.Fprintf(&b, "\t%q\n)\n\n", p.Module+"/"+compiler.GenDir+"/app")
-	// Not log.Fatal(orbit.ListenAndServe(…)): log.Fatal exits 1 even for
+	// Not log.Fatal(lyr.ListenAndServe(…)): log.Fatal exits 1 even for
 	// the nil of a graceful shutdown.
-	b.WriteString("func main() {\n\tif err := orbit.ListenAndServe(app.New().Handler()); err != nil {\n\t\tlog.Fatal(err)\n\t}\n}\n")
+	b.WriteString("func main() {\n\tif err := lyr.ListenAndServe(app.New().Handler()); err != nil {\n\t\tlog.Fatal(err)\n\t}\n}\n")
 	return gofmt(b.Bytes())
 }
 
@@ -323,11 +323,11 @@ func gofmt(src []byte) []byte {
 	return src
 }
 
-// staticDocGo is orbit_gen/static/doc.go. orbit build --embed adds static.go
-// (build tag orbit_embed), which declares FS and embeds client/.
+// staticDocGo is lyr_gen/static/doc.go. lyr build --embed adds static.go
+// (build tag lyr_embed), which declares FS and embeds client/.
 var staticDocGo = []byte(compiler.GenHeader + `
 
-// Package static holds the files orbit build --embed puts in the server
-// binary. Without the orbit_embed build tag it's empty.
+// Package static holds the files lyr build --embed puts in the server
+// binary. Without the lyr_embed build tag it's empty.
 package static
 `)

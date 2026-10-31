@@ -1,17 +1,17 @@
 ---
 title: About this blog
-layout: ../layouts/Base.orbit
+layout: ../layouts/Base.lyr
 ---
 
 # About this blog
 
-This page is a Markdown file, `src/pages/about.md`. Orbit converts it to
+This page is a Markdown file, `src/pages/about.md`. Lyr converts it to
 HTML when it generates code, so serving it costs the same as serving a
 template's "static" HTML.
 
 ## How it's built
 
-The posts come from a Go package, and the pages are `.orbit` components:
+The posts come from a Go package, and the pages are `.lyr` components:
 
 ```go
 all, err := posts.All()

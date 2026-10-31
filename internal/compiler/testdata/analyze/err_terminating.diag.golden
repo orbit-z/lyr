@@ -1,1 +1,1 @@
-src/components/err_terminating.orbit:3:1: the frontmatter always returns here, so the template below is never rendered
+src/components/err_terminating.lyr:3:1: the frontmatter always returns here, so the template below is never rendered

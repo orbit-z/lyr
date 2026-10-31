@@ -44,7 +44,7 @@ func fixture(t *testing.T) string {
 	if err := os.CopyFS(dir, os.DirFS("testdata/site")); err != nil {
 		t.Fatal(err)
 	}
-	gomod := "module example.com/devsite\n\ngo 1.27\n\ntoolchain go1.27.3\n\nrequire github.com/orbit-z/orbit v0.0.0\n\nreplace github.com/orbit-z/orbit => " + filepath.ToSlash(repo) + "\n"
+	gomod := "module example.com/devsite\n\ngo 1.27\n\ntoolchain go1.27.3\n\nrequire github.com/orbit-z/lyr v0.0.0\n\nreplace github.com/orbit-z/lyr => " + filepath.ToSlash(repo) + "\n"
 	writeFile(t, dir, "go.mod", gomod)
 	// The checkout's go.sum covers the runtime's module graph, so go build
 	// doesn't write go.sum (which the watcher would see as a Go edit).
@@ -80,7 +80,7 @@ func edit(t *testing.T, dir, rel, old, new string) {
 	writeFile(t, dir, rel, strings.Replace(string(data), old, new, 1))
 }
 
-// session is a running orbit dev.
+// session is a running lyr dev.
 type session struct {
 	t      *testing.T
 	dir    string
@@ -133,13 +133,13 @@ func startSession(t *testing.T, dir string) *session {
 	select {
 	case s.url = <-ready:
 	case err := <-s.done:
-		t.Fatalf("orbit dev: %v\n%s", err, s.out)
+		t.Fatalf("lyr dev: %v\n%s", err, s.out)
 	case <-time.After(2 * time.Minute):
-		t.Fatalf("orbit dev didn't start\n%s", s.out)
+		t.Fatalf("lyr dev didn't start\n%s", s.out)
 	}
 	t.Cleanup(func() {
 		if t.Failed() || testing.Verbose() {
-			t.Logf("orbit dev output:\n%s", s.out)
+			t.Logf("lyr dev output:\n%s", s.out)
 		}
 	})
 	return s
@@ -202,7 +202,7 @@ func (s *session) get(path string, header ...string) (*http.Response, string) {
 	return resp, string(body)
 }
 
-// events subscribes to /__orbit/events and returns a channel of event
+// events subscribes to /__lyr/events and returns a channel of event
 // names.
 func (s *session) events() <-chan string {
 	s.t.Helper()
@@ -236,12 +236,12 @@ func waitReload(t *testing.T, ch <-chan string, what string) {
 }
 
 var (
-	cssLink   = regexp.MustCompile(`<link rel="stylesheet" href="(/_orbit/[^"]+\.css)">`)
-	islandTag = regexp.MustCompile(`<orbit-island src="([^"]+)" props="([^"]+)">`)
+	cssLink   = regexp.MustCompile(`<link rel="stylesheet" href="(/_lyr/[^"]+\.css)">`)
+	islandTag = regexp.MustCompile(`<lyr-island src="([^"]+)" props="([^"]+)">`)
 )
 
-// TestDevServer runs orbit dev on the fixture and walks through PLAN.md
-// §13's orbit dev checks: live reload after a component edit, CSS-only
+// TestDevServer runs lyr dev on the fixture and walks through PLAN.md
+// §13's lyr dev checks: live reload after a component edit, CSS-only
 // edits without a Go rebuild, a first <style> with a Go rebuild, the
 // reload script under a gzip middleware, island fragments and the user's
 // /robots.txt left alone, the compile-error overlay and its fix, and the
@@ -249,7 +249,7 @@ var (
 func TestDevServer(t *testing.T) {
 	needE2E(t)
 	dir := fixture(t)
-	writeFile(t, dir, "orbit.json", `{"watch": ["content/**"]}`)
+	writeFile(t, dir, "lyr.json", `{"watch": ["content/**"]}`)
 	writeFile(t, dir, "content/post.md", "# post")
 	s := startSession(t, dir)
 	defer s.stop()
@@ -280,12 +280,12 @@ func TestDevServer(t *testing.T) {
 
 	// A component edit: reload event, new content, the old server got
 	// SIGINT (it shut down gracefully and wrote its marker).
-	edit(t, dir, "src/components/Card.orbit", "card {props.Post}", "edited card {props.Post}")
+	edit(t, dir, "src/components/Card.lyr", "card {props.Post}", "edited card {props.Post}")
 	waitReload(t, events, "Card edit")
 	if _, body := s.get("/"); !strings.Contains(body, "edited card one") {
 		t.Errorf("after the Card edit:\n%s", body)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".orbit/stopped", pid1)); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, ".lyr/stopped", pid1)); err != nil {
 		t.Errorf("the old server (pid %s) didn't shut down after SIGINT: %v", pid1, err)
 	}
 	if _, pid2 := s.get("/pid"); pid2 == pid1 {
@@ -300,7 +300,7 @@ func TestDevServer(t *testing.T) {
 	_, body = s.get("/")
 	css1 := cssLink.FindStringSubmatch(body)
 	_, pid := s.get("/pid")
-	edit(t, dir, "src/layouts/Base.orbit", "color: navy;", "color: teal;")
+	edit(t, dir, "src/layouts/Base.lyr", "color: navy;", "color: teal;")
 	waitReload(t, events, "CSS edit")
 	_, body = s.get("/")
 	css2 := cssLink.FindStringSubmatch(body)
@@ -317,9 +317,9 @@ func TestDevServer(t *testing.T) {
 	}
 
 	// Card's first <style>: a Go rebuild, and the scope attribute.
-	edit(t, dir, "src/components/Card.orbit", "</p>\n", "</p>\n\n<style>\n  .card { color: red; }\n</style>\n")
+	edit(t, dir, "src/components/Card.lyr", "</p>\n", "</p>\n\n<style>\n  .card { color: red; }\n</style>\n")
 	waitReload(t, events, "first <style>")
-	if _, body := s.get("/"); !regexp.MustCompile(`<p class="card" data-o-[0-9a-f]{8}>`).MatchString(body) {
+	if _, body := s.get("/"); !regexp.MustCompile(`<p class="card" data-l-[0-9a-f]{8}>`).MatchString(body) {
 		t.Errorf("no scope attribute on the card:\n%s", body)
 	}
 	if n := s.count("gobuild"); n != builds+1 {
@@ -328,16 +328,16 @@ func TestDevServer(t *testing.T) {
 
 	// A type error: the overlay, while the old server keeps answering
 	// other requests; the fix reloads.
-	edit(t, dir, "src/components/Card.orbit", "{props.Post}", "{props.Psot}")
+	edit(t, dir, "src/components/Card.lyr", "{props.Post}", "{props.Psot}")
 	waitReload(t, events, "type error")
 	resp, body = s.get("/", "Accept", "text/html")
-	if resp.StatusCode != 500 || !regexp.MustCompile(`src/components/Card\.orbit:8:\d+</span>: props\.Psot undefined`).MatchString(body) {
+	if resp.StatusCode != 500 || !regexp.MustCompile(`src/components/Card\.lyr:8:\d+</span>: props\.Psot undefined`).MatchString(body) {
 		t.Errorf("overlay: %d\n%s", resp.StatusCode, body)
 	}
 	if _, body := s.get("/robots.txt"); body != "custom robots" {
 		t.Errorf("robots.txt during a build error: %q", body)
 	}
-	edit(t, dir, "src/components/Card.orbit", "{props.Psot}", "{props.Post}")
+	edit(t, dir, "src/components/Card.lyr", "{props.Psot}", "{props.Post}")
 	waitReload(t, events, "fix")
 	if resp, body := s.get("/", "Accept", "text/html"); resp.StatusCode != 200 || !strings.Contains(body, "edited card one") {
 		t.Errorf("after the fix: %d\n%s", resp.StatusCode, body)
@@ -385,7 +385,7 @@ func TestDevServer(t *testing.T) {
 	if _, body := s.get("/about"); !strings.Contains(body, "<title>About</title>") || !strings.Contains(body, `<h2 id="first-version">First version</h2>`) {
 		t.Errorf("GET /about:\n%s", body)
 	}
-	decl := filepath.Join(dir, "orbit_gen/decl/pages/about_md/decl.go")
+	decl := filepath.Join(dir, "lyr_gen/decl/pages/about_md/decl.go")
 	before, err := os.Stat(decl)
 	if err != nil {
 		t.Fatal(err)
@@ -408,7 +408,7 @@ func TestDevServer(t *testing.T) {
 		t.Errorf("after the .md frontmatter edit:\n%s", body)
 	}
 
-	// A file matching orbit.json's "watch": the same binary is restarted
+	// A file matching lyr.json's "watch": the same binary is restarted
 	// (no pipeline stage runs), then a reload.
 	_, pid = s.get("/pid")
 	m0 = s.mark()
@@ -420,7 +420,7 @@ func TestDevServer(t *testing.T) {
 	if _, p := s.get("/pid"); p == pid {
 		t.Errorf("a watched file didn't restart the server")
 	}
-	if !strings.Contains(s.out.String(), "orbit dev: content/post.md: server restarted in") {
+	if !strings.Contains(s.out.String(), "lyr dev: content/post.md: server restarted in") {
 		t.Errorf("no restart message for the watched file")
 	}
 }

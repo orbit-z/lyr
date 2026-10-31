@@ -1,0 +1,59 @@
+---
+import (
+	"errors"
+	"strconv"
+	"strings"
+)
+
+type Count int
+
+func (c Count) String() string { return "#" + strconv.Itoa(int(c)) }
+
+type Pct int
+
+type Slug string
+
+type Props struct {
+	Attrs lyr.RestAttrs
+}
+
+name := "The Hollow & Co"
+slug := Slug("the-hollow")
+n, u, f, f32, on := 3, uint(7), 0.5, float32(0.1), true
+var c Count = 4
+err := errors.New("bad <x>")
+html := lyr.HTML("<b>")
+url := lyr.URL("javascript:ok")
+var nilErr error
+base, j, s := "java", "script", ":alert(1)"
+size, extra := "lg", " x  y "
+pct := Pct(40)
+const k = 3
+bs := []byte("by<tes")
+Tag := "h2"
+---
+<a href={`/fiction/${slug}`} aria-label={`Chapter ${n + 1} of ${name}`} data-f={`${f}|${f32}|${on}|${u}`}>A</a>
+<a href={`${base}${j}${s}`} title={`${c} ${err} ${nilErr} ${nil} ${html} ${url}`}>split</a>
+<a href={`javascript:${name}`} src={`  ${slug}`} data-k={`${k}-${"x"}-${1.5}-${true}-${'a'}`}>unsafe</a>
+<a href={`https://x.test/?q=${name}`} title={``} hidden={`${on}`}>empty</a>
+<a href={`java${"script:"}x`} action={`JavaScript:alert(1)`}>folded</a>
+<p class={`btn-${size} ${extra}`}>alone</p>
+<p class:list={"a", `btn-${size}`, `on-${size}`: on, `${extra}`}>list</p>
+<p class={`m-${n}`} class:list={"z"}>merged</p>
+<p class={`r-${n}`} {...props.Attrs}>rest</p>
+<p style={`width:${pct}%`} onclick={`go(${n}, ${on})`}>inert</p>
+<span>{` · ${n} words, ${name}`}</span>
+<span set:text={`${bs}<${c}>`}></span>
+<div set:html={`<i>${n}</i>${html}`}></div>
+<p title={lyr.If(on, `Close ${name}`)} data-x={lyr.Cond(on, `y${n}`, "z")}>{lyr.If(!on, `never ${n}`)}</p>
+<p>{strings.ToUpper(`up ${name}`)} {len(`${n}${n}`)} {`a` + `b${n}`}</p>
+{if `a-${n}` == "a-3"}<p>if header</p>{/if}
+{switch `x`}{case `x`}<p>case</p>{/switch}
+<p>{`nest ${strings.Repeat(`-${n}${strings.ToLower(`${"X"}`)}`, 2)} end`}</p>
+<p>{`esc \` \${x} \\ \u{1F600} \x41 é \n|\
+continued $ {x} $`}</p>
+<p title={`multi
+line ${n}`}>{`
+${name}`}</p>
+<p data-css={lyr.CSS(`width:${n}px`)} style={lyr.CSS(`color:${"red"}`)}>conv</p>
+<Tag id={`t-${n}`} class={`d-${size}`}>dyn</Tag>

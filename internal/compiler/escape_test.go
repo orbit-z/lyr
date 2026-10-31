@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 )
 
 // TestEscapersMatchRuntime: the build-time escapers write every byte as
@@ -17,7 +17,7 @@ func TestEscapersMatchRuntime(t *testing.T) {
 	}
 	for _, s := range []string{string(all), `a&b<c>d"e'f` + "\x00", "plain"} {
 		var buf bytes.Buffer
-		w := orbit.NewWriter(&buf)
+		w := lyr.NewWriter(&buf)
 		w.String(s)
 		if got := textEscaper.Replace(s); got != buf.String() {
 			t.Errorf("textEscaper(%q) = %q, runtime %q", s, got, buf.String())

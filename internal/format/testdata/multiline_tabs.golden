@@ -5,7 +5,7 @@ import "example.com/x/posts"
 	<div>
 		<Card post={posts.Post{
 			Title: "Hello",
-			Tags:  []string{"go", "orbit"},
+			Tags:  []string{"go", "lyr"},
 		}} />
 		{if len(a) > 0 &&
 			len(b) > 0}

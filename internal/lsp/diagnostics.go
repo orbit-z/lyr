@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
-// Diagnostics (PLAN.md §9): Orbit's own (parse, analysis, codegen, project
+// Diagnostics (PLAN.md §9): Lyr's own (parse, analysis, codegen, project
 // checks) merged with gopls's diagnostics of the file's two generated
-// files, mapped through their source maps, and published per .orbit file.
+// files, mapped through their source maps, and published per .lyr file.
 
 // LSP diagnostic severities.
 const (
@@ -23,8 +23,8 @@ const (
 // codegen bug.
 const internalPrefix = "internal: "
 
-// orbitDiagnostics converts Orbit's diagnostics of the file at p.
-func (ws *workspace) orbitDiagnostics(p string, lines *lineIndex) (out []map[string]any, spans []compiler.Span) {
+// lyrDiagnostics converts Lyr's diagnostics of the file at p.
+func (ws *workspace) lyrDiagnostics(p string, lines *lineIndex) (out []map[string]any, spans []compiler.Span) {
 	f := ws.byPath[p]
 	for _, d := range ws.proj.Diagnostics {
 		if d.File != p {
@@ -45,23 +45,23 @@ func (ws *workspace) orbitDiagnostics(p string, lines *lineIndex) (out []map[str
 		if d.Severity == compiler.SeverityWarning {
 			sev = sevWarning
 		}
-		out = append(out, map[string]any{"range": r, "severity": sev, "source": "orbit", "message": d.Message})
+		out = append(out, map[string]any{"range": r, "severity": sev, "source": "lyr", "message": d.Message})
 	}
 	return out, spans
 }
 
-// goplsDiagnostics maps gopls's diagnostics of g into its .orbit file. A
+// goplsDiagnostics maps gopls's diagnostics of g into its .lyr file. A
 // diagnostic whose start doesn't map goes to the top of the file with the
 // "internal:" prefix (an information or hint one is dropped instead); a
-// gopls "unknown field" on an attribute Orbit already reports as an
+// gopls "unknown field" on an attribute Lyr already reports as an
 // unknown prop is a duplicate and dropped.
-func (s *Server) goplsDiagnostics(ws *workspace, g *genFile, orbitSpans []compiler.Span) []jsonRaw {
+func (s *Server) goplsDiagnostics(ws *workspace, g *genFile, lyrSpans []compiler.Span) []jsonRaw {
 	gd, ok := ws.goplsDiags[g.rel]
 	if !ok || g.open && gd.version != 0 && gd.version != g.version {
 		return nil // stale: gopls will publish again for the current version
 	}
 	m := mapper{ws: ws, enc: s.goplsEnc}
-	lines := ws.lines[g.orbit]
+	lines := ws.lines[g.lyr]
 	var out []jsonRaw
 	for _, d := range gd.items {
 		d := maps1(d)
@@ -84,7 +84,7 @@ func (s *Server) goplsDiagnostics(ws *workspace, g *genFile, orbitSpans []compil
 			if !ok || oe < os {
 				oe = os
 			}
-			if strings.Contains(d.str("message"), "unknown field") && inSpans(orbitSpans, os) {
+			if strings.Contains(d.str("message"), "unknown field") && inSpans(lyrSpans, os) {
 				continue
 			}
 			d.set("range", lines.rangeOf(os, oe, encUTF16))
@@ -130,18 +130,18 @@ func inSpans(spans []compiler.Span, off int) bool {
 	return false
 }
 
-// publish sends the merged diagnostics of the .orbit file at p, if they
+// publish sends the merged diagnostics of the .lyr file at p, if they
 // changed since the last publish.
 func (s *Server) publish(ws *workspace, p string) {
 	lines := ws.lines[p]
 	md := compiler.IsMarkdown(p)
 	var items []jsonRaw
 	if lines != nil {
-		own, spans := ws.orbitDiagnostics(p, lines)
+		own, spans := ws.lyrDiagnostics(p, lines)
 		if md {
 			// A Markdown file's generated Go holds no user code: gopls's
 			// diagnostics there have no place in it (and its untyped
-			// fallback assignments aren't what orbit generate checks), so
+			// fallback assignments aren't what lyr generate checks), so
 			// the typed check's diagnostics stand in for them.
 			own = append(own, ws.mdTypedDiagnostics(p, lines, spans)...)
 		} else {
@@ -176,7 +176,7 @@ func (s *Server) publish(ws *workspace, p string) {
 	} else {
 		ws.published[p] = key
 	}
-	s.client.Notify("textDocument/publishDiagnostics", map[string]any{"uri": ws.orbitURI(p), "diagnostics": jsonRaw(b)})
+	s.client.Notify("textDocument/publishDiagnostics", map[string]any{"uri": ws.lyrURI(p), "diagnostics": jsonRaw(b)})
 }
 
 // publishAll republishes every file whose diagnostics may have changed:
@@ -193,7 +193,7 @@ func (s *Server) publishAll(ws *workspace) {
 }
 
 // onGoplsDiagnostics handles gopls's publishDiagnostics: diagnostics of a
-// generated file are stored and republished on its .orbit file; others are
+// generated file are stored and republished on its .lyr file; others are
 // dropped.
 func (s *Server) onGoplsDiagnostics(params jsonRaw) {
 	o := decodeObj(params)
@@ -212,14 +212,14 @@ func (s *Server) onGoplsDiagnostics(params jsonRaw) {
 	if isGenPath(rel) {
 		g := ws.gen[rel]
 		if g == nil {
-			return // a stale generated file of no .orbit file
+			return // a stale generated file of no .lyr file
 		}
 		var items []map[string]jsonRaw
 		json.Unmarshal(o["diagnostics"], &items)
 		var version int
 		json.Unmarshal(o["version"], &version)
 		ws.goplsDiags[rel] = goplsDiags{version: version, items: items}
-		s.publish(ws, g.orbit)
+		s.publish(ws, g.lyr)
 		return
 	}
 	// Others (the user's .go files, go.mod) are left to the editor's Go

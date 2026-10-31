@@ -9,14 +9,14 @@ import (
 	"unicode/utf8"
 )
 
-// anTok is one go/scanner token, with offsets into the whole .orbit file.
+// anTok is one go/scanner token, with offsets into the whole .lyr file.
 type anTok struct {
 	tok      gotoken.Token
 	lit      string
 	pos, end int
 }
 
-// anScan tokenizes text, which starts at offset base of the .orbit file.
+// anScan tokenizes text, which starts at offset base of the .lyr file.
 // Comments are kept; scan errors are ignored (Go reports them).
 func anScan(text string, base int) []anTok {
 	fset := gotoken.NewFileSet()

@@ -1,0 +1,9 @@
+---
+import Layout "../../components/Layout.lyr"
+---
+<Layout title={"Post " + params.Slug}>
+  <meta slot="head" name="slug" content={params.Slug}>
+  <h1>{params.Slug}</h1>
+  <Fragment slot="footer">by <b>me</b></Fragment>
+  <link slot="head" rel="canonical" href={"/blog/" + params.Slug}>
+</Layout>

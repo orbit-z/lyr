@@ -1,6 +1,6 @@
 package main
 
-import "github.com/orbit-z/orbit/bench/devloop/synth"
+import "github.com/orbit-z/lyr/bench/devloop/synth"
 
 // The synthetic project lives in package synth, shared with bench/lsp;
 // these wrappers keep this command's names.
@@ -23,16 +23,16 @@ const (
 func projectFiles(s shape, salt string) map[string]string { return synth.ProjectFiles(s.Shape, salt) }
 
 func dataGo(salt, api string) string { return synth.DataGo(salt, api) }
-func badgeOrbit(extra string) string { return synth.BadgeOrbit(extra) }
+func badgeLyr(extra string) string   { return synth.BadgeLyr(extra) }
 
-func componentOrbit(i, n int, badge bool, tmpl, front, css, ts string) string {
-	return synth.ComponentOrbit(i, n, badge, tmpl, front, css, ts)
+func componentLyr(i, n int, badge bool, tmpl, front, css, ts string) string {
+	return synth.ComponentLyr(i, n, badge, tmpl, front, css, ts)
 }
 
 func newPage(k int) (name, src string) { return synth.NewPage(k) }
 
-func writeProject(dir, orbitRoot string, files map[string]string) error {
-	return synth.WriteProject(dir, orbitRoot, files)
+func writeProject(dir, lyrRoot string, files map[string]string) error {
+	return synth.WriteProject(dir, lyrRoot, files)
 }
 
 func writeFile(dir, rel, content string) error { return synth.WriteFile(dir, rel, content) }

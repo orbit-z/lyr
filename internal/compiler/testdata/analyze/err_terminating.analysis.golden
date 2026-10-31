@@ -1,9 +1,9 @@
-info src/components/err_terminating.orbit component route=""
-implicit orbit: impl
+info src/components/err_terminating.lyr component route=""
+implicit lyr: impl
 stmt @4-42 "user := ctx.Request.Header.Get(\"User\")"
-stmt @43-131 "if user == \"\" {\n\treturn ctx.Redirect(\"/login\", 302)\n} else {…"
+stmt @43-129 "if user == \"\" {\n\treturn ctx.Redirect(\"/login\", 302)\n} else {…"
   return @60 @67-94 "ctx.Redirect(\"/login\", 302)"
-  return @105 @112-129 "orbit.ErrNotFound"
+  return @105 @112-127 "lyr.ErrNotFound"
 echo [user]
 terminating true
 props declared=false listable=true span=@0-0

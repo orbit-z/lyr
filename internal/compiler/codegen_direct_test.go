@@ -117,7 +117,7 @@ func TestCodegenDirectGolden(t *testing.T) {
 					t.Errorf("%s: build flavor changed the decl file", r.path)
 				}
 				if bytes.Contains(out.Impl.Content, []byte("/*line ../../../../src/")) && !bytes.Contains(out.Impl.Content, []byte("../../../../../src/")) {
-					t.Errorf("%s: directives name the orbit_gen location", r.path)
+					t.Errorf("%s: directives name the lyr_gen location", r.path)
 				}
 				gf := *out.Impl
 				gf.Path = BuildPath(gf.Path)
@@ -162,7 +162,7 @@ func TestCodegenDirectGolden(t *testing.T) {
 }
 
 // writeOverlay writes the build-flavor impl files under BuildDir and the
-// overlay file mapping them, as orbit build does.
+// overlay file mapping them, as lyr build does.
 func (m *genModule) writeOverlay(builds map[string]*Output) {
 	m.t.Helper()
 	replace := map[string]string{}
@@ -195,33 +195,33 @@ func TestDirectCallShapes(t *testing.T) {
 		t.Fatalf("no file %s", p)
 		return ""
 	}
-	if d := direct["src/components/Card.orbit"]; d == nil || len(d.Callees) > 0 || d.Self {
+	if d := direct["src/components/Card.lyr"]; d == nil || len(d.Callees) > 0 || d.Self {
 		t.Errorf("Card, a direct callee that calls nothing, has %+v", d)
 	}
-	if _, ok := direct["src/pages/about.orbit"]; ok {
+	if _, ok := direct["src/pages/about.lyr"]; ok {
 		t.Error("about, a page callee, has a build flavor")
 	}
-	if card := gen("src/components/Card.orbit"); !strings.Contains(card, "Orbit__Render = Orbit__RenderImpl;") || !strings.Contains(card, "\nfunc Orbit__RenderImpl(") {
+	if card := gen("src/components/Card.lyr"); !strings.Contains(card, "Lyr__Render = Lyr__RenderImpl;") || !strings.Contains(card, "\nfunc Lyr__RenderImpl(") {
 		t.Errorf("Card's build flavor doesn't export its render function:\n%s", card)
 	}
-	index := gen("src/pages/index.orbit")
+	index := gen("src/pages/index.lyr")
 	for _, want := range []string{
-		`orbit__rt "github.com/orbit-z/orbit"; orbit__Card "example.com/blog/orbit_gen/impl/components/card"; orbit__Frame "example.com/blog/orbit_gen/impl/components/frame"; orbit__Tree "example.com/blog/orbit_gen/impl/components/tree"` + "\n",
-		"*/orbit__Card.Orbit__RenderImpl/*line",
-		"*/orbit__Frame.Orbit__RenderImpl/*line",
-		"*/About.Render/*line",                        // a page callee keeps the hook
-		`orbit__rt.Defer(orbit__ctx, orbit__w, "Box-`, // server:defer: no render call
-		"/*line ../../../../../src/pages/index.orbit:",
+		`lyr__rt "github.com/orbit-z/lyr"; lyr__Card "example.com/blog/lyr_gen/impl/components/card"; lyr__Frame "example.com/blog/lyr_gen/impl/components/frame"; lyr__Tree "example.com/blog/lyr_gen/impl/components/tree"` + "\n",
+		"*/lyr__Card.Lyr__RenderImpl/*line",
+		"*/lyr__Frame.Lyr__RenderImpl/*line",
+		"*/About.Render/*line",                  // a page callee keeps the hook
+		`lyr__rt.Defer(lyr__ctx, lyr__w, "Box-`, // server:defer: no render call
+		"/*line ../../../../../src/pages/index.lyr:",
 	} {
 		if !strings.Contains(index, want) {
 			t.Errorf("index build flavor lacks %q", want)
 		}
 	}
-	if strings.Contains(index, "orbit__Box") || strings.Contains(index, "orbit__About") {
+	if strings.Contains(index, "lyr__Box") || strings.Contains(index, "lyr__About") {
 		t.Error("index imports the impl of a callee it doesn't call directly")
 	}
-	tree := gen("src/components/Tree.orbit")
-	if !strings.Contains(tree, "*/Orbit__RenderImpl/*line") || strings.Contains(tree, "*/Render/*line") {
+	tree := gen("src/components/Tree.lyr")
+	if !strings.Contains(tree, "*/Lyr__RenderImpl/*line") || strings.Contains(tree, "*/Render/*line") {
 		t.Errorf("<Self> isn't a direct self-call:\n%s", tree)
 	}
 	// Without DirectCalls, the hook flavor.
@@ -253,21 +253,21 @@ import (
 	"bytes"
 	"testing"
 
-	allocs "example.com/blog/orbit_gen/decl/pages/allocs"
-	_ "example.com/blog/orbit_gen/impl/components/card"
-	_ "example.com/blog/orbit_gen/impl/components/frame"
-	_ "example.com/blog/orbit_gen/impl/components/tree"
-	_ "example.com/blog/orbit_gen/impl/pages/allocs"
-	"github.com/orbit-z/orbit"
+	allocs "example.com/blog/lyr_gen/decl/pages/allocs"
+	_ "example.com/blog/lyr_gen/impl/components/card"
+	_ "example.com/blog/lyr_gen/impl/components/frame"
+	_ "example.com/blog/lyr_gen/impl/components/tree"
+	_ "example.com/blog/lyr_gen/impl/pages/allocs"
+	"github.com/orbit-z/lyr"
 )
 
 func TestAllocs(t *testing.T) {
 	var buf bytes.Buffer
-	w := orbit.NewWriter(&buf)
-	ctx := &orbit.Ctx{}
+	w := lyr.NewWriter(&buf)
+	ctx := &lyr.Ctx{}
 	n := testing.AllocsPerRun(100, func() {
 		buf.Reset()
-		if err := allocs.Render(ctx, w, allocs.Props{}, orbit.Slots{}); err != nil {
+		if err := allocs.Render(ctx, w, allocs.Props{}, lyr.Slots{}); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -331,7 +331,7 @@ func TestDirectAllocs(t *testing.T) {
 // TestLineDirectivePositions (PLAN.md §3.3) in both flavors: with the build
 // flavor overlaid (its pages call Emb directly, and their errors are in a
 // hoisted declaration and a direct call's field key), go build and go vet
-// must report every error at the same .orbit position as the hook build,
+// must report every error at the same .lyr position as the hook build,
 // with the same cleaned output.
 func TestLineDirectivePositionsBuildFlavor(t *testing.T) {
 	c := loadCase(t, "testdata/positions")
@@ -352,7 +352,7 @@ func TestLineDirectivePositionsBuildFlavor(t *testing.T) {
 			builds[pf.path] = Generate(&in)
 		}
 	}
-	for _, want := range []string{"src/pages/index.orbit", "src/pages/alias.orbit"} {
+	for _, want := range []string{"src/pages/index.lyr", "src/pages/alias.lyr"} {
 		if builds[want] == nil {
 			t.Fatalf("%s has no build flavor", want)
 		}
@@ -378,8 +378,8 @@ func TestLineDirectivePositionsBuildFlavor(t *testing.T) {
 		}
 	}
 	for _, line := range []string{
-		"src/pages/index.orbit:5:8: unknown field Nmae in struct literal of type Emb.Props",
-		"src/pages/alias.orbit:4:13: cannot use Emb.Props{} (value of struct type Emb.Props) as int value in variable declaration",
+		"src/pages/index.lyr:5:8: unknown field Nmae in struct literal of type Emb.Props",
+		"src/pages/alias.lyr:4:13: cannot use Emb.Props{} (value of struct type Emb.Props) as int value in variable declaration",
 	} {
 		if !hasLine(overlay["build"], line) {
 			t.Errorf("build flavor lacks %q:\n%s", line, overlay["build"])

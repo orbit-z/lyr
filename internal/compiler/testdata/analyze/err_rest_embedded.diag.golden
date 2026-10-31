@@ -1,1 +1,1 @@
-src/components/err_rest_embedded.orbit:6:2: an orbit.RestAttrs field needs a Props without embedded fields, so Orbit can tell props from pass-through attributes
+src/components/err_rest_embedded.lyr:6:2: a lyr.RestAttrs field needs a Props without embedded fields, so Lyr can tell props from pass-through attributes

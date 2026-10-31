@@ -2,38 +2,38 @@
 
 This page lists the errors and odd behaviors you're most likely to run into, grouped by area, each with its cause and its fix. Search it for the message you see. Messages are shown without their `src/…:line:col:` prefix, and the names in them (`Card`, `psot`, `Comments`) come from the example blog used throughout these docs (module `example.com/blog`).
 
-## Run `orbit doctor` first
+## Run `lyr doctor` first
 
 Many problems come from the environment rather than your code, and one command checks it:
 
 ```sh
-orbit doctor
+lyr doctor
 ```
 
 It prints one line per check: ✓ passed, ⚠ warning, ✗ a problem that blocks you. Every ⚠ and ✗ comes with the command that fixes it:
 
 ```
 ✓ go: go1.27.3 (go.mod: go 1.27, toolchain go1.27.3)
-✓ cli: orbit v0.1.0 hands commands to the pinned go tool orbit (v0.1.0)
+✓ cli: lyr v0.1.0 hands commands to the pinned go tool lyr (v0.1.0)
 ✓ gopls: v0.24.0, built with go1.27.3
-⚠ bun: not found (1.4.4 or later needed); orbit check will skip TypeScript type checking
+⚠ bun: not found (1.4.4 or later needed); lyr check will skip TypeScript type checking
     fix: curl -fsSL https://bun.sh/install | bash
-✓ orbit_gen: up to date
-✓ gitignore: covers orbit_gen/, .orbit/ and dist/
-✓ config: no orbit.json (defaults); server ./cmd/server
+✓ lyr_gen: up to date
+✓ gitignore: covers lyr_gen/, .lyr/ and dist/
+✓ config: no lyr.json (defaults); server ./cmd/server
 ```
 
 | Check | What it verifies |
 |---|---|
 | Go | The `go` command and the active toolchain; that `go.mod` has `go 1.27` or later and a `toolchain` line |
-| CLI version | The global `orbit` against the version pinned by your project's `tool` directive |
+| CLI version | The global `lyr` against the version pinned by your project's `tool` directive |
 | gopls | Its version, and that it was built with a Go at least as new as your `go` directive |
-| Bun | Bun 1.4.4 or later, for the TypeScript half of `orbit check` (⚠ only) |
-| Generated code | That `orbit_gen/` exists and matches your sources |
-| `.gitignore` | That it covers `orbit_gen/`, `.orbit/` and `dist/` |
-| Config | That `orbit.json` is valid, the server entry exists, and `src/locals` doesn't import `orbit_gen/app` |
+| Bun | Bun 1.4.4 or later, for the TypeScript half of `lyr check` (⚠ only) |
+| Generated code | That `lyr_gen/` exists and matches your sources |
+| `.gitignore` | That it covers `lyr_gen/`, `.lyr/` and `dist/` |
+| Config | That `lyr.json` is valid, the server entry exists, and `src/locals` doesn't import `lyr_gen/app` |
 
-Outside a project, only the environment checks run (Go, gopls, Bun). The exit code is 1 if any check reports ✗. For scripts and editors, `orbit doctor --json` prints the same results as one object with a `checks` array:
+Outside a project, only the environment checks run (Go, gopls, Bun). The exit code is 1 if any check reports ✗. For scripts and editors, `lyr doctor --json` prints the same results as one object with a `checks` array:
 
 ```json
 {
@@ -43,13 +43,13 @@ Outside a project, only the environment checks run (Go, gopls, Bun). The exit co
 }
 ```
 
-`status` is `"ok"`, `"warning"` or `"error"`, and `fix` is empty for a passing check. See [CLI: `orbit doctor`](reference/cli.md#orbit-doctor).
+`status` is `"ok"`, `"warning"` or `"error"`, and `fix` is empty for a passing check. See [CLI: `lyr doctor`](reference/cli.md#lyr-doctor).
 
 ## Setup and toolchain
 
 ### Error positions show unresolved `../../../../src/…` paths
 
-**Cause:** your code was compiled with a Go older than 1.27. Orbit's generated code points back at your `.orbit` files with relative file names, and only the Go 1.27 compiler resolves them. With an older Go, the `go` command may also refuse to build the module, because `go.mod` asks for `go 1.27`.
+**Cause:** your code was compiled with a Go older than 1.27. Lyr's generated code points back at your `.lyr` files with relative file names, and only the Go 1.27 compiler resolves them. With an older Go, the `go` command may also refuse to build the module, because `go.mod` asks for `go 1.27`.
 
 **Fix:** let `go` switch toolchains. Check the setting, and turn switching back on if it prints `local`:
 
@@ -64,7 +64,7 @@ Or install Go 1.27 from [go.dev/dl](https://go.dev/dl/). A Go older than 1.21 ca
 
 **Cause:** this is expected. `go.mod` names the exact release with `toolchain go1.27.3`, and with `GOTOOLCHAIN=auto` the `go` command downloads it once, into the module cache, then reuses it.
 
-**Fix:** nothing to fix. If your network or policy blocks the download, install Go 1.27 from [go.dev/dl](https://go.dev/dl/). If `go.mod` has no `toolchain` line, `go` picks `go1.27.0` instead of the current patch release; `orbit doctor` checks for the line, and you can add or update it:
+**Fix:** nothing to fix. If your network or policy blocks the download, install Go 1.27 from [go.dev/dl](https://go.dev/dl/). If `go.mod` has no `toolchain` line, `go` picks `go1.27.0` instead of the current patch release; `lyr doctor` checks for the line, and you can add or update it:
 
 ```sh
 go get toolchain@go1.27.3
@@ -72,28 +72,28 @@ go get toolchain@go1.27.3
 
 See [Why `go.mod` has a `toolchain` line](getting-started.md#why-gomod-has-a-toolchain-line).
 
-### The global `orbit` stops with a version-mismatch error
+### The global `lyr` stops with a version-mismatch error
 
 ```
-orbit: version mismatch: this orbit is v0.2.0, but go.mod requires github.com/orbit-z/orbit v0.1.0; pin the CLI with go get -tool github.com/orbit-z/orbit/cmd/orbit@v0.1.0, then run go tool orbit (see orbit doctor)
+lyr: version mismatch: this lyr is v0.2.0, but go.mod requires github.com/orbit-z/lyr v0.1.0; pin the CLI with go get -tool github.com/orbit-z/lyr/cmd/lyr@v0.1.0, then run go tool lyr (see lyr doctor)
 ```
 
-**Cause:** your project has no `tool github.com/orbit-z/orbit/cmd/orbit` directive in `go.mod`, and your globally installed `orbit` has a different version than the `github.com/orbit-z/orbit` requirement. The generated code must match the runtime it runs against, so the CLI stops and points you to `orbit doctor`.
+**Cause:** your project has no `tool github.com/orbit-z/lyr/cmd/lyr` directive in `go.mod`, and your globally installed `lyr` has a different version than the `github.com/orbit-z/lyr` requirement. The generated code must match the runtime it runs against, so the CLI stops and points you to `lyr doctor`.
 
 **Fix:** pin the CLI in the project, at the version `go.mod` already requires (`v0.1.0` here; use the one on your `require` line):
 
 ```sh
-go get -tool github.com/orbit-z/orbit/cmd/orbit@v0.1.0
-go tool orbit build
+go get -tool github.com/orbit-z/lyr/cmd/lyr@v0.1.0
+go tool lyr build
 ```
 
-With the directive, a global `orbit` hands over to `go tool orbit` on its own, so the versions always match. The first `go tool orbit` compiles the CLI, which takes a moment. The check is skipped when `go.mod` replaces `github.com/orbit-z/orbit` with a local directory. See [The pinned CLI](reference/cli.md#the-pinned-cli-orbit-and-go-tool-orbit).
+With the directive, a global `lyr` hands over to `go tool lyr` on its own, so the versions always match. The first `go tool lyr` compiles the CLI, which takes a moment. The check is skipped when `go.mod` replaces `github.com/orbit-z/lyr` with a local directory. See [The pinned CLI](reference/cli.md#the-pinned-cli-lyr-and-go-tool-lyr).
 
 ### Go features are disabled in the editor: gopls is too old
 
-**Symptom:** your editor shows an error with the gopls install command and a pointer to `orbit doctor`. In `.orbit` files there's no Go completion, hover, Go diagnostics, definition, references or rename, while tag, prop, slot and directive completion still work.
+**Symptom:** your editor shows an error with the gopls install command and a pointer to `lyr doctor`. In `.lyr` files there's no Go completion, hover, Go diagnostics, definition, references or rename, while tag, prop, slot and directive completion still work.
 
-**Cause:** the gopls that `orbit lsp` found was built with a Go older than your project's `go` directive. Such a gopls would reject newer language features as errors, so Orbit refuses it.
+**Cause:** the gopls that `lyr lsp` found was built with a Go older than your project's `go` directive. Such a gopls would reject newer language features as errors, so Lyr refuses it.
 
 **Fix:** install a current gopls, then restart the language server:
 
@@ -101,15 +101,15 @@ With the directive, a global `orbit` hands over to `go tool orbit` on its own, s
 go install golang.org/x/tools/gopls@latest
 ```
 
-If the error stays, check which gopls is used: the `orbit.goplsPath` setting (or the `goplsPath` initialization option) comes first, then `gopls` on your `PATH`. A gopls built with a recent enough Go but older than v0.24.0 still runs; `orbit doctor` only warns about it. See [Old gopls versions](editor-setup.md#old-gopls-versions) and [How gopls is found](editor-setup.md#how-gopls-is-found).
+If the error stays, check which gopls is used: the `lyr.goplsPath` setting (or the `goplsPath` initialization option) comes first, then `gopls` on your `PATH`. A gopls built with a recent enough Go but older than v0.24.0 still runs; `lyr doctor` only warns about it. See [Old gopls versions](editor-setup.md#old-gopls-versions) and [How gopls is found](editor-setup.md#how-gopls-is-found).
 
-### `orbit check` skips TypeScript type checking
+### `lyr check` skips TypeScript type checking
 
-**Cause:** Bun is missing or older than 1.4.4. `orbit check` then prints a notice with the command to install or upgrade Bun, still runs the Go checks, and its exit code reflects the Go checks only:
+**Cause:** Bun is missing or older than 1.4.4. `lyr check` then prints a notice with the command to install or upgrade Bun, still runs the Go checks, and its exit code reflects the Go checks only:
 
 ```
-orbit check: skipping TypeScript type checking: bun not found (1.4.4 or later needed); install it with: curl -fsSL https://bun.sh/install | bash
-orbit check: skipping TypeScript type checking: bun 1.3.2 is older than 1.4.4; upgrade it with: bun upgrade
+lyr check: skipping TypeScript type checking: bun not found (1.4.4 or later needed); install it with: curl -fsSL https://bun.sh/install | bash
+lyr check: skipping TypeScript type checking: bun 1.3.2 is older than 1.4.4; upgrade it with: bun upgrade
 ```
 
 **Fix:** install or upgrade Bun. No `package.json` or `typescript` package is needed.
@@ -119,77 +119,77 @@ curl -fsSL https://bun.sh/install | bash   # install
 bun upgrade                                # upgrade an older Bun
 ```
 
-Nothing else in Orbit needs Bun, so `orbit doctor` reports it as a warning only. See [Type checking with `orbit check`](styles-and-scripts.md#type-checking-with-orbit-check).
+Nothing else in Lyr needs Bun, so `lyr doctor` reports it as a warning only. See [Type checking with `lyr check`](styles-and-scripts.md#type-checking-with-lyr-check).
 
 ### `go build`, `go vet`, `go test` or `go mod tidy` fail in a fresh clone
 
-**Cause:** `orbit_gen/` is gitignored, so a fresh clone doesn't have it, and `cmd/server/main.go` imports `example.com/blog/orbit_gen/app`.
+**Cause:** `lyr_gen/` is gitignored, so a fresh clone doesn't have it, and `cmd/server/main.go` imports `example.com/blog/lyr_gen/app`.
 
 **Fix:** generate it first, locally and in CI:
 
 ```sh
-go tool orbit generate     # creates orbit_gen/
+go tool lyr generate     # creates lyr_gen/
 go vet ./...
 go test ./...
-go tool orbit build
+go tool lyr build
 ```
 
-The same applies after you edit an `.orbit` file: `go test` runs against the old generated code until you regenerate (a running `orbit dev` keeps it up to date). `orbit doctor` warns when `orbit_gen/` is missing or stale. To make plain `go build ./...` work right after a clone, you can commit `orbit_gen/` instead. See [Fresh clones and CI](project-structure.md#fresh-clones-and-ci).
+The same applies after you edit a `.lyr` file: `go test` runs against the old generated code until you regenerate (a running `lyr dev` keeps it up to date). `lyr doctor` warns when `lyr_gen/` is missing or stale. To make plain `go build ./...` work right after a clone, you can commit `lyr_gen/` instead. See [Fresh clones and CI](project-structure.md#fresh-clones-and-ci).
 
-### `orbit.json: compressHTML must be "jsx", "html" (or true) or false, not "none"`
+### `lyr.json: compressHTML must be "jsx", "html" (or true) or false, not "none"`
 
-**Cause:** `orbit.json` has a value Orbit doesn't accept. Other messages of this kind: `orbit.json: server must not be empty; remove it to use ./cmd/server`, `orbit.json: server "/srv/cmd/server" must be a path relative to the project root, such as "./cmd/server"`, `orbit.json: site "blog.example.com" isn't an absolute URL; include the scheme and host, such as "https://example.com"`, `orbit.json: trailingSlash must be "never" or "always", not "ignore"; Orbit has no "ignore" mode: each page has one URL`, and JSON syntax errors with a position, such as `orbit.json:3:1: invalid character '}' looking for beginning of object key string` (a trailing comma).
+**Cause:** `lyr.json` has a value Lyr doesn't accept. Other messages of this kind: `lyr.json: server must not be empty; remove it to use ./cmd/server`, `lyr.json: server "/srv/cmd/server" must be a path relative to the project root, such as "./cmd/server"`, `lyr.json: site "blog.example.com" isn't an absolute URL; include the scheme and host, such as "https://example.com"`, `lyr.json: trailingSlash must be "never" or "always", not "ignore"; Lyr has no "ignore" mode: each page has one URL`, and JSON syntax errors with a position, such as `lyr.json:3:1: invalid character '}' looking for beginning of object key string` (a trailing comma).
 
 **Fix:** correct the value the message names, or remove the key to get its default (`null` counts as unset too). See [Configuration](configuration.md#all-keys).
 
-### `has no src/ directory; run orbit in an Orbit project`
+### `has no src/ directory; run lyr in a Lyr project`
 
-**Symptom:** `orbit: /home/me/blog has no src/ directory; run orbit in an Orbit project`.
+**Symptom:** `lyr: /home/me/blog has no src/ directory; run lyr in a Lyr project`.
 
-**Cause:** the nearest `go.mod` above the current directory belongs to a module without a `src/` directory, for example because you ran `orbit` from a parent module or a fresh directory. Orbit stops instead of writing an `orbit_gen/` there.
+**Cause:** the nearest `go.mod` above the current directory belongs to a module without a `src/` directory, for example because you ran `lyr` from a parent module or a fresh directory. Lyr stops instead of writing a `lyr_gen/` there.
 
-**Fix:** `cd` into your Orbit project (the directory with its `go.mod` and `src/`), or create one with `orbit new`. See [Project structure](project-structure.md#srccomponents-and-srclayouts).
+**Fix:** `cd` into your Lyr project (the directory with its `go.mod` and `src/`), or create one with `lyr new`. See [Project structure](project-structure.md#srccomponents-and-srclayouts).
 
-## Compile errors in `.orbit` files
+## Compile errors in `.lyr` files
 
-`orbit build`, `orbit check` and the `orbit dev` overlay print every error as `src/…:line:col: message`, at its position in your `.orbit` file. Plain `go build` and `go vet` print the same positions as `./src/…`. If an error points into `orbit_gen/` instead, see [The Go extension reports errors in `orbit_gen/`](#the-go-extension-reports-errors-in-orbit_gen).
+`lyr build`, `lyr check` and the `lyr dev` overlay print every error as `src/…:line:col: message`, at its position in your `.lyr` file. Plain `go build` and `go vet` print the same positions as `./src/…`. If an error points into `lyr_gen/` instead, see [The Go extension reports errors in `lyr_gen/`](#the-go-extension-reports-errors-in-lyr_gen).
 
 ### `unknown prop "psot" on <Card> (props: post, featured)`
 
-**Cause:** an attribute on a component tag matches no field of its `Props`. Matching ignores case, `-` and `_`, and the list shows the names that would work. The message ends with a hint, `add an orbit.RestAttrs field to pass HTML attributes through`.
+**Cause:** an attribute on a component tag matches no field of its `Props`. Matching ignores case, `-` and `_`, and the list shows the names that would work. The message ends with a hint, `add a lyr.RestAttrs field to pass HTML attributes through`.
 
-**Fix:** use one of the listed names (`post={p}`), or add the field to the component's `Props`. If the attribute is meant for an element of the component (`name`, `aria-label`, `data-*`), give `Props` an `Attrs orbit.RestAttrs` field and spread it, `{...props.Attrs}`: see [Passing HTML attributes through](components.md#passing-html-attributes-through). When `Props` embeds another struct or is an alias (`type Props = other.T`), Orbit can't list the fields, and Go reports the same mistake at the same place as `unknown field Psot in struct literal of type Card.Props`. See [Unknown props](components.md#unknown-props).
+**Fix:** use one of the listed names (`post={p}`), or add the field to the component's `Props`. If the attribute is meant for an element of the component (`name`, `aria-label`, `data-*`), give `Props` an `Attrs lyr.RestAttrs` field and spread it, `{...props.Attrs}`: see [Passing HTML attributes through](components.md#passing-html-attributes-through). When `Props` embeds another struct or is an alias (`type Props = other.T`), Lyr can't list the fields, and Go reports the same mistake at the same place as `unknown field Psot in struct literal of type Card.Props`. See [Unknown props](components.md#unknown-props).
 
-### `unknown component <Crad>: no .orbit import with this alias`
+### `unknown component <Crad>: no .lyr import with this alias`
 
-**Cause:** a capitalized tag is a component, whose name must be the alias of an `.orbit` import, or a [dynamic tag](reference/template-syntax.md#dynamic-tags), whose name must be a variable or constant in scope at the tag. `Crad` is neither.
+**Cause:** a capitalized tag is a component, whose name must be the alias of a `.lyr` import, or a [dynamic tag](reference/template-syntax.md#dynamic-tags), whose name must be a variable or constant in scope at the tag. `Crad` is neither.
 
-**Fix:** fix the tag's spelling, or import the component in the frontmatter: `Card "../components/Card.orbit"`. For a dynamic tag, declare the variable before the tag (`Tag := "section"`); one declared inside a function literal, or after the `{for}` that declares it ends, isn't in scope. See [Template syntax: Components](reference/template-syntax.md#components).
+**Fix:** fix the tag's spelling, or import the component in the frontmatter: `Card "../components/Card.lyr"`. For a dynamic tag, declare the variable before the tag (`Tag := "section"`); one declared inside a function literal, or after the `{for}` that declares it ends, isn't in scope. See [Template syntax: Components](reference/template-syntax.md#components).
 
 ### `Card is both a component import and a variable; rename one`
 
-**Cause:** a variable has the name of an `.orbit` import's alias, so `<Card>` could be the component or a [dynamic tag](reference/template-syntax.md#dynamic-tags).
+**Cause:** a variable has the name of a `.lyr` import's alias, so `<Card>` could be the component or a [dynamic tag](reference/template-syntax.md#dynamic-tags).
 
 **Fix:** rename the variable (`cardTag`, or `CardTag` to use it as a tag), or the import's alias.
 
-### `dynamic tag Tag is empty; use orbit.Fragment for no element`
+### `dynamic tag Tag is empty; use lyr.Fragment for no element`
 
 **Cause:** a render error: the variable of a [dynamic tag](reference/template-syntax.md#dynamic-tags) holds `""`, often an unset prop (`Tag := props.As`).
 
-**Fix:** give it a default (`Tag := cmp.Or(props.As, "div")`), or use `orbit.Fragment` for no element. The other render errors of dynamic tags (`<script> can't be a dynamic tag`, `dynamic tag <img> is a void element and can't have children`, an invalid name) name the problem the same way, at the tag's position.
+**Fix:** give it a default (`Tag := cmp.Or(props.As, "div")`), or use `lyr.Fragment` for no element. The other render errors of dynamic tags (`<script> can't be a dynamic tag`, `dynamic tag <img> is a void element and can't have children`, an invalid name) name the problem the same way, at the tag's position.
 
-### Go type errors at `.orbit` lines
+### Go type errors at `.lyr` lines
 
 A page that passes a string to a `bool` prop, and a `Card` with a typo in a field name:
 
-```orbit file=src/pages/index.orbit expect-error
+```lyr file=src/pages/index.lyr expect-error
 ---
-import Card "../components/Card.orbit"
+import Card "../components/Card.lyr"
 ---
 <Card featured="yes" />
 ```
 
-```orbit file=src/components/Card.orbit expect-error
+```lyr file=src/components/Card.lyr expect-error
 ---
 import "example.com/blog/internal/posts"
 
@@ -202,11 +202,11 @@ type Props struct {
 ```
 
 ```text
-src/pages/index.orbit:4:16: cannot use "yes" (untyped string constant) as bool value in struct literal
-src/components/Card.orbit:9:17: props.Post.Titel undefined (type posts.Post has no field or method Titel)
+src/pages/index.lyr:4:16: cannot use "yes" (untyped string constant) as bool value in struct literal
+src/components/Card.lyr:9:17: props.Post.Titel undefined (type posts.Post has no field or method Titel)
 ```
 
-**Cause:** these are the Go compiler's own errors. Orbit's generated code carries line directives, so they land on your `.orbit` line and column, and generated type names are rewritten to your aliases (`Card.Props`).
+**Cause:** these are the Go compiler's own errors. Lyr's generated code carries line directives, so they land on your `.lyr` line and column, and generated type names are rewritten to your aliases (`Card.Props`).
 
 **Fix:** fix them as in any Go code. Common ones:
 
@@ -216,11 +216,11 @@ src/components/Card.orbit:9:17: props.Post.Titel undefined (type posts.Post has 
 
 See [Error output](reference/cli.md#error-output).
 
-### `set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not string`
+### `set:html needs lyr.HTML or lyr.Opt[lyr.HTML], not string`
 
-**Cause:** `set:html` only accepts an `orbit.HTML` value, an `orbit.Opt[orbit.HTML]` or a string constant you wrote in the template, so raw output is always an explicit choice.
+**Cause:** `set:html` only accepts a `lyr.HTML` value, a `lyr.Opt[lyr.HTML]` or a string constant you wrote in the template, so raw output is always an explicit choice.
 
-**Fix:** convert content you trust, such as your own Markdown renderer's output: `<div set:html={orbit.HTML(body)}></div>`. For text from users, use `{body}` or `set:text={body}`, which escape it. See [Raw HTML with `orbit.HTML`](components.md#raw-html-with-orbithtml).
+**Fix:** convert content you trust, such as your own Markdown renderer's output: `<div set:html={lyr.HTML(body)}></div>`. For text from users, use `{body}` or `set:text={body}`, which escape it. See [Raw HTML with `lyr.HTML`](components.md#raw-html-with-lyrhtml).
 
 ### `pages don't receive props; move this to a component or read params`
 
@@ -230,13 +230,13 @@ See [Error output](reference/cli.md#error-output).
 
 ### `Params is generated from the page's route; rename this type`
 
-**Cause:** a file under `src/pages/` declares `type Params`. Orbit generates `Params` for every page, from its file path, so the name is taken.
+**Cause:** a file under `src/pages/` declares `type Params`. Lyr generates `Params` for every page, from its file path, so the name is taken.
 
 **Fix:** rename your type (for example `type Filters struct`). Read route params from the generated `params`. Components may declare a `Params` type. See [Route params](routing.md#route-params-params).
 
 ### `params.slug undefined (type Params has no field or method slug, but does have field Slug)`
 
-```orbit file=src/pages/blog/[slug].orbit expect-error
+```lyr file=src/pages/blog/[slug].lyr expect-error
 ---
 ---
 <h1>{params.slug}</h1>
@@ -244,8 +244,8 @@ See [Error output](reference/cli.md#error-output).
 ```
 
 ```text
-src/pages/blog/[slug].orbit:3:13: params.slug undefined (type Params has no field or method slug, but does have field Slug)
-src/pages/blog/[slug].orbit:4:12: params.Slg undefined (type Params has no field or method Slg)
+src/pages/blog/[slug].lyr:3:13: params.slug undefined (type Params has no field or method slug, but does have field Slug)
+src/pages/blog/[slug].lyr:4:12: params.Slg undefined (type Params has no field or method Slg)
 ```
 
 **Cause:** the field doesn't exist in the page's generated `Params`. Its fields are the route params, in PascalCase (`[slug]` is `Slug`, `[post-id]` is `PostID`, `[id]` is `ID`), and only the params of *this* page's path are there. The same error, with `params` itself `undefined`, appears in a component: only pages get `params`.
@@ -254,31 +254,31 @@ src/pages/blog/[slug].orbit:4:12: params.Slg undefined (type Params has no field
 
 ### `route params [post-id] and [postId] both become params.PostID; rename one`
 
-**Cause:** two parameters in one page's path give the same `params` field name, after the PascalCase conversion (`[post-id]` and `[postId]`), or the same name is used twice (`[id]/[id].orbit`).
+**Cause:** two parameters in one page's path give the same `params` field name, after the PascalCase conversion (`[post-id]` and `[postId]`), or the same name is used twice (`[id]/[id].lyr`).
 
-**Fix:** rename one of the directories or files so the names differ, such as `[post-id]/[comment-id].orbit`. Route errors name the file, without a line and column. See [Field names](routing.md#field-names).
+**Fix:** rename one of the directories or files so the names differ, such as `[post-id]/[comment-id].lyr`. Route errors name the file, without a line and column. See [Field names](routing.md#field-names).
 
 ### `route param [1st] can't become a Go field name; use letters, digits, - and _, starting with a letter`
 
 **Cause:** a parameter name, such as `[1st]` or `[é]`, can't be turned into an exported Go field of `params`.
 
-**Fix:** rename it, for example `[first].orbit`. See [Field names](routing.md#field-names).
+**Fix:** rename it, for example `[first].lyr`. See [Field names](routing.md#field-names).
 
 ### `component alias card must start with an uppercase letter (rename it to Card)`
 
 **Cause:** a lowercase tag such as `<card>` is always an HTML element, so a component alias must be capitalized.
 
-**Fix:** `Card "../components/Card.orbit"`, and use it as `<Card>`. See [Importing components](components.md#importing-components).
+**Fix:** `Card "../components/Card.lyr"`, and use it as `<Card>`. See [Importing components](components.md#importing-components).
 
-### `framework components aren't supported; use a .orbit component with a <script>`
+### `framework components aren't supported; use a .lyr component with a <script>`
 
-**Cause:** the frontmatter imports a `.tsx`, `.jsx`, `.svelte` or `.vue` file. Orbit has no framework components, by design.
+**Cause:** the frontmatter imports a `.tsx`, `.jsx`, `.svelte` or `.vue` file. Lyr has no framework components, by design.
 
-**Fix:** write an `.orbit` component with a vanilla `<script>`. A `<script>` can still import `.ts` and `.tsx` modules. See [No framework components](components.md#no-framework-components).
+**Fix:** write a `.lyr` component with a vanilla `<script>`. A `<script>` can still import `.ts` and `.tsx` modules. See [No framework components](components.md#no-framework-components).
 
-### `only .orbit and .md files can be imported by relative path; import client modules from a <script>`
+### `only .lyr and .md files can be imported by relative path; import client modules from a <script>`
 
-**Cause:** the frontmatter imports a relative path that doesn't end in `.orbit` or a Markdown extension (`.md`, `.markdown`, …), such as `"./util.ts"`.
+**Cause:** the frontmatter imports a relative path that doesn't end in `.lyr` or a Markdown extension (`.md`, `.markdown`, …), such as `"./util.ts"`.
 
 **Fix:** import client modules from inside a `<script>` (`import { greet } from "../scripts/greet";`). Go packages are imported by their import paths, as usual (`"example.com/blog/internal/posts"`). See [No framework components](components.md#no-framework-components).
 
@@ -302,25 +302,25 @@ src/pages/blog/[slug].orbit:4:12: params.Slg undefined (type Params has no field
 
 ### `Item clashes with Item in the component's declaration package (Props uses it); rename one`
 
-**Cause:** a component import alias, a named Go import or a hoisted declaration reuses a name that `Props` pulled into the component's declaration package, for example `Item "./Item.orbit"` in a file whose `Props` uses a `type Item`. The rest of the component already sees that name, so it's taken.
+**Cause:** a component import alias, a named Go import or a hoisted declaration reuses a name that `Props` pulled into the component's declaration package, for example `Item "./Item.lyr"` in a file whose `Props` uses a `type Item`. The rest of the component already sees that name, so it's taken.
 
-**Fix:** rename one of them, for example the alias: `ItemRow "./Item.orbit"`. Shadowing the name inside the render body (`Item := 42`) is allowed. See [Types used by Props](components.md#types-used-by-props).
+**Fix:** rename one of them, for example the alias: `ItemRow "./Item.lyr"`. Shadowing the name inside the render body (`Item := 42`) is allowed. See [Types used by Props](components.md#types-used-by-props).
 
 ### `Props clashes with the generated Props of the component's declaration package; rename it`
 
-**Cause:** a component import alias, a named Go import or a hoisted declaration is named `Props` or `Render` (or, in a page, `Params`), which Orbit generates in the component's declaration package. For example `Props "./Other.orbit"`.
+**Cause:** a component import alias, a named Go import or a hoisted declaration is named `Props` or `Render` (or, in a page, `Params`), which Lyr generates in the component's declaration package. For example `Props "./Other.lyr"`.
 
-**Fix:** rename it, for example `Other "./Other.orbit"`. See [Types used by Props](components.md#types-used-by-props).
+**Fix:** rename it, for example `Other "./Other.lyr"`. See [Types used by Props](components.md#types-used-by-props).
 
 ### `Render is generated for every component; rename this declaration`
 
-**Cause:** the frontmatter declares a hoisted `Render` (a func, type or const). Orbit generates `Render` for every component.
+**Cause:** the frontmatter declares a hoisted `Render` (a func, type or const). Lyr generates `Render` for every component.
 
 **Fix:** pick another name, such as `renderRow`. See [Redeclaring and shadowing](components.md#redeclaring-and-shadowing).
 
-### `orbit__x is reserved: names starting with orbit__ or Orbit__ are used by generated code`
+### `lyr__x is reserved: names starting with lyr__ or Lyr__ are used by generated code`
 
-**Cause:** a name in the frontmatter or the template starts with `orbit__` or `Orbit__`, the prefixes of Orbit's generated code.
+**Cause:** a name in the frontmatter or the template starts with `lyr__` or `Lyr__`, the prefixes of Lyr's generated code.
 
 **Fix:** rename it. See [Redeclaring and shadowing](components.md#redeclaring-and-shadowing).
 
@@ -336,59 +336,59 @@ src/pages/blog/[slug].orbit:4:12: params.Slg undefined (type Params has no field
 
 **Fix:** use concrete field types, or an interface. See [Props](components.md#props).
 
-### `a component import needs an alias: Card "./Card.orbit"`
+### `a component import needs an alias: Card "./Card.lyr"`
 
-**Cause:** an `.orbit` import has no alias (`"./Card.orbit"`) or the blank alias `_`. The alias is the component's tag name, so it's required.
+**Cause:** a `.lyr` import has no alias (`"./Card.lyr"`) or the blank alias `_`. The alias is the component's tag name, so it's required.
 
-**Fix:** add the suggested alias, `Card "./Card.orbit"`, and use the component as `<Card>`. See [Importing components](components.md#importing-components).
+**Fix:** add the suggested alias, `Card "./Card.lyr"`, and use the component as `<Card>`. See [Importing components](components.md#importing-components).
 
 ### `component Card is imported but not used; remove the import`
 
-**Cause:** an `.orbit` import whose alias is used neither as a tag (`<Card>`) nor in Go code (`Card.Props`), like an unused Go import.
+**Cause:** a `.lyr` import whose alias is used neither as a tag (`<Card>`) nor in Go code (`Card.Props`), like an unused Go import.
 
 **Fix:** remove the import, or use the component. See [Importing components](components.md#importing-components).
 
 ### `dot imports aren't supported in a component; import the package by name`
 
-**Cause:** a dot import (`. "fmt"` or `. "./Card.orbit"`) in the frontmatter. Components import packages by name only.
+**Cause:** a dot import (`. "fmt"` or `. "./Card.lyr"`) in the frontmatter. Components import packages by name only.
 
 **Fix:** import the package by name and qualify its names (`fmt.Sprint`), or give a component its alias. See [Importing components](components.md#importing-components).
 
-### `component path ../../X.orbit is outside src/`
+### `component path ../../X.lyr is outside src/`
 
-**Cause:** an `.orbit` import's relative or root-relative path (`/lib/X.orbit`) leads out of `src/`. Components are compiled from `src/` only.
+**Cause:** a `.lyr` import's relative or root-relative path (`/lib/X.lyr`) leads out of `src/`. Components are compiled from `src/` only.
 
 **Fix:** move the component under `src/` (usually `src/components/`), and fix the path. See [Importing components](components.md#importing-components).
 
-### `no such component: src/components/Crad.orbit`
+### `no such component: src/components/Crad.lyr`
 
-**Cause:** an `.orbit` import points at a file that doesn't exist. The error is at the import path, which Orbit resolves relative to the importing file (from the project root for a path starting with `/`, or through a `tsconfig.json` alias) and prints from the project root.
+**Cause:** a `.lyr` import points at a file that doesn't exist. The error is at the import path, which Lyr resolves relative to the importing file (from the project root for a path starting with `/`, or through a `tsconfig.json` alias) and prints from the project root.
 
 **Fix:** fix the path or the file name. See [Importing components](components.md#importing-components).
 
-### `no tsconfig.json paths alias matches "@/components/Card.orbit"; use a relative or root-relative path ("/src/…"), or add "@/*": ["./src/*"] to compilerOptions.paths`
+### `no tsconfig.json paths alias matches "@/components/Card.lyr"; use a relative or root-relative path ("/src/…"), or add "@/*": ["./src/*"] to compilerOptions.paths`
 
-**Cause:** an `.orbit` or `.md` import path (or a Markdown `layout`) doesn't start with `./`, `../` or `/`, so Orbit reads it as an alias, but no key of `compilerOptions.paths` in `tsconfig.json` (or a file it `extends`) matches it. A path with no `/`, such as `"Card.orbit"`, is an alias too: write `"./Card.orbit"`.
+**Cause:** a `.lyr` or `.md` import path (or a Markdown `layout`) doesn't start with `./`, `../` or `/`, so Lyr reads it as an alias, but no key of `compilerOptions.paths` in `tsconfig.json` (or a file it `extends`) matches it. A path with no `/`, such as `"Card.lyr"`, is an alias too: write `"./Card.lyr"`.
 
-**Fix:** use a relative path, a root-relative one (`"/src/components/Card.orbit"`), or add the alias to `tsconfig.json`. `orbit dev` and the editor pick up a `tsconfig.json` change without a restart. See [Import aliases](components.md#import-aliases).
+**Fix:** use a relative path, a root-relative one (`"/src/components/Card.lyr"`), or add the alias to `tsconfig.json`. `lyr dev` and the editor pick up a `tsconfig.json` change without a restart. See [Import aliases](components.md#import-aliases).
 
-### `orbit: can't read export data for example.com/blog/internal/posts: …; using Expr fallbacks`
+### `lyr: can't read export data for example.com/blog/internal/posts: …; using Expr fallbacks`
 
-**Cause:** a warning, not an error. Orbit reads the compiled type information of your imports (with `go list -export`) to pick typed writes; when it can't (here for one package, or `orbit: can't load export data: …` for all of them), it uses the generic `Expr` writes instead. The rendered HTML is the same, only slightly slower to produce.
+**Cause:** a warning, not an error. Lyr reads the compiled type information of your imports (with `go list -export`) to pick typed writes; when it can't (here for one package, or `lyr: can't load export data: …` for all of them), it uses the generic `Expr` writes instead. The rendered HTML is the same, only slightly slower to produce.
 
 **Fix:** usually a problem in that package or in `go.mod`: run `go build ./...` to see it. See [Expressions are written by type](performance.md#expressions-are-written-by-type-without-reflection).
 
-### `props is provided by Orbit and can't be redeclared here`
+### `props is provided by Lyr and can't be redeclared here`
 
-**Cause:** the top level of the render body declares one of the names Orbit provides, `props`, `ctx`, `slots`, `locals` or `orbit` (or, in a page, `params`), with `:=` or `var`.
+**Cause:** the top level of the render body declares one of the names Lyr provides, `props`, `ctx`, `slots`, `locals` or `lyr` (or, in a page, `params`), with `:=` or `var`.
 
-**Fix:** pick another name (`post := props.Post`). Shadowing these names inside a nested block, such as `{for _, props := range variants}`, is allowed. Names starting with `orbit__` or `Orbit__`, and a hoisted declaration named `Render`, are reserved too. See [Redeclaring and shadowing](components.md#redeclaring-and-shadowing).
+**Fix:** pick another name (`post := props.Post`). Shadowing these names inside a nested block, such as `{for _, props := range variants}`, is allowed. Names starting with `lyr__` or `Lyr__`, and a hoisted declaration named `Render`, are reserved too. See [Redeclaring and shadowing](components.md#redeclaring-and-shadowing).
 
-### `src/locals can't import example.com/blog/orbit_gen/app: pages that use locals import src/locals, so this would be an import cycle`
+### `src/locals can't import example.com/blog/lyr_gen/app: pages that use locals import src/locals, so this would be an import cycle`
 
-**Cause:** every generated page and component imports `src/locals`, so `src/locals`, and anything it imports, can't import `orbit_gen/app`. An indirect import is reported at the import in `src/locals` that leads to it, with the chain of packages.
+**Cause:** every generated page and component imports `src/locals`, so `src/locals`, and anything it imports, can't import `lyr_gen/app`. An indirect import is reported at the import in `src/locals` that leads to it, with the chain of packages.
 
-**Fix:** keep `src/locals` a plain types package. It may import your own packages, such as `internal/auth` for a `User` type, as long as none of them leads to `orbit_gen/app`; move code that needs `app.New()` into `cmd/server`. `orbit doctor` checks this too. See [The import rule](middleware.md#the-import-rule).
+**Fix:** keep `src/locals` a plain types package. It may import your own packages, such as `internal/auth` for a `User` type, as long as none of them leads to `lyr_gen/app`; move code that needs `app.New()` into `cmd/server`. `lyr doctor` checks this too. See [The import rule](middleware.md#the-import-rule).
 
 ### `src/locals must be package locals, not package middleware` or `Locals must be a struct type: type Locals struct { … }`
 
@@ -396,49 +396,49 @@ src/pages/blog/[slug].orbit:4:12: params.Slg undefined (type Params has no field
 
 **Fix:** use `package locals` and `type Locals struct { … }`. An alias to a struct declared elsewhere (`type Locals = auth.Session`) works too. See [Declare the struct](middleware.md#declare-the-struct).
 
-### `import cycle not allowed between component Props: src/components/A.orbit → src/components/B.orbit → src/components/A.orbit; declare the shared types in a package under internal/`
+### `import cycle not allowed between component Props: src/components/A.lyr → src/components/B.lyr → src/components/A.lyr; declare the shared types in a package under internal/`
 
-**Symptom:** a build error at the import alias in the first file of the chain, such as `src/components/A.orbit:2:8`, showing the shortest import chain between the components.
+**Symptom:** a build error at the import alias in the first file of the chain, such as `src/components/A.lyr:2:8`, showing the shortest import chain between the components.
 
 **Cause:** two `Props` types refer to each other's components: `A.Props` has a field of type `B.Props`, and `B.Props` one of type `A.Props`. Components may otherwise import each other freely.
 
 **Fix:** declare the shared data types in a package under `internal/` and use them in both `Props`, as the comment-thread example does with `posts.Comment`. See [Mutual recursion](components.md#mutual-recursion).
 
-### `route segment "post-[id]" mixes text and a parameter; use a whole-segment parameter such as [id].orbit and parse it in the page`
+### `route segment "post-[id]" mixes text and a parameter; use a whole-segment parameter such as [id].lyr and parse it in the page`
 
-**Cause:** a page's file or directory name mixes text and a parameter in one segment (`post-[id].orbit`, `[lang]-[version].orbit`). That isn't supported yet.
+**Cause:** a page's file or directory name mixes text and a parameter in one segment (`post-[id].lyr`, `[lang]-[version].lyr`). That isn't supported yet.
 
-**Fix:** rename it to a whole-segment parameter (`[id].orbit`) and parse the value in the page, for example with `id, ok := strings.CutPrefix(params.ID, "post-")`. Route errors name the file, without a line and column. See [Dynamic routes](routing.md#dynamic-routes-with-param).
+**Fix:** rename it to a whole-segment parameter (`[id].lyr`) and parse the value in the page, for example with `id, ok := strings.CutPrefix(params.ID, "post-")`. Route errors name the file, without a line and column. See [Dynamic routes](routing.md#dynamic-routes-with-param).
 
 ### `rest parameter [...path] must be the last segment of the route; use a whole-segment parameter such as [path] instead`
 
-**Cause:** a rest parameter is followed by more segments (`[...path]/edit.orbit`). That isn't supported yet.
+**Cause:** a rest parameter is followed by more segments (`[...path]/edit.lyr`). That isn't supported yet.
 
 **Fix:** use a whole-segment `[path]` there, or restructure the routes so the rest parameter comes last. See [Catch-all routes](routing.md#catch-all-routes-with-rest).
 
 ### `invalid route pattern "/[slug": segment "[slug" has unbalanced brackets`
 
-**Cause:** a page's file or directory name has a `[` without its `]`, or the other way round. The same error ends `has an empty parameter name` for `[].orbit`.
+**Cause:** a page's file or directory name has a `[` without its `]`, or the other way round. The same error ends `has an empty parameter name` for `[].lyr`.
 
-**Fix:** close the bracket and name the parameter (`[slug].orbit`), or remove the brackets. See [Dynamic routes](routing.md#dynamic-routes-with-param).
+**Fix:** close the bracket and name the parameter (`[slug].lyr`), or remove the brackets. See [Dynamic routes](routing.md#dynamic-routes-with-param).
 
 ### Two files produce the same route
 
 **Symptom:** a build error that names both files.
 
-**Cause:** for example `src/pages/blog.orbit` next to `src/pages/blog/index.orbit` (both are `/blog`), `[slug].orbit` next to `[id].orbit` in one directory, or a Markdown page with the same route as an `.orbit` page (`about.md` and `about.orbit`): `src/pages/about.orbit: route /about is already defined by src/pages/about.md; remove or rename one of them`.
+**Cause:** for example `src/pages/blog.lyr` next to `src/pages/blog/index.lyr` (both are `/blog`), `[slug].lyr` next to `[id].lyr` in one directory, or a Markdown page with the same route as a `.lyr` page (`about.md` and `about.lyr`): `src/pages/about.lyr: route /about is already defined by src/pages/about.md; remove or rename one of them`.
 
 **Fix:** delete or rename one of them. See [File-based routes](routing.md#file-based-routes).
 
-### `generates the same Go package as src/components/my-card.orbit (orbit_gen/decl/components/my_card); rename one of them`
+### `generates the same Go package as src/components/my-card.lyr (lyr_gen/decl/components/my_card); rename one of them`
 
-**Cause:** two `.orbit` files map to the same generated Go package, because package paths turn `-`, `.` and other characters into `_` and lowercase every segment: `my-card.orbit` and `my_card.orbit`, or `Card.orbit` and `card.orbit`. The error is on the later path, in sorted order: `src/components/my_card.orbit: generates the same Go package as …`.
+**Cause:** two `.lyr` files map to the same generated Go package, because package paths turn `-`, `.` and other characters into `_` and lowercase every segment: `my-card.lyr` and `my_card.lyr`, or `Card.lyr` and `card.lyr`. The error is on the later path, in sorted order: `src/components/my_card.lyr: generates the same Go package as …`.
 
 **Fix:** rename one of them. See [Package paths](project-structure.md#package-paths).
 
 ### `<Comments server:defer>: Props.OnLoad has type func(), which can't be sent to a deferred component; props must be JSON-serializable`
 
-**Cause:** a deferred component's props travel through the browser as JSON, so Orbit checks its whole `Props` type, including fields the call site doesn't set. Functions (so `orbit.Renderer` and `orbit.Slots`), channels, `unsafe.Pointer`, complex numbers, interface types (`any`, `error`) and maps with unsupported key types are rejected.
+**Cause:** a deferred component's props travel through the browser as JSON, so Lyr checks its whole `Props` type, including fields the call site doesn't set. Functions (so `lyr.Renderer` and `lyr.Slots`), channels, `unsafe.Pointer`, complex numbers, interface types (`any`, `error`) and maps with unsupported key types are rejected.
 
 **Fix:** remove the field, tag it `json:"-"` (it then arrives as its zero value), or pass a small value such as an ID and load the data in the component. See [Props must be JSON-serializable](lazy-loading.md#props-must-be-json-serializable).
 
@@ -448,7 +448,7 @@ src/pages/blog/[slug].orbit:4:12: params.Slg undefined (type Params has no field
 
 **Fix:** mark the child with `slot="fallback"`, or move it out of the tag:
 
-```orbit
+```lyr
 <Comments server:defer postID={post.Slug}>
   <p slot="fallback">Loading comments…</p>
 </Comments>
@@ -456,7 +456,7 @@ src/pages/blog/[slug].orbit:4:12: params.Slg undefined (type Params has no field
 
 See [The fallback slot](lazy-loading.md#the-fallback-slot).
 
-### `server:defer only works on .orbit components` or `server:defer takes no value`
+### `server:defer only works on .lyr components` or `server:defer takes no value`
 
 **Cause:** `server:defer` is a bare attribute, and only on a component tag (`<Self>` included), not on an HTML element, `<slot>` or `<Fragment>`.
 
@@ -474,21 +474,21 @@ Each message names the directive you wrote:
 
 | Message | Fix |
 |---|---|
-| `client:visible only works on .orbit components; move the <script> into a component` | Move the element and its `<script>` into a component, and put the directive on its tag. |
+| `client:visible only works on .lyr components; move the <script> into a component` | Move the element and its `<script>` into a component, and put the directive on its tag. |
 | `client:visible takes a static string value, not an expression` | Write the value as a string: `client:visible="200px"`. |
 | `client:idle takes no value` | `client:load` and `client:idle` are bare: drop the value. |
 | `client:media needs a media query, e.g. client:media="(max-width: 600px)"` | Add the media query. |
 | `only one client:* directive is allowed per component` | Keep one directive on the tag. |
-| `client:only is for framework components, which Orbit doesn't support; use client:load, client:idle, client:visible or client:media` | Pick one of the four strategies. |
+| `client:only is for framework components, which Lyr doesn't support; use client:load, client:idle, client:visible or client:media` | Pick one of the four strategies. |
 | `unknown directive "client:hover" (client directives: client:load, client:idle, client:visible, client:media)` | Fix the spelling. `server:` and `client:` are reserved namespaces. |
 
 See [Template syntax: `client:*`](reference/template-syntax.md#client).
 
-### `orbit.JSON: Post.Notify has type func(), which encoding/json can't encode`
+### `lyr.JSON: Post.Notify has type func(), which encoding/json can't encode`
 
-**Cause:** the value passed to `orbit.JSON` (or to `set:json`) has a type that `encoding/json` can never encode: a func, a channel, a complex number, an `unsafe.Pointer`, or a map whose keys aren't strings, integers or `TextMarshaler`s, anywhere in the type. Here a field of `Post` is a func:
+**Cause:** the value passed to `lyr.JSON` (or to `set:json`) has a type that `encoding/json` can never encode: a func, a channel, a complex number, an `unsafe.Pointer`, or a map whose keys aren't strings, integers or `TextMarshaler`s, anywhere in the type. Here a field of `Post` is a func:
 
-```orbit file=src/components/NewsItem.orbit expect-error
+```lyr file=src/components/NewsItem.lyr expect-error
 ---
 type Post struct {
 	Title  string `json:"title"`
@@ -499,14 +499,14 @@ type Props struct {
 	Title string
 }
 ---
-<news-item data-post={orbit.JSON(Post{Title: props.Title})}></news-item>
+<news-item data-post={lyr.JSON(Post{Title: props.Title})}></news-item>
 ```
 
 ```text
-src/components/NewsItem.orbit:11:34: orbit.JSON: Post.Notify has type func(), which encoding/json can't encode
+src/components/NewsItem.lyr:11:32: lyr.JSON: Post.Notify has type func(), which encoding/json can't encode
 ```
 
-For `set:json`, the message reads `set:json: the value has type func(), which encoding/json can't encode`. Orbit reports it at generate time, in `orbit build`, `orbit dev`, `orbit generate` and `orbit check`, because the encoding would fail on every render.
+For `set:json`, the message reads `set:json: the value has type func(), which encoding/json can't encode`. Lyr reports it at generate time, in `lyr build`, `lyr dev`, `lyr generate` and `lyr check`, because the encoding would fail on every render.
 
 **Fix:** tag the field `json:"-"` (or unexport it), or pass a struct with only the fields the script needs. Interfaces (`any`) are accepted: what they hold is checked at render time. See [Client modules: Unsupported types](reference/client-modules.md#unsupported-types).
 
@@ -514,13 +514,13 @@ For `set:json`, the message reads `set:json: the value has type func(), which en
 
 **Cause:** `set:json` was used on another element, or on a `<script>` without `type="application/json"`.
 
-**Fix:** put it on an empty JSON script, and read it with `json(id)` from the component's module (`import { json } from "./PostMeta.orbit"`):
+**Fix:** put it on an empty JSON script, and read it with `json(id)` from the component's module (`import { json } from "./PostMeta.lyr"`):
 
-```orbit
+```lyr
 <script type="application/json" id="tags" set:json={props.Tags}></script>
 ```
 
-A value `encoding/json` can't encode (a NaN float, a cyclic structure) fails at render time, at the `set:json` position. For data that belongs to one element, use `orbit.JSON` in a `data-*` attribute instead. See [Template syntax: `set:json`](reference/template-syntax.md#setjson).
+A value `encoding/json` can't encode (a NaN float, a cyclic structure) fails at render time, at the `set:json` position. For data that belongs to one element, use `lyr.JSON` in a `data-*` attribute instead. See [Template syntax: `set:json`](reference/template-syntax.md#setjson).
 
 ### `class:list` errors
 
@@ -542,21 +542,21 @@ A condition that isn't a `bool` is Go's own error at the condition: `non-boolean
 
 | Message | Fix |
 |---|---|
-| `Props has two orbit.RestAttrs fields (Attrs, Extra); a component takes one` | Keep one: it collects every attribute that matches no other field. |
-| `an orbit.RestAttrs field needs a Props without embedded fields, so Orbit can tell props from pass-through attributes` | List the embedded struct's fields in `Props`, or drop the `orbit.RestAttrs` field. |
+| `Props has two lyr.RestAttrs fields (Attrs, Extra); a component takes one` | Keep one: it collects every attribute that matches no other field. |
+| `a lyr.RestAttrs field needs a Props without embedded fields, so Lyr can tell props from pass-through attributes` | List the embedded struct's fields in `Props`, or drop the `lyr.RestAttrs` field. |
 | `attribute name is passed twice to <Button>` | Remove one: the same attribute, in any case, can be passed once. |
 | `<Button> gets attrs={…} and pass-through attributes; use {...x} to merge them` | Setting the field itself replaces everything else: write `{...x}` to merge `x` with the other attributes. |
-| `{...} spread on <Card> needs an orbit.RestAttrs field in its Props, to pass HTML attributes through` | A spread on a component tag goes into its pass-through attributes. Add an `orbit.RestAttrs` field, or set the props one by one. |
+| `{...} spread on <Card> needs a lyr.RestAttrs field in its Props, to pass HTML attributes through` | A spread on a component tag goes into its pass-through attributes. Add a `lyr.RestAttrs` field, or set the props one by one. |
 | `class={…} merged with pass-through attributes must be a string or []string, not int` | A passed `class={…}`, or one next to `{...props.Attrs}`, joins a class list: convert it to a string. |
-| `cannot use rest (variable of struct type orbit.RestAttrs) as orbit.Attrs value in argument to orbit__w.Spread` | Spread the field itself, `{...props.Attrs}`: Orbit recognizes pass-through attributes by that spelling, and spreads anything else as an `orbit.Attrs`. |
+| `cannot use rest (variable of struct type lyr.RestAttrs) as lyr.Attrs value in argument to lyr__w.Spread` | Spread the field itself, `{...props.Attrs}`: Lyr recognizes pass-through attributes by that spelling, and spreads anything else as a `lyr.Attrs`. |
 
-An attribute that should set a prop but is written with a typo (`varient="quiet"`) isn't an error on a component with an `orbit.RestAttrs` field: it's passed through as an HTML attribute, as in Astro. See [Template syntax: Pass-through attributes](reference/template-syntax.md#pass-through-attributes).
+An attribute that should set a prop but is written with a typo (`varient="quiet"`) isn't an error on a component with a `lyr.RestAttrs` field: it's passed through as an HTML attribute, as in Astro. See [Template syntax: Pass-through attributes](reference/template-syntax.md#pass-through-attributes).
 
-### `define:vars isn't supported; pass data with orbit.JSON on a data-* attribute, or set:json`
+### `define:vars isn't supported; pass data with lyr.JSON on a data-* attribute, or set:json`
 
 **Cause:** `define:vars` is an Astro directive, and `<script>` and `<style>` content can't see Go values.
 
-**Fix:** write the values into `data-*` attributes, with `orbit.JSON` for structured data (`data-post={orbit.JSON(props.Post)}`, read with `data(this, "post")` from `import { data } from "./Card.orbit"`), or pass a block of data with `set:json` on a `<script type="application/json">`. See [Passing data to client scripts](components.md#passing-data-to-client-scripts).
+**Fix:** write the values into `data-*` attributes, with `lyr.JSON` for structured data (`data-post={lyr.JSON(props.Post)}`, read with `data(this, "post")` from `import { data } from "./Card.lyr"`), or pass a block of data with `set:json` on a `<script type="application/json">`. See [Passing data to client scripts](components.md#passing-data-to-client-scripts).
 
 ### `the frontmatter always returns here, so the template below is never rendered`
 
@@ -566,19 +566,19 @@ An attribute that should set a prop but is written with a typo (`varient="quiet"
 
 ### `a // comment can't end Go code in the template; use /* */`
 
-**Cause:** an expression or control header in the template ends with a line comment, such as `{count // items}`. A `//` comment runs to the end of the line, so it would swallow the code Orbit generates after the expression.
+**Cause:** an expression or control header in the template ends with a line comment, such as `{count // items}`. A `//` comment runs to the end of the line, so it would swallow the code Lyr generates after the expression.
 
 **Fix:** use a block comment (`{count /* items */}`), or put the note in a template comment, `{/* … */}`.
 
 ### `unknown prop "1x" on <Card>: not a Go field name`
 
-**Cause:** an attribute on a component can't become a Go field name (it starts with a digit, or holds characters other than letters, digits, `-` and `_`). Orbit reports this when it can't list the component's `Props` fields, for example when `Props` embeds another struct.
+**Cause:** an attribute on a component can't become a Go field name (it starts with a digit, or holds characters other than letters, digits, `-` and `_`). Lyr reports this when it can't list the component's `Props` fields, for example when `Props` embeds another struct.
 
 **Fix:** rename the attribute to match a `Props` field (`<Card first={…}>` for a field `First`). See [Props](components.md#props).
 
 ### `unexpected </ul>: <li> opened at 12:5 isn't closed`
 
-**Cause:** Orbit doesn't auto-close elements the way browsers do, so `<p>`, `<li>`, `<td>` and `<option>` need their closing tags.
+**Cause:** Lyr doesn't auto-close elements the way browsers do, so `<p>`, `<li>`, `<td>` and `<option>` need their closing tags.
 
 **Fix:** close the element (`<li>…</li>`) or self-close it (`<div />`). Void elements such as `<br>` and `<img>` take no closing tag. See [HTML and custom elements](reference/template-syntax.md#html-and-custom-elements).
 
@@ -595,7 +595,7 @@ An attribute that should set a prop but is written with a typo (`varient="quiet"
 - `fallthrough isn't supported in a {switch}; list the values in one {case a, b}`: a template has no statement position for `fallthrough`; list the values that share a body in one case.
 - `{case} needs a value or a condition, e.g. {case "draft"}; use {default} for the rest`: the case list is empty.
 - `unexpected {/case}: a {case} ends at the next {case}, {default} or {/switch}`: cases have no closing tag.
-- `duplicate case "a" (constant of type string) in expression switch`: Go's error, at the `.orbit` position of the second `"a"`.
+- `duplicate case "a" (constant of type string) in expression switch`: Go's error, at the `.lyr` position of the second `"a"`.
 
 ## Markdown files
 
@@ -625,15 +625,15 @@ Errors in Markdown files point at their `.md` line and column: a frontmatter key
 
 **Fix:** quote the value (`title: "Go: a tour"`). See [Frontmatter](markdown.md#frontmatter).
 
-### `layout ../layouts/Post.orbit: no such file`
+### `layout ../layouts/Post.lyr: no such file`
 
-**Cause:** the `layout` path, relative to the Markdown file, doesn't name an `.orbit` file under `src/`. A path that doesn't end in `.orbit` is `layout ./Post.md must be an .orbit file`, and one outside `src/` is `layout ../../../X.orbit is outside src/`.
+**Cause:** the `layout` path, relative to the Markdown file, doesn't name a `.lyr` file under `src/`. A path that doesn't end in `.lyr` is `layout ./Post.md must be a .lyr file`, and one outside `src/` is `layout ../../../X.lyr is outside src/`.
 
 **Fix:** fix the path, counting `../` from the Markdown file's directory.
 
-### `frontmatter key "headings" can't be set: Orbit fills Post.Props.Headings with the page's headings; rename the key`
+### `frontmatter key "headings" can't be set: Lyr fills Post.Props.Headings with the page's headings; rename the key`
 
-**Cause:** the layout has a `Headings []orbit.Heading` field, which Orbit fills with the page's headings, and the frontmatter sets it too.
+**Cause:** the layout has a `Headings []lyr.Heading` field, which Lyr fills with the page's headings, and the frontmatter sets it too.
 
 **Fix:** rename the key (and the field it's meant for).
 
@@ -649,11 +649,11 @@ Errors in Markdown files point at their `.md` line and column: a frontmatter key
 
 **Fix:** use the heading's ID (lowercase, punctuation removed, spaces turned into `-`), or ignore the warning if the ID exists. See [Heading IDs](markdown.md#heading-ids).
 
-### `a Markdown page can't have route params; rename it, or write a [slug].orbit page`
+### `a Markdown page can't have route params; rename it, or write a [slug].lyr page`
 
 **Cause:** a Markdown file in `src/pages/` has brackets in its path, such as `blog/[slug].md`. A Markdown page has no code to read params with.
 
-**Fix:** rename the file, or write an `.orbit` page that loads the content for each slug.
+**Fix:** rename the file, or write a `.lyr` page that loads the content for each slug.
 
 ### `unknown prop "x" on <Post> (Post takes no props)`
 
@@ -663,115 +663,115 @@ Errors in Markdown files point at their `.md` line and column: a frontmatter key
 
 ## Runtime
 
-### `orbit: src/components/Card.orbit not linked; import example.com/blog/orbit_gen/app`
+### `lyr: src/components/Card.lyr not linked; import example.com/blog/lyr_gen/app`
 
-**Cause:** Go code called a component's `Render` from its declaration package (`orbit_gen/decl/…`) in a program that doesn't import `orbit_gen/app`, which links every component to its code. This usually happens in a test. Rendering a component during package initialization fails the same way.
+**Cause:** Go code called a component's `Render` from its declaration package (`lyr_gen/decl/…`) in a program that doesn't import `lyr_gen/app`, which links every component to its code. This usually happens in a test. Rendering a component during package initialization fails the same way.
 
 **Fix:** add a blank import, once per test package:
 
 ```go
-import _ "example.com/blog/orbit_gen/app"
+import _ "example.com/blog/lyr_gen/app"
 ```
 
-`orbittest` reports this as a test failure with the same hint. See [Where test files go](testing.md#where-test-files-go).
+`lyrtest` reports this as a test failure with the same hint. See [Where test files go](testing.md#where-test-files-go).
 
-### `orbit: render depth exceeded 1000: src/components/Comment.orbit > src/components/CommentThread.orbit > src/components/Comment.orbit > …`
+### `lyr: render depth exceeded 1000: src/components/Comment.lyr > src/components/CommentThread.lyr > src/components/Comment.lyr > …`
 
-**Cause:** a recursive component (`<Self>`, or two components that render each other) never stops. Orbit stops it at 1000 nested components instead of letting the Go stack overflow, in development and production alike. It's a render error: a 500, or the overlay in `orbit dev`.
+**Cause:** a recursive component (`<Self>`, or two components that render each other) never stops. Lyr stops it at 1000 nested components instead of letting the Go stack overflow, in development and production alike. It's a render error: a 500, or the overlay in `lyr dev`.
 
 **Fix:** guard the recursive call with an `{if}` (render `<Self>` only for nodes that have children), and make sure your data ends. The message shows the component stack. See [The depth limit](components.md#the-depth-limit).
 
-### `orbit: </head> can't be inside orbit.RenderHTML; keep the document head outside the captured content`
+### `lyr: </head> can't be inside lyr.RenderHTML; keep the document head outside the captured content`
 
-**Cause:** content rendered with `orbit.RenderHTML` (a fragment cache component, say) reached a `</head>`, typically because a layout is inside the cached children. The page's `<link>` and `<script>` tags are written at the page's own `</head>`, and a cached copy must never hold one page's tags. It's a render error, returned by `orbit.RenderHTML`.
+**Cause:** content rendered with `lyr.RenderHTML` (a fragment cache component, say) reached a `</head>`, typically because a layout is inside the cached children. The page's `<link>` and `<script>` tags are written at the page's own `</head>`, and a cached copy must never hold one page's tags. It's a render error, returned by `lyr.RenderHTML`.
 
 **Fix:** keep the layout outside: render `<Base>` in the page and put the cached component inside its body. See [Caching fragments](rendering.md#caching-fragments).
 
-### `orbit: GET /blog/hello: not cached because it sets a cookie (Set-Cookie); later refusals for this route aren't logged`
+### `lyr: GET /blog/hello: not cached because it sets a cookie (Set-Cookie); later refusals for this route aren't logged`
 
-**Cause:** the page asked to be cached (`ctx.Cache().Set` with a `MaxAge`, or a `routeRules` entry), but its response sets a cookie, from the page or from your middleware, so Orbit didn't store it: a stored copy would hand one visitor's cookie to everyone. The same warning names `Vary: Cookie` or `Vary: *` when the response varies on them. It's logged once per route and reason.
+**Cause:** the page asked to be cached (`ctx.Cache().Set` with a `MaxAge`, or a `routeRules` entry), but its response sets a cookie, from the page or from your middleware, so Lyr didn't store it: a stored copy would hand one visitor's cookie to everyone. The same warning names `Vary: Cookie` or `Vary: *` when the response varies on them. It's logged once per route and reason.
 
 **Fix:** set cookies only when they change (a session middleware that refreshes its cookie on every request keeps every page out of the cache), or keep the route out of the cache with `Disable()` for the requests that set one. See [What's stored](caching.md#whats-stored).
 
-### `orbit: ctx.Cache().Set was called, but caching is not enabled: configure a provider with orbit.WithCache in app.New()`
+### `lyr: ctx.Cache().Set was called, but caching is not enabled: configure a provider with lyr.WithCache in app.New()`
 
 **Cause:** a page or island calls `ctx.Cache().Set`, but the site has no cache provider, so nothing is stored. It's logged once per process.
 
-**Fix:** pass a provider in `cmd/server/main.go`, such as `app.New(orbit.WithCache(cache.NewMemory(cache.MemoryOptions{})))`, or remove the `Set` calls. See [Caching](caching.md).
+**Fix:** pass a provider in `cmd/server/main.go`, such as `app.New(lyr.WithCache(cache.NewMemory(cache.MemoryOptions{})))`, or remove the `Set` calls. See [Caching](caching.md).
 
 ### A cached page shows another visitor's data
 
-**Cause:** a page that's cached (it calls `ctx.Cache().Set` with a `MaxAge` or matches a `routeRules` entry) read cookies, the session or per-user `locals`. The visitor whose request rendered it set what everyone else gets. Orbit can't see into `locals`, so it can't refuse this.
+**Cause:** a page that's cached (it calls `ctx.Cache().Set` with a `MaxAge` or matches a `routeRules` entry) read cookies, the session or per-user `locals`. The visitor whose request rendered it set what everyone else gets. Lyr can't see into `locals`, so it can't refuse this.
 
-**Fix:** call `l.Cache.Disable()` in your middleware for signed-in visitors, or move the per-user part into a `server:defer` island, which each visitor's browser loads with its own cookies. Then purge the bad copy (`site.InvalidateCache` with the page's `Path`). See [Safety](caching.md#safety-what-orbit-checks-and-what-you-check).
+**Fix:** call `l.Cache.Disable()` in your middleware for signed-in visitors, or move the per-user part into a `server:defer` island, which each visitor's browser loads with its own cookies. Then purge the bad copy (`site.InvalidateCache` with the page's `Path`). See [Safety](caching.md#safety-what-lyr-checks-and-what-you-check).
 
 ### A URL answers 404
 
 Check which case you're in:
 
-- **No page matches.** A `[param]` matches exactly one segment, so `src/pages/blog/[slug].orbit` doesn't match `/blog/hello/like`. A `public/` file or `/_orbit/*` asset is looked up before pages.
-- **The file isn't a page.** A file or directory under `src/pages/` whose name starts with `_` (`_parts/Byline.orbit`) is a component, so it has no URL.
-- **The page returned `orbit.ErrNotFound`**, as `blog/[slug].orbit` does for an unknown slug.
-- **The body is empty**: the project has no `src/pages/404.orbit`. `orbit new` scaffolds one.
-- **You get your mux's plain-text 404** instead of `404.orbit`: with pages first (`site.Middleware(mux)`), give the mux `site.NotFound()` as its catch-all:
+- **No page matches.** A `[param]` matches exactly one segment, so `src/pages/blog/[slug].lyr` doesn't match `/blog/hello/like`. A `public/` file or `/_lyr/*` asset is looked up before pages.
+- **The file isn't a page.** A file or directory under `src/pages/` whose name starts with `_` (`_parts/Byline.lyr`) is a component, so it has no URL.
+- **The page returned `lyr.ErrNotFound`**, as `blog/[slug].lyr` does for an unknown slug.
+- **The body is empty**: the project has no `src/pages/404.lyr`. `lyr new` scaffolds one.
+- **You get your mux's plain-text 404** instead of `404.lyr`: with pages first (`site.Middleware(mux)`), give the mux `site.NotFound()` as its catch-all:
 
   ```go
-  mux.Handle("/", site.NotFound()) // unmatched paths render 404.orbit
+  mux.Handle("/", site.NotFound()) // unmatched paths render 404.lyr
   ```
 
 See [The 404 page](routing.md#the-404-page) and [Choosing precedence](server.md#choosing-precedence). For a 404 on a deferred component, see [below](#a-serverdefer-component-only-shows-its-fallback).
 
 ### A URL redirects with 308
 
-**Cause:** each page has one canonical URL, and the other form gets a 308. By default pages have no trailing slash, so `/blog/hello/` gets a 308 to `/blog/hello`, keeping the query string (`/search/?q=go` → `/search?q=go`); with `"trailingSlash": "always"` in `orbit.json`, `/blog/hello` gets a 308 to `/blog/hello/`. The redirect is sent only when the other form of the path is a page; other paths reach your next handler untouched, and files are never redirected.
+**Cause:** each page has one canonical URL, and the other form gets a 308. By default pages have no trailing slash, so `/blog/hello/` gets a 308 to `/blog/hello`, keeping the query string (`/search/?q=go` → `/search?q=go`); with `"trailingSlash": "always"` in `lyr.json`, `/blog/hello` gets a 308 to `/blog/hello/`. The redirect is sent only when the other form of the path is a page; other paths reach your next handler untouched, and files are never redirected.
 
-**Fix:** nothing is broken. Link to canonical URLs (`href="/blog/hello"`, or `href="/blog/hello/"` in `"always"`) to skip the extra round trip. Middleware that wraps Orbit runs before the redirect, so it sees both forms; compare paths with that in mind. To change which form is canonical, set [`trailingSlash`](configuration.md#trailingslash). See [Trailing slashes](routing.md#trailing-slashes).
+**Fix:** nothing is broken. Link to canonical URLs (`href="/blog/hello"`, or `href="/blog/hello/"` in `"always"`) to skip the extra round trip. Middleware that wraps Lyr runs before the redirect, so it sees both forms; compare paths with that in mind. To change which form is canonical, set [`trailingSlash`](configuration.md#trailingslash). See [Trailing slashes](routing.md#trailing-slashes).
 
 ### A file added to `dist/client/` isn't served
 
-**Cause:** in production, the server lists its static files once, at startup, so it can check every request against them without touching the disk. A file copied into `dist/client/` (or the `ORBIT_STATIC` directory) while it runs isn't in that list. A directory is never served either, not even its `index.html`: a file is served only at its exact path.
+**Cause:** in production, the server lists its static files once, at startup, so it can check every request against them without touching the disk. A file copied into `dist/client/` (or the `LYR_STATIC` directory) while it runs isn't in that list. A directory is never served either, not even its `index.html`: a file is served only at its exact path.
 
-**Fix:** restart the server after changing its static files, or rebuild with `orbit build`. Link to the file's full path (`/docs/index.html`, not `/docs/`). `orbit dev` looks files up on every request, so this doesn't happen there. See [How static files are served](deploy.md#how-static-files-are-served).
+**Fix:** restart the server after changing its static files, or rebuild with `lyr build`. Link to the file's full path (`/docs/index.html`, not `/docs/`). `lyr dev` looks files up on every request, so this doesn't happen there. See [How static files are served](deploy.md#how-static-files-are-served).
 
 ### A non-GET request to a file gets a 404 or 405
 
-**Cause:** `/_orbit/*` assets and `public/` files are served for `GET` and `HEAD` only. Orbit passes any other method to your next handler, so the response is whatever that handler answers: a 404 from `site.Handler()`, or your own mux's answer. The only 405 Orbit sends itself is on the island endpoint `/_orbit/island/…`, for methods other than `GET`, `HEAD` and `POST`, with `Allow: GET, HEAD, POST`.
+**Cause:** `/_lyr/*` assets and `public/` files are served for `GET` and `HEAD` only. Lyr passes any other method to your next handler, so the response is whatever that handler answers: a 404 from `site.Handler()`, or your own mux's answer. The only 405 Lyr sends itself is on the island endpoint `/_lyr/island/…`, for methods other than `GET`, `HEAD` and `POST`, with `Allow: GET, HEAD, POST`.
 
-**Fix:** request files with `GET`. Handle form posts and uploads with a page (pages receive every method, in `ctx.Request.Method`) or with your own handler at a path that isn't a file. See [Which HTTP methods Orbit handles](routing.md#which-http-methods-orbit-handles).
+**Fix:** request files with `GET`. Handle form posts and uploads with a page (pages receive every method, in `ctx.Request.Method`) or with your own handler at a path that isn't a file. See [Which HTTP methods Lyr handles](routing.md#which-http-methods-lyr-handles).
 
-### `orbit.JSON: json: unsupported value: NaN`
+### `lyr.JSON: json: unsupported value: NaN`
 
-**Cause:** a value passed to `orbit.JSON` couldn't be encoded at render time, for a reason only the value shows: a NaN or infinite float, a pointer cycle, a func held in an `any` field, or an error from a `MarshalJSON` method. It's a render error at the attribute value's position (a 500 in production, logged with that position; an overlay in `orbit dev`):
+**Cause:** a value passed to `lyr.JSON` couldn't be encoded at render time, for a reason only the value shows: a NaN or infinite float, a pointer cycle, a func held in an `any` field, or an error from a `MarshalJSON` method. It's a render error at the attribute value's position (a 500 in production, logged with that position; an overlay in `lyr dev`):
 
 ```text
-src/components/LikeButton.orbit:9:24: orbit.JSON: json: unsupported value: NaN
+src/components/LikeButton.lyr:9:24: lyr.JSON: json: unsupported value: NaN
 ```
 
-For `set:json`, the position is the `set:json` attribute's: `src/pages/index.orbit:16:47: set:json: json: unsupported value: NaN`. When the value was written through a spread or a variable that Orbit couldn't type, the message has no position: `orbit: orbit.JSON: json: unsupported value: NaN`.
+For `set:json`, the position is the `set:json` attribute's: `src/pages/index.lyr:16:47: set:json: json: unsupported value: NaN`. When the value was written through a spread or a variable that Lyr couldn't type, the message has no position: `lyr: lyr.JSON: json: unsupported value: NaN`.
 
 **Fix:** check the value in the frontmatter (`math.IsNaN`), break the cycle, or encode a struct with only what the script needs. See [Client modules](reference/client-modules.md#unsupported-types).
 
-### `orbit: <like-button> has no data-post attribute`
+### `lyr: <like-button> has no data-post attribute`
 
-**Cause:** a script called `data(el, "post")` on an element without a `data-post` attribute. The component module's types say which keys the component may write, not which element carries them. Common reasons: the script reads a different element than the one the template puts the attribute on (`this.querySelector("button")` instead of `this`), or the element comes from another component. `json(id)` throws `orbit: no element with id "…"` the same way when the page has no element with that `id`.
+**Cause:** a script called `data(el, "post")` on an element without a `data-post` attribute. The component module's types say which keys the component may write, not which element carries them. Common reasons: the script reads a different element than the one the template puts the attribute on (`this.querySelector("button")` instead of `this`), or the element comes from another component. `json(id)` throws `lyr: no element with id "…"` the same way when the page has no element with that `id`.
 
 **Fix:** call `data` on the element with the attribute; in a custom element, that's usually `this`. See [Client modules: `data(el, key)`](reference/client-modules.md#datael-key).
 
 ### Visitors get a `500 Internal Server Error` page
 
-**Cause:** a page or component returned an error, or panicked. In production, Orbit answers with a minimal built-in page that never shows the error, and logs the error with its `.orbit` position to stderr:
+**Cause:** a page or component returned an error, or panicked. In production, Lyr answers with a minimal built-in page that never shows the error, and logs the error with its `.lyr` position to stderr:
 
 ```text
-orbit: GET /blog/hello: src/pages/blog/[slug].orbit:14:5: posts: connection refused
+lyr: GET /blog/hello: src/pages/blog/[slug].lyr:14:5: posts: connection refused
 ```
 
-**Fix:** find the line in your server's stderr (your platform's logs) and fix the error at that position: the frontmatter `return` that returned it, or the line that panicked. `orbit dev` shows the same error in an overlay. Because responses are buffered, a failed render never sends half a page. In a stack trace from a binary built with `-trimpath`, frames from `.orbit` files keep their absolute paths. For errors your app expects (a reader who must sign in, a backend that's down), answer them yourself with [`orbit.WithErrorHandler`](rendering.md#answering-errors-yourself-witherrorhandler); a handler that returns `false` leaves the error to this 500. A custom `src/pages/500.orbit` is planned for a later release. See [Status codes and errors](rendering.md#status-codes-and-errors) and [Stack traces and `-trimpath`](reference/cli.md#stack-traces-and--trimpath).
+**Fix:** find the line in your server's stderr (your platform's logs) and fix the error at that position: the frontmatter `return` that returned it, or the line that panicked. `lyr dev` shows the same error in an overlay. Because responses are buffered, a failed render never sends half a page. In a stack trace from a binary built with `-trimpath`, frames from `.lyr` files keep their absolute paths. For errors your app expects (a reader who must sign in, a backend that's down), answer them yourself with [`lyr.WithErrorHandler`](rendering.md#answering-errors-yourself-witherrorhandler); a handler that returns `false` leaves the error to this 500. A custom `src/pages/500.lyr` is planned for a later release. See [Status codes and errors](rendering.md#status-codes-and-errors) and [Stack traces and `-trimpath`](reference/cli.md#stack-traces-and--trimpath).
 
-### `go test -race` reports a data race inside an `orbit.All` load
+### `go test -race` reports a data race inside a `lyr.All` load
 
-**Cause:** loads run on other goroutines while the frontmatter waits, so they share the render's state. The usual culprits: two loads assigning the same variable, a load writing a `locals` field that another load or component reads, or a load calling `ctx.SetStatus`, `ctx.Header()` or `orbit.RenderHTML`.
+**Cause:** loads run on other goroutines while the frontmatter waits, so they share the render's state. The usual culprits: two loads assigning the same variable, a load writing a `locals` field that another load or component reads, or a load calling `ctx.SetStatus`, `ctx.Header()` or `lyr.RenderHTML`.
 
-**Fix:** assign each variable from one load only and read it after `orbit.All` returns; give `locals` fields that loads write a `sync` type or a mutex; set the status and headers, and render, after `orbit.All`. See [What's safe inside a load](data-loading.md#whats-safe-inside-a-load).
+**Fix:** assign each variable from one load only and read it after `lyr.All` returns; give `locals` fields that loads write a `sync` type or a mutex; set the status and headers, and render, after `lyr.All`. See [What's safe inside a load](data-loading.md#whats-safe-inside-a-load).
 
 ### A request hangs on a memoized load
 
@@ -781,28 +781,28 @@ orbit: GET /blog/hello: src/pages/blog/[slug].orbit:14:5: posts: connection refu
 
 ### A `server:defer` component only shows its fallback
 
-The placeholder keeps its fallback whenever the island request fails. In `orbit dev`, the loader logs the status and the response body to the **browser console**; in production it stays silent, so look at the request to `/_orbit/island/…` in your browser's network panel. By status:
+The placeholder keeps its fallback whenever the island request fails. In `lyr dev`, the loader logs the status and the response body to the **browser console**; in production it stays silent, so look at the request to `/_lyr/island/…` in your browser's network panel. By status:
 
-- **400 after a deploy, or with several builds behind one load balancer**: each `orbit build` embeds a new island key, so an instance can't open tokens sealed by another build. Create one key and set it as `ORBIT_KEY` on every instance of every build:
+- **400 after a deploy, or with several builds behind one load balancer**: each `lyr build` embeds a new island key, so an instance can't open tokens sealed by another build. Create one key and set it as `LYR_KEY` on every instance of every build:
 
   ```sh
-  go tool orbit create-key
+  go tool lyr create-key
   ```
 
-- **400 otherwise**: the `props` token is missing, malformed, was changed, was sealed with another key, or doesn't decode into the component's `Props`. A server built with plain `go build` or run with `go run` has no embedded key: it uses a random key per process (and warns on stderr), so pages rendered before a restart, or by another process, can't load their islands. Build with `orbit build`, or set `ORBIT_KEY`. Pages that were open when you rotated the key keep their fallback until reloaded.
-- **404**: the component returned `orbit.ErrNotFound`, or its ID isn't one used with `server:defer` in the build answering the request.
+- **400 otherwise**: the `props` token is missing, malformed, was changed, was sealed with another key, or doesn't decode into the component's `Props`. A server built with plain `go build` or run with `go run` has no embedded key: it uses a random key per process (and warns on stderr), so pages rendered before a restart, or by another process, can't load their islands. Build with `lyr build`, or set `LYR_KEY`. Pages that were open when you rotated the key keep their fallback until reloaded.
+- **404**: the component returned `lyr.ErrNotFound`, or its ID isn't one used with `server:defer` in the build answering the request.
 - **3xx**: the component returned `ctx.Redirect(…)`; the loader doesn't follow redirects.
-- **500**: the component returned an error or panicked. In dev, the body holds the error and its `.orbit` position.
-- **A rejection from your CSRF middleware**: props over about 8 KB are sent with `POST`. Exempt `/_orbit/island/`, or use Go's `http.CrossOriginProtection`.
-- **No island request at all**: JavaScript is off, a strict Content Security Policy blocks the inline loader (allow it with `'unsafe-inline'` or the script's hash), or the placeholder came in an `orbit.RenderComponent` fragment on a page that has no deferred component of its own, and so no loader.
+- **500**: the component returned an error or panicked. In dev, the body holds the error and its `.lyr` position.
+- **A rejection from your CSRF middleware**: props over about 8 KB are sent with `POST`. Exempt `/_lyr/island/`, or use Go's `http.CrossOriginProtection`.
+- **No island request at all**: JavaScript is off, a strict Content Security Policy blocks the inline loader (allow it with `'unsafe-inline'` or the script's hash), or the placeholder came in a `lyr.RenderComponent` fragment on a page that has no deferred component of its own, and so no loader.
 
-See [Status codes and errors](lazy-loading.md#status-codes-and-errors), [The key: `ORBIT_KEY` and rolling deploys](lazy-loading.md#the-key-orbit_key-and-rolling-deploys) and [The loader and Content Security Policy](lazy-loading.md#the-loader-and-content-security-policy).
+See [Status codes and errors](lazy-loading.md#status-codes-and-errors), [The key: `LYR_KEY` and rolling deploys](lazy-loading.md#the-key-lyr_key-and-rolling-deploys) and [The loader and Content Security Policy](lazy-loading.md#the-loader-and-content-security-policy).
 
-### The server stops at startup with an error about `ORBIT_KEY`
+### The server stops at startup with an error about `LYR_KEY`
 
-**Cause:** `ORBIT_KEY` is set, but it isn't the standard base64 encoding of exactly 32 bytes.
+**Cause:** `LYR_KEY` is set, but it isn't the standard base64 encoding of exactly 32 bytes.
 
-**Fix:** create a key with `go tool orbit create-key` and set the printed value exactly, quoted in your shell (`ORBIT_KEY='…' ./dist/server`) since it can contain `/` and `+`. Or unset it to use the key embedded by `orbit build`. See [Island key](deploy.md#island-key-orbit_key).
+**Fix:** create a key with `go tool lyr create-key` and set the printed value exactly, quoted in your shell (`LYR_KEY='…' ./dist/server`) since it can contain `/` and `+`. Or unset it to use the key embedded by `lyr build`. See [Island key](deploy.md#island-key-lyr_key).
 
 ### Locals set in middleware don't reach the page
 
@@ -811,28 +811,28 @@ See [Status codes and errors](lazy-loading.md#status-codes-and-errors), [The key
 **Cause:** usually one of these:
 
 - the middleware didn't pass the request returned by `EnsureLocals` on to `next`, so the value never travels with it;
-- the middleware sits after Orbit (`site.Middleware(mw(mux))`), so it never runs for pages;
+- the middleware sits after Lyr (`site.Middleware(mw(mux))`), so it never runs for pages;
 - a middleware attached a fresh value with `WithLocals`, which only handlers further down see; the middleware that ran earlier keeps its own pointer.
 
-**Fix:** in every middleware, use the same line and pass the returned `r` on, and wrap the middleware around Orbit:
+**Fix:** in every middleware, use the same line and pass the returned `r` on, and wrap the middleware around Lyr:
 
 ```go
-r, l := orbit.EnsureLocals[locals.Locals](r)
+r, l := lyr.EnsureLocals[locals.Locals](r)
 l.Theme = "dark"
 next.ServeHTTP(w, r)
 ```
 
-In your own handlers, `orbit.LocalsFromRequest` returns `nil` when no middleware attached any, so check for it. See [Set locals from middleware](middleware.md#set-locals-from-middleware) and [Where middleware goes](middleware.md#where-middleware-goes).
+In your own handlers, `lyr.LocalsFromRequest` returns `nil` when no middleware attached any, so check for it. See [Set locals from middleware](middleware.md#set-locals-from-middleware) and [Where middleware goes](middleware.md#where-middleware-goes).
 
-### A link renders as `href="about:invalid#orbit"`
+### A link renders as `href="about:invalid#lyr"`
 
-**Cause:** the value of a URL attribute (`href`, `src`, `action`, …) has a `javascript:` or `vbscript:` scheme, so Orbit replaced it. The filter applies to expression values and spread attributes, not to static values you write in the template.
+**Cause:** the value of a URL attribute (`href`, `src`, `action`, …) has a `javascript:` or `vbscript:` scheme, so Lyr replaced it. The filter applies to expression values and spread attributes, not to static values you write in the template.
 
-**Fix:** if the value comes from users, this is the protection working. If you trust it, give it the type `orbit.URL`, which skips the filter:
+**Fix:** if the value comes from users, this is the protection working. If you trust it, give it the type `lyr.URL`, which skips the filter:
 
-```orbit
+```lyr
 ---
-bookmarklet := orbit.URL("javascript:void(document.body.classList.toggle('dark'))")
+bookmarklet := lyr.URL("javascript:void(document.body.classList.toggle('dark'))")
 ---
 <a href={bookmarklet}>Toggle dark mode</a>
 ```
@@ -844,12 +844,12 @@ See [URL attributes](components.md#url-attributes).
 ### The Tailwind CSS CLI isn't found
 
 ```
-src/styles/global.css:1:1: @import "tailwindcss" needs the Tailwind CSS CLI v4, which wasn't found; install it: curl -sLo ~/.local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-linux-x64 && chmod +x ~/.local/bin/tailwindcss, or brew install tailwindcss, or bun add -d @tailwindcss/cli@4.3.3; see orbit doctor
+src/styles/global.css:1:1: @import "tailwindcss" needs the Tailwind CSS CLI v4, which wasn't found; install it: curl -sLo ~/.local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-linux-x64 && chmod +x ~/.local/bin/tailwindcss, or brew install tailwindcss, or bun add -d @tailwindcss/cli@4.3.3; see lyr doctor
 ```
 
-**Cause:** a stylesheet or `<style>` uses Tailwind, and Orbit found no Tailwind v4 CLI: not in `node_modules/.bin`, not on your `PATH`, and no Bun for `bun x`. When it found a v3 CLI, the message says so (`(/usr/local/bin/tailwindcss is Tailwind CSS 3.4.17, and Orbit needs v4)`): Tailwind v3 isn't supported.
+**Cause:** a stylesheet or `<style>` uses Tailwind, and Lyr found no Tailwind v4 CLI: not in `node_modules/.bin`, not on your `PATH`, and no Bun for `bun x`. When it found a v3 CLI, the message says so (`(/usr/local/bin/tailwindcss is Tailwind CSS 3.4.17, and Lyr needs v4)`): Tailwind v3 isn't supported.
 
-**Fix:** install the v4 CLI with one of the commands in the message, then run `orbit doctor`, which shows the CLI Orbit uses. In Docker or CI, add it to the build stage (see [Deploy: With Tailwind](deploy.md#with-tailwind)). See [Install the Tailwind CLI](tailwind.md#install-the-tailwind-cli).
+**Fix:** install the v4 CLI with one of the commands in the message, then run `lyr doctor`, which shows the CLI Lyr uses. In Docker or CI, add it to the build stage (see [Deploy: With Tailwind](deploy.md#with-tailwind)). See [Install the Tailwind CLI](tailwind.md#install-the-tailwind-cli).
 
 ### ``Cannot apply unknown utility class `font-boldest` ``
 
@@ -862,15 +862,15 @@ src/styles/global.css:1:1: @import "tailwindcss" needs the Tailwind CSS CLI v4, 
 **Cause:** usually one of these:
 
 - **The class is built at runtime** (`fmt.Sprintf("w-%d", n)`, `"bg-" + color`): Tailwind only finds complete class names in your files. Spell each class out, in a map or a `switch`.
-- **The file isn't scanned**: Tailwind skips what `.gitignore` ignores, and everything outside the project. Add the directory with `@source "../path";` in the stylesheet (and, for `orbit dev`, to [`watch`](configuration.md#watch) when it's outside the module).
+- **The file isn't scanned**: Tailwind skips what `.gitignore` ignores, and everything outside the project. Add the directory with `@source "../path";` in the stylesheet (and, for `lyr dev`, to [`watch`](configuration.md#watch) when it's outside the module).
 - **A component style wins**: utilities are in `@layer utilities`, and an unlayered rule beats them on the same property, whatever the specificity. Remove the property from the component's `<style>`, or put that rule in a layer.
-- **In `orbit dev`, a class you removed still applies**: the dev stylesheet only grows between full runs, like Tailwind's own watch mode. Restart `orbit dev`; `orbit build` is always exact.
+- **In `lyr dev`, a class you removed still applies**: the dev stylesheet only grows between full runs, like Tailwind's own watch mode. Restart `lyr dev`; `lyr build` is always exact.
 
 See [Use utilities in templates](tailwind.md#use-utilities-in-templates).
 
 ### A font or image from the Tailwind stylesheet's imports doesn't load
 
-**Cause:** Orbit inlines the CSS files a Tailwind stylesheet imports and rewrites their relative `url()`s, so `url(./files/x.woff2)` in a package's CSS ends up as a hashed `/_orbit/` file. What it leaves alone: root-relative URLs such as `/fonts/x.woff2`, which are served from `public/` and must exist there, absolute URLs, and imports it can't resolve, which Tailwind then reports (`Can't resolve './fonts.css' in '…'`).
+**Cause:** Lyr inlines the CSS files a Tailwind stylesheet imports and rewrites their relative `url()`s, so `url(./files/x.woff2)` in a package's CSS ends up as a hashed `/_lyr/` file. What it leaves alone: root-relative URLs such as `/fonts/x.woff2`, which are served from `public/` and must exist there, absolute URLs, and imports it can't resolve, which Tailwind then reports (`Can't resolve './fonts.css' in '…'`).
 
 **Fix:** install the package (`bun add @fontsource-variable/figtree`), check the import's path, or put root-relative files in `public/`. See [Fonts and other CSS your stylesheet imports](tailwind.md#fonts-and-other-css-your-stylesheet-imports).
 
@@ -884,7 +884,7 @@ See [Use utilities in templates](tailwind.md#use-utilities-in-templates).
 - **The page has no `</body>`**: the proxy adds its reload script just before `</body>`, so a page without one (check your layout) gets no live reload.
 - **The response came back compressed**: the proxy asks your server for uncompressed responses, and passes a compressed one through without the reload script, printing a one-time warning. Make your gzip middleware honor the request's `Accept-Encoding`.
 - **You're not on the dev proxy**: open <http://localhost:4321> (or your `--port`). A server you run yourself, for example under Delve, gets no live reload.
-- **The file isn't watched**: Orbit watches `src/`, `public/` and every `.go` file in your module, except `orbit_gen/`, `dist/` and `.orbit/`.
+- **The file isn't watched**: Lyr watches `src/`, `public/` and every `.go` file in your module, except `lyr_gen/`, `dist/` and `.lyr/`.
 
 If the connection drops while your server restarts, the reload script reconnects with backoff and reloads once the server is back. See [Live reload](dev-server.md#live-reload) and [What a change rebuilds](dev-server.md#what-a-change-rebuilds).
 
@@ -893,23 +893,23 @@ If the connection drops while your server restarts, the reload script reconnects
 **Cause:** the overlay replaces the page for three kinds of errors:
 
 - **Compile errors** (a Go type error, an unknown prop, a template syntax error): the old server keeps running, and the overlay shows the message, its `file:line:col` and a code frame. Requests that aren't for HTML pages still reach the old server.
-- **Startup errors**: the new server built but exited, for example because a database is unreachable, or it didn't accept connections within 10 seconds (`your server didn't accept connections on ORBIT_ADDR=127.0.0.1:… within 10s; does it listen on orbit.Addr()?`). The overlay shows its stderr. A server that exits later on its own (`your server exited: exit status 1; save a file to restart it`) is shown the same way.
+- **Startup errors**: the new server built but exited, for example because a database is unreachable, or it didn't accept connections within 10 seconds (`your server didn't accept connections on LYR_ADDR=127.0.0.1:… within 10s; does it listen on lyr.Addr()?`). The overlay shows its stderr. A server that exits later on its own (`your server exited: exit status 1; save a file to restart it`) is shown the same way.
 - **Render errors**: a page returned an error or panicked; your server's own dev overlay shows it with its `file:line`.
 
-**Fix:** fix the error and save. The overlay listens for live-reload events, so the page reloads by itself. For a server that didn't accept connections, make it listen on `orbit.Addr()`, which reads the `ORBIT_ADDR` that `orbit dev` sets (see [Running under `orbit dev`](server.md#running-under-orbit-dev)). The same messages appear in the terminal running `orbit dev`. See [Dev server: Errors](dev-server.md#errors).
+**Fix:** fix the error and save. The overlay listens for live-reload events, so the page reloads by itself. For a server that didn't accept connections, make it listen on `lyr.Addr()`, which reads the `LYR_ADDR` that `lyr dev` sets (see [Running under `lyr dev`](server.md#running-under-lyr-dev)). The same messages appear in the terminal running `lyr dev`. See [Dev server: Errors](dev-server.md#errors).
 
 ### Port 4321 is already in use
 
-**Cause:** another process is listening there. `orbit dev`, `orbit preview` and a built `dist/server` all default to port 4321. `orbit dev` then moves to the next free port (`orbit dev: port 4321 is in use, using 4322 instead`), but `orbit preview` and `dist/server` stop with `address already in use`.
+**Cause:** another process is listening there. `lyr dev`, `lyr preview` and a built `dist/server` all default to port 4321. `lyr dev` then moves to the next free port (`lyr dev: port 4321 is in use, using 4322 instead`), but `lyr preview` and `dist/server` stop with `address already in use`.
 
 **Fix:** pick another port for one of them:
 
 ```sh
-orbit dev --port 3000
-PORT=3000 go tool orbit preview
+lyr dev --port 3000
+PORT=3000 go tool lyr preview
 ```
 
-Under `orbit dev`, your own server must listen on `orbit.Addr()` (as `orbit.ListenAndServe` does), which `orbit dev` points at a random localhost port; a server that listens on a fixed port can't be reached by the dev proxy. See [Running under `orbit dev`](server.md#running-under-orbit-dev).
+Under `lyr dev`, your own server must listen on `lyr.Addr()` (as `lyr.ListenAndServe` does), which `lyr dev` points at a random localhost port; a server that listens on a fixed port can't be reached by the dev proxy. See [Running under `lyr dev`](server.md#running-under-lyr-dev).
 
 ### Other devices can't reach the dev server
 
@@ -918,7 +918,7 @@ Under `orbit dev`, your own server must listen on `orbit.Addr()` (as `orbit.List
 **Fix:** listen on all interfaces, then open your machine's address from the other device:
 
 ```sh
-orbit dev --host
+lyr dev --host
 ```
 
 Your own server keeps running on `127.0.0.1` behind the proxy either way. See [Start it](dev-server.md#start-it).
@@ -927,57 +927,57 @@ Your own server keeps running on `127.0.0.1` behind the proxy either way. See [S
 
 **Cause:** when you edit a `.go` package that every component's `Props` depends on (such as `internal/posts`), `go build` recompiles every generated package. Go recompiles a package's importers whenever it changes, even when only a function body did. On a 200-component project this took about 0.6 s on 16 threads and about 1.05 s on 4 cores, against about 0.2 s for a component edit. Edits to only a `<style>` or `<script>` need no Go rebuild at all.
 
-**Fix:** this is `go build` time. Dev builds already skip DWARF and the symbol table (`-ldflags=-s -w`, `-gcflags=all=-dwarf=false`) to compile and link faster, and on a `.go`-only edit `orbit dev` starts `go build` right away, while it regenerates. Keep frequently edited Go code out of packages that every `Props` imports. Edits to packages fewer components import rebuild less. Also check your server: each Go rebuild restarts it, so a slow startup adds to every save, and a server that runs its own `http.Server` without handling `SIGINT` is only killed after 5 seconds. `orbit.ListenAndServe` handles `SIGINT` for you. See [How long a rebuild takes](dev-server.md#how-long-a-rebuild-takes).
+**Fix:** this is `go build` time. Dev builds already skip DWARF and the symbol table (`-ldflags=-s -w`, `-gcflags=all=-dwarf=false`) to compile and link faster, and on a `.go`-only edit `lyr dev` starts `go build` right away, while it regenerates. Keep frequently edited Go code out of packages that every `Props` imports. Edits to packages fewer components import rebuild less. Also check your server: each Go rebuild restarts it, so a slow startup adds to every save, and a server that runs its own `http.Server` without handling `SIGINT` is only killed after 5 seconds. `lyr.ListenAndServe` handles `SIGINT` for you. See [How long a rebuild takes](dev-server.md#how-long-a-rebuild-takes).
 
 ## Editor
 
-### No completion in `.orbit` files
+### No completion in `.lyr` files
 
 Go through these in order:
 
-1. Run `orbit doctor` and fix the gopls line. If only template completion works (tags, props, slots, directives) and Go completion doesn't, see [Go features are disabled in the editor](#go-features-are-disabled-in-the-editor-gopls-is-too-old).
-2. **VS Code**: install the extension with `code --install-extension orbit-z.orbit`. It runs the `orbit` on your `PATH`; if it isn't there, set `orbit.path`.
-3. **Neovim**: add the `vim.filetype.add({ extension = { orbit = 'orbit' } })` line and `vim.lsp.enable('orbit')` from [Editor setup](editor-setup.md#neovim).
+1. Run `lyr doctor` and fix the gopls line. If only template completion works (tags, props, slots, directives) and Go completion doesn't, see [Go features are disabled in the editor](#go-features-are-disabled-in-the-editor-gopls-is-too-old).
+2. **VS Code**: install the extension with `code --install-extension orbit-z.lyr`. It runs the `lyr` on your `PATH`; if it isn't there, set `lyr.path`.
+3. **Neovim**: add the `vim.filetype.add({ extension = { lyr = 'lyr' } })` line and `vim.lsp.enable('lyr')` from [Editor setup](editor-setup.md#neovim).
 4. Open the project at its root: the language server looks for the directory with `go.mod` and `src/`.
 
 For TypeScript features inside `<script>` (completion, diagnostics, …), see [No TypeScript completion in `<script>`](#no-typescript-completion-in-script) below.
 
 ### No TypeScript completion in `<script>`
 
-**Cause:** the TypeScript features of `<script>` blocks come from TypeScript 7's language server, which `orbit lsp` starts when you open an `.orbit` file with a script. Without it, scripts get highlighting only, and the language server says so once: "TypeScript features in `<script>` blocks need TypeScript 7.0.2 or later". The usual reasons:
+**Cause:** the TypeScript features of `<script>` blocks come from TypeScript 7's language server, which `lyr lsp` starts when you open a `.lyr` file with a script. Without it, scripts get highlighting only, and the language server says so once: "TypeScript features in `<script>` blocks need TypeScript 7.0.2 or later". The usual reasons:
 
-- No TypeScript 7 is installed, and Bun isn't either (with Bun, Orbit runs `bun x --package typescript@7.0.2` itself).
-- The `tsc` found is TypeScript 5 or 6, which has no language server (`tsc --version` prints `Version 5.9.3` or `6.0.3`). Your editor's own TypeScript is usually one of those: it serves `.ts` files, not `.orbit` scripts.
-- The cursor is in a script Orbit doesn't treat as code: a JSON block (`type="application/json"`, `set:json`, `application/ld+json`) or a script with a `src` attribute (its `.ts` file has the features instead).
+- No TypeScript 7 is installed, and Bun isn't either (with Bun, Lyr runs `bun x --package typescript@7.0.2` itself).
+- The `tsc` found is TypeScript 5 or 6, which has no language server (`tsc --version` prints `Version 5.9.3` or `6.0.3`). Your editor's own TypeScript is usually one of those: it serves `.ts` files, not `.lyr` scripts.
+- The cursor is in a script Lyr doesn't treat as code: a JSON block (`type="application/json"`, `set:json`, `application/ld+json`) or a script with a `src` attribute (its `.ts` file has the features instead).
 
-**Fix:** run `orbit doctor` and look at the `typescript` line. Install TypeScript 7 (`bun add -g typescript@7.0.2` or `npm i -g typescript@7.0.2`), or point the `typescriptPath` option at one (`orbit.typescriptPath` in VS Code), then restart the language server (**Orbit: Restart Language Server**). `is:inline` scripts get JavaScript features, without the data types or imports: they run as written. See [TypeScript in `<script>` blocks](editor-setup.md#typescript-in-script-blocks).
+**Fix:** run `lyr doctor` and look at the `typescript` line. Install TypeScript 7 (`bun add -g typescript@7.0.2` or `npm i -g typescript@7.0.2`), or point the `typescriptPath` option at one (`lyr.typescriptPath` in VS Code), then restart the language server (**Lyr: Restart Language Server**). `is:inline` scripts get JavaScript features, without the data types or imports: they run as written. See [TypeScript in `<script>` blocks](editor-setup.md#typescript-in-script-blocks).
 
-### `Cannot find module './LikeButton.orbit' or its corresponding type declarations`
+### `Cannot find module './LikeButton.lyr' or its corresponding type declarations`
 
-**Cause:** TypeScript (`orbit check`, as `error TS2307`, or your editor) can't find the generated types of `import { data } from "./LikeButton.orbit"`. There are three reasons:
+**Cause:** TypeScript (`lyr check`, as `error TS2307`, or your editor) can't find the generated types of `import { data } from "./LikeButton.lyr"`. There are three reasons:
 
-- `orbit_gen/types/` hasn't been written yet, as in a fresh clone. In a `<script>` block in the editor, the language server serves the types from memory instead, a moment after it starts (it type-checks the project first); in a `.ts` file, the editor's own TypeScript needs them on disk.
-- Your `tsconfig.json` lacks the `rootDirs` entry that points TypeScript at `orbit_gen/types/` (only for `.ts` files in the editor: `orbit check` and the TypeScript in `<script>` blocks add it themselves). `orbit doctor` reports it.
-- The component has no typed data: no `data-*` attribute set with a direct `orbit.JSON(…)` call, and no `set:json` block with a static `id`. Such a component has no module. This is also what you see after renaming the file: the import must use the new name.
+- `lyr_gen/types/` hasn't been written yet, as in a fresh clone. In a `<script>` block in the editor, the language server serves the types from memory instead, a moment after it starts (it type-checks the project first); in a `.ts` file, the editor's own TypeScript needs them on disk.
+- Your `tsconfig.json` lacks the `rootDirs` entry that points TypeScript at `lyr_gen/types/` (only for `.ts` files in the editor: `lyr check` and the TypeScript in `<script>` blocks add it themselves). `lyr doctor` reports it.
+- The component has no typed data: no `data-*` attribute set with a direct `lyr.JSON(…)` call, and no `set:json` block with a static `id`. Such a component has no module. This is also what you see after renaming the file: the import must use the new name.
 
-**Fix:** in a `<script>` block, wait a second, or check the component for Go errors (a component whose frontmatter doesn't compile has untyped data); otherwise run `orbit generate` (or keep `orbit dev` running); add `"rootDirs": [".", "orbit_gen/types"]` to `compilerOptions` and `"orbit_gen/types/*.d.ts"` to `include` in `tsconfig.json`; or check that the template writes the data with `orbit.JSON`. See [Client modules](reference/client-modules.md#components-without-data).
+**Fix:** in a `<script>` block, wait a second, or check the component for Go errors (a component whose frontmatter doesn't compile has untyped data); otherwise run `lyr generate` (or keep `lyr dev` running); add `"rootDirs": [".", "lyr_gen/types"]` to `compilerOptions` and `"lyr_gen/types/*.d.ts"` to `include` in `tsconfig.json`; or check that the template writes the data with `lyr.JSON`. See [Client modules](reference/client-modules.md#components-without-data).
 
-### The Go extension reports errors in `orbit_gen/`
+### The Go extension reports errors in `lyr_gen/`
 
-**Cause:** the VS Code Go extension runs its own gopls, which sees the generated files in `orbit_gen/` and reports their errors there. Orbit doesn't suppress them.
+**Cause:** the VS Code Go extension runs its own gopls, which sees the generated files in `lyr_gen/` and reports their errors there. Lyr doesn't suppress them.
 
-**Fix:** they're usually the same errors Orbit already shows at the right place in your `.orbit` file, so fix them there. Errors that appear only in `orbit_gen/` often mean the generated code is stale: run `orbit generate`, or keep `orbit dev` running. Don't hide them with a gopls `directoryFilters` entry such as `"-orbit_gen"`: Orbit passes your editor's `gopls` settings to its own gopls too, and that one needs `orbit_gen/` to give you Go features in `.orbit` files. See [The Go extension's errors in `orbit_gen/`](editor-setup.md#the-go-extensions-errors-in-orbit_gen).
+**Fix:** they're usually the same errors Lyr already shows at the right place in your `.lyr` file, so fix them there. Errors that appear only in `lyr_gen/` often mean the generated code is stale: run `lyr generate`, or keep `lyr dev` running. Don't hide them with a gopls `directoryFilters` entry such as `"-lyr_gen"`: Lyr passes your editor's `gopls` settings to its own gopls too, and that one needs `lyr_gen/` to give you Go features in `.lyr` files. See [The Go extension's errors in `lyr_gen/`](editor-setup.md#the-go-extensions-errors-in-lyr_gen).
 
 ### Rename and references wait after the editor starts
 
-**Cause:** until gopls has loaded every component, references and rename would miss uses, so Orbit holds them; your editor shows a progress indicator meanwhile. Without `orbit_gen/` on disk, gopls loads every component from memory first, which is a little slower: about 0.4 s for 200 components, against about 0.3 s with an up-to-date `orbit_gen/`.
+**Cause:** until gopls has loaded every component, references and rename would miss uses, so Lyr holds them; your editor shows a progress indicator meanwhile. Without `lyr_gen/` on disk, gopls loads every component from memory first, which is a little slower: about 0.4 s for 200 components, against about 0.3 s with an up-to-date `lyr_gen/`.
 
-**Fix:** nothing to fix: it lasts well under a second. Running `orbit generate` (or keeping `orbit dev` running) makes it a little shorter. If a rename is refused with a message, it would have changed generated code that doesn't correspond to anything in your files. See [Startup and `orbit_gen/`](editor-setup.md#startup-and-orbit_gen) and [Rename](editor-setup.md#rename).
+**Fix:** nothing to fix: it lasts well under a second. Running `lyr generate` (or keeping `lyr dev` running) makes it a little shorter. If a rename is refused with a message, it would have changed generated code that doesn't correspond to anything in your files. See [Startup and `lyr_gen/`](editor-setup.md#startup-and-lyr_gen) and [Rename](editor-setup.md#rename).
 
 ## See also
 
 - [Coming from Astro](coming-from-astro.md): what maps to what, and what isn't supported
-- [CLI](reference/cli.md): `orbit doctor`, error output and exit codes
+- [CLI](reference/cli.md): `lyr doctor`, error output and exit codes
 - [Components](components.md): frontmatter, props and the compile errors around them
 - [Template syntax](reference/template-syntax.md): every directive and its errors
 - [Lazy loading](lazy-loading.md): `server:defer`, the island key and island status codes

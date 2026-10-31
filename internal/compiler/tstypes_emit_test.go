@@ -37,7 +37,7 @@ func TestEmitTypes(t *testing.T) {
 	// example.com/string stands in for types declared in a frontmatter.
 	nsOf := func(p *types.Package) tsNS {
 		if p.Path() == "example.com/string" {
-			return tsNS{Key: "orbit:src/components/Card.orbit", Base: "Card", Path: "src/components/Card"}
+			return tsNS{Key: "lyr:src/components/Card.lyr", Base: "Card", Path: "src/components/Card"}
 		}
 		return tsTestNS(p)
 	}
@@ -71,8 +71,8 @@ func TestEmitTypes(t *testing.T) {
 		return u
 	}
 	units := []*UnitTypes{
-		unit("src/pages/index.orbit", "#", [][]string{{"config", "map[string]Status"}, {"page", "Page[Post]"}}),
-		unit("src/components/LikeButton.orbit", "data-", [][]string{
+		unit("src/pages/index.lyr", "#", [][]string{{"config", "map[string]Status"}, {"page", "Page[Post]"}}),
+		unit("src/components/LikeButton.lyr", "data-", [][]string{
 			{"post", "Post"},
 			{"liked", "bool"},
 			{"item", "iposts.Post", "lposts.Post"},
@@ -82,7 +82,7 @@ func TestEmitTypes(t *testing.T) {
 			{"card", "str.T", "Names"},
 			{"keyword", "number"},
 		}),
-		unit("src/components/Empty.orbit", "data-", nil),
+		unit("src/components/Empty.lyr", "data-", nil),
 	}
 	files := EmitTypes(units)
 	var paths []string
@@ -93,10 +93,10 @@ func TestEmitTypes(t *testing.T) {
 		}
 	}
 	want := []string{
-		"orbit_gen/types/client.d.ts",
-		"orbit_gen/types/go.d.ts",
-		"orbit_gen/types/src/components/LikeButton.orbit.d.ts",
-		"orbit_gen/types/src/pages/index.orbit.d.ts",
+		"lyr_gen/types/client.d.ts",
+		"lyr_gen/types/go.d.ts",
+		"lyr_gen/types/src/components/LikeButton.lyr.d.ts",
+		"lyr_gen/types/src/pages/index.lyr.d.ts",
 	}
 	if !slices.Equal(paths, want) {
 		t.Errorf("paths = %q, want %q", paths, want)
@@ -121,25 +121,25 @@ func TestTSNamespaceNames(t *testing.T) {
 		ns("example.com/yaml/v3", "yaml"),
 		ns("example.com/default", "default"),
 		ns("example.com/my-pkg/x", "x"),
-		{Key: "orbit:src/components/like-button.orbit", Base: "like-button", Path: "src/components/like-button"},
-		{Key: "orbit:src/components/Data.orbit", Base: "Data", Path: "src/components/Data"},
+		{Key: "lyr:src/components/like-button.lyr", Base: "like-button", Path: "src/components/like-button"},
+		{Key: "lyr:src/components/Data.lyr", Base: "Data", Path: "src/components/Data"},
 		ns("example.com/Data_", "Data_"),
 	} {
 		decls = append(decls, TSDecl{Ref: s.Key + "\x01T", NS: s, Name: "T"})
 	}
 	n := newTSNames(decls)
 	want := map[string]string{
-		"example.com/internal/posts":             "internal_posts",
-		"example.com/legacy/posts":               "legacy_posts",
-		"a.com/x/feed":                           "a_com_x_feed",
-		"b.com/x/feed":                           "b_com_x_feed",
-		"c.com/feed":                             "c_com_feed",
-		"example.com/yaml/v3":                    "yaml",
-		"example.com/default":                    "default_",
-		"example.com/my-pkg/x":                   "x",
-		"orbit:src/components/like-button.orbit": "like_button",
-		"example.com/Data_":                      "Data_",
-		"orbit:src/components/Data.orbit":        "Data__2",
+		"example.com/internal/posts":         "internal_posts",
+		"example.com/legacy/posts":           "legacy_posts",
+		"a.com/x/feed":                       "a_com_x_feed",
+		"b.com/x/feed":                       "b_com_x_feed",
+		"c.com/feed":                         "c_com_feed",
+		"example.com/yaml/v3":                "yaml",
+		"example.com/default":                "default_",
+		"example.com/my-pkg/x":               "x",
+		"lyr:src/components/like-button.lyr": "like_button",
+		"example.com/Data_":                  "Data_",
+		"lyr:src/components/Data.lyr":        "Data__2",
 	}
 	for k, v := range want {
 		if n.ns[k] != v {

@@ -1,4 +1,4 @@
-// Package scaffold writes the orbit new starter project (PLAN.md §6) from
+// Package scaffold writes the lyr new starter project (PLAN.md §6) from
 // the template embedded in the CLI.
 package scaffold
 
@@ -18,20 +18,20 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/lyr/internal/config"
 )
 
-// OrbitModule is the framework's module path.
-const OrbitModule = "github.com/orbit-z/orbit"
+// LyrModule is the framework's module path.
+const LyrModule = "github.com/orbit-z/lyr"
 
 // FallbackToolchain is the toolchain line written when the CLI wasn't built
 // by a Go release (a devel toolchain): the framework's own go.mod
 // toolchain. A test keeps it in sync with ../../go.mod.
 const FallbackToolchain = "go1.27.3"
 
-// ReplaceEnv names the environment variable that points orbit new at a
-// local checkout of Orbit, for a replace directive.
-const ReplaceEnv = "ORBIT_REPLACE"
+// ReplaceEnv names the environment variable that points lyr new at a
+// local checkout of Lyr, for a replace directive.
+const ReplaceEnv = "LYR_REPLACE"
 
 // The template: files ending in .tmpl are text/template files, written
 // without the suffix; the others are copied as they are.
@@ -46,10 +46,10 @@ type Options struct {
 	// Toolchain is the go.mod toolchain line, such as go1.27.3; the
 	// Dockerfile's golang image tag is the same version.
 	Toolchain string
-	// Version is the github.com/orbit-z/orbit version required.
+	// Version is the github.com/orbit-z/lyr version required.
 	Version string
 	// Replace, if set, is the local directory that replaces
-	// github.com/orbit-z/orbit in go.mod.
+	// github.com/orbit-z/lyr in go.mod.
 	Replace string
 }
 
@@ -185,15 +185,15 @@ func toolchain(v string) string {
 	return FallbackToolchain
 }
 
-// Source is where a new project gets github.com/orbit-z/orbit from.
+// Source is where a new project gets github.com/orbit-z/lyr from.
 type Source struct {
 	Version string // the require version
 	Replace string // a local checkout for a replace directive, or ""
 }
 
-// ResolveSource picks the Orbit version for the running CLI. replaceEnv
-// is the value of $ORBIT_REPLACE:
-//   - ORBIT_REPLACE set: a replace with that checkout (made absolute);
+// ResolveSource picks the Lyr version for the running CLI. replaceEnv
+// is the value of $LYR_REPLACE:
+//   - LYR_REPLACE set: a replace with that checkout (made absolute);
 //   - a release build (v1.2.3): that version;
 //   - otherwise (go run, go build in a checkout: (devel) or a
 //     pseudo-version), a replace with the checkout the CLI was built from
@@ -204,15 +204,15 @@ func ResolveSource(replaceEnv string) (Source, error) {
 	return resolve(v, srcDir, replaceEnv)
 }
 
-// buildVersion returns the CLI's version of the Orbit module and the
+// buildVersion returns the CLI's version of the Lyr module and the
 // directory its sources were compiled from ("" if unknown, e.g. -trimpath).
 func buildVersion() (version, srcDir string) {
 	if bi, ok := debug.ReadBuildInfo(); ok {
-		if bi.Main.Path == OrbitModule {
+		if bi.Main.Path == LyrModule {
 			version = bi.Main.Version
 		}
 		for _, d := range bi.Deps {
-			if d.Path == OrbitModule {
+			if d.Path == LyrModule {
 				version = d.Version
 				if d.Replace != nil && d.Replace.Version == "" {
 					version = "(devel)"
@@ -237,8 +237,8 @@ func resolve(version, srcDir, replaceEnv string) (Source, error) {
 		if err != nil {
 			return Source{}, err
 		}
-		if !isOrbitCheckout(dir, false) {
-			return Source{}, fmt.Errorf("%s=%s: not a checkout of %s (no go.mod with module %s)", ReplaceEnv, replaceEnv, OrbitModule, OrbitModule)
+		if !isLyrCheckout(dir, false) {
+			return Source{}, fmt.Errorf("%s=%s: not a checkout of %s (no go.mod with module %s)", ReplaceEnv, replaceEnv, LyrModule, LyrModule)
 		}
 		return Source{Version: "v0.0.0", Replace: dir}, nil
 	}
@@ -246,7 +246,7 @@ func resolve(version, srcDir, replaceEnv string) (Source, error) {
 	if clean && !pseudoRE.MatchString(version) {
 		return Source{Version: version}, nil
 	}
-	if srcDir != "" && isOrbitCheckout(srcDir, true) {
+	if srcDir != "" && isLyrCheckout(srcDir, true) {
 		return Source{Version: "v0.0.0", Replace: srcDir}, nil
 	}
 	if clean {
@@ -255,14 +255,14 @@ func resolve(version, srcDir, replaceEnv string) (Source, error) {
 	if version == "" {
 		version = "unknown"
 	}
-	return Source{}, fmt.Errorf("this orbit CLI is a development build (version %s) and its sources weren't found; set %s=/path/to/orbit to use a local checkout of %s", version, ReplaceEnv, OrbitModule)
+	return Source{}, fmt.Errorf("this lyr CLI is a development build (version %s) and its sources weren't found; set %s=/path/to/lyr to use a local checkout of %s", version, ReplaceEnv, LyrModule)
 }
 
-// isOrbitCheckout reports whether dir is the root of the Orbit module, and,
+// isLyrCheckout reports whether dir is the root of the Lyr module, and,
 // with needGit, a version-control checkout (which a module cache copy
 // never is).
-func isOrbitCheckout(dir string, needGit bool) bool {
-	if m, err := config.ReadModule(dir); err != nil || m != OrbitModule {
+func isLyrCheckout(dir string, needGit bool) bool {
+	if m, err := config.ReadModule(dir); err != nil || m != LyrModule {
 		return false
 	}
 	if needGit {

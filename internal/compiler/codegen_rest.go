@@ -1,10 +1,10 @@
 package compiler
 
 // Pass-through attributes (PLAN.md §2.5): a component call site's
-// attributes that match no field of a target with an orbit.RestAttrs field
-// are collected into it (orbit__rt.Rest, static attributes pre-escaped at
+// attributes that match no field of a target with a lyr.RestAttrs field
+// are collected into it (lyr__rt.Rest, static attributes pre-escaped at
 // build time, dynamic ones as typed call sites), and {...props.Attrs} on an
-// element writes them with orbit__w.SpreadRest, merging their class into
+// element writes them with lyr__w.SpreadRest, merging their class into
 // the element's own.
 
 import (
@@ -63,7 +63,7 @@ func hasProp(props *PropsInfo, name string) bool {
 }
 
 // restValue emits the value of the target's RestAttrs field: the call
-// site's own attributes as orbit__rt.Rest(class, tail, dyn...) (with the
+// site's own attributes as lyr__rt.Rest(class, tail, dyn...) (with the
 // calling file's scope attribute), merged with each spread.
 func (g *cgGen) restValue(n *Component, r *cgRest) {
 	o := g.o
@@ -118,7 +118,7 @@ func (g *cgGen) restSpreadSite(n *Component, r *cgRest, a *Attr, call, arg Span)
 	g.sites = append(g.sites, CallSite{Kind: SiteSpread, Key: a.Code.Start, Node: n, Attr: a, Code: a.Code, Call: call, Arg: arg, Spread: r.tag})
 }
 
-// restOwn emits orbit__rt.Rest(class, tail, dyn...) for the attributes
+// restOwn emits lyr__rt.Rest(class, tail, dyn...) for the attributes
 // written on the tag.
 func (g *cgGen) restOwn(n *Component, r *cgRest) {
 	o := g.o
@@ -158,7 +158,7 @@ func (g *cgGen) restOwn(n *Component, r *cgRest) {
 }
 
 // restSite emits one dynamic attribute: the fallback
-// orbit__rt.RestAny(pre, name, x), or the typed orbit__rt.RestString(…),
+// lyr__rt.RestAny(pre, name, x), or the typed lyr__rt.RestString(…),
 // RestInt(…), … chosen by the typed pass.
 func (g *cgGen) restSite(n *Component, a *Attr, pre string) {
 	o := g.o
@@ -187,9 +187,9 @@ func (g *cgGen) restSite(n *Component, a *Attr, pre string) {
 	g.sites = append(g.sites, cs)
 }
 
-// restClassArg emits the class argument of orbit__rt.Rest: the joined
+// restClassArg emits the class argument of lyr__rt.Rest: the joined
 // classes of the tag's class and class:list attributes, a string constant
-// when they're static, else orbit__rt.JoinClasses of the items.
+// when they're static, else lyr__rt.JoinClasses of the items.
 func (g *cgGen) restClassArg(n *Component, r *cgRest) {
 	o := g.o
 	if r.cl == nil && len(r.classes) == 0 {
@@ -245,7 +245,7 @@ func (g *cgGen) restClassArg(n *Component, r *cgRest) {
 
 // restOperand returns "props.<Rest>" when the spread a on an HTML element
 // spreads the file's own RestAttrs field (PLAN.md §2.5), and "" otherwise
-// (an orbit.Attrs spread).
+// (a lyr.Attrs spread).
 func (g *cgGen) restOperand(a *Attr) string {
 	rest := g.a.Props.Rest
 	if rest == "" || a.Kind != AttrSpread || !strings.Contains(a.Code.Text, rest) {
@@ -273,7 +273,7 @@ func (g *cgGen) restOperand(a *Attr) string {
 }
 
 // spreadRest emits {...props.Attrs} on an HTML element:
-// orbit__w.SpreadRest(&props.Attrs, withClass), withClass set when the
+// lyr__w.SpreadRest(&props.Attrs, withClass), withClass set when the
 // element has no class of its own to merge the rest's class into.
 func (g *cgGen) spreadRest(a *Attr, withClass bool) {
 	o := g.o

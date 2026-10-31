@@ -1,13 +1,13 @@
-info src/components/err_imports.orbit component route=""
+info src/components/err_imports.lyr component route=""
 goimport name="" path="strings" @14-23 "\"strings\"" path=@14-23 place=impl
 goimport name="." path="fmt" @25-32 ". \"fmt\"" path=@27-32 place=impl
-orbitimport @34-38 "card" path="./Card.orbit" resolved=src/components/Card.orbit @34-53 pathspan=@39-53 place=none
-orbitimport @198-204 "Unused" path="../layouts/Unused.orbit" resolved=src/layouts/Unused.orbit @198-230 pathspan=@205-230 place=none
-orbitimport @232-236 "Used" path="./Used.orbit" resolved=src/components/Used.orbit @232-251 pathspan=@237-251 place=impl
-orbitimport @253-257 "InGo" path="./InGo.orbit" resolved=src/components/InGo.orbit @253-272 pathspan=@258-272 place=impl
-implicit orbit: none
-stmt @276-307 "s := strings.ToUpper(Sprint(1))"
-stmt @308-325 "p := InGo.Props{}"
+lyrimport @34-38 "card" path="./Card.lyr" resolved=src/components/Card.lyr @34-51 pathspan=@39-51 place=none
+lyrimport @188-194 "Unused" path="../layouts/Unused.lyr" resolved=src/layouts/Unused.lyr @188-218 pathspan=@195-218 place=none
+lyrimport @220-224 "Used" path="./Used.lyr" resolved=src/components/Used.lyr @220-237 pathspan=@225-237 place=impl
+lyrimport @239-243 "InGo" path="./InGo.lyr" resolved=src/components/InGo.lyr @239-256 pathspan=@244-256 place=impl
+implicit lyr: none
+stmt @260-291 "s := strings.ToUpper(Sprint(1))"
+stmt @292-309 "p := InGo.Props{}"
 echo [s p]
 terminating false
 props declared=false listable=true span=@0-0

@@ -1,5 +1,5 @@
-info src/pages/[id]/[id].orbit page route="/[id]/[id]"
-implicit orbit: none
+info src/pages/[id]/[id].lyr page route="/[id]/[id]"
+implicit lyr: none
 echo []
 terminating false
 props declared=false listable=true span=@0-0

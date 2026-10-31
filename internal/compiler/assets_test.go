@@ -22,7 +22,7 @@ func TestScriptsAndStyles(t *testing.T) {
 	if !HasScopedStyle(f) {
 		t.Error("HasScopedStyle = false")
 	}
-	if ScopeAttr("src/components/Card.orbit") != "data-o-"+ScopeHash("src/components/Card.orbit") {
+	if ScopeAttr("src/components/Card.lyr") != "data-l-"+ScopeHash("src/components/Card.lyr") {
 		t.Error("ScopeAttr")
 	}
 }

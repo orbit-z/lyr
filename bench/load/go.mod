@@ -1,4 +1,4 @@
-module github.com/orbit-z/orbit/bench/load
+module github.com/orbit-z/lyr/bench/load
 
 go 1.27
 

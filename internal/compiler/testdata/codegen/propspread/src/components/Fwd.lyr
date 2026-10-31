@@ -1,0 +1,10 @@
+---
+import Actions "./Actions.lyr"
+
+type Props struct {
+	Slug  string
+	Mine  bool
+	Attrs lyr.RestAttrs
+}
+---
+<Actions {...props} class="fwd" data-x="1" />

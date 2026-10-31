@@ -3,7 +3,7 @@ re := `\d+ ${x}`
 n := 3
 ---
 <a href={`/p/${slug}`} aria-label={`Chapter ${props.Index + 1} of ${props.Book.Title}`}>{` · ${n * 2} words`}</a>
-<button aria-label={orbit.If(c, `Close ${x}`)}>x</button>
+<button aria-label={lyr.If(c, `Close ${x}`)}>x</button>
 <p title={strings.ToUpper(`a ${b + c}`) + "!"}>{f(`x ${y}`, `}`)}</p>
 {if s == `a-${b + 1}`}<p>a</p>{else if `${"}"}` != ""}<p>b</p>{/if}
 {for _, x := range []string{`a`, `b${c}`}}<i>{`a ${f(`x ${g(`y ${z + 1}`)}`)} b`}</i>{/for}

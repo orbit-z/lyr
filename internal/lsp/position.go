@@ -11,7 +11,7 @@ import (
 
 // Positions (PLAN.md §9): LSP positions are a 0-based line and a column in
 // some encoding's code units, UTF-16 unless negotiated otherwise. Inside
-// Orbit everything is a byte offset; the conversion happens at both edges,
+// Lyr everything is a byte offset; the conversion happens at both edges,
 // with a line index of the text the position refers to.
 
 // encoding is a position encoding: what a "character" counts.

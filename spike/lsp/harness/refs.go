@@ -15,9 +15,9 @@ func sessionRefs(gopls string) *report {
 	r := &report{}
 	r.p("# Session refs: references of cN.Props.Featured from the decl file, %d components", scaleN)
 	named := func(s, pkg string) string {
-		s = strings.Replace(s, "\t. \"example.com/blog/orbit_gen/decl/components/"+pkg+"\"", "\torbit__self \"example.com/blog/orbit_gen/decl/components/"+pkg+"\"", 1)
-		s = strings.Replace(s, "props Props", "props orbit__self.Props", 1)
-		s = strings.Replace(s, "Orbit__Render = orbit__render", "orbit__self.Orbit__Render = orbit__render", 1)
+		s = strings.Replace(s, "\t. \"example.com/blog/lyr_gen/decl/components/"+pkg+"\"", "\tlyr__self \"example.com/blog/lyr_gen/decl/components/"+pkg+"\"", 1)
+		s = strings.Replace(s, "props Props", "props lyr__self.Props", 1)
+		s = strings.Replace(s, "Lyr__Render = lyr__render", "lyr__self.Lyr__Render = lyr__render", 1)
 		return s
 	}
 	vi := 0
@@ -29,7 +29,7 @@ func sessionRefs(gopls string) *report {
 	}{
 		{"overlays, dot-import (PLAN layout)", false, false, false},
 		{"overlays, dot-import (PLAN layout), repeat", false, false, false},
-		{"overlays, named import orbit__self", false, true, false},
+		{"overlays, named import lyr__self", false, true, false},
 		{"overlays, dot-import, all /*line*/ directives stripped", false, false, true},
 		{"overlays, dot-import, all /*line*/ directives stripped, repeat", false, false, true},
 		{"files on disk (no overlays), dot-import", true, false, false},
@@ -38,14 +38,14 @@ func sessionRefs(gopls string) *report {
 		vi++
 		root := projectDir
 		files := map[string]string{}
-		g := filepath.Join(root, "orbit_gen")
+		g := filepath.Join(root, "lyr_gen")
 		if v.onDisk {
-			tmp, _ := os.MkdirTemp("", "orbitrefs")
+			tmp, _ := os.MkdirTemp("", "lyrrefs")
 			defer os.RemoveAll(tmp)
 			os.CopyFS(tmp, os.DirFS(filepath.Dir(projectDir)))
 			os.RemoveAll(filepath.Join(tmp, "bin"))
 			root = filepath.Join(tmp, "project")
-			g = filepath.Join(root, "orbit_gen")
+			g = filepath.Join(root, "lyr_gen")
 		}
 		for i := 0; i < scaleN; i++ {
 			pkg := fmt.Sprintf("c%d", i)

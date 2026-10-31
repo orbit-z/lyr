@@ -101,7 +101,7 @@
     {"name": "search", "description": "Search or filtering controls."},
     {"name": "section", "description": "A generic section."},
     {"name": "select", "description": "A list of options.", "attributes": ["autocomplete", "disabled", "form", "multiple", "name", "required", "size"]},
-    {"name": "slot", "description": "Orbit: where the content passed to this component goes.", "attributes": ["name"]},
+    {"name": "slot", "description": "Lyr: where the content passed to this component goes.", "attributes": ["name"]},
     {"name": "small", "description": "Side comments and fine print."},
     {"name": "source", "description": "A media or image source.", "attributes": ["type", "media", "src", "srcset", "sizes", "width", "height"]},
     {"name": "span", "description": "A generic inline container."},

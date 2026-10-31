@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/tsengine"
+	"github.com/orbit-z/lyr/internal/tsengine"
 )
 
-// The TypeScript integration tests (PLAN.md §9b Tests) drive orbit lsp on
-// a copy of examples/blog with TypeScript 7: ORBIT_TEST_TYPESCRIPT names
+// The TypeScript integration tests (PLAN.md §9b Tests) drive lyr lsp on
+// a copy of examples/blog with TypeScript 7: LYR_TEST_TYPESCRIPT names
 // the engine (a native tsc or a typescript package directory), else one
 // is looked up as the server would, without bun x (no network in tests).
 
@@ -24,17 +24,17 @@ func needTypeScript(t *testing.T) string {
 	if testing.Short() {
 		t.Skip("skipping the TypeScript integration test in -short mode")
 	}
-	if p := os.Getenv("ORBIT_TEST_TYPESCRIPT"); p != "" {
+	if p := os.Getenv("LYR_TEST_TYPESCRIPT"); p != "" {
 		return p
 	}
 	e, err := tsengine.Find(context.Background(), tsengine.Default(), tsengine.Options{})
 	if err != nil {
-		t.Skipf("NOTICE: TypeScript %s not found (%v); skipping the TypeScript integration test (set ORBIT_TEST_TYPESCRIPT to a native tsc)", tsengine.Min, err)
+		t.Skipf("NOTICE: TypeScript %s not found (%v); skipping the TypeScript integration test (set LYR_TEST_TYPESCRIPT to a native tsc)", tsengine.Min, err)
 	}
 	return e.Bin
 }
 
-// copyBlog copies examples/blog (without orbit_gen/ and .orbit/) into a
+// copyBlog copies examples/blog (without lyr_gen/ and .lyr/) into a
 // temporary directory, with the runtime replaced by this repository, and
 // applies the edits.
 func copyBlog(t *testing.T, files map[string]string) string {
@@ -47,7 +47,7 @@ func copyBlog(t *testing.T, files map[string]string) string {
 		}
 		rel, _ := filepath.Rel(src, p)
 		if d.IsDir() {
-			if rel == "orbit_gen" || rel == ".orbit" || rel == "node_modules" {
+			if rel == "lyr_gen" || rel == ".lyr" || rel == "node_modules" {
 				return filepath.SkipDir
 			}
 			return os.MkdirAll(filepath.Join(dir, rel), 0o755)
@@ -116,7 +116,7 @@ func tsDiags(ds []map[string]any) []map[string]any {
 	return out
 }
 
-const inlineOrbit = `---
+const inlineLyr = `---
 ---
 <p id="x">hi</p>
 <script is:inline>
@@ -125,8 +125,8 @@ const inlineOrbit = `---
 </script>
 `
 
-// sharedOrbit uses plural too, and stays closed in the editor.
-const sharedOrbit = `---
+// sharedLyr uses plural too, and stays closed in the editor.
+const sharedLyr = `---
 ---
 <p>shared</p>
 <script>
@@ -139,23 +139,23 @@ func TestTypeScript(t *testing.T) {
 	needGopls(t)
 	tsc := needTypeScript(t)
 	// The project's tsconfig.json without rootDirs (an unmigrated
-	// project): the in-memory tsconfig still resolves ./LikeButton.orbit
-	// (Q3). No orbit_gen/ on disk: the types come from memory (Q5).
+	// project): the in-memory tsconfig still resolves ./LikeButton.lyr
+	// (Q3). No lyr_gen/ on disk: the types come from memory (Q5).
 	dir := copyBlog(t, map[string]string{
-		"src/pages/inline.orbit":      inlineOrbit,
-		"src/components/Shared.orbit": sharedOrbit,
+		"src/pages/inline.lyr":      inlineLyr,
+		"src/components/Shared.lyr": sharedLyr,
 	})
 	tsconfig := filepath.Join(dir, "tsconfig.json")
 	b, _ := os.ReadFile(tsconfig)
 	stripped := strings.Replace(string(b), `,
-    "rootDirs": [".", "orbit_gen/types"]`, "", 1)
+    "rootDirs": [".", "lyr_gen/types"]`, "", 1)
 	if stripped == string(b) {
 		t.Fatalf("examples/blog's tsconfig.json changed: no rootDirs line to strip:\n%s", b)
 	}
 	os.WriteFile(tsconfig, []byte(stripped), 0o644)
 
 	c := startClient(t, dir, map[string]any{"typescriptPath": tsc})
-	const like = "src/components/LikeButton.orbit"
+	const like = "src/components/LikeButton.lyr"
 	text := c.open(like)
 	call := `data(this, "like")`
 
@@ -190,7 +190,7 @@ func TestTypeScript(t *testing.T) {
 		}
 	})
 
-	t.Run("diagnostic at the .orbit position", func(t *testing.T) {
+	t.Run("diagnostic at the .lyr position", func(t *testing.T) {
 		// None before (the types resolve).
 		c.waitDiag(like, func(ds []map[string]any) bool { return len(tsDiags(ds)) == 0 })
 		bad := strings.Replace(text, call, `data(this, "lik")`, 1)
@@ -222,7 +222,7 @@ func TestTypeScript(t *testing.T) {
 		}
 	})
 
-	t.Run("definition of data on the orbit.JSON attribute", func(t *testing.T) {
+	t.Run("definition of data on the lyr.JSON attribute", func(t *testing.T) {
 		locs := c.locations(c.call("textDocument/definition", c.textPos(like, at(t, text, call, 0, 1))))
 		if len(locs) != 1 || locs[0].URI != c.uri(like) || rangeText(text, locs[0].Range) != "data-like" {
 			t.Errorf("definition of data: %v, want the data-like attribute", locs)
@@ -245,13 +245,13 @@ func TestTypeScript(t *testing.T) {
 		for _, l := range c.locations(res) {
 			files = append(files, strings.TrimPrefix(uriToPath(l.URI), dir+"/"))
 		}
-		for _, want := range []string{"src/scripts/util.ts", like, "src/components/Shared.orbit"} {
+		for _, want := range []string{"src/scripts/util.ts", like, "src/components/Shared.lyr"} {
 			if !contains(files, want) {
 				t.Errorf("references of plural: %v, want %s", files, want)
 			}
 		}
 		for _, f := range files {
-			if strings.Contains(f, ".orbit/lsp") {
+			if strings.Contains(f, ".lyr/lsp") {
 				t.Errorf("a virtual document leaked: %s", f)
 			}
 		}
@@ -288,7 +288,7 @@ func TestTypeScript(t *testing.T) {
 		defer cancel()
 		_, err := c.conn.Call(ctx, "textDocument/rename", map[string]any{
 			"textDocument": map[string]any{"uri": c.uri(like)}, "position": at(t, text, "like.likes", 0, 6), "newName": "count"})
-		if err == nil || !strings.Contains(err.Error(), "orbit_gen/types") {
+		if err == nil || !strings.Contains(err.Error(), "lyr_gen/types") {
 			t.Errorf("rename of likes: %v, want a refusal", err)
 		}
 	})
@@ -297,7 +297,7 @@ func TestTypeScript(t *testing.T) {
 		// The likes key becomes count in Go: like.likes turns red.
 		changed := strings.Replace(text, "`json:\"likes\"`", "`json:\"count\"`", 1)
 		if changed == text {
-			t.Fatal("no likes tag in LikeButton.orbit")
+			t.Fatal("no likes tag in LikeButton.lyr")
 		}
 		c.change(like, changed)
 		ds := c.waitDiag(like, func(ds []map[string]any) bool {
@@ -317,7 +317,7 @@ func TestTypeScript(t *testing.T) {
 	})
 
 	t.Run("is:inline script as JavaScript", func(t *testing.T) {
-		const inline = "src/pages/inline.orbit"
+		const inline = "src/pages/inline.lyr"
 		itext := c.open(inline)
 		res := c.call("textDocument/completion", map[string]any{
 			"textDocument": map[string]any{"uri": c.uri(inline)}, "position": at(t, itext, "greeting.\n", 0, len("greeting.")),
@@ -334,7 +334,7 @@ func TestTypeScript(t *testing.T) {
 	})
 
 	t.Run("nothing written", func(t *testing.T) {
-		for _, p := range []string{".orbit", "orbit_gen", "src/components/LikeButton.orbit.d.ts"} {
+		for _, p := range []string{".lyr", "lyr_gen", "src/components/LikeButton.lyr.d.ts"} {
 			if _, err := os.Stat(filepath.Join(dir, p)); !os.IsNotExist(err) {
 				t.Errorf("%s was written", p)
 			}

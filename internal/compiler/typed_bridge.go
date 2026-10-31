@@ -2,7 +2,7 @@ package compiler
 
 // The typed server→client bridge in the typed pass (PLAN.md §5c): the TS
 // types of a component's data-* keys and set:json blocks, and the
-// generate-time check of orbit.JSON arguments.
+// generate-time check of lyr.JSON arguments.
 
 import (
 	"fmt"
@@ -28,8 +28,8 @@ type bridgeUnit struct {
 	data, json map[string]*bridgeKey
 }
 
-func newBridgeUnit(orbitPath string) *bridgeUnit {
-	return &bridgeUnit{path: orbitPath, data: map[string]*bridgeKey{}, json: map[string]*bridgeKey{}}
+func newBridgeUnit(lyrPath string) *bridgeUnit {
+	return &bridgeUnit{path: lyrPath, data: map[string]*bridgeKey{}, json: map[string]*bridgeKey{}}
 }
 
 // add records one site of key s with TS type ts.
@@ -81,7 +81,7 @@ func mapKeys[V any](m map[string]V) func(func(string) bool) {
 }
 
 // uncheckedTypes is the contract of a unit without a typed pass (PLAN.md
-// §5c "Unchecked units"): its direct orbit.JSON keys and its set:json
+// §5c "Unchecked units"): its direct lyr.JSON keys and its set:json
 // blocks, every one unknown.
 func uncheckedTypes(u Unit) *UnitTypes {
 	if u.Pass1 == nil || len(u.Pass1.JSONSites) == 0 {
@@ -102,7 +102,7 @@ func uncheckedTypes(u Unit) *UnitTypes {
 }
 
 // bridgeTypes computes a checked unit's contract and the generate-time
-// errors of its orbit.JSON arguments and set:json values.
+// errors of its lyr.JSON arguments and set:json values.
 func (s *tyState) bridgeTypes(u *tyUnit, info *types.Info, env *tyEnv) (*UnitTypes, []Diagnostic) {
 	pass1 := u.unit.Pass1
 	names := runtimeNames(u.unit.Input.Analysis)
@@ -112,8 +112,8 @@ func (s *tyState) bridgeTypes(u *tyUnit, info *types.Info, env *tyEnv) (*UnitTyp
 	var ds []Diagnostic
 	smap := pass1.Impl.Map
 	report := func(e ast.Expr, what string, p *jsonProblem) {
-		start, ok1 := smap.OrbitOffset(tf.Offset(e.Pos()))
-		end, ok2 := smap.OrbitOffset(tf.Offset(e.End()))
+		start, ok1 := smap.LyrOffset(tf.Offset(e.Pos()))
+		end, ok2 := smap.LyrOffset(tf.Offset(e.End()))
 		if !ok1 {
 			return
 		}
@@ -122,7 +122,7 @@ func (s *tyState) bridgeTypes(u *tyUnit, info *types.Info, env *tyEnv) (*UnitTyp
 		}
 		ds = append(ds, Diagnostic{Severity: SeverityError, Span: Span{start, end}, Message: jsonProblemMessage(what, p)})
 	}
-	// Every direct orbit.JSON call in the impl file, wherever it is.
+	// Every direct lyr.JSON call in the impl file, wherever it is.
 	// A mapper of its own, so arguments that aren't keys add no
 	// declarations.
 	chk := newTSMapper(s.nsOf)
@@ -137,7 +137,7 @@ func (s *tyState) bridgeTypes(u *tyUnit, info *types.Info, env *tyEnv) (*UnitTyp
 		}
 		if t, _, ok := tyStatic(info.Types[arg]); ok {
 			if _, p := chk.Map(t); p != nil {
-				report(arg, "orbit.JSON", p)
+				report(arg, "lyr.JSON", p)
 			}
 		}
 		return true
@@ -228,9 +228,9 @@ func jsonProblemMessage(what string, p *jsonProblem) string {
 
 // sourceOf locates the Go declaration of name at pos for the .d.ts side
 // table (PLAN.md §9b): a declaration in a unit's generated code maps
-// through that unit's pass-1 source map into its .orbit file; one in
+// through that unit's pass-1 source map into its .lyr file; one in
 // another package keeps the file name and line the FileSet (or the export
-// data) recorded. Generated code with no .orbit source gives the zero
+// data) recorded. Generated code with no .lyr source gives the zero
 // TSSource.
 func (s *tyState) sourceOf(pos gotoken.Pos, name string) TSSource {
 	n := len(name)
@@ -242,15 +242,15 @@ func (s *tyState) sourceOf(pos gotoken.Pos, name string) TSSource {
 		if g.smap == nil {
 			return TSSource{}
 		}
-		start, ok := g.smap.OrbitOffset(p.Offset)
+		start, ok := g.smap.LyrOffset(p.Offset)
 		if !ok {
 			return TSSource{}
 		}
-		end, ok := g.smap.OrbitOffset(p.Offset + n)
+		end, ok := g.smap.LyrOffset(p.Offset + n)
 		if !ok || end < start {
 			end = start
 		}
-		return TSSource{File: g.orbit, Orbit: true, Start: start, End: end}
+		return TSSource{File: g.lyr, Lyr: true, Start: start, End: end}
 	}
 	if strings.HasPrefix(filepath.ToSlash(p.Filename), GenDir+"/") {
 		return TSSource{}
@@ -258,20 +258,20 @@ func (s *tyState) sourceOf(pos gotoken.Pos, name string) TSSource {
 	return TSSource{File: p.Filename, Line: p.Line, Col: p.Column, Name: name}
 }
 
-// tyGenSource is a generated file's .orbit path and pass-1 source map.
+// tyGenSource is a generated file's .lyr path and pass-1 source map.
 type tyGenSource struct {
-	orbit string
-	smap  *SourceMap
+	lyr  string
+	smap *SourceMap
 }
 
 // nsOf is the TS namespace of a package's types: a generated package's
-// types go in a namespace named after its .orbit file.
+// types go in a namespace named after its .lyr file.
 func (s *tyState) nsOf(pkg *types.Package) tsNS {
 	p := pkg.Path()
 	if isGenPath(p, s) {
-		if orbitPath, ok := s.genFiles[p]; ok {
-			base := strings.TrimSuffix(orbitPath, path.Ext(orbitPath))
-			return tsNS{Key: "orbit:" + orbitPath, Base: path.Base(base), Path: base}
+		if lyrPath, ok := s.genFiles[p]; ok {
+			base := strings.TrimSuffix(lyrPath, path.Ext(lyrPath))
+			return tsNS{Key: "lyr:" + lyrPath, Base: path.Base(base), Path: base}
 		}
 	}
 	return tsNS{Key: p, Base: pkg.Name(), Path: p}

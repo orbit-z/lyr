@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/lyr/internal/config"
 )
 
 // Debounce is how long the watcher waits after the last change before it
@@ -32,9 +32,9 @@ type event struct {
 
 // watcher watches the module root (PLAN.md §7): src/, public/ and every
 // .go file in the module, excluding the directories skipDir rejects
-// (orbit_gen/, dist/, .orbit/, node_modules/). fsnotify isn't recursive, so
+// (lyr_gen/, dist/, .lyr/, node_modules/). fsnotify isn't recursive, so
 // it adds every directory, and the new ones as they're created. It also
-// watches the directories of the orbit.json "watch" patterns (setWatch),
+// watches the directories of the lyr.json "watch" patterns (setWatch),
 // which may be outside the module.
 type watcher struct {
 	root string
@@ -95,9 +95,9 @@ func (w *watcher) setWatch(patterns []string, warn func(string)) {
 		if err != nil || !fi.IsDir() {
 			switch {
 			case err == nil:
-				warn(fmt.Sprintf("orbit.json: watch %q: %s isn't a directory; not watched", p, dir))
+				warn(fmt.Sprintf("lyr.json: watch %q: %s isn't a directory; not watched", p, dir))
 			case errors.Is(err, fs.ErrNotExist):
-				warn(fmt.Sprintf("orbit.json: watch %q: directory %s doesn't exist; not watched", p, dir))
+				warn(fmt.Sprintf("lyr.json: watch %q: directory %s doesn't exist; not watched", p, dir))
 			default:
 				w.errf(err)
 			}

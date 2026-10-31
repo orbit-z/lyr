@@ -1,0 +1,8 @@
+---
+link := props.Attrs.Has("href")
+Tag := lyr.Cond(link, "a", "button")
+Wrap := lyr.Cond(props.Wrapped, "div", lyr.Fragment)
+---
+<Tag {...props.Attrs} type={lyr.If(!link, "button")} class="btn"><slot /></Tag>
+<Wrap class="w"><label>x</label></Wrap>
+<html {...theme.Attributes(choices, store)} lang="en"></html>

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // project writes files into a new directory and returns it.
@@ -27,13 +27,13 @@ func project(t *testing.T, files map[string]string) string {
 	return dir
 }
 
-// input parses the .orbit files of dir and returns an Input whose pages
+// input parses the .lyr files of dir and returns an Input whose pages
 // have the given module lists.
 func input(t *testing.T, dir string, pages map[string][]string) *Input {
 	t.Helper()
 	in := &Input{Sources: map[string]*Source{}}
 	err := filepath.WalkDir(dir, func(name string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !strings.HasSuffix(name, ".orbit") {
+		if err != nil || d.IsDir() || !strings.HasSuffix(name, ".lyr") {
 			return err
 		}
 		src, err := os.ReadFile(name)
@@ -82,35 +82,35 @@ func noErrors(t *testing.T, res *Result) {
 }
 
 var basicFiles = map[string]string{
-	"src/layouts/Base.orbit": "<!DOCTYPE html>\n<html><head></head><body><slot /></body></html>\n<style is:global>\n  body { margin: 0 }\n</style>\n",
-	"src/components/Card.orbit": "---\ntype Props struct{ Title string }\n---\n<div class=\"card\">{props.Title}</div>\n" +
+	"src/layouts/Base.lyr": "<!DOCTYPE html>\n<html><head></head><body><slot /></body></html>\n<style is:global>\n  body { margin: 0 }\n</style>\n",
+	"src/components/Card.lyr": "---\ntype Props struct{ Title string }\n---\n<div class=\"card\">{props.Title}</div>\n" +
 		"<style>\n  .card { color: red }\n</style>\n<script>\n  import { greet } from \"../scripts/util\";\n  const n: number = 1;\n  console.log(greet(\"card\"), n);\n</script>\n",
-	"src/scripts/util.ts":         "export function greet(name: string): string {\n  return `hi ${name}`;\n}\n",
-	"src/pages/index.orbit":       "<p>home</p>\n<style>\n  p { color: blue }\n</style>\n",
-	"src/pages/plain.orbit":       "<p>no assets</p>\n",
-	"src/pages/blog/[slug].orbit": "<p>post</p>\n<script src=\"../../scripts/post.ts\"></script>\n",
-	"src/scripts/post.ts":         "import { greet } from \"./util\";\nconsole.log(greet(\"post\"));\n",
+	"src/scripts/util.ts":       "export function greet(name: string): string {\n  return `hi ${name}`;\n}\n",
+	"src/pages/index.lyr":       "<p>home</p>\n<style>\n  p { color: blue }\n</style>\n",
+	"src/pages/plain.lyr":       "<p>no assets</p>\n",
+	"src/pages/blog/[slug].lyr": "<p>post</p>\n<script src=\"../../scripts/post.ts\"></script>\n",
+	"src/scripts/post.ts":       "import { greet } from \"./util\";\nconsole.log(greet(\"post\"));\n",
 }
 
 func basicInput(t *testing.T, dir string) *Input {
 	return input(t, dir, map[string][]string{
-		"src/pages/index.orbit":       {"src/layouts/Base.orbit", "src/components/Card.orbit", "src/pages/index.orbit"},
-		"src/pages/plain.orbit":       {"src/pages/plain.orbit"},
-		"src/pages/blog/[slug].orbit": {"src/layouts/Base.orbit", "src/pages/blog/[slug].orbit"},
+		"src/pages/index.lyr":       {"src/layouts/Base.lyr", "src/components/Card.lyr", "src/pages/index.lyr"},
+		"src/pages/plain.lyr":       {"src/pages/plain.lyr"},
+		"src/pages/blog/[slug].lyr": {"src/layouts/Base.lyr", "src/pages/blog/[slug].lyr"},
 	})
 }
 
-var hashed = regexp.MustCompile(`^/_orbit/[A-Za-z0-9_-]+-[A-Z0-9]{8}\.(css|js)$`)
+var hashed = regexp.MustCompile(`^/_lyr/[A-Za-z0-9_-]+-[A-Z0-9]{8}\.(css|js)$`)
 
 func TestBundle(t *testing.T) {
 	dir := project(t, basicFiles)
 	res := bundle(t, Options{Root: dir}, basicInput(t, dir))
 	noErrors(t, res)
 
-	if _, ok := res.Pages["src/pages/plain.orbit"]; ok {
-		t.Errorf("plain page has assets: %v", res.Pages["src/pages/plain.orbit"])
+	if _, ok := res.Pages["src/pages/plain.lyr"]; ok {
+		t.Errorf("plain page has assets: %v", res.Pages["src/pages/plain.lyr"])
 	}
-	idx := res.Pages["src/pages/index.orbit"]
+	idx := res.Pages["src/pages/index.lyr"]
 	// util.ts is shared with blog/[slug]: a chunk, preloaded.
 	if len(idx) != 3 || idx[0].Kind != "css" || idx[1].Kind != "js" || idx[2].Kind != "modulepreload" {
 		t.Fatalf("index assets = %+v", idx)
@@ -122,7 +122,7 @@ func TestBundle(t *testing.T) {
 	}
 	css := string(res.File(idx[0].URL).Contents)
 	// Graph order: the layout, then the card, then the page.
-	body, card, p := strings.Index(css, "body{"), strings.Index(css, ".card[data-o-"), strings.Index(css, "p[data-o-")
+	body, card, p := strings.Index(css, "body{"), strings.Index(css, ".card[data-l-"), strings.Index(css, "p[data-l-")
 	if body < 0 || card < 0 || p < 0 || !(body < card && card < p) {
 		t.Errorf("CSS order wrong:\n%s", css)
 	}
@@ -135,7 +135,7 @@ func TestBundle(t *testing.T) {
 	}
 
 	// A page with a src script and a global style.
-	post := res.Pages["src/pages/blog/[slug].orbit"]
+	post := res.Pages["src/pages/blog/[slug].lyr"]
 	if len(post) != 3 || !strings.Contains(post[1].URL, "/blog-slug-") || post[2] != idx[2] {
 		t.Fatalf("post assets = %+v", post)
 	}
@@ -148,18 +148,18 @@ func TestBundle(t *testing.T) {
 
 func TestBundleCSSOnlyAndEmptyJS(t *testing.T) {
 	dir := project(t, map[string]string{
-		"src/pages/a.orbit": "<p>a</p>\n<style>p{color:red}</style>\n",
-		"src/pages/b.orbit": "<p>b</p>\n<script>\n  type T = { a: number };\n  export type { T };\n</script>\n",
+		"src/pages/a.lyr": "<p>a</p>\n<style>p{color:red}</style>\n",
+		"src/pages/b.lyr": "<p>b</p>\n<script>\n  type T = { a: number };\n  export type { T };\n</script>\n",
 	})
 	res := bundle(t, Options{Root: dir}, input(t, dir, map[string][]string{
-		"src/pages/a.orbit": {"src/pages/a.orbit"},
-		"src/pages/b.orbit": {"src/pages/b.orbit"},
+		"src/pages/a.lyr": {"src/pages/a.lyr"},
+		"src/pages/b.lyr": {"src/pages/b.lyr"},
 	}))
 	noErrors(t, res)
-	if a := res.Pages["src/pages/a.orbit"]; len(a) != 1 || a[0].Kind != "css" {
+	if a := res.Pages["src/pages/a.lyr"]; len(a) != 1 || a[0].Kind != "css" {
 		t.Errorf("a = %+v", a)
 	}
-	if b, ok := res.Pages["src/pages/b.orbit"]; ok {
+	if b, ok := res.Pages["src/pages/b.lyr"]; ok {
 		t.Errorf("b (types only) = %+v", b)
 	}
 	for _, f := range res.Files {
@@ -173,10 +173,10 @@ func TestBundleErrors(t *testing.T) {
 	tests := []struct {
 		name, file, src, want string
 	}{
-		{"syntax", "src/pages/a.orbit", "<p>a</p>\n<script>\n  const x = ;\n</script>\n", "src/pages/a.orbit:3:13: Unexpected \";\""},
-		{"resolve", "src/pages/a.orbit", "<p>a</p>\n<script>\n  import x from \"nope-pkg\";\n  console.log(x);\n</script>\n", `src/pages/a.orbit:3:17: Could not resolve "nope-pkg"`},
-		{"src", "src/pages/a.orbit", "<p>a</p>\n<script src=\"./missing.ts\"></script>\n", `src/pages/a.orbit:2:13: Could not resolve "./missing.ts"`},
-		{"first line", "src/pages/a.orbit", "<script>const x = ;</script>\n", "src/pages/a.orbit:1:19: Unexpected \";\""},
+		{"syntax", "src/pages/a.lyr", "<p>a</p>\n<script>\n  const x = ;\n</script>\n", "src/pages/a.lyr:3:13: Unexpected \";\""},
+		{"resolve", "src/pages/a.lyr", "<p>a</p>\n<script>\n  import x from \"nope-pkg\";\n  console.log(x);\n</script>\n", `src/pages/a.lyr:3:17: Could not resolve "nope-pkg"`},
+		{"src", "src/pages/a.lyr", "<p>a</p>\n<script src=\"./missing.ts\"></script>\n", `src/pages/a.lyr:2:13: Could not resolve "./missing.ts"`},
+		{"first line", "src/pages/a.lyr", "<script>const x = ;</script>\n", "src/pages/a.lyr:1:19: Unexpected \";\""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

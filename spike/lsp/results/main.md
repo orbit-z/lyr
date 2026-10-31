@@ -125,7 +125,7 @@ initialize result (trimmed):
 
 ## 1. Overlay-only packages
 
-orbit_gen on disk: false (stat err: stat /home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen: no such file or directory)
+lyr_gen on disk: false (stat err: stat /home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen: no such file or directory)
 - first diagnostics for cardDecl: ok=true after 1.097s, n=0
 - first diagnostics for cardImpl: ok=true after 1.097s, n=0
 - first diagnostics for pageDecl: ok=true after 1.097s, n=0
@@ -137,7 +137,7 @@ diagnostics after open (settled):
 {
   "diagnostics": [
     {
-      "message": "github.com/bertrandkhe/orbit is not used in this module",
+      "message": "github.com/bertrandkhe/lyr is not used in this module",
       "range": {
         "end": {
           "character": 43,
@@ -155,15 +155,15 @@ diagnostics after open (settled):
   "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/go.mod"
 }
 ```
-- `orbit_gen/decl/components/card/decl.go` v1: 0 diagnostics
-- `orbit_gen/decl/pages/index/decl.go` v1: 0 diagnostics
-- `orbit_gen/impl/components/card/render.go` v1: 0 diagnostics
-- `orbit_gen/impl/pages/index/render.go` v1: 0 diagnostics
+- `lyr_gen/decl/components/card/decl.go` v1: 0 diagnostics
+- `lyr_gen/decl/pages/index/decl.go` v1: 0 diagnostics
+- `lyr_gen/impl/components/card/render.go` v1: 0 diagnostics
+- `lyr_gen/impl/pages/index/render.go` v1: 0 diagnostics
 
 ## 2. Completion
 
 ### props. in Card impl template expr (`{props.}`)
-request: `orbit_gen/impl/components/card/render.go` at 33:58 (0-based, utf-16), latency 10ms
+request: `lyr_gen/impl/components/card/render.go` at 33:58 (0-based, utf-16), latency 10ms
 isIncomplete=true, 4 items: [Featured Post Post.Slug Post.Title]
 item Post:
 ```json
@@ -279,7 +279,7 @@ first item:
 }
 ```
 ### partial `props.Fe` in Card impl (replace range)
-request: `orbit_gen/impl/components/card/render.go` at 33:60 (0-based, utf-16), latency 2ms
+request: `lyr_gen/impl/components/card/render.go` at 33:60 (0-based, utf-16), latency 2ms
 isIncomplete=true, 1 items: [Featured]
 item Featured:
 ```json
@@ -320,7 +320,7 @@ item Featured:
 }
 ```
 ### `href(props.)` in Card impl frontmatter body
-request: `orbit_gen/impl/components/card/render.go` at 21:68 (0-based, utf-16), latency 1ms
+request: `lyr_gen/impl/components/card/render.go` at 21:68 (0-based, utf-16), latency 1ms
 isIncomplete=true, 4 items: [Post Featured Post.Slug Post.Title]
 item Post:
 ```json
@@ -361,8 +361,8 @@ item Post:
 }
 ```
 ### synthetic `Card.Props{|}` in page impl scratch func (cross-package overlay)
-request: `orbit_gen/impl/pages/index/render.go` at 45:31 (0-based, utf-16), latency 9ms
-isIncomplete=true, 58 items: [Post Featured Post.Slug Post.Title posts.Post{} orbit posts orbit__complete orbit__render Card Orbit__Render Props Render Prerender any …(+43)]
+request: `lyr_gen/impl/pages/index/render.go` at 45:31 (0-based, utf-16), latency 9ms
+isIncomplete=true, 58 items: [Post Featured Post.Slug Post.Title posts.Post{} lyr posts lyr__complete lyr__render Card Lyr__Render Props Render Prerender any …(+43)]
 item Post:
 ```json
 {
@@ -439,7 +439,7 @@ item Featured:
 }
 ```
 ### synthetic `Card.Props{Post: …, Fe|}`
-request: `orbit_gen/impl/pages/index/render.go` at 45:53 (0-based, utf-16), latency 1ms
+request: `lyr_gen/impl/pages/index/render.go` at 45:53 (0-based, utf-16), latency 1ms
 isIncomplete=true, 1 items: [Featured]
 item Featured:
 ```json
@@ -507,17 +507,17 @@ diagnostics:
       "source": "compiler"
     }
   ],
-  "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go",
+  "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go",
   "version": 4
 }
 ```
 after didChange of Card decl (adds `Tags []string`): page impl diagnostics cleared=true after 1.014s (n=0, version 4)
 ### `Card.Props{|}` right after the decl change
-request: `orbit_gen/impl/pages/index/render.go` at 46:31 (0-based, utf-16), latency 1ms
-isIncomplete=true, 59 items: [Post Featured Tags Post.Slug Post.Title posts.Post{} orbit posts orbit__complete orbit__render Card Orbit__Render Props Render Prerender …(+44)]
+request: `lyr_gen/impl/pages/index/render.go` at 46:31 (0-based, utf-16), latency 1ms
+isIncomplete=true, 59 items: [Post Featured Tags Post.Slug Post.Title posts.Post{} lyr posts lyr__complete lyr__render Card Lyr__Render Props Render Prerender …(+44)]
 Tags present: true (latency 1ms)
 ### `props.` in Card impl after decl change (didChange of impl immediately before)
-request: `orbit_gen/impl/components/card/render.go` at 33:58 (0-based, utf-16), latency 2ms
+request: `lyr_gen/impl/components/card/render.go` at 33:58 (0-based, utf-16), latency 2ms
 isIncomplete=true, 5 items: [Featured Post Tags Post.Slug Post.Title]
 Tags present: true (latency incl. didChange 2ms)
 
@@ -529,7 +529,7 @@ Card decl didChange + completion in page impl (cross-package): [9.993562ms 10.30
 
 ## 4. Diagnostics under line directives
 
-page impl errors: `title := hoem` (index.orbit:6:10), `{titel}` (9:5), key `Psot` (11:9)
+page impl errors: `title := hoem` (index.lyr:6:10), `{titel}` (9:5), key `Psot` (11:9)
 expected generated-file positions (0-based utf-8): hoem={22 55} titel={27 46} Psot={33 50}
 all latest diagnostics:
 - `go.mod` v0: 1 diagnostics
@@ -538,7 +538,7 @@ all latest diagnostics:
 {
   "diagnostics": [
     {
-      "message": "github.com/bertrandkhe/orbit is not used in this module",
+      "message": "github.com/bertrandkhe/lyr is not used in this module",
       "range": {
         "end": {
           "character": 43,
@@ -556,10 +556,10 @@ all latest diagnostics:
   "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/go.mod"
 }
 ```
-- `orbit_gen/decl/components/card/decl.go` v13: 0 diagnostics
-- `orbit_gen/decl/pages/index/decl.go` v1: 0 diagnostics
-- `orbit_gen/impl/components/card/render.go` v7: 0 diagnostics
-- `orbit_gen/impl/pages/index/render.go` v16: 3 diagnostics
+- `lyr_gen/decl/components/card/decl.go` v13: 0 diagnostics
+- `lyr_gen/decl/pages/index/decl.go` v1: 0 diagnostics
+- `lyr_gen/impl/components/card/render.go` v7: 0 diagnostics
+- `lyr_gen/impl/pages/index/render.go` v16: 3 diagnostics
   params:
 ```json
 {
@@ -622,11 +622,11 @@ all latest diagnostics:
       "source": "compiler"
     }
   ],
-  "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go",
+  "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go",
   "version": 16
 }
 ```
-Card decl error: `posts.Postt` (Card.orbit:4:20); expected gen pos {10 19}
+Card decl error: `posts.Postt` (Card.lyr:4:20); expected gen pos {10 19}
 all latest diagnostics:
 - `go.mod` v0: 1 diagnostics
   params:
@@ -634,7 +634,7 @@ all latest diagnostics:
 {
   "diagnostics": [
     {
-      "message": "github.com/bertrandkhe/orbit is not used in this module",
+      "message": "github.com/bertrandkhe/lyr is not used in this module",
       "range": {
         "end": {
           "character": 43,
@@ -652,7 +652,7 @@ all latest diagnostics:
   "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/go.mod"
 }
 ```
-- `orbit_gen/decl/components/card/decl.go` v14: 1 diagnostics
+- `lyr_gen/decl/components/card/decl.go` v14: 1 diagnostics
   params:
 ```json
 {
@@ -677,12 +677,12 @@ all latest diagnostics:
       "source": "compiler"
     }
   ],
-  "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/decl/components/card/decl.go",
+  "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/decl/components/card/decl.go",
   "version": 14
 }
 ```
-- `orbit_gen/decl/pages/index/decl.go` v1: 0 diagnostics
-- `orbit_gen/impl/components/card/render.go` v7: 1 diagnostics
+- `lyr_gen/decl/pages/index/decl.go` v1: 0 diagnostics
+- `lyr_gen/impl/components/card/render.go` v7: 1 diagnostics
   params:
 ```json
 {
@@ -707,11 +707,11 @@ all latest diagnostics:
       "source": "compiler"
     }
   ],
-  "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/components/card/render.go",
+  "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/components/card/render.go",
   "version": 7
 }
 ```
-- `orbit_gen/impl/pages/index/render.go` v17: 0 diagnostics
+- `lyr_gen/impl/pages/index/render.go` v17: 0 diagnostics
 after revert:
 - `go.mod` v0: 1 diagnostics
   params:
@@ -719,7 +719,7 @@ after revert:
 {
   "diagnostics": [
     {
-      "message": "github.com/bertrandkhe/orbit is not used in this module",
+      "message": "github.com/bertrandkhe/lyr is not used in this module",
       "range": {
         "end": {
           "character": 43,
@@ -737,21 +737,21 @@ after revert:
   "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/go.mod"
 }
 ```
-- `orbit_gen/decl/components/card/decl.go` v15: 0 diagnostics
-- `orbit_gen/decl/pages/index/decl.go` v1: 0 diagnostics
-- `orbit_gen/impl/components/card/render.go` v7: 0 diagnostics
-- `orbit_gen/impl/pages/index/render.go` v17: 0 diagnostics
+- `lyr_gen/decl/components/card/decl.go` v15: 0 diagnostics
+- `lyr_gen/decl/pages/index/decl.go` v1: 0 diagnostics
+- `lyr_gen/impl/components/card/render.go` v7: 0 diagnostics
+- `lyr_gen/impl/pages/index/render.go` v17: 0 diagnostics
 
 ## 4b. Hover / definition / references into generated code
 
 ### hover on `Featured` key in page impl
-request `textDocument/hover` {"position":{"line":34,"character":52},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go"}} (latency 1ms)
+request `textDocument/hover` {"position":{"line":34,"character":52},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go"}} (latency 1ms)
 result:
 ```json
 {
   "contents": {
     "kind": "markdown",
-    "value": "```go\nfield Featured bool\n```\n\n---\n\n[`(card.Props).Featured` on pkg.go.dev](https://pkg.go.dev/example.com/blog/orbit_gen/decl/components/card#Props.Featured)"
+    "value": "```go\nfield Featured bool\n```\n\n---\n\n[`(card.Props).Featured` on pkg.go.dev](https://pkg.go.dev/example.com/blog/lyr_gen/decl/components/card#Props.Featured)"
   },
   "range": {
     "end": {
@@ -766,13 +766,13 @@ result:
 }
 ```
 ### hover on `Props` after non-ASCII in scratch (utf-8 range check)
-request `textDocument/hover` {"position":{"line":45,"character":26},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go"}} (latency 0s)
+request `textDocument/hover` {"position":{"line":45,"character":26},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go"}} (latency 0s)
 result:
 ```json
 {
   "contents": {
     "kind": "markdown",
-    "value": "```go\ntype Props struct {\n\tPost     posts.Post\n\tFeatured bool\n}\n```\n\n---\n\nline decl.go:13:24\n\n\n---\n\n[`card.Props` on pkg.go.dev](https://pkg.go.dev/example.com/blog/orbit_gen/decl/components/card#Props)"
+    "value": "```go\ntype Props struct {\n\tPost     posts.Post\n\tFeatured bool\n}\n```\n\n---\n\nline decl.go:13:24\n\n\n---\n\n[`card.Props` on pkg.go.dev](https://pkg.go.dev/example.com/blog/lyr_gen/decl/components/card#Props)"
   },
   "range": {
     "end": {
@@ -788,7 +788,7 @@ result:
 ```
 expected Props range start (utf-8 bytes) {45 28} vs utf-16 {45 25}
 ### definition of `Featured` key (→ Card decl overlay)
-request `textDocument/definition` {"position":{"line":34,"character":52},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go"}} (latency 0s)
+request `textDocument/definition` {"position":{"line":34,"character":52},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go"}} (latency 0s)
 result:
 ```json
 [
@@ -803,12 +803,12 @@ result:
         "line": 11
       }
     },
-    "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/decl/components/card/decl.go"
+    "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/decl/components/card/decl.go"
   }
 ]
 ```
 ### definition of `title` use in `{title}` (→ same file, frontmatter span)
-request `textDocument/definition` {"position":{"line":27,"character":47},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go"}} (latency 0s)
+request `textDocument/definition` {"position":{"line":27,"character":47},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go"}} (latency 0s)
 result:
 ```json
 [
@@ -823,12 +823,12 @@ result:
         "line": 22
       }
     },
-    "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go"
+    "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go"
   }
 ]
 ```
 ### definition of `posts` package ident in `[]posts.Post` (→ on-disk user pkg)
-request `textDocument/definition` {"position":{"line":23,"character":62},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go"}} (latency 0s)
+request `textDocument/definition` {"position":{"line":23,"character":62},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go"}} (latency 0s)
 result:
 ```json
 [
@@ -848,7 +848,7 @@ result:
 ]
 ```
 ### definition of `href` call in Card impl body (→ hoisted func in same overlay)
-request `textDocument/definition` {"position":{"line":21,"character":58},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/components/card/render.go"}} (latency 9ms)
+request `textDocument/definition` {"position":{"line":21,"character":58},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/components/card/render.go"}} (latency 9ms)
 result:
 ```json
 [
@@ -863,12 +863,12 @@ result:
         "line": 10
       }
     },
-    "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/components/card/render.go"
+    "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/components/card/render.go"
   }
 ]
 ```
 ### references of `Featured` field from Card decl
-request `textDocument/references` {"context":{"includeDeclaration":true},"position":{"line":11,"character":5},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/decl/components/card/decl.go"}} (latency 0s)
+request `textDocument/references` {"context":{"includeDeclaration":true},"position":{"line":11,"character":5},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/decl/components/card/decl.go"}} (latency 0s)
 result:
 ```json
 [
@@ -883,7 +883,7 @@ result:
         "line": 11
       }
     },
-    "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/decl/components/card/decl.go"
+    "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/decl/components/card/decl.go"
   },
   {
     "range": {
@@ -896,7 +896,7 @@ result:
         "line": 25
       }
     },
-    "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/components/card/render.go"
+    "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/components/card/render.go"
   },
   {
     "range": {
@@ -909,7 +909,7 @@ result:
         "line": 34
       }
     },
-    "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go"
+    "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go"
   }
 ]
 ```
@@ -917,7 +917,7 @@ result:
 ## 7. Rename
 
 ### prepareRename on frontmatter local `title`
-request `textDocument/prepareRename` {"position":{"line":22,"character":47},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go"}} (latency 0s)
+request `textDocument/prepareRename` {"position":{"line":22,"character":47},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go"}} (latency 0s)
 result:
 ```json
 {
@@ -935,7 +935,7 @@ result:
 }
 ```
 ### rename `title` → `heading`
-request `textDocument/rename` {"newName":"heading","position":{"line":22,"character":47},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go"}} (latency 0s)
+request `textDocument/rename` {"newName":"heading","position":{"line":22,"character":47},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go"}} (latency 0s)
 result:
 ```json
 {
@@ -983,7 +983,7 @@ result:
         }
       ],
       "textDocument": {
-        "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go",
+        "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go",
         "version": 17
       }
     }
@@ -991,7 +991,7 @@ result:
 }
 ```
 ### prepareRename on Props field `Featured` (Card decl)
-request `textDocument/prepareRename` {"position":{"line":11,"character":5},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/decl/components/card/decl.go"}} (latency 0s)
+request `textDocument/prepareRename` {"position":{"line":11,"character":5},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/decl/components/card/decl.go"}} (latency 0s)
 result:
 ```json
 {
@@ -1009,7 +1009,7 @@ result:
 }
 ```
 ### rename `Featured` → `Highlighted` from Card decl
-request `textDocument/rename` {"newName":"Highlighted","position":{"line":11,"character":5},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/decl/components/card/decl.go"}} (latency 0s)
+request `textDocument/rename` {"newName":"Highlighted","position":{"line":11,"character":5},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/decl/components/card/decl.go"}} (latency 0s)
 result:
 ```json
 {
@@ -1031,7 +1031,7 @@ result:
         }
       ],
       "textDocument": {
-        "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/decl/components/card/decl.go",
+        "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/decl/components/card/decl.go",
         "version": 15
       }
     },
@@ -1052,7 +1052,7 @@ result:
         }
       ],
       "textDocument": {
-        "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go",
+        "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go",
         "version": 17
       }
     },
@@ -1073,7 +1073,7 @@ result:
         }
       ],
       "textDocument": {
-        "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/components/card/render.go",
+        "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/components/card/render.go",
         "version": 7
       }
     }
@@ -1081,7 +1081,7 @@ result:
 }
 ```
 ### rename `Featured` → `Highlighted` from the key in page impl
-request `textDocument/rename` {"newName":"Highlighted","position":{"line":34,"character":52},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go"}} (latency 0s)
+request `textDocument/rename` {"newName":"Highlighted","position":{"line":34,"character":52},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go"}} (latency 0s)
 result:
 ```json
 {
@@ -1103,7 +1103,7 @@ result:
         }
       ],
       "textDocument": {
-        "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/decl/components/card/decl.go",
+        "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/decl/components/card/decl.go",
         "version": 15
       }
     },
@@ -1124,7 +1124,7 @@ result:
         }
       ],
       "textDocument": {
-        "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go",
+        "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go",
         "version": 17
       }
     },
@@ -1145,19 +1145,19 @@ result:
         }
       ],
       "textDocument": {
-        "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/components/card/render.go",
+        "uri": "file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/components/card/render.go",
         "version": 7
       }
     }
   ]
 }
 ```
-### prepareRename on generated glue `orbit__w` (page impl)
-request `textDocument/prepareRename` {"position":{"line":25,"character":2},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/orbit_gen/impl/pages/index/render.go"}} (latency 0s)
+### prepareRename on generated glue `lyr__w` (page impl)
+request `textDocument/prepareRename` {"position":{"line":25,"character":2},"textDocument":{"uri":"file:///home/bertrandkhe/Projects/rs-astro/spike/lsp/project/lyr_gen/impl/pages/index/render.go"}} (latency 0s)
 result:
 ```json
 {
-  "placeholder": "orbit__w",
+  "placeholder": "lyr__w",
   "range": {
     "end": {
       "character": 9,

@@ -12,7 +12,7 @@ import (
 // docs/[...rest] and 404, a layout and a component with props and a slot,
 // and a Go package import.
 var siteFiles = map[string]string{
-	"orbit.json": `{"site": "https://blog.example.com", "compressHTML": "html"}`,
+	"lyr.json": `{"site": "https://blog.example.com", "compressHTML": "html"}`,
 	"internal/posts/posts.go": `package posts
 
 type Post struct {
@@ -22,14 +22,14 @@ type Post struct {
 
 func All() []Post { return []Post{{"hello", "Hello", 3}} }
 `,
-	"src/layouts/Base.orbit": `---
+	"src/layouts/Base.lyr": `---
 type Props struct{ Title string }
 ---
 <!DOCTYPE html>
 <html><head><title>{props.Title}</title></head>
 <body><slot /><footer><slot name="footer">no footer</slot></footer></body></html>
 `,
-	"src/components/Card.orbit": `---
+	"src/components/Card.lyr": `---
 import "example.com/blog/internal/posts"
 
 type Props struct {
@@ -42,11 +42,11 @@ type Props struct {
   <slot />
 </article>
 `,
-	"src/pages/index.orbit": `---
+	"src/pages/index.lyr": `---
 import (
 	"example.com/blog/internal/posts"
-	Base "../layouts/Base.orbit"
-	Card "../components/Card.orbit"
+	Base "../layouts/Base.lyr"
+	Card "../components/Card.lyr"
 )
 
 list := posts.All()
@@ -58,8 +58,8 @@ list := posts.All()
   <p slot="footer">footer</p>
 </Base>
 `,
-	"src/pages/about.orbit": "<p>About</p>\n",
-	"src/components/Comments.orbit": `---
+	"src/pages/about.lyr": "<p>About</p>\n",
+	"src/components/Comments.lyr": `---
 import "time"
 
 type Props struct {
@@ -69,17 +69,17 @@ type Props struct {
 ---
 <section>{props.PostID}</section>
 `,
-	"src/components/Post.orbit": `---
-import Comments "./Comments.orbit"
+	"src/components/Post.lyr": `---
+import Comments "./Comments.lyr"
 
 type Props struct{ Slug string }
 ---
 <h1>{props.Slug}</h1>
 <Comments server:defer postID={1}><p slot="fallback">Loading…</p></Comments>
 `,
-	"src/pages/blog/[slug].orbit":    "---\nimport Post \"../../components/Post.orbit\"\n---\n<Post slug={params.Slug} />\n",
-	"src/pages/docs/[...rest].orbit": "<p>{params.Rest}</p>\n",
-	"src/pages/404.orbit":            "<p>Not found</p>\n",
+	"src/pages/blog/[slug].lyr":    "---\nimport Post \"../../components/Post.lyr\"\n---\n<Post slug={params.Slug} />\n",
+	"src/pages/docs/[...rest].lyr": "<p>{params.Rest}</p>\n",
+	"src/pages/404.lyr":            "<p>Not found</p>\n",
 }
 
 // TestGenerateSite generates the site with and without cmd/server and
@@ -100,7 +100,7 @@ func TestGenerateSite(t *testing.T) {
 	if res.Timings.GoLists != 1 {
 		t.Errorf("%d go list runs, want 1 (the one started during Front)", res.Timings.GoLists)
 	}
-	if !strings.Contains(p.read("orbit_gen/impl/components/card/render.go"), "orbit__w.Int(") {
+	if !strings.Contains(p.read("lyr_gen/impl/components/card/render.go"), "lyr__w.Int(") {
 		t.Errorf("Card has no typed Int write")
 	}
 	if !p.exists(ServerFile) {
@@ -124,15 +124,15 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 
-	"example.com/blog/orbit_gen/app"
+	"example.com/blog/lyr_gen/app"
 )
 
 func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/", app.New().Handler())
-	if err := orbit.ListenAndServe(mux); err != nil {
+	if err := lyr.ListenAndServe(mux); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -141,7 +141,7 @@ func main() {
 	if res.HasErrors() {
 		t.Fatal(joinLines(diagStrings(res.Diagnostics)))
 	}
-	if p.exists(ServerFile) || p.exists("orbit_gen/cmd") {
+	if p.exists(ServerFile) || p.exists("lyr_gen/cmd") {
 		t.Errorf("the default server entry is still there with a cmd/server")
 	}
 	if want := []string{ServerFile}; strings.Join(res.Write.Removed, ",") != strings.Join(want, ",") {
@@ -154,16 +154,16 @@ func main() {
 	}
 }
 
-// TestGenerateTypeError: a Go type error in an .orbit file isn't Orbit's to
+// TestGenerateTypeError: a Go type error in a .lyr file isn't Lyr's to
 // report; generate succeeds (the file keeps its fallbacks) and go build
-// reports it at the .orbit position, cleaned up by CleanGoOutput.
+// reports it at the .lyr position, cleaned up by CleanGoOutput.
 func TestGenerateTypeError(t *testing.T) {
 	needGo(t)
 	files := map[string]string{}
 	for k, v := range siteFiles {
 		files[k] = v
 	}
-	files["src/pages/about.orbit"] = "---\nimport Card \"../components/Card.orbit\"\n\nvar n int = Card.Props{}\n---\n<Card /><p>{n}</p>\n"
+	files["src/pages/about.lyr"] = "---\nimport Card \"../components/Card.lyr\"\n\nvar n int = Card.Props{}\n---\n<Card /><p>{n}</p>\n"
 	p := newTestProject(t, files)
 	res := p.generate()
 	if res.HasErrors() {
@@ -174,7 +174,7 @@ func TestGenerateTypeError(t *testing.T) {
 		t.Fatal("go build succeeded")
 	}
 	clean := string(res.Project.CleanGoOutput([]byte(out)))
-	want := "src/pages/about.orbit:4:13: cannot use Card.Props{} (value of struct type Card.Props) as int value in variable declaration"
+	want := "src/pages/about.lyr:4:13: cannot use Card.Props{} (value of struct type Card.Props) as int value in variable declaration"
 	if !strings.Contains(clean, want) {
 		t.Errorf("cleaned output:\n%s\nwant a line %q", clean, want)
 	}
@@ -183,21 +183,21 @@ func TestGenerateTypeError(t *testing.T) {
 	}
 }
 
-// TestGenerateErrorsWriteNothing: with an error, orbit_gen/ isn't touched.
+// TestGenerateErrorsWriteNothing: with an error, lyr_gen/ isn't touched.
 func TestGenerateErrorsWriteNothing(t *testing.T) {
 	needGo(t)
 	files := map[string]string{}
 	for k, v := range siteFiles {
 		files[k] = v
 	}
-	files["src/pages/post-[id].orbit"] = "<p>x</p>\n"
-	files["src/pages/index.orbit"] = "---\nimport Card \"../components/Card.orbit\"\n---\n<Card psot={1} />\n"
+	files["src/pages/post-[id].lyr"] = "<p>x</p>\n"
+	files["src/pages/index.lyr"] = "---\nimport Card \"../components/Card.lyr\"\n---\n<Card psot={1} />\n"
 	p := newTestProject(t, files)
-	p.write("orbit_gen/app/app.go", "// Code generated by orbit. DO NOT EDIT.\n\npackage app\n")
+	p.write("lyr_gen/app/app.go", "// Code generated by lyr. DO NOT EDIT.\n\npackage app\n")
 	res := p.generate()
 	want := []string{
-		`src/pages/index.orbit:4:7: unknown prop "psot" on <Card> (props: post, featured; add an orbit.RestAttrs field to pass HTML attributes through)`,
-		`src/pages/post-[id].orbit: route segment "post-[id]" mixes text and a parameter; use a whole-segment parameter such as [id].orbit and parse it in the page`,
+		`src/pages/index.lyr:4:7: unknown prop "psot" on <Card> (props: post, featured; add a lyr.RestAttrs field to pass HTML attributes through)`,
+		`src/pages/post-[id].lyr: route segment "post-[id]" mixes text and a parameter; use a whole-segment parameter such as [id].lyr and parse it in the page`,
 	}
 	if got := diagStrings(res.Diagnostics); joinLines(got) != joinLines(want) {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", joinLines(got), joinLines(want))
@@ -205,10 +205,10 @@ func TestGenerateErrorsWriteNothing(t *testing.T) {
 	if res.Write != nil {
 		t.Errorf("wrote %v", res.Write)
 	}
-	if got := p.read("orbit_gen/app/app.go"); got != "// Code generated by orbit. DO NOT EDIT.\n\npackage app\n" {
+	if got := p.read("lyr_gen/app/app.go"); got != "// Code generated by lyr. DO NOT EDIT.\n\npackage app\n" {
 		t.Errorf("app.go was rewritten")
 	}
-	if _, err := os.Stat(filepath.Join(p.Dir, "orbit_gen", "decl")); err == nil {
+	if _, err := os.Stat(filepath.Join(p.Dir, "lyr_gen", "decl")); err == nil {
 		t.Errorf("decl packages were written")
 	}
 }

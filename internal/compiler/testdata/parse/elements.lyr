@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{props.Title} · a <b>bold</b> title</title>
+  <link rel="stylesheet" href="/x.css" />
+</head>
+<body>
+  <!-- an HTML comment with {not.evaluated} and <tags> -->
+  {/* a template comment with <p> inside */}
+  <br><br/><img src="x.png" alt="">
+  <div />
+  <my-widget data-x="1"></my-widget>
+  <My-widget></My-widget>
+  <Card post={p}><em>default slot</em></Card>
+  <Self node={child} />
+  <slot />
+  <slot name="footer">Made with <b>Lyr</b>.</slot>
+  <Fragment slot="actions"><a href="/rss.xml">RSS</a></Fragment>
+  <Fragment set:html={body} />
+  <textarea name="t">{value} and <i>not markup</i></textarea>
+  <script>
+    const o = { a: 1 }; if (a < b && c > d) { console.log("</div>") }
+  </script>
+  <script src="./counter.ts"></script>
+  <script src="../scripts/clock.ts"></script>
+  <script type="module">import "x"</script>
+  <script async src="./counter.ts"></script>
+  <script src="https://cdn.example.com/lib.js"></script>
+  <script src="/public.js"></script>
+  <script />
+  <style>.hero { color: red } p > a { }</style>
+  <style is:inline>.x{}</style>
+  <svg><path d="M0 0" /><foreignObject></foreignObject></svg>
+</body>
+</html>

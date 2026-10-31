@@ -14,12 +14,12 @@ type Options struct {
 	// broken (an unknown component's attribute expressions become
 	// "_ = (expr)" lines), so gopls can complete in it.
 	Mode Mode
-	// Dev is set by orbit dev. Reserved: it changes nothing in milestone 4.
+	// Dev is set by lyr dev. Reserved: it changes nothing in milestone 4.
 	Dev bool
 	// Locals is the import path of the user's src/locals package, or "" to
-	// use orbit__rt.NoLocals (detection is milestone 7).
+	// use lyr__rt.NoLocals (detection is milestone 7).
 	Locals string
-	// CompressHTML is orbit.json's "compressHTML": how template whitespace
+	// CompressHTML is lyr.json's "compressHTML": how template whitespace
 	// is compressed at codegen time (DESIGN.md, settled gap 2). The zero
 	// value is the default, "jsx" (Astro v7's default).
 	CompressHTML Compression
@@ -55,15 +55,15 @@ type Input struct {
 	// also falls back.
 	Typed TypedWrites
 	// Direct selects the build flavor of Impl (PLAN.md §3.5) when non-nil:
-	// the render function is exported as Orbit__RenderImpl (so direct
+	// the render function is exported as Lyr__RenderImpl (so direct
 	// callers can call it), the call sites of the components in
 	// Direct.Callees (and <Self> with Direct.Self) call the callee's
-	// Orbit__RenderImpl instead of its declaration package's hook, and
-	// directives name the .orbit file as seen from the file's overlay
+	// Lyr__RenderImpl instead of its declaration package's hook, and
+	// directives name the .lyr file as seen from the file's overlay
 	// location under BuildDir. The file keeps the hook flavor's lines. An
 	// empty DirectCalls is the build flavor of a direct callee that calls
-	// nothing directly itself. Nil for the hook flavor (orbit generate,
-	// orbit dev, the LSP). Ignored in Tolerant mode.
+	// nothing directly itself. Nil for the hook flavor (lyr generate,
+	// lyr dev, the LSP). Ignored in Tolerant mode.
 	Direct *DirectCalls
 }
 
@@ -79,7 +79,7 @@ type DirectCalls struct {
 	Self bool
 }
 
-// Output is the generated code of one .orbit file.
+// Output is the generated code of one .lyr file.
 type Output struct {
 	Decl, Impl *GenFile
 	// CallSites are the fallback-capable writes, in the order they appear
@@ -117,37 +117,37 @@ type GenFile struct {
 type SiteKind uint8
 
 const (
-	// SiteContent is {expr}, or the value of set:text: orbit__w.Expr(x).
+	// SiteContent is {expr}, or the value of set:text: lyr__w.Expr(x).
 	SiteContent SiteKind = iota
-	// SiteAttr is a={expr} or {a} on an HTML element: orbit__w.Attr("a", x).
+	// SiteAttr is a={expr} or {a} on an HTML element: lyr__w.Attr("a", x).
 	SiteAttr
 	// SiteClass is a dynamic class:list item on an HTML element (or the
-	// value of a class={expr} merged into it): orbit__w.ClassAny(x).
+	// value of a class={expr} merged into it): lyr__w.ClassAny(x).
 	SiteClass
 	// SiteClassProp is a dynamic class:list item in a component's class
-	// prop: orbit__rt.ClassString(x).
+	// prop: lyr__rt.ClassString(x).
 	SiteClassProp
 	// SiteRest is a dynamic pass-through attribute a={expr} or {a} on a
-	// component with an orbit.RestAttrs field (PLAN.md §2.5):
-	// orbit__rt.RestAny(pre, "a", x).
+	// component with a lyr.RestAttrs field (PLAN.md §2.5):
+	// lyr__rt.RestAny(pre, "a", x).
 	SiteRest
 	// SiteTag is the name of a dynamic tag (PLAN.md §2.8):
-	// orbit__w.TagOpen(pos, "Tag", Tag, content). It has no typed write.
+	// lyr__w.TagOpen(pos, "Tag", Tag, content). It has no typed write.
 	SiteTag
 	// SiteOptProp is an expression passed to a component prop of type
-	// orbit.Opt[T] (PLAN.md §2.6 (Q3)):
-	// orbit__rt.OptOf(Alias.Props{}.Field, x). The typed pass checks x and
+	// lyr.Opt[T] (PLAN.md §2.6 (Q3)):
+	// lyr__rt.OptOf(Alias.Props{}.Field, x). The typed pass checks x and
 	// passes it as is (an Opt[T]), wraps it (a T), or reports an error.
 	SiteOptProp
 	// SitePiece is a piece of a template literal that is the whole value
 	// of an HTML element attribute (AttrName set) or of a content
-	// expression or set:text (PLAN.md §2.10): orbit__w.AttrPiece(x) or
-	// orbit__w.TextPiece(x), each piece its own write.
+	// expression or set:text (PLAN.md §2.10): lyr__w.AttrPiece(x) or
+	// lyr__w.TextPiece(x), each piece its own write.
 	SitePiece
 	// SiteConcat is a template literal anywhere else, a string expression:
-	// orbit__rt.TemplateString(s0, p0, s1, …, sN), or, as the whole value
+	// lyr__rt.TemplateString(s0, p0, s1, …, sN), or, as the whole value
 	// of a component prop or set:html (As),
-	// orbit__rt.TemplateAs(witness, s0, p0, …), which the typed pass turns
+	// lyr__rt.TemplateAs(witness, s0, p0, …), which the typed pass turns
 	// into a concatenation. Key is the offset of its closing backtick.
 	SiteConcat
 	// SiteLit is the whole-value template literal of an HTML element
@@ -155,18 +155,18 @@ const (
 	// recorded for the style and on* warnings (Call and Arg are empty).
 	SiteLit
 	// SiteSpread is a {...x} on a component tag (PLAN.md §2.11). Pass 1
-	// emits orbit__rt.SpreadCheck(orbit__w, Alias.Props{}, pos, what, x) on
-	// a callee without an orbit.RestAttrs field, and RestFromAny or
+	// emits lyr__rt.SpreadCheck(lyr__w, Alias.Props{}, pos, what, x) on
+	// a callee without a lyr.RestAttrs field, and RestFromAny or
 	// RestMergeAny in the rest value of one with it; the typed pass decides
 	// whether x sets props (a struct, WriteSpreadProps) or pass-through
 	// attributes (WriteSpreadAttrs). Spread describes the tag. In pass 2,
 	// a tag with a props spread emits its sites in source order.
 	SiteSpread
 	// SiteHTML is the value of set:html (PLAN.md §2.6, "Typed optional
-	// values"): orbit__rt.SetHTML(orbit__w, pos, x) in pass 1, then
-	// orbit__w.HTML(x) (WriteHTML), lowered with an if for an
-	// orbit.Opt[orbit.HTML] (If.Opt). A basic literal isn't a site: it's
-	// written with orbit__w.HTML in both passes.
+	// values"): lyr__rt.SetHTML(lyr__w, pos, x) in pass 1, then
+	// lyr__w.HTML(x) (WriteHTML), lowered with an if for an
+	// lyr.Opt[lyr.HTML] (If.Opt). A basic literal isn't a site: it's
+	// written with lyr__w.HTML in both passes.
 	SiteHTML
 )
 
@@ -177,7 +177,7 @@ const (
 type CallSite struct {
 	Kind SiteKind
 	// Key identifies the site across passes: Code.Start, the offset of the
-	// expression in the .orbit file.
+	// expression in the .lyr file.
 	Key int
 	// Node is the AST node the expression comes from: the *Expr for {expr},
 	// the tag's node (*Element, *Fragment) for set:text and attributes.
@@ -190,7 +190,7 @@ type CallSite struct {
 	// IsURLAttr(AttrName), selecting URL pieces over String pieces.
 	AttrName string
 	URLAttr  bool
-	// Call is the whole write call in Impl.Content (from "orbit__w." to its
+	// Call is the whole write call in Impl.Content (from "lyr__w." to its
 	// closing paren); Arg is the expression's bytes in it, exactly
 	// Code.Text, between its line directive and its reset, unless Code
 	// holds template literals, which are rewritten (PLAN.md §2.10).
@@ -209,7 +209,7 @@ type CallSite struct {
 // typed pass's order rules.
 type SpreadTag struct {
 	// Tag is the component's tag name ("Card", or "Self"), and Rest the
-	// name of the callee's orbit.RestAttrs field, "" without one.
+	// name of the callee's lyr.RestAttrs field, "" without one.
 	Tag, Rest string
 	// Items are the attributes that set a Props field and the spreads, in
 	// source order (pass-through attributes aren't items).
@@ -223,7 +223,7 @@ type SpreadItem struct {
 	Attr  *Attr
 }
 
-// DeferSite is one server:defer call site: orbit__rt.Defer(…, <Alias>.Props{…}, …).
+// DeferSite is one server:defer call site: lyr__rt.Defer(…, <Alias>.Props{…}, …).
 type DeferSite struct {
 	// Attr is the server:defer attribute, where Props errors are reported.
 	Attr Span
@@ -260,20 +260,20 @@ const (
 	WriteAttrUint
 	WriteAttrFloat
 	WriteAttrFloat32
-	// WriteAttrJSON is an orbit.JSONValue attribute (PLAN.md §5c): pieces
-	// ` name='` and `'` around JSONAttr(pos, value), pos being the .orbit
+	// WriteAttrJSON is a lyr.JSONValue attribute (PLAN.md §5c): pieces
+	// ` name='` and `'` around JSONAttr(pos, value), pos being the .lyr
 	// position of the value.
 	WriteAttrJSON
 	// WriteClass and WriteClasses are a class:list item of a string kind
 	// (Conv "string" unless it's string) or of type []string (Conv
-	// "[]string" for a named one): orbit__w.Class/Classes on an element;
-	// string(x) and orbit__rt.JoinClasses(x...) in a component's prop.
+	// "[]string" for a named one): lyr__w.Class/Classes on an element;
+	// string(x) and lyr__rt.JoinClasses(x...) in a component's prop.
 	WriteClass
 	WriteClasses
 	// The pass-through attribute writes (SiteRest, PLAN.md §2.5): the
-	// orbit__rt constructor of the attribute's typed value, with Conv to
+	// lyr__rt constructor of the attribute's typed value, with Conv to
 	// its parameter type. WriteRestStringURL is a string in a URL
-	// attribute (filtered), WriteRestURL an orbit.URL (trusted).
+	// attribute (filtered), WriteRestURL a lyr.URL (trusted).
 	WriteRestString
 	WriteRestStringURL
 	WriteRestURL
@@ -288,15 +288,15 @@ const (
 	// and `"` around Bool, as Attr writes it.
 	WriteAttrBoolText
 	// WriteRestOpt and WriteRestOptURL are an Opt-typed pass-through
-	// attribute (PLAN.md §2.6 (Q7)): orbit__rt.RestOpt(pre, "a", x), or
+	// attribute (PLAN.md §2.6 (Q7)): lyr__rt.RestOpt(pre, "a", x), or
 	// RestOptURL in a URL attribute.
 	WriteRestOpt
 	WriteRestOptURL
 	// The writes of a SiteOptProp (PLAN.md §2.6 (Q3)): WriteOptAsIs is an
 	// Opt[T] passed as is, WriteOptWrap a T wrapped with
-	// orbit__rt.Wrap(Alias.Props{}.Field, x), and WriteOptWrapIf an
-	// orbit.If call whose value is an untyped constant,
-	// orbit__rt.WrapIf(Alias.Props{}.Field, <If>[bool], c, v)
+	// lyr__rt.Wrap(Alias.Props{}.Field, x), and WriteOptWrapIf an
+	// lyr.If call whose value is an untyped constant,
+	// lyr__rt.WrapIf(Alias.Props{}.Field, <If>[bool], c, v)
 	// (TypedWrite.If holds its spans).
 	WriteOptAsIs
 	WriteOptWrap
@@ -306,10 +306,10 @@ const (
 	WriteFold
 	// WriteConcat is a SiteConcat: TypedWrite.Pieces holds the write of
 	// each part (static parts zero), and Conv is "as" when the result is
-	// converted to the witness's string type with orbit__rt.StringAs.
+	// converted to the witness's string type with lyr__rt.StringAs.
 	WriteConcat
 	// WriteSpreadAttrs is a SiteSpread of an attribute type on a callee
-	// with an orbit.RestAttrs field: orbit__rt.RestFrom or RestMerge
+	// with a lyr.RestAttrs field: lyr__rt.RestFrom or RestMerge
 	// (PLAN.md §2.5).
 	WriteSpreadAttrs
 	// WriteSpreadProps is a SiteSpread of a struct, or a pointer to one,
@@ -346,15 +346,15 @@ func (k WriteKind) Method() string { return writeMethods[k] }
 type TypedWrite struct {
 	Kind WriteKind
 	// Conv is a conversion to wrap the expression in, "" for none: a Go
-	// type such as "int64", "string", "bool", or "orbit__rt.Renderer".
+	// type such as "int64", "string", "bool", or "lyr__rt.Renderer".
 	// Codegen emits Method(Conv(<expr>,)) with the same line layout.
 	Conv string
 	// If is set when the site's expression is a call of the runtime's
-	// orbit.If, or a value of type orbit.Opt[T] (If.Opt), lowered (PLAN.md
+	// lyr.If, or a value of type lyr.Opt[T] (If.Opt), lowered (PLAN.md
 	// §2.6): Kind and Conv are then the write of its value, and may be
 	// WriteFallback (Attr or Expr of it).
 	If *IfWrite
-	// Opt is set on a class:list item of type orbit.Opt[T] on an element:
+	// Opt is set on a class:list item of type lyr.Opt[T] on an element:
 	// Kind and Conv write its value when it's set.
 	Opt bool
 	// Text is a WriteFold piece's constant text, unescaped.
@@ -378,18 +378,18 @@ type SpreadWrite struct {
 
 // SpreadField is one field set by a spread: the callee's Props field and
 // the operand's field share Name. Opt wraps the value (a T into an
-// orbit.Opt[T] prop).
+// lyr.Opt[T] prop).
 type SpreadField struct {
 	Name string
 	Opt  bool
 }
 
-// IfWrite is a lowered orbit.If(cond, v) call site. Codegen emits
+// IfWrite is a lowered lyr.If(cond, v) call site. Codegen emits
 //
 //	{
-//		orbit__c, orbit__v := cond, v
-//		if orbit__c {
-//			<the write of orbit__v>
+//		lyr__c, lyr__v := cond, v
+//		if lyr__c {
+//			<the write of lyr__v>
 //		}
 //	}
 //
@@ -397,15 +397,15 @@ type SpreadField struct {
 // same bytes as Attr or Expr of its result. With Folded, v is a constant
 // and the body is Raw(Text) (Text "" writes nothing).
 //
-// With Opt, the site's expression is a value of type orbit.Opt[T] (not an
+// With Opt, the site's expression is a value of type lyr.Opt[T] (not an
 // If call; Val is its span, the others are empty), and the block starts
 //
-//	orbit__o :=
+//	lyr__o :=
 //		x
-//	orbit__v, orbit__c := orbit__o.Get()
+//	lyr__v, lyr__c := lyr__o.Get()
 type IfWrite struct {
 	Opt bool
-	// Fun, Cond and Val are the .orbit spans of the callee (orbit.If, with
+	// Fun, Cond and Val are the .lyr spans of the callee (lyr.If, with
 	// its type arguments if written), the condition and the value.
 	Fun, Cond, Val Span
 	// Inst is true when Fun includes explicit type arguments.
@@ -420,7 +420,7 @@ type IfWrite struct {
 // TypedWrites maps CallSite.Key to the chosen write.
 type TypedWrites map[int]TypedWrite
 
-// Generate generates the declaration and implementation files of one .orbit
+// Generate generates the declaration and implementation files of one .lyr
 // file, with their source maps and call sites. It never panics. See
 // DESIGN.md for the exact shape (PLAN.md §3.2) and directive rules (§3.3).
 func Generate(in *Input) *Output {

@@ -1,4 +1,4 @@
-// Command devloop measures the stages orbit dev will chain after a save
+// Command devloop measures the stages lyr dev will chain after a save
 // (PLAN.md §7): regenerate (pass 1, resident type checker), esbuild, go
 // build -ldflags=-w, and the server swap, on a synthetic project, per edit
 // kind. See README.md.
@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/dev"
+	"github.com/orbit-z/lyr/internal/dev"
 )
 
 // useDev is -dev, useTailwind -tailwind.
@@ -35,9 +35,9 @@ type edit struct {
 
 func main() {
 	quick := os.Getenv("QUICK") == "1"
-	files := flag.Int("files", 200, "number of .orbit files in the synthetic project")
+	files := flag.Int("files", 200, "number of .lyr files in the synthetic project")
 	runs := flag.Int("runs", 7, "measured runs per edit kind (after one warm-up run)")
-	orbitRoot := flag.String("orbit", "../..", "path to the Orbit repository (the runtime module)")
+	lyrRoot := flag.String("lyr", "../..", "path to the Lyr repository (the runtime module)")
 	dir := flag.String("dir", "", "project directory (default: a new temporary directory)")
 	keep := flag.Bool("keep", false, "keep the project directory")
 	ldflags := flag.String("ldflags", "-w", "go build -ldflags value (\"\" for none)")
@@ -47,8 +47,8 @@ func main() {
 	extra := flag.String("buildflags", "", "extra go build flags, space-separated (e.g. \"-p=8\")")
 	flag.BoolVar(&fullFront, "fullfront", false, "Load and Front the whole project on every edit instead of project.Reload (the front before per-file reloads)")
 	flag.BoolVar(&noPreload, "nopreload", false, "on a Go edit, run go list -export in the check stage instead of from the start of the step (as before Checker.Preload)")
-	flag.BoolVar(&useTailwind, "tailwind", false, "the project uses Tailwind CSS (PLAN.md §5d): a global.css root in the Base layout and 12 utilities per .orbit file; needs tailwindcss on PATH and -dev")
-	devMode := flag.Bool("dev", false, "measure internal/dev's pipeline (what orbit dev runs) instead of the prototype stages; -ldflags, -buildflags and -fresh don't apply")
+	flag.BoolVar(&useTailwind, "tailwind", false, "the project uses Tailwind CSS (PLAN.md §5d): a global.css root in the Base layout and 12 utilities per .lyr file; needs tailwindcss on PATH and -dev")
+	devMode := flag.Bool("dev", false, "measure internal/dev's pipeline (what lyr dev runs) instead of the prototype stages; -ldflags, -buildflags and -fresh don't apply")
 	flag.Parse()
 	buildFlags = strings.Fields(*extra)
 	if quick {
@@ -58,23 +58,23 @@ func main() {
 	if useDev {
 		*fresh = false
 	}
-	if err := run(*files, *runs, *orbitRoot, *dir, *keep, *ldflags, *only, *jsonOut, *fresh); err != nil {
+	if err := run(*files, *runs, *lyrRoot, *dir, *keep, *ldflags, *only, *jsonOut, *fresh); err != nil {
 		fmt.Fprintln(os.Stderr, "devloop:", err)
 		os.Exit(1)
 	}
 }
 
-func run(nfiles, runs int, orbitRoot, dir string, keep bool, ldflags, only, jsonOut string, fresh bool) error {
+func run(nfiles, runs int, lyrRoot, dir string, keep bool, ldflags, only, jsonOut string, fresh bool) error {
 	ctx := context.Background()
-	orbitRoot, err := filepath.Abs(orbitRoot)
+	lyrRoot, err := filepath.Abs(lyrRoot)
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(filepath.Join(orbitRoot, "orbit.go")); err != nil {
-		return fmt.Errorf("-orbit %s: not the Orbit repository (run from bench/devloop or pass -orbit)", orbitRoot)
+	if _, err := os.Stat(filepath.Join(lyrRoot, "lyr.go")); err != nil {
+		return fmt.Errorf("-lyr %s: not the Lyr repository (run from bench/devloop or pass -lyr)", lyrRoot)
 	}
 	if dir == "" {
-		dir, err = os.MkdirTemp("", "orbit-devloop-")
+		dir, err = os.MkdirTemp("", "lyr-devloop-")
 		if err != nil {
 			return err
 		}
@@ -93,7 +93,7 @@ func run(nfiles, runs int, orbitRoot, dir string, keep bool, ldflags, only, json
 	salt := "s" + hex.EncodeToString(rb[:])
 
 	s := newShape(nfiles)
-	if err := writeProject(dir, orbitRoot, projectFiles(s, salt)); err != nil {
+	if err := writeProject(dir, lyrRoot, projectFiles(s, salt)); err != nil {
 		return err
 	}
 	if useTailwind {
@@ -103,10 +103,10 @@ func run(nfiles, runs int, orbitRoot, dir string, keep bool, ldflags, only, json
 		if err := tailwindSetup(dir); err != nil {
 			return err
 		}
-		fmt.Println("# -tailwind: global.css (@import \"tailwindcss\") in the Base layout, 12 utilities per .orbit file")
+		fmt.Println("# -tailwind: global.css (@import \"tailwindcss\") in the Base layout, 12 utilities per .lyr file")
 	}
 	goVersion, _ := exec.Command("go", "env", "GOVERSION").Output()
-	fmt.Printf("# devloop: %d .orbit files (%d pages, %d layouts, %d components; Badge imported by %d), %d runs + 1 warm-up\n",
+	fmt.Printf("# devloop: %d .lyr files (%d pages, %d layouts, %d components; Badge imported by %d), %d runs + 1 warm-up\n",
 		s.Files, s.Pages, s.Layouts, s.Components, len(s.badgeImporters()), runs)
 	fmt.Printf("# %s, GOMAXPROCS=%d, NumCPU=%d, ldflags=%q, buildflags=%q, project %s\n", strings.TrimSpace(string(goVersion)), runtime.GOMAXPROCS(0), runtime.NumCPU(), ldflags, buildFlags, dir)
 	fmt.Printf("# load average at start: %s\n", loadavg())
@@ -118,25 +118,25 @@ func run(nfiles, runs int, orbitRoot, dir string, keep bool, ldflags, only, json
 		if err != nil {
 			return err
 		}
-		fmt.Println("# -dev: internal/dev's pipeline (orbit dev's go build flags, esbuild skip, early go build on .go-only edits)")
+		fmt.Println("# -dev: internal/dev's pipeline (lyr dev's go build flags, esbuild skip, early go build on .go-only edits)")
 	}
 
 	// Initial build: with a warm GOCACHE for std and the runtime, this is
-	// close to the first orbit dev start.
+	// close to the first lyr dev start.
 	start := time.Now()
 	if _, err := pl.step(ctx, stepOpts{}); err != nil {
 		return fmt.Errorf("initial build: %w", err)
 	}
-	fmt.Printf("# initial build (first orbit dev start, new user code): %v\n\n", time.Since(start).Round(time.Millisecond))
+	fmt.Printf("# initial build (first lyr dev start, new user code): %v\n\n", time.Since(start).Round(time.Millisecond))
 
 	t := s.target()
 	n := s.chain()
 	badgeT := slices.Contains(s.badgeImporters(), t)
 	base := func() error {
-		if err := writeFile(dir, compPath(t), componentOrbit(t, n, badgeT, "", "", "", "")); err != nil {
+		if err := writeFile(dir, compPath(t), componentLyr(t, n, badgeT, "", "", "", "")); err != nil {
 			return err
 		}
-		if err := writeFile(dir, badgePath, badgeOrbit("")); err != nil {
+		if err := writeFile(dir, badgePath, badgeLyr("")); err != nil {
 			return err
 		}
 		return writeFile(dir, dataPath, dataGo(salt, ""))
@@ -151,24 +151,24 @@ func run(nfiles, runs int, orbitRoot, dir string, keep bool, ldflags, only, json
 			o := goEdit
 			o.verify = "edit-" + id(k)
 			o.paths = []string{compPath(t)}
-			return o, writeFile(dir, compPath(t), componentOrbit(t, n, badgeT, " <em>"+o.verify+"</em>", "", "", ""))
+			return o, writeFile(dir, compPath(t), componentLyr(t, n, badgeT, " <em>"+o.verify+"</em>", "", "", ""))
 		}},
-		{"jsontype", fmt.Sprintf("the type of an orbit.JSON argument in C%d (its .d.ts changes)", t), func(k int) (stepOpts, error) {
+		{"jsontype", fmt.Sprintf("the type of a lyr.JSON argument in C%d (its .d.ts changes)", t), func(k int) (stepOpts, error) {
 			o := goEdit
 			o.verify = "F" + id(k)
 			o.paths = []string{compPath(t)}
-			return o, writeFile(dir, compPath(t), componentOrbit(t, n, badgeT, fmt.Sprintf(" <i data-v={orbit.JSON(struct{ %s int }{%d})}></i>", o.verify, k), "", "", ""))
+			return o, writeFile(dir, compPath(t), componentLyr(t, n, badgeT, fmt.Sprintf(" <i data-v={lyr.JSON(struct{ %s int }{%d})}></i>", o.verify, k), "", "", ""))
 		}},
 		{"frontmatter", fmt.Sprintf("a frontmatter statement in C%d", t), func(k int) (stepOpts, error) {
 			o := goEdit
 			o.verify = "-f" + id(k)
 			o.paths = []string{compPath(t)}
-			return o, writeFile(dir, compPath(t), componentOrbit(t, n, badgeT, "", fmt.Sprintf(" + %q", o.verify), "", ""))
+			return o, writeFile(dir, compPath(t), componentLyr(t, n, badgeT, "", fmt.Sprintf(" + %q", o.verify), "", ""))
 		}},
 		{"props", fmt.Sprintf("add a Props field to Badge (imported by %d components)", len(s.badgeImporters())), func(k int) (stepOpts, error) {
 			o := goEdit
 			o.paths = []string{badgePath}
-			return o, writeFile(dir, badgePath, badgeOrbit("\tExtra"+id(k)+" string\n"))
+			return o, writeFile(dir, badgePath, badgeLyr("\tExtra"+id(k)+" string\n"))
 		}},
 		{"newpage", "add a page (Base layout + C3)", func(k int) (stepOpts, error) {
 			name, src := newPage(k)
@@ -189,10 +189,10 @@ func run(nfiles, runs int, orbitRoot, dir string, keep bool, ldflags, only, json
 			return o, writeFile(dir, dataPath, dataGo(salt, fmt.Sprintf("\nconst API%s = %d\n", id(k), k)))
 		}},
 		{"css", fmt.Sprintf("scoped <style> content in C%d (esbuild only)", t), func(k int) (stepOpts, error) {
-			return stepOpts{assetsOnly: true, paths: []string{compPath(t)}}, writeFile(dir, compPath(t), componentOrbit(t, n, badgeT, "", "", fmt.Sprintf("\n  .c%d p { margin: %dpx; }", t, k+1), ""))
+			return stepOpts{assetsOnly: true, paths: []string{compPath(t)}}, writeFile(dir, compPath(t), componentLyr(t, n, badgeT, "", "", fmt.Sprintf("\n  .c%d p { margin: %dpx; }", t, k+1), ""))
 		}},
 		{"ts", fmt.Sprintf("<script> content in C%d (esbuild only)", t), func(k int) (stepOpts, error) {
-			return stepOpts{assetsOnly: true, paths: []string{compPath(t)}}, writeFile(dir, compPath(t), componentOrbit(t, n, badgeT, "", "", "", fmt.Sprintf("\n  console.log(%q);", id(k))))
+			return stepOpts{assetsOnly: true, paths: []string{compPath(t)}}, writeFile(dir, compPath(t), componentLyr(t, n, badgeT, "", "", "", fmt.Sprintf("\n  console.log(%q);", id(k))))
 		}},
 	}
 	if only != "" {

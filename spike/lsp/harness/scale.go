@@ -11,17 +11,17 @@ import (
 const scaleN = 50
 
 func genBigPage(n int) (decl, impl string) {
-	decl = header + "package big\n\nimport (\n\torbit \"github.com/bertrandkhe/orbit\"\n)\n\ntype Props struct{}\n\n" + renderHook("src/pages/big.orbit")
+	decl = header + "package big\n\nimport (\n\tlyr \"github.com/bertrandkhe/lyr\"\n)\n\ntype Props struct{}\n\n" + renderHook("src/pages/big.lyr")
 	var b strings.Builder
-	b.WriteString(header + "package big\n\nimport (\n\torbit \"github.com/bertrandkhe/orbit\"\n\t. \"example.com/blog/orbit_gen/decl/pages/big\"\n\t\"example.com/blog/internal/posts\"\n")
+	b.WriteString(header + "package big\n\nimport (\n\tlyr \"github.com/bertrandkhe/lyr\"\n\t. \"example.com/blog/lyr_gen/decl/pages/big\"\n\t\"example.com/blog/internal/posts\"\n")
 	for i := 0; i < n; i++ {
-		fmt.Fprintf(&b, "\tC%d \"example.com/blog/orbit_gen/decl/components/c%d\"\n", i, i)
+		fmt.Fprintf(&b, "\tC%d \"example.com/blog/lyr_gen/decl/components/c%d\"\n", i, i)
 	}
-	b.WriteString(")\n\nfunc init() { Orbit__Render = orbit__render }\n\nfunc orbit__render(ctx *orbit.Ctx, orbit__w *orbit.Writer, props Props, slots orbit.Slots) error {\n\tp := posts.Post{}\n")
+	b.WriteString(")\n\nfunc init() { Lyr__Render = lyr__render }\n\nfunc lyr__render(ctx *lyr.Ctx, lyr__w *lyr.Writer, props Props, slots lyr.Slots) error {\n\tp := posts.Post{}\n")
 	for i := 0; i < n; i++ {
-		fmt.Fprintf(&b, "\tif orbit__err := C%d.Render(ctx, orbit__w, C%d.Props{Post: p, Featured: true}, orbit.Slots{}); orbit__err != nil {\n\t\treturn orbit__err\n\t}\n", i, i)
+		fmt.Fprintf(&b, "\tif lyr__err := C%d.Render(ctx, lyr__w, C%d.Props{Post: p, Featured: true}, lyr.Slots{}); lyr__err != nil {\n\t\treturn lyr__err\n\t}\n", i, i)
 	}
-	b.WriteString("\treturn orbit__w.Err()\n}\n\nfunc orbit__complete() {\n\t_ = C7.Props{}\n}\n")
+	b.WriteString("\treturn lyr__w.Err()\n}\n\nfunc lyr__complete() {\n\t_ = C7.Props{}\n}\n")
 	return decl, b.String()
 }
 
@@ -58,7 +58,7 @@ func sessionScale(gopls string) *report {
 		}
 		s.r = &report{}
 		m := s.c.diagMark()
-		g := filepath.Join(projectDir, "orbit_gen")
+		g := filepath.Join(projectDir, "lyr_gen")
 		names := []string{}
 		for i := 0; i < scaleN; i++ {
 			pkg := fmt.Sprintf("c%d", i)
@@ -137,7 +137,7 @@ func shortURIs(s string) string {
 	var out []string
 	for _, part := range strings.Split(s, `"uri":"`)[1:] {
 		u := part[:strings.Index(part, `"`)]
-		out = append(out, strings.TrimPrefix(u, uriOf(projectDir)+"/orbit_gen/"))
+		out = append(out, strings.TrimPrefix(u, uriOf(projectDir)+"/lyr_gen/"))
 	}
 	return strings.Join(out, ", ")
 }

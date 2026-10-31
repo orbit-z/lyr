@@ -1,0 +1,17 @@
+---
+import Card "./Card.lyr"
+---
+<>
+  <h1>Title</h1>
+  <p>Body</p>
+</>
+<ul>
+  {for _, x := range items}
+    <><li>{x}</li><li>sep</li></>
+  {/for}
+</ul>
+<Card>
+  <Fragment slot="footer"><>a</><Fragment>b</Fragment></Fragment>
+  <><b>default</b></>
+</Card>
+<></>

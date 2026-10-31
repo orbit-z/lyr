@@ -6,9 +6,9 @@ package compiler
 // each piece a SitePiece call site, 0 allocations once typed). Any other
 // literal is a string expression: emitted wherever template Go code is
 // copied (cgOut.exact's hook, litCode) as a constant, or as a SiteConcat
-// call site, orbit__rt.TemplateString(s0, p0, s1, …) in pass 1, which the
+// call site, lyr__rt.TemplateString(s0, p0, s1, …) in pass 1, which the
 // typed pass turns into a concatenation (concat). A component prop or a
-// set:html value gets orbit__rt.TemplateAs(witness, …) instead, converted
+// set:html value gets lyr__rt.TemplateAs(witness, …) instead, converted
 // to the field's type.
 
 import (
@@ -99,7 +99,7 @@ func (g *cgGen) piece(p TLPart) Span {
 		o := g.o
 		o.str(NameRuntime + ".TemplateString( ")
 		at := len(o.b)
-		o.segs = append(o.segs, Segment{Kind: SegExact, OrbitStart: p.Start, OrbitEnd: p.End, GoStart: at, GoEnd: at})
+		o.segs = append(o.segs, Segment{Kind: SegExact, LyrStart: p.Start, LyrEnd: p.End, GoStart: at, GoEnd: at})
 		o.str(" ")
 		o.reset()
 		o.str(")")
@@ -154,7 +154,7 @@ func (g *cgGen) concat(l *TemplateLiteral, witness string, bytes bool, node Node
 	return cs.Call
 }
 
-// tbMethods are the orbit__rt.TB methods of the piece writes.
+// tbMethods are the lyr__rt.TB methods of the piece writes.
 var tbMethods = map[WriteKind]string{
 	WriteString: "S", WriteBytes: "B", WriteInt: "Int", WriteUint: "Uint", WriteFloat: "Float",
 	WriteFloat32: "Float32", WriteBool: "Bool", WriteStringer: "Stringer", WriteError: "Error",
@@ -370,7 +370,7 @@ func (g *cgGen) litWrite(kind SiteKind, node Node, a *Attr, l *TemplateLiteral) 
 		o.flush()
 		o.ln("{")
 		o.depth++
-		o.ln("orbit__m := " + NameW + ".URLMark()")
+		o.ln("lyr__m := " + NameW + ".URLMark()")
 	}
 	for _, p := range l.Parts {
 		if !p.Piece {
@@ -381,7 +381,7 @@ func (g *cgGen) litWrite(kind SiteKind, node Node, a *Attr, l *TemplateLiteral) 
 	}
 	if url == tlURLCheck {
 		o.flush()
-		o.ln(NameW + ".URLCheck(orbit__m)")
+		o.ln(NameW + ".URLCheck(lyr__m)")
 		o.depth--
 		o.ln("}")
 	}

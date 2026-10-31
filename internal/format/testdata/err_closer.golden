@@ -1,2 +1,2 @@
 -- errors --
-err_closer.orbit:1:6: unexpected </span>: no <span> is open
+err_closer.lyr:1:6: unexpected </span>: no <span> is open

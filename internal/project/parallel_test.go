@@ -15,8 +15,8 @@ func TestGenerateDeterministic(t *testing.T) {
 	needGo(t)
 	files := maps.Clone(siteFiles)
 	maps.Copy(files, mdFiles)
-	delete(files, "src/pages/404.md")                                   // siteFiles has a 404.orbit
-	files["src/pages/index.orbit"] = siteFiles["src/pages/index.orbit"] // both have one
+	delete(files, "src/pages/404.md")                               // siteFiles has a 404.lyr
+	files["src/pages/index.lyr"] = siteFiles["src/pages/index.lyr"] // both have one
 	p := newTestProject(t, files)
 	plan := func(procs int) []GenFile {
 		t.Helper()

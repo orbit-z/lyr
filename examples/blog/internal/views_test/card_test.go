@@ -1,5 +1,5 @@
-// Package views_test tests the blog's components and pages with orbittest.
-// Run `go tool orbit generate` first, so orbit_gen/ is up to date.
+// Package views_test tests the blog's components and pages with lyrtest.
+// Run `go tool lyr generate` first, so lyr_gen/ is up to date.
 package views_test
 
 import (
@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/orbit-z/orbit/orbittest"
+	"github.com/orbit-z/lyr/lyrtest"
 
 	"example.com/blog/internal/posts"
-	_ "example.com/blog/orbit_gen/app" // links every component's implementation
-	"example.com/blog/orbit_gen/decl/components/card"
+	_ "example.com/blog/lyr_gen/app" // links every component's implementation
+	"example.com/blog/lyr_gen/decl/components/card"
 )
 
 func TestMain(m *testing.M) {
@@ -22,18 +22,18 @@ func TestMain(m *testing.M) {
 
 var hello = posts.Post{
 	Slug:      "hello",
-	Title:     "Hello, <Orbit>",
+	Title:     "Hello, <Lyr>",
 	Tags:      []string{"news"},
 	Published: time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC),
 }
 
 func TestCard(t *testing.T) {
-	html := orbittest.Render(t, card.Render, card.Props{Post: hello},
-		orbittest.WithSlot("default", "<p>A summary.</p>"))
+	html := lyrtest.Render(t, card.Render, card.Props{Post: hello},
+		lyrtest.WithSlot("default", "<p>A summary.</p>"))
 
 	for _, want := range []string{
 		`<a href="/blog/hello"`,
-		"Hello, &lt;Orbit&gt;", // escaped
+		"Hello, &lt;Lyr&gt;", // escaped
 		`<time datetime="2026-10-20"`,
 		">news</span>",
 		"<p>A summary.</p>", // the default slot
@@ -45,7 +45,7 @@ func TestCard(t *testing.T) {
 }
 
 func TestCardSnapshot(t *testing.T) {
-	html := orbittest.Render(t, card.Render, card.Props{Post: hello},
-		orbittest.WithSlot("default", "<p>A summary.</p>"))
-	orbittest.Snapshot(t, "card", html)
+	html := lyrtest.Render(t, card.Render, card.Props{Post: hello},
+		lyrtest.WithSlot("default", "<p>A summary.</p>"))
+	lyrtest.Snapshot(t, "card", html)
 }

@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 // rhCard is a component with class:list, a client:* marker (static Raw) and
 // a server:defer placeholder.
 func rhCard(c *Ctx, w *Writer, p struct{ Title string }, s Slots) error {
-	if err := w.Enter("src/components/Card.orbit"); err != nil {
+	if err := w.Enter("src/components/Card.lyr"); err != nil {
 		return err
 	}
 	defer w.Leave()
@@ -22,7 +22,7 @@ func rhCard(c *Ctx, w *Writer, p struct{ Title string }, s Slots) error {
 	w.ClassEnd()
 	w.Raw(`><h2>`)
 	w.String(p.Title)
-	w.Raw(`</h2><orbit-lazy id="Counter-1c2d3e4f" strategy="visible"><button>0</button></orbit-lazy>`)
+	w.Raw(`</h2><lyr-lazy id="Counter-1c2d3e4f" strategy="visible"><button>0</button></lyr-lazy>`)
 	if err := Defer(c, w, commentsID, commentsProps{PostID: 7}, fallbackLoading); err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func TestRenderHTMLSameAsInPlace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != inPlace || !strings.Contains(inPlace, `<orbit-island src=`) || !strings.Contains(inPlace, `class="card featured"`) {
+	if string(got) != inPlace || !strings.Contains(inPlace, `<lyr-island src=`) || !strings.Contains(inPlace, `class="card featured"`) {
 		t.Errorf("captured:\n%s\nin place:\n%s", got, inPlace)
 	}
 	if c.w != w {
@@ -85,7 +85,7 @@ func TestRenderHTMLSameAsInPlace(t *testing.T) {
 
 // rhRecurse renders itself through a capture, forever.
 func rhRecurse(c *Ctx, w *Writer, p struct{}, s Slots) error {
-	if err := w.Enter("src/components/Recurse.orbit"); err != nil {
+	if err := w.Enter("src/components/Recurse.lyr"); err != nil {
 		return err
 	}
 	defer w.Leave()
@@ -99,11 +99,11 @@ func rhRecurse(c *Ctx, w *Writer, p struct{}, s Slots) error {
 
 func TestRenderHTMLDepth(t *testing.T) {
 	c, w, _ := rhCtx(t)
-	if err := w.Enter("src/pages/index.orbit"); err != nil {
+	if err := w.Enter("src/pages/index.lyr"); err != nil {
 		t.Fatal(err)
 	}
 	err := rhRecurse(c, w, struct{}{}, Slots{})
-	want := "orbit: render depth exceeded 1000: src/pages/index.orbit > src/components/Recurse.orbit > "
+	want := "lyr: render depth exceeded 1000: src/pages/index.lyr > src/components/Recurse.lyr > "
 	if err == nil || !strings.HasPrefix(err.Error(), want) {
 		t.Fatalf("err = %v, want prefix %q", err, want)
 	}
@@ -118,14 +118,14 @@ func TestRenderHTMLNested(t *testing.T) {
 	var inner *Writer
 	outer, err := RenderHTML(c, func(ow *Writer) error {
 		ow.Raw("<ul>")
-		if err := ow.Enter("src/components/List.orbit"); err != nil {
+		if err := ow.Enter("src/components/List.lyr"); err != nil {
 			return err
 		}
 		defer ow.Leave()
 		for i := range 2 {
 			card, err := RenderHTML(c, func(cw *Writer) error {
 				inner = c.w
-				if len(cw.stack) != 1 || cw.stack[0] != "src/components/List.orbit" {
+				if len(cw.stack) != 1 || cw.stack[0] != "src/components/List.lyr" {
 					t.Errorf("nested capture's stack = %v", cw.stack)
 				}
 				cw.Raw("<li>")
@@ -184,8 +184,8 @@ func TestRenderHTMLError(t *testing.T) {
 
 func TestRenderHTMLHeadEnd(t *testing.T) {
 	var captureErr error
-	routes := []Route{{Pattern: "/", File: "src/pages/index.orbit",
-		Assets: []Asset{{Kind: "css", URL: "/_orbit/index-1234.css"}},
+	routes := []Route{{Pattern: "/", File: "src/pages/index.lyr",
+		Assets: []Asset{{Kind: "css", URL: "/_lyr/index-1234.css"}},
 		Render: func(c *Ctx, w *Writer) error {
 			_, captureErr = RenderHTML(c, func(w *Writer) error {
 				w.Raw("<head>")
@@ -199,10 +199,10 @@ func TestRenderHTMLHeadEnd(t *testing.T) {
 			return nil
 		}}}
 	rec := do(testSite(t, routes).Handler(), "GET", "/")
-	if captureErr == nil || captureErr.Error() != "orbit: </head> can't be inside orbit.RenderHTML; keep the document head outside the captured content" {
+	if captureErr == nil || captureErr.Error() != "lyr: </head> can't be inside lyr.RenderHTML; keep the document head outside the captured content" {
 		t.Errorf("capture err = %v", captureErr)
 	}
-	want := `<html><head><link rel="stylesheet" href="/_orbit/index-1234.css"></head><body></body></html>`
+	want := `<html><head><link rel="stylesheet" href="/_lyr/index-1234.css"></head><body></body></html>`
 	if rec.Code != 200 || rec.Body.String() != want {
 		t.Errorf("got %d %q, want %q", rec.Code, rec.Body, want)
 	}

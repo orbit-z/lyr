@@ -1,0 +1,45 @@
+---
+import Card "../components/Card.lyr"
+
+type link struct{ href, text string }
+
+links := []link{{"/a", "A & B"}, {"javascript:alert(1)", "bad"}, {" JavaScript:x", "bad2"}}
+data := map[string]any{"x": "</script><!--", "n": 1}
+attrs := lyr.Attrs{"title": "t<", "formaction": "javascript:no", "data-n": 2}
+body := lyr.HTML("<b>raw</b>")
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Home</title>
+    <script type="application/json" id="data" set:json={data}></script>
+    <script is:inline>console.log(1 < 2)</script>
+  </head>
+  <body class='home' hidden=no>
+    {/* a template comment */}
+    <ul>
+      {for _, l := range links}
+        <li {...attrs}><a href={l.href}>{l.text}</a></li>
+      {/for}
+    </ul>
+    <Card title="hello" featured href="/p/1" post-id={42}>
+      <em>hi</em> there
+      <p slot="footer">foot</p>
+    </Card>
+    <Card title={"plain"} href={"/plain"} />
+    <div set:html={body} />
+    <p set:text={"<escaped>"}></p>
+    <img src={"javascript:img"} alt="x" />
+    <a href={lyr.URL("javascript:trusted()")}>trusted</a>
+    {if len(links) > 5}
+      <p>many</p>
+    {else if n := len(links); n > 1}
+      <p>some: {n}</p>
+    {else}
+      <p>few</p>
+    {/if}
+    <!-- an HTML comment {not evaluated} -->
+    <script src="./app.ts"></script>
+  </body>
+</html>

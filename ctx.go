@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"net/http"
@@ -16,7 +16,7 @@ type Ctx struct {
 	// URL is the request URL. In a deferred island it's the island request's
 	// URL; the page's URL is in Request.Referer().
 	URL  *url.URL
-	Site *url.URL // the "site" URL from orbit.json; nil when unset
+	Site *url.URL // the "site" URL from lyr.json; nil when unset
 
 	paramNames []string    // the matched route's param names (static)
 	paramVals  []string    // values for paramNames, usually in paramBuf
@@ -24,7 +24,7 @@ type Ctx struct {
 	locals     any         // nil, or the *L cached by LocalsOf
 	status     int         // 0 means unset (200)
 	header     http.Header // nil until Header is first called on this Ctx
-	dev        bool        // running under orbit dev
+	dev        bool        // running under lyr dev
 	keys       *keyring    // island key and build ID for Defer; nil: defaultKeyring
 	route      routeRef    // the request's route, when the site fills a RouteInfo
 	// w is the Writer rendering the request (set where the runtime pairs a
@@ -41,7 +41,7 @@ type Ctx struct {
 }
 
 // Param returns the percent-decoded value of the route parameter name, such
-// as "hello" for Param("slug") on /blog/hello with src/pages/blog/[slug].orbit.
+// as "hello" for Param("slug") on /blog/hello with src/pages/blog/[slug].lyr.
 // It returns "" if the matched route has no such parameter. A rest parameter
 // ([...path]) holds the rest of the path, "a/b" for /docs/a/b.
 //
@@ -82,11 +82,11 @@ func (c *Ctx) Header() http.Header {
 // Redirect returns a *RedirectError that redirects to to with status code.
 // Return it from the frontmatter: return ctx.Redirect("/login", 302).
 //
-// code must be a 3xx status; any other code panics, which Orbit reports as a
+// code must be a 3xx status; any other code panics, which Lyr reports as a
 // server error pointing at the call.
 func (c *Ctx) Redirect(to string, code int) error {
 	if code < 300 || code > 399 {
-		panic("orbit: Redirect to " + strconv.Quote(to) + " with status " + strconv.Itoa(code) +
+		panic("lyr: Redirect to " + strconv.Quote(to) + " with status " + strconv.Itoa(code) +
 			": the code must be a 3xx redirect status, such as 302 or 303")
 	}
 	return &RedirectError{Location: to, Code: code}
@@ -116,7 +116,7 @@ func (c *Ctx) responseHeader() http.Header {
 // if LocalsOf hasn't run yet. Code that needs the typed value calls LocalsOf.
 func (c *Ctx) cachedLocals() any { return c.locals }
 
-// isDev reports whether the Ctx was acquired in dev mode (orbit dev).
+// isDev reports whether the Ctx was acquired in dev mode (lyr dev).
 func (c *Ctx) isDev() bool { return c.dev }
 
 var ctxPool = sync.Pool{New: func() any { return new(Ctx) }}

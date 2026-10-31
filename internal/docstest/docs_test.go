@@ -3,14 +3,14 @@
 //
 // Rules:
 //   - Only fenced code blocks whose info string has file=PATH are built
-//     (```orbit file=src/pages/index.orbit). Untagged blocks are fragments
+//     (```lyr file=src/pages/index.lyr). Untagged blocks are fragments
 //     and are ignored. A PATH starting with ~ or / is outside the project
 //     (editor config) and is skipped.
-//   - Each docs page is its own project: the orbit new starter (module
-//     example.com/blog, Orbit replaced by this checkout), then the page's
+//   - Each docs page is its own project: the lyr new starter (module
+//     example.com/blog, Lyr replaced by this checkout), then the page's
 //     hidden stubs (pageStubs), then the page's tagged blocks at their
 //     paths. One page tagging the same PATH twice is an error.
-//   - The project must pass orbit check (generate, go vet of orbit_gen/
+//   - The project must pass lyr check (generate, go vet of lyr_gen/
 //     and, when Bun is available, bun check; without Bun the TypeScript half
 //     is skipped with a notice), then go vet ./..., go build ./... and
 //     go test ./... (the testing page's examples are tests), after the
@@ -46,36 +46,36 @@ import (
 	"testing"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/check"
-	"github.com/orbit-z/orbit/internal/scaffold"
-	"github.com/orbit-z/orbit/internal/tailwind/tailwindtest"
+	"github.com/orbit-z/lyr/internal/check"
+	"github.com/orbit-z/lyr/internal/scaffold"
+	"github.com/orbit-z/lyr/internal/tailwind/tailwindtest"
 )
 
 // goEnv runs the go command in a temp project: no workspace, and go.sum
 // filled in as needed.
 var goEnv = []string{"GOWORK=off", "GOFLAGS=-mod=mod"}
 
-// bunSkipped is set when orbit check skipped the TypeScript half.
+// bunSkipped is set when lyr check skipped the TypeScript half.
 var bunSkipped atomic.Bool
 
 // pageStubs are supporting files a page's examples use but don't show, by
 // page (relative to docs/). An empty value removes a starter file.
 var pageStubs = map[string]map[string]string{
-	// The import cycle example: B.orbit imports A.orbit, whose
-	// expect-error version imports B.orbit back.
-	// The name clash examples import Item.orbit.
+	// The import cycle example: B.lyr imports A.lyr, whose
+	// expect-error version imports B.lyr back.
+	// The name clash examples import Item.lyr.
 	"components.md": {
-		"src/components/A.orbit":    "---\ntype Props struct {\n    Name string\n}\n---\n",
-		"src/components/Item.orbit": "---\ntype Props struct {\n    Name string\n}\n---\n<li>{props.Name}</li>\n",
+		"src/components/A.lyr":    "---\ntype Props struct {\n    Name string\n}\n---\n",
+		"src/components/Item.lyr": "---\ntype Props struct {\n    Name string\n}\n---\n<li>{props.Name}</li>\n",
 	},
 	// The indirect import example: src/locals imports internal/auth, which
-	// imports orbit_gen/app.
-	"middleware.md": {"internal/auth/auth.go": "package auth\n\nimport _ \"example.com/blog/orbit_gen/app\"\n\ntype User struct{ Name string }\n"},
+	// imports lyr_gen/app.
+	"middleware.md": {"internal/auth/auth.go": "package auth\n\nimport _ \"example.com/blog/lyr_gen/app\"\n\ntype User struct{ Name string }\n"},
 	// The Go type errors example: a page passes a string to Card's bool
 	// prop, and a Card has a typo in a posts.Post field.
 	"troubleshooting.md": {
-		"internal/posts/posts.go":   stubPosts,
-		"src/components/Card.orbit": stubCard,
+		"internal/posts/posts.go": stubPosts,
+		"src/components/Card.lyr": stubCard,
 	},
 	// The Tailwind stylesheet imports a Fontsource font from node_modules.
 	"tailwind.md": {
@@ -85,8 +85,8 @@ var pageStubs = map[string]map[string]string{
 	},
 	// The error output examples pass wrong props to a Card.
 	"reference/cli.md": {
-		"internal/posts/posts.go":   stubPosts,
-		"src/components/Card.orbit": stubCard,
+		"internal/posts/posts.go": stubPosts,
+		"src/components/Card.lyr": stubCard,
 	},
 }
 
@@ -109,11 +109,11 @@ var pageSetup = map[string][][]string{
 // half without Bun.
 var tailwindPages = map[string]bool{"tailwind.md": true}
 
-// skipPages are pages not built, with the Orbit bug that stops them.
+// skipPages are pages not built, with the Lyr bug that stops them.
 var skipPages = map[string]string{}
 
 // skipExamples are expect-error and expect-warning blocks not built, by
-// page and PATH ("page PATH"), with the Orbit bug that makes their output
+// page and PATH ("page PATH"), with the Lyr bug that makes their output
 // differ from the documented one.
 var skipExamples = map[string]string{}
 
@@ -344,7 +344,7 @@ func TestDocs(t *testing.T) {
 		built++
 		t.Run(rel, func(t *testing.T) {
 			if bug, ok := skipPages[rel]; ok {
-				t.Skip("TODO(orbit bug): " + bug)
+				t.Skip("TODO(lyr bug): " + bug)
 			}
 			if tailwindPages[rel] && !hasTailwind {
 				t.Skip(tailwindtest.Notice)
@@ -397,7 +397,7 @@ func TestDocs(t *testing.T) {
 				// in parallel.
 				t.Run(fmt.Sprintf("line%d", b.line), func(t *testing.T) {
 					if bug, ok := skipExamples[rel+" "+b.file]; ok {
-						t.Skip("TODO(orbit bug): " + bug)
+						t.Skip("TODO(lyr bug): " + bug)
 					}
 					t.Parallel()
 					ok, out := buildProject(t, starter, pageStubs[rel], nil, append(files, b), &bunNotice)
@@ -460,7 +460,7 @@ func buildProject(t *testing.T, starter map[string][]byte, stubs map[string]stri
 	var out bytes.Buffer
 	res, err := check.Run(ctx, check.Options{Root: dir, Env: goEnv})
 	if err != nil {
-		return false, "orbit: " + err.Error() // as orbit check prints it
+		return false, "lyr: " + err.Error() // as lyr check prints it
 	}
 	for _, d := range res.Generate.Diagnostics {
 		fmt.Fprintln(&out, d)
@@ -523,19 +523,19 @@ func TestSplice(t *testing.T) {
 }
 
 func TestExpected(t *testing.T) {
-	src := "```orbit file=a.orbit expect-error\nx\n```\n\n```orbit file=b.orbit expect-error\ny\n```\n\n" +
-		"```text\na.orbit:1:1: one\nb.orbit:2:1: two\n```\n"
+	src := "```lyr file=a.lyr expect-error\nx\n```\n\n```lyr file=b.lyr expect-error\ny\n```\n\n" +
+		"```text\na.lyr:1:1: one\nb.lyr:2:1: two\n```\n"
 	fences := parseFences(src)
-	if got := expected(fences[1:], "a.orbit"); !slices.Equal(got, []string{"a.orbit:1:1: one"}) {
-		t.Errorf("a.orbit: got %q", got)
+	if got := expected(fences[1:], "a.lyr"); !slices.Equal(got, []string{"a.lyr:1:1: one"}) {
+		t.Errorf("a.lyr: got %q", got)
 	}
-	if got := expected(fences[2:], "b.orbit"); !slices.Equal(got, []string{"b.orbit:2:1: two"}) {
-		t.Errorf("b.orbit: got %q", got)
+	if got := expected(fences[2:], "b.lyr"); !slices.Equal(got, []string{"b.lyr:2:1: two"}) {
+		t.Errorf("b.lyr: got %q", got)
 	}
-	if got := expected(fences[2:], "c.orbit"); !slices.Equal(got, []string{"a.orbit:1:1: one"}) {
-		t.Errorf("c.orbit: got %q, want the first line", got)
+	if got := expected(fences[2:], "c.lyr"); !slices.Equal(got, []string{"a.lyr:1:1: one"}) {
+		t.Errorf("c.lyr: got %q, want the first line", got)
 	}
-	if got := expected(nil, "a.orbit"); got != nil {
+	if got := expected(nil, "a.lyr"); got != nil {
 		t.Errorf("no fence: got %q", got)
 	}
 }

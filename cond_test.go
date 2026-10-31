@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -65,7 +65,7 @@ func TestIfMatchesTypedWrites(t *testing.T) {
 			{"json", func(w *Writer) { w.Attr("data-x", If(c, JSON([]int{1}))) }, func(w *Writer) {
 				if c {
 					w.Raw(` data-x='`)
-					w.JSONAttr("x.orbit:1:1", JSON([]int{1}))
+					w.JSONAttr("x.lyr:1:1", JSON([]int{1}))
 					w.Raw(`'`)
 				}
 			}},
@@ -181,7 +181,7 @@ func TestTrueFalseAttrs(t *testing.T) {
 	}
 }
 
-// BenchmarkIf compares a lowered orbit.If (an if around pieces) with the
+// BenchmarkIf compares a lowered lyr.If (an if around pieces) with the
 // unlowered call through Attr, for a dynamic string, both conditions.
 func BenchmarkIf(b *testing.B) {
 	var buf bytes.Buffer

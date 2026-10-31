@@ -1,4 +1,4 @@
-module github.com/orbit-z/orbit
+module github.com/orbit-z/lyr
 
 go 1.27
 

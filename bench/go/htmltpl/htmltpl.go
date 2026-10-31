@@ -1,12 +1,12 @@
 // Package htmltpl renders the bench page with html/template: the same
-// layout, header and cards as the Orbit and templ versions.
+// layout, header and cards as the Lyr and templ versions.
 package htmltpl
 
 import (
 	"html/template"
 	"io"
 
-	"github.com/orbit-z/orbit/bench/go/data"
+	"github.com/orbit-z/lyr/bench/go/data"
 )
 
 const src = `
@@ -19,7 +19,7 @@ const src = `
   </head>
   <body>
     {{template "content" .}}
-    <footer>Rendered by Orbit</footer>
+    <footer>Rendered by Lyr</footer>
   </body>
 </html>
 {{end}}

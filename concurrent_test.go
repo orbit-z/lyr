@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -37,7 +37,7 @@ type cProps struct {
 var cRunning, cMaxRunning atomic.Int32
 
 func cComp(c *Ctx, w *Writer, p cProps, s Slots) error {
-	if err := w.Enter("src/components/C.orbit"); err != nil {
+	if err := w.Enter("src/components/C.lyr"); err != nil {
 		return err
 	}
 	defer w.Leave()
@@ -126,23 +126,23 @@ func cPage(mark bool) func(*Ctx, *Writer) error {
 		}
 		x := "captured"
 		// Slot content that calls a component: it runs in b's goroutine.
-		slot := func(orbit__w *Writer) error {
-			orbit__ctx := CtxOf(orbit__w, c)
-			orbit__w.Raw("<slot " + x + ">")
-			if err := cComp(orbit__ctx, orbit__w, cProps{Name: "inslot"}, Slots{}); err != nil {
+		slot := func(lyr__w *Writer) error {
+			lyr__ctx := CtxOf(lyr__w, c)
+			lyr__w.Raw("<slot " + x + ">")
+			if err := cComp(lyr__ctx, lyr__w, cProps{Name: "inslot"}, Slots{}); err != nil {
 				return err
 			}
-			orbit__w.Raw("</slot>")
-			return orbit__w.Err()
+			lyr__w.Raw("</slot>")
+			return lyr__w.Err()
 		}
 		if err := call(mark, c, w, cComp, cProps{Name: "s", Sleep: time.Millisecond}, Slots{Default: slot}); err != nil {
 			return err
 		}
-		w.Raw(`<orbit-lazy component="C-1" client="idle">`)
+		w.Raw(`<lyr-lazy component="C-1" client="idle">`)
 		if err := call(mark, c, w, cComp, cProps{Name: "lazy"}, Slots{}); err != nil {
 			return err
 		}
-		w.Raw(`</orbit-lazy>`)
+		w.Raw(`</lyr-lazy>`)
 		for i := range 40 {
 			if err := call(mark, c, w, cComp, cProps{Name: "l" + strconv.Itoa(i)}, Slots{}); err != nil {
 				return err
@@ -160,13 +160,13 @@ func cSite(t *testing.T, routes []Route, opts ...Option) http.Handler {
 
 func TestConcurrentSameOutput(t *testing.T) {
 	forks := trackForks(t)
-	assets := []Asset{{Kind: "css", URL: "/_orbit/x.css"}}
+	assets := []Asset{{Kind: "css", URL: "/_lyr/x.css"}}
 	h := cSite(t, []Route{
-		{Pattern: "/plain", File: "src/pages/plain.orbit", Render: cPage(false), Assets: assets},
-		{Pattern: "/marked", File: "src/pages/marked.orbit", Render: cPage(true), Assets: assets},
+		{Pattern: "/plain", File: "src/pages/plain.lyr", Render: cPage(false), Assets: assets},
+		{Pattern: "/marked", File: "src/pages/marked.lyr", Render: cPage(true), Assets: assets},
 	}, WithConcurrencyLimit(4))
 	want := do(h, "GET", "/plain")
-	if want.Code != 200 || !strings.Contains(want.Body.String(), `<link rel="stylesheet" href="/_orbit/x.css"></head>`) {
+	if want.Code != 200 || !strings.Contains(want.Body.String(), `<link rel="stylesheet" href="/_lyr/x.css"></head>`) {
 		t.Fatalf("plain: %d %q", want.Code, want.Body)
 	}
 	cMaxRunning.Store(0)
@@ -211,7 +211,7 @@ func TestConcurrentLimit(t *testing.T) {
 		want.WriteString(strconv.Itoa(i) + ",")
 	}
 	for _, limit := range []int{0, 1, 3, 16, -1} {
-		h := cSite(t, []Route{{Pattern: "/", File: "src/pages/index.orbit", Render: loop}}, WithConcurrencyLimit(limit))
+		h := cSite(t, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: loop}}, WithConcurrencyLimit(limit))
 		started.Store(0)
 		if got := do(h, "GET", "/"); got.Body.String() != want.String() {
 			t.Errorf("limit %d: %q", limit, got.Body)
@@ -246,7 +246,7 @@ func TestConcurrentLimitRunning(t *testing.T) {
 		}
 		return nil
 	}
-	h := cSite(t, []Route{{Pattern: "/", File: "src/pages/index.orbit", Render: loop}}, WithConcurrencyLimit(3))
+	h := cSite(t, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: loop}}, WithConcurrencyLimit(3))
 	do(h, "GET", "/")
 	// 3 goroutines, plus one rendering inline on the page's goroutine.
 	if m := maxRunning.Load(); m > 4 || m < 2 {
@@ -256,8 +256,8 @@ func TestConcurrentLimitRunning(t *testing.T) {
 
 func TestConcurrentHead(t *testing.T) {
 	forks := trackForks(t)
-	assets := []Asset{{Kind: "css", URL: "/_orbit/x.css"}}
-	const tags = `<link rel="stylesheet" href="/_orbit/x.css">`
+	assets := []Asset{{Kind: "css", URL: "/_lyr/x.css"}}
+	const tags = `<link rel="stylesheet" href="/_lyr/x.css">`
 	pages := map[string]func(mark bool) func(*Ctx, *Writer) error{
 		// The </head> comes before any hole: written inline.
 		"before": func(mark bool) func(*Ctx, *Writer) error {
@@ -315,8 +315,8 @@ func TestConcurrentHead(t *testing.T) {
 	for name, p := range pages {
 		t.Run(name, func(t *testing.T) {
 			h := cSite(t, []Route{
-				{Pattern: "/plain", File: "src/pages/plain.orbit", Render: p(false), Assets: assets},
-				{Pattern: "/marked", File: "src/pages/marked.orbit", Render: p(true), Assets: assets},
+				{Pattern: "/plain", File: "src/pages/plain.lyr", Render: p(false), Assets: assets},
+				{Pattern: "/marked", File: "src/pages/marked.lyr", Render: p(true), Assets: assets},
 			})
 			want := do(h, "GET", "/plain").Body.String()
 			if strings.Count(want, tags) != 1 {
@@ -375,7 +375,7 @@ func TestConcurrentErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var got error
-			s := testSite(t, []Route{{Pattern: "/", File: "src/pages/index.orbit", Render: tt.page}},
+			s := testSite(t, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: tt.page}},
 				WithErrorHandler(func(w http.ResponseWriter, r *http.Request, err error) bool {
 					got = err
 					w.WriteHeader(599)
@@ -426,9 +426,9 @@ func TestConcurrentControlFlow(t *testing.T) {
 		}
 	}
 	h := cSite(t, []Route{
-		{Pattern: "/r", File: "src/pages/r.orbit", Render: page("redirect")},
-		{Pattern: "/n", File: "src/pages/n.orbit", Render: page("notfound")},
-		{Pattern: "404", File: "src/pages/404.orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/r", File: "src/pages/r.lyr", Render: page("redirect")},
+		{Pattern: "/n", File: "src/pages/n.lyr", Render: page("notfound")},
+		{Pattern: "404", File: "src/pages/404.lyr", Render: func(c *Ctx, w *Writer) error {
 			w.Raw("not here")
 			return nil
 		}},
@@ -449,7 +449,7 @@ func TestConcurrentControlFlow(t *testing.T) {
 		}
 		return Concurrent(c, w, comments, commentsProps{PostID: 7}, Slots{})
 	}
-	s := NewSite(islandRoutes(), []Island{NewIsland(commentsID, "src/components/Comments.orbit", islandOf)}, WithStaticDir(t.TempDir()))
+	s := NewSite(islandRoutes(), []Island{NewIsland(commentsID, "src/components/Comments.lyr", islandOf)}, WithStaticDir(t.TempDir()))
 	ih := s.Handler()
 	for mode, want := range map[string]int{"redirect": http.StatusFound, "notfound": 404, "": 200, "cache": 200} {
 		src, token := placeholder(t, ih, mode)
@@ -493,7 +493,7 @@ func TestConcurrentStatusHeaderMerge(t *testing.T) {
 		}
 		return Concurrent(c, w, cComp, cProps{Header: "X-Last: c", Mark: true, Kids: []cProps{{Status: 203}}}, Slots{})
 	}
-	h := cSite(t, []Route{{Pattern: "/", File: "src/pages/index.orbit", Render: page}})
+	h := cSite(t, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: page}})
 	rec := do(h, "GET", "/")
 	// The marked components' writes apply at the join, in output order,
 	// after the page's own (and the unmarked b's).
@@ -511,14 +511,14 @@ func TestConcurrentDepthGuard(t *testing.T) {
 		return Concurrent(c, w, cComp, cProps{Mark: true, Depth: 2000}, Slots{})
 	}
 	var got error
-	s := testSite(t, []Route{{Pattern: "/", File: "src/pages/index.orbit", Render: page}},
+	s := testSite(t, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: page}},
 		WithErrorHandler(func(w http.ResponseWriter, r *http.Request, err error) bool {
 			got = err
 			w.WriteHeader(500)
 			return true
 		}))
 	do(s.Handler(), "GET", "/")
-	if got == nil || !strings.Contains(got.Error(), "render depth exceeded 1000: src/components/C.orbit > src/components/C.orbit") {
+	if got == nil || !strings.Contains(got.Error(), "render depth exceeded 1000: src/components/C.lyr > src/components/C.lyr") {
 		t.Errorf("error %v", got)
 	}
 	if n := forks.Load(); n != 0 {
@@ -563,7 +563,7 @@ func TestConcurrentInAttrValueInline(t *testing.T) {
 		w.Raw(">")
 		return nil
 	}
-	h := cSite(t, []Route{{Pattern: "/", File: "src/pages/index.orbit", Render: page}})
+	h := cSite(t, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: page}})
 	if got := do(h, "GET", "/").Body.String(); got != `<p title="&lt;c x&gt;&lt;/c&gt;">` {
 		t.Errorf("got %q", got)
 	}
@@ -579,7 +579,7 @@ func TestConcurrentLatency(t *testing.T) {
 		}
 		return nil
 	}
-	h := cSite(t, []Route{{Pattern: "/", File: "src/pages/index.orbit", Render: page}})
+	h := cSite(t, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: page}})
 	best := time.Hour
 	for range 3 {
 		start := time.Now()
@@ -599,16 +599,16 @@ func TestConcurrentPanics(t *testing.T) {
 	page := func(c *Ctx, w *Writer) error {
 		w.Raw("<p>")
 		if err := Concurrent(c, w, func(c *Ctx, w *Writer, _ int, s Slots) error {
-			return orbitPanicker(c, w)
+			return lyrPanicker(c, w)
 		}, 0, Slots{}); err != nil {
 			return err
 		}
 		return nil
 	}
-	s := testSite(t, []Route{{Pattern: "/", File: "src/pages/index.orbit", Render: page}})
+	s := testSite(t, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: page}})
 	log := captureLog(t)
 	rec := do(s.Handler(), "GET", "/")
-	if rec.Code != 500 || !strings.Contains(log.String(), "orbit: GET /: src/pages/p.orbit:7: panic: from orbit") {
+	if rec.Code != 500 || !strings.Contains(log.String(), "lyr: GET /: src/pages/p.lyr:7: panic: from lyr") {
 		t.Errorf("got %d, log %q", rec.Code, log)
 	}
 
@@ -618,7 +618,7 @@ func TestConcurrentPanics(t *testing.T) {
 		}
 		return Concurrent(c, w, cComp, cProps{Panic: http.ErrAbortHandler}, Slots{})
 	}
-	s = testSite(t, []Route{{Pattern: "/", File: "src/pages/index.orbit", Render: abort}})
+	s = testSite(t, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: abort}})
 	var p any
 	func() {
 		defer func() { p = recover() }()
@@ -656,7 +656,7 @@ func TestConcurrentEntryPoints(t *testing.T) {
 		t.Errorf("RenderComponent error %v", err)
 	}
 
-	// orbittest's bridge.
+	// lyrtest's bridge.
 	html, err := testRender(httptest.NewRequest("GET", "/", nil), nil, nil, func(c, w any) error {
 		return frag(c.(*Ctx), w.(*Writer), 0, Slots{})
 	})
@@ -683,8 +683,8 @@ func TestConcurrentEntryPoints(t *testing.T) {
 		return Concurrent(c, w, inner, 0, Slots{})
 	}
 	h := cSite(t, []Route{
-		{Pattern: "/", File: "src/pages/index.orbit", Render: page},
-		{Pattern: "/head", File: "src/pages/head.orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/", File: "src/pages/index.lyr", Render: page},
+		{Pattern: "/head", File: "src/pages/head.lyr", Render: func(c *Ctx, w *Writer) error {
 			_, err := RenderHTML(c, func(w *Writer) error {
 				return Concurrent(CtxOf(w, c), w, cComp, cProps{Head: true}, Slots{})
 			})
@@ -696,7 +696,7 @@ func TestConcurrentEntryPoints(t *testing.T) {
 		t.Errorf("RenderHTML: %q %v", rec.Body, rec.Header())
 	}
 	log := captureLog(t)
-	if rec := do(h, "GET", "/head"); rec.Code != 500 || !strings.Contains(log.String(), "</head> can't be inside orbit.RenderHTML") {
+	if rec := do(h, "GET", "/head"); rec.Code != 500 || !strings.Contains(log.String(), "</head> can't be inside lyr.RenderHTML") {
 		t.Errorf("head in capture: %d %q", rec.Code, log)
 	}
 	if n := forks.Load(); n != 0 {
@@ -707,8 +707,8 @@ func TestConcurrentEntryPoints(t *testing.T) {
 // TestConcurrentStress runs marked pages from many goroutines, for -race.
 func TestConcurrentStress(t *testing.T) {
 	h := cSite(t, []Route{
-		{Pattern: "/plain", File: "src/pages/plain.orbit", Render: cPage(false)},
-		{Pattern: "/marked", File: "src/pages/marked.orbit", Render: cPage(true)},
+		{Pattern: "/plain", File: "src/pages/plain.lyr", Render: cPage(false)},
+		{Pattern: "/marked", File: "src/pages/marked.lyr", Render: cPage(true)},
 	})
 	want := do(h, "GET", "/plain").Body.String()
 	var wg sync.WaitGroup
@@ -745,7 +745,7 @@ func TestConcurrentServeAllocs(t *testing.T) {
 		w.Raw("</body></html>")
 		return nil
 	}
-	s := testSite(t, []Route{{Pattern: "/", File: "src/pages/index.orbit", Render: page}})
+	s := testSite(t, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: page}})
 	h := s.Handler()
 	fw := newFakeResponseWriter()
 	r := httptest.NewRequest("GET", "/", nil)
@@ -762,7 +762,7 @@ func TestConcurrentServeAllocs(t *testing.T) {
 
 // benchCard is a small component, like a card in a list.
 func benchCard(c *Ctx, w *Writer, n int, s Slots) error {
-	if err := w.Enter("src/components/Card.orbit"); err != nil {
+	if err := w.Enter("src/components/Card.lyr"); err != nil {
 		return err
 	}
 	defer w.Leave()
@@ -777,8 +777,8 @@ func benchCard(c *Ctx, w *Writer, n int, s Slots) error {
 // BenchmarkConcurrent serves pages of n small cards, in order and marked,
 // through Site.Handler with a reused ResponseWriter (PLAN.md §3.6, Cost).
 func BenchmarkConcurrent(b *testing.B) {
-	b.Setenv("ORBIT_STATIC", "")
-	b.Setenv("ORBIT_DEV", "")
+	b.Setenv("LYR_STATIC", "")
+	b.Setenv("LYR_DEV", "")
 	page := func(n int, mark bool, filler string) func(*Ctx, *Writer) error {
 		return func(c *Ctx, w *Writer) error {
 			w.Raw("<!DOCTYPE html><html><head><title>t</title>")
@@ -813,8 +813,8 @@ func BenchmarkConcurrent(b *testing.B) {
 				name = tc.name + "/concurrent"
 			}
 			b.Run(name, func(b *testing.B) {
-				s := NewSite([]Route{{Pattern: "/", File: "src/pages/index.orbit", Render: page(tc.n, mark, tc.filler),
-					Assets: []Asset{{Kind: "css", URL: "/_orbit/x.css"}}}}, nil, append([]Option{WithStaticDir(b.TempDir())}, tc.opts...)...)
+				s := NewSite([]Route{{Pattern: "/", File: "src/pages/index.lyr", Render: page(tc.n, mark, tc.filler),
+					Assets: []Asset{{Kind: "css", URL: "/_lyr/x.css"}}}}, nil, append([]Option{WithStaticDir(b.TempDir())}, tc.opts...)...)
 				h := s.Handler()
 				fw := newFakeResponseWriter()
 				r := httptest.NewRequest("GET", "/", nil)
@@ -846,12 +846,12 @@ func BenchmarkCtxOf(b *testing.B) {
 			for b.Loop() {
 				buf.Reset()
 				for i := range 500 {
-					if err := benchCard(c, w, i, Slots{Default: func(orbit__w *Writer) error {
-						orbit__ctx := c
+					if err := benchCard(c, w, i, Slots{Default: func(lyr__w *Writer) error {
+						lyr__ctx := c
 						if rebind {
-							orbit__ctx = CtxOf(orbit__w, c)
+							lyr__ctx = CtxOf(lyr__w, c)
 						}
-						return inner(orbit__ctx, orbit__w, i, Slots{})
+						return inner(lyr__ctx, lyr__w, i, Slots{})
 					}}); err != nil {
 						b.Fatal(err)
 					}

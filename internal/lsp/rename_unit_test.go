@@ -46,7 +46,7 @@ label := "Héllo ✓ " + props.Post
 `
 
 const renameUnitPage = `---
-import Card "../components/Card.orbit"
+import Card "../components/Card.lyr"
 
 post := "x"
 ---
@@ -78,14 +78,14 @@ func docChange(uri string, edits ...any) map[string]any {
 
 func TestRenameMapping(t *testing.T) {
 	ws := memWorkspace(t, map[string]string{
-		"src/components/Card.orbit": renameUnitCard,
-		"src/pages/index.orbit":     renameUnitPage,
-		"src/pages/[slug].orbit":    renameSlug,
+		"src/components/Card.lyr": renameUnitCard,
+		"src/pages/index.lyr":     renameUnitPage,
+		"src/pages/[slug].lyr":    renameSlug,
 	})
-	const card, page = "src/components/Card.orbit", "src/pages/index.orbit"
+	const card, page = "src/components/Card.lyr", "src/pages/index.lyr"
 	cdecl, cimpl := ws.genOf(card)
 	_, pimpl := ws.genOf(page)
-	sdecl, _ := ws.genOf("src/pages/[slug].orbit")
+	sdecl, _ := ws.genOf("src/pages/[slug].lyr")
 	m := mapper{ws: ws, enc: encUTF16}
 	run := func(edit map[string]any, docChanges bool) (any, *rpcError) {
 		raw, _ := json.Marshal(edit)
@@ -122,12 +122,12 @@ func TestRenameMapping(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got, want := applyEdits(renameUnitCard, edits(t, res, ws.orbitURI(card))), strings.ReplaceAll(renameUnitCard, "Post", "Article"); got != want {
-			t.Errorf("Card.orbit:\n%s\nwant:\n%s", got, want)
+		if got, want := applyEdits(renameUnitCard, edits(t, res, ws.lyrURI(card))), strings.ReplaceAll(renameUnitCard, "Post", "Article"); got != want {
+			t.Errorf("Card.lyr:\n%s\nwant:\n%s", got, want)
 		}
 		want := strings.NewReplacer("post={", "article={", "Card {post}", "Card article={post}").Replace(renameUnitPage)
-		if got := applyEdits(renameUnitPage, edits(t, res, ws.orbitURI(page))); got != want {
-			t.Errorf("index.orbit:\n%s\nwant:\n%s", got, want)
+		if got := applyEdits(renameUnitPage, edits(t, res, ws.lyrURI(page))); got != want {
+			t.Errorf("index.lyr:\n%s\nwant:\n%s", got, want)
 		}
 		if u := edits(t, res, user); len(u) != 1 || u[0].NewText != "Article" {
 			t.Errorf("user file edits: %v", u)
@@ -157,12 +157,12 @@ func TestRenameMapping(t *testing.T) {
 			} `json:"documentChanges"`
 		}
 		json.Unmarshal(b, &we)
-		if len(we.DocumentChanges) != 1 || we.DocumentChanges[0].TextDocument.URI != ws.orbitURI(card) ||
+		if len(we.DocumentChanges) != 1 || we.DocumentChanges[0].TextDocument.URI != ws.lyrURI(card) ||
 			we.DocumentChanges[0].TextDocument.Version != nil {
 			t.Fatalf("documentChanges: %s", b)
 		}
 		if got, want := applyEdits(renameUnitCard, we.DocumentChanges[0].Edits), strings.ReplaceAll(renameUnitCard, "label", "text"); got != want {
-			t.Errorf("Card.orbit:\n%s\nwant:\n%s", got, want)
+			t.Errorf("Card.lyr:\n%s\nwant:\n%s", got, want)
 		}
 	})
 
@@ -177,8 +177,8 @@ func TestRenameMapping(t *testing.T) {
 			t.Fatal(err)
 		}
 		want := strings.NewReplacer("post :=", "value :=", "Card {post}", "Card post={value}", "{post}", "{value}").Replace(renameUnitPage)
-		if got := applyEdits(renameUnitPage, edits(t, res, ws.orbitURI(page))); got != want {
-			t.Errorf("index.orbit:\n%s\nwant:\n%s", got, want)
+		if got := applyEdits(renameUnitPage, edits(t, res, ws.lyrURI(page))); got != want {
+			t.Errorf("index.lyr:\n%s\nwant:\n%s", got, want)
 		}
 	})
 
@@ -189,8 +189,8 @@ func TestRenameMapping(t *testing.T) {
 			edit map[string]any
 			want string
 		}{
-			{"glue", cimpl, goEdit(t, cimpl, "orbit__w", 0, 0, 8, "w"), "can't rename orbit__w: it would change Orbit's generated code"},
-			{"params", sdecl, goEdit(t, sdecl, "Slug", 0, 0, 4, "ID"), "can't rename params.Slug: route params come from the file path (src/pages/[slug].orbit); rename the file instead"},
+			{"glue", cimpl, goEdit(t, cimpl, "lyr__w", 0, 0, 6, "w"), "can't rename lyr__w: it would change Lyr's generated code"},
+			{"params", sdecl, goEdit(t, sdecl, "Slug", 0, 0, 4, "ID"), "can't rename params.Slug: route params come from the file path (src/pages/[slug].lyr); rename the file instead"},
 			{"part of a span", pimpl, goEdit(t, pimpl, "Render/*", 0, 0, 6, "Draw"), "can't rename Render"},
 		} {
 			// One bad edit rejects the whole rename.
@@ -200,7 +200,7 @@ func TestRenameMapping(t *testing.T) {
 				t.Errorf("%s: %v, want %q", tc.name, err, tc.want)
 			}
 		}
-		// Two different edits of the same .orbit range conflict.
+		// Two different edits of the same .lyr range conflict.
 		_, err := run(map[string]any{"changes": map[string]any{cimpl.uri: []any{
 			goEdit(t, cimpl, "label :=", 0, 0, 5, "a"), goEdit(t, cimpl, "label :=", 0, 0, 5, "b")}}}, false)
 		if err == nil || !strings.Contains(err.Message, "conflicting edits") {
@@ -209,15 +209,15 @@ func TestRenameMapping(t *testing.T) {
 		// The same edit twice (an import in both generated files) is merged.
 		res, err := run(map[string]any{"changes": map[string]any{cimpl.uri: []any{
 			goEdit(t, cimpl, "label :=", 0, 0, 5, "a"), goEdit(t, cimpl, "label :=", 0, 0, 5, "a")}}}, false)
-		if err != nil || len(edits(t, res, ws.orbitURI(card))) != 1 {
+		if err != nil || len(edits(t, res, ws.lyrURI(card))) != 1 {
 			t.Errorf("duplicate edits: %v %v", res, err)
 		}
 	})
 }
 
 func TestAliasAt(t *testing.T) {
-	ws := memWorkspace(t, map[string]string{"src/components/Card.orbit": renameUnitCard, "src/pages/index.orbit": renameIndex})
-	f := ws.byPath["src/pages/index.orbit"]
+	ws := memWorkspace(t, map[string]string{"src/components/Card.lyr": renameUnitCard, "src/pages/index.lyr": renameIndex})
+	f := ws.byPath["src/pages/index.lyr"]
 	for _, needle := range []string{"Card \"", "<Card post", "</Card>"} {
 		off := strings.Index(renameIndex, needle) + strings.IndexByte(needle, 'C') + 1
 		im, sp, ok := aliasAt(f, off)

@@ -1,10 +1,10 @@
 # Loading data
 
-The recommended way to get data into a page is to **load it in the page's frontmatter, all at once, and pass it down as props**. Components then stay fast, plain and easy to test, and the page owns its queries. `orbit.All` runs a page's loads concurrently, so the page waits for its slowest load, not for the sum of them.
+The recommended way to get data into a page is to **load it in the page's frontmatter, all at once, and pass it down as props**. Components then stay fast, plain and easy to test, and the page owns its queries. `lyr.All` runs a page's loads concurrently, so the page waits for its slowest load, not for the sum of them.
 
-This page covers `orbit.All`, loads that depend on each other, sharing data between components without passing it through every layer (a per-request loader in `locals`), caching data across requests, what code in a load may touch, and when to reach for `server:concurrent` or `server:defer` instead.
+This page covers `lyr.All`, loads that depend on each other, sharing data between components without passing it through every layer (a per-request loader in `locals`), caching data across requests, what code in a load may touch, and when to reach for `server:concurrent` or `server:defer` instead.
 
-## Load the page's data with `orbit.All`
+## Load the page's data with `lyr.All`
 
 A book page needs the book, its author and its chapters. The catalog is a Go package of your own; here it fakes a 10 ms service call per method, and every method takes a `context.Context`, as `database/sql`, `net/http` clients and gRPC do:
 
@@ -89,14 +89,14 @@ type Locals struct {
 
 The page starts both loads at once. The author needs the book's `AuthorID`, so it's chained inside the book's load:
 
-```orbit file=src/pages/books/[slug].orbit
+```lyr file=src/pages/books/[slug].lyr
 ---
 import (
 	"context"
 	"errors"
 
-	ChapterList "../../components/ChapterList.orbit"
-	Layout "../../layouts/Base.orbit"
+	ChapterList "../../components/ChapterList.lyr"
+	Layout "../../layouts/Base.lyr"
 	"example.com/blog/internal/catalog"
 )
 
@@ -105,11 +105,11 @@ var (
 	author   catalog.Author
 	chapters []catalog.Chapter
 )
-err := orbit.All(ctx,
+err := lyr.All(ctx,
 	func(rc context.Context) (err error) {
 		book, err = locals.Catalog.Book(rc, params.Slug)
 		if errors.Is(err, catalog.ErrNotFound) {
-			return orbit.ErrNotFound // the 404 page
+			return lyr.ErrNotFound // the 404 page
 		}
 		if err != nil {
 			return err
@@ -133,7 +133,7 @@ if err != nil {
 </Layout>
 ```
 
-```orbit file=src/components/ChapterList.orbit
+```lyr file=src/components/ChapterList.lyr
 ---
 import "example.com/blog/internal/catalog"
 
@@ -150,24 +150,24 @@ type Props struct {
 
 `/books/dune` takes about 20 ms (the book, then its author, while the chapters load alongside) instead of 30 ms one after the other. `ChapterList` receives plain data, so it renders in a few hundred nanoseconds and its tests need no fake catalog.
 
-It reads like Astro's `const [book, chapters] = await Promise.all([…])`. The Go shape: declare the variables with `var`, assign each one from one load, and read them after `orbit.All` returns.
+It reads like Astro's `const [book, chapters] = await Promise.all([…])`. The Go shape: declare the variables with `var`, assign each one from one load, and read them after `lyr.All` returns.
 
 ```go
 func All(c *Ctx, loads ...func(context.Context) error) error
 ```
 
-- **Every load starts at once** and `All` **waits for all of them**, even after one fails, before it returns, so the template never reads a variable a load is still writing. A dynamic list works too: `orbit.All(ctx, loads...)`.
+- **Every load starts at once** and `All` **waits for all of them**, even after one fails, before it returns, so the template never reads a variable a load is still writing. A dynamic list works too: `lyr.All(ctx, loads...)`.
 - **The context**: each load gets `rc`, derived from the request's context. It's cancelled as soon as a load fails, and when `All` returns. Pass `rc` to your calls (not `ctx.Request.Context()`), and a page whose chapter call failed in 5 ms doesn't wait 100 ms for its book call. Don't start background work with `rc` that outlives the load.
-- **Name it `rc`**, not `ctx`: a parameter named `ctx` hides Orbit's `ctx` inside the load, so `ctx.Param` there no longer compiles.
-- **Orbit's `ctx` isn't a `context.Context`**: it's the `*orbit.Ctx` of the request. A call outside `orbit.All` (a single query in the frontmatter) takes `ctx.Request.Context()`: `post, err := locals.DB.Post(ctx.Request.Context(), params.Slug)`.
+- **Name it `rc`**, not `ctx`: a parameter named `ctx` hides Lyr's `ctx` inside the load, so `ctx.Param` there no longer compiles.
+- **Lyr's `ctx` isn't a `context.Context`**: it's the `*lyr.Ctx` of the request. A call outside `lyr.All` (a single query in the frontmatter) takes `ctx.Request.Context()`: `post, err := locals.DB.Post(ctx.Request.Context(), params.Slug)`.
 - **No limit**: every load runs at once. One query that fetches what you need beats N loads; for a long list of calls, batch them, or use `errgroup.SetLimit` from `golang.org/x/sync` inside one load.
 
 ### Errors
 
 `All` returns the **first error in time**, or `nil`. That's the cause: once a load fails, the others see a cancelled `rc` and usually fail with `context.Canceled`, which doesn't replace it. If two loads fail on their own at the same moment, either error may be the one returned; the page fails either way.
 
-- **The failing load's position**: the error is prefixed with the `.orbit` line of the failing load's `func`, so the 500 log line, the dev error overlay and your [error handler](rendering.md#answering-errors-yourself-witherrorhandler) name the load that failed, such as the chapters load at line 28: `src/pages/books/[slug].orbit:28: catalog: unavailable`. `errors.Is` and `errors.As` see through it, so a handler that answers `catalog.ErrUnavailable` with a 503 works unchanged.
-- **404s and redirects**: return `orbit.ErrNotFound` or `ctx.Redirect(…)` from a load, as the book load above does. They come out of `All` as they are, and the page returns them as usual.
+- **The failing load's position**: the error is prefixed with the `.lyr` line of the failing load's `func`, so the 500 log line, the dev error overlay and your [error handler](rendering.md#answering-errors-yourself-witherrorhandler) name the load that failed, such as the chapters load at line 28: `src/pages/books/[slug].lyr:28: catalog: unavailable`. `errors.Is` and `errors.As` see through it, so a handler that answers `catalog.ErrUnavailable` with a 503 works unchanged.
+- **404s and redirects**: return `lyr.ErrNotFound` or `ctx.Redirect(…)` from a load, as the book load above does. They come out of `All` as they are, and the page returns them as usual.
 - **It's a value**: handle it to render a partial page.
 
   ```go
@@ -182,26 +182,26 @@ func All(c *Ctx, loads ...func(context.Context) error) error
 
 ### Panics
 
-A panic in a load doesn't crash the server: it's recovered in the load, the other loads are cancelled, and once they've all returned, `All` panics again with it on the page's goroutine. The request then fails as for any panic in a frontmatter: the 500 page (or your error handler), with the panicking line of the load in the log, for example `src/pages/books/[slug].orbit:25: panic: assignment to entry in nil map`. A panic stays a panic, so a page that handles `All`'s error can't swallow it by mistake.
+A panic in a load doesn't crash the server: it's recovered in the load, the other loads are cancelled, and once they've all returned, `All` panics again with it on the page's goroutine. The request then fails as for any panic in a frontmatter: the 500 page (or your error handler), with the panicking line of the load in the log, for example `src/pages/books/[slug].lyr:25: panic: assignment to entry in nil map`. A panic stays a panic, so a page that handles `All`'s error can't swallow it by mistake.
 
 ## Loads that depend on each other
 
 | Need | How |
 |---|---|
 | A chain next to independent loads (book, then author; chapters alongside) | chain the calls inside one load, as above |
-| A fan-out after one load (book, then author and reviews) | a nested `orbit.All(ctx, …)` inside the load, after the book |
-| Stages (everything in the second needs everything in the first) | two `orbit.All` calls in a row |
+| A fan-out after one load (book, then author and reviews) | a nested `lyr.All(ctx, …)` inside the load, after the book |
+| Stages (everything in the second needs everything in the first) | two `lyr.All` calls in a row |
 | A dependency several loads, or the page and its components, need | the per-request [loader in `locals`](#share-data-without-props-drilling-a-loader-in-locals) |
 
 A fan-out after the book:
 
 ```go
-err := orbit.All(ctx,
+err := lyr.All(ctx,
 	func(rc context.Context) (err error) {
 		if book, err = locals.Catalog.Book(rc, params.Slug); err != nil {
 			return err
 		}
-		return orbit.All(ctx,
+		return lyr.All(ctx,
 			func(rc context.Context) (err error) { author, err = locals.Catalog.Author(rc, book.AuthorID); return err },
 			func(rc context.Context) (err error) { reviews, err = locals.Reviews.For(rc, book.Slug); return err },
 		)
@@ -259,17 +259,17 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 
 	"example.com/blog/internal/catalog"
-	"example.com/blog/orbit_gen/app"
+	"example.com/blog/lyr_gen/app"
 	"example.com/blog/src/locals"
 )
 
 func main() {
 	site := app.New()
 	api := &catalog.Client{}
-	if err := orbit.ListenAndServe(withCatalog(api, site.Handler())); err != nil {
+	if err := lyr.ListenAndServe(withCatalog(api, site.Handler())); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -277,7 +277,7 @@ func main() {
 // withCatalog gives each request the catalog client and its own loader.
 func withCatalog(api *catalog.Client, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r, l := orbit.EnsureLocals[locals.Locals](r)
+		r, l := lyr.EnsureLocals[locals.Locals](r)
 		l.Catalog = api
 		l.Books = catalog.NewLoader(r.Context(), api)
 		next.ServeHTTP(w, r)
@@ -287,7 +287,7 @@ func withCatalog(api *catalog.Client, next http.Handler) http.Handler {
 
 A component reads the book itself, with no `book` prop:
 
-```orbit file=src/components/BookTitle.orbit
+```lyr file=src/components/BookTitle.lyr
 ---
 type Props struct {
 	Slug string
@@ -301,20 +301,20 @@ if err != nil {
 <cite>{book.Title}</cite>
 ```
 
-And the page can warm the loader with `orbit.All`, next to its other loads, so the components then hit the cache:
+And the page can warm the loader with `lyr.All`, next to its other loads, so the components then hit the cache:
 
-```orbit file=src/pages/reading/[slug].orbit
+```lyr file=src/pages/reading/[slug].lyr
 ---
 import (
 	"context"
 
-	BookTitle "../../components/BookTitle.orbit"
-	Layout "../../layouts/Base.orbit"
+	BookTitle "../../components/BookTitle.lyr"
+	Layout "../../layouts/Base.lyr"
 	"example.com/blog/internal/catalog"
 )
 
 var chapters []catalog.Chapter
-err := orbit.All(ctx,
+err := lyr.All(ctx,
 	func(context.Context) error { _, err := locals.Books.Book(params.Slug); return err },
 	func(rc context.Context) (err error) {
 		chapters, err = locals.Catalog.Chapters(rc, params.Slug)
@@ -337,11 +337,11 @@ if err != nil {
 - Errors are memoized too: one failing backend call per request, not one per component.
 - **A load that asks for its own key deadlocks**: if loading book K (indirectly) calls `Book(K)`, `sync.OnceValues` waits for itself: the request never gets an answer, and its goroutine stays blocked even after the client gives up. Keep each key's load free of calls back into the loader for the same key.
 
-Orbit ships no helper for this on purpose: the key types, the context rule and what to memoize are your app's decisions, and it's short.
+Lyr ships no helper for this on purpose: the key types, the context rule and what to memoize are your app's decisions, and it's short.
 
 ## Cache data across requests: `cache.Store`
 
-The loader above lives for one request. For data that every request may share for a while (a book changes rarely), keep it in a `cache.Store` from `github.com/orbit-z/orbit/cache`, an in-process cache with a time to live, tags and size bounds:
+The loader above lives for one request. For data that every request may share for a while (a book changes rarely), keep it in a `cache.Store` from `github.com/orbit-z/lyr/cache`, an in-process cache with a time to live, tags and size bounds:
 
 ```go file=internal/catalog/cached.go
 package catalog
@@ -350,7 +350,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/orbit-z/orbit/cache"
+	"github.com/orbit-z/lyr/cache"
 )
 
 // books holds up to 10,000 books, shared by every request.
@@ -390,28 +390,28 @@ Loads run on other goroutines while the frontmatter waits in `All`, so they shar
 | `locals` | yes for the pointer and for fields middleware set; fields that loads write need a `sync` type or a mutex (the loader above has one) |
 | the frontmatter's own variables | assign each from one load only, and read them after `All` returns |
 | `ctx.SetStatus`, `ctx.Header()` | no: call them after `All` returns. Returning `ctx.Redirect(…)` from a load is fine: it only builds the error |
-| `orbit.RenderHTML(ctx, …)`, rendering a component | no: render after `All` |
+| `lyr.RenderHTML(ctx, …)`, rendering a component | no: render after `All` |
 | `ctx.Request.Body` | read it once, before `All` |
 
-Orbit doesn't check these at run time. Run your tests with `go test -race`: `orbittest.Get` and `orbittest.Render` run loads concurrently, as in production, and the race detector reports the mistakes in the table.
+Lyr doesn't check these at run time. Run your tests with `go test -race`: `lyrtest.Get` and `lyrtest.Render` run loads concurrently, as in production, and the race detector reports the mistakes in the table.
 
 ## Which tool
 
 | Tool | Use it when | The first byte waits? | Cost |
 |---|---|---|---|
-| **Page-level loads with `orbit.All`** (recommended) | the page knows what it needs; most pages | for the slowest load | about 0.5 µs and 5 allocations per call (3 loads), plus the closures; a single load runs inline for free |
+| **Page-level loads with `lyr.All`** (recommended) | the page knows what it needs; most pages | for the slowest load | about 0.5 µs and 5 allocations per call (3 loads), plus the closures; a single load runs inline for free |
 | **A loader in `locals`** | several components (or the page and its components) need the same data; no props drilling; dedupe | for the slowest load | a mutex and a map entry per key |
 | **[`server:concurrent`](rendering.md#slow-components)** | components that fetch their own data, such as code ported from Astro, or a component reused on many pages with its own data | for the slowest marked component | about half a microsecond and 1 allocation per marked component |
 | **[`server:defer`](lazy-loading.md)** | the part can arrive after the page: below the fold, per-user parts, slow third parties | no | a second request, a fallback, sealed props |
 | **[`cache.Store`](#cache-data-across-requests-cachestore)** | the same data serves many requests for a while | only on a miss | about 46 ns per hit |
 | **[Route caching](caching.md)** | the whole page is the same for every visitor for a while | only on a miss | about 0.15 µs per cached response |
 
-They combine: a page can load its main data with `orbit.All`, warm the loader, and still have a `server:concurrent` sidebar and a `server:defer` recommendations block.
+They combine: a page can load its main data with `lyr.All`, warm the loader, and still have a `server:concurrent` sidebar and a `server:defer` recommendations block.
 
 ## See also
 
 - [Rendering](rendering.md): the request lifecycle, errors, `WithErrorHandler`
 - [Middleware and locals](middleware.md): setting up `locals`
 - [Caching](caching.md): whole pages, and `cache.Store` for data and fragments
-- [Runtime API](reference/runtime-api.md#loading-data-all): `orbit.All`
-- [Performance](performance.md#loading-data-concurrently-orbitall): the numbers
+- [Runtime API](reference/runtime-api.md#loading-data-all): `lyr.All`
+- [Performance](performance.md#loading-data-concurrently-lyrall): the numbers

@@ -6,24 +6,24 @@ import (
 )
 
 // The style and on* security warnings of the typed pass (PLAN.md §2.3,
-// §2.7): none for an orbit.CSS style value or a constant, the old warning
+// §2.7): none for a lyr.CSS style value or a constant, the old warning
 // for everything else, every candidate of a unit that isn't type-checked,
 // and pass-through attributes warned at the call site.
 
 const secWarn = `---
 import "strconv"
-import Button "./Button.orbit"
-import Styled "./Styled.orbit"
+import Button "./Button.lyr"
+import Styled "./Styled.lyr"
 
-type S orbit.CSS
-type A = orbit.CSS
+type S lyr.CSS
+type A = lyr.CSS
 
 const hidden = "display: none"
 
-func width(n int) orbit.CSS { return orbit.CSS("width:" + strconv.Itoa(n) + "%") }
+func width(n int) lyr.CSS { return lyr.CSS("width:" + strconv.Itoa(n) + "%") }
 
 s := "color: red"
-css := orbit.CSS("color: blue")
+css := lyr.CSS("color: blue")
 var alias A = "color: green"
 handler := "go()"
 style := s
@@ -49,7 +49,7 @@ style := s
 
 const secButton = `---
 type Props struct {
-	Attrs orbit.RestAttrs
+	Attrs lyr.RestAttrs
 }
 ---
 <button {...props.Attrs}><slot /></button>
@@ -57,7 +57,7 @@ type Props struct {
 
 const secStyled = `---
 type Props struct {
-	Style orbit.CSS
+	Style lyr.CSS
 }
 ---
 <p style={props.Style}>styled</p>
@@ -74,17 +74,17 @@ var n int = "x"
 func TestSecurityWarnings(t *testing.T) {
 	m := newGenModule(t)
 	p := plPipeline(t, m, map[string]string{
-		"src/components/Warn.orbit":      secWarn,
-		"src/components/Button.orbit":    secButton,
-		"src/components/Styled.orbit":    secStyled,
-		"src/components/Unchecked.orbit": secUnchecked,
+		"src/components/Warn.lyr":      secWarn,
+		"src/components/Button.lyr":    secButton,
+		"src/components/Styled.lyr":    secStyled,
+		"src/components/Unchecked.lyr": secUnchecked,
 	}, Options{Module: testModule, Mode: Strict})
 	if d := p.diagnostics(); len(d) > 0 {
 		t.Fatalf("front diagnostics (the parser no longer warns):\n%s", strings.Join(d, "\n"))
 	}
 	var got []string
 	for _, pf := range p.files {
-		want := pf.path != "src/components/Unchecked.orbit"
+		want := pf.path != "src/components/Unchecked.lyr"
 		if pf.typed.Checked != want {
 			t.Errorf("%s: checked %v, want %v", pf.path, pf.typed.Checked, want)
 		}

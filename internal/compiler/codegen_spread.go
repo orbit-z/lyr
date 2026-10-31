@@ -2,18 +2,18 @@ package compiler
 
 // Spreading props into a component (PLAN.md §2.11): <Card {...x} />. Pass 1
 // can't see the operand's type, so it emits forms that type-check for any
-// operand (orbit__rt.SpreadCheck before the call on a callee without an
-// orbit.RestAttrs field, RestFromAny and RestMergeAny in the rest value of
+// operand (lyr__rt.SpreadCheck before the call on a callee without an
+// lyr.RestAttrs field, RestFromAny and RestMergeAny in the rest value of
 // one with it), each a SiteSpread call site. The typed pass decides what
 // each spread is; when one sets props, pass 2 builds the Props in a block,
 // field by field and in source order:
 //
 //	{
-//		var orbit__p Card.Props
-//		orbit__s1 := x
-//		orbit__p.Title = orbit__s1.Title
-//		orbit__p.Class = "mt-5"
-//		if orbit__err := Card.Render(orbit__ctx, orbit__w, orbit__p, …); …
+//		var lyr__p Card.Props
+//		lyr__s1 := x
+//		lyr__p.Title = lyr__s1.Title
+//		lyr__p.Class = "mt-5"
+//		if lyr__err := Card.Render(lyr__ctx, lyr__w, lyr__p, …); …
 //	}
 
 import (
@@ -22,7 +22,7 @@ import (
 )
 
 // NameP is the Props value a block call site builds.
-const NameP = "orbit__p"
+const NameP = "lyr__p"
 
 // cgCall is a component call site being emitted.
 type cgCall struct {
@@ -92,7 +92,7 @@ func (g *cgGen) spreadArgs(qual, tag string, a *Attr) string {
 		strconv.Quote(spreadText(a)+" on <"+tag+">") + ", "
 }
 
-// spreadChecks emits pass 1's orbit__rt.SpreadCheck statements.
+// spreadChecks emits pass 1's lyr__rt.SpreadCheck statements.
 func (g *cgGen) spreadChecks(call *cgCall) {
 	o := g.o
 	for _, a := range call.checks {
@@ -107,7 +107,7 @@ func (g *cgGen) spreadChecks(call *cgCall) {
 	}
 }
 
-// blockProps emits the start of a block call site: var orbit__p
+// blockProps emits the start of a block call site: var lyr__p
 // Card.Props, then each field in source order. With lit, the Props type
 // is mapped to the tag name (a server:defer call site's DeferSite.Lit).
 func (g *cgGen) blockProps(call *cgCall, lit *Span) {
@@ -154,7 +154,7 @@ func (g *cgGen) spreadFields(f cgField) {
 	tmp := ""
 	if sw.Ptr || !sw.Copy && len(sw.Fields) > 0 {
 		g.spreadTmps++
-		tmp = "orbit__s" + strconv.Itoa(g.spreadTmps)
+		tmp = "lyr__s" + strconv.Itoa(g.spreadTmps)
 	}
 	cs := CallSite{Kind: SiteSpread, Key: a.Code.Start, Node: f.node, Attr: a, Code: a.Code, Spread: f.tag}
 	o.ind()
@@ -191,7 +191,7 @@ func (g *cgGen) spreadFields(f cgField) {
 	g.sites = append(g.sites, cs)
 }
 
-// spreadAssigns emits orbit__p.F = tmp.F for each field of sw.
+// spreadAssigns emits lyr__p.F = tmp.F for each field of sw.
 func (g *cgGen) spreadAssigns(a *Attr, tmp string, sw *SpreadWrite) {
 	o := g.o
 	for _, sf := range sw.Fields {

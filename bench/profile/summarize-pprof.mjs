@@ -1,10 +1,10 @@
-// Summarizes a Go CPU profile of the Orbit server (bench/profile/run.sh) as
+// Summarizes a Go CPU profile of the Lyr server (bench/profile/run.sh) as
 // Markdown tables, from the output of `go tool pprof -traces`: CPU share by
 // category (each sample goes to the first category whose rule matches its
 // stack), the page render's own breakdown by innermost frame, and the top
 // functions by self time.
 //
-//   go tool pprof -traces orbit-server orbit.pprof > traces.txt
+//   go tool pprof -traces lyr-server lyr.pprof > traces.txt
 //   node summarize-pprof.mjs traces.txt [load.json]
 import { readFileSync, existsSync } from 'node:fs';
 
@@ -32,8 +32,8 @@ const categories = [
 	['GC (background marking, sweeping, assists)', (s) => has(s, /^runtime\.(gcBgMarkWorker|bgsweep|bgscavenge|gcAssistAlloc|gcStart|gcMarkDone|gcMarkTermination|gcDrain)/)],
 	['allocation (mallocgc)', (s) => has(s, /^runtime\.mallocgc/)],
 	['syscalls (socket read/write, epoll)', (s) => has(s, /^(syscall\.|internal\/runtime\/syscall\.|runtime\.netpoll|internal\/poll\.)/)],
-	['page render (generated code, writer, escaping)', (s) => has(s, /\/orbit_gen\//)],
-	['Orbit serving (routing, context, response)', (s) => has(s, /^github\.com\/orbit-z\/orbit\./)],
+	['page render (generated code, writer, escaping)', (s) => has(s, /\/lyr_gen\//)],
+	['Lyr serving (routing, context, response)', (s) => has(s, /^github\.com\/orbit-z\/lyr\./)],
 	['net/http (request parsing, headers, connection)', (s) => has(s, /^(net\/http|net\/textproto|bufio|net\.)/)],
 	['Go scheduler and other runtime', (s) => has(s, /^runtime\./)],
 	['other', () => true],
@@ -53,11 +53,11 @@ for (const { ms, stack } of samples) {
 		const leaf = stack[0];
 		let k;
 		if (/^(runtime\.memmove|bytes\.)/.test(leaf)) k = 'buffer writes (bytes.Buffer, memmove of static HTML and text)';
-		else if (/orbit\.(escape|firstEsc|.*[Ee]sc)/.test(leaf)) k = 'escaping (scan + escape)';
+		else if (/lyr\.(escape|firstEsc|.*[Ee]sc)/.test(leaf)) k = 'escaping (scan + escape)';
 		else if (/^(internal\/)?strconv\./.test(leaf)) k = 'number formatting (strconv)';
 		else if (/^runtime\./.test(leaf)) k = 'runtime (write barriers, stack growth, GC bookkeeping)';
-		else if (/^github\.com\/orbit-z\/orbit\./.test(leaf)) k = 'other Orbit runtime (writer, slots, URL check)';
-		else if (/\/orbit_gen\//.test(leaf)) k = 'generated component code';
+		else if (/^github\.com\/orbit-z\/lyr\./.test(leaf)) k = 'other Lyr runtime (writer, slots, URL check)';
+		else if (/\/lyr_gen\//.test(leaf)) k = 'generated component code';
 		else k = 'other (' + leaf + ')';
 		add(renderByLeaf, k, ms);
 	}
@@ -72,7 +72,7 @@ const table = (head, rows) => {
 	out.push('');
 };
 
-out.push('## Orbit', '');
+out.push('## Lyr', '');
 if (load) {
 	out.push(
 		`- ${load.rps.toFixed(0)} req/s, p50 ${load.latency.p50_ms.toFixed(1)} ms, p99 ${load.latency.p99_ms.toFixed(1)} ms, ` +

@@ -3,16 +3,16 @@ package lsp
 import (
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/markdown"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/markdown"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // Typed diagnostics of Markdown files (PLAN.md §2.4, §9). Converting a
 // frontmatter value to its layout's Props field type needs go/types
 // (markdown.Retype, the typed pass), which the workspace never runs on its
 // tolerant project. The typed check (disk.go) runs it on a strict copy at
-// startup and after orbit_gen/ changes; its Markdown diagnostics are kept
+// startup and after lyr_gen/ changes; its Markdown diagnostics are kept
 // here, each tied to the frontmatter key it's about: it's shown while that
 // key's source text and the layout's Props are unchanged, at the key's
 // current position, so it follows edits elsewhere in the file and goes
@@ -161,7 +161,7 @@ func typedMarkdownDiags(p *project.Project, front []project.Diagnostic) map[stri
 
 // mdTypedDiagnostics returns the typed diagnostics of the Markdown file at
 // p that still apply to its current source, skipping any at the start of
-// one of Orbit's own (spans).
+// one of Lyr's own (spans).
 func (ws *workspace) mdTypedDiagnostics(p string, lines *lineIndex, spans []compiler.Span) []map[string]any {
 	f := ws.byPath[p]
 	if f == nil || f.MD == nil {
@@ -205,7 +205,7 @@ func (ws *workspace) mdTypedDiagnostics(p string, lines *lineIndex, spans []comp
 		if td.severity == compiler.SeverityWarning {
 			sev = sevWarning
 		}
-		out = append(out, map[string]any{"range": r, "severity": sev, "source": "orbit", "message": td.message})
+		out = append(out, map[string]any{"range": r, "severity": sev, "source": "lyr", "message": td.message})
 	}
 	return out
 }

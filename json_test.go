@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"encoding/json"
@@ -32,7 +32,7 @@ func TestJSONAttr(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := render(func(w *Writer) { w.JSONAttr("x.orbit:1:1", JSON(tt.v)) })
+			got, err := render(func(w *Writer) { w.JSONAttr("x.lyr:1:1", JSON(tt.v)) })
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -87,14 +87,14 @@ func TestJSONErrors(t *testing.T) {
 		f    func(w *Writer)
 		want string
 	}{
-		{"JSONAttr", func(w *Writer) { w.JSONAttr("src/x.orbit:9:24", JSON(math.NaN())) },
-			"src/x.orbit:9:24: orbit.JSON: json: unsupported value: NaN"},
-		{"set:json", func(w *Writer) { w.JSON("src/x.orbit:3:40", math.Inf(1)) },
-			"src/x.orbit:3:40: set:json: json: unsupported value: +Inf"},
+		{"JSONAttr", func(w *Writer) { w.JSONAttr("src/x.lyr:9:24", JSON(math.NaN())) },
+			"src/x.lyr:9:24: lyr.JSON: json: unsupported value: NaN"},
+		{"set:json", func(w *Writer) { w.JSON("src/x.lyr:3:40", math.Inf(1)) },
+			"src/x.lyr:3:40: set:json: json: unsupported value: +Inf"},
 		{"Attr", func(w *Writer) { w.Attr("data-x", JSON(math.NaN())) },
-			"orbit: orbit.JSON: json: unsupported value: NaN"},
+			"lyr: lyr.JSON: json: unsupported value: NaN"},
 		{"Expr", func(w *Writer) { w.Expr(JSON(func() {})) },
-			"orbit: orbit.JSON: json: unsupported type: func()"},
+			"lyr: lyr.JSON: json: unsupported type: func()"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -113,8 +113,8 @@ func TestJSONErrors(t *testing.T) {
 		})
 	}
 	// A positioned error passes through ErrorAt unchanged.
-	_, err := render(func(w *Writer) { w.JSONAttr("src/x.orbit:9:24", JSON(math.NaN())) })
-	if ErrorAt("src/y.orbit:1:1", err) != err {
+	_, err := render(func(w *Writer) { w.JSONAttr("src/x.lyr:9:24", JSON(math.NaN())) })
+	if ErrorAt("src/y.lyr:1:1", err) != err {
 		t.Error("ErrorAt re-wrapped a positioned JSON error")
 	}
 }

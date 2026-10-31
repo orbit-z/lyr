@@ -1,21 +1,21 @@
 package compiler
 
 // The component index: what codegen (and later the LSP) knows about the
-// other .orbit files of the project. The caller builds it (project
+// other .lyr files of the project. The caller builds it (project
 // discovery, milestone 5; tests before that) from every file's Analysis.
 
-// ComponentIndex maps a project-relative .orbit path
-// ("src/components/Card.orbit", as in OrbitImport.Resolved) to its entry.
+// ComponentIndex maps a project-relative .lyr path
+// ("src/components/Card.lyr", as in LyrImport.Resolved) to its entry.
 type ComponentIndex map[string]*ComponentInfo
 
-// ComponentInfo is the cross-file view of one .orbit file.
+// ComponentInfo is the cross-file view of one .lyr file.
 type ComponentInfo struct {
-	// Path is the project-relative .orbit path.
+	// Path is the project-relative .lyr path.
 	Path string
 	Role Role
 	// Pkg locates its generated packages; calls import the decl package.
 	Pkg GenPackage
-	// Name is the base name without .orbit ("Card"): the alias the LSP
+	// Name is the base name without .lyr ("Card"): the alias the LSP
 	// suggests when it adds an import.
 	Name string
 	// ID is its component ID (ComponentID), used by server:defer and

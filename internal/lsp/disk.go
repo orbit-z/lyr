@@ -9,19 +9,19 @@ import (
 	"slices"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // The typed check (PLAN.md §9 Startup step 2): the workspace generates
-// every file in tolerant mode, with Expr/Attr fallbacks, while orbit
-// generate writes typed writes, so a byte comparison with orbit_gen/ never
+// every file in tolerant mode, with Expr/Attr fallbacks, while lyr
+// generate writes typed writes, so a byte comparison with lyr_gen/ never
 // matches an impl file. The typed check compiles the current sources the
-// way orbit generate does (strict mode, one go list -export and the go/types
+// way lyr generate does (strict mode, one go list -export and the go/types
 // pass, internal/project's pipeline) and, for every generated file whose
 // typed output is what's on disk, lets gopls read the disk instead of an
 // overlay, mapping it with the typed output's source map. It runs at
-// startup and again after orbit_gen/ changes on disk (orbit dev or orbit
+// startup and again after lyr_gen/ changes on disk (lyr dev or lyr
 // generate rewrote it), so overlays don't outlive the edits that needed
 // them. It is only ever used to match the disk: the tolerant code of an
 // edited file is never type-checked.
@@ -31,22 +31,22 @@ import (
 // still closes the overlays it can.
 const diskCheckWait = 5 * time.Second
 
-// diskCheckDelay debounces the typed checks after orbit_gen/ changes:
-// orbit generate rewrites many files at once.
+// diskCheckDelay debounces the typed checks after lyr_gen/ changes:
+// lyr generate rewrites many files at once.
 const diskCheckDelay = 300 * time.Millisecond
 
 // diskCheck is one typed check: a strict copy of the project's current
 // sources, and the tolerant pass-1 output each file had when it was taken.
 type diskCheck struct {
 	proj  *project.Project
-	pass1 map[string]*compiler.Output // by .orbit path
+	pass1 map[string]*compiler.Output // by .lyr path
 	// typed are the typed generated files found on disk, by
 	// module-relative path (set by run).
 	typed map[string]*compiler.GenFile
 	// mdTyped are the typed pass's diagnostics of Markdown files
 	// (mdtyped.go; set by run).
 	mdTyped map[string][]mdTypedDiag
-	// secTyped are the style and on* warnings of .orbit files
+	// secTyped are the style and on* warnings of .lyr files
 	// (sectyped.go; set by run).
 	secTyped map[string][]secTypedDiag
 	// edit is ws.mdEdit at the snapshot: mdTyped is adopted only if no
@@ -117,7 +117,7 @@ func (c *diskCheck) run(ctx context.Context) error {
 // is on disk, is read by gopls from disk (its overlay, if any, is closed)
 // and mapped through the typed source map. With skipOpen, files open in
 // the editor are left alone: after startup marks the workspace mapped,
-// requests on them may be mid-flight. The re-checks after orbit_gen/
+// requests on them may be mid-flight. The re-checks after lyr_gen/
 // changes don't skip them (a request in flight then can map through the
 // old content, rarely and only once). It returns how many files changed
 // over.
@@ -240,8 +240,8 @@ func (ws *workspace) hasOverlays() bool {
 	return false
 }
 
-// scheduleDiskCheck runs a typed check soon (debounced), after orbit_gen/
-// changed on disk, when gopls has overlays it could close or an .orbit
+// scheduleDiskCheck runs a typed check soon (debounced), after lyr_gen/
+// changed on disk, when gopls has overlays it could close or a .lyr
 // file may have security warnings (with s.mu held).
 func (s *Server) scheduleDiskCheck() {
 	ws := s.ws

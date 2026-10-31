@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -317,14 +317,14 @@ func TestOptAllocs(t *testing.T) {
 func TestSetHTML(t *testing.T) {
 	var buf bytes.Buffer
 	w := NewWriter(&buf)
-	SetHTML(w, "x.orbit:1:2", HTML("<b>a</b>"))
-	SetHTML(w, "x.orbit:1:3", Some(HTML("<i>b</i>")))
-	SetHTML(w, "x.orbit:1:4", None[HTML]())
+	SetHTML(w, "x.lyr:1:2", HTML("<b>a</b>"))
+	SetHTML(w, "x.lyr:1:3", Some(HTML("<i>b</i>")))
+	SetHTML(w, "x.lyr:1:4", None[HTML]())
 	if got := buf.String(); got != "<b>a</b><i>b</i>" || w.Err() != nil {
 		t.Errorf("got %q, %v", got, w.Err())
 	}
-	SetHTML(w, "x.orbit:2:5", "<script>")
-	const want = "x.orbit:2:5: set:html needs an orbit.HTML (or an orbit.Opt[orbit.HTML]), not string; it was skipped (see the warning above)"
+	SetHTML(w, "x.lyr:2:5", "<script>")
+	const want = "x.lyr:2:5: set:html needs a lyr.HTML (or a lyr.Opt[lyr.HTML]), not string; it was skipped (see the warning above)"
 	if err := w.Err(); err == nil || err.Error() != want {
 		t.Errorf("error %v, want %s", err, want)
 	}

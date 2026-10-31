@@ -1,0 +1,7 @@
+---
+lyr__x := 1
+var Lyr__Render = 2
+type lyr__T struct{ lyr__f int }
+---
+<p class={lyr__x}>{Lyr__Render}</p>
+{if lyr__ok := true; lyr__ok}<b>x</b>{/if}

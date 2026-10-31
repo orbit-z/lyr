@@ -61,7 +61,7 @@ func tyResolveResets(src, base string) string {
 
 // tyComp describes one hand-written component.
 type tyComp struct {
-	orbit string // "src/components/Card.orbit"
+	lyr string // "src/components/Card.lyr"
 	// declImports and implImports are extra import specs, one per line.
 	declImports, implImports string
 	// declBody is decl code (Props and its types); empty gives
@@ -73,10 +73,10 @@ type tyComp struct {
 }
 
 // tyFixture builds the pass-1 Unit of c: both files and the call sites,
-// found as the orbit__w.Expr and orbit__w.Attr calls of the impl file.
+// found as the lyr__w.Expr and lyr__w.Attr calls of the impl file.
 func tyFixture(t testing.TB, c tyComp) Unit {
 	t.Helper()
-	pkg, err := PackageFor(c.orbit)
+	pkg, err := PackageFor(c.lyr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,32 +85,32 @@ func tyFixture(t testing.TB, c tyComp) Unit {
 	if !strings.Contains(props, "type Props") {
 		props += "\ntype Props struct{}\n"
 	}
-	hook, wrapper := "", "Orbit__Render(orbit__ctx, orbit__w, orbit__props, orbit__slots)"
+	hook, wrapper := "", "Lyr__Render(lyr__ctx, lyr__w, lyr__props, lyr__slots)"
 	implParams := ""
 	if c.page {
 		props += "\ntype Params struct{}\n"
-		hook, wrapper = ", Params", "Orbit__Render(orbit__ctx, orbit__w, orbit__props, orbit__slots, Params{})"
-		implParams = ", orbit__params Params"
+		hook, wrapper = ", Params", "Lyr__Render(lyr__ctx, lyr__w, lyr__props, lyr__slots, Params{})"
+		implParams = ", lyr__params Params"
 	}
-	decl := GenHeader + "\n\npackage " + pkg.Name + "\n\nimport (\n\torbit__rt \"" + RuntimePath + "\"\n" + c.declImports + ")\n" +
-		props + "\nvar Orbit__Render func(*orbit__rt.Ctx, *orbit__rt.Writer, Props, orbit__rt.Slots" + hook + ") error\n\n" +
-		"func Render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit__props Props, orbit__slots orbit__rt.Slots) error {\n" +
-		"\tif Orbit__Render == nil {\n\t\tpanic(\"orbit: " + c.orbit + " not linked; import " + testModule + "/orbit_gen/app\")\n\t}\n" +
+	decl := GenHeader + "\n\npackage " + pkg.Name + "\n\nimport (\n\tlyr__rt \"" + RuntimePath + "\"\n" + c.declImports + ")\n" +
+		props + "\nvar Lyr__Render func(*lyr__rt.Ctx, *lyr__rt.Writer, Props, lyr__rt.Slots" + hook + ") error\n\n" +
+		"func Render(lyr__ctx *lyr__rt.Ctx, lyr__w *lyr__rt.Writer, lyr__props Props, lyr__slots lyr__rt.Slots) error {\n" +
+		"\tif Lyr__Render == nil {\n\t\tpanic(\"lyr: " + c.lyr + " not linked; import " + testModule + "/lyr_gen/app\")\n\t}\n" +
 		"\treturn " + wrapper + "\n}\n"
 	names := "ctx, props, slots"
 	if c.page {
 		names += ", params"
 	}
-	bind := names + " := orbit__ctx, orbit__props, orbit__slots"
+	bind := names + " := lyr__ctx, lyr__props, lyr__slots"
 	if c.page {
-		bind += ", orbit__params"
+		bind += ", lyr__params"
 	}
-	impl := GenHeader + "\n\npackage " + pkg.ImplName() + "\n\nimport (\n\torbit__rt \"" + RuntimePath + "\"\n\t. \"" + declPath + "\"\n" + c.implImports + ")\n" +
-		c.implTop + "\nvar _ = func() int { Orbit__Render = orbit__render; return 0 }()\n\n" +
-		"func orbit__render(orbit__ctx *orbit__rt.Ctx, orbit__w *orbit__rt.Writer, orbit__props Props, orbit__slots orbit__rt.Slots" + implParams + ") error {\n" +
-		"\tif orbit__err := orbit__w.Enter(\"" + c.orbit + "\"); orbit__err != nil {\n\t\treturn orbit__err\n\t}\n\tdefer orbit__w.Leave()\n" +
-		"\t" + bind + "\n\tlocals := orbit__rt.LocalsOf[orbit__rt.NoLocals](orbit__ctx)\n\t_, _, _, _ = " + names + ", locals\n" +
-		c.body + "\treturn orbit__w.Err()\n}\n"
+	impl := GenHeader + "\n\npackage " + pkg.ImplName() + "\n\nimport (\n\tlyr__rt \"" + RuntimePath + "\"\n\t. \"" + declPath + "\"\n" + c.implImports + ")\n" +
+		c.implTop + "\nvar _ = func() int { Lyr__Render = lyr__render; return 0 }()\n\n" +
+		"func lyr__render(lyr__ctx *lyr__rt.Ctx, lyr__w *lyr__rt.Writer, lyr__props Props, lyr__slots lyr__rt.Slots" + implParams + ") error {\n" +
+		"\tif lyr__err := lyr__w.Enter(\"" + c.lyr + "\"); lyr__err != nil {\n\t\treturn lyr__err\n\t}\n\tdefer lyr__w.Leave()\n" +
+		"\t" + bind + "\n\tlocals := lyr__rt.LocalsOf[lyr__rt.NoLocals](lyr__ctx)\n\t_, _, _, _ = " + names + ", locals\n" +
+		c.body + "\treturn lyr__w.Err()\n}\n"
 	if c.page {
 		impl = strings.Replace(impl, "_, _, _, _ =", "_, _, _, _, _ =", 1)
 	}
@@ -126,15 +126,15 @@ func tyFixture(t testing.TB, c tyComp) Unit {
 		role = RolePage
 	}
 	in := &Input{
-		Analysis: &Analysis{Info: FileInfo{Path: c.orbit, Role: role}},
+		Analysis: &Analysis{Info: FileInfo{Path: c.lyr, Role: role}},
 		Options:  Options{Module: testModule},
 	}
 	return Unit{Input: in, Pass1: out}
 }
 
 // tySites lists the call sites of a hand-written impl file: each
-// orbit__w.Expr(x) and orbit__w.Attr("name", x), keyed by the argument's Go
-// offset (a stand-in for the .orbit offset).
+// lyr__w.Expr(x) and lyr__w.Attr("name", x), keyed by the argument's Go
+// offset (a stand-in for the .lyr offset).
 func tySites(t testing.TB, f *GenFile) []CallSite {
 	fset := gotoken.NewFileSet()
 	af, err := goparser.ParseFile(fset, f.Path, f.Content, goparser.SkipObjectResolution)
@@ -244,14 +244,14 @@ func (g *tyGen) generate(in *Input) *Output {
 	return tyReemit(p, in.Typed)
 }
 
-// tyDir is the inline directive to L:C of orbit from orbit's impl file.
-func tyDir(orbit string, l, c int) string {
-	pkg, _ := PackageFor(orbit)
-	return fmt.Sprintf("/*line %s:%d:%d*/", DirectiveFile(pkg.ImplFile(), orbit), l, c)
+// tyDir is the inline directive to L:C of lyr from lyr's impl file.
+func tyDir(lyr string, l, c int) string {
+	pkg, _ := PackageFor(lyr)
+	return fmt.Sprintf("/*line %s:%d:%d*/", DirectiveFile(pkg.ImplFile(), lyr), l, c)
 }
 
 // tyLine is the own-line directive form of tyDir, with its newline.
-func tyLine(orbit string, l, c int) string {
-	pkg, _ := PackageFor(orbit)
-	return fmt.Sprintf("//line %s:%d:%d\n", DirectiveFile(pkg.ImplFile(), orbit), l, c)
+func tyLine(lyr string, l, c int) string {
+	pkg, _ := PackageFor(lyr)
+	return fmt.Sprintf("//line %s:%d:%d\n", DirectiveFile(pkg.ImplFile(), lyr), l, c)
 }

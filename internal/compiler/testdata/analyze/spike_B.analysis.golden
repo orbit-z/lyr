@@ -1,16 +1,16 @@
-info src/components/spike_B.orbit component route=""
+info src/components/spike_B.lyr component route=""
 goimport name="" path="strconv" @17-26 "\"strconv\"" path=@17-26 place=impl
-orbitimport @31-32 "A" path="./A.orbit" resolved=src/components/A.orbit @31-44 pathspan=@33-44 place=impl
-implicit orbit: none
-decl type @48-83 place=decl Tag@53-56
+lyrimport @31-32 "A" path="./A.lyr" resolved=src/components/A.lyr @31-42 pathspan=@33-42 place=impl
+implicit lyr: none
+decl type @46-81 place=decl Tag@51-54
   "type Tag struct {\n    Text string\n}"
-decl type @85-134 place=decl Props@90-95
+decl type @83-132 place=decl Props@88-93
   "type Props struct {\n    Depth int\n    Tag   Tag\n}"
-decl func @136-193 place=impl label@141-146
+decl func @134-191 place=impl label@139-144
   "func label(n int) string { return \"B\" + strconv.Itoa(n) }"
-stmt @195-221 "name := label(props.Depth)"
+stmt @193-219 "name := label(props.Depth)"
 echo [name]
 terminating false
-props declared=true listable=true span=@90-134
-  field @109-114 "Depth" type="int" doc=""
-  field @123-126 "Tag" type="Tag" doc=""
+props declared=true listable=true span=@88-132
+  field @107-112 "Depth" type="int" doc=""
+  field @121-124 "Tag" type="Tag" doc=""

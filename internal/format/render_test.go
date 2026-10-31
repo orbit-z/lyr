@@ -11,23 +11,23 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // TestRenderedOutput checks that formatting never changes what a page
 // renders: the corpus projects are "unformatted" (spaces in the
-// frontmatter, padded braces), generated as orbit generate would before and
+// frontmatter, padded braces), generated as lyr generate would before and
 // after formatting, under every compressHTML mode, and the generated Go must
 // be the same token for token (comments, which hold the line directives, and
-// the .orbit positions passed to orbit.ErrorAt excepted). The generated code
+// the .lyr positions passed to lyr.ErrorAt excepted). The generated code
 // holds every static byte a page writes and the code that writes the rest,
 // so equal code renders equal HTML for every request. Scripts and styles
 // aren't formatted here (no Bun): their content is checked by the safety
 // net, through esbuild.
 func TestRenderedOutput(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipped in -short mode: runs orbit generate on copies of the corpus")
+		t.Skip("skipped in -short mode: runs lyr generate on copies of the corpus")
 	}
 	t.Setenv("GOFLAGS", "-mod=mod")
 	t.Setenv("GOWORK", "off")
@@ -88,7 +88,7 @@ func deformat(src string) string {
 	return Apply(src, edits)
 }
 
-// copyProject copies a repo project to a temp dir, rewriting its .orbit
+// copyProject copies a repo project to a temp dir, rewriting its .lyr
 // files with fix and setting compressHTML.
 func copyProject(t *testing.T, proj, compress string, fix func(string) string) string {
 	t.Helper()
@@ -102,7 +102,7 @@ func copyProject(t *testing.T, proj, compress string, fix func(string) string) s
 		rel, _ := filepath.Rel(src, p)
 		if d.IsDir() {
 			switch d.Name() {
-			case "orbit_gen", "dist", ".orbit", "node_modules":
+			case "lyr_gen", "dist", ".lyr", "node_modules":
 				return filepath.SkipDir
 			}
 			return os.MkdirAll(filepath.Join(dst, rel), 0o755)
@@ -113,7 +113,7 @@ func copyProject(t *testing.T, proj, compress string, fix func(string) string) s
 		}
 		s := string(b)
 		switch {
-		case strings.HasSuffix(p, ".orbit"):
+		case strings.HasSuffix(p, ".lyr"):
 			s = fix(s)
 		case rel == "go.mod":
 			s = strings.ReplaceAll(s, "=> ../..", "=> "+filepath.ToSlash(root))
@@ -124,14 +124,14 @@ func copyProject(t *testing.T, proj, compress string, fix func(string) string) s
 		t.Fatal(err)
 	}
 	cfg := map[string]any{}
-	if b, err := os.ReadFile(filepath.Join(dst, "orbit.json")); err == nil {
+	if b, err := os.ReadFile(filepath.Join(dst, "lyr.json")); err == nil {
 		if err := json.Unmarshal(b, &cfg); err != nil {
 			t.Fatal(err)
 		}
 	}
 	cfg["compressHTML"] = json.RawMessage(compress)
 	b, _ := json.Marshal(cfg)
-	if err := os.WriteFile(filepath.Join(dst, "orbit.json"), b, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dst, "lyr.json"), b, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return dst
@@ -161,15 +161,15 @@ func plan(t *testing.T, dir string) map[string]string {
 	return out
 }
 
-var orbitPos = regexp.MustCompile(`^"src/[^"]*\.orbit:\d+:\d+"$`)
+var lyrPos = regexp.MustCompile(`^"src/[^"]*\.lyr:\d+:\d+"$`)
 
 // genTokens lists the tokens of generated Go code, one per line, comments
-// excluded and .orbit position strings blanked.
+// excluded and .lyr position strings blanked.
 func genTokens(src string) string {
 	var b strings.Builder
 	for _, t := range goTokens(src) {
 		lit := t.lit
-		if orbitPos.MatchString(lit) {
+		if lyrPos.MatchString(lit) {
 			lit = `"src/…:L:C"`
 		}
 		fmt.Fprintf(&b, "%s %s\n", t.tok, lit)

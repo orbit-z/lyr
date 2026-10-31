@@ -3,7 +3,7 @@
 
 fix:   rewrites every reset directive /*line <own-basename>:L:C*/ so L:C is the
        true position of the character right after the comment.
-check: verifies every /*line <rel>.orbit:L:C*/ directive points at .orbit text
+check: verifies every /*line <rel>.lyr:L:C*/ directive points at .lyr text
        that matches the copied span (case/sep-insensitive for field keys).
 Usage: tools/lines.py fix|check FILE.go...
 """
@@ -47,10 +47,10 @@ def check(path):
     src = open(path).read()
     for m in DIR.finditer(src):
         f = m.group(1)
-        if not f.endswith('.orbit'):
+        if not f.endswith('.lyr'):
             continue
-        orbit = os.path.normpath(os.path.join(os.path.dirname(path), f))
-        lines = open(orbit).read().split('\n')
+        lyr = os.path.normpath(os.path.join(os.path.dirname(path), f))
+        lines = open(lyr).read().split('\n')
         l, c = int(m.group(2)), int(m.group(3))
         rest = src[m.end():]
         span = rest[:rest.find('/*line')] if '/*line' in rest else rest
@@ -61,12 +61,12 @@ def check(path):
             g = g[:-len('.Render')]
         if g == 'Render':
             g = 'Self'
-        if g.startswith('"example.com/blog/orbit_gen/decl/'):  # import rewrite (span)
+        if g.startswith('"example.com/blog/lyr_gen/decl/'):  # import rewrite (span)
             g = '"'
         good = target.decode().startswith(g) or norm(target.decode()).startswith(norm(g))
         if not good:
             ok = False
-        print('%s %s:%d:%d  go=%r  orbit=%r' % ('ok ' if good else 'BAD', f, l, c, span[:40], target.decode()[:40]))
+        print('%s %s:%d:%d  go=%r  lyr=%r' % ('ok ' if good else 'BAD', f, l, c, span[:40], target.decode()[:40]))
     return ok
 
 if __name__ == '__main__':

@@ -1,9 +1,9 @@
-info src/components/err_reserved.orbit component route=""
-implicit orbit: none
-decl type @40-76 place=impl orbit__T@45-53
-  "type orbit__T struct{ orbit__f int }"
-stmt @4-17 "orbit__x := 1"
-stmt @18-39 "var Orbit__Render = 2"
-echo [orbit__x Orbit__Render]
+info src/components/err_reserved.lyr component route=""
+implicit lyr: none
+decl type @36-68 place=impl lyr__T@41-47
+  "type lyr__T struct{ lyr__f int }"
+stmt @4-15 "lyr__x := 1"
+stmt @16-35 "var Lyr__Render = 2"
+echo [lyr__x Lyr__Render]
 terminating false
 props declared=false listable=true span=@0-0

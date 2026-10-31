@@ -1,5 +1,5 @@
 // The benchmark's fixed data set. It mirrors
-// bench/orbit-site/internal/data/data.go exactly, so both sites render the
+// bench/lyr-site/internal/data/data.go exactly, so both sites render the
 // same text.
 
 export interface Item {

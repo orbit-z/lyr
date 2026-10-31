@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 func TestCopyPublic(t *testing.T) {
@@ -39,7 +39,7 @@ func TestCopyPublic(t *testing.T) {
 			t.Errorf("%s: %q, %v; want %q", rel, got, err, content)
 		}
 	}
-	for _, dir := range []string{"_orbit", "empty"} {
+	for _, dir := range []string{"_lyr", "empty"} {
 		if fi, err := os.Stat(filepath.Join(dst, dir)); err != nil || !fi.IsDir() {
 			t.Errorf("no directory %s: %v", dir, err)
 		}
@@ -55,16 +55,16 @@ func TestCopyPublicMissing(t *testing.T) {
 	if err != nil || len(problems) > 0 {
 		t.Fatalf("CopyPublic: %v, %v", problems, err)
 	}
-	if !exists(filepath.Join(dst, "_orbit")) {
-		t.Errorf("no _orbit directory")
+	if !exists(filepath.Join(dst, "_lyr")) {
+		t.Errorf("no _lyr directory")
 	}
 }
 
 func TestCopyPublicConflicts(t *testing.T) {
 	src := t.TempDir()
-	writeFile(t, src, "_orbit/app.js", "x")
-	writeFile(t, src, "_orbit/sub/a.css", "x")
-	writeFile(t, src, "_orbitx.txt", "fine")
+	writeFile(t, src, "_lyr/app.js", "x")
+	writeFile(t, src, "_lyr/sub/a.css", "x")
+	writeFile(t, src, "_lyrx.txt", "fine")
 	if runtime.GOOS != "windows" {
 		if err := os.Symlink(t.TempDir(), filepath.Join(src, "linked")); err != nil {
 			t.Fatal(err)
@@ -75,8 +75,8 @@ func TestCopyPublicConflicts(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{
-		"public/_orbit/app.js: the /_orbit/ path is reserved for Orbit's assets; move it out of public/_orbit",
-		"public/_orbit/sub/a.css: the /_orbit/ path is reserved for Orbit's assets; move it out of public/_orbit",
+		"public/_lyr/app.js: the /_lyr/ path is reserved for Lyr's assets; move it out of public/_lyr",
+		"public/_lyr/sub/a.css: the /_lyr/ path is reserved for Lyr's assets; move it out of public/_lyr",
 	}
 	if runtime.GOOS != "windows" {
 		want = append(want, "public/linked: a symbolic link to a directory isn't supported; copy the directory or link its files")
@@ -85,13 +85,13 @@ func TestCopyPublicConflicts(t *testing.T) {
 		t.Errorf("problems:\n%s\nwant:\n%s", strings.Join(problems, "\n"), strings.Join(want, "\n"))
 	}
 
-	// An empty public/_orbit directory is ignored.
+	// An empty public/_lyr directory is ignored.
 	src = t.TempDir()
-	if err := os.Mkdir(filepath.Join(src, "_orbit"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(src, "_lyr"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if problems, err := CopyPublic(src, filepath.Join(t.TempDir(), "client")); err != nil || len(problems) > 0 {
-		t.Errorf("empty public/_orbit: %v, %v", problems, err)
+		t.Errorf("empty public/_lyr: %v, %v", problems, err)
 	}
 }
 
@@ -99,13 +99,13 @@ func TestRunPublicConflict(t *testing.T) {
 	needE2E(t)
 	t.Parallel()
 	dir := fixture(t, false)
-	writeFile(t, dir, "public/_orbit/x.js", "x")
+	writeFile(t, dir, "public/_lyr/x.js", "x")
 	writeFile(t, dir, "dist/client/old.txt", "old")
 	res, err := Run(t.Context(), Options{Root: dir, Env: goEnv})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !res.Failed() || len(res.Public) != 1 || !strings.HasPrefix(res.Public[0], "public/_orbit/x.js: ") {
+	if !res.Failed() || len(res.Public) != 1 || !strings.HasPrefix(res.Public[0], "public/_lyr/x.js: ") {
 		t.Errorf("Public: %q", res.Public)
 	}
 	// The previous dist/ is untouched, and the staging directory removed.
@@ -127,22 +127,22 @@ func TestCleanOutput(t *testing.T) {
 		t.Fatalf("diagnostics: %v", p.Diagnostics)
 	}
 	in := strings.Join([]string{
-		"# example.com/site/orbit_gen/impl/components/card",
-		"./src/components/Card.orbit:7:34: props.Titel undefined (type card.Props has no field or method Titel)",
-		"# example.com/site/orbit_gen/impl/pages/index",
-		`./src/pages/index.orbit:13:11: cannot use 1 (untyped int constant) as string value in struct literal of type "example.com/site/orbit_gen/decl/components/card".Props`,
-		"./src/layouts/Base.orbit:2:6: Props redeclared in this block",
-		"\t./src/layouts/Base.orbit:2:6[" + dir + "/orbit_gen/decl/layouts/base/decl.go:5:6]: other declaration of Props",
+		"# example.com/site/lyr_gen/impl/components/card",
+		"./src/components/Card.lyr:7:34: props.Titel undefined (type card.Props has no field or method Titel)",
+		"# example.com/site/lyr_gen/impl/pages/index",
+		`./src/pages/index.lyr:13:11: cannot use 1 (untyped int constant) as string value in struct literal of type "example.com/site/lyr_gen/decl/components/card".Props`,
+		"./src/layouts/Base.lyr:2:6: Props redeclared in this block",
+		"\t./src/layouts/Base.lyr:2:6[" + dir + "/lyr_gen/decl/layouts/base/decl.go:5:6]: other declaration of Props",
 		"# example.com/site/internal/x",
 		"internal/x/x.go:3:9: undefined: undefinedZ",
 		"./cmd/server/main.go:5:15: undefined: y",
 		"",
 	}, "\n")
 	want := strings.Join([]string{
-		"src/components/Card.orbit:7:34: props.Titel undefined (type Props has no field or method Titel)",
-		"src/pages/index.orbit:13:11: cannot use 1 (untyped int constant) as string value in struct literal of type Card.Props",
-		"src/layouts/Base.orbit:2:6: Props redeclared in this block",
-		"\tsrc/layouts/Base.orbit:2:6: other declaration of Props",
+		"src/components/Card.lyr:7:34: props.Titel undefined (type Props has no field or method Titel)",
+		"src/pages/index.lyr:13:11: cannot use 1 (untyped int constant) as string value in struct literal of type Card.Props",
+		"src/layouts/Base.lyr:2:6: Props redeclared in this block",
+		"\tsrc/layouts/Base.lyr:2:6: other declaration of Props",
 		"# example.com/site/internal/x",
 		"internal/x/x.go:3:9: undefined: undefinedZ",
 		"cmd/server/main.go:5:15: undefined: y",

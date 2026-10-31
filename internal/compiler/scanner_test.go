@@ -231,7 +231,7 @@ func BenchmarkScanBracedLiterals(b *testing.B) {
 	exprs := []string{
 		"{`/fiction/${book.Slug}`}",
 		"{`Chapter ${props.Index + 1} of ${props.Book.Title}`}",
-		"{orbit.If(open, `Close ${f(`x ${y}`)}`)}",
+		"{lyr.If(open, `Close ${f(`x ${y}`)}`)}",
 		"{` · ${n} words`}",
 		"{`btn-${size} ${map[string]int{\"}\": 1}[\"}\"]}`}",
 	}

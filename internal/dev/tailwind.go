@@ -4,15 +4,15 @@ import (
 	"context"
 	"path"
 
-	"github.com/orbit-z/orbit/internal/assets"
-	"github.com/orbit-z/orbit/internal/tailwind"
+	"github.com/orbit-z/lyr/internal/assets"
+	"github.com/orbit-z/lyr/internal/tailwind"
 )
 
 // Tailwind in the dev loop (PLAN.md §5d, Q4). The bundler runs Tailwind
 // inputs in esbuild's load step and caches each output. At the start of a
 // batch the pipeline decides what to rerun:
 //   - a .css file, tsconfig.json or package.json changed: every input
-//     (Orbit doesn't track Tailwind's import graph); esbuild runs anyway,
+//     (Lyr doesn't track Tailwind's import graph); esbuild runs anyway,
 //     and reruns them on its critical path;
 //   - another changed file brings a class candidate the token gate hasn't
 //     seen: the root inputs (those that scan the sources), started at
@@ -46,7 +46,7 @@ func (pl *pipeline) tailwindStart(ctx context.Context, c Change) *twRun {
 		switch base := path.Base(p); {
 		case path.Ext(p) == ".css", p == "tsconfig.json", p == "package.json":
 			css = true
-		case base == "orbit.json", base == "go.sum":
+		case base == "lyr.json", base == "go.sum":
 		default:
 			others = append(others, p)
 		}

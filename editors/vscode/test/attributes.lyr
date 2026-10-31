@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<div id="main" class='box' data-n=3 hidden {...attrs} {open} title={strings.ToUpper(t)}>
+  <div set:html={lyr.HTML(body)} />
+  <p set:text={msg}></p>
+  <p class:list={"a b", props.Class, "hidden": hidden}>x</p>
+  <Card client:visible="200px" {post} />
+  <Card client:idle />
+  <Card client:media="(max-width: 600px)" />
+  <Comments server:defer postID={id}>
+    <p slot="fallback">Loading…</p>
+  </Comments>
+  <Fragment slot="footer" set:html={footer} />
+  <Self depth={depth + 1} />
+  <slot name="aside">fallback</slot>
+  <my-element some-attr="x"></my-element>
+  <a href={"/blog/" + p.Slug} xlink:href="#x">link</a>
+</div>

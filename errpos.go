@@ -1,8 +1,8 @@
-package orbit
+package lyr
 
 // For generated code. ErrorAt wraps every return of a frontmatter body:
-// return ErrorAt("src/pages/x.orbit:14:5", err). It prefixes a failure
-// with the .orbit position of its return, so the production 500 log line
+// return ErrorAt("src/pages/x.lyr:14:5", err). It prefixes a failure
+// with the .lyr position of its return, so the production 500 log line
 // says where the error came from. ErrNotFound and *RedirectError are control
 // flow and pass through unchanged, as does an error that already carries a
 // position (one returned from a component's Render). Only a non-nil failure
@@ -21,9 +21,9 @@ func ErrorAt(pos string, err error) error {
 	return &posError{pos: pos, err: err}
 }
 
-// posError is an error returned at a .orbit position.
+// posError is an error returned at a .lyr position.
 type posError struct {
-	pos string // "src/pages/x.orbit:L:C"
+	pos string // "src/pages/x.lyr:L:C"
 	err error
 }
 

@@ -1,0 +1,14 @@
+---
+import (
+	"strings"
+	Layout "../layouts/Base.lyr"
+	"fmt"
+	"fmt"
+
+	Card "./Card.lyr"
+	"example.com/x/internal/posts"
+)
+import "errors"
+---
+<Layout><Card /></Layout>
+{strings.ToUpper(fmt.Sprint(errors.New("x"), posts.All))}

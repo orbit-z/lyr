@@ -1,46 +1,46 @@
 -- go build --
-src/components/E1.orbit:9:19: cannot use "x" (untyped string constant) as int value in argument to strconv.Itoa
-src/components/E10.orbit:8:13: duplicate case "a" (constant of type string) in expression switch
-	src/components/E10.orbit:7:8: previous case
-src/components/E11.orbit:9:39: cannot use n (variable of type int) as bool value in class:list condition
-src/components/E12.orbit:4:21: non-boolean condition in if statement
-src/components/E13.orbit:4:5: cannot use N (variable of type int) as string value in argument to orbit__w.TagOpen
-src/components/E14.orbit:6:31: cannot use "x" (untyped string constant) as int value in optional prop value
-src/components/E15.orbit:4:16: undefined: undefA
-src/components/E16.orbit:4:10: invalid operation: n == template literal (mismatched types int and string)
-src/components/E17.orbit:5:5: undefined: undefB
-src/components/E18.orbit:7:29: undefined: undefC
-src/components/E19.orbit:5:5: undefined: undefD
-src/components/E2.orbit:4:67: cannot use "n" (untyped string constant) as int value in argument to strconv.Itoa
-src/components/E3.orbit:4:8: undefined: intt
-src/components/E4.orbit:5:7: undefined: titel
-src/components/E5.orbit:8:15: props.Dpth undefined (type Props has no field or method Dpth)
-src/components/E6.orbit:4:6: dup redeclared in this block
-	src/components/E6.orbit:2:6: other declaration of dup
-src/components/E7.orbit:9:16: cannot use "r" (untyped string constant) as int value in argument to strconv.Itoa
-src/components/E8.orbit:3:9: cannot use "oops" (constant of type string) as error value in return statement: string does not implement error (missing method Error)
-src/components/E9.orbit:4:9: undefined: stauts
-src/pages/alias.orbit:4:13: cannot use Emb.Props{} (value of struct type Emb.Props) as int value in variable declaration
-src/pages/index.orbit:5:8: unknown field Nmae in struct literal of type Emb.Props
+src/components/E1.lyr:9:19: cannot use "x" (untyped string constant) as int value in argument to strconv.Itoa
+src/components/E10.lyr:8:13: duplicate case "a" (constant of type string) in expression switch
+	src/components/E10.lyr:7:8: previous case
+src/components/E11.lyr:9:39: cannot use n (variable of type int) as bool value in class:list condition
+src/components/E12.lyr:4:21: non-boolean condition in if statement
+src/components/E13.lyr:4:5: cannot use N (variable of type int) as string value in argument to lyr__w.TagOpen
+src/components/E14.lyr:6:31: cannot use "x" (untyped string constant) as int value in optional prop value
+src/components/E15.lyr:4:16: undefined: undefA
+src/components/E16.lyr:4:10: invalid operation: n == template literal (mismatched types int and string)
+src/components/E17.lyr:5:5: undefined: undefB
+src/components/E18.lyr:7:29: undefined: undefC
+src/components/E19.lyr:5:5: undefined: undefD
+src/components/E2.lyr:4:67: cannot use "n" (untyped string constant) as int value in argument to strconv.Itoa
+src/components/E3.lyr:4:8: undefined: intt
+src/components/E4.lyr:5:7: undefined: titel
+src/components/E5.lyr:8:15: props.Dpth undefined (type Props has no field or method Dpth)
+src/components/E6.lyr:4:6: dup redeclared in this block
+	src/components/E6.lyr:2:6: other declaration of dup
+src/components/E7.lyr:9:16: cannot use "r" (untyped string constant) as int value in argument to strconv.Itoa
+src/components/E8.lyr:3:9: cannot use "oops" (constant of type string) as error value in return statement: string does not implement error (missing method Error)
+src/components/E9.lyr:4:9: undefined: stauts
+src/pages/alias.lyr:4:13: cannot use Emb.Props{} (value of struct type Emb.Props) as int value in variable declaration
+src/pages/index.lyr:5:8: unknown field Nmae in struct literal of type Emb.Props
 -- go vet --
-src/components/E1.orbit:9:19: cannot use "x" (untyped string constant) as int value in argument to strconv.Itoa
-src/components/E10.orbit:8:13: duplicate case "a" (constant of type string) in expression switch
-src/components/E11.orbit:9:39: cannot use n (variable of type int) as bool value in class:list condition
-src/components/E12.orbit:4:21: non-boolean condition in if statement
-src/components/E13.orbit:4:5: cannot use N (variable of type int) as string value in argument to orbit__w.TagOpen
-src/components/E14.orbit:6:31: cannot use "x" (untyped string constant) as int value in optional prop value
-src/components/E15.orbit:4:16: undefined: undefA
-src/components/E16.orbit:4:10: invalid operation: n == template literal (mismatched types int and string)
-src/components/E17.orbit:5:5: undefined: undefB
-src/components/E18.orbit:7:29: undefined: undefC
-src/components/E19.orbit:5:5: undefined: undefD
-src/components/E2.orbit:4:67: cannot use "n" (untyped string constant) as int value in argument to strconv.Itoa
-src/components/E3.orbit:4:8: undefined: intt
-src/components/E4.orbit:5:7: undefined: titel
-src/components/E5.orbit:8:15: props.Dpth undefined (type Props has no field or method Dpth)
-src/components/E6.orbit:4:6: dup redeclared in this block
-src/components/E7.orbit:9:16: cannot use "r" (untyped string constant) as int value in argument to strconv.Itoa
-src/components/E8.orbit:3:9: cannot use "oops" (constant of type string) as error value in return statement: string does not implement error (missing method Error)
-src/components/E9.orbit:4:9: undefined: stauts
-src/pages/alias.orbit:4:13: cannot use Emb.Props{} (value of struct type Emb.Props) as int value in variable declaration
-src/pages/index.orbit:5:8: unknown field Nmae in struct literal of type Emb.Props
+src/components/E1.lyr:9:19: cannot use "x" (untyped string constant) as int value in argument to strconv.Itoa
+src/components/E10.lyr:8:13: duplicate case "a" (constant of type string) in expression switch
+src/components/E11.lyr:9:39: cannot use n (variable of type int) as bool value in class:list condition
+src/components/E12.lyr:4:21: non-boolean condition in if statement
+src/components/E13.lyr:4:5: cannot use N (variable of type int) as string value in argument to lyr__w.TagOpen
+src/components/E14.lyr:6:31: cannot use "x" (untyped string constant) as int value in optional prop value
+src/components/E15.lyr:4:16: undefined: undefA
+src/components/E16.lyr:4:10: invalid operation: n == template literal (mismatched types int and string)
+src/components/E17.lyr:5:5: undefined: undefB
+src/components/E18.lyr:7:29: undefined: undefC
+src/components/E19.lyr:5:5: undefined: undefD
+src/components/E2.lyr:4:67: cannot use "n" (untyped string constant) as int value in argument to strconv.Itoa
+src/components/E3.lyr:4:8: undefined: intt
+src/components/E4.lyr:5:7: undefined: titel
+src/components/E5.lyr:8:15: props.Dpth undefined (type Props has no field or method Dpth)
+src/components/E6.lyr:4:6: dup redeclared in this block
+src/components/E7.lyr:9:16: cannot use "r" (untyped string constant) as int value in argument to strconv.Itoa
+src/components/E8.lyr:3:9: cannot use "oops" (constant of type string) as error value in return statement: string does not implement error (missing method Error)
+src/components/E9.lyr:4:9: undefined: stauts
+src/pages/alias.lyr:4:13: cannot use Emb.Props{} (value of struct type Emb.Props) as int value in variable declaration
+src/pages/index.lyr:5:8: unknown field Nmae in struct literal of type Emb.Props

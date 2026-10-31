@@ -10,17 +10,17 @@ import (
 
 // TestLazyLocals builds a project with a real Locals type and serves it for
 // real: a page whose components never reference locals declares no locals
-// (no LocalsOf, no import of src/locals) and is served with Orbit's 1
+// (no LocalsOf, no import of src/locals) and is served with Lyr's 1
 // allocation (the Content-Length value), while a page and a component that do reference it share the
 // one per-request *Locals, the one middleware attached.
 func TestLazyLocals(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
-		"options":                    "locals=" + testModule + "/src/locals\n",
-		"src/components/Plain.orbit": "---\ntype Props struct{ N int }\n---\n<p>{props.N}</p>\n",
-		"src/pages/plain.orbit":      "---\nimport Plain \"../components/Plain.orbit\"\n---\n<main><Plain n={1} /><Plain n={2} /></main>\n",
-		"src/components/Who.orbit":   "<p>{locals.User} {locals.N}</p>\n",
-		"src/pages/who.orbit": "---\nimport Who \"../components/Who.orbit\"\n" +
+		"options":                  "locals=" + testModule + "/src/locals\n",
+		"src/components/Plain.lyr": "---\ntype Props struct{ N int }\n---\n<p>{props.N}</p>\n",
+		"src/pages/plain.lyr":      "---\nimport Plain \"../components/Plain.lyr\"\n---\n<main><Plain n={1} /><Plain n={2} /></main>\n",
+		"src/components/Who.lyr":   "<p>{locals.User} {locals.N}</p>\n",
+		"src/pages/who.lyr": "---\nimport Who \"../components/Who.lyr\"\n" +
 			"locals.N++\n---\n<main><Who /></main>\n",
 	}
 	for rel, content := range files {
@@ -63,13 +63,13 @@ import (
 	"testing"
 
 	"example.com/blog/src/locals"
-	plain "example.com/blog/orbit_gen/decl/pages/plain"
-	who "example.com/blog/orbit_gen/decl/pages/who"
-	_ "example.com/blog/orbit_gen/impl/components/plain"
-	_ "example.com/blog/orbit_gen/impl/components/who"
-	_ "example.com/blog/orbit_gen/impl/pages/plain"
-	_ "example.com/blog/orbit_gen/impl/pages/who"
-	"github.com/orbit-z/orbit"
+	plain "example.com/blog/lyr_gen/decl/pages/plain"
+	who "example.com/blog/lyr_gen/decl/pages/who"
+	_ "example.com/blog/lyr_gen/impl/components/plain"
+	_ "example.com/blog/lyr_gen/impl/components/who"
+	_ "example.com/blog/lyr_gen/impl/pages/plain"
+	_ "example.com/blog/lyr_gen/impl/pages/who"
+	"github.com/orbit-z/lyr"
 )
 
 type discard struct{ h http.Header }
@@ -79,19 +79,19 @@ func (d *discard) WriteHeader(int)             {}
 func (d *discard) Write(b []byte) (int, error) { return len(b), nil }
 
 func main() {
-	site := orbit.NewSite([]orbit.Route{
-		{Pattern: "/plain", File: "src/pages/plain.orbit", Render: func(c *orbit.Ctx, w *orbit.Writer) error {
-			return plain.Render(c, w, plain.Props{}, orbit.Slots{})
+	site := lyr.NewSite([]lyr.Route{
+		{Pattern: "/plain", File: "src/pages/plain.lyr", Render: func(c *lyr.Ctx, w *lyr.Writer) error {
+			return plain.Render(c, w, plain.Props{}, lyr.Slots{})
 		}},
-		{Pattern: "/who", File: "src/pages/who.orbit", Render: func(c *orbit.Ctx, w *orbit.Writer) error {
-			return who.Render(c, w, who.Props{}, orbit.Slots{})
+		{Pattern: "/who", File: "src/pages/who.lyr", Render: func(c *lyr.Ctx, w *lyr.Writer) error {
+			return who.Render(c, w, who.Props{}, lyr.Slots{})
 		}},
 	}, nil)
 	pages := site.Middleware(http.NotFoundHandler())
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Has("user") {
 			var l *locals.Locals
-			r, l = orbit.EnsureLocals[locals.Locals](r)
+			r, l = lyr.EnsureLocals[locals.Locals](r)
 			l.User = r.URL.Query().Get("user")
 		}
 		pages.ServeHTTP(w, r)

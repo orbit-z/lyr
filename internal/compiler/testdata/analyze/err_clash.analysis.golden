@@ -1,19 +1,19 @@
-info src/components/err_clash.orbit component route=""
-goimport name="Kind" path="example.com/kind" @83-106 "Kind \"example.com/kind\"" path=@88-106 place=impl
-orbitimport @14-18 "Item" path="./Item.orbit" resolved=src/components/Item.orbit @14-33 pathspan=@19-33 place=impl
-orbitimport @35-40 "Props" path="./Other.orbit" resolved=src/components/Other.orbit @35-56 pathspan=@41-56 place=impl
-orbitimport @58-64 "Render" path="./Render.orbit" resolved=src/components/Render.orbit @58-81 pathspan=@65-81 place=impl
-implicit orbit: none
-decl type @110-141 place=decl Item@115-119
+info src/components/err_clash.lyr component route=""
+goimport name="Kind" path="example.com/kind" @77-100 "Kind \"example.com/kind\"" path=@82-100 place=impl
+lyrimport @14-18 "Item" path="./Item.lyr" resolved=src/components/Item.lyr @14-31 pathspan=@19-31 place=impl
+lyrimport @33-38 "Props" path="./Other.lyr" resolved=src/components/Other.lyr @33-52 pathspan=@39-52 place=impl
+lyrimport @54-60 "Render" path="./Render.lyr" resolved=src/components/Render.lyr @54-75 pathspan=@61-75 place=impl
+implicit lyr: none
+decl type @104-135 place=decl Item@109-113
   "type Item struct{ Name string }"
-decl type @143-156 place=decl Kind@148-152
+decl type @137-150 place=decl Kind@142-146
   "type Kind int"
-decl type @158-201 place=decl Props@163-168
+decl type @152-195 place=decl Props@157-162
   "type Props struct {\n\tItem Item\n\tK    Kind\n}"
-decl type @203-215 place=impl Row@208-211
+decl type @197-209 place=impl Row@202-205
   "type Row int"
 echo []
 terminating false
-props declared=true listable=true span=@163-201
-  field @179-183 "Item" type="Item" doc=""
-  field @190-191 "K" type="Kind" doc=""
+props declared=true listable=true span=@157-195
+  field @173-177 "Item" type="Item" doc=""
+  field @184-185 "K" type="Kind" doc=""

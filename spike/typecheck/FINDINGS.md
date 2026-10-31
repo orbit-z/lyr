@@ -1,12 +1,12 @@
 # Spike C: go/types cost for typed writes (PLAN.md §3.3)
 
-**Question.** Is type-checking the generated code at generate time fast enough for `orbit build`, and for the `orbit dev` loop (about 1 s per save)? What's the fastest viable approach?
+**Question.** Is type-checking the generated code at generate time fast enough for `lyr build`, and for the `lyr dev` loop (about 1 s per save)? What's the fastest viable approach?
 
 **Answer.** Yes, with any approach. The type check costs much less than the `go build` + link that follows it. The fastest approach isn't go/packages. It's plain `go/types`, with:
 - `importer.ForCompiler(fset, "gc", lookup)` over `go list -export` data for **non-generated** packages only (user code, runtime, std);
 - decl and impl packages checked **from source**, in-process and in parallel.
 
-In a long-lived `orbit dev` process, re-checking one edited component takes about **0.3 ms**. The coordinator re-ran `go test ./typed` (pass) and one s200 srcdecl run (median 43 ms) independently.
+In a long-lived `lyr dev` process, re-checking one edited component takes about **0.3 ms**. The coordinator re-ran `go test ./typed` (pass) and one s200 srcdecl run (median 43 ms) independently.
 
 ## Setup
 - **Machine**: AMD Ryzen 7 9700X, 8C/16T, 46 GB RAM, Fedora 44.
@@ -30,8 +30,8 @@ In a long-lived `orbit dev` process, re-checking one edited component takes abou
 |---|---|---|---|---|---|
 | Check only, warm, all impl packages | — | 53 / 110 | 38 / 68 | – / 46 | — |
 | Check only, warm, one impl package | — | 34 / 34 | 28 / 26 | — | **0.26 / 0.24** |
-| `orbit build` (check + rewrite + `go build`), std cached | 377 / 752 | 561 / 1379 | 251 / 705 | – / 1200 (4C) | — |
-| `orbit build`, empty GOCACHE | 3262 / 3695 | 3417 / 4205 | 3244 / 3657 | — | — |
+| `lyr build` (check + rewrite + `go build`), std cached | 377 / 752 | 561 / 1379 | 251 / 705 | – / 1200 (4C) | — |
+| `lyr build`, empty GOCACHE | 3262 / 3695 | 3417 / 4205 | 3244 / 3657 | — | — |
 | Dev: body edit, total incl. build | 192 / 236 | 287 / 289 | 226 / 267 | 227 / 344* | ≈ none + 0.3 |
 | Dev: `Props` edit, total | 204 / 248 | 302 / 311 | 234 / 288 | 234 / 304* | ≈ none + a few ms |
 | Dev: user `.go` edit (all packages affected), total | 315 / 752 | 526 / 1233 | 366 / 948 | 351 / 915 | ≈ srcdecl |
@@ -40,7 +40,7 @@ In a long-lived `orbit dev` process, re-checking one edited component takes abou
 \* Measured at load average 5–6. That run's own `none` baseline was 286 ms (body edit) and 830 ms (user edit).
 
 **4 cores** (s200; none / pkgs / custom / srcdecl):
-- `orbit build`, std cached: 1308 / 2227 / 1233 / 1200
+- `lyr build`, std cached: 1308 / 2227 / 1233 / 1200
 - dev body edit: 243 / 293 / 268 / 302
 - dev user edit: **1303** / 2149 / 1397 / 1362
 - hot re-check: 0.29 ms
@@ -65,16 +65,16 @@ In a long-lived `orbit dev` process, re-checking one edited component takes abou
 |---|---|
 | untyped nil | nothing |
 | constants | by default type; can be folded into `Raw` |
-| `orbit.HTML` | `HTML` |
+| `lyr.HTML` | `HTML` |
 | `string` / alias | `String` |
-| `orbit.URL` | `String(string(x))` |
+| `lyr.URL` | `String(string(x))` |
 | `[]byte` | `Bytes` |
 | ints / untyped rune | `Int(int64)` |
 | uints / byte | `Uint(uint64)` |
 | `float64` | `Float` |
 | `float32` | `Float(float64)` (mirrors widening) |
 | `bool` | `Bool` |
-| `orbit.Renderer` / unnamed `func(*Writer) error` | `Render` |
+| `lyr.Renderer` / unnamed `func(*Writer) error` | `Render` |
 | static interface implementing `error`, or a concrete type implementing `error` | `Error` |
 | concrete `fmt.Stringer` (value or pointer receiver, `time.Time`, `type Status int` with `String`) | `Stringer` |
 | named type with no such methods, underlying string/int/uint/bool/float64 | the matching typed write (same bytes as `fmt.Sprint`) |
@@ -86,11 +86,11 @@ Implementation notes:
 - Pass 2 re-emits the file rather than patching it, so line-directive columns stay correct.
 
 ## Recommendation
-- **`orbit build`**: srcdecl. Run one `go list -export -e` (with the build's `-tags`/`-mod`/GOFLAGS) for the non-`orbit_gen` imports. Check decl and impl from in-memory pass-1 source in parallel behind a memoized importer, then write the typed files.
-- **`orbit dev`**: the same code, kept hot in the dev process.
+- **`lyr build`**: srcdecl. Run one `go list -export -e` (with the build's `-tags`/`-mod`/GOFLAGS) for the non-`lyr_gen` imports. Check decl and impl from in-memory pass-1 source in parallel behind a memoized importer, then write the typed files.
+- **`lyr dev`**: the same code, kept hot in the dev process.
   - Body edit: re-check one impl package.
   - `Props` edit: re-check that decl package and its importers.
-  - User `.go`/`go.mod`/`orbit.json` edit: rerun `go list -export`, then re-check everything.
+  - User `.go`/`go.mod`/`lyr.json` edit: rerun `go list -export`, then re-check everything.
 - **Fallback**: a package with type errors, or unreadable export data, keeps `Expr`/`Attr`. The following `go build` reports the error.
 
 ## Choices for the user
@@ -99,7 +99,7 @@ Implementation notes:
 3. **Persistent type cache**: drop it (recommended) or keep it.
 4. **float32 formatting**: bitSize 32 (`0.1`), or keep widening (`0.10000000149011612`).
 5. **Static `fmt.Stringer` expressions**: keep them on `Expr` (recommended), or check for `error` first inside `w.Stringer`.
-6. **Measured side issues**: dev builds with `-ldflags=-w` save about 40 ms. The 1.3 s user-edit rebuild at 200 components on 4 cores threatens the §7 target. A `go 1.27` module without a `toolchain` line downloads go1.27.0, so `orbit new` must always write the `toolchain` line.
+6. **Measured side issues**: dev builds with `-ldflags=-w` save about 40 ms. The 1.3 s user-edit rebuild at 200 components on 4 cores threatens the §7 target. A `go 1.27` module without a `toolchain` line downloads go1.27.0, so `lyr new` must always write the `toolchain` line.
 
 ## Reproduce
 ```sh

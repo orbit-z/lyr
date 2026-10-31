@@ -11,7 +11,7 @@ import (
 // other type at the item.
 func TestClassListTyped(t *testing.T) {
 	const page = `---
-import Card "../components/Card.orbit"
+import Card "../components/Card.lyr"
 
 type Cls string
 
@@ -32,7 +32,7 @@ type Props struct{ Class string }
 ---
 <p class={props.Class}>z</p>
 `
-	p := plFront(map[string]string{"src/pages/index.orbit": page, "src/components/Card.orbit": card}, Options{Module: testModule})
+	p := plFront(map[string]string{"src/pages/index.lyr": page, "src/components/Card.lyr": card}, Options{Module: testModule})
 	if ds := p.diagnostics(); len(ds) > 0 {
 		t.Fatalf("front diagnostics:\n%s", strings.Join(ds, "\n"))
 	}
@@ -53,21 +53,21 @@ type Props struct{ Class string }
 		}
 	}
 	want := []string{
-		"src/pages/index.orbit:14:45: class:list items must be a string or []string, not int",
-		"src/pages/index.orbit:14:48: class:list items must be a string or []string, not untyped nil",
-		"src/pages/index.orbit:14:53: class:list items must be a string or []string, not any",
-		"src/pages/index.orbit:15:13: class={…} next to class:list must be a string or []string, not int",
-		"src/pages/index.orbit:16:28: class:list items must be a string or []string, not int",
+		"src/pages/index.lyr:14:45: class:list items must be a string or []string, not int",
+		"src/pages/index.lyr:14:48: class:list items must be a string or []string, not untyped nil",
+		"src/pages/index.lyr:14:53: class:list items must be a string or []string, not any",
+		"src/pages/index.lyr:15:13: class={…} next to class:list must be a string or []string, not int",
+		"src/pages/index.lyr:16:28: class:list items must be a string or []string, not int",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("got:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 	for k, w := range map[string]TypedWrite{
-		"src/pages/index.orbit s":             {Kind: WriteClass},
-		"src/pages/index.orbit c":             {Kind: WriteClass, Conv: "string"},
-		"src/pages/index.orbit tags":          {Kind: WriteClasses, Conv: "[]string"},
-		`src/pages/index.orbit []string{"d"}`: {Kind: WriteClasses},
-		"src/pages/index.orbit n":             {},
+		"src/pages/index.lyr s":             {Kind: WriteClass},
+		"src/pages/index.lyr c":             {Kind: WriteClass, Conv: "string"},
+		"src/pages/index.lyr tags":          {Kind: WriteClasses, Conv: "[]string"},
+		`src/pages/index.lyr []string{"d"}`: {Kind: WriteClasses},
+		"src/pages/index.lyr n":             {},
 	} {
 		if g := kinds[k]; !reflect.DeepEqual(g, w) {
 			t.Errorf("%s: %+v, want %+v", k, g, w)
@@ -77,11 +77,11 @@ type Props struct{ Class string }
 
 func TestClassListUnknownProp(t *testing.T) {
 	p := plFront(map[string]string{
-		"src/pages/index.orbit":     "---\nimport Card \"../components/Card.orbit\"\n---\n<Card class:list={\"a\"} />\n",
-		"src/components/Card.orbit": "---\ntype Props struct{ Title string }\n---\n<p>{props.Title}</p>\n",
+		"src/pages/index.lyr":     "---\nimport Card \"../components/Card.lyr\"\n---\n<Card class:list={\"a\"} />\n",
+		"src/components/Card.lyr": "---\ntype Props struct{ Title string }\n---\n<p>{props.Title}</p>\n",
 	}, Options{Module: testModule})
 	got := strings.Join(p.diagnostics(), "\n")
-	want := `src/pages/index.orbit:4:7: class:list sets the class prop, which <Card> doesn't have (props: title)`
+	want := `src/pages/index.lyr:4:7: class:list sets the class prop, which <Card> doesn't have (props: title)`
 	if got != want {
 		t.Errorf("got %s\nwant %s", got, want)
 	}

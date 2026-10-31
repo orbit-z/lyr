@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import "errors"
 
@@ -8,9 +8,9 @@ import "errors"
 // emits these, which type-check for any operand; the typed pass replaces
 // them with field assignments, or with RestFrom and RestMerge. They only
 // run when the typed pass couldn't (export data couldn't be read, with a
-// warning): a struct spread then fails the render at its .orbit position.
+// warning): a struct spread then fails the render at its .lyr position.
 // The second argument is the callee's zero Props, which gives the typed
-// pass the callee's type; pos is the spread's .orbit position and what is
+// pass the callee's type; pos is the spread's .lyr position and what is
 // "{...x} on <Tag>".
 
 // For generated code. SpreadCheck is a spread on a component tag without
@@ -57,8 +57,8 @@ func spreadSkipped(pos, what string, p any, rest bool) error {
 	switch p.(type) {
 	case *Attrs, *AttrList, *RestAttrs:
 		if !rest {
-			return &posError{pos: pos, err: errors.New(what + " needs an orbit.RestAttrs field in its Props, to pass HTML attributes through")}
+			return &posError{pos: pos, err: errors.New(what + " needs a lyr.RestAttrs field in its Props, to pass HTML attributes through")}
 		}
 	}
-	return &posError{pos: pos, err: errors.New(what + " sets props, which needs Orbit's type check; it was skipped (see the warning above)")}
+	return &posError{pos: pos, err: errors.New(what + " sets props, which needs Lyr's type check; it was skipped (see the warning above)")}
 }

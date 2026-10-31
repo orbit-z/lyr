@@ -123,7 +123,7 @@ func FindRoot(dir string) (string, error) {
 		}
 		parent := filepath.Dir(d)
 		if parent == d {
-			return "", fmt.Errorf("no go.mod in %s or any parent directory; run orbit inside a Go module", dir)
+			return "", fmt.Errorf("no go.mod in %s or any parent directory; run lyr inside a Go module", dir)
 		}
 		d = parent
 	}

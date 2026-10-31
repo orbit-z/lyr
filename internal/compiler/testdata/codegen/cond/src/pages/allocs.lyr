@@ -1,0 +1,18 @@
+---
+type item struct {
+	Href, Label, Rel string
+	ID               int
+	Ext              bool
+}
+
+items := []item{{"/fiction", "Fiction", "", 1, false}, {"https://example.com", "Out", "noopener", 2, true}}
+current, saved := "/fiction", false
+---
+<nav>
+  {for _, it := range items}
+    <a href={it.Href} aria-current={lyr.If(it.Href == current, "page")} rel={lyr.If(it.Ext, it.Rel)} data-id={lyr.If(it.Ext, it.ID)} tabindex={lyr.If(!it.Ext, -1)} draggable={it.Ext}>{lyr.If(it.Ext, "↗ ")}{it.Label}</a>
+  {/for}
+  <button aria-pressed={saved} aria-expanded={lyr.If(true, saved)} title={lyr.Cond(saved, "Remove from library", "Add to library")}>
+    {lyr.Cond(saved, "Saved", "Save")}
+  </button>
+</nav>

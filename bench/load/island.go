@@ -9,22 +9,22 @@ import (
 )
 
 var (
-	// Orbit: <orbit-island src="/_orbit/island/<build>/<id>" props="<token>">;
+	// Lyr: <lyr-island src="/_lyr/island/<build>/<id>" props="<token>">;
 	// the loader fetches src + "?p=" + encodeURIComponent(props).
-	orbitIsland = regexp.MustCompile(`<orbit-island src="([^"]+)" props="([^"]*)"`)
+	lyrIsland = regexp.MustCompile(`<lyr-island src="([^"]+)" props="([^"]*)"`)
 	// Astro: <link rel="preload" as="fetch" href="/_server-islands/<Name>?e=…&amp;p=…&amp;s=">.
 	astroIsland = regexp.MustCompile(`<link rel="preload" as="fetch" href="(/_server-islands/[^"]+)"`)
 )
 
 // IslandURL returns the absolute URL of the first server island on a page
-// (Orbit or Astro), as the browser's loader would request it.
+// (Lyr or Astro), as the browser's loader would request it.
 func IslandURL(pageURL string, body []byte) (string, error) {
 	base, err := url.Parse(pageURL)
 	if err != nil {
 		return "", err
 	}
 	var ref string
-	if m := orbitIsland.FindSubmatch(body); m != nil {
+	if m := lyrIsland.FindSubmatch(body); m != nil {
 		src := html.UnescapeString(string(m[1]))
 		props := html.UnescapeString(string(m[2]))
 		ref = src + "?p=" + strings.ReplaceAll(url.QueryEscape(props), "+", "%20")

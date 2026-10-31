@@ -1,14 +1,14 @@
-orbit_gen/decl/components/tree/decl.go (src/components/Tree.orbit)
-  exact 2:1 "type Props struct {\n\tDepth int\n\tLabel string\n}" -> 155-201 "type Props struct {\n\tDepth int\n\tLabel string\n}"
-orbit_gen/impl/components/tree/render.go (src/components/Tree.orbit)
-  exact 7:5 "props.Label" -> 669-680 "props.Label"
-  exact 7:18 "props.Depth" -> 776-787 "props.Depth"
-  exact 8:5 "props.Depth > 0" -> 894-909 "props.Depth > 0"
-  exact 9:11 "props" -> 1087-1092 "props"
-  span  9:2 "Self" -> 1188-1194 "Render"
-  span  9:18 "depth" -> 1303-1308 "Depth"
-  exact 9:25 "props.Depth - 1" -> 1385-1400 "props.Depth - 1"
+lyr_gen/decl/components/tree/decl.go (src/components/Tree.lyr)
+  exact 2:1 "type Props struct {\n\tDepth int\n\tLabel string\n}" -> 147-193 "type Props struct {\n\tDepth int\n\tLabel string\n}"
+lyr_gen/impl/components/tree/render.go (src/components/Tree.lyr)
+  exact 7:5 "props.Label" -> 617-628 "props.Label"
+  exact 7:18 "props.Depth" -> 720-731 "props.Depth"
+  exact 8:5 "props.Depth > 0" -> 834-849 "props.Depth > 0"
+  exact 9:11 "props" -> 1019-1024 "props"
+  span  9:2 "Self" -> 1116-1122 "Render"
+  span  9:18 "depth" -> 1224-1229 "Depth"
+  exact 9:25 "props.Depth - 1" -> 1304-1319 "props.Depth - 1"
 call sites
-  content key=59 "props.Label" call="orbit__w.Expr(\n/*line ../../../../src/components/Tree.orbit:7:5*/props.Label/*line render.go:21:86*/,\n\t)"
-  content key=72 "props.Depth" call="orbit__w.Expr(\n/*line ../../../../src/components/Tree.orbit:7:18*/props.Depth/*line render.go:24:87*/,\n\t)"
-  spread key=120 "props" call="orbit__rt.SpreadCheck(orbit__w, Props{}, \"src/components/Tree.orbit:9:7\", \"{...props} on <Self>\", /*line ../../../../src/components/Tree.orbit:9:11*/props/*line render.go:28:182*/)"
+  content key=59 "props.Label" call="lyr__w.Expr(\n/*line ../../../../src/components/Tree.lyr:7:5*/props.Label/*line render.go:21:84*/,\n\t)"
+  content key=72 "props.Depth" call="lyr__w.Expr(\n/*line ../../../../src/components/Tree.lyr:7:18*/props.Depth/*line render.go:24:85*/,\n\t)"
+  spread key=120 "props" call="lyr__rt.SpreadCheck(lyr__w, Props{}, \"src/components/Tree.lyr:9:7\", \"{...props} on <Self>\", /*line ../../../../src/components/Tree.lyr:9:11*/props/*line render.go:28:174*/)"

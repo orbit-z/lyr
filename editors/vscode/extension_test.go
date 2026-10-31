@@ -42,9 +42,9 @@ func TestBunTest(t *testing.T) {
 	}
 }
 
-// TestManifest checks package.json's configurationDefaults: Orbit is the
-// default formatter of .orbit files, and Tailwind CSS IntelliSense treats
-// .orbit files as HTML (PLAN.md §5d, Q5).
+// TestManifest checks package.json's configurationDefaults: Lyr is the
+// default formatter of .lyr files, and Tailwind CSS IntelliSense treats
+// .lyr files as HTML (PLAN.md §5d, Q5).
 func TestManifest(t *testing.T) {
 	data, err := os.ReadFile("package.json")
 	if err != nil {
@@ -59,11 +59,11 @@ func TestManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := m.Contributes.ConfigurationDefaults
-	if got := d["tailwindCSS.includeLanguages"]["orbit"]; got != "html" {
-		t.Errorf(`configurationDefaults["tailwindCSS.includeLanguages"].orbit = %q, want "html"`, got)
+	if got := d["tailwindCSS.includeLanguages"]["lyr"]; got != "html" {
+		t.Errorf(`configurationDefaults["tailwindCSS.includeLanguages"].lyr = %q, want "html"`, got)
 	}
-	if got := d["[orbit]"]["editor.defaultFormatter"]; got != "orbit-z.orbit" {
-		t.Errorf(`configurationDefaults["[orbit]"]["editor.defaultFormatter"] = %q`, got)
+	if got := d["[lyr]"]["editor.defaultFormatter"]; got != "orbit-z.lyr" {
+		t.Errorf(`configurationDefaults["[lyr]"]["editor.defaultFormatter"] = %q`, got)
 	}
 }
 

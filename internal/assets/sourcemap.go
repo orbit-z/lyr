@@ -20,12 +20,12 @@ type sourceMap struct {
 }
 
 // fixSourceMap rewrites a source map from esbuild (name is its path under
-// /_orbit/) so that it doesn't depend on where the project was built:
+// /_lyr/) so that it doesn't depend on where the project was built:
 //
 //   - sources inside the project become root-relative URLs,
-//     "/src/components/Card.orbit" (as Vite, and so Astro, writes them);
-//   - a .orbit source's content becomes the real .orbit file. The block's
-//     module was padded to its .orbit position (plan.go), so the map's
+//     "/src/components/Card.lyr" (as Vite, and so Astro, writes them);
+//   - a .lyr source's content becomes the real .lyr file. The block's
+//     module was padded to its .lyr position (plan.go), so the map's
 //     original lines and columns already point into that file.
 func (b *esbuildBundler) fixSourceMap(name string, data []byte, p *plan) ([]byte, error) {
 	var sm sourceMap
@@ -35,7 +35,7 @@ func (b *esbuildBundler) fixSourceMap(name string, data []byte, p *plan) ([]byte
 	dir := path.Dir(path.Join(filepath.ToSlash(b.outdir), name))
 	root := filepath.ToSlash(b.opts.Root)
 	for i, src := range sm.Sources {
-		if strings.Contains(src, ":") { // a virtual module, orbit-page:index.ts
+		if strings.Contains(src, ":") { // a virtual module, lyr-page:index.ts
 			continue
 		}
 		abs := path.Join(dir, src)
@@ -44,8 +44,8 @@ func (b *esbuildBundler) fixSourceMap(name string, data []byte, p *plan) ([]byte
 			continue
 		}
 		sm.Sources[i] = "/" + rel
-		if strings.HasSuffix(rel, ".orbit") && i < len(sm.SourcesContent) {
-			if text, ok := p.orbitSrc[rel]; ok {
+		if strings.HasSuffix(rel, ".lyr") && i < len(sm.SourcesContent) {
+			if text, ok := p.lyrSrc[rel]; ok {
 				sm.SourcesContent[i] = &text
 			}
 		}

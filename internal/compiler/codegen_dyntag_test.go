@@ -35,7 +35,7 @@ func TestDynTagAnalyze(t *testing.T) {
 	}
 	for _, c := range cases {
 		f := Parse(c.src, Strict)
-		a := Analyze(f, FileInfo{Path: "src/components/X.orbit"})
+		a := Analyze(f, FileInfo{Path: "src/components/X.lyr"})
 		var got []string
 		for _, s := range a.DynTags {
 			got = append(got, c.src[s.Start:s.End])
@@ -54,19 +54,19 @@ func TestDynTagAnalyze(t *testing.T) {
 			t.Errorf("%q: %d dynamic Elements, want %d", c.src, n, len(c.want))
 		}
 		// Analyzing the same File again gives the same answer.
-		if a2 := Analyze(f, FileInfo{Path: "src/components/X.orbit"}); len(a2.DynTags) != len(a.DynTags) {
+		if a2 := Analyze(f, FileInfo{Path: "src/components/X.lyr"}); len(a2.DynTags) != len(a.DynTags) {
 			t.Errorf("%q: second Analyze: %d dynamic tags, want %d", c.src, len(a2.DynTags), len(a.DynTags))
 		}
 	}
 }
 
-// TestDynTagErrors: the Orbit errors of dynamic tags, each at its .orbit
+// TestDynTagErrors: the Lyr errors of dynamic tags, each at its .lyr
 // position.
 func TestDynTagErrors(t *testing.T) {
 	srcs := map[string]string{
-		"src/components/Card.orbit": "<p>card</p>\n",
-		"src/pages/index.orbit": `---
-import Card "../components/Card.orbit"
+		"src/components/Card.lyr": "<p>card</p>\n",
+		"src/pages/index.lyr": `---
+import Card "../components/Card.lyr"
 
 Card := "div"
 Tag := "section"
@@ -84,14 +84,14 @@ Tag := "section"
 	}
 	p := plFront(srcs, Options{Module: testModule})
 	want := []string{
-		"src/pages/index.orbit:4:1: Card is both a component import and a variable; rename one",
-		"src/pages/index.orbit:8:2: unknown component <Crad>: no .orbit import with this alias (or declare a variable Crad for a dynamic tag)",
-		"src/pages/index.orbit:9:6: server:defer only works on .orbit components",
-		"src/pages/index.orbit:10:6: client:load only works on .orbit components; move the <script> into a component",
-		"src/pages/index.orbit:11:6: server:concurrent only works on .orbit components",
-		"src/pages/index.orbit:12:6: is:inline only works on <script> and <style>",
-		`src/pages/index.orbit:13:6: set:json only works on <script type="application/json">`,
-		"src/pages/index.orbit:14:21: an element with set:html can't have children; the directive sets its content",
+		"src/pages/index.lyr:4:1: Card is both a component import and a variable; rename one",
+		"src/pages/index.lyr:8:2: unknown component <Crad>: no .lyr import with this alias (or declare a variable Crad for a dynamic tag)",
+		"src/pages/index.lyr:9:6: server:defer only works on .lyr components",
+		"src/pages/index.lyr:10:6: client:load only works on .lyr components; move the <script> into a component",
+		"src/pages/index.lyr:11:6: server:concurrent only works on .lyr components",
+		"src/pages/index.lyr:12:6: is:inline only works on <script> and <style>",
+		`src/pages/index.lyr:13:6: set:json only works on <script type="application/json">`,
+		"src/pages/index.lyr:14:21: an element with set:html can't have children; the directive sets its content",
 	}
 	got := p.diagnostics()
 	sortStrings(got)
@@ -102,12 +102,12 @@ Tag := "section"
 	// The component reading's errors are gone for a dynamic tag, and
 	// stay for a component.
 	p = plFront(map[string]string{
-		"src/components/Card.orbit": "<p>card</p>\n",
-		"src/pages/index.orbit":     "---\nimport Card \"../components/Card.orbit\"\n---\n<Card set:html={\"x\"} server:defer=\"1\" />\n",
+		"src/components/Card.lyr": "<p>card</p>\n",
+		"src/pages/index.lyr":     "---\nimport Card \"../components/Card.lyr\"\n---\n<Card set:html={\"x\"} server:defer=\"1\" />\n",
 	}, Options{Module: testModule})
 	want = []string{
-		"src/pages/index.orbit:4:7: set:html only works on HTML elements and <Fragment>",
-		"src/pages/index.orbit:4:22: server:defer takes no value",
+		"src/pages/index.lyr:4:7: set:html only works on HTML elements and <Fragment>",
+		"src/pages/index.lyr:4:22: server:defer takes no value",
 	}
 	if got := p.diagnostics(); strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("component: got:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -129,12 +129,12 @@ func sortStrings(s []string) {
 func TestDynTagTolerant(t *testing.T) {
 	src := "---\nTag := \"a\"\n---\n<Tag href=\"/\">x</Tag>\n"
 	f := Parse(src, Tolerant)
-	a := Analyze(f, FileInfo{Path: "src/components/X.orbit"})
+	a := Analyze(f, FileInfo{Path: "src/components/X.lyr"})
 	out := Generate(&Input{File: f, Analysis: a, Index: ComponentIndex{}, Options: Options{Module: testModule, Mode: Tolerant}})
 	var spans []int
 	for _, s := range out.Impl.Map.Segments {
-		if s.Kind == SegExact && src[s.OrbitStart:s.OrbitEnd] == "Tag" {
-			spans = append(spans, s.OrbitStart)
+		if s.Kind == SegExact && src[s.LyrStart:s.LyrEnd] == "Tag" {
+			spans = append(spans, s.LyrStart)
 		}
 	}
 	start, end := strings.Index(src, "<Tag")+1, strings.Index(src, "</Tag")+2
@@ -147,7 +147,7 @@ func TestDynTagTolerant(t *testing.T) {
 	}
 	// Strict mode has no such line.
 	f = Parse(src, Strict)
-	a = Analyze(f, FileInfo{Path: "src/components/X.orbit"})
+	a = Analyze(f, FileInfo{Path: "src/components/X.lyr"})
 	out = Generate(&Input{File: f, Analysis: a, Index: ComponentIndex{}, Options: Options{Module: testModule}})
 	if strings.Contains(string(out.Impl.Content), "_ = /*line") {
 		t.Errorf("_ = Tag in strict output:\n%s", out.Impl.Content)
@@ -163,20 +163,20 @@ import (
 	"bytes"
 	"testing"
 
-	_ "example.com/blog/orbit_gen/impl/components/button"
-	_ "example.com/blog/orbit_gen/impl/components/choice"
-	allocs "example.com/blog/orbit_gen/decl/pages/allocs"
-	_ "example.com/blog/orbit_gen/impl/pages/allocs"
-	"github.com/orbit-z/orbit"
+	_ "example.com/blog/lyr_gen/impl/components/button"
+	_ "example.com/blog/lyr_gen/impl/components/choice"
+	allocs "example.com/blog/lyr_gen/decl/pages/allocs"
+	_ "example.com/blog/lyr_gen/impl/pages/allocs"
+	"github.com/orbit-z/lyr"
 )
 
 func TestAllocs(t *testing.T) {
 	var buf bytes.Buffer
-	w := orbit.NewWriter(&buf)
-	ctx := &orbit.Ctx{}
+	w := lyr.NewWriter(&buf)
+	ctx := &lyr.Ctx{}
 	n := testing.AllocsPerRun(100, func() {
 		buf.Reset()
-		if err := allocs.Render(ctx, w, allocs.Props{}, orbit.Slots{}); err != nil {
+		if err := allocs.Render(ctx, w, allocs.Props{}, lyr.Slots{}); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -185,12 +185,12 @@ func TestAllocs(t *testing.T) {
 
 func BenchmarkRender(b *testing.B) {
 	var buf bytes.Buffer
-	w := orbit.NewWriter(&buf)
-	ctx := &orbit.Ctx{}
+	w := lyr.NewWriter(&buf)
+	ctx := &lyr.Ctx{}
 	b.ReportAllocs()
 	for b.Loop() {
 		buf.Reset()
-		allocs.Render(ctx, w, allocs.Props{}, orbit.Slots{})
+		allocs.Render(ctx, w, allocs.Props{}, lyr.Slots{})
 	}
 }
 `
@@ -239,7 +239,7 @@ func TestDynTagDirectAllocs(t *testing.T) {
 	if got := allocs(); got != "0" {
 		t.Errorf("hook flavor: %s allocations per render, want 0", got)
 	}
-	if os.Getenv("ORBIT_DYNTAG_BENCH") != "" {
+	if os.Getenv("LYR_DYNTAG_BENCH") != "" {
 		for _, args := range [][]string{{"-overlay=" + OverlayFile}, nil} {
 			out, err := m.goCmd(append(append([]string{"test", "-run=^$", "-bench=.", "-benchtime=200000x", "-count=5"}, args...), "./alloc")...)
 			if err != nil {

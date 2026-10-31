@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"errors"
@@ -7,11 +7,11 @@ import (
 )
 
 func TestErrorAt(t *testing.T) {
-	const pos = "src/pages/x.orbit:3:2"
+	const pos = "src/pages/x.lyr:3:2"
 	sentinel := errors.New("boom")
 	redirect := &RedirectError{Location: "/login", Code: 302}
 	wrappedNF := fmt.Errorf("lookup: %w", ErrNotFound)
-	already := ErrorAt("src/components/Card.orbit:1:1", sentinel)
+	already := ErrorAt("src/components/Card.lyr:1:1", sentinel)
 
 	if got := ErrorAt(pos, nil); got != nil {
 		t.Errorf("ErrorAt(nil) = %v, want nil", got)
@@ -51,11 +51,11 @@ func TestErrorAtAllocs(t *testing.T) {
 	sentinel := errors.New("boom")
 	redirect := &RedirectError{Location: "/", Code: 302}
 	for name, err := range map[string]error{"nil": nil, "ErrNotFound": ErrNotFound, "redirect": redirect} {
-		if n := testing.AllocsPerRun(100, func() { errorAtSink = ErrorAt("x.orbit:1:1", err) }); n != 0 {
+		if n := testing.AllocsPerRun(100, func() { errorAtSink = ErrorAt("x.lyr:1:1", err) }); n != 0 {
 			t.Errorf("ErrorAt(%s) allocates %v times, want 0", name, n)
 		}
 	}
-	if n := testing.AllocsPerRun(100, func() { errorAtSink = ErrorAt("x.orbit:1:1", sentinel) }); n != 1 {
+	if n := testing.AllocsPerRun(100, func() { errorAtSink = ErrorAt("x.lyr:1:1", sentinel) }); n != 1 {
 		t.Errorf("ErrorAt(failure) allocates %v times, want 1", n)
 	}
 }

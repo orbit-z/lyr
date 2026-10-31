@@ -17,7 +17,7 @@ var (
 	// SIGINT before it's killed.
 	stopGrace = 5 * time.Second
 	// acceptTimeout is how long a started app may take to accept
-	// connections on ORBIT_ADDR.
+	// connections on LYR_ADDR.
 	acceptTimeout = 10 * time.Second
 )
 
@@ -25,7 +25,7 @@ var (
 type app struct {
 	cmd  *exec.Cmd
 	bin  string // the binary it runs
-	addr string // 127.0.0.1:<port>, its ORBIT_ADDR
+	addr string // 127.0.0.1:<port>, its LYR_ADDR
 	done chan struct{}
 	err  error // cmd.Wait's result, set before done is closed
 	tail *tailBuffer
@@ -34,7 +34,7 @@ type app struct {
 	stopping bool
 }
 
-// startApp runs bin in dir with env (plus ORBIT_ADDR on a fresh localhost
+// startApp runs bin in dir with env (plus LYR_ADDR on a fresh localhost
 // port) and waits until it accepts connections. Its output goes to stdout
 // and stderr; the end of its stderr is kept for the overlay. When it exits
 // or doesn't accept connections in time, the error holds its stderr.
@@ -46,7 +46,7 @@ func startApp(ctx context.Context, bin, dir string, env []string, stdout, stderr
 	a := &app{bin: bin, addr: addr, done: make(chan struct{}), tail: &tailBuffer{max: 32 << 10}}
 	cmd := exec.Command(bin)
 	cmd.Dir = dir
-	cmd.Env = append(env, "ORBIT_ADDR="+addr)
+	cmd.Env = append(env, "LYR_ADDR="+addr)
 	cmd.Stdout = stdout
 	cmd.Stderr = io.MultiWriter(stderr, a.tail)
 	cmd.SysProcAttr = appProcAttr()
@@ -77,7 +77,7 @@ func startApp(ctx context.Context, bin, dir string, env []string, stdout, stderr
 		if time.Now().After(deadline) {
 			a.stop()
 			return nil, &startError{
-				msg:    fmt.Sprintf("your server didn't accept connections on ORBIT_ADDR=%s within %v; does it listen on orbit.Addr()?", addr, acceptTimeout),
+				msg:    fmt.Sprintf("your server didn't accept connections on LYR_ADDR=%s within %v; does it listen on lyr.Addr()?", addr, acceptTimeout),
 				stderr: a.tail.String(),
 			}
 		}

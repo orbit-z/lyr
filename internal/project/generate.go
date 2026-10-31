@@ -5,12 +5,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/assets"
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/assets"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
-// Generator runs the whole generate pipeline (PLAN.md §6 orbit build steps
-// 1, 2 and 4): orbit generate runs it once; orbit build runs it before
+// Generator runs the whole generate pipeline (PLAN.md §6 lyr build steps
+// 1, 2 and 4): lyr generate runs it once; lyr build runs it before
 // bundling and building.
 type Generator struct {
 	// Root is the module root.
@@ -28,7 +28,7 @@ type Generator struct {
 
 // Timings is the time spent in each stage of one Run.
 type Timings struct {
-	Load   time.Duration // orbit.json, go.mod, discovery, reading sources
+	Load   time.Duration // lyr.json, go.mod, discovery, reading sources
 	Front  time.Duration // parse, analyze, index, project checks, pass 1
 	Assets time.Duration // esbuild: the page bundles, for the manifest
 	// GoList is the time go list -export ran (the typed pass's Load). It
@@ -39,14 +39,14 @@ type Timings struct {
 	GoLists int
 	Check   time.Duration // go/types checks and pass 2, with any wait for go list
 	Extras  time.Duration // app.go, manifest.go, the default server
-	Write   time.Duration // writing orbit_gen/ and removing stale files
+	Write   time.Duration // writing lyr_gen/ and removing stale files
 	Total   time.Duration
 }
 
 // Result is the outcome of a Run.
 type Result struct {
 	Project *Project
-	// Diagnostics are every error and warning about .orbit files, sorted.
+	// Diagnostics are every error and warning about .lyr files, sorted.
 	// With any error, nothing was written.
 	Diagnostics []Diagnostic
 	// Warnings are the typed pass's warnings that aren't about a position
@@ -61,9 +61,9 @@ type Result struct {
 func (r *Result) HasErrors() bool { return HasErrors(r.Diagnostics) }
 
 // Run loads the project, compiles every file with typed writes and writes
-// orbit_gen/. Problems in the user's files are Result diagnostics; the error
+// lyr_gen/. Problems in the user's files are Result diagnostics; the error
 // is for problems that stop the run early (no go.mod, an invalid
-// orbit.json, I/O errors, ctx cancellation).
+// lyr.json, I/O errors, ctx cancellation).
 func (g *Generator) Run(ctx context.Context) (*Result, error) {
 	res, files, err := g.Plan(ctx)
 	if err != nil || files == nil {
@@ -82,7 +82,7 @@ func (g *Generator) Run(ctx context.Context) (*Result, error) {
 
 // Plan runs the pipeline as Run does but writes nothing: it returns the
 // files Run would write, or nil files when the run found errors (see
-// Result.Diagnostics). orbit doctor compares them with orbit_gen/.
+// Result.Diagnostics). lyr doctor compares them with lyr_gen/.
 func (g *Generator) Plan(ctx context.Context) (*Result, []GenFile, error) {
 	start := time.Now()
 	res := &Result{}
@@ -113,9 +113,9 @@ func (g *Generator) Plan(ctx context.Context) (*Result, []GenFile, error) {
 		return res, nil, nil
 	}
 
-	// PLAN.md §6 orbit build step 3: bundle before generating, since the
-	// manifest lists the bundles. orbit generate bundles in memory too, so
-	// that it writes the same orbit_gen/ as orbit build.
+	// PLAN.md §6 lyr build step 3: bundle before generating, since the
+	// manifest lists the bundles. lyr generate bundles in memory too, so
+	// that it writes the same lyr_gen/ as lyr build.
 	mark = time.Now()
 	b := assets.New(assets.Options{Root: p.Root, Sourcemap: p.Config.Sourcemap})
 	ds, err := p.Bundle(b)

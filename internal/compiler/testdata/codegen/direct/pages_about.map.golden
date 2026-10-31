@@ -1,3 +1,3 @@
-orbit_gen/decl/pages/about/decl.go (src/pages/about.orbit)
-orbit_gen/impl/pages/about/render.go (src/pages/about.orbit)
+lyr_gen/decl/pages/about/decl.go (src/pages/about.lyr)
+lyr_gen/impl/pages/about/render.go (src/pages/about.lyr)
 call sites

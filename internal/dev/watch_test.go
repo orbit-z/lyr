@@ -25,12 +25,12 @@ func TestDebounce(t *testing.T) {
 		go debounce(ctx, in, out, Debounce, func() { busy++ }, func(rel string) bool { return !gone[rel] }, Classify)
 
 		start := time.Now()
-		in <- event{rel: "src/components/Card.orbit"}
+		in <- event{rel: "src/components/Card.lyr"}
 		time.Sleep(30 * time.Millisecond)
 		in <- event{rel: "src/pages/sedAb12", created: true}
-		in <- event{rel: "src/pages/index.orbit", created: true}
+		in <- event{rel: "src/pages/index.lyr", created: true}
 		time.Sleep(30 * time.Millisecond)
-		in <- event{rel: "src/components/Card.orbit"}
+		in <- event{rel: "src/components/Card.lyr"}
 		synctest.Wait()
 		if busy != 4 {
 			t.Errorf("busy called %d times, want 4 (once per event)", busy)
@@ -40,7 +40,7 @@ func TestDebounce(t *testing.T) {
 		if got, want := time.Since(start), 110*time.Millisecond; got != want {
 			t.Errorf("batch after %v, want %v (Debounce after the last event)", got, want)
 		}
-		if want := []string{"src/components/Card.orbit", "src/pages/index.orbit"}; !slices.Equal(c.Paths, want) {
+		if want := []string{"src/components/Card.lyr", "src/pages/index.lyr"}; !slices.Equal(c.Paths, want) {
 			t.Errorf("batch %v, want %v", c.Paths, want)
 		}
 
@@ -65,11 +65,11 @@ func TestDebounce(t *testing.T) {
 }
 
 // TestWatcher runs the fsnotify watcher on a temporary tree: changes under
-// src/, public/ and to .go files arrive; orbit_gen/, dist/ and .orbit/ are
+// src/, public/ and to .go files arrive; lyr_gen/, dist/ and .lyr/ are
 // ignored; a new directory is watched, and the files already in it reported.
 func TestWatcher(t *testing.T) {
 	root := t.TempDir()
-	for _, d := range []string{"src/components", "public", "orbit_gen/app", ".orbit/dev", "dist", "internal/posts"} {
+	for _, d := range []string{"src/components", "public", "lyr_gen/app", ".lyr/dev", "dist", "internal/posts"} {
 		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -116,12 +116,12 @@ func TestWatcher(t *testing.T) {
 		}
 	}
 
-	write("orbit_gen/app/app.go")
-	write(".orbit/dev/manifest.json")
+	write("lyr_gen/app/app.go")
+	write(".lyr/dev/manifest.json")
 	write("dist/x")
-	write("src/components/Card.orbit")
-	if got := next(); got != "src/components/Card.orbit" {
-		t.Fatalf("first event %q, want src/components/Card.orbit (the excluded directories have none)", got)
+	write("src/components/Card.lyr")
+	if got := next(); got != "src/components/Card.lyr" {
+		t.Fatalf("first event %q, want src/components/Card.lyr (the excluded directories have none)", got)
 	}
 	write("public/robots.txt")
 	expect("public/robots.txt")
@@ -129,13 +129,13 @@ func TestWatcher(t *testing.T) {
 	expect("internal/posts/posts.go")
 
 	// A new directory, then a file in it.
-	write("src/pages/blog/post.orbit")
-	expect("src/pages/blog/post.orbit")
-	write("src/pages/blog/other.orbit")
-	expect("src/pages/blog/other.orbit")
+	write("src/pages/blog/post.lyr")
+	expect("src/pages/blog/post.lyr")
+	write("src/pages/blog/other.lyr")
+	expect("src/pages/blog/other.lyr")
 }
 
-// TestWatcherPatterns checks the orbit.json "watch" patterns: their
+// TestWatcherPatterns checks the lyr.json "watch" patterns: their
 // directories are watched, outside the module too; a missing directory is
 // a warning; files that no pattern matches have no events.
 func TestWatcherPatterns(t *testing.T) {
@@ -153,7 +153,7 @@ func TestWatcherPatterns(t *testing.T) {
 	defer w.close()
 	var warnings []string
 	w.setWatch([]string{"../*.md", "../reference/*.md", "content/**", "missing/*.md"}, func(s string) { warnings = append(warnings, s) })
-	if want := []string{`orbit.json: watch "missing/*.md": directory missing doesn't exist; not watched`}; !slices.Equal(warnings, want) {
+	if want := []string{`lyr.json: watch "missing/*.md": directory missing doesn't exist; not watched`}; !slices.Equal(warnings, want) {
 		t.Errorf("warnings %q, want %q", warnings, want)
 	}
 	ctx, cancel := context.WithCancel(t.Context())

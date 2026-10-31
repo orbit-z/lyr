@@ -1,0 +1,81 @@
+>---
+#^^^ source.lyr meta.frontmatter.lyr punctuation.definition.frontmatter.begin.lyr
+>link := props.Attrs.Has("href")
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>Tag := lyr.Cond(link, "a", "button")
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>Wrap := lyr.Cond(props.Wrapped, "div", lyr.Fragment)
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>---
+#^^^ source.lyr meta.frontmatter.lyr punctuation.definition.frontmatter.end.lyr
+><Tag {...props.Attrs} type={lyr.If(!link, "button")} class="btn"><slot /></Tag>
+#^ source.lyr meta.tag.component.lyr punctuation.definition.tag.begin.html
+# ^^^ source.lyr meta.tag.component.lyr support.class.component.lyr
+#    ^ source.lyr meta.tag.component.lyr
+#     ^ source.lyr meta.tag.component.lyr meta.attribute.spread.lyr punctuation.section.embedded.begin.lyr
+#      ^^^ source.lyr meta.tag.component.lyr meta.attribute.spread.lyr keyword.operator.spread.lyr
+#         ^^^^^^^^^^^ source.lyr meta.tag.component.lyr meta.attribute.spread.lyr meta.embedded.expression.go
+#                    ^ source.lyr meta.tag.component.lyr meta.attribute.spread.lyr punctuation.section.embedded.end.lyr
+#                     ^ source.lyr meta.tag.component.lyr
+#                      ^^^^ source.lyr meta.tag.component.lyr entity.other.attribute-name.html
+#                          ^ source.lyr meta.tag.component.lyr punctuation.separator.key-value.html
+#                           ^ source.lyr meta.tag.component.lyr meta.expression.lyr punctuation.section.embedded.begin.lyr
+#                            ^^^^^^^^^^^^^^ source.lyr meta.tag.component.lyr meta.expression.lyr meta.embedded.expression.go
+#                                          ^ source.lyr meta.tag.component.lyr meta.expression.lyr meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.begin.go
+#                                           ^^^^^^ source.lyr meta.tag.component.lyr meta.expression.lyr meta.embedded.expression.go string.quoted.double.go
+#                                                 ^ source.lyr meta.tag.component.lyr meta.expression.lyr meta.embedded.expression.go string.quoted.double.go punctuation.definition.string.end.go
+#                                                  ^ source.lyr meta.tag.component.lyr meta.expression.lyr meta.embedded.expression.go
+#                                                   ^ source.lyr meta.tag.component.lyr meta.expression.lyr punctuation.section.embedded.end.lyr
+#                                                    ^ source.lyr meta.tag.component.lyr
+#                                                     ^^^^^ source.lyr meta.tag.component.lyr entity.other.attribute-name.html
+#                                                          ^ source.lyr meta.tag.component.lyr punctuation.separator.key-value.html
+#                                                           ^ source.lyr meta.tag.component.lyr string.quoted.double.html punctuation.definition.string.begin.html
+#                                                            ^^^ source.lyr meta.tag.component.lyr string.quoted.double.html
+#                                                               ^ source.lyr meta.tag.component.lyr string.quoted.double.html punctuation.definition.string.end.html
+#                                                                ^ source.lyr meta.tag.component.lyr punctuation.definition.tag.end.html
+#                                                                 ^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#                                                                  ^^^^ source.lyr meta.tag.html entity.name.tag.html
+#                                                                      ^ source.lyr meta.tag.html
+#                                                                       ^^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+#                                                                         ^^ source.lyr meta.tag.component.lyr punctuation.definition.tag.begin.html
+#                                                                           ^^^ source.lyr meta.tag.component.lyr support.class.component.lyr
+#                                                                              ^ source.lyr meta.tag.component.lyr punctuation.definition.tag.end.html
+><Wrap class="w"><label>x</label></Wrap>
+#^ source.lyr meta.tag.component.lyr punctuation.definition.tag.begin.html
+# ^^^^ source.lyr meta.tag.component.lyr support.class.component.lyr
+#     ^ source.lyr meta.tag.component.lyr
+#      ^^^^^ source.lyr meta.tag.component.lyr entity.other.attribute-name.html
+#           ^ source.lyr meta.tag.component.lyr punctuation.separator.key-value.html
+#            ^ source.lyr meta.tag.component.lyr string.quoted.double.html punctuation.definition.string.begin.html
+#             ^ source.lyr meta.tag.component.lyr string.quoted.double.html
+#              ^ source.lyr meta.tag.component.lyr string.quoted.double.html punctuation.definition.string.end.html
+#               ^ source.lyr meta.tag.component.lyr punctuation.definition.tag.end.html
+#                ^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#                 ^^^^^ source.lyr meta.tag.html entity.name.tag.html
+#                      ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+#                       ^ source.lyr
+#                        ^^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#                          ^^^^^ source.lyr meta.tag.html entity.name.tag.html
+#                               ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+#                                ^^ source.lyr meta.tag.component.lyr punctuation.definition.tag.begin.html
+#                                  ^^^^ source.lyr meta.tag.component.lyr support.class.component.lyr
+#                                      ^ source.lyr meta.tag.component.lyr punctuation.definition.tag.end.html
+><html {...theme.Attributes(choices, store)} lang="en"></html>
+#^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+# ^^^^ source.lyr meta.tag.html entity.name.tag.html
+#     ^ source.lyr meta.tag.html
+#      ^ source.lyr meta.tag.html meta.attribute.spread.lyr punctuation.section.embedded.begin.lyr
+#       ^^^ source.lyr meta.tag.html meta.attribute.spread.lyr keyword.operator.spread.lyr
+#          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lyr meta.tag.html meta.attribute.spread.lyr meta.embedded.expression.go
+#                                          ^ source.lyr meta.tag.html meta.attribute.spread.lyr punctuation.section.embedded.end.lyr
+#                                           ^ source.lyr meta.tag.html
+#                                            ^^^^ source.lyr meta.tag.html entity.other.attribute-name.html
+#                                                ^ source.lyr meta.tag.html punctuation.separator.key-value.html
+#                                                 ^ source.lyr meta.tag.html string.quoted.double.html punctuation.definition.string.begin.html
+#                                                  ^^ source.lyr meta.tag.html string.quoted.double.html
+#                                                    ^ source.lyr meta.tag.html string.quoted.double.html punctuation.definition.string.end.html
+#                                                     ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+#                                                      ^^ source.lyr meta.tag.html punctuation.definition.tag.begin.html
+#                                                        ^^^^ source.lyr meta.tag.html entity.name.tag.html
+#                                                            ^ source.lyr meta.tag.html punctuation.definition.tag.end.html
+>

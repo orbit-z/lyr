@@ -1,9 +1,0 @@
----
-import "net/http"
-
-type Props struct {
-	http.Header
-	Attrs orbit.RestAttrs
-}
----
-<p>{len(props.Header)}</p>

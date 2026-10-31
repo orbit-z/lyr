@@ -17,7 +17,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // Completion and signature help (PLAN.md §9 Request routing): Go regions
@@ -210,10 +210,10 @@ func completionItems(raw jsonRaw) (obj, []jsonRaw) {
 }
 
 // mapCompletion maps gopls's completion result for generated file g into
-// its .orbit file: every range (textEdit's range, or an InsertReplaceEdit's
+// its .lyr file: every range (textEdit's range, or an InsertReplaceEdit's
 // insert and replace; additionalTextEdits; itemDefaults.editRange) is
 // rewritten, other fields pass through. An item whose edit doesn't map is
-// dropped, as are the generated code's own names (orbit__*) and the
+// dropped, as are the generated code's own names (lyr__*) and the
 // runtime's generated-code-only names (genonly.go). An unmapped
 // additional edit is dropped, except an import gopls adds, which becomes an
 // insertion into the frontmatter's imports.
@@ -230,7 +230,7 @@ func (m mapper) mapCompletion(g *genFile, raw jsonRaw) jsonRaw {
 				var r Range
 				if json.Unmarshal(d["editRange"], &r) == nil {
 					var nr Range
-					if nr, ok = m.orbitRange(g, r); ok {
+					if nr, ok = m.lyrRange(g, r); ok {
 						d.set("editRange", nr)
 					}
 				}
@@ -275,10 +275,10 @@ func (m mapper) mapCompletion(g *genFile, raw jsonRaw) jsonRaw {
 }
 
 // isGlueName reports whether a completion label is a name of the
-// generated code (orbit__w, orbit__rt, Orbit__Render), which user code
+// generated code (lyr__w, lyr__rt, Lyr__Render), which user code
 // can't use (PLAN.md §2.2).
 func isGlueName(label string) bool {
-	return len(label) >= len("orbit__") && strings.EqualFold(label[:len("orbit__")], "orbit__")
+	return len(label) >= len("lyr__") && strings.EqualFold(label[:len("lyr__")], "lyr__")
 }
 
 // mapAdditionalEdits maps a completion item's additionalTextEdits. Edits
@@ -286,7 +286,7 @@ func isGlueName(label string) bool {
 // own import specs are segments) become one insertion of the added import
 // specs into the frontmatter; other edits are mapped, or dropped when they
 // don't map. ok is false when the item imports a generated package (the
-// user imports the .orbit file instead) and should be dropped.
+// user imports the .lyr file instead) and should be dropped.
 func (m mapper) mapAdditionalEdits(g *genFile, edits []jsonRaw) (out []jsonRaw, ok bool) {
 	importsEnd := importSectionEnd(g.content)
 	var imports []obj
@@ -306,12 +306,12 @@ func (m mapper) mapAdditionalEdits(g *genFile, edits []jsonRaw) (out []jsonRaw, 
 	}
 	specs := addedImports(g.content, g.lines, m.enc, imports)
 	for _, sp := range specs {
-		if strings.Contains(sp, "/"+compiler.GenDir+"/") || strings.Contains(sp, "orbit__") {
+		if strings.Contains(sp, "/"+compiler.GenDir+"/") || strings.Contains(sp, "lyr__") {
 			return nil, false
 		}
 	}
 	if len(specs) > 0 {
-		if e := m.ws.importEdit(g.orbit, specs); e != nil {
+		if e := m.ws.importEdit(g.lyr, specs); e != nil {
 			out = append(out, e)
 		}
 	}
@@ -392,7 +392,7 @@ func importSpecs(src string) []string {
 }
 
 // importEdit returns a TextEdit adding import specs to the frontmatter of
-// the .orbit file at p, or nil.
+// the .lyr file at p, or nil.
 func (ws *workspace) importEdit(p string, specs []string) jsonRaw {
 	f, lines := ws.file(p)
 	if f == nil || lines == nil || f.AST == nil {
@@ -501,7 +501,7 @@ func (c cursor) nameSpan() compiler.Span {
 }
 
 // tagItems are the tag-name completions: the imported components first,
-// then the project's other components (accepting one adds its .orbit
+// then the project's other components (accepting one adds its .lyr
 // import), then <Fragment> and the HTML elements.
 func (ws *workspace) tagItems(c cursor) []any {
 	span := c.reg.span
@@ -520,7 +520,7 @@ func (ws *workspace) tagItems(c cursor) []any {
 	taken := map[string]bool{}
 	imported := map[string]bool{}
 	if c.f.Analysis != nil {
-		for _, im := range c.f.Analysis.OrbitImports {
+		for _, im := range c.f.Analysis.LyrImports {
 			taken[im.Alias] = true
 			imported[im.Resolved] = true
 			items = append(items, item(im.Alias, kindClass, "0", im.Path, componentDoc(ws.proj.Index[im.Resolved])))
@@ -584,7 +584,7 @@ func propsAndSlots(info *compiler.ComponentInfo) string {
 }
 
 // uniqueAlias returns name, or name2, name3, … if taken; "" if name isn't
-// a capitalized identifier (an .orbit alias must be, PLAN.md §2.2).
+// a capitalized identifier (a .lyr alias must be, PLAN.md §2.2).
 func uniqueAlias(name string, taken map[string]bool) string {
 	r, _ := utf8.DecodeRuneInString(name)
 	if !token.IsIdentifier(name) || !unicode.IsUpper(r) {
@@ -601,7 +601,7 @@ func uniqueAlias(name string, taken map[string]bool) string {
 	}
 }
 
-// relImport is the import path of the .orbit file to as written in from:
+// relImport is the import path of the .lyr file to as written in from:
 // relative, starting with "./" or "../".
 func relImport(from, to string) string {
 	rel, err := filepath.Rel(filepath.FromSlash(path.Dir(from)), filepath.FromSlash(to))
@@ -617,7 +617,7 @@ func relImport(from, to string) string {
 
 // directiveDocs describe the directives offered as attributes.
 var directiveDocs = map[string]string{
-	"set:html":          "Sets the element's content to raw HTML (an `orbit.HTML` value).",
+	"set:html":          "Sets the element's content to raw HTML (a `lyr.HTML` value).",
 	"set:text":          "Sets the element's content to escaped text.",
 	"set:json":          "Writes a value as JSON into this `<script type=\"application/json\">`.",
 	"slot":              "Passes this content to the named slot of the component it's in.",
@@ -876,16 +876,16 @@ func (ws *workspace) slotItems(c cursor) []any {
 // gopls sees the component's current Props through the overlays.
 
 // scratchDir holds the scratch packages; nothing is ever written there.
-const scratchDir = compiler.GenDir + "/orbit__lsp"
+const scratchDir = compiler.GenDir + "/lyr__lsp"
 
-const scratchSource = `// Code generated by orbit lsp. DO NOT EDIT.
+const scratchSource = `// Code generated by lyr lsp. DO NOT EDIT.
 
-package orbit__lsp
+package lyr__lsp
 
-import orbit__c %s
+import lyr__c %s
 
 func _() {
-	_ = orbit__c.Props{}
+	_ = lyr__c.Props{}
 }
 `
 

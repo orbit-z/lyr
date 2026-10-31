@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// Watch patterns ("watch" in orbit.json): slash-separated globs relative to
+// Watch patterns ("watch" in lyr.json): slash-separated globs relative to
 // the project root, which may start with ../ to reach outside it. Each
 // segment is a path.Match pattern, and a segment that is exactly "**"
 // matches zero or more directories ("content/**", "../docs/**/*.md").

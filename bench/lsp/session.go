@@ -15,14 +15,14 @@ import (
 	"time"
 )
 
-// session is one orbit lsp process driven as an editor would: it answers
+// session is one lyr lsp process driven as an editor would: it answers
 // the server's requests and records when notifications arrive.
 type session struct {
 	dir   string
 	cmd   *exec.Cmd
 	c     *client
 	start time.Time
-	log   *bytes.Buffer // orbit lsp's stderr (its log and gopls's)
+	log   *bytes.Buffer // lyr lsp's stderr (its log and gopls's)
 	init  map[string]any
 
 	mu        sync.Mutex
@@ -43,21 +43,21 @@ type diag struct {
 	Source  string `json:"source"`
 }
 
-// goEnv is the environment for go, orbit and gopls: module edits allowed
+// goEnv is the environment for go, lyr and gopls: module edits allowed
 // (the project's go.mod has no indirect requires until the first build),
 // and no go.work from the caller.
 var goEnv = []string{strings.TrimSpace("GOFLAGS=" + os.Getenv("GOFLAGS") + " -mod=mod"), "GOWORK=off"}
 
 func fileURI(p string) string { return (&url.URL{Scheme: "file", Path: filepath.ToSlash(p)}).String() }
 
-// startSession spawns orbit lsp in dir and sends initialize. The returned
+// startSession spawns lyr lsp in dir and sends initialize. The returned
 // duration is process start → initialize answered.
-func startSession(orbitBin, dir string, initOpts map[string]any, env ...string) (*session, time.Duration, error) {
+func startSession(lyrBin, dir string, initOpts map[string]any, env ...string) (*session, time.Duration, error) {
 	s := &session{dir: dir, log: &bytes.Buffer{}, texts: map[string]string{}, versions: map[string]int{},
 		diagWait: map[string]diagCond{}, diagHit: map[string]time.Duration{},
 		progTitle: map[string]string{}, progEnd: map[string]time.Duration{}, lastDiags: map[string][]diag{}, reqSeen: map[string]int{}}
 	s.cond = sync.NewCond(&s.mu)
-	s.cmd = exec.Command(orbitBin, "lsp")
+	s.cmd = exec.Command(lyrBin, "lsp")
 	s.cmd.Dir = dir
 	s.cmd.Env = append(append(os.Environ(), goEnv...), env...)
 	s.cmd.Stderr = &lockedWriter{mu: &s.mu, w: s.log}
@@ -83,7 +83,7 @@ func startSession(orbitBin, dir string, initOpts map[string]any, env ...string) 
 	s.c = newClient(stdout, stdin, s.onRequest, s.onNotify)
 	params := map[string]any{
 		"processId":        os.Getpid(),
-		"clientInfo":       map[string]any{"name": "orbit-bench-lsp"},
+		"clientInfo":       map[string]any{"name": "lyr-bench-lsp"},
 		"rootUri":          fileURI(dir),
 		"workspaceFolders": []any{map[string]any{"uri": fileURI(dir), "name": filepath.Base(dir)}},
 		"capabilities":     clientCapabilities,
@@ -112,7 +112,7 @@ func startSession(orbitBin, dir string, initOpts map[string]any, env ...string) 
 }
 
 // clientCapabilities are what a current VS Code or Neovim client sends,
-// trimmed to the parts orbit lsp and gopls look at.
+// trimmed to the parts lyr lsp and gopls look at.
 var clientCapabilities = map[string]any{
 	"general": map[string]any{"positionEncodings": []string{"utf-16"}},
 	"workspace": map[string]any{
@@ -265,7 +265,7 @@ func (s *session) open(rel, text string) {
 	s.versions[rel] = 1
 	s.mu.Unlock()
 	s.c.notify("textDocument/didOpen", map[string]any{"textDocument": map[string]any{
-		"uri": s.uri(rel), "languageId": "orbit", "version": 1, "text": text}})
+		"uri": s.uri(rel), "languageId": "lyr", "version": 1, "text": text}})
 }
 
 // change replaces rel's text with one incremental change over the whole
@@ -326,10 +326,10 @@ func (s *session) kill() {
 	s.waitFor(10*time.Second, func() bool { return s.exited })
 }
 
-// logDuration parses "orbit lsp: <prefix> <duration>" from the server log.
+// logDuration parses "lyr lsp: <prefix> <duration>" from the server log.
 func (s *session) logDuration(prefix string) (time.Duration, bool) {
 	for _, line := range strings.Split(s.logText(), "\n") {
-		_, rest, ok := strings.Cut(line, "orbit lsp: "+prefix)
+		_, rest, ok := strings.Cut(line, "lyr lsp: "+prefix)
 		if !ok {
 			continue
 		}
@@ -424,11 +424,11 @@ func comm(pid int) string {
 	return strings.TrimSpace(string(b))
 }
 
-// memory returns orbit lsp's and its gopls and TypeScript (tsc) children's
+// memory returns lyr lsp's and its gopls and TypeScript (tsc) children's
 // memory.
-func (s *session) memory() (orbit, gopls, ts mem) {
+func (s *session) memory() (lyr, gopls, ts mem) {
 	pid := s.cmd.Process.Pid
-	orbit, _ = readMem(pid)
+	lyr, _ = readMem(pid)
 	for _, c := range children(pid) {
 		switch name := comm(c); {
 		case strings.HasPrefix(name, "gopls"):
@@ -437,5 +437,5 @@ func (s *session) memory() (orbit, gopls, ts mem) {
 			ts, _ = readMem(c)
 		}
 	}
-	return orbit, gopls, ts
+	return lyr, gopls, ts
 }

@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -34,10 +34,10 @@ func page(body string) func(*Ctx, *Writer) error {
 // testSite builds a site with no static files unless opts add some.
 func testSite(t *testing.T, routes []Route, opts ...Option) *Site {
 	t.Helper()
-	t.Setenv("ORBIT_STATIC", "")
-	t.Setenv("ORBIT_PUBLIC", "")
-	if os.Getenv("ORBIT_DEV") == "" {
-		t.Setenv("ORBIT_DEV", "")
+	t.Setenv("LYR_STATIC", "")
+	t.Setenv("LYR_PUBLIC", "")
+	if os.Getenv("LYR_DEV") == "" {
+		t.Setenv("LYR_DEV", "")
 	}
 	return NewSite(routes, nil, append([]Option{WithStaticDir(t.TempDir())}, opts...)...)
 }
@@ -61,24 +61,24 @@ func captureLog(t *testing.T) *bytes.Buffer {
 
 func TestServePages(t *testing.T) {
 	routes := []Route{
-		{Pattern: "/", File: "src/pages/index.orbit", Render: page("<h1>home</h1>")},
-		{Pattern: "/about", File: "src/pages/about.orbit", Render: page("about")},
-		{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/", File: "src/pages/index.lyr", Render: page("<h1>home</h1>")},
+		{Pattern: "/about", File: "src/pages/about.lyr", Render: page("about")},
+		{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].lyr", Render: func(c *Ctx, w *Writer) error {
 			w.String("post " + c.Param("slug"))
 			return nil
 		}},
-		{Pattern: "/feed", File: "src/pages/feed.orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/feed", File: "src/pages/feed.lyr", Render: func(c *Ctx, w *Writer) error {
 			c.Header().Set("Content-Type", "application/rss+xml")
 			c.Header().Set("X-Page", "feed")
 			w.Raw("<rss/>")
 			return nil
 		}},
-		{Pattern: "/created", File: "src/pages/created.orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/created", File: "src/pages/created.lyr", Render: func(c *Ctx, w *Writer) error {
 			c.SetStatus(http.StatusCreated)
 			w.Raw("made")
 			return nil
 		}},
-		{Pattern: "/method", File: "src/pages/method.orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/method", File: "src/pages/method.lyr", Render: func(c *Ctx, w *Writer) error {
 			w.Raw(c.Request.Method)
 			return nil
 		}},
@@ -139,17 +139,17 @@ func TestContentLength(t *testing.T) {
 
 func TestHeadInjection(t *testing.T) {
 	routes := []Route{{
-		Pattern: "/", File: "src/pages/index.orbit",
+		Pattern: "/", File: "src/pages/index.lyr",
 		Render: func(c *Ctx, w *Writer) error {
 			w.Raw("<html><head><title>x</title>")
 			w.HeadEnd()
 			w.Raw("</head><body></body></html>")
 			return nil
 		},
-		Assets: []Asset{{Kind: "css", URL: "/_orbit/a.css"}, {Kind: "js", URL: "/_orbit/a.js"}},
+		Assets: []Asset{{Kind: "css", URL: "/_lyr/a.css"}, {Kind: "js", URL: "/_lyr/a.js"}},
 	}}
 	rec := do(testSite(t, routes).Handler(), "GET", "/")
-	want := `<html><head><title>x</title><link rel="stylesheet" href="/_orbit/a.css"><script type="module" src="/_orbit/a.js"></script></head><body></body></html>`
+	want := `<html><head><title>x</title><link rel="stylesheet" href="/_lyr/a.css"><script type="module" src="/_lyr/a.js"></script></head><body></body></html>`
 	if rec.Body.String() != want {
 		t.Fatalf("body = %q", rec.Body)
 	}
@@ -160,15 +160,15 @@ func TestHeadInjection(t *testing.T) {
 
 func TestServeRedirect(t *testing.T) {
 	routes := []Route{
-		{Pattern: "/login", File: "src/pages/login.orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/login", File: "src/pages/login.lyr", Render: func(c *Ctx, w *Writer) error {
 			w.Raw("partial")
 			c.Header().Set("Set-Cookie", "a=b")
 			return c.Redirect("/home", http.StatusFound)
 		}},
-		{Pattern: "/blog/old", File: "src/pages/blog/old.orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/blog/old", File: "src/pages/blog/old.lyr", Render: func(c *Ctx, w *Writer) error {
 			return c.Redirect("new", http.StatusMovedPermanently)
 		}},
-		{Pattern: "/ext", File: "src/pages/ext.orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/ext", File: "src/pages/ext.lyr", Render: func(c *Ctx, w *Writer) error {
 			return c.Redirect("https://example.com/x", http.StatusSeeOther)
 		}},
 	}
@@ -196,20 +196,20 @@ func TestServeRedirect(t *testing.T) {
 }
 
 func TestNotFound(t *testing.T) {
-	missing := Route{Pattern: "/post", File: "src/pages/post.orbit", Render: func(c *Ctx, w *Writer) error {
+	missing := Route{Pattern: "/post", File: "src/pages/post.lyr", Render: func(c *Ctx, w *Writer) error {
 		w.Raw("partial")
 		c.Header().Set("X-Post", "1")
 		return ErrNotFound
 	}}
-	wrapped := Route{Pattern: "/wrapped", File: "src/pages/wrapped.orbit", Render: func(c *Ctx, w *Writer) error {
+	wrapped := Route{Pattern: "/wrapped", File: "src/pages/wrapped.lyr", Render: func(c *Ctx, w *Writer) error {
 		return errors.Join(errors.New("db"), ErrNotFound)
 	}}
-	notFound := Route{Pattern: "404", File: "src/pages/404.orbit", Render: func(c *Ctx, w *Writer) error {
+	notFound := Route{Pattern: "404", File: "src/pages/404.lyr", Render: func(c *Ctx, w *Writer) error {
 		w.Raw("not found: " + c.URL.Path)
 		return nil
 	}}
 
-	t.Run("with 404.orbit", func(t *testing.T) {
+	t.Run("with 404.lyr", func(t *testing.T) {
 		s := testSite(t, []Route{missing, wrapped, notFound})
 		for _, target := range []string{"/post", "/wrapped", "/nope"} {
 			rec := do(s.Handler(), "GET", target)
@@ -231,7 +231,7 @@ func TestNotFound(t *testing.T) {
 		}
 	})
 
-	t.Run("without 404.orbit", func(t *testing.T) {
+	t.Run("without 404.lyr", func(t *testing.T) {
 		s := testSite(t, []Route{missing})
 		for _, target := range []string{"/post", "/nope"} {
 			rec := do(s.Handler(), "GET", target)
@@ -246,7 +246,7 @@ func TestNotFound(t *testing.T) {
 
 	t.Run("404 page status and errors", func(t *testing.T) {
 		logs := captureLog(t)
-		gone := Route{Pattern: "404", File: "src/pages/404.orbit", Render: func(c *Ctx, w *Writer) error {
+		gone := Route{Pattern: "404", File: "src/pages/404.lyr", Render: func(c *Ctx, w *Writer) error {
 			c.SetStatus(http.StatusGone)
 			w.Raw("gone")
 			return nil
@@ -254,11 +254,11 @@ func TestNotFound(t *testing.T) {
 		if rec := do(testSite(t, []Route{gone}).Handler(), "GET", "/x"); rec.Code != 410 || rec.Body.String() != "gone" {
 			t.Errorf("404 page SetStatus: got %d %q", rec.Code, rec.Body)
 		}
-		loop := Route{Pattern: "404", File: "src/pages/404.orbit", Render: func(c *Ctx, w *Writer) error { return ErrNotFound }}
+		loop := Route{Pattern: "404", File: "src/pages/404.lyr", Render: func(c *Ctx, w *Writer) error { return ErrNotFound }}
 		if rec := do(testSite(t, []Route{missing, loop}).Handler(), "GET", "/post"); rec.Code != 404 || rec.Body.Len() != 0 {
 			t.Errorf("404 page returning ErrNotFound: got %d %q", rec.Code, rec.Body)
 		}
-		broken := Route{Pattern: "404", File: "src/pages/404.orbit", Render: func(c *Ctx, w *Writer) error { return errors.New("boom") }}
+		broken := Route{Pattern: "404", File: "src/pages/404.lyr", Render: func(c *Ctx, w *Writer) error { return errors.New("boom") }}
 		if rec := do(testSite(t, []Route{broken}).Handler(), "GET", "/x"); rec.Code != 500 {
 			t.Errorf("failing 404 page: got %d", rec.Code)
 		}
@@ -270,18 +270,18 @@ func TestNotFound(t *testing.T) {
 
 func TestServerError(t *testing.T) {
 	routes := []Route{
-		{Pattern: "/err", File: "src/pages/err.orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/err", File: "src/pages/err.lyr", Render: func(c *Ctx, w *Writer) error {
 			w.Raw("partial")
-			return errors.New("src/pages/err.orbit:3:5: db <down>")
+			return errors.New("src/pages/err.lyr:3:5: db <down>")
 		}},
-		{Pattern: "/panic", File: "src/pages/panic.orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/panic", File: "src/pages/panic.lyr", Render: func(c *Ctx, w *Writer) error {
 			w.Raw("partial")
 			panic("kaboom")
 		}},
-		{Pattern: "/badredirect", File: "src/pages/badredirect.orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/badredirect", File: "src/pages/badredirect.lyr", Render: func(c *Ctx, w *Writer) error {
 			return c.Redirect("/x", 200)
 		}},
-		{Pattern: "/sticky", File: "src/pages/sticky.orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/sticky", File: "src/pages/sticky.lyr", Render: func(c *Ctx, w *Writer) error {
 			w.setErr(errors.New("sticky failure"))
 			return nil
 		}},
@@ -289,16 +289,16 @@ func TestServerError(t *testing.T) {
 	tests := []struct {
 		target, logged string
 	}{
-		{"/err", "orbit: GET /err: src/pages/err.orbit:3:5: db <down>\n"},
-		{"/panic", "orbit: GET /panic: panic: kaboom\n"},
-		{"/badredirect", "orbit: GET /badredirect: panic: orbit: Redirect to \"/x\" with status 200"},
-		{"/sticky", "orbit: GET /sticky: sticky failure\n"},
+		{"/err", "lyr: GET /err: src/pages/err.lyr:3:5: db <down>\n"},
+		{"/panic", "lyr: GET /panic: panic: kaboom\n"},
+		{"/badredirect", "lyr: GET /badredirect: panic: lyr: Redirect to \"/x\" with status 200"},
+		{"/sticky", "lyr: GET /sticky: sticky failure\n"},
 	}
 	for _, dev := range []bool{false, true} {
 		name := "prod"
 		if dev {
 			name = "dev"
-			t.Setenv("ORBIT_DEV", "1")
+			t.Setenv("LYR_DEV", "1")
 		}
 		t.Run(name, func(t *testing.T) {
 			s := testSite(t, routes)
@@ -328,17 +328,17 @@ func TestServerError(t *testing.T) {
 }
 
 func TestPanicPosition(t *testing.T) {
-	// A frame in a .orbit file (from a line directive) prefixes the error.
-	routes := []Route{{Pattern: "/p", File: "src/pages/p.orbit", Render: orbitPanicker}}
+	// A frame in a .lyr file (from a line directive) prefixes the error.
+	routes := []Route{{Pattern: "/p", File: "src/pages/p.lyr", Render: lyrPanicker}}
 	logs := captureLog(t)
 	do(testSite(t, routes).Handler(), "GET", "/p")
-	if want := "orbit: GET /p: src/pages/p.orbit:7: panic: from orbit\n"; logs.String() != want {
+	if want := "lyr: GET /p: src/pages/p.lyr:7: panic: from lyr\n"; logs.String() != want {
 		t.Errorf("log = %q, want %q", logs, want)
 	}
 }
 
 func TestErrAbortHandler(t *testing.T) {
-	routes := []Route{{Pattern: "/abort", File: "src/pages/abort.orbit", Render: func(c *Ctx, w *Writer) error {
+	routes := []Route{{Pattern: "/abort", File: "src/pages/abort.lyr", Render: func(c *Ctx, w *Writer) error {
 		panic(http.ErrAbortHandler)
 	}}}
 	s := testSite(t, routes)
@@ -353,9 +353,9 @@ func TestErrAbortHandler(t *testing.T) {
 
 func TestTrailingSlash(t *testing.T) {
 	routes := []Route{
-		{Pattern: "/", File: "src/pages/index.orbit", Render: page("home")},
-		{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].orbit", Render: page("post")},
-		{Pattern: "/search", File: "src/pages/search.orbit", Render: page("search")},
+		{Pattern: "/", File: "src/pages/index.lyr", Render: page("home")},
+		{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].lyr", Render: page("post")},
+		{Pattern: "/search", File: "src/pages/search.lyr", Render: page("search")},
 	}
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "robots.txt"), "robots")
@@ -379,7 +379,7 @@ func TestTrailingSlash(t *testing.T) {
 	if rec := do(s.Handler(), "GET", "/"); rec.Code != 200 || rec.Body.String() != "home" {
 		t.Errorf("/: got %d %q", rec.Code, rec.Body)
 	}
-	for _, target := range []string{"/x/", "/robots.txt/", "/blog/", "//evil.example/", "/_orbit/x/"} {
+	for _, target := range []string{"/x/", "/robots.txt/", "/blog/", "//evil.example/", "/_lyr/x/"} {
 		next := &nextHandler{}
 		rec := do(s.Middleware(next), "GET", target)
 		if !next.called || rec.Code != 299 {
@@ -389,7 +389,7 @@ func TestTrailingSlash(t *testing.T) {
 }
 
 func TestNextUntouched(t *testing.T) {
-	s := testSite(t, []Route{{Pattern: "/a", File: "src/pages/a.orbit", Render: page("a")}})
+	s := testSite(t, []Route{{Pattern: "/a", File: "src/pages/a.lyr", Render: page("a")}})
 	var sawHeaders http.Header
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sawHeaders = w.Header().Clone()
@@ -403,7 +403,7 @@ func TestNextUntouched(t *testing.T) {
 }
 
 func TestSiteURL(t *testing.T) {
-	routes := []Route{{Pattern: "/", File: "src/pages/index.orbit", Render: func(c *Ctx, w *Writer) error {
+	routes := []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: func(c *Ctx, w *Writer) error {
 		if c.Site != nil {
 			w.Raw(c.Site.String())
 		}
@@ -420,7 +420,7 @@ func TestSiteURL(t *testing.T) {
 	if rec := do(s.Handler(), "GET", "/"); rec.Body.String() != "https://b.example/base|" {
 		t.Errorf("with WithSite: %q", rec.Body)
 	}
-	t.Setenv("ORBIT_DEV", "1")
+	t.Setenv("LYR_DEV", "1")
 	if rec := do(testSite(t, routes).Handler(), "GET", "/"); rec.Body.String() != "|dev" {
 		t.Errorf("dev flag: %q", rec.Body)
 	}
@@ -440,23 +440,23 @@ func TestNewSiteInvalidRoutes(t *testing.T) {
 	defer func() {
 		p := recover()
 		err, ok := p.(error)
-		if !ok || !strings.Contains(err.Error(), "src/pages/b.orbit: route /a is already defined by src/pages/a.orbit") {
+		if !ok || !strings.Contains(err.Error(), "src/pages/b.lyr: route /a is already defined by src/pages/a.lyr") {
 			t.Fatalf("panic = %v", p)
 		}
 	}()
 	NewSite([]Route{
-		{Pattern: "/a", File: "src/pages/a.orbit", Render: page("")},
-		{Pattern: "/a", File: "src/pages/b.orbit", Render: page("")},
+		{Pattern: "/a", File: "src/pages/a.lyr", Render: page("")},
+		{Pattern: "/a", File: "src/pages/b.lyr", Render: page("")},
 	}, nil)
 }
 
 func TestStaticFS(t *testing.T) {
 	fsys := fstest.MapFS{
-		"_orbit/app-1234.js": {Data: []byte("js")},
-		"robots.txt":         {Data: []byte("robots")},
+		"_lyr/app-1234.js": {Data: []byte("js")},
+		"robots.txt":       {Data: []byte("robots")},
 	}
-	t.Setenv("ORBIT_STATIC", "")
-	t.Setenv("ORBIT_DEV", "")
+	t.Setenv("LYR_STATIC", "")
+	t.Setenv("LYR_DEV", "")
 	s := NewSite(nil, nil, WithStaticFS(fsys))
 	rec := do(s.Handler(), "GET", "/robots.txt")
 	if rec.Code != 200 || rec.Body.String() != "robots" || rec.Header().Get("Etag") == "" {

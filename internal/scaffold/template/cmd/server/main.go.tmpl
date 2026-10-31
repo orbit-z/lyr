@@ -4,9 +4,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 
-	"{{.Module}}/orbit_gen/app"
+	"{{.Module}}/lyr_gen/app"
 )
 
 func main() {
@@ -16,13 +16,13 @@ func main() {
 	// Add your own routes here. More specific patterns win over "/":
 	// mux.HandleFunc("GET /api/hello", hello)
 
-	// Everything else goes to Orbit: pages, /_orbit/* assets and public/ files.
+	// Everything else goes to Lyr: pages, /_lyr/* assets and public/ files.
 	mux.Handle("/", site.Handler())
 
-	// Trailing-slash redirects (orbit.json's trailingSlash) run first, as in
+	// Trailing-slash redirects (lyr.json's trailingSlash) run first, as in
 	// Astro. Wrap mux in your own net/http middleware (logging, auth, locals)
 	// inside it: site.TrailingSlash(logging(mux)).
-	if err := orbit.ListenAndServe(site.TrailingSlash(mux)); err != nil {
+	if err := lyr.ListenAndServe(site.TrailingSlash(mux)); err != nil {
 		log.Fatal(err)
 	}
 }

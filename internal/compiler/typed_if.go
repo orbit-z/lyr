@@ -1,6 +1,6 @@
 package compiler
 
-// The orbit.If lowering of the typed pass (PLAN.md §2.6): a call of the
+// The lyr.If lowering of the typed pass (PLAN.md §2.6): a call of the
 // runtime's If that is the whole value of an HTML element attribute or of a
 // content {expr} becomes an if statement around the typed write of its
 // value, with the same bytes as Attr or Expr of the call's result.
@@ -28,7 +28,7 @@ func mayCallIf(sites []CallSite) bool {
 
 // lowerIf returns the lowered write of site when expr (its expression in
 // the pass-1 file tf) is a call of the runtime's If, identified by its
-// types.Object, so a user's own If or a shadowed orbit is left alone.
+// types.Object, so a user's own If or a shadowed lyr is left alone.
 func (e *tyEnv) lowerIf(sm *tySpanMap, expr ast.Expr, site *CallSite, info *types.Info) (TypedWrite, bool) {
 	call, sig, inst, ok := ifCall(expr, info)
 	if !ok {
@@ -47,7 +47,7 @@ func (e *tyEnv) lowerIf(sm *tySpanMap, expr ast.Expr, site *CallSite, info *type
 	} else {
 		w = e.classify(tv)
 	}
-	// .orbit spans: the expression is copied byte for byte at site.Arg.
+	// .lyr spans: the expression is copied byte for byte at site.Arg.
 	span := func(n ast.Node) Span {
 		return sm.span(site, n)
 	}
@@ -97,7 +97,7 @@ func ifCall(expr ast.Expr, info *types.Info) (call *ast.CallExpr, sig *types.Sig
 	return call, sig, inst, true
 }
 
-// foldIf is the HTML a constant value v writes with w, when it's one Orbit
+// foldIf is the HTML a constant value v writes with w, when it's one Lyr
 // folds at build time (strings, integers, bools; byte-identical to the
 // runtime's writes).
 func foldIf(w TypedWrite, v constant.Value, site *CallSite) (string, bool) {

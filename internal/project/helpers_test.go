@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")

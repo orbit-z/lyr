@@ -1,0 +1,17 @@
+---
+type Props struct {
+	Variant string
+	Type    string
+	Attrs   lyr.RestAttrs // every other attribute of the call site
+}
+
+typ := props.Type
+if typ == "" {
+	typ = "button"
+}
+---
+{if props.Attrs.Has("href")}
+<a {...props.Attrs} class="btn link"><slot /></a>
+{else}
+<button {...props.Attrs} type={typ} class:list={"btn", "btn-" + props.Variant}><slot /></button>
+{/if}

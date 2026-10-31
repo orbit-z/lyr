@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"errors"
@@ -41,17 +41,17 @@ func routeTestRoutes(notFound bool) []Route {
 		return nil
 	}
 	routes := []Route{
-		{Pattern: "/ok", File: "src/pages/ok.orbit", Render: page},
-		{Pattern: "/redirect", File: "src/pages/redirect.orbit", Render: func(c *Ctx, w *Writer) error { return c.Redirect("/ok", 302) }},
-		{Pattern: "/error", File: "src/pages/error.orbit", Render: func(c *Ctx, w *Writer) error { return errors.New("db down") }},
-		{Pattern: "/panic", File: "src/pages/panic.orbit", Render: func(c *Ctx, w *Writer) error { panic("boom") }},
-		{Pattern: "/gone", File: "src/pages/gone.orbit", Render: func(c *Ctx, w *Writer) error { return ErrNotFound }},
-		{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].orbit", Render: page},
-		{Pattern: "/docs/[...path]", File: "src/pages/docs/[...path].orbit", Render: page},
-		{Pattern: "/p/[a]/[b]/[c]/[d]/[e]/[f]/[g]/[h]/[i]", File: "src/pages/p.orbit", Render: page},
+		{Pattern: "/ok", File: "src/pages/ok.lyr", Render: page},
+		{Pattern: "/redirect", File: "src/pages/redirect.lyr", Render: func(c *Ctx, w *Writer) error { return c.Redirect("/ok", 302) }},
+		{Pattern: "/error", File: "src/pages/error.lyr", Render: func(c *Ctx, w *Writer) error { return errors.New("db down") }},
+		{Pattern: "/panic", File: "src/pages/panic.lyr", Render: func(c *Ctx, w *Writer) error { panic("boom") }},
+		{Pattern: "/gone", File: "src/pages/gone.lyr", Render: func(c *Ctx, w *Writer) error { return ErrNotFound }},
+		{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].lyr", Render: page},
+		{Pattern: "/docs/[...path]", File: "src/pages/docs/[...path].lyr", Render: page},
+		{Pattern: "/p/[a]/[b]/[c]/[d]/[e]/[f]/[g]/[h]/[i]", File: "src/pages/p.lyr", Render: page},
 	}
 	if notFound {
-		routes = append(routes, Route{Pattern: "404", File: "src/pages/404.orbit", Render: func(c *Ctx, w *Writer) error {
+		routes = append(routes, Route{Pattern: "404", File: "src/pages/404.lyr", Render: func(c *Ctx, w *Writer) error {
 			w.Raw("404: ")
 			routeWritten(c, w)
 			return nil
@@ -90,9 +90,9 @@ func TestRouteInfoPages(t *testing.T) {
 	captureLog(t)
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "robots.txt"), "robots")
-	writeFile(t, filepath.Join(dir, "_orbit", "app-1234.js"), "js")
+	writeFile(t, filepath.Join(dir, "_lyr", "app-1234.js"), "js")
 	for _, with404 := range []bool{true, false} {
-		t.Run(fmt.Sprintf("404.orbit=%v", with404), func(t *testing.T) {
+		t.Run(fmt.Sprintf("404.lyr=%v", with404), func(t *testing.T) {
 			s := testSite(t, routeTestRoutes(with404), withRoute, WithStaticDir(dir))
 			var got *routeLocals
 			passed := false
@@ -104,25 +104,25 @@ func TestRouteInfoPages(t *testing.T) {
 			mw := attachLocals(s.Middleware(http.NotFoundHandler()), &got)
 			nf404 := routeWant{RouteNotFound, "/404", "", ""}
 			if with404 {
-				nf404.file = "src/pages/404.orbit"
+				nf404.file = "src/pages/404.lyr"
 			}
-			gone := routeWant{RoutePage, "/gone", "src/pages/gone.orbit", ""}
+			gone := routeWant{RoutePage, "/gone", "src/pages/gone.lyr", ""}
 			for _, tt := range []struct {
 				target string
 				code   int
 				want   routeWant
 			}{
-				{"/ok", 200, routeWant{RoutePage, "/ok", "src/pages/ok.orbit", ""}},
-				{"/redirect", 302, routeWant{RoutePage, "/redirect", "src/pages/redirect.orbit", ""}},
-				{"/error", 500, routeWant{RoutePage, "/error", "src/pages/error.orbit", ""}},
-				{"/panic", 500, routeWant{RoutePage, "/panic", "src/pages/panic.orbit", ""}},
+				{"/ok", 200, routeWant{RoutePage, "/ok", "src/pages/ok.lyr", ""}},
+				{"/redirect", 302, routeWant{RoutePage, "/redirect", "src/pages/redirect.lyr", ""}},
+				{"/error", 500, routeWant{RoutePage, "/error", "src/pages/error.lyr", ""}},
+				{"/panic", 500, routeWant{RoutePage, "/panic", "src/pages/panic.lyr", ""}},
 				{"/gone", 404, gone}, // ErrNotFound from a page stays RoutePage
-				{"/blog/hello", 200, routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].orbit", "slug=hello"}},
-				{"/blog/a%20b%2Fc", 200, routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].orbit", "slug=a b/c"}},
-				{"/docs/a/b/c", 200, routeWant{RoutePage, "/docs/[...path]", "src/pages/docs/[...path].orbit", "path=a/b/c"}},
-				{"/p/1/2/3/4/5/6/7/8/9", 200, routeWant{RoutePage, "/p/[a]/[b]/[c]/[d]/[e]/[f]/[g]/[h]/[i]", "src/pages/p.orbit", "a=1,b=2,c=3,d=4,e=5,f=6,g=7,h=8,i=9"}},
+				{"/blog/hello", 200, routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].lyr", "slug=hello"}},
+				{"/blog/a%20b%2Fc", 200, routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].lyr", "slug=a b/c"}},
+				{"/docs/a/b/c", 200, routeWant{RoutePage, "/docs/[...path]", "src/pages/docs/[...path].lyr", "path=a/b/c"}},
+				{"/p/1/2/3/4/5/6/7/8/9", 200, routeWant{RoutePage, "/p/[a]/[b]/[c]/[d]/[e]/[f]/[g]/[h]/[i]", "src/pages/p.lyr", "a=1,b=2,c=3,d=4,e=5,f=6,g=7,h=8,i=9"}},
 				{"/robots.txt", 200, routeWant{RouteFile, "/robots.txt", "", ""}},
-				{"/_orbit/app-1234.js", 200, routeWant{RouteFile, "/_orbit/app-1234.js", "", ""}},
+				{"/_lyr/app-1234.js", 200, routeWant{RouteFile, "/_lyr/app-1234.js", "", ""}},
 				{"/ok/", 308, routeWant{}},
 				{"/unknown", 404, routeWant{}}, // passed to next
 			} {
@@ -142,7 +142,7 @@ func TestRouteInfoPages(t *testing.T) {
 				t.Fatalf("/unknown via next: passed %v, %d", passed, rec.Code)
 			}
 			checkRoute(t, "Middleware then NotFound", &got.Route, nf404)
-			if with404 && rec.Body.String() != "404: kind=2 pattern=/404 file=src/pages/404.orbit params=" {
+			if with404 && rec.Body.String() != "404: kind=2 pattern=/404 file=src/pages/404.lyr params=" {
 				t.Errorf("404 page sees %q", rec.Body)
 			}
 			rec = httptest.NewRecorder()
@@ -153,7 +153,7 @@ func TestRouteInfoPages(t *testing.T) {
 			if with404 {
 				rec = httptest.NewRecorder()
 				mw.ServeHTTP(rec, httptest.NewRequest("GET", "/gone", nil))
-				if want := "404: kind=1 pattern=/gone file=src/pages/gone.orbit params="; rec.Body.String() != want {
+				if want := "404: kind=1 pattern=/gone file=src/pages/gone.lyr params="; rec.Body.String() != want {
 					t.Errorf("404 page for /gone sees %q, want %q", rec.Body, want)
 				}
 			}
@@ -182,7 +182,7 @@ func TestRouteInfoTrailingSlashAlways(t *testing.T) {
 	}
 	checkRoute(t, "/ok (redirect)", &got.Route, routeWant{})
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/ok/", nil))
-	checkRoute(t, "/ok/", &got.Route, routeWant{RoutePage, "/ok", "src/pages/ok.orbit", ""})
+	checkRoute(t, "/ok/", &got.Route, routeWant{RoutePage, "/ok", "src/pages/ok.lyr", ""})
 }
 
 // TestRouteInfoLazy: without middleware attaching locals, pages see the
@@ -191,10 +191,10 @@ func TestRouteInfoLazy(t *testing.T) {
 	s := testSite(t, routeTestRoutes(true), withRoute)
 	h := s.Handler()
 	for _, tt := range []struct{ target, want string }{
-		{"/blog/hello", "kind=1 pattern=/blog/[slug] file=src/pages/blog/[slug].orbit params=slug=hello"},
-		{"/p/1/2/3/4/5/6/7/8/9", "kind=1 pattern=/p/[a]/[b]/[c]/[d]/[e]/[f]/[g]/[h]/[i] file=src/pages/p.orbit params=a=1,b=2,c=3,d=4,e=5,f=6,g=7,h=8,i=9"},
-		{"/gone", "404: kind=1 pattern=/gone file=src/pages/gone.orbit params="},
-		{"/unknown", "404: kind=2 pattern=/404 file=src/pages/404.orbit params="},
+		{"/blog/hello", "kind=1 pattern=/blog/[slug] file=src/pages/blog/[slug].lyr params=slug=hello"},
+		{"/p/1/2/3/4/5/6/7/8/9", "kind=1 pattern=/p/[a]/[b]/[c]/[d]/[e]/[f]/[g]/[h]/[i] file=src/pages/p.lyr params=a=1,b=2,c=3,d=4,e=5,f=6,g=7,h=8,i=9"},
+		{"/gone", "404: kind=1 pattern=/gone file=src/pages/gone.lyr params="},
+		{"/unknown", "404: kind=2 pattern=/404 file=src/pages/404.lyr params="},
 	} {
 		if rec := do(h, "GET", tt.target); rec.Body.String() != tt.want {
 			t.Errorf("%s: %q, want %q", tt.target, rec.Body, tt.want)
@@ -222,7 +222,7 @@ func TestRouteInfoErrorHandler(t *testing.T) {
 		seen = ""
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest("GET", target, nil))
-		if want := "1 " + target + " src/pages" + target + ".orbit"; rec.Code != 503 || seen != want {
+		if want := "1 " + target + " src/pages" + target + ".lyr"; rec.Code != 503 || seen != want {
 			t.Errorf("%s: %d, the handler saw %q, want %q", target, rec.Code, seen, want)
 		}
 	}
@@ -244,7 +244,7 @@ func TestRouteInfoShared(t *testing.T) {
 	for i := range 20 {
 		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", fmt.Sprintf("/blog/other-%d", i), nil))
 	}
-	want := routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].orbit", "slug=café"}
+	want := routeWant{RoutePage, "/blog/[slug]", "src/pages/blog/[slug].lyr", "slug=café"}
 	checkRoute(t, "kept copy", &kept, want)
 	checkRoute(t, "kept locals", &first.Route, want)
 	if keptParams["slug"] != "café" || kept.Param("slug") != "café" || kept.Param("nope") != "" {
@@ -262,7 +262,7 @@ func TestRouteInfoShared(t *testing.T) {
 }
 
 func TestRouteInfoIslands(t *testing.T) {
-	t.Setenv("ORBIT_KEY", "")
+	t.Setenv("LYR_KEY", "")
 	captureLog(t)
 	s := islandSite(t, withRoute)
 	var got *routeLocals
@@ -270,7 +270,7 @@ func TestRouteInfoIslands(t *testing.T) {
 	src, tok := placeholder(t, s.Handler(), "")
 	errSrc, errTok := placeholder(t, s.Handler(), "error")
 	build := strings.Split(src, "/")[3]
-	known := routeWant{RouteIsland, "/_orbit/island/[buildID]/[id]", "src/components/Comments.orbit", "buildID=" + build + ",id=" + commentsID}
+	known := routeWant{RouteIsland, "/_lyr/island/[buildID]/[id]", "src/components/Comments.lyr", "buildID=" + build + ",id=" + commentsID}
 	for _, tt := range []struct {
 		method, target string
 		code           int
@@ -280,7 +280,7 @@ func TestRouteInfoIslands(t *testing.T) {
 		{"GET", src + "?p=bad", 400, known},
 		{"GET", errSrc + "?p=" + errTok, 500, known},
 		{"DELETE", src, 405, known},
-		{"GET", "/_orbit/island/" + build + "/Nope-00000000?p=" + tok, 404, routeWant{RouteIsland, "/_orbit/island/[buildID]/[id]", "", "buildID=" + build + ",id=Nope-00000000"}},
+		{"GET", "/_lyr/island/" + build + "/Nope-00000000?p=" + tok, 404, routeWant{RouteIsland, "/_lyr/island/[buildID]/[id]", "", "buildID=" + build + ",id=Nope-00000000"}},
 	} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest(tt.method, tt.target, nil))
@@ -292,15 +292,15 @@ func TestRouteInfoIslands(t *testing.T) {
 
 	// An island component reading the route through LocalsOf, without
 	// middleware.
-	isl := []Island{NewIsland("Route-00000000", "src/components/Route.orbit", func(c *Ctx, w *Writer, p struct{}, s Slots) error {
+	isl := []Island{NewIsland("Route-00000000", "src/components/Route.lyr", func(c *Ctx, w *Writer, p struct{}, s Slots) error {
 		routeWritten(c, w)
 		fmt.Fprintf(w.buf, " ctx.Param=%q", c.Param("id"))
 		return nil
 	})}
 	s2 := NewSite(nil, isl, WithStaticDir(t.TempDir()), withRoute)
 	tok2 := sealerOf(s2.keys).Seal("Route-00000000", s2.keys.buildID, []byte(`{}`))
-	rec := do(s2.Handler(), "GET", "/_orbit/island/"+s2.keys.buildID+"/Route-00000000?p="+tok2)
-	want := "kind=3 pattern=/_orbit/island/[buildID]/[id] file=src/components/Route.orbit params=buildID=" + s2.keys.buildID + ",id=Route-00000000 ctx.Param=\"\""
+	rec := do(s2.Handler(), "GET", "/_lyr/island/"+s2.keys.buildID+"/Route-00000000?p="+tok2)
+	want := "kind=3 pattern=/_lyr/island/[buildID]/[id] file=src/components/Route.lyr params=buildID=" + s2.keys.buildID + ",id=Route-00000000 ctx.Param=\"\""
 	if rec.Body.String() != want {
 		t.Errorf("island sees %q, want %q", rec.Body, want)
 	}
@@ -319,15 +319,15 @@ func TestRouteInfoZero(t *testing.T) {
 	}
 }
 
-// TestServeRouteInfoAllocs: Orbit's handler adds no allocation for the
+// TestServeRouteInfoAllocs: Lyr's handler adds no allocation for the
 // RouteInfo field, with locals attached or not; a route with more than 8
 // params adds one.
 func TestServeRouteInfoAllocs(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("allocation counts (not under -short or -race)")
 	}
-	t.Setenv("ORBIT_DEV", "")
-	routes := append(slices.Clone(allocRoutes), Route{Pattern: "/p/[a]/[b]/[c]/[d]/[e]/[f]/[g]/[h]/[i]", File: "src/pages/p.orbit", Render: allocPage})
+	t.Setenv("LYR_DEV", "")
+	routes := append(slices.Clone(allocRoutes), Route{Pattern: "/p/[a]/[b]/[c]/[d]/[e]/[f]/[g]/[h]/[i]", File: "src/pages/p.lyr", Render: allocPage})
 	count := func(s *Site, r *http.Request) float64 {
 		h := s.Middleware(http.NotFoundHandler())
 		fw := newFakeResponseWriter()
@@ -374,7 +374,7 @@ func TestServeRouteInfoAllocs(t *testing.T) {
 	}
 
 	// Islands: the same count with and without the option.
-	t.Setenv("ORBIT_KEY", "")
+	t.Setenv("LYR_KEY", "")
 	islandCount := func(opts ...Option) float64 {
 		s := islandSite(t, opts...)
 		src, tok := placeholder(t, s.Handler(), "")
@@ -392,8 +392,8 @@ func TestServeRouteInfoAllocs(t *testing.T) {
 }
 
 func BenchmarkServeRouteInfo(b *testing.B) {
-	b.Setenv("ORBIT_DEV", "")
-	b.Setenv("ORBIT_STATIC", b.TempDir())
+	b.Setenv("LYR_DEV", "")
+	b.Setenv("LYR_STATIC", b.TempDir())
 	for _, tt := range []struct {
 		name     string
 		opts     []Option

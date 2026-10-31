@@ -29,7 +29,7 @@ import (
 	"time"
 	"unsafe"
 
-	orbit "github.com/orbit-z/orbit"
+	lyr "github.com/orbit-z/lyr"
 	iposts "example.com/internal/posts"
 	lposts "example.com/legacy/posts"
 	str "example.com/string"
@@ -40,7 +40,7 @@ var (
 	_ netip.Addr
 	_ time.Time
 	_ unsafe.Pointer
-	_ orbit.HTML
+	_ lyr.HTML
 )
 
 type Status string
@@ -204,12 +204,12 @@ type Bad struct {
 	Notify func()
 }
 type OptS struct {
-	A orbit.Opt[string]
-	B orbit.Opt[int]    ` + "`json:\"b,omitzero\"`" + `
-	C orbit.Opt[*int]   ` + "`json:\"c,omitzero\"`" + `
-	D orbit.Opt[Status] ` + "`json:\"d,omitempty\"`" + `
+	A lyr.Opt[string]
+	B lyr.Opt[int]    ` + "`json:\"b,omitzero\"`" + `
+	C lyr.Opt[*int]   ` + "`json:\"c,omitzero\"`" + `
+	D lyr.Opt[Status] ` + "`json:\"d,omitempty\"`" + `
 }
-type OptBad struct{ F orbit.Opt[func()] }
+type OptBad struct{ F lyr.Opt[func()] }
 type BadDeep struct{ Posts []Bad }
 type BadMap struct{ M map[[2]int]string }
 type BadC struct{ C complex128 }
@@ -298,9 +298,9 @@ func TestTSMap(t *testing.T) {
 		{"uintptr", "number"},
 		{"float32", "number"},
 		{"string", "string"},
-		{"orbit.HTML", "string"},
-		{"orbit.URL", "string"},
-		{"*orbit.HTML", "string | null"},
+		{"lyr.HTML", "string"},
+		{"lyr.URL", "string"},
+		{"*lyr.HTML", "string | null"},
 		// Bytes.
 		{"[]byte", "string | null"},
 		{"[4]byte", "number[]"},
@@ -383,10 +383,10 @@ func TestTSMap(t *testing.T) {
 		{"map[PTM]int", "Record<string, number> | null\nprob : map[PTM]int"},
 		{"Page[func()]", "p.Page<unknown>\np.Page<T> { items: T[] | null; next: Page<T> | null }\nprob Page.Items[]: func()"},
 		{"map[Status]Bad", "Record<string, p.Bad> | null\np.Bad { Ok: number; Notify: unknown }\nprob [].Notify: func()"},
-		// orbit.Opt (PLAN.md §2.6 (Q5)).
-		{"orbit.Opt[string]", "string | null"},
-		{"orbit.Opt[*int]", "number | null"},
-		{"[]orbit.Opt[bool]", "(boolean | null)[] | null"},
+		// lyr.Opt (PLAN.md §2.6 (Q5)).
+		{"lyr.Opt[string]", "string | null"},
+		{"lyr.Opt[*int]", "number | null"},
+		{"[]lyr.Opt[bool]", "(boolean | null)[] | null"},
 		{"OptS", "p.OptS\np.OptS { A: string | null; b?: number; c?: number | null; d: Status | null }\np.Status = string"},
 		{"OptBad", "p.OptBad\np.OptBad { F: unknown }\nprob OptBad.F: func()"},
 		{"FnOK", "p.FnOK\np.FnOK { F: unknown; K: Record<string, number> | null; T: Record<string, number> | null }"},
@@ -407,7 +407,7 @@ func TestTSMap(t *testing.T) {
 	}
 }
 
-// TestTSMapUntypedNil: orbit.JSON(nil) is null.
+// TestTSMapUntypedNil: lyr.JSON(nil) is null.
 func TestTSMapUntypedNil(t *testing.T) {
 	ts, prob := newTSMapper(tsTestNS).Map(types.Typ[types.UntypedNil])
 	if ts != "null" || prob != nil {

@@ -4,11 +4,11 @@ package compiler
 // the implementation lives in analyze*.go files owned by agent A. See
 // DESIGN.md.
 
-// Role says how a .orbit file is used.
+// Role says how a .lyr file is used.
 type Role uint8
 
 const (
-	// RoleComponent is any .orbit file outside src/pages.
+	// RoleComponent is any .lyr file outside src/pages.
 	RoleComponent Role = iota
 	// RolePage is a file under src/pages: it gets a generated Params, and
 	// may not declare Props or Params (PLAN.md §2.2).
@@ -18,7 +18,7 @@ const (
 // FileInfo is what the caller (project discovery, milestone 5; tests before
 // that) knows about a file before analysis.
 type FileInfo struct {
-	// Path is project-relative with "/" separators: "src/components/Card.orbit".
+	// Path is project-relative with "/" separators: "src/components/Card.lyr".
 	Path string
 	Role Role
 	// Route is a page's route pattern, as the router takes it
@@ -81,7 +81,7 @@ type Stmt struct {
 	Span Span
 	// Returns are the statement's return statements with exactly one
 	// result, nested ones included but none inside a function literal, in
-	// source order. Codegen wraps each result in orbit__rt.ErrorAt with the
+	// source order. Codegen wraps each result in lyr__rt.ErrorAt with the
 	// position of the return keyword. Empty when the body doesn't parse.
 	Returns []Return
 }
@@ -107,23 +107,23 @@ type GoImport struct {
 	// Place is where the import is used, by object resolution over the
 	// hoisted code, the body and every template expression (PLAN.md §3.1).
 	// An unused or blank import is PlaceImpl, so Go reports an unused one at
-	// its .orbit position. A user import of the runtime named orbit is placed
+	// its .lyr position. A user import of the runtime named lyr is placed
 	// like the implicit one, and the implicit import is then not emitted
-	// where it already is (see Analysis.ImplicitOrbit).
+	// where it already is (see Analysis.ImplicitLyr).
 	Place Placement
 }
 
-// OrbitImport is one .orbit component import: Alias "./X.orbit".
-type OrbitImport struct {
+// LyrImport is one .lyr component import: Alias "./X.lyr".
+type LyrImport struct {
 	Alias     string
 	AliasSpan Span
-	// Path is the unquoted path as written ("../components/Card.orbit");
+	// Path is the unquoted path as written ("../components/Card.lyr");
 	// PathSpan is the quoted path; Span the whole spec.
 	Path           string
 	Span, PathSpan Span
 	// Resolved is the project-relative target, path.Join(path.Dir(file),
-	// Path) or, for an alias ("@/components/Card.orbit"), what
-	// FileInfo.Aliases resolves it to: "src/components/Card.orbit". Codegen
+	// Path) or, for an alias ("@/components/Card.lyr"), what
+	// FileInfo.Aliases resolves it to: "src/components/Card.lyr". Codegen
 	// looks it up in the ComponentIndex; two spellings of one file are the
 	// same component.
 	Resolved string
@@ -150,7 +150,7 @@ type PropsInfo struct {
 	// fall back to FieldName and the unknown-prop pre-check is skipped
 	// (PLAN.md §2.3; MatchProp).
 	Listable bool
-	// Rest is the name of the field of type orbit.RestAttrs, which
+	// Rest is the name of the field of type lyr.RestAttrs, which
 	// collects the call site's attributes that match no other field
 	// (PLAN.md §2.5); "" when there is none (or Props isn't Listable).
 	Rest string
@@ -177,7 +177,7 @@ type ParamField struct {
 }
 
 // Analysis is the result of analyzing one file's frontmatter against its
-// template. All spans are byte offsets into the whole .orbit file.
+// template. All spans are byte offsets into the whole .lyr file.
 type Analysis struct {
 	Info FileInfo
 	// Decls are the hoisted declarations in source order (both packages).
@@ -192,13 +192,13 @@ type Analysis struct {
 	// the Go spec's sense: codegen emits the echo lines before it and no
 	// template code after it (PLAN.md §2.2).
 	Terminating bool
-	// GoImports and OrbitImports are the import specs in source order.
-	GoImports    []GoImport
-	OrbitImports []OrbitImport
-	// ImplicitOrbit is where codegen emits the implicit
-	// orbit "github.com/orbit-z/orbit" import: the packages whose user
-	// code uses the name orbit, minus those a user import of it covers.
-	ImplicitOrbit Placement
+	// GoImports and LyrImports are the import specs in source order.
+	GoImports  []GoImport
+	LyrImports []LyrImport
+	// ImplicitLyr is where codegen emits the implicit
+	// lyr "github.com/orbit-z/lyr" import: the packages whose user
+	// code uses the name lyr, minus those a user import of it covers.
+	ImplicitLyr Placement
 	// Props describes the component's Props (for a page: not declared,
 	// Listable, no fields).
 	Props PropsInfo
@@ -211,7 +211,7 @@ type Analysis struct {
 	// also true when that code doesn't parse, to stay on the safe side.
 	// Strict codegen declares locals (LocalsOf) only then.
 	UsesLocals bool
-	// CtxRefs are the .orbit offsets of the template's references to the
+	// CtxRefs are the .lyr offsets of the template's references to the
 	// implicit ctx (not a variable the user declared with that name), in
 	// no particular order: slot content that uses it rebinds it with
 	// CtxOf (PLAN.md §3.6). CtxUnknown is true when the code doesn't
@@ -242,12 +242,12 @@ func (a *Analysis) HasErrors() bool {
 // rules that need both. It never panics and always returns an Analysis; in
 // Tolerant mode (f.Mode) it recovers from Go syntax errors as best it can.
 //
-// It reports (PLAN.md §2.2, §3.1): func init; a hoisted Render; orbit__ /
-// Orbit__ identifiers anywhere in the frontmatter or template code;
+// It reports (PLAN.md §2.2, §3.1): func init; a hoisted Render; lyr__ /
+// Lyr__ identifiers anywhere in the frontmatter or template code;
 // redeclaring an implicit name at the body's top level; a page declaring
 // Props or Params; unexported Props fields and fields that normalize to the
 // same name; route params that collide or can't become field names; a
-// lowercase .orbit alias; framework and other non-.orbit relative imports;
+// lowercase .lyr alias; framework and other non-.lyr relative imports;
 // dot imports; an unexported decl-placed name used by impl code; an alias or
 // impl-side name that equals an exported decl name; a terminating last
 // statement followed by template content. The exact messages are listed in

@@ -1,0 +1,15 @@
+---
+import "strconv"
+
+import Button "../components/Button.lyr"
+import Choice "../components/Choice.lyr"
+
+level, n, on := 3, 7, true
+Heading := "h" + strconv.Itoa(level)
+theme := "dark"
+---
+<Heading class="h">Title</Heading>
+<Button variant="primary">Save</Button>
+<Choice wrapped label="w" />
+<Choice label="bare" />
+<div {...lyr.AttrList{lyr.A("data-theme", theme), lyr.A("data-n", n), lyr.A("hidden", on)}}>list</div>

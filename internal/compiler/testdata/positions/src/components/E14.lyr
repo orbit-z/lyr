@@ -1,0 +1,6 @@
+---
+type Props struct {
+	N lyr.Opt[int]
+}
+---
+{if props.N.IsSome()}<Self n={"x"} />{/if}

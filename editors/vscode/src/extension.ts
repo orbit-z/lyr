@@ -1,6 +1,6 @@
-// The Orbit VS Code extension: starts `orbit lsp` for .orbit files (and
+// The Lyr VS Code extension: starts `lyr lsp` for .lyr files (and
 // Markdown files under src/, for their diagnostics) and adds
-// the Restart Language Server, Run orbit generate and Run orbit doctor
+// the Restart Language Server, Run lyr generate and Run lyr doctor
 // commands. Syntax highlighting and the language configuration are
 // declarative (package.json, syntaxes/, language-configuration.json).
 
@@ -15,34 +15,34 @@ import {
   type ServerOptions,
 } from "vscode-languageclient/node";
 
-const installURL = "https://github.com/orbit-z/orbit/blob/main/docs/editor-setup.md";
-const installCommand = "go install github.com/orbit-z/orbit/cmd/orbit@latest";
+const installURL = "https://github.com/orbit-z/lyr/blob/main/docs/editor-setup.md";
+const installCommand = "go install github.com/orbit-z/lyr/cmd/lyr@latest";
 
-// markdownPattern matches the Markdown files Orbit compiles (PLAN.md §2.4:
+// markdownPattern matches the Markdown files Lyr compiles (PLAN.md §2.4:
 // Astro's extensions), which are all under src/.
 const markdownPattern = "**/src/**/*.{md,markdown,mdown,mkdn,mkd,mdwn}";
 
-// isOrbit reports whether a document is an .orbit file: the server's
+// isLyr reports whether a document is a .lyr file: the server's
 // features other than diagnostics are for those only.
-function isOrbit(doc: vscode.TextDocument): boolean {
-  return doc.languageId === "orbit";
+function isLyr(doc: vscode.TextDocument): boolean {
+  return doc.languageId === "lyr";
 }
 
 let client: LanguageClient | undefined;
 let output: vscode.OutputChannel;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  output = vscode.window.createOutputChannel("Orbit");
+  output = vscode.window.createOutputChannel("Lyr");
   context.subscriptions.push(
     output,
-    vscode.commands.registerCommand("orbit.restartServer", () => restart()),
-    vscode.commands.registerCommand("orbit.generate", () => runCommand("generate")),
-    vscode.commands.registerCommand("orbit.doctor", () => runCommand("doctor")),
+    vscode.commands.registerCommand("lyr.restartServer", () => restart()),
+    vscode.commands.registerCommand("lyr.generate", () => runCommand("generate")),
+    vscode.commands.registerCommand("lyr.doctor", () => runCommand("doctor")),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (
-        e.affectsConfiguration("orbit.path") ||
-        e.affectsConfiguration("orbit.goplsPath") ||
-        e.affectsConfiguration("orbit.typescriptPath")
+        e.affectsConfiguration("lyr.path") ||
+        e.affectsConfiguration("lyr.goplsPath") ||
+        e.affectsConfiguration("lyr.typescriptPath")
       ) {
         void restart();
       }
@@ -55,17 +55,17 @@ export async function deactivate(): Promise<void> {
   await stop();
 }
 
-// start launches `orbit lsp`, once for the window: the server finds the
+// start launches `lyr lsp`, once for the window: the server finds the
 // project root itself (the nearest go.mod next to a src/ directory).
 async function start(): Promise<void> {
-  // The server runs in the project root, so a global orbit hands over to
-  // the version the project pins in go.mod (go tool orbit).
+  // The server runs in the project root, so a global lyr hands over to
+  // the version the project pins in go.mod (go tool lyr).
   const cwd = projectRoot() ?? firstFolder();
-  const orbit = resolveOrbit(cwd);
-  if (!orbit) {
+  const lyr = resolveLyr(cwd);
+  if (!lyr) {
     return;
   }
-  const config = vscode.workspace.getConfiguration("orbit");
+  const config = vscode.workspace.getConfiguration("lyr");
   const goplsPath = expandHome(config.get<string>("goplsPath", "").trim());
   const typescriptPath = expandHome(config.get<string>("typescriptPath", "").trim());
   const initializationOptions: Record<string, string> = {};
@@ -76,40 +76,40 @@ async function start(): Promise<void> {
     initializationOptions.typescriptPath = typescriptPath;
   }
   const serverOptions: ServerOptions = {
-    command: orbit.command,
-    args: [...orbit.args, "lsp"],
+    command: lyr.command,
+    args: [...lyr.args, "lsp"],
     // No transport field: TransportKind.stdio would append --stdio to the
     // arguments. A plain command already talks over stdin/stdout.
     options: cwd ? { cwd } : {},
   };
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
-      { scheme: "file", language: "orbit" },
-      // Markdown pages and imports, for Orbit's diagnostics only: the
+      { scheme: "file", language: "lyr" },
+      // Markdown pages and imports, for Lyr's diagnostics only: the
       // server ignores .md files that aren't compiled, and the middleware
       // below keeps every other request for VS Code's Markdown support.
       { scheme: "file", pattern: markdownPattern },
     ],
     initializationOptions,
     middleware: {
-      provideHover: (doc, pos, token, next) => (isOrbit(doc) ? next(doc, pos, token) : undefined),
-      provideCompletionItem: (doc, pos, ctx, token, next) => (isOrbit(doc) ? next(doc, pos, ctx, token) : undefined),
-      provideDefinition: (doc, pos, token, next) => (isOrbit(doc) ? next(doc, pos, token) : undefined),
-      provideReferences: (doc, pos, opts, token, next) => (isOrbit(doc) ? next(doc, pos, opts, token) : undefined),
-      provideSignatureHelp: (doc, pos, ctx, token, next) => (isOrbit(doc) ? next(doc, pos, ctx, token) : undefined),
-      prepareRename: (doc, pos, token, next) => (isOrbit(doc) ? next(doc, pos, token) : undefined),
-      provideRenameEdits: (doc, pos, name, token, next) => (isOrbit(doc) ? next(doc, pos, name, token) : undefined),
+      provideHover: (doc, pos, token, next) => (isLyr(doc) ? next(doc, pos, token) : undefined),
+      provideCompletionItem: (doc, pos, ctx, token, next) => (isLyr(doc) ? next(doc, pos, ctx, token) : undefined),
+      provideDefinition: (doc, pos, token, next) => (isLyr(doc) ? next(doc, pos, token) : undefined),
+      provideReferences: (doc, pos, opts, token, next) => (isLyr(doc) ? next(doc, pos, opts, token) : undefined),
+      provideSignatureHelp: (doc, pos, ctx, token, next) => (isLyr(doc) ? next(doc, pos, ctx, token) : undefined),
+      prepareRename: (doc, pos, token, next) => (isLyr(doc) ? next(doc, pos, token) : undefined),
+      provideRenameEdits: (doc, pos, name, token, next) => (isLyr(doc) ? next(doc, pos, name, token) : undefined),
       // TypeScript features in <script> blocks.
-      provideTypeDefinition: (doc, pos, token, next) => (isOrbit(doc) ? next(doc, pos, token) : undefined),
-      provideDocumentHighlights: (doc, pos, token, next) => (isOrbit(doc) ? next(doc, pos, token) : undefined),
-      provideCodeActions: (doc, range, ctx, token, next) => (isOrbit(doc) ? next(doc, range, ctx, token) : undefined),
+      provideTypeDefinition: (doc, pos, token, next) => (isLyr(doc) ? next(doc, pos, token) : undefined),
+      provideDocumentHighlights: (doc, pos, token, next) => (isLyr(doc) ? next(doc, pos, token) : undefined),
+      provideCodeActions: (doc, range, ctx, token, next) => (isLyr(doc) ? next(doc, range, ctx, token) : undefined),
     },
   };
-  client = new LanguageClient("orbit", "Orbit Language Server", serverOptions, clientOptions);
+  client = new LanguageClient("lyr", "Lyr Language Server", serverOptions, clientOptions);
   try {
     await client.start();
   } catch (err) {
-    void vscode.window.showErrorMessage(`Orbit: couldn't start ${orbit.label} lsp: ${message(err)}`);
+    void vscode.window.showErrorMessage(`Lyr: couldn't start ${lyr.label} lsp: ${message(err)}`);
   }
 }
 
@@ -130,36 +130,36 @@ async function restart(): Promise<void> {
   await start();
 }
 
-// orbitCommand is how to run the orbit CLI: a binary, or go tool orbit.
-interface OrbitCommand {
+// lyrCommand is how to run the lyr CLI: a binary, or go tool lyr.
+interface LyrCommand {
   command: string;
   args: string[];
   label: string;
 }
 
-// resolveOrbit returns the orbit binary from orbit.path; with the default
-// setting and no orbit on PATH, `go tool orbit` when the project's go.mod
+// resolveLyr returns the lyr binary from lyr.path; with the default
+// setting and no lyr on PATH, `go tool lyr` when the project's go.mod
 // pins the CLI (like gopls's lookup, PATH first). Otherwise it shows an
 // error pointing at the install instructions and returns undefined.
-function resolveOrbit(root: string | undefined): OrbitCommand | undefined {
-  const setting = vscode.workspace.getConfiguration("orbit").get<string>("path", "orbit").trim() || "orbit";
+function resolveLyr(root: string | undefined): LyrCommand | undefined {
+  const setting = vscode.workspace.getConfiguration("lyr").get<string>("path", "lyr").trim() || "lyr";
   const found = findBinary(setting);
   if (found) {
     return { command: found, args: [], label: found };
   }
-  if (setting === "orbit" && root && pinsOrbit(root)) {
+  if (setting === "lyr" && root && pinsLyr(root)) {
     const go = findBinary("go");
     if (go) {
-      return { command: go, args: ["tool", "orbit"], label: "go tool orbit" };
+      return { command: go, args: ["tool", "lyr"], label: "go tool lyr" };
     }
   }
   const what =
-    setting === "orbit"
-      ? "the orbit command wasn't found on your PATH"
-      : `orbit.path is set to ${JSON.stringify(setting)}, which doesn't exist`;
+    setting === "lyr"
+      ? "the lyr command wasn't found on your PATH"
+      : `lyr.path is set to ${JSON.stringify(setting)}, which doesn't exist`;
   void vscode.window
     .showErrorMessage(
-      `Orbit: ${what}. Install it with \`${installCommand}\`, or set orbit.path to the binary.`,
+      `Lyr: ${what}. Install it with \`${installCommand}\`, or set lyr.path to the binary.`,
       "Install Instructions",
       "Open Settings",
     )
@@ -167,7 +167,7 @@ function resolveOrbit(root: string | undefined): OrbitCommand | undefined {
       if (choice === "Install Instructions") {
         void vscode.env.openExternal(vscode.Uri.parse(installURL));
       } else if (choice === "Open Settings") {
-        void vscode.commands.executeCommand("workbench.action.openSettings", "orbit.path");
+        void vscode.commands.executeCommand("workbench.action.openSettings", "lyr.path");
       }
     });
   return undefined;
@@ -197,14 +197,14 @@ function findBinary(setting: string): string | undefined {
   return isExecutable(abs) ? abs : undefined;
 }
 
-// pinsOrbit reports whether root's go.mod has the tool directive for the
-// orbit CLI (orbit new writes it).
-function pinsOrbit(root: string): boolean {
+// pinsLyr reports whether root's go.mod has the tool directive for the
+// lyr CLI (lyr new writes it).
+function pinsLyr(root: string): boolean {
   try {
     const mod = fs.readFileSync(path.join(root, "go.mod"), "utf8");
-    // `tool github.com/orbit-z/orbit/cmd/orbit`, or the path alone on
+    // `tool github.com/orbit-z/lyr/cmd/lyr`, or the path alone on
     // a line of a tool ( … ) block; require lines carry a version.
-    return /^\s*(tool\s+)?github\.com\/orbit-z\/orbit\/cmd\/orbit\s*(\/\/.*)?$/m.test(mod);
+    return /^\s*(tool\s+)?github\.com\/orbit-z\/lyr\/cmd\/lyr\s*(\/\/.*)?$/m.test(mod);
   } catch {
     return false;
   }
@@ -230,12 +230,12 @@ function firstFolder(): string | undefined {
   return vscode.workspace.workspaceFolders?.find((f) => f.uri.scheme === "file")?.uri.fsPath;
 }
 
-// projectRoot returns the Orbit project (the nearest directory holding
-// go.mod and src/) of the active .orbit file, else of the first workspace
+// projectRoot returns the Lyr project (the nearest directory holding
+// go.mod and src/) of the active .lyr file, else of the first workspace
 // folder that is in one.
 function projectRoot(): string | undefined {
   const doc = vscode.window.activeTextEditor?.document;
-  if (doc && doc.uri.scheme === "file" && doc.languageId === "orbit") {
+  if (doc && doc.uri.scheme === "file" && doc.languageId === "lyr") {
     const root = findRoot(path.dirname(doc.uri.fsPath));
     if (root) {
       return root;
@@ -273,46 +273,46 @@ function isDir(p: string): boolean {
   }
 }
 
-// runCommand runs `orbit <name>` in the project root, with its output in
-// the Orbit output channel, and reports the result with a notification.
+// runCommand runs `lyr <name>` in the project root, with its output in
+// the Lyr output channel, and reports the result with a notification.
 async function runCommand(name: "generate" | "doctor"): Promise<void> {
   const cwd = projectRoot();
-  const orbit = resolveOrbit(cwd);
-  if (!orbit) {
+  const lyr = resolveLyr(cwd);
+  if (!lyr) {
     return;
   }
   if (!cwd) {
     void vscode.window.showErrorMessage(
-      `Orbit: no Orbit project found (a directory with go.mod and src/) for orbit ${name}. Open a .orbit file or a project folder.`,
+      `Lyr: no Lyr project found (a directory with go.mod and src/) for lyr ${name}. Open a .lyr file or a project folder.`,
     );
     return;
   }
   if (name === "doctor") {
     output.show(true);
   }
-  output.appendLine(`$ orbit ${name}    (in ${cwd})`);
+  output.appendLine(`$ lyr ${name}    (in ${cwd})`);
   const code = await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Window, title: `orbit ${name}` },
+    { location: vscode.ProgressLocation.Window, title: `lyr ${name}` },
     () =>
       new Promise<number | string>((resolve) => {
-        const child = cp.spawn(orbit.command, [...orbit.args, name], { cwd });
+        const child = cp.spawn(lyr.command, [...lyr.args, name], { cwd });
         child.stdout.on("data", (b: Buffer) => output.append(b.toString()));
         child.stderr.on("data", (b: Buffer) => output.append(b.toString()));
         child.on("error", (err) => resolve(message(err)));
         child.on("close", (status, signal) => resolve(status ?? `killed by ${signal}`));
       }),
   );
-  output.appendLine(code === 0 ? "" : `orbit ${name}: exit ${code}\n`);
+  output.appendLine(code === 0 ? "" : `lyr ${name}: exit ${code}\n`);
   if (code === 0) {
     void vscode.window.showInformationMessage(
-      name === "generate" ? "Orbit: orbit generate succeeded." : "Orbit: orbit doctor passed. Warnings, if any, are in the Orbit output.",
+      name === "generate" ? "Lyr: lyr generate succeeded." : "Lyr: lyr doctor passed. Warnings, if any, are in the Lyr output.",
     );
     return;
   }
   const choice = await vscode.window.showErrorMessage(
     name === "generate"
-      ? "Orbit: orbit generate failed. See the Orbit output for the errors."
-      : "Orbit: orbit doctor found problems. See the Orbit output for the fixes.",
+      ? "Lyr: lyr generate failed. See the Lyr output for the errors."
+      : "Lyr: lyr doctor found problems. See the Lyr output for the fixes.",
     "Show Output",
   );
   if (choice === "Show Output") {

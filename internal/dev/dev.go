@@ -1,8 +1,8 @@
-// Package dev is orbit dev (PLAN.md §7): it builds and runs the user's
-// server entry with ORBIT_DEV=1, watches the project, rebuilds as little as
+// Package dev is lyr dev (PLAN.md §7): it builds and runs the user's
+// server entry with LYR_DEV=1, watches the project, rebuilds as little as
 // each change needs, restarts the server when its Go code changed, and
 // reloads the browser over server-sent events. A proxy in front of the
-// server serves /__orbit/* (events, the reload script, the error overlay)
+// server serves /__lyr/* (events, the reload script, the error overlay)
 // and forwards everything else.
 //
 // The pieces:
@@ -31,8 +31,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/build"
-	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/lyr/internal/build"
+	"github.com/orbit-z/lyr/internal/config"
 )
 
 // DefaultPort is the dev server's default port, as Astro's.
@@ -52,7 +52,7 @@ type Options struct {
 	Port int
 	// Host listens on every interface instead of loopback only.
 	Host bool
-	// Stdout and Stderr receive orbit dev's messages and the server's
+	// Stdout and Stderr receive lyr dev's messages and the server's
 	// output.
 	Stdout, Stderr io.Writer
 	// Env is appended to the environment of the go commands and the
@@ -67,7 +67,7 @@ type Options struct {
 
 // Run runs the dev server until ctx is done, then stops the user's server
 // and returns nil. Build errors don't end it: they're shown in the terminal
-// and the overlay. The error is for problems that stop orbit dev from
+// and the overlay. The error is for problems that stop lyr dev from
 // starting (the port, the watcher, the go command).
 func Run(ctx context.Context, o Options) error {
 	if o.Port == 0 {
@@ -106,7 +106,7 @@ func Run(ctx context.Context, o Options) error {
 	}()
 	printBanner(o.Stdout, o.Host, port, o.Port)
 
-	w, err := newWatcher(root, func(err error) { fmt.Fprintln(o.Stderr, "orbit dev: watch:", err) })
+	w, err := newWatcher(root, func(err error) { fmt.Fprintln(o.Stderr, "lyr dev: watch:", err) })
 	if err != nil {
 		return fmt.Errorf("watch: %w", err)
 	}
@@ -138,7 +138,7 @@ func Run(ctx context.Context, o Options) error {
 	d.rebuild(ctx, Change{}, true)
 	if ctx.Err() == nil {
 		if _, f := s.state(); f == nil {
-			fmt.Fprintf(o.Stdout, "orbit dev: server ready in %v\n", round(time.Since(start)))
+			fmt.Fprintf(o.Stdout, "lyr dev: server ready in %v\n", round(time.Since(start)))
 		}
 	}
 	if o.Ready != nil {
@@ -163,7 +163,7 @@ type devLoop struct {
 	s      *server
 	w      *watcher
 	pl     *pipeline
-	env    []string // the server's environment, without ORBIT_ADDR
+	env    []string // the server's environment, without LYR_ADDR
 	exited chan *app
 }
 
@@ -184,7 +184,7 @@ func (d *devLoop) rebuild(ctx context.Context, c Change, initial bool) {
 		return
 	}
 	if err != nil {
-		out.Failure = &failure{Title: "orbit dev error", Text: err.Error()}
+		out.Failure = &failure{Title: "lyr dev error", Text: err.Error()}
 	}
 	for _, w := range out.Warnings {
 		fmt.Fprintln(d.o.Stderr, w)
@@ -215,7 +215,7 @@ func (d *devLoop) rebuild(ctx context.Context, c Change, initial bool) {
 			if errors.As(err, &se) {
 				f.Output = se.stderr
 			}
-			fmt.Fprintln(d.o.Stderr, "orbit dev:", f.Text)
+			fmt.Fprintln(d.o.Stderr, "lyr dev:", f.Text)
 			d.setFailure(f)
 			return
 		}
@@ -224,28 +224,28 @@ func (d *devLoop) rebuild(ctx context.Context, c Change, initial bool) {
 		s.app, s.failure = na, nil
 		s.mu.Unlock()
 		if !initial {
-			fmt.Fprintf(d.o.Stdout, "orbit dev: %s: server restarted in %v\n", what, round(time.Since(start)))
+			fmt.Fprintf(d.o.Stdout, "lyr dev: %s: server restarted in %v\n", what, round(time.Since(start)))
 		}
 	case out.Assets:
 		d.clearFailure()
-		fmt.Fprintf(d.o.Stdout, "orbit dev: %s: CSS and JS rebuilt in %v\n", what, round(time.Since(start)))
+		fmt.Fprintf(d.o.Stdout, "lyr dev: %s: CSS and JS rebuilt in %v\n", what, round(time.Since(start)))
 	default:
 		d.clearFailure()
 		if !initial {
-			fmt.Fprintf(d.o.Stdout, "orbit dev: %s: reloaded\n", what)
+			fmt.Fprintf(d.o.Stdout, "lyr dev: %s: reloaded\n", what)
 		}
 	}
 	s.hub.broadcast()
 }
 
-// loadWatch applies orbit.json's "watch" patterns to the watcher. An
-// invalid orbit.json leaves them as they were: the pipeline reports it.
+// loadWatch applies lyr.json's "watch" patterns to the watcher. An
+// invalid lyr.json leaves them as they were: the pipeline reports it.
 func (d *devLoop) loadWatch() {
 	cfg, err := config.Load(d.pl.root)
 	if err != nil {
 		return
 	}
-	d.w.setWatch(cfg.Watch, func(msg string) { fmt.Fprintln(d.o.Stderr, "orbit dev:", msg) })
+	d.w.setWatch(cfg.Watch, func(msg string) { fmt.Fprintln(d.o.Stderr, "lyr dev:", msg) })
 }
 
 func (d *devLoop) setFailure(f *failure) {
@@ -273,7 +273,7 @@ func (d *devLoop) stopApp() {
 	}
 }
 
-// watchExit reports a's exit on d.exited unless orbit dev stopped it.
+// watchExit reports a's exit on d.exited unless lyr dev stopped it.
 func (d *devLoop) watchExit(a *app) {
 	go func() {
 		<-a.done
@@ -297,7 +297,7 @@ func (d *devLoop) appExited(a *app) {
 	d.s.app = nil
 	d.s.mu.Unlock()
 	f := &failure{Title: "Your server exited", Text: "your server exited: " + exitText(a.err) + "; save a file to restart it", Output: a.tail.String()}
-	fmt.Fprintln(d.o.Stderr, "orbit dev:", f.Text)
+	fmt.Fprintln(d.o.Stderr, "lyr dev:", f.Text)
 	d.setFailure(f)
 }
 
@@ -321,22 +321,22 @@ func round(d time.Duration) time.Duration {
 }
 
 // appEnv is the user's server's environment (PLAN.md §5b): the process
-// environment and extra, plus ORBIT_DEV=1, ORBIT_STATIC, ORBIT_PUBLIC and
-// a per-session ORBIT_KEY, unless ORBIT_KEY is already set (the user's key
-// wins). ORBIT_ADDR is added per start.
+// environment and extra, plus LYR_DEV=1, LYR_STATIC, LYR_PUBLIC and
+// a per-session LYR_KEY, unless LYR_KEY is already set (the user's key
+// wins). LYR_ADDR is added per start.
 func appEnv(environ, extra []string) []string {
 	env := append(append([]string{}, environ...), extra...)
 	hasKey := false
 	for _, kv := range env {
-		if v, ok := strings.CutPrefix(kv, "ORBIT_KEY="); ok && v != "" {
+		if v, ok := strings.CutPrefix(kv, "LYR_KEY="); ok && v != "" {
 			hasKey = true
 		}
 	}
-	env = append(env, "ORBIT_DEV=1", "ORBIT_STATIC="+StaticDir, "ORBIT_PUBLIC=public")
+	env = append(env, "LYR_DEV=1", "LYR_STATIC="+StaticDir, "LYR_PUBLIC=public")
 	if !hasKey {
 		key := make([]byte, 32)
 		rand.Read(key)
-		env = append(env, "ORBIT_KEY="+base64.StdEncoding.EncodeToString(key))
+		env = append(env, "LYR_KEY="+base64.StdEncoding.EncodeToString(key))
 	}
 	return env
 }
@@ -384,7 +384,7 @@ func isAddrInUse(err error) bool {
 // printBanner prints the URLs, as Astro does.
 func printBanner(w io.Writer, host bool, port, wanted int) {
 	if port != wanted {
-		fmt.Fprintf(w, "orbit dev: port %d is in use, using %d instead\n", wanted, port)
+		fmt.Fprintf(w, "lyr dev: port %d is in use, using %d instead\n", wanted, port)
 	}
 	fmt.Fprintf(w, "\n  Local    http://localhost:%d/\n", port)
 	if !host {

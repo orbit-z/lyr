@@ -1,0 +1,34 @@
+---
+import Box "../components/Box.lyr"
+import Button "../components/Button.lyr"
+import Choice "../components/Choice.lyr"
+import Heading "../components/Heading.lyr"
+
+const Sec = "section"
+
+tags := []string{"em", "strong"}
+Item := "li"
+List := "ul"
+Img := "img"
+title := "t"
+on := true
+attrs := lyr.Attrs{"data-b": 2, "data-a": "1"}
+list := lyr.AttrList{lyr.A("data-theme", "dark"), lyr.A("data-n", 3), lyr.A("hidden", on), lyr.A("data-off", false), lyr.A("href", "javascript:x()")}
+---
+<Sec class="s" {title} data-on={on} aria-busy={on}>
+  {for _, T := range tags}<T>{T}</T>{/for}
+  <List>{for _, s := range tags}<Item {...attrs}>{s}</Item>{/for}</List>
+  <Img src="/a.png" alt="a" />
+  <Sec />
+  <Sec set:html={"<b>raw</b>"} />
+  <Sec set:text={"<b>text</b>"} />
+  <Sec {...list}></Sec>
+  <p {...list} {...attrs}>static</p>
+  <Box><Sec slot="head">head</Sec>body</Box>
+</Sec>
+<Button variant="primary">Save</Button>
+<Button variant="link" href="/x" {...list}>Go</Button>
+<Heading level={2} text="Two" />
+<Heading level={3} text="Three" />
+<Choice wrapped label="w" class="c" />
+<Choice label="bare" class="c" />

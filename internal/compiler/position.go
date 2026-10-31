@@ -5,7 +5,7 @@ import (
 	"sort"
 )
 
-// Span is a half-open byte range [Start, End) in the original .orbit file.
+// Span is a half-open byte range [Start, End) in the original .lyr file.
 // Every position in the AST and in diagnostics is a Span or an offset into
 // the whole file, frontmatter included.
 type Span struct {
@@ -90,14 +90,14 @@ func (s Severity) String() string {
 	return "error"
 }
 
-// Diagnostic is an error or a warning at a span of the .orbit file.
+// Diagnostic is an error or a warning at a span of the .lyr file.
 type Diagnostic struct {
 	Severity Severity
 	Span
 	Message string
 }
 
-// Format renders the diagnostic in Orbit's CLI form, file:L:C: message, with
+// Format renders the diagnostic in Lyr's CLI form, file:L:C: message, with
 // a "warning: " prefix for warnings.
 func (d Diagnostic) Format(file string, lines *LineIndex) string {
 	p := lines.Position(d.Start)

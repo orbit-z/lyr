@@ -1,0 +1,47 @@
+---
+import Box "../components/Box.lyr"
+
+items := []string{"a", "b"}
+attrs := lyr.Attrs{"title": "t", "data-n": 2}
+cls := "big"
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Scoped</title>
+    <link rel="icon" href="/favicon.svg">
+    <style is:inline>p { color: blue }</style>
+    <script is:inline>console.log(1)</script>
+  </head>
+  <body>
+    <h1 class="title" id="top">Hello</h1>
+    <p class={cls} hidden={false}>dynamic</p>
+    <a {...attrs}>spread</a>
+    <a href="/x" {...attrs} rel="next">spread then static</a>
+    <img src="/a.png" alt="a">
+    <br>
+    <input type="text" disabled />
+    <div class="empty" />
+    <ul>
+      {for _, it := range items}
+        {if it == "a"}
+          <li class="first">{it}</li>
+        {else}
+          <li>{it}</li>
+        {/if}
+      {/for}
+    </ul>
+    <Fragment><em>in fragment</em></Fragment>
+    <Box title="box">
+      <p>slotted</p>
+      <span slot="footer">foot</span>
+    </Box>
+    <svg viewBox="0 0 1 1"><circle r="1" /></svg>
+    <noscript><b>no js</b></noscript>
+  </body>
+</html>
+<style>
+  h1 { color: red }
+  .prose :global(p) { margin: 0 }
+</style>

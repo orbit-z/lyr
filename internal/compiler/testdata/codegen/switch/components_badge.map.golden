@@ -1,6 +1,6 @@
-orbit_gen/decl/components/badge/decl.go (src/components/Badge.orbit)
-  exact 2:1 "type Props struct {\n\tTone string\n}" -> 157-191 "type Props struct {\n\tTone string\n}"
-orbit_gen/impl/components/badge/render.go (src/components/Badge.orbit)
-  exact 6:14 "\"badge \" + props.Tone" -> 684-705 "\"badge \" + props.Tone"
+lyr_gen/decl/components/badge/decl.go (src/components/Badge.lyr)
+  exact 2:1 "type Props struct {\n\tTone string\n}" -> 149-183 "type Props struct {\n\tTone string\n}"
+lyr_gen/impl/components/badge/render.go (src/components/Badge.lyr)
+  exact 6:14 "\"badge \" + props.Tone" -> 632-653 "\"badge \" + props.Tone"
 call sites
-  attr class key=56 "\"badge \" + props.Tone" call="orbit__w.Attr(\"class\",\n/*line ../../../../src/components/Badge.orbit:6:14*/\"badge \" + props.Tone/*line render.go:21:98*/,\n\t)"
+  attr class key=56 "\"badge \" + props.Tone" call="lyr__w.Attr(\"class\",\n/*line ../../../../src/components/Badge.lyr:6:14*/\"badge \" + props.Tone/*line render.go:21:96*/,\n\t)"

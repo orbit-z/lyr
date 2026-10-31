@@ -10,12 +10,12 @@ import (
 )
 
 // DevManifest is the dev manifest's file name, in the dev output directory
-// next to _orbit/ (PLAN.md §5 Manifest). The app reads it from
-// $ORBIT_STATIC with ORBIT_DEV=1.
+// next to _lyr/ (PLAN.md §5 Manifest). The app reads it from
+// $LYR_STATIC with LYR_DEV=1.
 const DevManifest = "manifest.json"
 
-// WriteFiles writes the output files into dir (orbit build's staging
-// client/_orbit), creating it.
+// WriteFiles writes the output files into dir (lyr build's staging
+// client/_lyr), creating it.
 func WriteFiles(dir string, files []File) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
@@ -44,12 +44,12 @@ type devAsset struct {
 	ID   string `json:"id,omitempty"`
 }
 
-// WriteDev writes a dev build into devDir (.orbit/dev): the files into
-// devDir/_orbit/, then devDir/manifest.json, atomically (a temporary file
+// WriteDev writes a dev build into devDir (.lyr/dev): the files into
+// devDir/_lyr/, then devDir/manifest.json, atomically (a temporary file
 // and a rename), then it removes the files of earlier builds. In that
 // order, a page rendered at any moment links files that exist.
 func WriteDev(devDir string, res *Result) error {
-	out := filepath.Join(devDir, "_orbit")
+	out := filepath.Join(devDir, "_lyr")
 	if err := os.MkdirAll(out, 0o755); err != nil {
 		return err
 	}

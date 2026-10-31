@@ -1,5 +1,5 @@
-info src/components/err_props_generic.orbit component route=""
-implicit orbit: none
+info src/components/err_props_generic.lyr component route=""
+implicit lyr: none
 decl type @4-43 place=decl Props@9-14
   "type Props[T any] struct {\n\tItems []T\n}"
 echo []

@@ -57,13 +57,13 @@ func TestBrokenLinks(t *testing.T) {
 
 func TestSlugify(t *testing.T) {
 	for in, want := range map[string]string{
-		"Catch-all routes with [...rest]":         "catch-all-routes-with-rest",
-		"Route params: params":                    "route-params-params",
-		"Single binary: --embed":                  "single-binary---embed",
-		"Island key (ORBIT_KEY)":                  "island-key-orbit_key",
-		"orbit dev":                               "orbit-dev",
-		"The pinned CLI: orbit and go tool orbit": "the-pinned-cli-orbit-and-go-tool-orbit",
-		"Café: déjà vu":                           "café-déjà-vu",
+		"Catch-all routes with [...rest]":     "catch-all-routes-with-rest",
+		"Route params: params":                "route-params-params",
+		"Single binary: --embed":              "single-binary---embed",
+		"Island key (LYR_KEY)":                "island-key-lyr_key",
+		"lyr dev":                             "lyr-dev",
+		"The pinned CLI: lyr and go tool lyr": "the-pinned-cli-lyr-and-go-tool-lyr",
+		"Café: déjà vu":                       "café-déjà-vu",
 	} {
 		if got := slugify(in); got != want {
 			t.Errorf("slugify(%q) = %q, want %q", in, got, want)

@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"iter"
@@ -7,51 +7,51 @@ import (
 )
 
 // The matched route, for middleware and logging (PLAN.md §4g): a RouteInfo
-// field in the project's Locals, filled by Orbit.
+// field in the project's Locals, filled by Lyr.
 
 // RouteKind says what answered a request; see RouteInfo.
 type RouteKind uint8
 
 const (
-	// RouteNone: Orbit didn't answer this request (a trailing-slash
-	// redirect, a request passed to next, or one that never reached Orbit).
+	// RouteNone: Lyr didn't answer this request (a trailing-slash
+	// redirect, a request passed to next, or one that never reached Lyr).
 	RouteNone RouteKind = iota
 	// RoutePage: a page route matched, whatever the outcome (200, a
 	// redirect, an error, ErrNotFound).
 	RoutePage
-	// RouteNotFound: Site.NotFound answered, with 404.orbit or the empty
+	// RouteNotFound: Site.NotFound answered, with 404.lyr or the empty
 	// 404.
 	RouteNotFound
-	// RouteIsland: a /_orbit/island/ request.
+	// RouteIsland: a /_lyr/island/ request.
 	RouteIsland
-	// RouteFile: a GET or HEAD Orbit serves as a static file (an /_orbit/
+	// RouteFile: a GET or HEAD Lyr serves as a static file (a /_lyr/
 	// asset or a public/ file). Pattern is the URL path; File is "".
 	RouteFile
 )
 
 // RouteInfo is the route that answered a request. Declare a field of this
-// type in your Locals (src/locals), and Orbit fills it:
+// type in your Locals (src/locals), and Lyr fills it:
 //
 //	type Locals struct {
-//		Route orbit.RouteInfo
+//		Route lyr.RouteInfo
 //		// …
 //	}
 //
-// Orbit fills it as soon as the request is matched and before rendering, so
+// Lyr fills it as soon as the request is matched and before rendering, so
 // an error, a panic or a redirect still leaves it set. Middleware that
 // attached the locals (EnsureLocals) reads it after next returns, and pages
-// and components read locals.Route. Each request through Orbit sets it
-// again, so a request that goes through Orbit twice keeps the last value.
+// and components read locals.Route. Each request through Lyr sets it
+// again, so a request that goes through Lyr twice keeps the last value.
 //
 // The strings stay valid after the request and may be kept. Read it on the
 // request's goroutine (or after next returns): it isn't synchronized.
 type RouteInfo struct {
 	Kind RouteKind
 	// Pattern is the route's pattern: "/blog/[slug]" for a page, "/404"
-	// for Site.NotFound, "/_orbit/island/[buildID]/[id]" for an island,
+	// for Site.NotFound, "/_lyr/island/[buildID]/[id]" for an island,
 	// the URL path ("/robots.txt") for a static file.
 	Pattern string
-	// File is the page's .orbit file, src/pages/404.orbit, or the deferred
+	// File is the page's .lyr file, src/pages/404.lyr, or the deferred
 	// component's file; "" when there's none (the empty 404, an unknown
 	// island, a static file).
 	File string
@@ -141,7 +141,7 @@ type localsRoute struct {
 // field of your Locals is. The generated app.New() passes it, before the
 // caller's options, when src/locals declares one:
 //
-//	orbit.WithLocalsRoute(func(l *locals.Locals) *orbit.RouteInfo { return &l.Route })
+//	lyr.WithLocalsRoute(func(l *locals.Locals) *lyr.RouteInfo { return &l.Route })
 func WithLocalsRoute[L any](field func(*L) *RouteInfo) Option {
 	lr := &localsRoute{
 		attached: func(r *http.Request) (any, *RouteInfo) {
@@ -156,14 +156,14 @@ func WithLocalsRoute[L any](field func(*L) *RouteInfo) Option {
 }
 
 // Match returns the route site.Middleware would serve r with, without
-// serving it: for middleware that answers some requests before Orbit does
+// serving it: for middleware that answers some requests before Lyr does
 // (a sign-in redirect, a 503) and still wants their route, as Astro's
 // middleware has context.routePattern. It follows site.Middleware's order:
 //
-//   - an island request (/_orbit/island/…, any method): RouteIsland, as
-//     Orbit fills it;
-//   - a GET or HEAD of a static file (/_orbit/* assets, public/):
-//     RouteFile, with the URL path as Pattern, as Orbit fills it;
+//   - an island request (/_lyr/island/…, any method): RouteIsland, as
+//     Lyr fills it;
+//   - a GET or HEAD of a static file (/_lyr/* assets, public/):
+//     RouteFile, with the URL path as Pattern, as Lyr fills it;
 //   - a page route: RoutePage, with the route's pattern, file and params;
 //   - anything else, the trailing-slash redirect's other form included:
 //     RouteNone (site.Middleware redirects it or passes it to next, which
@@ -171,10 +171,10 @@ func WithLocalsRoute[L any](field func(*L) *RouteInfo) Option {
 //
 // Match reads r.URL and r.Method only and changes nothing; it's safe to
 // call from any goroutine. Assign the result to your Locals' RouteInfo
-// field, l.Route = site.Match(r): when the request reaches Orbit, Orbit
-// matches it again and fills the field as usual, so a request Orbit serves
-// ends with Orbit's value. Match sees r as it is now: call it on the
-// request Orbit will get, after any path rewrite.
+// field, l.Route = site.Match(r): when the request reaches Lyr, Lyr
+// matches it again and fills the field as usual, so a request Lyr serves
+// ends with Lyr's value. Match sees r as it is now: call it on the
+// request Lyr will get, after any path rewrite.
 func (s *Site) Match(r *http.Request) RouteInfo {
 	var ri RouteInfo
 	switch d, rest := s.classify(nil, r); d {
@@ -191,7 +191,7 @@ func (s *Site) Match(r *http.Request) RouteInfo {
 		}
 		if len(cr.names) > len(ri.buf) {
 			// More values than the inline array: extract into the one
-			// slice RouteInfo keeps (one allocation, as Orbit's fill).
+			// slice RouteInfo keeps (one allocation, as Lyr's fill).
 			ri.setTo(RoutePage, cr.route.Pattern, cr.route.File, cr.names, nil)
 			ri.more = cr.extract(rem, make([]string, 0, len(cr.names)))
 			break
@@ -206,8 +206,8 @@ func (s *Site) Match(r *http.Request) RouteInfo {
 	return ri
 }
 
-// Island route values (RouteInfo of a /_orbit/island/ request).
-const islandPattern = "/_orbit/island/[buildID]/[id]"
+// Island route values (RouteInfo of a /_lyr/island/ request).
+const islandPattern = "/_lyr/island/[buildID]/[id]"
 
 var islandParamNames = []string{"buildID", "id"}
 

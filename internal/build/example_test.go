@@ -15,7 +15,7 @@ import (
 )
 
 // TestExampleBlog builds examples/blog the way a fresh clone does (no
-// orbit_gen/), runs its own tests, builds it with orbit build and checks
+// lyr_gen/), runs its own tests, builds it with lyr build and checks
 // the running dist/server against PLAN.md §13, then checks that the
 // --embed binary serves everything from an empty directory.
 func TestExampleBlog(t *testing.T) {
@@ -24,30 +24,30 @@ func TestExampleBlog(t *testing.T) {
 	dir := exampleBlog(t)
 
 	// Fresh clone: generate, then the plain go commands work.
-	if code, out := runOrbit(t, dir, "generate"); code != 0 {
-		t.Fatalf("orbit generate: exit %d\n%s", code, out)
+	if code, out := runLyr(t, dir, "generate"); code != 0 {
+		t.Fatalf("lyr generate: exit %d\n%s", code, out)
 	}
-	gen := readTree(t, filepath.Join(dir, "orbit_gen"))
+	gen := readTree(t, filepath.Join(dir, "lyr_gen"))
 	goRun(t, dir, "vet", "./...")
 	goRun(t, dir, "build", "./...")
-	// LikeButton's script reads its typed data (PLAN.md §5c): orbit check
+	// LikeButton's script reads its typed data (PLAN.md §5c): lyr check
 	// type-checks it against the generated module (or skips the TypeScript
 	// half without Bun, with a notice).
-	if !exists(filepath.Join(dir, "orbit_gen/types/src/components/LikeButton.orbit.d.ts")) {
-		t.Error("orbit generate wrote no client module for LikeButton")
+	if !exists(filepath.Join(dir, "lyr_gen/types/src/components/LikeButton.lyr.d.ts")) {
+		t.Error("lyr generate wrote no client module for LikeButton")
 	}
-	if code, out := runOrbit(t, dir, "check"); code != 0 {
-		t.Errorf("orbit check: exit %d\n%s", code, out)
+	if code, out := runLyr(t, dir, "check"); code != 0 {
+		t.Errorf("lyr check: exit %d\n%s", code, out)
 	}
-	// The example's own orbittest tests (internal/views_test).
+	// The example's own lyrtest tests (internal/views_test).
 	if out := goRun(t, dir, "test", "-count=1", "./..."); !strings.Contains(out, "ok  \texample.com/blog/internal/views_test") {
 		t.Errorf("go test ./... didn't run views_test:\n%s", out)
 	}
 
-	if code, out := runOrbit(t, dir, "build"); code != 0 || out != "" {
-		t.Fatalf("orbit build: exit %d\n%s", code, out)
+	if code, out := runLyr(t, dir, "build"); code != 0 || out != "" {
+		t.Fatalf("lyr build: exit %d\n%s", code, out)
 	}
-	for _, rel := range []string{"dist/server", "dist/client/_orbit", "dist/client/favicon.svg", "dist/client/robots.txt"} {
+	for _, rel := range []string{"dist/server", "dist/client/_lyr", "dist/client/favicon.svg", "dist/client/robots.txt"} {
 		if !exists(filepath.Join(dir, rel)) {
 			t.Errorf("no %s", rel)
 		}
@@ -55,11 +55,11 @@ func TestExampleBlog(t *testing.T) {
 	if html := htmlFiles(t, filepath.Join(dir, "dist")); len(html) > 0 {
 		t.Errorf("HTML files in dist/: %v", html)
 	}
-	// The build flavor (PLAN.md §3.5): orbit_gen/ unchanged, the same
+	// The build flavor (PLAN.md §3.5): lyr_gen/ unchanged, the same
 	// responses, and the example's tests pass on it too.
 	checkBuildFlavor(t, dir, gen, "impl/pages/blog/slug_param/render.go")
 	checkFlavors(t, dir, "example.com/blog", []string{"/", "/about", "/account", "/search?q=security", "/blog/hello", "/blog/safe-json", "/nope"})
-	if out := goRun(t, dir, "test", "-count=1", "-overlay=.orbit/build/overlay.json", "./..."); !strings.Contains(out, "ok  \texample.com/blog/internal/views_test") {
+	if out := goRun(t, dir, "test", "-count=1", "-overlay=.lyr/build/overlay.json", "./..."); !strings.Contains(out, "ok  \texample.com/blog/internal/views_test") {
 		t.Errorf("go test -overlay ./... didn't run views_test:\n%s", out)
 	}
 
@@ -79,8 +79,8 @@ func TestExampleBlog(t *testing.T) {
 	}
 
 	// Single binary: only dist/server, run from an empty directory.
-	if code, out := runOrbit(t, dir, "build", "--embed"); code != 0 || out != "" {
-		t.Fatalf("orbit build --embed: exit %d\n%s", code, out)
+	if code, out := runLyr(t, dir, "build", "--embed"); code != 0 || out != "" {
+		t.Fatalf("lyr build --embed: exit %d\n%s", code, out)
 	}
 	alone := t.TempDir()
 	bin, err := os.ReadFile(filepath.Join(dir, "dist/server"))
@@ -116,7 +116,7 @@ func exampleBlog(t *testing.T) string {
 	if err := os.CopyFS(dir, os.DirFS(src)); err != nil {
 		t.Fatal(err)
 	}
-	for _, rel := range []string{"orbit_gen", ".orbit", "dist"} {
+	for _, rel := range []string{"lyr_gen", ".lyr", "dist"} {
 		if err := os.RemoveAll(filepath.Join(dir, rel)); err != nil {
 			t.Fatal(err)
 		}
@@ -125,13 +125,13 @@ func exampleBlog(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const replace = "replace github.com/orbit-z/orbit => ../..\n"
-	for _, want := range []string{"module example.com/blog\n", "\ngo 1.27\n", "\ntoolchain go1.27.3\n", "\ntool github.com/orbit-z/orbit/cmd/orbit\n", replace} {
+	const replace = "replace github.com/orbit-z/lyr => ../..\n"
+	for _, want := range []string{"module example.com/blog\n", "\ngo 1.27\n", "\ntoolchain go1.27.3\n", "\ntool github.com/orbit-z/lyr/cmd/lyr\n", replace} {
 		if !strings.Contains(string(gomod), want) {
 			t.Fatalf("examples/blog/go.mod lacks %q:\n%s", want, gomod)
 		}
 	}
-	abs := strings.Replace(string(gomod), replace, "replace github.com/orbit-z/orbit => "+filepath.ToSlash(repoRoot)+"\n", 1)
+	abs := strings.Replace(string(gomod), replace, "replace github.com/orbit-z/lyr => "+filepath.ToSlash(repoRoot)+"\n", 1)
 	writeFile(t, dir, "go.mod", abs)
 	return dir
 }
@@ -151,13 +151,13 @@ func goRun(t *testing.T, dir string, args ...string) string {
 }
 
 var (
-	blogCSS    = regexp.MustCompile(`<link rel="stylesheet" href="(/_orbit/blog-slug-[A-Z0-9]{8}\.css)">`)
-	blogJS     = regexp.MustCompile(`<script type="module" src="(/_orbit/blog-slug-[A-Z0-9]{8}\.js)"></script>`)
-	preload    = regexp.MustCompile(`<link rel="modulepreload" href="(/_orbit/chunk-[A-Z0-9]{8}\.js)">`)
-	dynImport  = regexp.MustCompile(`import\("(/_orbit/suggestions-[A-Z0-9]{8}\.js)"\)`)
-	searchJS   = regexp.MustCompile(`<script type="module" src="(/_orbit/search-[A-Z0-9]{8}\.js)"></script>`)
-	blogIsland = regexp.MustCompile(`<orbit-island src="(/_orbit/island/[0-9a-f]{16}/Comments-[0-9a-f]{8})" props="([A-Za-z0-9_-]+)"><p class="loading"[^>]*>Loading comments…</p></orbit-island>`)
-	blogLazy   = regexp.MustCompile(`"lazy":\{"(ShareButtons-[0-9a-f]{8})":\["(/_orbit/ShareButtons-[A-Z0-9]{8}\.js)"\]\}`)
+	blogCSS    = regexp.MustCompile(`<link rel="stylesheet" href="(/_lyr/blog-slug-[A-Z0-9]{8}\.css)">`)
+	blogJS     = regexp.MustCompile(`<script type="module" src="(/_lyr/blog-slug-[A-Z0-9]{8}\.js)"></script>`)
+	preload    = regexp.MustCompile(`<link rel="modulepreload" href="(/_lyr/chunk-[A-Z0-9]{8}\.js)">`)
+	dynImport  = regexp.MustCompile(`import\("(/_lyr/suggestions-[A-Z0-9]{8}\.js)"\)`)
+	searchJS   = regexp.MustCompile(`<script type="module" src="(/_lyr/search-[A-Z0-9]{8}\.js)"></script>`)
+	blogIsland = regexp.MustCompile(`<lyr-island src="(/_lyr/island/[0-9a-f]{16}/Comments-[0-9a-f]{8})" props="([A-Za-z0-9_-]+)"><p class="loading"[^>]*>Loading comments…</p></lyr-island>`)
+	blogLazy   = regexp.MustCompile(`"lazy":\{"(ShareButtons-[0-9a-f]{8})":\["(/_lyr/ShareButtons-[A-Z0-9]{8}\.js)"\]\}`)
 	titlesJSON = regexp.MustCompile(`<script type="application/json" id="post-titles-data">(.*?)</script>`)
 )
 
@@ -172,11 +172,11 @@ func checkBlogPages(t *testing.T, s *server) {
 		location string
 	}{
 		{path: "/", status: 200, body: []string{
-			"<title>Posts · Orbit blog</title>",
+			"<title>Posts · Lyr blog</title>",
 			`href="/blog/hello"`,
 			"Why &lt;/script&gt; can&#39;t break your JSON",
 			// Left untouched: a script with attributes isn't processed.
-			`<script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","name":"Orbit blog"}</script>`,
+			`<script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","name":"Lyr blog"}</script>`,
 		}},
 		{path: "/search?q=go", status: 200, body: []string{`value="go"`, ">go</strong>", `href="/blog/go-templates"`}},
 		{path: "/search", status: 200, body: []string{"Type something to search."}},
@@ -239,7 +239,7 @@ func checkBlogPages(t *testing.T, s *server) {
 	resp, account := s.do("GET", "/account", "theme=dark")
 	id := resp.Header.Get("X-Request-Id")
 	if resp.StatusCode != 200 || id == "" || !strings.Contains(account, `data-theme="dark"`) ||
-		!strings.Contains(account, ">dark</strong>") || !strings.Contains(account, "<code data-o-") || !strings.Contains(account, ">"+id+"</code>") {
+		!strings.Contains(account, ">dark</strong>") || !strings.Contains(account, "<code data-l-") || !strings.Contains(account, ">"+id+"</code>") {
 		t.Errorf("GET /account with theme=dark: %d, X-Request-ID %q\n%s", resp.StatusCode, id, account)
 	}
 	if _, light := s.get("/account"); !strings.Contains(light, ">light</strong>") {
@@ -247,7 +247,7 @@ func checkBlogPages(t *testing.T, s *server) {
 	}
 }
 
-var aboutCSS = regexp.MustCompile(`<link rel="stylesheet" href="(/_orbit/about-[A-Z0-9]{8}\.css)">`)
+var aboutCSS = regexp.MustCompile(`<link rel="stylesheet" href="(/_lyr/about-[A-Z0-9]{8}\.css)">`)
 
 // checkBlogMarkdown checks the Markdown page /about (PLAN.md §2.4): its
 // layout and frontmatter props, heading IDs, highlighted code and the
@@ -258,11 +258,11 @@ func checkBlogMarkdown(t *testing.T, s *server) {
 	resp, about := s.get("/about")
 	for _, want := range []string{
 		"<!DOCTYPE html>",
-		"<title>About this blog · Orbit blog</title>",
+		"<title>About this blog · Lyr blog</title>",
 		`<h2 id="how-its-built">How it&rsquo;s built</h2>`,
 		`<pre class="chroma" tabindex="0" data-language="go"><code><span class="nx">all</span><span class="p">,</span>`,
 		`<a href="#colophon">colophon</a>`,
-		"Rendered by Orbit, request <code",
+		"Rendered by Lyr, request <code",
 	} {
 		if resp.StatusCode != 200 || !strings.Contains(about, want) {
 			t.Fatalf("GET /about: %d, no %q in:\n%s", resp.StatusCode, want, about)
@@ -280,8 +280,8 @@ func checkBlogMarkdown(t *testing.T, s *server) {
 	for _, want := range []string{
 		`<p class="tagline"`,
 		">Notes on Go, templates and the web</p>",
-		`<div class="intro" data-o-`,
-		`<p>Short posts about building <strong>Orbit</strong>`,
+		`<div class="intro" data-l-`,
+		`<p>Short posts about building <strong>Lyr</strong>`,
 		`<a href="/about#how-its-built">about this blog</a>`,
 	} {
 		if !strings.Contains(index, want) {
@@ -295,16 +295,16 @@ func checkBlogMarkdown(t *testing.T, s *server) {
 
 // checkBlogPost checks /blog/hello: its assets, the lazy ShareButtons, the
 // deferred Comments island and its endpoint.
-// likeAttr is LikeButton's orbit.JSON attribute.
+// likeAttr is LikeButton's lyr.JSON attribute.
 var likeAttr = regexp.MustCompile(`<like-button data-like='([^']*)'`)
 
 func checkBlogPost(t *testing.T, s *server) {
 	t.Helper()
 	resp, post := s.get("/blog/hello")
-	if resp.StatusCode != 200 || !strings.Contains(post, ">Hello, Orbit</h1>") || !strings.Contains(post, `<like-button data-like='{"slug":"hello","likes":`) {
+	if resp.StatusCode != 200 || !strings.Contains(post, ">Hello, Lyr</h1>") || !strings.Contains(post, `<like-button data-like='{"slug":"hello","likes":`) {
 		t.Fatalf("GET /blog/hello: %d\n%s", resp.StatusCode, post)
 	}
-	// The orbit.JSON attribute parses as JSON.
+	// The lyr.JSON attribute parses as JSON.
 	if m := likeAttr.FindStringSubmatch(post); m == nil || json.Unmarshal([]byte(html.UnescapeString(m[1])), new(struct {
 		Slug  string `json:"slug"`
 		Likes int    `json:"likes"`
@@ -327,7 +327,7 @@ func checkBlogPost(t *testing.T, s *server) {
 			t.Errorf("GET %s/: %d, want 404 (no redirect)", url, resp.StatusCode)
 		}
 	}
-	if _, b := s.get(css[1]); !strings.Contains(b, "[data-o-") {
+	if _, b := s.get(css[1]); !strings.Contains(b, "[data-l-") {
 		t.Errorf("GET %s: no scoped selectors:\n%s", css[1], b)
 	}
 	// LikeButton's script, its types stripped, importing util.ts's chunk.
@@ -342,7 +342,7 @@ func checkBlogPost(t *testing.T, s *server) {
 
 	// ShareButtons is lazy: in its own entry, not in the page module.
 	lazy := blogLazy.FindStringSubmatch(post)
-	if lazy == nil || !strings.Contains(post, `<orbit-lazy component="`+lazy[1]+`" client="visible" opts="200px"><share-buttons`) {
+	if lazy == nil || !strings.Contains(post, `<lyr-lazy component="`+lazy[1]+`" client="visible" opts="200px"><share-buttons`) {
 		t.Errorf("GET /blog/hello: no lazy ShareButtons:\n%s", post)
 	} else {
 		// It imports util.ts's chunk, shared with the page module, instead
@@ -359,7 +359,7 @@ func checkBlogPost(t *testing.T, s *server) {
 	// Comments are deferred: the page holds the fallback and doesn't wait
 	// for their slow query (posts.CommentDelay, 200 ms).
 	m := blogIsland.FindStringSubmatch(post)
-	if m == nil || !strings.Contains(post, "<style>orbit-island,orbit-lazy{display:contents}</style>") {
+	if m == nil || !strings.Contains(post, "<style>lyr-island,lyr-lazy{display:contents}</style>") {
 		t.Fatalf("GET /blog/hello: no island placeholder with its fallback, or no loader style:\n%s", post)
 	}
 	fastest := time.Hour
@@ -388,7 +388,7 @@ func checkBlogPost(t *testing.T, s *server) {
 	// CommentThread renders itself three levels deep, and the spammer's
 	// javascript: URL is filtered.
 	if n := strings.Count(island, `<ul class="thread"`); n != 3 || !strings.Contains(island, "Which is why they&#39;re deferred.") ||
-		!strings.Contains(island, `<a href="about:invalid#orbit" rel="nofollow ugc"`) ||
+		!strings.Contains(island, `<a href="about:invalid#lyr" rel="nofollow ugc"`) ||
 		strings.Contains(island, "<link") || strings.Contains(island, "<script") || strings.Contains(island, "<!DOCTYPE") {
 		t.Errorf("island: %d nested threads, want 3:\n%s", n, island)
 	}

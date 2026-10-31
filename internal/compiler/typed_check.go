@@ -24,9 +24,9 @@ import (
 	"sync/atomic"
 )
 
-// tyUnit is the checker's state for one .orbit file.
+// tyUnit is the checker's state for one .lyr file.
 type tyUnit struct {
-	path string // project-relative .orbit path
+	path string // project-relative .lyr path
 	unit Unit
 	// declPath and implPath are the import paths of its packages.
 	declPath, implPath string
@@ -65,12 +65,12 @@ type tyState struct {
 	envOnce  sync.Once
 	env      *tyEnv
 	module   string
-	units    map[string]*tyUnit // by .orbit path
+	units    map[string]*tyUnit // by .lyr path
 	// genFiles maps the import path of each unit's decl and impl package
-	// to its .orbit path (TS namespaces, nsOf); set before each check.
+	// to its .lyr path (TS namespaces, nsOf); set before each check.
 	genFiles map[string]string
 	// genSources maps each unit's generated file names (as parsed into
-	// fset) to its .orbit path and pass-1 source map (sourceOf); set with
+	// fset) to its .lyr path and pass-1 source map (sourceOf); set with
 	// genFiles.
 	genSources map[string]tyGenSource
 	decls      map[string]*tyDecl // by decl import path
@@ -103,7 +103,7 @@ func (x *tyExtImporter) warnings() []string {
 	defer x.mu.Unlock()
 	var w []string
 	for p, e := range x.failed {
-		w = append(w, fmt.Sprintf("orbit: can't read export data for %s: %s; using Expr fallbacks", p, firstLine(e)))
+		w = append(w, fmt.Sprintf("lyr: can't read export data for %s: %s; using Expr fallbacks", p, firstLine(e)))
 	}
 	sort.Strings(w)
 	return w
@@ -150,7 +150,7 @@ func (si tySrcImporter) Import(path string) (*types.Package, error) {
 	return d.pkg, nil
 }
 
-// isGenPath reports whether path is under the module's orbit_gen/.
+// isGenPath reports whether path is under the module's lyr_gen/.
 func isGenPath(path string, s *tyState) bool {
 	return s.module != "" && strings.HasPrefix(path, s.module+"/"+GenDir+"/")
 }
@@ -159,14 +159,14 @@ func newTyState() *tyState {
 	return &tyState{fset: gotoken.NewFileSet(), units: map[string]*tyUnit{}, decls: map[string]*tyDecl{}}
 }
 
-// unitPath is the key of a unit: its .orbit path.
+// unitPath is the key of a unit: its .lyr path.
 func unitPath(u Unit) string {
 	if u.Input != nil && u.Input.Analysis != nil && u.Input.Analysis.Info.Path != "" {
 		return u.Input.Analysis.Info.Path
 	}
 	if u.Pass1 != nil && u.Pass1.Impl != nil {
-		if u.Pass1.Impl.Map != nil && u.Pass1.Impl.Map.Orbit != "" {
-			return u.Pass1.Impl.Map.Orbit
+		if u.Pass1.Impl.Map != nil && u.Pass1.Impl.Map.Lyr != "" {
+			return u.Pass1.Impl.Map.Lyr
 		}
 		return u.Pass1.Impl.Path
 	}
@@ -259,7 +259,7 @@ func (s *tyState) load(ctx context.Context, loader ExportLoader, pre *tyPreload)
 	}
 	if err != nil {
 		s.imp = &tyExtImporter{imp: failImporter{err}, failed: map[string]string{}}
-		s.loadWarn = fmt.Sprintf("orbit: can't load export data: %s; using Expr fallbacks", firstLine(err.Error()))
+		s.loadWarn = fmt.Sprintf("lyr: can't load export data: %s; using Expr fallbacks", firstLine(err.Error()))
 		return
 	}
 	s.imp = &tyExtImporter{imp: imp, failed: map[string]string{}}
@@ -548,7 +548,7 @@ func (s *tyState) checkUnit(u *tyUnit, generate func(*Input) *Output) TypedUnit 
 	s.stats.impl.Add(1)
 	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}}
 	if mayCallIf(u.unit.Pass1.CallSites) {
-		info.Uses = map[*ast.Ident]types.Object{} // to identify orbit.If (PLAN.md §2.6)
+		info.Uses = map[*ast.Ident]types.Object{} // to identify lyr.If (PLAN.md §2.6)
 	}
 	var n int
 	conf := types.Config{Importer: si, Error: func(error) { n++ }}
@@ -618,9 +618,9 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 			return true
 		}
 		if site.Kind == SiteHTML {
-			// set:html (PLAN.md §2.6): an Opt[orbit.HTML] is lowered, a
-			// value assignable to orbit.HTML (untyped constants included)
-			// is written with HTML; anything else is Orbit's error here,
+			// set:html (PLAN.md §2.6): an Opt[lyr.HTML] is lowered, a
+			// value assignable to lyr.HTML (untyped constants included)
+			// is written with HTML; anything else is Lyr's error here,
 			// and the site keeps SetHTML (it takes any type), so Go
 			// doesn't report it again. Untyped nil stays Go's error.
 			w := TypedWrite{Kind: WriteHTML}
@@ -655,7 +655,7 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 			if w, ok := env.lowerIf(sm, call.Args[len(call.Args)-1], site, info); ok {
 				writes[site.Key] = w
 				if w.If.Const && isSecuritySite(site) {
-					// orbit.If(c, "constant"): trusted like the constant.
+					// lyr.If(c, "constant"): trusted like the constant.
 					if trusted == nil {
 						trusted = map[int]bool{}
 					}
@@ -763,14 +763,14 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 
 // isSecuritySite reports whether site is a candidate for the style and on*
 // warnings (PLAN.md §2.3, §2.7): name={expr} or {name} on an HTML element,
-// or passed through an orbit.RestAttrs field.
+// or passed through a lyr.RestAttrs field.
 func isSecuritySite(site *CallSite) bool {
 	return (site.Kind == SiteAttr || site.Kind == SiteRest || site.Kind == SiteLit) && SecurityWarning(site.AttrName) != ""
 }
 
 // trustedSite reports whether the value tv of a style or on* attribute
 // gets no warning: a constant ("display: none", a const, "a" + "b"), or on
-// style an orbit.CSS (the exact type, after types.Unalias).
+// style a lyr.CSS (the exact type, after types.Unalias).
 func (e *tyEnv) trustedSite(name string, tv types.TypeAndValue) bool {
 	if tv.Value != nil {
 		return true
@@ -780,7 +780,7 @@ func (e *tyEnv) trustedSite(name string, tv types.TypeAndValue) bool {
 	}
 	t := types.Unalias(tv.Type)
 	if et, ok := optElem(t); ok {
-		t = types.Unalias(et) // an Opt[orbit.CSS] writes an orbit.CSS
+		t = types.Unalias(et) // an Opt[lyr.CSS] writes a lyr.CSS
 	}
 	return identical(t, e.css)
 }
@@ -868,7 +868,7 @@ func (s *tyState) parseAll(units []Unit) []*tyUnit {
 func (c *Checker) update(ctx context.Context, changed []Unit, removed []string) (*CheckResult, error) {
 	s := c.state
 	if s == nil {
-		return nil, errors.New("orbit: Checker.Update called before Check")
+		return nil, errors.New("lyr: Checker.Update called before Check")
 	}
 	// Decl packages whose content changed (or that were added or removed).
 	dirty := map[string]bool{}

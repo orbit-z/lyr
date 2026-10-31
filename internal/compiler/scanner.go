@@ -1,4 +1,4 @@
-// Package compiler turns .orbit files into Go code.
+// Package compiler turns .lyr files into Go code.
 package compiler
 
 import "strings"

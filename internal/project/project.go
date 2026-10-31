@@ -1,14 +1,14 @@
 // Package project is the layer around the single-file compiler (milestone
-// 5): it loads orbit.json and go.mod, discovers the .orbit files, derives
+// 5): it loads lyr.json and go.mod, discovers the .lyr files, derives
 // page routes, runs the project-level checks and the two-pass compiler
-// pipeline over every file, generates the extra packages (orbit_gen/app,
-// orbit_gen/manifest, the default server entry) and writes orbit_gen/.
+// pipeline over every file, generates the extra packages (lyr_gen/app,
+// lyr_gen/manifest, the default server entry) and writes lyr_gen/.
 //
-// The stages are separate so orbit dev can keep a resident
+// The stages are separate so lyr dev can keep a resident
 // compiler.Checker and re-run only what an edit affects (PLAN.md §3.3 Dev):
 // Load (config, discovery, sources), Front (parse, analyze, index, checks,
 // pass 1), Typecheck (go list -export, go/types, pass 2), GenFiles and
-// WriteGenerated. Generator.Run chains them for orbit generate and orbit
+// WriteGenerated. Generator.Run chains them for lyr generate and lyr
 // build.
 package project
 
@@ -22,14 +22,14 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/orbit-z/orbit/internal/assets"
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/config"
-	"github.com/orbit-z/orbit/internal/markdown"
-	"github.com/orbit-z/orbit/internal/tsconfig"
+	"github.com/orbit-z/lyr/internal/assets"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/config"
+	"github.com/orbit-z/lyr/internal/markdown"
+	"github.com/orbit-z/lyr/internal/tsconfig"
 )
 
-// Project is a loaded Orbit project.
+// Project is a loaded Lyr project.
 type Project struct {
 	// Root is the absolute module root (the directory with go.mod).
 	Root   string
@@ -37,12 +37,12 @@ type Project struct {
 	Config *config.Config
 	// ServerEntry is the server entry package ("./cmd/server"), and
 	// GeneratedServer is true when it is the generated default
-	// (orbit_gen/cmd/server, PLAN.md §5b).
+	// (lyr_gen/cmd/server, PLAN.md §5b).
 	ServerEntry     string
 	GeneratedServer bool
 	// Options are the codegen options for every file.
 	Options compiler.Options
-	// Files are the .orbit files, sorted by path.
+	// Files are the .lyr files, sorted by path.
 	Files []*File
 	// Index is the component index built from every file.
 	Index compiler.ComponentIndex
@@ -55,9 +55,9 @@ type Project struct {
 	// localsDiags are the problems with src/locals found by Load; Front
 	// reports them.
 	localsDiags []Diagnostic
-	// localsFields are the names of Locals' orbit.RouteInfo and orbit.Cache
-	// fields, or "": app.New() then passes orbit.WithLocalsRoute (PLAN.md
-	// §4g) and orbit.WithLocalsCache (§4h).
+	// localsFields are the names of Locals' lyr.RouteInfo and lyr.Cache
+	// fields, or "": app.New() then passes lyr.WithLocalsRoute (PLAN.md
+	// §4g) and lyr.WithLocalsCache (§4h).
 	localsFields localsFields
 	// markdown holds the source of every Markdown file under src/, by path,
 	// and mdPaths their sorted paths (set by Load). Front compiles the
@@ -71,10 +71,10 @@ type Project struct {
 	aliases *tsconfig.Aliases
 }
 
-// File is one .orbit or Markdown file of the project, through the
+// File is one .lyr or Markdown file of the project, through the
 // pipeline.
 type File struct {
-	// Path is project-relative, "/"-separated: "src/components/Card.orbit".
+	// Path is project-relative, "/"-separated: "src/components/Card.lyr".
 	Path string
 	// MD is the parsed Markdown file, for a Markdown file (set by Front);
 	// AST and Analysis are then stand-ins (an empty template, the layout as the
@@ -103,10 +103,10 @@ type File struct {
 	callsDone bool
 }
 
-// Load reads the project at root: orbit.json, the module path from go.mod,
-// the server entry, the typed locals (src/locals, PLAN.md §5b), and every .orbit file's source. It returns an error for
-// problems that stop everything (no go.mod, an invalid orbit.json, no src/
-// directory, unreadable files); problems in .orbit files are diagnostics,
+// Load reads the project at root: lyr.json, the module path from go.mod,
+// the server entry, the typed locals (src/locals, PLAN.md §5b), and every .lyr file's source. It returns an error for
+// problems that stop everything (no go.mod, an invalid lyr.json, no src/
+// directory, unreadable files); problems in .lyr files are diagnostics,
 // reported by Front.
 func Load(root string) (*Project, error) {
 	root, err := filepath.Abs(root)
@@ -161,9 +161,9 @@ func Load(root string) (*Project, error) {
 	return p, nil
 }
 
-// NewFile returns the File for the .orbit file at the project-relative path
+// NewFile returns the File for the .lyr file at the project-relative path
 // with source src, not yet through Front. The error is for a path that isn't
-// a clean .orbit path under src/.
+// a clean .lyr path under src/.
 func NewFile(path, src string) (*File, error) {
 	role, route := RouteFor(path)
 	f := &File{Path: path, Info: compiler.FileInfo{Path: path, Role: role, Route: route}, Src: src}
@@ -181,12 +181,12 @@ func NewFile(path, src string) (*File, error) {
 // p.Diagnostics, and reports whether there are errors.
 func (p *Project) Front() bool { return p.front(nil) }
 
-// front is Front. parsed, when set, is called once every .orbit file is
+// front is Front. parsed, when set, is called once every .lyr file is
 // parsed and analyzed, before pass 1: Generator starts go list -export
 // there, from the files' Go imports (PLAN.md §3.3 Engine).
 func (p *Project) front(parsed func()) bool {
 	// The Markdown Files of an earlier Front are rebuilt: which ones are
-	// compiled depends on the .orbit imports.
+	// compiled depends on the .lyr imports.
 	p.Files = slices.DeleteFunc(slices.Clone(p.Files), (*File).IsMD)
 	// Files are independent until the index, and the index is read-only
 	// during pass 1, so both loops run in parallel.
@@ -208,7 +208,7 @@ func (p *Project) front(parsed func()) bool {
 	return HasErrors(p.Diagnostics)
 }
 
-// parse parses and analyzes the .orbit file f.
+// parse parses and analyzes the .lyr file f.
 func (p *Project) parse(f *File) {
 	f.AST = compiler.Parse(f.Src, p.Options.Mode)
 	p.analyze(f)
@@ -274,7 +274,7 @@ func (p *Project) Refresh(paths []string) []*File {
 		regen[f.Path] = true
 		// A new import of a Markdown file that isn't compiled yet: only
 		// Front adds files.
-		for _, im := range f.Analysis.OrbitImports {
+		for _, im := range f.Analysis.LyrImports {
 			if _, ok := p.markdown[im.Resolved]; ok && byPath[im.Resolved] == nil {
 				p.Front()
 				return slices.Clone(p.Files)
@@ -283,7 +283,7 @@ func (p *Project) Refresh(paths []string) []*File {
 	}
 	if len(changed) > 0 {
 		for _, f := range p.Files {
-			for _, im := range f.Analysis.OrbitImports {
+			for _, im := range f.Analysis.LyrImports {
 				if changed[im.Resolved] {
 					regen[f.Path] = true
 				}
@@ -368,7 +368,7 @@ func (p *Project) CleanGoOutput(out []byte) []byte {
 // Clone returns a copy of p whose Files are new Files with the same paths
 // and sources, not yet through Front, generated in mode. The language
 // server uses it to compute, from its current buffers, the typed output
-// orbit generate would write (PLAN.md §9 Startup step 2) without touching
+// lyr generate would write (PLAN.md §9 Startup step 2) without touching
 // its own tolerant project.
 func (p *Project) Clone(mode compiler.Mode) *Project {
 	c := *p

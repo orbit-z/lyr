@@ -1,2 +1,2 @@
 -- errors --
-err_unclosed_tag.orbit:3:1: unexpected </div>: <p> opened at 2:3 isn't closed
+err_unclosed_tag.lyr:3:1: unexpected </div>: <p> opened at 2:3 isn't closed

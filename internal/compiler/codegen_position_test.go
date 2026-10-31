@@ -18,8 +18,8 @@ import (
 // that isn't an error), a redeclared helper (a related position), a type
 // error naming another component's Props, and an unknown prop with the pre-check skipped
 // (an embedded Props). go build and go vet must both report each at its
-// .orbit L:C, and CleanGoOutput must turn both into the same
-// src/…orbit:L:C: msg lines in the user's names (testdata/positions/
+// .lyr L:C, and CleanGoOutput must turn both into the same
+// src/…lyr:L:C: msg lines in the user's names (testdata/positions/
 // cleaned.golden).
 func TestLineDirectivePositions(t *testing.T) {
 	const dir = "testdata/positions"
@@ -27,12 +27,12 @@ func TestLineDirectivePositions(t *testing.T) {
 	m := newGenModule(t)
 	p := plPipeline(t, m, plReadCase(t, c), c.opts)
 	if d := p.diagnostics(); len(d) > 0 {
-		t.Fatalf("unexpected Orbit diagnostics:\n%s", strings.Join(d, "\n"))
+		t.Fatalf("unexpected Lyr diagnostics:\n%s", strings.Join(d, "\n"))
 	}
 	var analyses []*Analysis
 	for _, pf := range p.files {
 		analyses = append(analyses, pf.a)
-		if want := pf.path == "src/components/Emb.orbit"; pf.typed.Checked != want {
+		if want := pf.path == "src/components/Emb.lyr"; pf.typed.Checked != want {
 			t.Errorf("%s: checked = %v, want %v", pf.path, pf.typed.Checked, want)
 		}
 	}
@@ -41,30 +41,30 @@ func TestLineDirectivePositions(t *testing.T) {
 		file, marker string // the error is at the start of marker's first occurrence
 		msg          string // the cleaned message
 	}{
-		{"src/components/E1.orbit", `"x"`, `cannot use "x" (untyped string constant) as int value in argument to strconv.Itoa`},
-		{"src/components/E2.orbit", `"n"`, `cannot use "n" (untyped string constant) as int value in argument to strconv.Itoa`},
-		{"src/components/E3.orbit", "intt", "undefined: intt"},
-		{"src/components/E4.orbit", "titel", "undefined: titel"},
-		{"src/components/E5.orbit", "Dpth", "props.Dpth undefined (type Props has no field or method Dpth)"},
-		{"src/components/E6.orbit", "dup() int { return 2", "dup redeclared in this block"},
-		{"src/components/E7.orbit", `"r"`, `cannot use "r" (untyped string constant) as int value in argument to strconv.Itoa`},
-		{"src/components/E8.orbit", `"oops"`, `cannot use "oops" (constant of type string) as error value in return statement: string does not implement error (missing method Error)`},
-		{"src/components/E9.orbit", "stauts", "undefined: stauts"},
-		{"src/components/E10.orbit", `"a"}<p>b`, `duplicate case "a" (constant of type string) in expression switch`},
-		{"src/components/E12.orbit", `n}>x`, "non-boolean condition in if statement"},
-		{"src/components/E13.orbit", "N>x", "cannot use N (variable of type int) as string value in argument to orbit__w.TagOpen"},
-		{"src/components/E11.orbit", `n} depth`, "cannot use n (variable of type int) as bool value in class:list condition"},
-		{"src/components/E14.orbit", `"x"`, `cannot use "x" (untyped string constant) as int value in optional prop value`},
+		{"src/components/E1.lyr", `"x"`, `cannot use "x" (untyped string constant) as int value in argument to strconv.Itoa`},
+		{"src/components/E2.lyr", `"n"`, `cannot use "n" (untyped string constant) as int value in argument to strconv.Itoa`},
+		{"src/components/E3.lyr", "intt", "undefined: intt"},
+		{"src/components/E4.lyr", "titel", "undefined: titel"},
+		{"src/components/E5.lyr", "Dpth", "props.Dpth undefined (type Props has no field or method Dpth)"},
+		{"src/components/E6.lyr", "dup() int { return 2", "dup redeclared in this block"},
+		{"src/components/E7.lyr", `"r"`, `cannot use "r" (untyped string constant) as int value in argument to strconv.Itoa`},
+		{"src/components/E8.lyr", `"oops"`, `cannot use "oops" (constant of type string) as error value in return statement: string does not implement error (missing method Error)`},
+		{"src/components/E9.lyr", "stauts", "undefined: stauts"},
+		{"src/components/E10.lyr", `"a"}<p>b`, `duplicate case "a" (constant of type string) in expression switch`},
+		{"src/components/E12.lyr", `n}>x`, "non-boolean condition in if statement"},
+		{"src/components/E13.lyr", "N>x", "cannot use N (variable of type int) as string value in argument to lyr__w.TagOpen"},
+		{"src/components/E11.lyr", `n} depth`, "cannot use n (variable of type int) as bool value in class:list condition"},
+		{"src/components/E14.lyr", `"x"`, `cannot use "x" (untyped string constant) as int value in optional prop value`},
 		// Template literals (PLAN.md §2.10): a piece on the first and a
 		// later line of a multi-line literal, in a nested literal, and a
 		// literal's value.
-		{"src/components/E15.orbit", "undefA", "undefined: undefA"},
-		{"src/components/E17.orbit", "undefB", "undefined: undefB"},
-		{"src/components/E18.orbit", "undefC", "undefined: undefC"},
-		{"src/components/E19.orbit", "undefD", "undefined: undefD"},
-		{"src/components/E16.orbit", "`a${n}`", "invalid operation: n == template literal (mismatched types int and string)"},
-		{"src/pages/alias.orbit", "Emb.Props{}", "cannot use Emb.Props{} (value of struct type Emb.Props) as int value in variable declaration"},
-		{"src/pages/index.orbit", "nmae", "unknown field Nmae in struct literal of type Emb.Props"},
+		{"src/components/E15.lyr", "undefA", "undefined: undefA"},
+		{"src/components/E17.lyr", "undefB", "undefined: undefB"},
+		{"src/components/E18.lyr", "undefC", "undefined: undefC"},
+		{"src/components/E19.lyr", "undefD", "undefined: undefD"},
+		{"src/components/E16.lyr", "`a${n}`", "invalid operation: n == template literal (mismatched types int and string)"},
+		{"src/pages/alias.lyr", "Emb.Props{}", "cannot use Emb.Props{} (value of struct type Emb.Props) as int value in variable declaration"},
+		{"src/pages/index.lyr", "nmae", "unknown field Nmae in struct literal of type Emb.Props"},
 	}
 	build, vet := m.buildErrors()
 	t.Logf("go build:\n%s\ngo vet:\n%s", build, vet)
@@ -92,12 +92,12 @@ func TestLineDirectivePositions(t *testing.T) {
 	}
 	// The related position of the redeclaration (go build only: vet's
 	// type check prints just the first line), cleaned.
-	if !hasLine(cleaned["build"], "\tsrc/components/E6.orbit:2:6: other declaration of dup") {
+	if !hasLine(cleaned["build"], "\tsrc/components/E6.lyr:2:6: other declaration of dup") {
 		t.Errorf("cleaned go build lacks the other declaration\n%s", cleaned["build"])
 	}
 	// No error may point into a generated file, raw or cleaned; cleaned
 	// output has no ./, [gen…] or generated package names left.
-	gen := regexp.MustCompile(`(?m)^[^\s]*orbit_gen/[^\s]*\.go:\d+`)
+	gen := regexp.MustCompile(`(?m)^[^\s]*lyr_gen/[^\s]*\.go:\d+`)
 	for name, out := range map[string]string{"build": build, "vet": vet} {
 		if l := gen.FindString(out); l != "" {
 			t.Errorf("go %s reports a generated position: %s\n%s", name, l, out)

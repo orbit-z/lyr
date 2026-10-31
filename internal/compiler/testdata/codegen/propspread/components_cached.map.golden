@@ -1,13 +1,13 @@
-orbit_gen/decl/components/cached/decl.go (src/components/Cached.orbit)
-  exact 2:8 "\"example.com/blog/internal/cards\"" -> 156-189 "\"example.com/blog/internal/cards\""
-  exact 4:1 "type Props struct {\n\tcards.Options\n\tSlug, Version string\n}" -> 264-322 "type Props struct {\n\tcards.Options\n\tSlug, Version string\n}"
-orbit_gen/impl/components/cached/render.go (src/components/Cached.orbit)
-  exact 9:15 "props.Slug" -> 689-699 "props.Slug"
-  exact 9:35 "props.Version" -> 806-819 "props.Version"
-  exact 9:64 "props.Credits" -> 932-945 "props.Credits"
-  exact 9:91 "props.Lines" -> 1056-1067 "props.Lines"
+lyr_gen/decl/components/cached/decl.go (src/components/Cached.lyr)
+  exact 2:8 "\"example.com/blog/internal/cards\"" -> 148-181 "\"example.com/blog/internal/cards\""
+  exact 4:1 "type Props struct {\n\tcards.Options\n\tSlug, Version string\n}" -> 254-312 "type Props struct {\n\tcards.Options\n\tSlug, Version string\n}"
+lyr_gen/impl/components/cached/render.go (src/components/Cached.lyr)
+  exact 9:15 "props.Slug" -> 637-647 "props.Slug"
+  exact 9:35 "props.Version" -> 750-763 "props.Version"
+  exact 9:64 "props.Credits" -> 872-885 "props.Credits"
+  exact 9:91 "props.Lines" -> 992-1003 "props.Lines"
 call sites
-  attr data-slug key=123 "props.Slug" call="orbit__w.Attr(\"data-slug\",\n/*line ../../../../src/components/Cached.orbit:9:15*/props.Slug/*line render.go:21:88*/,\n\t)"
-  attr data-v key=143 "props.Version" call="orbit__w.Attr(\"data-v\",\n/*line ../../../../src/components/Cached.orbit:9:35*/props.Version/*line render.go:24:91*/,\n\t)"
-  attr data-credits key=172 "props.Credits" call="orbit__w.Attr(\"data-credits\",\n/*line ../../../../src/components/Cached.orbit:9:64*/props.Credits/*line render.go:27:91*/,\n\t)"
-  attr data-lines key=199 "props.Lines" call="orbit__w.Attr(\"data-lines\",\n/*line ../../../../src/components/Cached.orbit:9:91*/props.Lines/*line render.go:30:89*/,\n\t)"
+  attr data-slug key=123 "props.Slug" call="lyr__w.Attr(\"data-slug\",\n/*line ../../../../src/components/Cached.lyr:9:15*/props.Slug/*line render.go:21:86*/,\n\t)"
+  attr data-v key=143 "props.Version" call="lyr__w.Attr(\"data-v\",\n/*line ../../../../src/components/Cached.lyr:9:35*/props.Version/*line render.go:24:89*/,\n\t)"
+  attr data-credits key=172 "props.Credits" call="lyr__w.Attr(\"data-credits\",\n/*line ../../../../src/components/Cached.lyr:9:64*/props.Credits/*line render.go:27:89*/,\n\t)"
+  attr data-lines key=199 "props.Lines" call="lyr__w.Attr(\"data-lines\",\n/*line ../../../../src/components/Cached.lyr:9:91*/props.Lines/*line render.go:30:87*/,\n\t)"

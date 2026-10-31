@@ -1,0 +1,41 @@
+---
+import (
+	"fmt"
+	"strings"
+)
+
+type Props struct {
+	On, Off bool
+	Rel     string
+	N       int
+	F       float64
+	Link    string
+}
+
+type Flag bool
+type Slug string
+
+var order []string
+note := func(s string, v bool) bool { order = append(order, s); return v }
+val := func(s string) string { order = append(order, s); return s }
+var anyv any = 7
+data := map[string]int{"a": 1}
+---
+<a aria-current={lyr.If(props.On, "page")} rel={lyr.If(props.On, props.Rel)} data-off={lyr.If(props.Off, "x<")}>a</a>
+<a tabindex={lyr.If(props.On, -1)} data-n={lyr.If(props.On, props.N)} data-f={lyr.If(props.On, props.F)} data-r={lyr.If(props.On, 'r')}>n</a>
+<a href={lyr.If(props.On, " JavaScript:alert(1)")} src={lyr.If(props.On, props.Link)} action={lyr.If(props.On, lyr.URL("javascript:ok()"))}>u</a>
+<a data-json={lyr.If(props.On, lyr.JSON(data))} data-any={lyr.If(props.On, anyv)} data-slug={lyr.If(props.On, Slug("s&t"))}>j</a>
+<button aria-pressed={lyr.If(props.On, props.Off)} aria-hidden={lyr.If(props.On, true)} hidden={lyr.If(props.On, true)} disabled={lyr.If(props.On, props.Off)} data-flag={lyr.If(props.On, Flag(true))}>b</button>
+<p>{lyr.If(props.On, "<on>")}|{lyr.If(props.Off, "off")}|{lyr.If(props.On, props.N)}|{lyr.If(props.On, Slug("s"))}|{lyr.If[any](props.On, 3)}|{(lyr.If(props.On, lyr.HTML("<b>h</b>")))}|{lyr.If(props.On, true)}</p>
+{for i := range 3}
+  <i data-i={lyr.If(i%2 == 0, i)}>{lyr.If(i == 1, props.Rel)}</i>
+{/for}
+<p title={lyr.If(note("c1", true), val("v1"))}>{lyr.If(note("c2", false), val("v2"))}</p>
+<p>{strings.Join(order, ",")}</p>
+<p title={fmt.Sprint(lyr.If(props.On, "a"))} {...lyr.Attrs{"data-s": lyr.If(props.On, "s")}}>{[]any{lyr.If(props.On, "x"), "y"}}</p>
+<p title={lyr.Cond(props.On, "yes", "no")} aria-selected={lyr.Cond(props.On, "true", "false")}>{lyr.Cond(props.Off, "Saved", "Save")}</p>
+<div aria-hidden={props.On} aria-expanded={props.Off} ARIA-Busy={props.On} draggable={props.Off} contenteditable={props.On} spellcheck={props.Off} writingsuggestions={props.On} data-x={props.Off} data-y={props.On} hidden={props.On} popover={props.On} translate={props.On} autocomplete={props.Off}>q3</div>
+<div aria-busy={Flag(false)} draggable={true} spellcheck={false} download={props.On}>c</div>
+<a download={"file.txt"} hidden={"until-found"} popover={"manual"}>s</a>
+<my-el aria-pressed={props.Off} data-x={props.Off} draggable={props.Off} open={props.On}>ce</my-el>
+<p {...lyr.Attrs{"aria-pressed": props.Off, "data-x": props.Off, "draggable": true, "hidden": true, "Aria-Live": Flag(false)}}>sp</p>

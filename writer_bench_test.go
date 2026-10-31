@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -74,7 +74,7 @@ func BenchmarkJSON(b *testing.B) {
 
 func BenchmarkEnterLeave(b *testing.B) {
 	bench(b, func(w *Writer) {
-		if w.Enter("src/components/Card.orbit") == nil {
+		if w.Enter("src/components/Card.lyr") == nil {
 			w.Leave()
 		}
 	})
@@ -84,12 +84,12 @@ func BenchmarkEnterLeave(b *testing.B) {
 func BenchmarkCard(b *testing.B) {
 	title, href := "Hello, world", "/blog/hello-world"
 	bench(b, func(w *Writer) {
-		if w.Enter("src/components/Card.orbit") != nil {
+		if w.Enter("src/components/Card.lyr") != nil {
 			return
 		}
-		w.Raw(`<article class="card" data-o-3fa2c1d0`)
+		w.Raw(`<article class="card" data-l-3fa2c1d0`)
 		w.AttrBool("data-featured", true)
-		w.Raw(">\n  <a data-o-3fa2c1d0")
+		w.Raw(">\n  <a data-l-3fa2c1d0")
 		w.AttrURL("href", href)
 		w.Raw(">")
 		w.String(title)
@@ -128,7 +128,7 @@ func BenchmarkEscapeAttrLongEscaped(b *testing.B) {
 // after its doctype, which moves the whole page.
 func BenchmarkInjectHead(b *testing.B) {
 	page := "<!DOCTYPE html><html><body>" + strings.Repeat("<p>hi</p>", 1000) + "</body></html>"
-	tags := headTags("", []Asset{{Kind: "css", URL: "/_orbit/a.css"}, {Kind: "js", URL: "/_orbit/b.js"}})
+	tags := headTags("", []Asset{{Kind: "css", URL: "/_lyr/a.css"}, {Kind: "js", URL: "/_lyr/b.js"}})
 	b.ReportAllocs()
 	for b.Loop() {
 		buf := getBuffer()
@@ -155,7 +155,7 @@ func BenchmarkJSONAttr(b *testing.B) {
 		{"typical-ptr", JSON(&testPost)},
 	} {
 		b.Run(c.name, func(b *testing.B) {
-			bench(b, func(w *Writer) { w.Raw(` data-post='`); w.JSONAttr("x.orbit:1:1", c.v); w.Raw(`'`) })
+			bench(b, func(w *Writer) { w.Raw(` data-post='`); w.JSONAttr("x.lyr:1:1", c.v); w.Raw(`'`) })
 		})
 	}
 	// The same small value as two typed attributes, for comparison.

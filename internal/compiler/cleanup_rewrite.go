@@ -24,7 +24,7 @@ func newErrorNames(module string, files []*Analysis) *ErrorNames {
 		if pkg, err := PackageFor(a.Info.Path); err == nil {
 			decl := pkg.DeclImportPath(module)
 			n.Own[a.Info.Path] = decl
-			names := []string{"Props", "Render", "Orbit__Render"}
+			names := []string{"Props", "Render", "Lyr__Render"}
 			if a.Info.Role == RolePage {
 				names = append(names, "Params")
 			}
@@ -35,7 +35,7 @@ func newErrorNames(module string, files []*Analysis) *ErrorNames {
 			}
 			n.Declared[decl] = names
 		}
-		for _, im := range a.OrbitImports {
+		for _, im := range a.LyrImports {
 			pkg, err := PackageFor(im.Resolved)
 			if err != nil {
 				continue
@@ -54,16 +54,16 @@ func newErrorNames(module string, files []*Analysis) *ErrorNames {
 }
 
 var (
-	// clPos is an .orbit position, with an optional "./" and an optional
+	// clPos is a .lyr position, with an optional "./" and an optional
 	// related generated position in brackets.
-	clPos = regexp.MustCompile(`(\./)?([^\s:"]*\.(?:orbit|md|markdown|mdown|mkdn|mkd|mdwn)):(\d+):(\d+)(\[[^\]\s]*\])?`)
+	clPos = regexp.MustCompile(`(\./)?([^\s:"]*\.(?:lyr|md|markdown|mdown|mkdn|mkd|mdwn)):(\d+):(\d+)(\[[^\]\s]*\])?`)
 	// clQuoted is a quoted package path qualifying a name.
 	clQuoted = regexp.MustCompile(`"([^"\s]+)"\.([A-Za-z_][A-Za-z0-9_]*)`)
 	// clQualified is pkg.Name, pkg a lowercase Go identifier.
 	clQualified = regexp.MustCompile(`([a-z_][a-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)`)
 )
 
-// clFile is what one .orbit file calls the generated packages.
+// clFile is what one .lyr file calls the generated packages.
 type clFile struct {
 	byPath map[string]string // decl import path → alias ("" for its own)
 	byName map[string]string // package name → alias; ambiguous names absent
@@ -73,13 +73,13 @@ type clFile struct {
 	declared map[string]map[string]bool
 }
 
-func (n *ErrorNames) file(orbit string) *clFile {
-	own, ok := n.Own[orbit]
+func (n *ErrorNames) file(lyr string) *clFile {
+	own, ok := n.Own[lyr]
 	if !ok {
 		return nil
 	}
 	f := &clFile{byPath: map[string]string{own: ""}, byName: map[string]string{}}
-	for p, alias := range n.Aliases[orbit] {
+	for p, alias := range n.Aliases[lyr] {
 		f.byPath[p] = alias
 	}
 	count := map[string]int{}
@@ -103,7 +103,7 @@ func (n *ErrorNames) file(orbit string) *clFile {
 	count[f.impl]++
 	f.byName[f.impl] = ""
 	// A user import with a generated package's name makes it ambiguous.
-	for _, name := range n.Imported[orbit] {
+	for _, name := range n.Imported[lyr] {
 		count[name] += 2
 	}
 	for name, c := range count {
@@ -141,12 +141,12 @@ func importNames(im GoImport) []string {
 	return names
 }
 
-func (n *ErrorNames) lookup(orbit string) (string, bool) {
-	if _, ok := n.Own[orbit]; ok {
-		return orbit, true
+func (n *ErrorNames) lookup(lyr string) (string, bool) {
+	if _, ok := n.Own[lyr]; ok {
+		return lyr, true
 	}
 	for p := range n.Own {
-		if strings.HasSuffix(orbit, "/"+p) {
+		if strings.HasSuffix(lyr, "/"+p) {
 			return p, true
 		}
 	}
@@ -171,7 +171,7 @@ func cleanGoOutput(out []byte, names *ErrorNames) []byte {
 	for _, raw := range lines {
 		line := string(raw)
 		// go build's "# <pkg>" header names a generated package, which the
-		// user never wrote; its errors already point at .orbit files.
+		// user never wrote; its errors already point at .lyr files.
 		if isGenHeader(line, names.Module) {
 			cur = nil
 			continue
@@ -187,9 +187,9 @@ func cleanGoOutput(out []byte, names *ErrorNames) []byte {
 			b.WriteString(rewriteNames(line, cur))
 			continue
 		}
-		// The reporting file is the line's first .orbit position.
-		orbit := line[loc[4]:loc[5]]
-		if p, ok := names.lookup(orbit); ok {
+		// The reporting file is the line's first .lyr position.
+		lyr := line[loc[4]:loc[5]]
+		if p, ok := names.lookup(lyr); ok {
 			f, seen := files[p]
 			if !seen {
 				f = names.file(p)
@@ -209,7 +209,7 @@ func cleanGoOutput(out []byte, names *ErrorNames) []byte {
 		line = strings.ReplaceAll(line, " in argument to "+NameRuntime+".ErrorAt", " in return statement")
 		// A component's keyed class:list item: "c": cond.
 		line = strings.ReplaceAll(line, " in argument to "+NameRuntime+".ClassIf", " in class:list condition")
-		// A value passed to a prop of type orbit.Opt[T] (PLAN.md §2.6).
+		// A value passed to a prop of type lyr.Opt[T] (PLAN.md §2.6).
 		for _, f := range [...]string{".WrapIf", ".Wrap", ".OptOf"} { // WrapIf before its prefix
 			line = strings.ReplaceAll(line, " in argument to "+NameRuntime+f, " in optional prop value")
 		}
@@ -223,7 +223,7 @@ func cleanGoOutput(out []byte, names *ErrorNames) []byte {
 }
 
 // rewriteTemplateCalls replaces the generated call of a template literal
-// (PLAN.md §2.10), orbit__rt.TemplateString(…) or TemplateAs(…), with
+// (PLAN.md §2.10), lyr__rt.TemplateString(…) or TemplateAs(…), with
 // "template literal", and its "(value of type string)" with "(string)".
 func rewriteTemplateCalls(line string) string {
 	for _, fn := range [...]string{NameRuntime + ".TemplateString(", NameRuntime + ".TemplateAs("} {
@@ -303,7 +303,7 @@ func rewriteNames(line string, f *clFile) string {
 
 // isGenHeader reports whether line is the "# <import path>" header go build
 // and go vet print before a package's errors, for a package under the
-// module's orbit_gen/ (with module "", any path with an orbit_gen element).
+// module's lyr_gen/ (with module "", any path with a lyr_gen element).
 func isGenHeader(line, module string) bool {
 	path, ok := strings.CutPrefix(strings.TrimRight(line, "\r\n"), "# ")
 	if !ok {
@@ -311,7 +311,7 @@ func isGenHeader(line, module string) bool {
 	}
 	path, _, _ = strings.Cut(path, " ") // "# pkg [pkg.test]"
 	if module != "" {
-		return path == module+"/orbit_gen" || strings.HasPrefix(path, module+"/orbit_gen/")
+		return path == module+"/lyr_gen" || strings.HasPrefix(path, module+"/lyr_gen/")
 	}
-	return strings.Contains("/"+path+"/", "/orbit_gen/")
+	return strings.Contains("/"+path+"/", "/lyr_gen/")
 }

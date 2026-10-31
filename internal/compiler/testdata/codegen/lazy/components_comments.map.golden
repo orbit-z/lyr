@@ -1,9 +1,9 @@
-orbit_gen/decl/components/comments/decl.go (src/components/Comments.orbit)
-  exact 4:1 "type Props struct {\n\tPostID int\n\tTitle  string\n}" -> 163-211 "type Props struct {\n\tPostID int\n\tTitle  string\n}"
-orbit_gen/impl/components/comments/render.go (src/components/Comments.orbit)
-  exact 2:8 "Counter" -> 222-229 "Counter"
-  span  2:16 "\"./Counter.orbit\"" -> 230-282 "\"example.com/blog/orbit_gen/decl/components/counter\""
-  exact 9:24 "props.PostID" -> 841-853 "props.PostID"
-  span  9:40 "Counter" -> 1037-1051 "Counter.Render"
+lyr_gen/decl/components/comments/decl.go (src/components/Comments.lyr)
+  exact 4:1 "type Props struct {\n\tPostID int\n\tTitle  string\n}" -> 155-203 "type Props struct {\n\tPostID int\n\tTitle  string\n}"
+lyr_gen/impl/components/comments/render.go (src/components/Comments.lyr)
+  exact 2:8 "Counter" -> 212-219 "Counter"
+  span  2:16 "\"./Counter.lyr\"" -> 220-270 "\"example.com/blog/lyr_gen/decl/components/counter\""
+  exact 9:24 "props.PostID" -> 785-797 "props.PostID"
+  span  9:40 "Counter" -> 973-987 "Counter.Render"
 call sites
-  content key=114 "props.PostID" call="orbit__w.Expr(\n/*line ../../../../src/components/Comments.orbit:9:24*/props.PostID/*line render.go:24:92*/,\n\t)"
+  content key=112 "props.PostID" call="lyr__w.Expr(\n/*line ../../../../src/components/Comments.lyr:9:24*/props.PostID/*line render.go:24:90*/,\n\t)"

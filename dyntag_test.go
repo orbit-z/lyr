@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"errors"
@@ -10,7 +10,7 @@ import (
 // dynRender renders <Tag a="1">kids</Tag> as generated code does.
 func dynRender(name string, content bool) (string, error) {
 	return render(func(w *Writer) {
-		t := w.TagOpen("src/x.orbit:3:2", "Tag", name, content)
+		t := w.TagOpen("src/x.lyr:3:2", "Tag", name, content)
 		if t.Attrs() {
 			w.Raw(` a="1">`)
 		}
@@ -38,15 +38,15 @@ func TestDynTag(t *testing.T) {
 		{"BR", false, `<BR a="1">`, ""},
 		{Fragment, true, "kids", ""},
 		{Fragment, false, "", ""},
-		{"img", true, "", "src/x.orbit:3:2: dynamic tag <img> is a void element and can't have children"},
-		{"Input", true, "", "src/x.orbit:3:2: dynamic tag <Input> is a void element and can't have children"},
-		{"", true, "", "src/x.orbit:3:2: dynamic tag Tag is empty; use orbit.Fragment for no element"},
-		{"1h", true, "", `src/x.orbit:3:2: dynamic tag Tag has an invalid element name "1h"`},
-		{"a b", true, "", `src/x.orbit:3:2: dynamic tag Tag has an invalid element name "a b"`},
-		{"a>", true, "", `src/x.orbit:3:2: dynamic tag Tag has an invalid element name "a>"`},
-		{"-a", true, "", `src/x.orbit:3:2: dynamic tag Tag has an invalid element name "-a"`},
-		{"é", true, "", `src/x.orbit:3:2: dynamic tag Tag has an invalid element name "é"`},
-		{"#fragmentx", true, "", `src/x.orbit:3:2: dynamic tag Tag has an invalid element name "#fragmentx"`},
+		{"img", true, "", "src/x.lyr:3:2: dynamic tag <img> is a void element and can't have children"},
+		{"Input", true, "", "src/x.lyr:3:2: dynamic tag <Input> is a void element and can't have children"},
+		{"", true, "", "src/x.lyr:3:2: dynamic tag Tag is empty; use lyr.Fragment for no element"},
+		{"1h", true, "", `src/x.lyr:3:2: dynamic tag Tag has an invalid element name "1h"`},
+		{"a b", true, "", `src/x.lyr:3:2: dynamic tag Tag has an invalid element name "a b"`},
+		{"a>", true, "", `src/x.lyr:3:2: dynamic tag Tag has an invalid element name "a>"`},
+		{"-a", true, "", `src/x.lyr:3:2: dynamic tag Tag has an invalid element name "-a"`},
+		{"é", true, "", `src/x.lyr:3:2: dynamic tag Tag has an invalid element name "é"`},
+		{"#fragmentx", true, "", `src/x.lyr:3:2: dynamic tag Tag has an invalid element name "#fragmentx"`},
 	}
 	for _, name := range []string{"script", "style", "textarea", "title", "head", "xmp", "iframe", "noembed", "noframes", "plaintext"} {
 		for _, n := range []string{name, strings.ToUpper(name), strings.ToUpper(name[:1]) + name[1:]} {
@@ -55,7 +55,7 @@ func TestDynTag(t *testing.T) {
 				content bool
 				want    string
 				err     string
-			}{n, false, "", "src/x.orbit:3:2: <" + n + "> can't be a dynamic tag"})
+			}{n, false, "", "src/x.lyr:3:2: <" + n + "> can't be a dynamic tag"})
 		}
 	}
 	for _, tt := range tests {
@@ -73,14 +73,14 @@ func TestDynTag(t *testing.T) {
 			t.Errorf("%q: got %q, %v; want %q", tt.name, got, err, tt.want)
 		}
 	}
-	// Without a position, the error is Orbit's.
+	// Without a position, the error is Lyr's.
 	_, err := render(func(w *Writer) { w.TagOpen("", "Tag", "", false) })
-	if err == nil || err.Error() != "orbit: dynamic tag Tag is empty; use orbit.Fragment for no element" {
+	if err == nil || err.Error() != "lyr: dynamic tag Tag is empty; use lyr.Fragment for no element" {
 		t.Errorf("no position: %v", err)
 	}
 	// A positioned error passes through ErrorAt unchanged.
 	_, err = dynRender("script", false)
-	if e := ErrorAt("src/y.orbit:1:1", err); e != err {
+	if e := ErrorAt("src/y.lyr:1:1", err); e != err {
 		t.Errorf("ErrorAt rewrapped %v", e)
 	}
 	// After an earlier error, nothing is written.
@@ -107,7 +107,7 @@ func TestDynTagAllocs(t *testing.T) {
 	n := testing.AllocsPerRun(1000, func() {
 		w.buf.Reset()
 		for _, name := range []string{"h" + strconv.Itoa(level), names[i%len(names)]} {
-			tg := w.TagOpen("src/x.orbit:3:2", "Tag", name, true)
+			tg := w.TagOpen("src/x.lyr:3:2", "Tag", name, true)
 			if tg.Attrs() {
 				w.Raw(` class="x">`)
 			}
@@ -151,7 +151,7 @@ func BenchmarkDynTag(b *testing.B) {
 			if link {
 				name = "a"
 			}
-			tg := w.TagOpen("src/x.orbit:3:2", "Tag", name, true)
+			tg := w.TagOpen("src/x.lyr:3:2", "Tag", name, true)
 			if tg.Attrs() {
 				w.Raw(` class="btn">`)
 			}
@@ -164,7 +164,7 @@ func BenchmarkDynTag(b *testing.B) {
 	b.Run("concat", func(b *testing.B) {
 		for b.Loop() {
 			w.buf.Reset()
-			tg := w.TagOpen("src/x.orbit:3:2", "Heading", "h"+strconv.Itoa(level), true)
+			tg := w.TagOpen("src/x.lyr:3:2", "Heading", "h"+strconv.Itoa(level), true)
 			if tg.Attrs() {
 				w.Raw(` class="h">`)
 			}
@@ -179,7 +179,7 @@ func BenchmarkDynTag(b *testing.B) {
 			if link {
 				name = Fragment
 			}
-			tg := w.TagOpen("src/x.orbit:3:2", "Wrap", name, true)
+			tg := w.TagOpen("src/x.lyr:3:2", "Wrap", name, true)
 			if tg.Attrs() {
 				w.Raw(` class="w">`)
 			}

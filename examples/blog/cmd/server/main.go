@@ -1,4 +1,4 @@
-// Command server is the blog's server: Orbit's pages behind two custom
+// Command server is the blog's server: Lyr's pages behind two custom
 // routes, wrapped in logging and the middleware that sets typed locals.
 package main
 
@@ -10,11 +10,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 
 	"example.com/blog/internal/posts"
-	"example.com/blog/orbit_gen/app"
-	"example.com/blog/orbit_gen/decl/components/likebutton"
+	"example.com/blog/lyr_gen/app"
+	"example.com/blog/lyr_gen/decl/components/likebutton"
 	"example.com/blog/src/locals"
 )
 
@@ -27,14 +27,14 @@ func main() {
 	mux.HandleFunc("GET /api/posts", listPosts)
 	mux.HandleFunc("POST /blog/{slug}/like", like)
 
-	// Everything else goes to Orbit: pages, islands, /_orbit/* assets,
+	// Everything else goes to Lyr: pages, islands, /_lyr/* assets,
 	// public/ files and the 404 page.
 	mux.Handle("/", site.Handler())
 
 	// logging runs first (so it logs the trailing-slash redirects too), then
 	// site.TrailingSlash redirects the other form of a page URL before any
-	// middleware sees it, then requestInfo, then the mux and Orbit.
-	if err := orbit.ListenAndServe(logging(site.TrailingSlash(requestInfo(mux)))); err != nil {
+	// middleware sees it, then requestInfo, then the mux and Lyr.
+	if err := lyr.ListenAndServe(logging(site.TrailingSlash(requestInfo(mux)))); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -66,7 +66,7 @@ func like(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	props := likebutton.Props{Slug: slug, Likes: n}
-	if err := orbit.RenderComponent(w, r, likebutton.Render, props); err != nil {
+	if err := lyr.RenderComponent(w, r, likebutton.Render, props); err != nil {
 		log.Printf("like: %v", err)
 		http.Error(w, "render failed", http.StatusInternalServerError)
 	}
@@ -76,7 +76,7 @@ func like(w http.ResponseWriter, r *http.Request) {
 // pages (locals.RequestID, locals.Theme) and handlers alike.
 func requestInfo(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r, l := orbit.EnsureLocals[locals.Locals](r)
+		r, l := lyr.EnsureLocals[locals.Locals](r)
 		l.RequestID = rand.Text()
 		l.Theme = "light"
 		if c, err := r.Cookie("theme"); err == nil && c.Value == "dark" {
@@ -88,15 +88,15 @@ func requestInfo(next http.Handler) http.Handler {
 }
 
 // logging logs each request with its status, duration and request ID, and
-// the route Orbit matched (/blog/[slug]), if any.
+// the route Lyr matched (/blog/[slug]), if any.
 func logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r, l := orbit.EnsureLocals[locals.Locals](r)
+		r, l := lyr.EnsureLocals[locals.Locals](r)
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		start := time.Now()
 		next.ServeHTTP(rec, r)
 		route := ""
-		if k := l.Route.Kind; k != orbit.RouteNone && k != orbit.RouteFile { // a file's Pattern is its path
+		if k := l.Route.Kind; k != lyr.RouteNone && k != lyr.RouteFile { // a file's Pattern is its path
 			route = " route=" + l.Route.Pattern
 		}
 		log.Printf("%s %s %d %s id=%s%s", r.Method, r.URL.Path, rec.status, time.Since(start), l.RequestID, route)

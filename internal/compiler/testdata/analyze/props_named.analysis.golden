@@ -1,5 +1,5 @@
-info src/components/props_named.orbit component route=""
-implicit orbit: none
+info src/components/props_named.lyr component route=""
+implicit lyr: none
 decl type @4-32 place=decl Props@9-14
   "type Props map[string]string"
 echo []

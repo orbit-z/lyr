@@ -1,0 +1,16 @@
+---
+import (
+	Cacher "../components/Cacher.lyr"
+	Rich "../components/Rich.lyr"
+)
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Capture</title>
+  </head>
+  <body>
+    <div id="in-place"><Rich title="A & B" featured /></div>
+    <div id="captured"><Cacher><Rich title="A & B" featured /></Cacher></div>
+  </body>
+</html>

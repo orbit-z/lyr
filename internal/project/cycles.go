@@ -4,15 +4,15 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
-// declEdge is one .orbit import that the declaration package uses: Props
+// declEdge is one .lyr import that the declaration package uses: Props
 // (or something it depends on) refers to the imported component's
 // declaration package (PLAN.md §2.2).
 type declEdge struct {
 	to  string
-	imp *compiler.OrbitImport
+	imp *compiler.LyrImport
 }
 
 // checkPropsCycles reports import cycles between declaration packages: two
@@ -28,8 +28,8 @@ func checkPropsCycles(files []*File) []Diagnostic {
 	}
 	edges := map[string][]declEdge{}
 	for _, f := range files {
-		for i := range f.Analysis.OrbitImports {
-			im := &f.Analysis.OrbitImports[i]
+		for i := range f.Analysis.LyrImports {
+			im := &f.Analysis.LyrImports[i]
 			if im.Place&compiler.PlaceDecl == 0 || byPath[im.Resolved] == nil {
 				continue
 			}

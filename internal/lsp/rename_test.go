@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// The LSP integration test's rename bullets (PLAN.md §13): orbit lsp with
+// The LSP integration test's rename bullets (PLAN.md §13): lyr lsp with
 // the gopls on PATH.
 
 const renameCard = `---
@@ -26,7 +26,7 @@ type Props struct {
 `
 
 const renameIndex = `---
-import Card "../components/Card.orbit"
+import Card "../components/Card.lyr"
 
 title := "Héllo ✓ 😀"
 ---
@@ -36,7 +36,7 @@ title := "Héllo ✓ 😀"
 `
 
 const renameAbout = `---
-import Card "../components/Card.orbit"
+import Card "../components/Card.lyr"
 
 post := "x"
 ---
@@ -158,20 +158,20 @@ func rpcMessage(err error) string {
 func TestRename(t *testing.T) {
 	needGopls(t)
 	files := map[string]string{
-		"src/components/Card.orbit":   renameCard,
-		"src/components/Link.orbit":   renameLink,
-		"src/pages/index.orbit":       renameIndex,
-		"src/pages/about.orbit":       renameAbout,
-		"src/pages/blog/[slug].orbit": renameSlug,
+		"src/components/Card.lyr":   renameCard,
+		"src/components/Link.lyr":   renameLink,
+		"src/pages/index.lyr":       renameIndex,
+		"src/pages/about.lyr":       renameAbout,
+		"src/pages/blog/[slug].lyr": renameSlug,
 	}
 	dir := writeProject(t, maps2(files))
 	c := startClient(t, dir, nil)
 	if !strings.Contains(string(c.initResult), `"renameProvider":{"prepareProvider":true}`) {
 		t.Errorf("initialize: renameProvider with prepareProvider missing: %s", c.initResult)
 	}
-	index := c.open("src/pages/index.orbit")
-	card := c.open("src/components/Card.orbit")
-	const indexPath, cardPath = "src/pages/index.orbit", "src/components/Card.orbit"
+	index := c.open("src/pages/index.lyr")
+	card := c.open("src/components/Card.lyr")
+	const indexPath, cardPath = "src/pages/index.lyr", "src/components/Card.lyr"
 
 	t.Run("frontmatter variable", func(t *testing.T) {
 		// title is used after non-ASCII text on the same template line.
@@ -199,9 +199,9 @@ func TestRename(t *testing.T) {
 	t.Run("Props field from its declaration", func(t *testing.T) {
 		res := c.call("textDocument/rename", c.renameParams(cardPath, at(t, card, "Post ", 0, 1), "Article"))
 		checkRename(t, c.workspaceEdit(res, true), files, map[string]string{
-			cardPath:                strings.ReplaceAll(card, "Post", "Article"),
-			indexPath:               strings.ReplaceAll(index, "post=", "article="),
-			"src/pages/about.orbit": strings.NewReplacer("{post}", "article={post}", `post="y"`, `article="y"`).Replace(renameAbout),
+			cardPath:              strings.ReplaceAll(card, "Post", "Article"),
+			indexPath:             strings.ReplaceAll(index, "post=", "article="),
+			"src/pages/about.lyr": strings.NewReplacer("{post}", "article={post}", `post="y"`, `article="y"`).Replace(renameAbout),
 		})
 	})
 
@@ -220,22 +220,22 @@ func TestRename(t *testing.T) {
 		}
 		res = c.call("textDocument/rename", c.renameParams(indexPath, pos, "is-closed"))
 		checkRename(t, c.workspaceEdit(res, true), files, map[string]string{
-			cardPath:                strings.ReplaceAll(card, "IsOpen", "IsClosed"),
-			indexPath:               strings.NewReplacer("is-open", "is-closed", "isOpen", "isClosed").Replace(index),
-			"src/pages/about.orbit": strings.NewReplacer("isopen", "isclosed", "IsOpen=", "IsClosed=").Replace(renameAbout),
+			cardPath:              strings.ReplaceAll(card, "IsOpen", "IsClosed"),
+			indexPath:             strings.NewReplacer("is-open", "is-closed", "isOpen", "isClosed").Replace(index),
+			"src/pages/about.lyr": strings.NewReplacer("isopen", "isclosed", "IsOpen=", "IsClosed=").Replace(renameAbout),
 		})
 	})
 
 	t.Run("refused", func(t *testing.T) {
-		slug := files["src/pages/blog/[slug].orbit"]
+		slug := files["src/pages/blog/[slug].lyr"]
 		for _, tc := range []struct {
 			name, rel, text, at string
 			delta               int
 			want                string
 		}{
-			{"glue props", cardPath, card, "props.Post", 1, "Orbit's generated code declares it"},
-			{"params field", "src/pages/blog/[slug].orbit", slug, "params.Slug", 8, "rename the file instead"},
-			{"params", "src/pages/blog/[slug].orbit", slug, "params.Slug", 2, "Orbit's generated code declares it"},
+			{"glue props", cardPath, card, "props.Post", 1, "Lyr's generated code declares it"},
+			{"params field", "src/pages/blog/[slug].lyr", slug, "params.Slug", 8, "rename the file instead"},
+			{"params", "src/pages/blog/[slug].lyr", slug, "params.Slug", 2, "Lyr's generated code declares it"},
 			{"Props type", cardPath, card, "Props struct", 1, "can't rename Props"},
 		} {
 			pos := at(t, tc.text, tc.at, 0, tc.delta)
@@ -276,16 +276,16 @@ func TestRename(t *testing.T) {
 	t.Run("import in both generated files", func(t *testing.T) {
 		// net/url is used by Props (declaration file) and the body
 		// (implementation file).
-		link := c.open("src/components/Link.orbit")
-		res := c.call("textDocument/rename", c.renameParams("src/components/Link.orbit", at(t, link, "url.URL{", 0, 1), "neturl"))
+		link := c.open("src/components/Link.lyr")
+		res := c.call("textDocument/rename", c.renameParams("src/components/Link.lyr", at(t, link, "url.URL{", 0, 1), "neturl"))
 		checkRename(t, c.workspaceEdit(res, true), files, map[string]string{
-			"src/components/Link.orbit": strings.NewReplacer(`import "net/url"`, `import neturl "net/url"`, "url.URL", "neturl.URL").Replace(link),
+			"src/components/Link.lyr": strings.NewReplacer(`import "net/url"`, `import neturl "net/url"`, "url.URL", "neturl.URL").Replace(link),
 		})
 	})
 
 	t.Run("nothing written", func(t *testing.T) {
-		if _, err := os.Stat(filepath.Join(dir, "orbit_gen")); !os.IsNotExist(err) {
-			t.Errorf("orbit_gen/ was written: %v", err)
+		if _, err := os.Stat(filepath.Join(dir, "lyr_gen")); !os.IsNotExist(err) {
+			t.Errorf("lyr_gen/ was written: %v", err)
 		}
 	})
 }
@@ -295,25 +295,25 @@ func TestRename(t *testing.T) {
 func TestRenameAliasGoUse(t *testing.T) {
 	needGopls(t)
 	const page = `---
-import Card "../components/Card.orbit"
+import Card "../components/Card.lyr"
 
 p := Card.Props{Post: "x"}
 ---
 <Card {...p} />
 <Card post="y"></Card>
 `
-	files := map[string]string{"src/components/Card.orbit": renameCard, "src/pages/index.orbit": page}
+	files := map[string]string{"src/components/Card.lyr": renameCard, "src/pages/index.lyr": page}
 	dir := writeProject(t, maps2(files))
 	c := startClient(t, dir, nil)
-	c.open("src/pages/index.orbit")
+	c.open("src/pages/index.lyr")
 	pos := at(t, page, "Card.Props", 0, 1)
-	res := c.call("textDocument/prepareRename", c.textPos("src/pages/index.orbit", pos))
+	res := c.call("textDocument/prepareRename", c.textPos("src/pages/index.lyr", pos))
 	if !strings.Contains(string(res), `"placeholder":"Card"`) {
 		t.Errorf("prepareRename on Card.Props: %s", res)
 	}
-	res = c.call("textDocument/rename", c.renameParams("src/pages/index.orbit", pos, "Tile"))
+	res = c.call("textDocument/rename", c.renameParams("src/pages/index.lyr", pos, "Tile"))
 	checkRename(t, c.workspaceEdit(res, true), files, map[string]string{
-		"src/pages/index.orbit": strings.ReplaceAll(strings.ReplaceAll(page, "Card", "Tile"), "Tile.orbit", "Card.orbit"),
+		"src/pages/index.lyr": strings.ReplaceAll(strings.ReplaceAll(page, "Card", "Tile"), "Tile.lyr", "Card.lyr"),
 	})
 }
 
@@ -324,12 +324,12 @@ func TestDynTagLSP(t *testing.T) {
 	needGopls(t)
 	const btn = `---
 link := true
-Tag := orbit.Cond(link, "a", "button")
+Tag := lyr.Cond(link, "a", "button")
 ---
 <Tag href="/">x</Tag>
 <Tag />
 `
-	const path = "src/components/Btn.orbit"
+	const path = "src/components/Btn.lyr"
 	files := map[string]string{path: btn}
 	dir := writeProject(t, maps2(files))
 	c := startClient(t, dir, nil)
@@ -357,26 +357,26 @@ Tag := orbit.Cond(link, "a", "button")
 // changes, and renameProvider without prepareProvider.
 func TestRenameChanges(t *testing.T) {
 	needGopls(t)
-	files := map[string]string{"src/components/Card.orbit": renameCard, "src/pages/index.orbit": renameIndex}
+	files := map[string]string{"src/components/Card.lyr": renameCard, "src/pages/index.lyr": renameIndex}
 	dir := writeProject(t, maps2(files))
 	c := startClient(t, dir, map[string]any{noDocumentChanges: true})
 	if !strings.Contains(string(c.initResult), `"renameProvider":true`) {
 		t.Errorf("initialize: want renameProvider true: %s", c.initResult)
 	}
-	card := c.open("src/components/Card.orbit")
-	res := c.call("textDocument/rename", c.renameParams("src/components/Card.orbit", at(t, card, "Post ", 0, 1), "Article"))
+	card := c.open("src/components/Card.lyr")
+	res := c.call("textDocument/rename", c.renameParams("src/components/Card.lyr", at(t, card, "Post ", 0, 1), "Article"))
 	checkRename(t, c.workspaceEdit(res, false), files, map[string]string{
-		"src/components/Card.orbit": strings.ReplaceAll(card, "Post", "Article"),
-		"src/pages/index.orbit":     strings.ReplaceAll(renameIndex, "post=", "article="),
+		"src/components/Card.lyr": strings.ReplaceAll(card, "Post", "Article"),
+		"src/pages/index.lyr":     strings.ReplaceAll(renameIndex, "post=", "article="),
 	})
 }
 
-// TestRenameOverlayOnly: with no orbit_gen/ on disk and 50 components, a
+// TestRenameOverlayOnly: with no lyr_gen/ on disk and 50 components, a
 // rename asked right at startup is complete (it waits for the readiness
 // barrier); then the warm latency of prepareRename and rename.
 func TestRenameOverlayOnly(t *testing.T) { testRename50(t, false) }
 
-// TestRenameOnDisk is TestRenameOverlayOnly with orbit_gen/ on disk except
+// TestRenameOnDisk is TestRenameOverlayOnly with lyr_gen/ on disk except
 // for the last five components (see TestReferencesOnDisk).
 func TestRenameOnDisk(t *testing.T) { testRename50(t, true) }
 
@@ -387,15 +387,15 @@ func testRename50(t *testing.T, onDisk bool) {
 	var page strings.Builder
 	page.WriteString("---\n")
 	for i := range n {
-		fmt.Fprintf(&page, "import C%d \"../components/C%d.orbit\"\n", i, i)
-		files[fmt.Sprintf("src/components/C%d.orbit", i)] =
+		fmt.Fprintf(&page, "import C%d \"../components/C%d.lyr\"\n", i, i)
+		files[fmt.Sprintf("src/components/C%d.lyr", i)] =
 			"---\ntype Props struct {\n\tTitle    string\n\tFeatured bool\n}\nlabel := props.Title\n---\n<p class={label}>{props.Featured}</p>\n"
 	}
 	page.WriteString("title := \"x\"\n---\n")
 	for i := range n {
 		fmt.Fprintf(&page, "<C%d title={title} featured />\n", i)
 	}
-	files["src/pages/index.orbit"] = page.String()
+	files["src/pages/index.lyr"] = page.String()
 	dir := writeProject(t, maps2(files))
 	mode := "overlay-only"
 	if onDisk {
@@ -405,18 +405,18 @@ func testRename50(t *testing.T, onDisk bool) {
 	c := startClient(t, dir, nil)
 
 	rename := func(i int, newName string) map[string][]textEdit {
-		rel := fmt.Sprintf("src/components/C%d.orbit", i)
+		rel := fmt.Sprintf("src/components/C%d.lyr", i)
 		res := c.call("textDocument/rename", c.renameParams(rel, at(t, files[rel], "Featured", 0, 1), newName))
 		return c.workspaceEdit(res, true)
 	}
 	check := func(i int, edits map[string][]textEdit) {
-		rel := fmt.Sprintf("src/components/C%d.orbit", i)
-		if len(edits[rel]) != 2 || len(edits["src/pages/index.orbit"]) != 1 || len(edits) != 2 {
+		rel := fmt.Sprintf("src/components/C%d.lyr", i)
+		if len(edits[rel]) != 2 || len(edits["src/pages/index.lyr"]) != 1 || len(edits) != 2 {
 			t.Errorf("C%d: incomplete rename: %v", i, edits)
 			return
 		}
-		if e := edits["src/pages/index.orbit"][0]; e.NewText != "highlighted" ||
-			rangeText(files["src/pages/index.orbit"], e.editRange()) != "featured" {
+		if e := edits["src/pages/index.lyr"][0]; e.NewText != "highlighted" ||
+			rangeText(files["src/pages/index.lyr"], e.editRange()) != "featured" {
 			t.Errorf("C%d: call-site edit %v", i, e)
 		}
 	}
@@ -426,7 +426,7 @@ func testRename50(t *testing.T, onDisk bool) {
 
 	var prep, ren []time.Duration
 	for i := range n - 1 {
-		rel := fmt.Sprintf("src/components/C%d.orbit", i)
+		rel := fmt.Sprintf("src/components/C%d.lyr", i)
 		pos := at(t, files[rel], "Featured", 0, 1)
 		t1 := time.Now()
 		res := c.call("textDocument/prepareRename", c.textPos(rel, pos))
@@ -441,8 +441,8 @@ func testRename50(t *testing.T, onDisk bool) {
 	}
 	t.Logf("%d components, %s: first rename (barrier included) %v; warm prepareRename p50 %v max %v; rename p50 %v max %v",
 		n, mode, first.Round(time.Millisecond), p50(prep), slices.Max(prep).Round(time.Microsecond), p50(ren), slices.Max(ren).Round(time.Microsecond))
-	if _, err := os.Stat(filepath.Join(dir, "orbit_gen")); !onDisk && !os.IsNotExist(err) {
-		t.Errorf("orbit_gen/ was written: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, "lyr_gen")); !onDisk && !os.IsNotExist(err) {
+		t.Errorf("lyr_gen/ was written: %v", err)
 	}
 }
 

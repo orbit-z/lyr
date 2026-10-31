@@ -1,11 +1,11 @@
-orbit_gen/decl/components/input/decl.go (src/components/Input.orbit)
-  exact 2:1 "type Props struct {\n\tLabel string\n\tAttrs orbit.RestAttrs\n}" -> 191-249 "type Props struct {\n\tLabel string\n\tAttrs orbit.RestAttrs\n}"
-orbit_gen/impl/components/input/render.go (src/components/Input.orbit)
-  exact 7:23 "props.Label" -> 694-705 "props.Label"
-  exact 7:46 "props.Attrs" -> 833-844 "props.Attrs"
-  exact 8:32 "props.Attrs.Has(\"required\")" -> 979-1006 "props.Attrs.Has(\"required\")"
-  exact 8:75 "props.Attrs" -> 1200-1211 "props.Attrs"
-  exact 8:89 "props.Label" -> 1332-1343 "props.Label"
+lyr_gen/decl/components/input/decl.go (src/components/Input.lyr)
+  exact 2:1 "type Props struct {\n\tLabel string\n\tAttrs lyr.RestAttrs\n}" -> 179-235 "type Props struct {\n\tLabel string\n\tAttrs lyr.RestAttrs\n}"
+lyr_gen/impl/components/input/render.go (src/components/Input.lyr)
+  exact 7:23 "props.Label" -> 642-653 "props.Label"
+  exact 7:46 "props.Attrs" -> 775-786 "props.Attrs"
+  exact 8:32 "props.Attrs.Has(\"required\")" -> 917-944 "props.Attrs.Has(\"required\")"
+  exact 8:75 "props.Attrs" -> 1128-1139 "props.Attrs"
+  exact 8:89 "props.Label" -> 1254-1265 "props.Label"
 call sites
-  content key=89 "props.Label" call="orbit__w.Expr(\n/*line ../../../../src/components/Input.orbit:7:23*/props.Label/*line render.go:21:88*/,\n\t)"
-  content key=224 "props.Label" call="orbit__w.Expr(\n/*line ../../../../src/components/Input.orbit:8:89*/props.Label/*line render.go:38:88*/,\n\t)"
+  content key=87 "props.Label" call="lyr__w.Expr(\n/*line ../../../../src/components/Input.lyr:7:23*/props.Label/*line render.go:21:86*/,\n\t)"
+  content key=222 "props.Label" call="lyr__w.Expr(\n/*line ../../../../src/components/Input.lyr:8:89*/props.Label/*line render.go:38:86*/,\n\t)"

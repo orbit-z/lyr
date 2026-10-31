@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"fmt"
 
-	status "example.com/blog/orbit_gen/decl/components/status"
-	_ "example.com/blog/orbit_gen/impl/components/badge"
-	_ "example.com/blog/orbit_gen/impl/components/status"
-	"github.com/orbit-z/orbit"
+	status "example.com/blog/lyr_gen/decl/components/status"
+	_ "example.com/blog/lyr_gen/impl/components/badge"
+	_ "example.com/blog/lyr_gen/impl/components/status"
+	"github.com/orbit-z/lyr"
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 		{Status: "published", N: 12},
 	} {
 		var buf bytes.Buffer
-		if err := status.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), p, orbit.Slots{}); err != nil {
+		if err := status.Render(&lyr.Ctx{}, lyr.NewWriter(&buf), p, lyr.Slots{}); err != nil {
 			panic(err)
 		}
 		fmt.Println(buf.String())

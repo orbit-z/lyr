@@ -1,11 +1,11 @@
-orbit_gen/decl/components/fwd/decl.go (src/components/Fwd.orbit)
-  exact 4:1 "type Props struct {\n\tSlug  string\n\tMine  bool\n\tAttrs orbit.RestAttrs\n}" -> 187-257 "type Props struct {\n\tSlug  string\n\tMine  bool\n\tAttrs orbit.RestAttrs\n}"
-orbit_gen/impl/components/fwd/render.go (src/components/Fwd.orbit)
-  exact 2:8 "Actions" -> 207-214 "Actions"
-  span  2:16 "\"./Actions.orbit\"" -> 215-267 "\"example.com/blog/orbit_gen/decl/components/actions\""
-  span  10:2 "Actions" -> 778-792 "Actions.Render"
-  span  10:21 "class" -> 908-913 "Class"
-  span  10:27 "\"fwd\"" -> 990-995 "\"fwd\""
-  exact 10:14 "props" -> 1230-1235 "props"
+lyr_gen/decl/components/fwd/decl.go (src/components/Fwd.lyr)
+  exact 4:1 "type Props struct {\n\tSlug  string\n\tMine  bool\n\tAttrs lyr.RestAttrs\n}" -> 175-243 "type Props struct {\n\tSlug  string\n\tMine  bool\n\tAttrs lyr.RestAttrs\n}"
+lyr_gen/impl/components/fwd/render.go (src/components/Fwd.lyr)
+  exact 2:8 "Actions" -> 197-204 "Actions"
+  span  2:16 "\"./Actions.lyr\"" -> 205-255 "\"example.com/blog/lyr_gen/decl/components/actions\""
+  span  10:2 "Actions" -> 724-738 "Actions.Render"
+  span  10:21 "class" -> 848-853 "Class"
+  span  10:27 "\"fwd\"" -> 928-933 "\"fwd\""
+  exact 10:14 "props" -> 1158-1163 "props"
 call sites
-  spread key=126 "props" call="orbit__rt.RestMergeAny(orbit__w, Actions.Props{}, \"src/components/Fwd.orbit:10:10\", \"{...props} on <Actions>\", orbit__rt.Rest(\"\", \" data-x=\\\"1\\\"\"), /*line ../../../../src/components/Fwd.orbit:10:14*/props/*line render.go:24:239*/)"
+  spread key=122 "props" call="lyr__rt.RestMergeAny(lyr__w, Actions.Props{}, \"src/components/Fwd.lyr:10:10\", \"{...props} on <Actions>\", lyr__rt.Rest(\"\", \" data-x=\\\"1\\\"\"), /*line ../../../../src/components/Fwd.lyr:10:14*/props/*line render.go:24:229*/)"

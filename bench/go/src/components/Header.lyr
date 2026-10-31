@@ -1,0 +1,16 @@
+---
+import "github.com/orbit-z/lyr/bench/go/data"
+
+type Props struct {
+	Title string
+	Links []data.Link
+}
+---
+<header class="site-header">
+  <h1>{props.Title}</h1>
+  <nav>
+    {for _, l := range props.Links}
+      <a href={l.Href}>{l.Text}</a>
+    {/for}
+  </nav>
+</header>

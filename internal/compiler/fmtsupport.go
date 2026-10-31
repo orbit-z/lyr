@@ -9,7 +9,7 @@ import gotoken "go/token"
 // SyntaxErrors returns the errors raised by the frontmatter split, the lexer
 // and the parser, without the structural checks that follow them (directive
 // placement, Fragment attributes, …). These are the errors that stop
-// orbit fmt; the others are semantic, like a Go type error.
+// lyr fmt; the others are semantic, like a Go type error.
 func (f *File) SyntaxErrors() []Diagnostic { return f.syntax }
 
 // FrontmatterChunk is a run of consecutive depth-0 frontmatter statements of

@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-// Orbit leaves compression to the server around it (see docs/server.md,
+// Lyr leaves compression to the server around it (see docs/server.md,
 // "Wrapping with middleware"); this is the docs site's own, standard
 // library only.
 

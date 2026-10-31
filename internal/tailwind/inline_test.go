@@ -111,10 +111,10 @@ func TestInline(t *testing.T) {
 }
 
 func TestInlineBlock(t *testing.T) {
-	// A <style> block: positions are in the .orbit file, from the block's
+	// A <style> block: positions are in the .lyr file, from the block's
 	// start; @tailwind utilities gets its source(…).
 	fs := fakeFS{"/p/src/styles/x.css": ".x { background: url(./x.png) }\n"}
-	src := Source{File: "/p/src/components/Card.orbit", Line: 5, Col: 8, Dir: "/p/src/components",
+	src := Source{File: "/p/src/components/Card.lyr", Line: 5, Col: 8, Dir: "/p/src/components",
 		Text: "@import \"../styles/x.css\";\n  @tailwind utilities;\n  .t { @apply font-bold; }"}
 	got := Inline(src, fs.opts("/p"))
 	want := ".x { background: url(\"../styles/x.png\") }\n\n  @tailwind utilities source(\"../..\");\n  .t { @apply font-bold; }"

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/config"
+	"github.com/orbit-z/lyr/internal/config"
 )
 
 func TestFromBuildInfo(t *testing.T) {
@@ -16,9 +16,9 @@ func TestFromBuildInfo(t *testing.T) {
 	}{
 		{"go install @v1.2.3", debug.BuildInfo{Main: debug.Module{Path: Module, Version: "v1.2.3"}}, Self{Version: "v1.2.3"}},
 		{"go build in a clone", debug.BuildInfo{Main: debug.Module{Path: Module, Version: "(devel)"}}, Self{Version: "(devel)"}},
-		{"go tool orbit", debug.BuildInfo{Main: debug.Module{Path: "example.com/blog"}, Deps: []*debug.Module{{Path: Module, Version: "v1.2.3"}}}, Self{Pinned: true, Version: "v1.2.3"}},
-		{"go tool orbit, local replace", debug.BuildInfo{Main: debug.Module{Path: "example.com/blog"}, Deps: []*debug.Module{{Path: Module, Version: "v0.0.0", Replace: &debug.Module{Path: "/src/orbit"}}}}, Self{Pinned: true, Version: "(devel)"}},
-		{"no orbit module", debug.BuildInfo{Main: debug.Module{Path: "example.com/x"}}, Self{}},
+		{"go tool lyr", debug.BuildInfo{Main: debug.Module{Path: "example.com/blog"}, Deps: []*debug.Module{{Path: Module, Version: "v1.2.3"}}}, Self{Pinned: true, Version: "v1.2.3"}},
+		{"go tool lyr, local replace", debug.BuildInfo{Main: debug.Module{Path: "example.com/blog"}, Deps: []*debug.Module{{Path: Module, Version: "v0.0.0", Replace: &debug.Module{Path: "/src/lyr"}}}}, Self{Pinned: true, Version: "(devel)"}},
+		{"no lyr module", debug.BuildInfo{Main: debug.Module{Path: "example.com/x"}}, Self{}},
 	}
 	for _, tt := range tests {
 		if got := fromBuildInfo(&tt.bi); got != tt.want {
@@ -30,10 +30,10 @@ func TestFromBuildInfo(t *testing.T) {
 func TestDecide(t *testing.T) {
 	const (
 		head    = "module example.com/blog\n\ngo 1.27\n"
-		tool    = "tool github.com/orbit-z/orbit/cmd/orbit\n"
-		req     = "require github.com/orbit-z/orbit v0.1.0\n"
-		local   = "replace github.com/orbit-z/orbit => ../orbit\n"
-		remote  = "replace github.com/orbit-z/orbit => example.com/fork v0.1.1\n"
+		tool    = "tool github.com/orbit-z/lyr/cmd/lyr\n"
+		req     = "require github.com/orbit-z/lyr v0.1.0\n"
+		local   = "replace github.com/orbit-z/lyr => ../lyr\n"
+		remote  = "replace github.com/orbit-z/lyr => example.com/fork v0.1.1\n"
 		release = "v0.1.0"
 	)
 	global := Self{Version: release}
@@ -52,7 +52,7 @@ func TestDecide(t *testing.T) {
 		{"devel CLI", head + req, Self{Version: "(devel)"}, false, true},
 		{"local replace", head + req + local, Self{Version: "(devel)"}, false, false},
 		{"module replace", head + req + remote, Self{Version: "(devel)"}, false, true},
-		{"no orbit requirement", head, Self{Version: "(devel)"}, false, false},
+		{"no lyr requirement", head, Self{Version: "(devel)"}, false, false},
 		{"pinned, no tool directive", head + req, Self{Pinned: true, Version: "v0.2.0"}, false, false},
 	}
 	for _, tt := range tests {
@@ -68,11 +68,11 @@ func TestDecide(t *testing.T) {
 
 	mod, _ := config.ParseGoMod([]byte(head + req))
 	err := Mismatch(mod, Self{Version: "v0.2.0"})
-	want := "version mismatch: this orbit is v0.2.0, but go.mod requires github.com/orbit-z/orbit v0.1.0; pin the CLI with go get -tool github.com/orbit-z/orbit/cmd/orbit@v0.1.0, then run go tool orbit (see orbit doctor)"
+	want := "version mismatch: this lyr is v0.2.0, but go.mod requires github.com/orbit-z/lyr v0.1.0; pin the CLI with go get -tool github.com/orbit-z/lyr/cmd/lyr@v0.1.0, then run go tool lyr (see lyr doctor)"
 	if err == nil || err.Error() != want {
 		t.Errorf("Mismatch:\n got %v\nwant %s", err, want)
 	}
-	if err := Mismatch(mod, Self{}); err == nil || !strings.Contains(err.Error(), "this orbit is unknown") {
+	if err := Mismatch(mod, Self{}); err == nil || !strings.Contains(err.Error(), "this lyr is unknown") {
 		t.Errorf("Mismatch(unknown): %v", err)
 	}
 }

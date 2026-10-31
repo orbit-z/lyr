@@ -1,0 +1,21 @@
+---
+import Link "../components/Link.lyr"
+import Button "../components/Button.lyr"
+
+type item struct {
+	Href, Label, Rel, Title string
+	ID                      int
+}
+
+items := []item{{"/fiction", "Fiction", "", "", 1}, {"https://example.com", "Out", "noopener", "Out there", 2}}
+current := "/fiction"
+---
+<nav>
+  {for _, it := range items}
+    <a href={it.Href} aria-current={lyr.If(it.Href == current, "page")} rel={lyr.NonZero(it.Rel)} data-id={lyr.NonZero(it.ID)}>{lyr.NonZero(it.Title)}{it.Label}</a>
+    <Link href={it.Href} rel={lyr.NonZero(it.Rel)} title={it.Title} n={it.ID} on>{it.Label}</Link>
+    <Link href="/s" rel="author" id="me">Static</Link>
+    <span set:html={lyr.NonZero(lyr.HTML(it.Rel))}></span>
+    <Button aria-describedby={lyr.If(it.ID == 2, "help")} data-rel={lyr.NonZero(it.Rel)}>B</Button>
+  {/for}
+</nav>

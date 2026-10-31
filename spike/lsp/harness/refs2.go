@@ -18,7 +18,7 @@ func sessionRefs2(gopls string) *report {
 			r.p("init: %v", err)
 			continue
 		}
-		g := filepath.Join(projectDir, "orbit_gen")
+		g := filepath.Join(projectDir, "lyr_gen")
 		type f struct{ name, path, text string }
 		var decls, impls, page []f
 		for i := 0; i < scaleN; i++ {

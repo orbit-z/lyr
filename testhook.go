@@ -1,14 +1,14 @@
-package orbit
+package lyr
 
 import (
 	"net/http"
 
-	"github.com/orbit-z/orbit/internal/testhook"
+	"github.com/orbit-z/lyr/internal/testhook"
 )
 
-// The orbittest bridge: package orbittest renders through these hooks, so it
+// The lyrtest bridge: package lyrtest renders through these hooks, so it
 // uses the same pooled Ctx, Writer and buffers as servePage, and package
-// orbit exports nothing test-only. A variable initializer (rather than an
+// lyr exports nothing test-only. A variable initializer (rather than an
 // init func) keeps the setup next to the code it installs.
 var _ = func() bool {
 	testhook.Render = testRender

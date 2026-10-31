@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"context"
@@ -19,8 +19,8 @@ func LocalsOf[L any](c *Ctx) *L {
 	if c.locals != nil {
 		l, ok := c.locals.(*L)
 		if !ok {
-			panic(fmt.Sprintf("orbit: LocalsOf wants %T but this request's locals are a %T; "+
-				"the generated code uses two locals types (run orbit generate)", (*L)(nil), c.locals))
+			panic(fmt.Sprintf("lyr: LocalsOf wants %T but this request's locals are a %T; "+
+				"the generated code uses two locals types (run lyr generate)", (*L)(nil), c.locals))
 		}
 		return l
 	}
@@ -47,7 +47,7 @@ func LocalsOf[L any](c *Ctx) *L {
 
 // EnsureLocals is the call to use in net/http middleware:
 //
-//	r, l := orbit.EnsureLocals[locals.Locals](r)
+//	r, l := lyr.EnsureLocals[locals.Locals](r)
 //
 // If r already carries an *L, it returns r unchanged and that pointer.
 // Otherwise it attaches a new zero L and returns the new request. Every

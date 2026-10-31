@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/tailwind"
+	"github.com/orbit-z/lyr/internal/tailwind"
 )
 
 // fakeScript is the fake CLI: --help prints a v4 banner (FAKE_TW_VERSION
@@ -36,7 +36,7 @@ case "$in" in
 esac
 utils=""
 if [ -n "$FAKE_TW_SCAN" ]; then
-  for c in $(grep -rhoE 'tw-[a-z0-9-]+' "$FAKE_TW_SCAN" --include='*.orbit' --include='*.go' --include='*.md' 2>/dev/null | sort -u); do
+  for c in $(grep -rhoE 'tw-[a-z0-9-]+' "$FAKE_TW_SCAN" --include='*.lyr' --include='*.go' --include='*.md' 2>/dev/null | sort -u); do
     utils="$utils.$c{color:red}"
   done
 fi
@@ -77,7 +77,7 @@ func Log(t *testing.T, log string) []string {
 	return strings.Split(strings.TrimSpace(string(data)), "\n")
 }
 
-// Real finds a real Tailwind CSS v4 CLI, ORBIT_TEST_TAILWIND or
+// Real finds a real Tailwind CSS v4 CLI, LYR_TEST_TAILWIND or
 // tailwindcss on PATH, and puts its directory first on PATH; without one
 // it skips the test with a notice (like the TypeScript and Bun tests).
 // bun x isn't used: it would download.
@@ -95,12 +95,12 @@ func Real(t *testing.T) string {
 }
 
 // Notice is the skip message without a CLI.
-var Notice = "NOTICE: the Tailwind CSS CLI v" + tailwind.Pinned + " was not found; skipping the Tailwind integration test (set ORBIT_TEST_TAILWIND to a tailwindcss binary, or put one on PATH)"
+var Notice = "NOTICE: the Tailwind CSS CLI v" + tailwind.Pinned + " was not found; skipping the Tailwind integration test (set LYR_TEST_TAILWIND to a tailwindcss binary, or put one on PATH)"
 
-// Lookup returns the absolute path of the real v4 CLI: ORBIT_TEST_TAILWIND,
+// Lookup returns the absolute path of the real v4 CLI: LYR_TEST_TAILWIND,
 // or tailwindcss on PATH.
 func Lookup() (string, bool) {
-	p := os.Getenv("ORBIT_TEST_TAILWIND")
+	p := os.Getenv("LYR_TEST_TAILWIND")
 	if p == "" {
 		var err error
 		if p, err = exec.LookPath("tailwindcss"); err != nil {

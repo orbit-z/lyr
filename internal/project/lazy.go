@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/assets"
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/assets"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // The static graphs of milestone 8 (PLAN.md §3.4, §5): the island table,
@@ -29,7 +29,7 @@ func (f *File) calls() []compiler.ComponentCall {
 }
 
 // Islands returns the files used with server:defer anywhere in the
-// project, sorted by path: the island table of orbit_gen/app.
+// project, sorted by path: the island table of lyr_gen/app.
 func (p *Project) Islands() []*File {
 	byPath := p.byPath()
 	seen := map[string]bool{}

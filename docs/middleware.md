@@ -1,17 +1,17 @@
 # Middleware and locals
 
-Orbit has one middleware model, plain `net/http` middleware in `cmd/server/main.go`, and it hands request data to your pages through a typed `Locals` struct.
+Lyr has one middleware model, plain `net/http` middleware in `cmd/server/main.go`, and it hands request data to your pages through a typed `Locals` struct.
 
 ```go file=src/locals/locals.go
 // Package locals declares the request-scoped data that middleware hands to pages.
 package locals
 
-import "github.com/orbit-z/orbit"
+import "github.com/orbit-z/lyr"
 
 type Locals struct {
 	RequestID string
 	Theme     string          // "light" or "dark"
-	Route     orbit.RouteInfo // filled by Orbit: see Logging the matched route
+	Route     lyr.RouteInfo // filled by Lyr: see Logging the matched route
 }
 ```
 
@@ -25,9 +25,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 
-	"example.com/blog/orbit_gen/app"
+	"example.com/blog/lyr_gen/app"
 	"example.com/blog/src/locals"
 )
 
@@ -39,8 +39,8 @@ func main() {
 	mux.Handle("/", site.Handler())
 
 	// logging runs first, then the trailing-slash redirects, then
-	// requestInfo, then the mux and Orbit.
-	if err := orbit.ListenAndServe(logging(site.TrailingSlash(requestInfo(mux)))); err != nil {
+	// requestInfo, then the mux and Lyr.
+	if err := lyr.ListenAndServe(logging(site.TrailingSlash(requestInfo(mux)))); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -48,7 +48,7 @@ func main() {
 // requestInfo gives each request an ID and reads the theme cookie.
 func requestInfo(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r, l := orbit.EnsureLocals[locals.Locals](r)
+		r, l := lyr.EnsureLocals[locals.Locals](r)
 		l.RequestID = rand.Text()
 		l.Theme = "light"
 		if c, err := r.Cookie("theme"); err == nil && c.Value == "dark" {
@@ -62,7 +62,7 @@ func requestInfo(next http.Handler) http.Handler {
 // logging logs each request with its status, duration and request ID.
 func logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r, l := orbit.EnsureLocals[locals.Locals](r)
+		r, l := lyr.EnsureLocals[locals.Locals](r)
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		start := time.Now()
 		next.ServeHTTP(rec, r)
@@ -85,7 +85,7 @@ func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter 
 
 // prefs is a regular handler that reads the same typed locals.
 func prefs(w http.ResponseWriter, r *http.Request) {
-	l := orbit.LocalsFromRequest[locals.Locals](r)
+	l := lyr.LocalsFromRequest[locals.Locals](r)
 	if l == nil {
 		http.Error(w, "locals not set: wrap this handler with requestInfo", http.StatusInternalServerError)
 		return
@@ -97,9 +97,9 @@ func prefs(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-```orbit file=src/pages/account.orbit
+```lyr file=src/pages/account.lyr
 ---
-import Layout "../layouts/Base.orbit"
+import Layout "../layouts/Base.lyr"
 ---
 <Layout title="Your account">
   <h1>Your account</h1>
@@ -108,7 +108,7 @@ import Layout "../layouts/Base.orbit"
 </Layout>
 ```
 
-`curl -b theme=dark localhost:4321/account` shows `dark` and a fresh request ID, and the log line for that request carries the same ID. Pages read `locals.Theme` fully type-checked: a typo such as `locals.Them` fails `orbit build` at that line of the `.orbit` file, and your editor completes `locals.`.
+`curl -b theme=dark localhost:4321/account` shows `dark` and a fresh request ID, and the log line for that request carries the same ID. Pages read `locals.Theme` fully type-checked: a typo such as `locals.Them` fails `lyr build` at that line of the `.lyr` file, and your editor completes `locals.`.
 
 ## Writing middleware
 
@@ -118,18 +118,18 @@ A middleware is a `func(http.Handler) http.Handler`, the standard Go shape. It c
 - **Instead of `next.ServeHTTP`**: write a response itself and stop. See [Short-circuit responses](#short-circuit-responses).
 - **After `next.ServeHTTP`**: look at what was written, through a wrapping `http.ResponseWriter` (`logging` records the status). See [Rewrite responses](#rewrite-responses).
 
-There's no Orbit-specific middleware type. Anything from the Go ecosystem (CORS, gzip, rate limits, sessions) plugs in the same way.
+There's no Lyr-specific middleware type. Anything from the Go ecosystem (CORS, gzip, rate limits, sessions) plugs in the same way.
 
 ## Where middleware goes
 
-Where you put a middleware relative to Orbit decides what it sees:
+Where you put a middleware relative to Lyr decides what it sees:
 
-- **Outside Orbit**, wrapping `site.Middleware` or the mux that leads to `site.Handler()`, as above: it sees every request, pages, island requests, assets, `public/` files and your own handlers alike. Middleware that sets locals for pages must go here, so it runs before Orbit.
-- **After Orbit**, inside it (`site.Middleware(cors(mux))`): it only sees requests Orbit didn't handle. Locals it sets never reach a page.
+- **Outside Lyr**, wrapping `site.Middleware` or the mux that leads to `site.Handler()`, as above: it sees every request, pages, island requests, assets, `public/` files and your own handlers alike. Middleware that sets locals for pages must go here, so it runs before Lyr.
+- **After Lyr**, inside it (`site.Middleware(cors(mux))`): it only sees requests Lyr didn't handle. Locals it sets never reach a page.
 
-Middleware listed first runs first: in `logging(requestInfo(mux))`, `logging` sees the request before `requestInfo`, and sees the response after it. See [Server](server.md#choosing-precedence) for where the mux and Orbit go.
+Middleware listed first runs first: in `logging(requestInfo(mux))`, `logging` sees the request before `requestInfo`, and sees the response after it. See [Server](server.md#choosing-precedence) for where the mux and Lyr go.
 
-**Trailing slashes**: `site.Handler()` redirects the other form of a page URL (`/account/` by default, `/account` with `"trailingSlash": "always"`) only when the request reaches it, so middleware outside it would see both forms. `site.TrailingSlash`, outermost as above (`orbit new`'s `main.go` has it), sends that 308 first, as Astro does: `requestInfo`, auth gates and sessions only ever see the canonical form, and a gate never answers a request that's about to be redirected. Put a logger outside it if you want the 308s logged, as `logging` here. Middleware you place outside `site.TrailingSlash`, or in a `main.go` without it, still sees both forms; compare paths with that in mind (see [Routing](routing.md#redirecting-before-your-middleware)).
+**Trailing slashes**: `site.Handler()` redirects the other form of a page URL (`/account/` by default, `/account` with `"trailingSlash": "always"`) only when the request reaches it, so middleware outside it would see both forms. `site.TrailingSlash`, outermost as above (`lyr new`'s `main.go` has it), sends that 308 first, as Astro does: `requestInfo`, auth gates and sessions only ever see the canonical form, and a gate never answers a request that's about to be redirected. Put a logger outside it if you want the 308s logged, as `logging` here. Middleware you place outside `site.TrailingSlash`, or in a `main.go` without it, still sees both forms; compare paths with that in mind (see [Routing](routing.md#redirecting-before-your-middleware)).
 
 ## The request flow
 
@@ -142,17 +142,17 @@ Request → logging → site.TrailingSlash
                                         ├─ GET /api/prefs  → prefs
                                         └─ / (anything else)
                                              → site.Handler()
-                                                ├─ /_orbit/island/…    → deferred component
-                                                ├─ /_orbit/*, public/  → file
+                                                ├─ /_lyr/island/…    → deferred component
+                                                ├─ /_lyr/*, public/  → file
                                                 ├─ page route          → cached copy or page
-                                                └─ no match            → 404.orbit
+                                                └─ no match            → 404.lyr
 ```
 
-Inside `site.Handler()`, Orbit picks up the `*locals.Locals` that `EnsureLocals` attached to the request, and the page, its components and `404.orbit` all render with it. Responses come back out through `requestInfo` and `logging`.
+Inside `site.Handler()`, Lyr picks up the `*locals.Locals` that `EnsureLocals` attached to the request, and the page, its components and `404.lyr` all render with it. Responses come back out through `requestInfo` and `logging`.
 
 With [route caching](caching.md), a page request may be answered from the cache instead of rendering. That happens inside `site.Handler()` too, so `logging` and `requestInfo` run for cached responses as well.
 
-**Island requests** take the same path. A component rendered with `server:defer` is fetched by the browser in its own request to `/_orbit/island/…`, after the page has loaded. That request goes through `logging` and `requestInfo` like any other, so the deferred component sees the visitor's cookies and its own `locals`, with a new request ID. Nothing from the page's request carries over. See [Lazy loading](lazy-loading.md).
+**Island requests** take the same path. A component rendered with `server:defer` is fetched by the browser in its own request to `/_lyr/island/…`, after the page has loaded. That request goes through `logging` and `requestInfo` like any other, so the deferred component sees the visitor's cookies and its own `locals`, with a new request ID. Nothing from the page's request carries over. See [Lazy loading](lazy-loading.md).
 
 ## Typed locals
 
@@ -160,16 +160,16 @@ Locals carry request-scoped data, such as a request ID or the visitor's theme, f
 
 ### Declare the struct
 
-Put `type Locals struct` in the Go package `src/locals` (package `locals`), as in `src/locals/locals.go` above. Orbit finds it by name. Without one, `locals` in pages is an `*orbit.NoLocals`, an empty struct.
+Put `type Locals struct` in the Go package `src/locals` (package `locals`), as in `src/locals/locals.go` above. Lyr finds it by name. Without one, `locals` in pages is a `*lyr.NoLocals`, an empty struct.
 
-`Locals` may also be an alias of a struct declared elsewhere (`type Locals = auth.Session`); Orbit then doesn't see a `RouteInfo` or `Cache` field in it ([Logging the matched route](#logging-the-matched-route), [Keeping requests out of the cache](#keeping-requests-out-of-the-cache)). A `src/locals` whose package isn't named `locals`, or whose `Locals` is a defined type that isn't a struct (`type Locals map[string]any`), is an error at that line.
+`Locals` may also be an alias of a struct declared elsewhere (`type Locals = auth.Session`); Lyr then doesn't see a `RouteInfo` or `Cache` field in it ([Logging the matched route](#logging-the-matched-route), [Keeping requests out of the cache](#keeping-requests-out-of-the-cache)). A `src/locals` whose package isn't named `locals`, or whose `Locals` is a defined type that isn't a struct (`type Locals map[string]any`), is an error at that line.
 
 ### Set locals from middleware
 
 Every middleware that sets fields starts with the same line:
 
 ```go
-r, l := orbit.EnsureLocals[locals.Locals](r)
+r, l := lyr.EnsureLocals[locals.Locals](r)
 ```
 
 `EnsureLocals` returns the `*locals.Locals` already attached to the request, with `r` unchanged. If there's none, it attaches a new zero one and returns the new request. So the first middleware in the chain creates the value, and every later one gets the same pointer back. In the example, `logging` creates it, `requestInfo` fills it in, and `logging` reads `l.RequestID` after `next.ServeHTTP` returns.
@@ -189,9 +189,9 @@ func LocalsFromRequest[L any](r *http.Request) *L             // in your handler
 
 ### Read locals in pages and components
 
-Every page and component has an implicit `locals` of type `*locals.Locals`, the value your middleware attached. The layout that `account.orbit` uses reads it too:
+Every page and component has an implicit `locals` of type `*locals.Locals`, the value your middleware attached. The layout that `account.lyr` uses reads it too:
 
-```orbit file=src/layouts/Base.orbit
+```lyr file=src/layouts/Base.lyr
 ---
 type Props struct {
 	Title string
@@ -211,7 +211,7 @@ type Props struct {
 
 Components on a page share the page's instance, so a field set by middleware is the same everywhere in one render.
 
-Pages never see `nil`: if no middleware attached locals (a request that bypasses your middleware, or a test), Orbit allocates a zero `Locals` lazily, the first time a page or component uses it, once per request.
+Pages never see `nil`: if no middleware attached locals (a request that bypasses your middleware, or a test), Lyr allocates a zero `Locals` lazily, the first time a page or component uses it, once per request.
 
 Inside the frontmatter, the variable `locals` shadows the package name. Hoisted helpers that need the type import `example.com/blog/src/locals` as usual. See [Components](components.md).
 
@@ -222,7 +222,7 @@ Locals are also where data that several components need comes from, without pass
 ```go
 func withCatalog(api *catalog.Client, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r, l := orbit.EnsureLocals[locals.Locals](r)
+		r, l := lyr.EnsureLocals[locals.Locals](r)
 		l.Books = catalog.NewLoader(r.Context(), api) // one per request
 		next.ServeHTTP(w, r)
 	})
@@ -233,7 +233,7 @@ A loader shared by concurrent loads and `server:concurrent` components needs a m
 
 ## Logging the matched route
 
-A request log usually wants the route that answered, `/blog/[slug]` with `slug=hello`, rather than the URL: one line per route instead of per URL, and nothing private from the path or its query in the log. Orbit knows the route only inside `site.Middleware`, so it hands it back through your locals: give `Locals` a field of type `orbit.RouteInfo`, as `Route` in `src/locals/locals.go` above, and Orbit fills it. The type is the marker; any exported field name works.
+A request log usually wants the route that answered, `/blog/[slug]` with `slug=hello`, rather than the URL: one line per route instead of per URL, and nothing private from the path or its query in the log. Lyr knows the route only inside `site.Middleware`, so it hands it back through your locals: give `Locals` a field of type `lyr.RouteInfo`, as `Route` in `src/locals/locals.go` above, and Lyr fills it. The type is the marker; any exported field name works.
 
 ```go file=cmd/server/pagelog.go
 package main
@@ -243,7 +243,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 
 	"example.com/blog/src/locals"
 )
@@ -253,10 +253,10 @@ import (
 func pageLog(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		r, l := orbit.EnsureLocals[locals.Locals](r)
+		r, l := lyr.EnsureLocals[locals.Locals](r)
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rec, r)
-		if l.Route.Kind != orbit.RoutePage {
+		if l.Route.Kind != lyr.RoutePage {
 			return // static files, slash redirects, islands, 404s, your own handlers
 		}
 		params := map[string]string{}
@@ -269,49 +269,49 @@ func pageLog(next http.Handler) http.Handler {
 }
 ```
 
-Wrap it around the mux like `logging`: `logging(pageLog(requestInfo(mux)))`. `GET /blog/the-long-way` (the page `src/pages/blog/[slug].orbit`) logs `route=/blog/[slug] params=map[slug:the-long-way] status=200`.
+Wrap it around the mux like `logging`: `logging(pageLog(requestInfo(mux)))`. `GET /blog/the-long-way` (the page `src/pages/blog/[slug].lyr`) logs `route=/blog/[slug] params=map[slug:the-long-way] status=200`.
 
-Orbit fills the field as soon as the request is matched, before rendering, so a page that redirects, returns an error or panics still leaves it set, and a 500 is logged with its route. What each request records:
+Lyr fills the field as soon as the request is matched, before rendering, so a page that redirects, returns an error or panics still leaves it set, and a 500 is logged with its route. What each request records:
 
 | Request | `Kind` | `Pattern` | `File` | params |
 |---|---|---|---|---|
-| a page route (any outcome, `orbit.ErrNotFound` included) | `orbit.RoutePage` | the route's, `/blog/[slug]` | the page | the route's |
-| `site.NotFound()`, with `404.orbit` or the empty 404 | `orbit.RouteNotFound` | `/404` | `src/pages/404.orbit`, or `""` | none |
-| `/_orbit/island/…`, whatever the answer | `orbit.RouteIsland` | `/_orbit/island/[buildID]/[id]` | the deferred component, or `""` if the ID is unknown | `buildID`, `id` |
-| a GET or HEAD served as a static file (`/_orbit/*`, `public/`) | `orbit.RouteFile` | the URL path, `/robots.txt` | `""` | none |
-| trailing-slash redirects, requests passed to `next` | unchanged (`orbit.RouteNone`) | | | |
+| a page route (any outcome, `lyr.ErrNotFound` included) | `lyr.RoutePage` | the route's, `/blog/[slug]` | the page | the route's |
+| `site.NotFound()`, with `404.lyr` or the empty 404 | `lyr.RouteNotFound` | `/404` | `src/pages/404.lyr`, or `""` | none |
+| `/_lyr/island/…`, whatever the answer | `lyr.RouteIsland` | `/_lyr/island/[buildID]/[id]` | the deferred component, or `""` if the ID is unknown | `buildID`, `id` |
+| a GET or HEAD served as a static file (`/_lyr/*`, `public/`) | `lyr.RouteFile` | the URL path, `/robots.txt` | `""` | none |
+| trailing-slash redirects, requests passed to `next` | unchanged (`lyr.RouteNone`) | | | |
 
 - **Params** are percent-decoded, like `ctx.Param`. `l.Route.Param("slug")` reads one; `Params()` gives every name and value in the route's order. The strings stay valid after the request, so you can keep them or the whole struct.
-- **A request through Orbit twice** (`site.Middleware` passes it to your mux, whose catch-all is `site.NotFound()`) keeps the last value, `/404`.
-- **Pages and components** can read it too: `{locals.Route.Pattern}`. That works even without middleware attaching locals, because the `Locals` Orbit allocates for the page is filled the same way.
-- **Your error handler** (`orbit.WithErrorHandler`) runs after the fill, so `orbit.LocalsFromRequest[locals.Locals](r).Route` there is the failing page's route.
-- **Concurrency**: Orbit writes it on the request's goroutine before rendering. Read it there or after `next.ServeHTTP` returns, not from another goroutine during the request.
+- **A request through Lyr twice** (`site.Middleware` passes it to your mux, whose catch-all is `site.NotFound()`) keeps the last value, `/404`.
+- **Pages and components** can read it too: `{locals.Route.Pattern}`. That works even without middleware attaching locals, because the `Locals` Lyr allocates for the page is filled the same way.
+- **Your error handler** (`lyr.WithErrorHandler`) runs after the fill, so `lyr.LocalsFromRequest[locals.Locals](r).Route` there is the failing page's route.
+- **Concurrency**: Lyr writes it on the request's goroutine before rendering. Read it there or after `next.ServeHTTP` returns, not from another goroutine during the request.
 - **Cost**: filling it adds no allocation (a route with more than 8 params allocates once), and a project without the field pays nothing.
 
-A `Locals` with two `orbit.RouteInfo` fields is an error, since Orbit fills one:
+A `Locals` with two `lyr.RouteInfo` fields is an error, since Lyr fills one:
 
 ```go file=src/locals/locals.go expect-error
 package locals
 
-import "github.com/orbit-z/orbit"
+import "github.com/orbit-z/lyr"
 
 type Locals struct {
 	RequestID string
 	Theme     string
-	Route     orbit.RouteInfo
-	Previous  orbit.RouteInfo
+	Route     lyr.RouteInfo
+	Previous  lyr.RouteInfo
 }
 ```
 
 ```text
-src/locals/locals.go:9:2: Locals has two orbit.RouteInfo fields (Route, Previous); Orbit fills one
+src/locals/locals.go:9:2: Locals has two lyr.RouteInfo fields (Route, Previous); Lyr fills one
 ```
 
 An embedded, unexported or pointer `RouteInfo` field is an error at the field too.
 
-### Knowing the route before Orbit
+### Knowing the route before Lyr
 
-Orbit fills the field only when the request reaches `site.Middleware`. A request that your middleware answers first, such as a sign-in redirect, a 503 or a rate limit, never gets there, so it has no route and `pageLog` skips it. In Astro, routing happens before any middleware, so `context.routePattern` is set for those requests too. To get the same, match the request yourself with `site.Match`:
+Lyr fills the field only when the request reaches `site.Middleware`. A request that your middleware answers first, such as a sign-in redirect, a 503 or a rate limit, never gets there, so it has no route and `pageLog` skips it. In Astro, routing happens before any middleware, so `context.routePattern` is set for those requests too. To get the same, match the request yourself with `site.Match`:
 
 ```go
 func (s *Site) Match(r *http.Request) RouteInfo // the route site.Middleware would serve r with, without serving it
@@ -323,18 +323,18 @@ package main
 import (
 	"net/http"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 
 	"example.com/blog/src/locals"
 )
 
 // signInGate sends visitors without a session from /account to /signin. It
 // records the route first, so pageLog logs the redirect with its route.
-func signInGate(site *orbit.Site, next http.Handler) http.Handler {
+func signInGate(site *lyr.Site, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r, l := orbit.EnsureLocals[locals.Locals](r)
+		r, l := lyr.EnsureLocals[locals.Locals](r)
 		l.Route = site.Match(r)
-		if l.Route.Kind == orbit.RoutePage && l.Route.Pattern == "/account" {
+		if l.Route.Kind == lyr.RoutePage && l.Route.Pattern == "/account" {
 			if _, err := r.Cookie("session"); err != nil {
 				http.Redirect(w, r, "/signin", http.StatusSeeOther)
 				return
@@ -347,30 +347,30 @@ func signInGate(site *orbit.Site, next http.Handler) http.Handler {
 
 Put it inside `pageLog`: `logging(pageLog(signInGate(site, requestInfo(mux))))`. A visitor's `GET /account` then logs `route=/account status=303`.
 
-`Match` follows `site.Middleware`'s own order, and returns what Orbit would record:
+`Match` follows `site.Middleware`'s own order, and returns what Lyr would record:
 
 | Request | `site.Match(r)` |
 |---|---|
-| a page route, any method | `orbit.RoutePage`, the route, its file and params |
-| `/_orbit/island/…`, any method | `orbit.RouteIsland`, as Orbit records it |
-| a GET or HEAD of a static file (`/_orbit/*`, `public/`) | `orbit.RouteFile`, with the URL path as `Pattern` |
-| the other form of a page URL (`/blog/hello/`, redirected with a 308; never seen inside `site.TrailingSlash`) | `orbit.RouteNone` |
-| anything else | `orbit.RouteNone`: Orbit passes it to `next`, which may be `site.NotFound()` (then Orbit records `/404`) or one of your handlers |
+| a page route, any method | `lyr.RoutePage`, the route, its file and params |
+| `/_lyr/island/…`, any method | `lyr.RouteIsland`, as Lyr records it |
+| a GET or HEAD of a static file (`/_lyr/*`, `public/`) | `lyr.RouteFile`, with the URL path as `Pattern` |
+| the other form of a page URL (`/blog/hello/`, redirected with a 308; never seen inside `site.TrailingSlash`) | `lyr.RouteNone` |
+| anything else | `lyr.RouteNone`: Lyr passes it to `next`, which may be `site.NotFound()` (then Lyr records `/404`) or one of your handlers |
 
-- **Orbit fills the field again** when the request reaches it, so a request Orbit serves ends with Orbit's value, `/404` included. `Match` doesn't change the request or the locals; you assign its result.
-- **`Match` sees the request as it is now.** If something between your middleware and Orbit rewrites the path (`http.StripPrefix`), call `Match` on the rewritten request; otherwise Orbit's fill corrects the value only for requests it serves. Likewise, if your mux sends a path that an Orbit page would match to its own handler, `Match` still reports the page.
-- **Files**: `orbit.RouteFile` tells a request Orbit will serve from `public/` or `/_orbit/` apart from an unknown path (`orbit.RouteNone`), so a middleware can skip its work for files only, and still give an unknown `/nothing.zip` its locals before it reaches `site.NotFound()`. In production, a file counts if it was there when the server started (Orbit indexes them then); in dev, if it's there now.
-- **Your own handlers' routes** aren't Orbit's: `Match` returns `orbit.RouteNone` for them. `http.ServeMux` records its pattern in `r.Pattern` (`GET /api/prefs`) on the request it serves, which is your middleware's `r`, so a log can read that after `next.ServeHTTP` returns.
-- **Cost**: no allocation (a route with more than 8 params allocates once), about 50 ns. Orbit matches the request again inside `site.Middleware`, which costs about as much.
+- **Lyr fills the field again** when the request reaches it, so a request Lyr serves ends with Lyr's value, `/404` included. `Match` doesn't change the request or the locals; you assign its result.
+- **`Match` sees the request as it is now.** If something between your middleware and Lyr rewrites the path (`http.StripPrefix`), call `Match` on the rewritten request; otherwise Lyr's fill corrects the value only for requests it serves. Likewise, if your mux sends a path that a Lyr page would match to its own handler, `Match` still reports the page.
+- **Files**: `lyr.RouteFile` tells a request Lyr will serve from `public/` or `/_lyr/` apart from an unknown path (`lyr.RouteNone`), so a middleware can skip its work for files only, and still give an unknown `/nothing.zip` its locals before it reaches `site.NotFound()`. In production, a file counts if it was there when the server started (Lyr indexes them then); in dev, if it's there now.
+- **Your own handlers' routes** aren't Lyr's: `Match` returns `lyr.RouteNone` for them. `http.ServeMux` records its pattern in `r.Pattern` (`GET /api/prefs`) on the request it serves, which is your middleware's `r`, so a log can read that after `next.ServeHTTP` returns.
+- **Cost**: no allocation (a route with more than 8 params allocates once), about 50 ns. Lyr matches the request again inside `site.Middleware`, which costs about as much.
 
 ## Keeping requests out of the cache
 
-With [route caching](caching.md), a page's response can be stored and served to every visitor. Orbit looks the request up inside `site.Middleware`, after your middleware has run, so middleware decides first. It reaches the request's cache handle through a field of type `orbit.Cache` in your `Locals` (any exported name; the type is the marker):
+With [route caching](caching.md), a page's response can be stored and served to every visitor. Lyr looks the request up inside `site.Middleware`, after your middleware has run, so middleware decides first. It reaches the request's cache handle through a field of type `lyr.Cache` in your `Locals` (any exported name; the type is the marker):
 
 ```go
 type Locals struct {
 	User  *auth.User
-	Cache orbit.Cache // the request's cache handle
+	Cache lyr.Cache // the request's cache handle
 }
 ```
 
@@ -379,7 +379,7 @@ The usual use is to keep signed-in visitors out of the cache, so their pages can
 ```go
 func withSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r, l := orbit.EnsureLocals[locals.Locals](r)
+		r, l := lyr.EnsureLocals[locals.Locals](r)
 		if l.User = auth.FromCookie(r); l.User != nil {
 			l.Cache.Disable() // a fresh render, never stored
 		}
@@ -388,14 +388,14 @@ func withSession(next http.Handler) http.Handler {
 }
 ```
 
-- **`Disable()` runs before the lookup.** The request is neither served from the cache nor stored, even if the page calls `ctx.Cache().Set` afterwards. In Astro, the cache sits outside the middleware, so `set(false)` there can't stop a cached copy; in Orbit it can.
+- **`Disable()` runs before the lookup.** The request is neither served from the cache nor stored, even if the page calls `ctx.Cache().Set` afterwards. In Astro, the cache sits outside the middleware, so `set(false)` there can't stop a cached copy; in Lyr it can.
 - **Your middleware runs on every request, cached ones included**: authentication, redirects, logging and session refresh always run. A cached response costs what your middleware costs, plus about 0.15 µs.
-- **`Set` works too**: middleware can add tags or a `MaxAge` (`l.Cache.Set(orbit.CacheOptions{Tags: []string{"tenant:" + id}})`). A [route rule](configuration.md#routerules) applies under those values, and the page's own `Set` merges over both.
+- **`Set` works too**: middleware can add tags or a `MaxAge` (`l.Cache.Set(lyr.CacheOptions{Tags: []string{"tenant:" + id}})`). A [route rule](configuration.md#routerules) applies under those values, and the page's own `Set` merges over both.
 - **`ctx.Cache()` is the same field**: in pages and components, `ctx.Cache()` returns it when your middleware attached the locals.
-- **Before Orbit has seen the request**, `l.Cache.Enabled()` reports `false` and `l.Cache.Invalidate` returns `orbit.ErrCacheNotEnabled`. To purge from middleware or a handler, use `site.InvalidateCache`.
+- **Before Lyr has seen the request**, `l.Cache.Enabled()` reports `false` and `l.Cache.Invalidate` returns `lyr.ErrCacheNotEnabled`. To purge from middleware or a handler, use `site.InvalidateCache`.
 - **A cookie stops storing.** A response that has `Set-Cookie`, from the page or from your middleware, is never stored, so middleware that refreshes a session cookie on every request keeps those pages out of the cache. Set cookies only when they change.
 
-Two `orbit.Cache` fields (`Locals has two orbit.Cache fields (A, B); Orbit uses one`), an embedded one, an unexported one or a `*orbit.Cache` is an error at the field. See [Caching](caching.md#safety-what-orbit-checks-and-what-you-check) for what a cached page must not read.
+Two `lyr.Cache` fields (`Locals has two lyr.Cache fields (A, B); Lyr uses one`), an embedded one, an unexported one or a `*lyr.Cache` is an error at the field. See [Caching](caching.md#safety-what-lyr-checks-and-what-you-check) for what a cached page must not read.
 
 ## Short-circuit responses
 
@@ -421,17 +421,17 @@ A page short-circuits from its frontmatter by returning early. The template does
 | Return | Response |
 |---|---|
 | `return ctx.Redirect("/blog", http.StatusFound)` | the redirect |
-| `return orbit.ErrNotFound` | your `404.orbit` page, status 404 |
+| `return lyr.ErrNotFound` | your `404.lyr` page, status 404 |
 | `return err` | a 500, or your error handler's answer |
 
 See [Rendering](rendering.md#status-codes-and-errors) for status codes and errors.
 
 ### Catching what the page returned
 
-In Astro, middleware can wrap `next()` in a `try`/`catch` to answer what the page threw. In Orbit, a page's error is answered inside `site.Middleware`, so by the time `next.ServeHTTP` returns in your middleware, the response is written. Map errors to responses with an error handler instead, given to `app.New`:
+In Astro, middleware can wrap `next()` in a `try`/`catch` to answer what the page threw. In Lyr, a page's error is answered inside `site.Middleware`, so by the time `next.ServeHTTP` returns in your middleware, the response is written. Map errors to responses with an error handler instead, given to `app.New`:
 
 ```go
-site := app.New(orbit.WithErrorHandler(func(w http.ResponseWriter, r *http.Request, err error) bool {
+site := app.New(lyr.WithErrorHandler(func(w http.ResponseWriter, r *http.Request, err error) bool {
 	if errors.Is(err, context.DeadlineExceeded) {
 		http.Error(w, "The page took too long. Try again.", http.StatusGatewayTimeout)
 		return true
@@ -440,11 +440,11 @@ site := app.New(orbit.WithErrorHandler(func(w http.ResponseWriter, r *http.Reque
 }))
 ```
 
-It runs before anything is written, for errors from the page, any component, and deferred islands, and for recovered panics; `orbit.ErrNotFound` and redirects never reach it. Locals your middleware attached are on `r`. See [Answering errors yourself](rendering.md#answering-errors-yourself-witherrorhandler).
+It runs before anything is written, for errors from the page, any component, and deferred islands, and for recovered panics; `lyr.ErrNotFound` and redirects never reach it. Locals your middleware attached are on `r`. See [Answering errors yourself](rendering.md#answering-errors-yourself-witherrorhandler).
 
 ## Rewrite responses
 
-To change a response after the page has rendered, wrap the `http.ResponseWriter`, as you would for any Go handler. Orbit buffers every page and writes it once, with `Content-Length`, after injecting its `<link>` and `<script>` tags, so a wrapper always sees the complete, final HTML:
+To change a response after the page has rendered, wrap the `http.ResponseWriter`, as you would for any Go handler. Lyr buffers every page and writes it once, with `Content-Length`, after injecting its `<link>` and `<script>` tags, so a wrapper always sees the complete, final HTML:
 
 ```go
 // stampVersion replaces %VERSION% in HTML responses.
@@ -477,14 +477,14 @@ Headers the page set are already in `w.Header()` when `next.ServeHTTP` returns, 
 
 ## The import rule
 
-Every generated page and component imports `src/locals` (that's how `locals` gets its type). So `src/locals`, and anything it imports, must not import `example.com/blog/orbit_gen/app`: that would be an import cycle. Keep it a plain types package.
+Every generated page and component imports `src/locals` (that's how `locals` gets its type). So `src/locals`, and anything it imports, must not import `example.com/blog/lyr_gen/app`: that would be an import cycle. Keep it a plain types package.
 
-Orbit checks this before Go does and reports the import, for example:
+Lyr checks this before Go does and reports the import, for example:
 
 ```go file=src/locals/locals.go expect-error
 package locals
 
-import _ "example.com/blog/orbit_gen/app"
+import _ "example.com/blog/lyr_gen/app"
 
 type Locals struct {
 	RequestID string
@@ -492,10 +492,10 @@ type Locals struct {
 ```
 
 ```text
-src/locals/locals.go:3:10: src/locals can't import example.com/blog/orbit_gen/app: pages that use locals import src/locals, so this would be an import cycle
+src/locals/locals.go:3:10: src/locals can't import example.com/blog/lyr_gen/app: pages that use locals import src/locals, so this would be an import cycle
 ```
 
-An indirect import is reported at the import in `src/locals` that leads to it, with the chain of packages. Here `internal/auth` imports `orbit_gen/app`:
+An indirect import is reported at the import in `src/locals` that leads to it, with the chain of packages. Here `internal/auth` imports `lyr_gen/app`:
 
 ```go file=src/locals/locals.go expect-error
 package locals
@@ -510,16 +510,16 @@ type Locals struct {
 ```
 
 ```text
-src/locals/locals.go:4:2: src/locals can't import example.com/blog/orbit_gen/app: pages that use locals import src/locals, so this would be an import cycle (src/locals → example.com/blog/internal/auth → example.com/blog/orbit_gen/app)
+src/locals/locals.go:4:2: src/locals can't import example.com/blog/lyr_gen/app: pages that use locals import src/locals, so this would be an import cycle (src/locals → example.com/blog/internal/auth → example.com/blog/lyr_gen/app)
 ```
 
-The same goes for the generated component packages under `orbit_gen/impl/`. `orbit doctor` checks it too.
+The same goes for the generated component packages under `lyr_gen/impl/`. `lyr doctor` checks it too.
 
 ## See also
 
-- [Server](server.md): where Orbit and your middleware sit in `main.go`
-- [Rendering](rendering.md): redirects, `orbit.ErrNotFound` and errors from the frontmatter
+- [Server](server.md): where Lyr and your middleware sit in `main.go`
+- [Rendering](rendering.md): redirects, `lyr.ErrNotFound` and errors from the frontmatter
 - [Lazy loading](lazy-loading.md): island requests and your middleware
 - [Caching](caching.md): route caching, and what a cached page must not read
 - [Components](components.md): `locals`, `ctx` and `props` in the frontmatter
-- [Testing](testing.md): rendering with `orbittest.WithLocals`
+- [Testing](testing.md): rendering with `lyrtest.WithLocals`

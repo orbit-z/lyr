@@ -16,20 +16,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/assets"
-	"github.com/orbit-z/orbit/internal/build"
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/project"
-	"github.com/orbit-z/orbit/internal/tailwind"
+	"github.com/orbit-z/lyr/internal/assets"
+	"github.com/orbit-z/lyr/internal/build"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/project"
+	"github.com/orbit-z/lyr/internal/tailwind"
 )
 
 // Dev output directories, relative to the module root.
 const (
-	// StaticDir is ORBIT_STATIC: the dev bundles under _orbit/ and their
+	// StaticDir is LYR_STATIC: the dev bundles under _lyr/ and their
 	// manifest.json (PLAN.md §5 Manifest).
-	StaticDir = ".orbit/dev"
+	StaticDir = ".lyr/dev"
 	// binDir holds the dev server binaries.
-	binDir = ".orbit/devserver"
+	binDir = ".lyr/devserver"
 )
 
 // pipeline is the resident dev pipeline (PLAN.md §7.1): one esbuild
@@ -52,7 +52,7 @@ type pipeline struct {
 	// The last good bundle input and its key; nil before the first bundle.
 	lastInput *assets.Input
 	assetKey  string
-	// genOK is set when orbit_gen/ holds the generated code of the last
+	// genOK is set when lyr_gen/ holds the generated code of the last
 	// successful Typecheck, and goOK when the last go build of it
 	// succeeded.
 	genOK, goOK bool
@@ -128,8 +128,8 @@ type outcome struct {
 // didn't run.
 type Timings struct {
 	Front, Esbuild, Check, Write, GoBuild time.Duration
-	// Rechecked is the number of .orbit files the type checker re-checked,
-	// Written the number of orbit_gen files written or removed.
+	// Rechecked is the number of .lyr files the type checker re-checked,
+	// Written the number of lyr_gen files written or removed.
 	Rechecked, Written int
 	// EarlyBuild is set when go build started before regenerating, and
 	// EarlyUsed when its binary was used.
@@ -192,7 +192,7 @@ func (pl *pipeline) run(ctx context.Context, c Change, appRunning bool) (out out
 	}
 
 	// A .go-only edit: start go build now, in parallel with regenerating.
-	// If regenerating writes nothing to orbit_gen/, that build stands.
+	// If regenerating writes nothing to lyr_gen/, that build stands.
 	var early *earlyBuild
 	if !full && c.Only(KindGo) && pl.genOK && pl.entry != "" {
 		ectx, cancel := context.WithCancel(ctx)
@@ -229,7 +229,7 @@ func (pl *pipeline) run(ctx context.Context, c Change, appRunning bool) (out out
 	p, hasErrors, err := project.Reload(pl.proj, pl.root, c.Paths)
 	fronted = true
 	if err != nil {
-		// No go.mod, an invalid orbit.json, no src/: shown like a compile
+		// No go.mod, an invalid lyr.json, no src/: shown like a compile
 		// error until it's fixed.
 		pl.proj = nil
 		out.Failure = compileFailure(err.Error())
@@ -296,7 +296,7 @@ func (pl *pipeline) run(ctx context.Context, c Change, appRunning bool) (out out
 	var gerr error
 	if e := early; e != nil {
 		<-e.done
-		// The .d.ts files under orbit_gen/types aren't Go: writing only
+		// The .d.ts files under lyr_gen/types aren't Go: writing only
 		// them keeps the early build.
 		if !goWritten(wr) {
 			t.EarlyUsed = true
@@ -348,7 +348,7 @@ func diagFailure(ds []project.Diagnostic, out *outcome) *failure {
 }
 
 // bundle rebuilds the dev bundles from in and writes them and
-// manifest.json to .orbit/dev. It returns a failure for errors in the
+// manifest.json to .lyr/dev. It returns a failure for errors in the
 // user's files.
 func (pl *pipeline) bundle(in *assets.Input, key string) (*failure, error) {
 	res, err := pl.bundler.Bundle(in)
@@ -372,7 +372,7 @@ func (pl *pipeline) bundle(in *assets.Input, key string) (*failure, error) {
 	return nil, nil
 }
 
-// assetDiag formats a bundler diagnostic as Orbit's other errors.
+// assetDiag formats a bundler diagnostic as Lyr's other errors.
 func assetDiag(d assets.Diagnostic) string {
 	file := d.File
 	if file == "" {
@@ -454,7 +454,7 @@ func (pl *pipeline) startEarly(ctx context.Context) *earlyBuild {
 
 // devLDFlags is what dev builds add to go build's -ldflags: no symbol
 // table and no DWARF, which makes linking faster. Stack traces need
-// neither (they use the pclntab). orbit build doesn't use it.
+// neither (they use the pclntab). lyr build doesn't use it.
 const devLDFlags = "-s -w"
 
 // devGCFlags are dev builds' compiler flags. No DWARF in any package (std,
@@ -464,15 +464,15 @@ const devLDFlags = "-s -w"
 // Go package every Props imports, which recompiles every generated package)
 // and no change on template edits (milestone 10, user decision). When
 // several -gcflags patterns match a package the last one wins, so the
-// orbit_gen one repeats -dwarf=false. The relative pattern matches only
-// packages under the module's orbit_gen/.
+// lyr_gen one repeats -dwarf=false. The relative pattern matches only
+// packages under the module's lyr_gen/.
 var devGCFlags = []string{
 	"-gcflags=all=-dwarf=false",
-	"-gcflags=./orbit_gen/...=-l -dwarf=false",
+	"-gcflags=./lyr_gen/...=-l -dwarf=false",
 }
 
 // devVCSFlag skips stamping VCS information into dev binaries: go build
-// otherwise runs git on every build (10–20 ms). Nothing in Orbit reads it.
+// otherwise runs git on every build (10–20 ms). Nothing in Lyr reads it.
 const devVCSFlag = "-buildvcs=false"
 
 // devBuildFlags returns go build's flags other than -ldflags for a dev
@@ -532,7 +532,7 @@ func (pl *pipeline) runGoBuild(ctx context.Context, out, entry string) ([]byte, 
 }
 
 // goWritten reports whether wr wrote or removed a file that go build reads:
-// anything but the .d.ts files of orbit_gen/types (PLAN.md §5c).
+// anything but the .d.ts files of lyr_gen/types (PLAN.md §5c).
 func goWritten(wr *project.WriteResult) bool {
 	for _, list := range [][]string{wr.Written, wr.Removed} {
 		for _, p := range list {

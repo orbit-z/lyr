@@ -7,17 +7,17 @@ import (
 	"github.com/evanw/esbuild/pkg/api"
 )
 
-// TestClientModules: import "./X.orbit" from a block script or a .ts file
-// bundles orbit:client's runtime (PLAN.md §5c), orbit:types is empty, and
+// TestClientModules: import "./X.lyr" from a block script or a .ts file
+// bundles lyr:client's runtime (PLAN.md §5c), lyr:types is empty, and
 // another component's block isn't pulled in.
 func TestClientModules(t *testing.T) {
 	dir := project(t, map[string]string{
-		"src/components/Like.orbit": "<like-button data-n='1'></like-button>\n<script>\n  import { data, json } from \"./Like.orbit\";\n  import type { posts } from \"orbit:types\";\n  const p: posts.Post | null = null;\n  console.log(data(document.body, \"n\"), json(\"cfg\"), p);\n</script>\n",
-		"src/pages/a.orbit":         "<p>a</p>\n<script src=\"../scripts/use.ts\"></script>\n",
-		"src/scripts/use.ts":        "import { data } from \"../components/Like.orbit\";\nimport \"orbit:types\";\nconsole.log(data(document.body, \"liked\"));\n",
+		"src/components/Like.lyr": "<like-button data-n='1'></like-button>\n<script>\n  import { data, json } from \"./Like.lyr\";\n  import type { posts } from \"lyr:types\";\n  const p: posts.Post | null = null;\n  console.log(data(document.body, \"n\"), json(\"cfg\"), p);\n</script>\n",
+		"src/pages/a.lyr":         "<p>a</p>\n<script src=\"../scripts/use.ts\"></script>\n",
+		"src/scripts/use.ts":      "import { data } from \"../components/Like.lyr\";\nimport \"lyr:types\";\nconsole.log(data(document.body, \"liked\"));\n",
 	})
 	res := bundle(t, Options{Root: dir}, input(t, dir, map[string][]string{
-		"src/pages/a.orbit": {"src/pages/a.orbit", "src/components/Like.orbit"},
+		"src/pages/a.lyr": {"src/pages/a.lyr", "src/components/Like.lyr"},
 	}))
 	noErrors(t, res)
 	var js string
@@ -39,7 +39,7 @@ func TestClientModules(t *testing.T) {
 	}
 }
 
-// TestClientRuntimeSize: orbit:client minified stays small (PLAN.md §5c:
+// TestClientRuntimeSize: lyr:client minified stays small (PLAN.md §5c:
 // ≤ 400 B), and data alone, tree-shaken, smaller still.
 func TestClientRuntimeSize(t *testing.T) {
 	min := func(src string) int {
@@ -52,7 +52,7 @@ func TestClientRuntimeSize(t *testing.T) {
 	}
 	all := min(clientTS)
 	if all > 400 {
-		t.Errorf("orbit:client is %d B minified, want ≤ 400", all)
+		t.Errorf("lyr:client is %d B minified, want ≤ 400", all)
 	}
-	t.Logf("orbit:client: %d B minified", all)
+	t.Logf("lyr:client: %d B minified", all)
 }

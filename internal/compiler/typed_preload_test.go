@@ -36,7 +36,7 @@ func TestCheckerPreload(t *testing.T) {
 			t.Errorf("LoadedPaths = %v, want %v", got, want)
 		}
 
-		// orbit dev after a .go edit: Invalidate, then preload the last
+		// lyr dev after a .go edit: Invalidate, then preload the last
 		// load's paths; the Update that needs a load takes it.
 		c.Invalidate()
 		c.Preload(c.LoadedPaths())

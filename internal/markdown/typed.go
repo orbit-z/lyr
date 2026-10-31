@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // The typed pass of a Markdown file (PLAN.md §2.4 "Frontmatter → layout
@@ -81,7 +81,7 @@ type converter struct {
 	layout    string // the layout's name in messages ("Post")
 	aliases   map[*types.Package]string
 	// shown is the type messages name for the value being converted: the
-	// orbit.Opt[T] around T (PLAN.md §2.6), taken by the next convert.
+	// lyr.Opt[T] around T (PLAN.md §2.6), taken by the next convert.
 	shown   types.Type
 	imports []string
 	diags   []compiler.Diagnostic
@@ -103,7 +103,7 @@ func (c *converter) qual(p *types.Package) string {
 	if a, ok := c.aliases[p]; ok {
 		return a
 	}
-	a := "orbit__p" + strconv.Itoa(len(c.aliases))
+	a := "lyr__p" + strconv.Itoa(len(c.aliases))
 	if p.Path() == "time" {
 		a = "time"
 		c.imports = append(c.imports, `"time"`)
@@ -142,7 +142,7 @@ func (c *converter) convert(v *Value, t types.Type, keyPos int, key, label strin
 		return "", false
 	}
 	if elem, ok := compiler.OptElem(t); ok {
-		// An orbit.Opt[T]: some(the value as a T) (PLAN.md §2.6).
+		// A lyr.Opt[T]: some(the value as a T) (PLAN.md §2.6).
 		c.shown = shown
 		code, ok := c.convert(v, elem, keyPos, key, label)
 		if !ok {
@@ -286,7 +286,7 @@ func isNamed(t types.Type, pkg, name string) bool {
 	return ok && n.Obj().Pkg() != nil && n.Obj().Pkg().Path() == pkg && n.Obj().Name() == name
 }
 
-// isHeadings reports whether t is []orbit.Heading.
+// isHeadings reports whether t is []lyr.Heading.
 func isHeadings(t types.Type) bool {
 	s, ok := t.(*types.Slice)
 	return ok && isNamed(s.Elem(), compiler.RuntimePath, "Heading")

@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // The .d.ts side table (PLAN.md §9b): every declaration line of the
 // emitted types points at its source, a frontmatter type through the
-// source map into the .orbit file, a user package's type at its .go file,
+// source map into the .lyr file, a user package's type at its .go file,
 // and a key at its data-* attribute.
 var typeSourcesFiles = map[string]string{
 	"internal/posts/post.go": `package posts
@@ -21,7 +21,7 @@ type Post struct {
 	Title string ` + "`json:\"title\"`" + `
 }
 `,
-	"src/components/Like.orbit": `---
+	"src/components/Like.lyr": `---
 import "example.com/blog/internal/posts"
 
 type like struct {
@@ -31,10 +31,10 @@ type like struct {
 }
 v := like{Slug: "a"}
 ---
-<like-button data-like={orbit.JSON(v)}></like-button>
+<like-button data-like={lyr.JSON(v)}></like-button>
 `,
-	"src/pages/index.orbit": `---
-import Like "../components/Like.orbit"
+	"src/pages/index.lyr": `---
+import Like "../components/Like.lyr"
 ---
 <Like />
 `,
@@ -55,8 +55,8 @@ func TestTypeSources(t *testing.T) {
 	}
 	check := func(t *testing.T, files []compiler.TSFile) {
 		t.Helper()
-		src := proj.Files[0].Src // src/components/Like.orbit sorts first
-		if proj.Files[0].Path != "src/components/Like.orbit" {
+		src := proj.Files[0].Src // src/components/Like.lyr sorts first
+		if proj.Files[0].Path != "src/components/Like.lyr" {
 			t.Fatalf("first file %s", proj.Files[0].Path)
 		}
 		byPath := map[string]compiler.TSFile{}
@@ -73,26 +73,26 @@ func TestTypeSources(t *testing.T) {
 			t.Fatalf("%s: no line with %q:\n%s", f.Path, needle, f.Content)
 			return -1
 		}
-		goDTS := byPath["orbit_gen/types/go.d.ts"]
-		orbitAt := func(f compiler.TSFile, needle, want string) {
+		goDTS := byPath["lyr_gen/types/go.d.ts"]
+		lyrAt := func(f compiler.TSFile, needle, want string) {
 			t.Helper()
 			s, ok := f.Sources[lineOf(f, needle)]
-			if !ok || !s.Orbit || s.File != "src/components/Like.orbit" || s.Start < 0 || s.End > len(src) {
+			if !ok || !s.Lyr || s.File != "src/components/Like.lyr" || s.Start < 0 || s.End > len(src) {
 				t.Fatalf("%s %q: source %+v", f.Path, needle, s)
 			}
 			if got := src[s.Start:s.End]; got != want {
 				t.Errorf("%s %q: source covers %q, want %q", f.Path, needle, got, want)
 			}
 		}
-		orbitAt(goDTS, "export interface like", "like")
-		orbitAt(goDTS, "likes: number", "Likes")
+		lyrAt(goDTS, "export interface like", "like")
+		lyrAt(goDTS, "likes: number", "Likes")
 		s := goDTS.Sources[lineOf(goDTS, "title: string")]
-		if s.Orbit || filepath.Base(s.File) != "post.go" || s.Line != 5 || s.Name != "Title" {
+		if s.Lyr || filepath.Base(s.File) != "post.go" || s.Line != 5 || s.Name != "Title" {
 			t.Errorf("title: source %+v, want post.go:5, Title", s)
 		}
-		unit := byPath["orbit_gen/types/src/components/Like.orbit.d.ts"]
-		orbitAt(unit, "like: ", "data-like")
-		orbitAt(unit, "export declare function data", "data-like")
+		unit := byPath["lyr_gen/types/src/components/Like.lyr.d.ts"]
+		lyrAt(unit, "like: ", "data-like")
+		lyrAt(unit, "export declare function data", "data-like")
 	}
 	t.Run("full typed pass", func(t *testing.T) {
 		c := proj.Clone(compiler.Strict)
@@ -111,7 +111,7 @@ func TestTypeSources(t *testing.T) {
 			t.Fatal(err)
 		}
 		if n != 1 {
-			t.Errorf("checked %d files, want 1 (Like.orbit; the page has no data)", n)
+			t.Errorf("checked %d files, want 1 (Like.lyr; the page has no data)", n)
 		}
 		check(t, c.TypeFiles())
 		// Again, through Update.

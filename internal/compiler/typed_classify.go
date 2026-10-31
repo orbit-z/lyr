@@ -14,14 +14,14 @@ import (
 // tyEnv holds the runtime types the table compares against, from one
 // importer's view of the runtime package.
 type tyEnv struct {
-	html, url, renderer types.Type // orbit.HTML, orbit.URL, orbit.Renderer
-	css                 types.Type // orbit.CSS
-	jsonValue           types.Type // orbit.JSONValue
-	renderFunc          types.Type // func(*orbit.Writer) error
+	html, url, renderer types.Type // lyr.HTML, lyr.URL, lyr.Renderer
+	css                 types.Type // lyr.CSS
+	jsonValue           types.Type // lyr.JSONValue
+	renderFunc          types.Type // func(*lyr.Writer) error
 	stringer            *types.Interface
 	errorIface          *types.Interface
 	byteSlice           types.Type
-	// orbit.Attrs, orbit.AttrList and orbit.RestAttrs: an attribute spread
+	// lyr.Attrs, lyr.AttrList and lyr.RestAttrs: an attribute spread
 	// on a component tag (PLAN.md §2.11).
 	attrs, attrList, restAttrs types.Type
 }
@@ -355,9 +355,9 @@ func classTypeError(t types.Type, what string) string {
 	return what + " must be a string or []string, not " + name
 }
 
-// setHTMLError returns the error of a set:html value that orbit.HTML
+// setHTMLError returns the error of a set:html value that lyr.HTML
 // doesn't take (PLAN.md §2.6, user decision 2026-10-28), or nil: a value
-// assignable to orbit.HTML (an untyped constant included), untyped nil
+// assignable to lyr.HTML (an untyped constant included), untyped nil
 // (Go's error, which stays) or an invalid type. x is the value as passed to
 // SetHTML, whose T an untyped constant made string (go/types records the
 // inferred type), so x itself tells an untyped constant.
@@ -372,8 +372,8 @@ func (e *tyEnv) setHTMLError(x ast.Expr, tv types.TypeAndValue, info *types.Info
 		return nil
 	}
 	typ := types.TypeString(tv.Type, func(p *types.Package) string { return p.Name() })
-	return &Diagnostic{SeverityError, at, "set:html needs orbit.HTML or orbit.Opt[orbit.HTML], not " + typ +
-		": convert a trusted value with orbit.HTML(…), or use set:text"}
+	return &Diagnostic{SeverityError, at, "set:html needs lyr.HTML or lyr.Opt[lyr.HTML], not " + typ +
+		": convert a trusted value with lyr.HTML(…), or use set:text"}
 }
 
 // untypedConst reports whether x is an untyped constant expression as
@@ -406,7 +406,7 @@ var restWrites = map[WriteKind]WriteKind{
 
 // classifyRest picks the write of a dynamic pass-through attribute: the
 // typed constructor of the value Attr would write the same way (an
-// orbit.URL stays trusted), or the RestAny fallback (untyped nil too: it's
+// lyr.URL stays trusted), or the RestAny fallback (untyped nil too: it's
 // omitted at render time).
 func (e *tyEnv) classifyRest(tv types.TypeAndValue, urlAttr bool) TypedWrite {
 	if t, nilv, ok := tyStatic(tv); ok && !nilv && identical(t, e.url) {
@@ -414,7 +414,7 @@ func (e *tyEnv) classifyRest(tv types.TypeAndValue, urlAttr bool) TypedWrite {
 	}
 	if _, isOpt := optElem(tv.Type); isOpt {
 		// RestOpt stores the value's typed write at run time (PLAN.md
-		// §2.6 (Q7)), orbit.If included.
+		// §2.6 (Q7)), lyr.If included.
 		if urlAttr {
 			return TypedWrite{Kind: WriteRestOptURL}
 		}
@@ -429,6 +429,6 @@ func (e *tyEnv) classifyRest(tv types.TypeAndValue, urlAttr bool) TypedWrite {
 	return TypedWrite{Kind: k, Conv: w.Conv}
 }
 
-// OptElem returns T when t is an instantiation of the runtime's orbit.Opt
+// OptElem returns T when t is an instantiation of the runtime's lyr.Opt
 // (after types.Unalias).
 func OptElem(t types.Type) (types.Type, bool) { return optElem(t) }

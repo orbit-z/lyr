@@ -14,8 +14,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // Rename (PLAN.md §9 Request routing, rename): Go identifiers go to gopls
@@ -26,8 +26,8 @@ import (
 // spelling; any other edit on generated code rejects the whole rename.
 // Import aliases are renamed natively (the alias and its tags), with gopls
 // renaming their Go uses file by file.
-// prepareRename is gated by Orbit's routing and by where the identifier is
-// declared (gopls would also rename glue such as orbit__w or props).
+// prepareRename is gated by Lyr's routing and by where the identifier is
+// declared (gopls would also rename glue such as lyr__w or props).
 
 // codeRequestFailed is LSP's RequestFailed: the editor shows the message.
 const codeRequestFailed = -32803
@@ -42,7 +42,7 @@ func errChanged() *rpcError {
 
 // renameAt is where a rename starts in gopls's view.
 type renameAt struct {
-	path  string // the .orbit file
+	path  string // the .lyr file
 	g     *genFile
 	goOff int
 	fwd   jsonRaw // TextDocumentPositionParams for gopls
@@ -91,11 +91,11 @@ func (ws *workspace) toGoKind(p string, off int, kind compiler.SegmentKind) (*ge
 			continue
 		}
 		for _, s := range g.smap.Segments {
-			if s.Kind != kind || off < s.OrbitStart || off > s.OrbitEnd {
+			if s.Kind != kind || off < s.LyrStart || off > s.LyrEnd {
 				continue
 			}
 			r := 1
-			if off < s.OrbitEnd {
+			if off < s.LyrEnd {
 				r = 2
 			}
 			if r > rank {
@@ -106,21 +106,21 @@ func (ws *workspace) toGoKind(p string, off int, kind compiler.SegmentKind) (*ge
 	if best == nil {
 		return nil, 0, false
 	}
-	return best, seg.GoStart + min(off-seg.OrbitStart, seg.GoEnd-seg.GoStart), true
+	return best, seg.GoStart + min(off-seg.LyrStart, seg.GoEnd-seg.GoStart), true
 }
 
 // renameTarget is what the identifier at a renameAt declares, as far as
 // rename cares.
 type renameTarget struct {
 	prop bool // a Props field
-	// aliasPath and alias are set when it's an .orbit import alias (used
+	// aliasPath and alias are set when it's a .lyr import alias (used
 	// in Go code, as in Card.Props).
 	aliasPath, alias string
 }
 
 // renameTarget asks gopls where the identifier is declared, and refuses
-// identifiers that Orbit's generated code declares (glue such as props or
-// orbit__w, a page's Params fields) and the Props type itself.
+// identifiers that Lyr's generated code declares (glue such as props or
+// lyr__w, a page's Params fields) and the Props type itself.
 func (s *Server) renameTarget(ctx context.Context, at renameAt) (renameTarget, *rpcError) {
 	raw, err := s.callGoplsErr(ctx, "textDocument/definition", at.fwd, true)
 	if err != nil {
@@ -143,29 +143,29 @@ func (s *Server) renameTarget(ctx context.Context, at renameAt) (renameTarget, *
 	}
 	g := ws.gen[rel]
 	if g == nil {
-		return renameTarget{}, renameErr("can't rename %s: Orbit's generated code declares it", name)
+		return renameTarget{}, renameErr("can't rename %s: Lyr's generated code declares it", name)
 	}
 	off := g.lines.offset(r.Start, s.goplsEnc)
-	f := ws.byPath[g.orbit]
+	f := ws.byPath[g.lyr]
 	o, ok := g.fromGo(off)
 	if !ok || f == nil || f.Analysis == nil {
 		if f != nil && inParams(g, f, off) {
-			return renameTarget{}, paramsErr(name, g.orbit)
+			return renameTarget{}, paramsErr(name, g.lyr)
 		}
-		return renameTarget{}, renameErr("can't rename %s: Orbit's generated code declares it", name)
+		return renameTarget{}, renameErr("can't rename %s: Lyr's generated code declares it", name)
 	}
 	an := f.Analysis
 	if an.Props.Declared && o == an.Props.Span.Start {
-		return renameTarget{}, renameErr("can't rename Props: Orbit finds a component's props by this name")
+		return renameTarget{}, renameErr("can't rename Props: Lyr finds a component's props by this name")
 	}
 	for _, pf := range an.Props.Fields {
 		if pf.NameSpan.Contains(o) {
 			return renameTarget{prop: true}, nil
 		}
 	}
-	for _, im := range an.OrbitImports {
+	for _, im := range an.LyrImports {
 		if im.AliasSpan.Contains(o) {
-			return renameTarget{aliasPath: g.orbit, alias: im.Alias}, nil
+			return renameTarget{aliasPath: g.lyr, alias: im.Alias}, nil
 		}
 	}
 	return renameTarget{}, nil
@@ -175,14 +175,14 @@ func (s *Server) renameTarget(ctx context.Context, at renameAt) (renameTarget, *
 // compiler's error).
 func reservedErr(name string) *rpcError {
 	if compiler.IsReservedIdent(name) {
-		return renameErr("%s is reserved: names starting with orbit__ or Orbit__ are used by generated code", name)
+		return renameErr("%s is reserved: names starting with lyr__ or Lyr__ are used by generated code", name)
 	}
 	return nil
 }
 
 // mdRenameErr refuses a rename that would change the generated code of
 // the Markdown file f: a layout Props field its frontmatter sets (user
-// decision: Orbit doesn't edit Markdown files).
+// decision: Lyr doesn't edit Markdown files).
 func mdRenameErr(f *project.File, name string) *rpcError {
 	where := f.Path
 	for _, fd := range f.MD.Fields {
@@ -191,7 +191,7 @@ func mdRenameErr(f *project.File, name string) *rpcError {
 			break
 		}
 	}
-	return renameErr("can't rename %s: the frontmatter of %s sets it, and Orbit doesn't rename Markdown frontmatter keys; rename the field and the key by hand", name, where)
+	return renameErr("can't rename %s: the frontmatter of %s sets it, and Lyr doesn't rename Markdown frontmatter keys; rename the field and the key by hand", name, where)
 }
 
 func paramsErr(name, page string) *rpcError {
@@ -285,7 +285,7 @@ func (s *Server) prepareRename(ctx context.Context, params jsonRaw) (any, *rpcEr
 	}
 	// gopls answers {range, placeholder}, a bare Range or
 	// {defaultBehavior}; the identifier is in an exact segment, so its
-	// .orbit range is the same text.
+	// .lyr range is the same text.
 	o := decodeObj(raw)
 	var r Range
 	if rr, ok := o.rng("range"); ok {
@@ -299,7 +299,7 @@ func (s *Server) prepareRename(ctx context.Context, params jsonRaw) (any, *rpcEr
 	if !ok || seg.Kind != compiler.SegExact {
 		return nil, renameErr("can't rename %s here", identAt(at.g.content, at.goOff))
 	}
-	os, oe := seg.OrbitStart+gs-seg.GoStart, seg.OrbitStart+ge-seg.GoStart
+	os, oe := seg.LyrStart+gs-seg.GoStart, seg.LyrStart+ge-seg.GoStart
 	name := f.Src[os:oe]
 	if t.alias != "" {
 		name = t.alias
@@ -406,13 +406,13 @@ func (s *Server) rename(ctx context.Context, params jsonRaw) (any, *rpcError) {
 
 // importFollowUps returns the gopls rename params for the generated files
 // gopls didn't edit that hold an import whose name this rename changed in
-// an .orbit file (with s.mu held).
+// a .lyr file (with s.mu held).
 func (rm *renameMapper) importFollowUps(set *editSet, newName string, enc encoding) []jsonRaw {
 	var out []jsonRaw
 	for _, uri := range set.order {
 		fe := set.files[uri]
-		f := rm.ws.byPath[fe.orbit]
-		if fe.orbit == "" || f == nil || f.Analysis == nil {
+		f := rm.ws.byPath[fe.lyr]
+		if fe.lyr == "" || f == nil || f.Analysis == nil {
 			continue
 		}
 		for _, im := range f.Analysis.GoImports {
@@ -425,7 +425,7 @@ func (rm *renameMapper) importFollowUps(set *editSet, newName string, enc encodi
 			if at < 0 {
 				continue
 			}
-			decl, impl := rm.ws.genOf(fe.orbit)
+			decl, impl := rm.ws.genOf(fe.lyr)
 			for _, g := range []*genFile{decl, impl} {
 				if g == nil || rm.touched[g] {
 					continue
@@ -451,20 +451,20 @@ func (rm *renameMapper) importFollowUps(set *editSet, newName string, enc encodi
 	return out
 }
 
-// goOffsetKind maps an .orbit offset into g through a segment of kind.
+// goOffsetKind maps a .lyr offset into g through a segment of kind.
 func goOffsetKind(g *genFile, off int, kind compiler.SegmentKind) (int, bool) {
 	if g.smap == nil {
 		return 0, false
 	}
 	for _, s := range g.smap.Segments {
-		if s.Kind == kind && off >= s.OrbitStart && off <= s.OrbitEnd {
-			return s.GoStart + min(off-s.OrbitStart, s.GoEnd-s.GoStart), true
+		if s.Kind == kind && off >= s.LyrStart && off <= s.LyrEnd {
+			return s.GoStart + min(off-s.LyrStart, s.GoEnd-s.GoStart), true
 		}
 	}
 	return 0, false
 }
 
-// renameAlias renames the .orbit import alias of the file at p: the alias,
+// renameAlias renames the .lyr import alias of the file at p: the alias,
 // every start and end tag that uses it, and its uses in Go code (by gopls,
 // in each generated file that imports it).
 func (s *Server) renameAlias(ctx context.Context, p, alias, newName string) (any, *rpcError) {
@@ -512,7 +512,7 @@ func (s *Server) renameAlias(ctx context.Context, p, alias, newName string) (any
 			continue
 		}
 		for _, sg := range g.smap.Segments {
-			if sg.Kind == compiler.SegExact && sg.OrbitStart == im.AliasSpan.Start && sg.OrbitEnd == im.AliasSpan.End {
+			if sg.Kind == compiler.SegExact && sg.LyrStart == im.AliasSpan.Start && sg.LyrEnd == im.AliasSpan.End {
 				b, _ := json.Marshal(map[string]any{
 					"textDocument": map[string]any{"uri": g.uri},
 					"position":     g.lines.position(sg.GoStart, s.goplsEnc),
@@ -559,10 +559,10 @@ func (s *Server) renameAlias(ctx context.Context, p, alias, newName string) (any
 	return set.result(s.ws, s.caps.documentChanges)
 }
 
-// findAlias returns f's .orbit import with the alias, or nil.
-func findAlias(f *project.File, alias string) *compiler.OrbitImport {
-	for i := range f.Analysis.OrbitImports {
-		if im := &f.Analysis.OrbitImports[i]; im.Alias == alias {
+// findAlias returns f's .lyr import with the alias, or nil.
+func findAlias(f *project.File, alias string) *compiler.LyrImport {
+	for i := range f.Analysis.LyrImports {
+		if im := &f.Analysis.LyrImports[i]; im.Alias == alias {
 			return im
 		}
 	}
@@ -595,15 +595,15 @@ func importBase(p string) string {
 	return p
 }
 
-// aliasAt returns the .orbit import whose alias is at off of f: on the
+// aliasAt returns the .lyr import whose alias is at off of f: on the
 // alias in the frontmatter, or on the name of a start or end tag that uses
 // it; sp is that occurrence.
-func aliasAt(f *project.File, off int) (im *compiler.OrbitImport, sp compiler.Span, ok bool) {
+func aliasAt(f *project.File, off int) (im *compiler.LyrImport, sp compiler.Span, ok bool) {
 	if f.AST == nil || f.Analysis == nil {
 		return nil, compiler.Span{}, false
 	}
-	for i := range f.Analysis.OrbitImports {
-		if im := &f.Analysis.OrbitImports[i]; im.AliasSpan.Contains(off) {
+	for i := range f.Analysis.LyrImports {
+		if im := &f.Analysis.LyrImports[i]; im.AliasSpan.Contains(off) {
 			return im, im.AliasSpan, true
 		}
 	}
@@ -696,7 +696,7 @@ func (rm *renameMapper) apply(raw jsonRaw, set *editSet) *rpcError {
 				// A resource operation (create, rename, delete file).
 				for _, k := range []string{"uri", "oldUri", "newUri"} {
 					if u := d.str(k); u != "" && isGenPath(rm.ws.rel(uriToPath(u))) {
-						return renameErr("can't rename: it would rename Orbit's generated files")
+						return renameErr("can't rename: it would rename Lyr's generated files")
 					}
 				}
 				set.ops = append(set.ops, item)
@@ -722,7 +722,7 @@ func (rm *renameMapper) file(uri string, edits []jsonRaw, set *editSet) *rpcErro
 	g := ws.gen[rel]
 	if g == nil {
 		if isGenPath(rel) {
-			return nil // a stale generated file of no .orbit file
+			return nil // a stale generated file of no .lyr file
 		}
 		fe := set.file(uri, "")
 		for _, e := range edits {
@@ -755,7 +755,7 @@ func (rm *renameMapper) file(uri string, edits []jsonRaw, set *editSet) *rpcErro
 // edit maps one edit of generated file g.
 func (rm *renameMapper) edit(g *genFile, r Range, text string, set *editSet) *rpcError {
 	ws := rm.ws
-	f := ws.byPath[g.orbit]
+	f := ws.byPath[g.lyr]
 	if f == nil {
 		return errChanged()
 	}
@@ -767,26 +767,26 @@ func (rm *renameMapper) edit(g *genFile, r Range, text string, set *editSet) *rp
 		// (§2.11): the next generate re-emits it.
 		return nil
 	case ok && seg.Kind == compiler.SegExact:
-		os, oe := seg.OrbitStart+gs-seg.GoStart, seg.OrbitStart+ge-seg.GoStart
+		os, oe := seg.LyrStart+gs-seg.GoStart, seg.LyrStart+ge-seg.GoStart
 		if a := shorthandAt(f, os, oe); a != nil {
 			// {post} names the attribute too: keep the name, post={article}.
 			code := f.Src[a.Code.Start:os] + text + f.Src[oe:a.Code.End]
-			set.add(ws, g.orbit, a.Start, a.End, a.Name+"={"+code+"}")
+			set.add(ws, g.lyr, a.Start, a.End, a.Name+"={"+code+"}")
 			return nil
 		}
-		set.add(ws, g.orbit, os, oe, text)
+		set.add(ws, g.lyr, os, oe, text)
 		return nil
 	case ok && seg.Kind == compiler.SegSpan && gs == seg.GoStart && ge == seg.GoEnd:
-		if a := propAttrAt(f, seg.OrbitStart, seg.OrbitEnd); a != nil {
-			name, ok := rm.override[attrKey{g.orbit, a.NameSpan.Start}]
+		if a := propAttrAt(f, seg.LyrStart, seg.LyrEnd); a != nil {
+			name, ok := rm.override[attrKey{g.lyr, a.NameSpan.Start}]
 			if !ok {
 				name = attrSpelling(a.Name, string(g.content[gs:ge]), text)
 			}
 			if a.Kind == compiler.AttrShorthand {
 				// {post} with Post renamed: article={post}.
-				set.add(ws, g.orbit, a.Start, a.End, name+"={"+f.Src[a.Code.Start:a.Code.End]+"}")
+				set.add(ws, g.lyr, a.Start, a.End, name+"={"+f.Src[a.Code.Start:a.Code.End]+"}")
 			} else {
-				set.add(ws, g.orbit, a.NameSpan.Start, a.NameSpan.End, name)
+				set.add(ws, g.lyr, a.NameSpan.Start, a.NameSpan.End, name)
 			}
 			return nil
 		}
@@ -799,13 +799,13 @@ func (rm *renameMapper) edit(g *genFile, r Range, text string, set *editSet) *rp
 		name = identAt(g.content, gs)
 	}
 	if inParams(g, f, gs) {
-		return paramsErr(name, g.orbit)
+		return paramsErr(name, g.lyr)
 	}
 	if f.MD != nil {
 		return mdRenameErr(f, name)
 	}
 	p := g.lines.position(gs, encUTF8)
-	return renameErr("can't rename %s: it would change Orbit's generated code where it has no place in your .orbit files (%s:%d:%d)",
+	return renameErr("can't rename %s: it would change Lyr's generated code where it has no place in your .lyr files (%s:%d:%d)",
 		name, g.rel, p.Line+1, p.Character+1)
 }
 
@@ -831,7 +831,7 @@ func renameSegment(m *compiler.SourceMap, gs, ge int) (compiler.Segment, bool) {
 }
 
 // shorthandAt returns the {name} shorthand attribute whose code holds the
-// .orbit range [start, end], or nil.
+// .lyr range [start, end], or nil.
 func shorthandAt(f *project.File, start, end int) *compiler.Attr {
 	return findAttr(f, func(_ compiler.Node, a *compiler.Attr) bool {
 		return a.Kind == compiler.AttrShorthand && a.Code.Start <= start && end <= a.Code.End
@@ -952,10 +952,10 @@ type editSet struct {
 	ops   []jsonRaw // resource operations, passed through
 }
 
-// fileEdits are the edits of one document: byte spans of an .orbit file,
+// fileEdits are the edits of one document: byte spans of a .lyr file,
 // or another file's edits as gopls sent them.
 type fileEdits struct {
-	orbit string
+	lyr   string
 	spans []spanEdit
 	raw   []jsonRaw
 }
@@ -967,24 +967,24 @@ type spanEdit struct {
 
 func newEditSet() *editSet { return &editSet{files: map[string]*fileEdits{}} }
 
-func (e *editSet) file(uri, orbit string) *fileEdits {
+func (e *editSet) file(uri, lyr string) *fileEdits {
 	fe := e.files[uri]
 	if fe == nil {
-		fe = &fileEdits{orbit: orbit}
+		fe = &fileEdits{lyr: lyr}
 		e.files[uri] = fe
 		e.order = append(e.order, uri)
 	}
 	return fe
 }
 
-// add adds an edit of the .orbit file at p.
+// add adds an edit of the .lyr file at p.
 func (e *editSet) add(ws *workspace, p string, start, end int, text string) {
-	fe := e.file(ws.orbitURI(p), p)
+	fe := e.file(ws.lyrURI(p), p)
 	fe.spans = append(fe.spans, spanEdit{start, end, text})
 }
 
 // result returns the WorkspaceEdit: documentChanges, with the version of
-// open .orbit documents (null otherwise), or changes for editors without
+// open .lyr documents (null otherwise), or changes for editors without
 // documentChanges support. Duplicate edits (an import copied into both
 // generated files) are merged; overlapping ones reject the rename.
 func (e *editSet) result(ws *workspace, documentChanges bool) (any, *rpcError) {
@@ -994,8 +994,8 @@ func (e *editSet) result(ws *workspace, documentChanges bool) (any, *rpcError) {
 		fe := e.files[uri]
 		edits := fe.raw
 		version := jsonRaw("null")
-		if fe.orbit != "" {
-			lines := ws.lines[fe.orbit]
+		if fe.lyr != "" {
+			lines := ws.lines[fe.lyr]
 			if lines == nil {
 				return nil, errChanged()
 			}
@@ -1009,7 +1009,7 @@ func (e *editSet) result(ws *workspace, documentChanges bool) (any, *rpcError) {
 			spans = slices.Compact(spans)
 			for i := 1; i < len(spans); i++ {
 				if spans[i].start < spans[i-1].end || spans[i].start == spans[i-1].start {
-					return nil, renameErr("can't rename: conflicting edits in %s", fe.orbit)
+					return nil, renameErr("can't rename: conflicting edits in %s", fe.lyr)
 				}
 			}
 			edits = nil
@@ -1017,7 +1017,7 @@ func (e *editSet) result(ws *workspace, documentChanges bool) (any, *rpcError) {
 				b, _ := json.Marshal(map[string]any{"range": lines.rangeOf(sp.start, sp.end, encUTF16), "newText": sp.text})
 				edits = append(edits, b)
 			}
-			if d := ws.docs[fe.orbit]; d != nil {
+			if d := ws.docs[fe.lyr]; d != nil {
 				version = jsonRaw(strconv.Itoa(d.version))
 			}
 		}
@@ -1046,10 +1046,10 @@ func (e *editSet) result(ws *workspace, documentChanges bool) (any, *rpcError) {
 }
 
 // genPos is a generated file position in a gopls message.
-var genPos = regexp.MustCompile(`(\S*orbit_gen/\S+?\.go):(\d+):(\d+)`)
+var genPos = regexp.MustCompile(`(\S*lyr_gen/\S+?\.go):(\d+):(\d+)`)
 
 // scrubError rewrites generated-file positions in a gopls error to the
-// .orbit position they come from (or "generated code").
+// .lyr position they come from (or "generated code").
 func (s *Server) scrubError(err *rpcError) *rpcError {
 	if err == nil || err.Code == codeRequestCancelled {
 		return err
@@ -1073,12 +1073,12 @@ func (s *Server) scrubError(err *rpcError) *rpcError {
 			return "generated code"
 		}
 		o, ok := g.fromGo(min(g.lines.starts[line-1]+col-1, len(g.content)))
-		lines := ws.lines[g.orbit]
+		lines := ws.lines[g.lyr]
 		if !ok || lines == nil {
 			return "generated code"
 		}
 		p := lines.position(o, encUTF8)
-		return fmt.Sprintf("%s:%d:%d", g.orbit, p.Line+1, p.Character+1)
+		return fmt.Sprintf("%s:%d:%d", g.lyr, p.Line+1, p.Character+1)
 	})
 	return &rpcError{Code: err.Code, Message: msg}
 }

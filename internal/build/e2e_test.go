@@ -10,13 +10,13 @@ import (
 	"testing"
 )
 
-// TestE2E builds the fixture site with orbit build, once with the generated
+// TestE2E builds the fixture site with lyr build, once with the generated
 // default server entry and once with its own cmd/server, runs dist/server
-// and checks its responses (PLAN.md §13), then runs orbit preview on the
+// and checks its responses (PLAN.md §13), then runs lyr preview on the
 // same build.
 func TestE2E(t *testing.T) {
 	needE2E(t)
-	orbitCLI(t)
+	lyrCLI(t)
 	for _, userServer := range []bool{false, true} {
 		name := "generated-entry"
 		if userServer {
@@ -28,14 +28,14 @@ func TestE2E(t *testing.T) {
 			// A stale file from an earlier build is removed.
 			writeFile(t, dir, "dist/client/stale.txt", "old")
 
-			code, out := runOrbit(t, dir, "build")
+			code, out := runLyr(t, dir, "build")
 			if code != 0 || out != "" {
-				t.Fatalf("orbit build: exit %d\n%s", code, out)
+				t.Fatalf("lyr build: exit %d\n%s", code, out)
 			}
-			if exists(filepath.Join(dir, "orbit_gen/cmd/server")) == userServer {
-				t.Errorf("orbit_gen/cmd/server exists: %v, want %v", !userServer, !userServer)
+			if exists(filepath.Join(dir, "lyr_gen/cmd/server")) == userServer {
+				t.Errorf("lyr_gen/cmd/server exists: %v, want %v", !userServer, !userServer)
 			}
-			for _, rel := range []string{"dist/server", "dist/client/robots.txt", "dist/client/_orbit"} {
+			for _, rel := range []string{"dist/server", "dist/client/robots.txt", "dist/client/_lyr"} {
 				if !exists(filepath.Join(dir, rel)) {
 					t.Errorf("no %s", rel)
 				}
@@ -52,7 +52,7 @@ func TestE2E(t *testing.T) {
 			}
 			// The island key and build ID are embedded with -ldflags=-X.
 			info, err := exec.Command("go", "version", "-m", filepath.Join(dir, "dist/server")).Output()
-			if err != nil || !regexp.MustCompile(`-X github.com/orbit-z/orbit.buildKey=[A-Za-z0-9+/]{43}= -X github.com/orbit-z/orbit.buildID=[0-9a-f]{16}`).Match(info) {
+			if err != nil || !regexp.MustCompile(`-X github.com/orbit-z/lyr.buildKey=[A-Za-z0-9+/]{43}= -X github.com/orbit-z/lyr.buildID=[0-9a-f]{16}`).Match(info) {
 				t.Errorf("go version -m dist/server: %v\n%s", err, info)
 			}
 
@@ -69,19 +69,19 @@ func TestE2E(t *testing.T) {
 			if userServer {
 				return
 			}
-			// The build flavor: the panic above is logged at its .orbit line
+			// The build flavor: the panic above is logged at its .lyr line
 			// from an overlaid file, and the responses match the hooks'.
-			if b, err := os.ReadFile(filepath.Join(dir, ".orbit/build/overlay.json")); err != nil || !strings.Contains(string(b), `"orbit_gen/impl/pages/blog/slug_param/render.go"`) {
+			if b, err := os.ReadFile(filepath.Join(dir, ".lyr/build/overlay.json")); err != nil || !strings.Contains(string(b), `"lyr_gen/impl/pages/blog/slug_param/render.go"`) {
 				t.Errorf("the [slug] page isn't overlaid (%v):\n%s", err, b)
 			}
 			checkFlavors(t, dir, "example.com/site", []string{"/", "/search", "/bare", "/blog/hello", "/blog/teapot", "/nope"})
-			// orbit preview runs the same build.
-			p := start(t, filepath.Join(dir, "src"), orbitCLI(t), "preview")
+			// lyr preview runs the same build.
+			p := start(t, filepath.Join(dir, "src"), lyrCLI(t), "preview")
 			if resp, body := p.get("/"); resp.StatusCode != 200 || !strings.Contains(body, "<title>Home</title>") {
 				t.Errorf("preview GET /: %d\n%s", resp.StatusCode, body)
 			}
 			if code := p.stop(); code != 0 {
-				t.Errorf("orbit preview: exit %d after SIGINT\n%s", code, p.stderr)
+				t.Errorf("lyr preview: exit %d after SIGINT\n%s", code, p.stderr)
 			}
 		})
 	}
@@ -159,8 +159,8 @@ func checkSite(t *testing.T, s *server, userServer bool) {
 		t.Errorf("GET /blog/teapot: X-Fixture %q", resp.Header.Get("X-Fixture"))
 	}
 
-	// One log line for the panic, at the panicking .orbit line.
-	panicLine := regexp.MustCompile(`(?m)^.*orbit: GET /blog/boom: src/pages/blog/\[slug\]\.orbit:17: panic: kaboom$`)
+	// One log line for the panic, at the panicking .lyr line.
+	panicLine := regexp.MustCompile(`(?m)^.*lyr: GET /blog/boom: src/pages/blog/\[slug\]\.lyr:17: panic: kaboom$`)
 	if n := len(panicLine.FindAllString(s.stderr.String(), -1)); n != 1 {
 		t.Errorf("server stderr has %d panic lines, want 1:\n%s", n, s.stderr)
 	}
@@ -183,7 +183,7 @@ func checkLocals(t *testing.T, s *server) {
 	for _, want := range []string{
 		"<p>Theme: dark</p>",
 		"<p>Request ID: <code>" + id + "</code></p>",
-		`data-theme="dark" data-request="` + id + `" data-o-`,
+		`data-theme="dark" data-request="` + id + `" data-l-`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("GET /account: body lacks %q:\n%s", want, body)
@@ -198,7 +198,7 @@ func checkLocals(t *testing.T, s *server) {
 
 	resp, body = s.do("POST", "/blog/hello/like", "theme=dark")
 	id = resp.Header.Get("X-Request-ID")
-	want := regexp.MustCompile(`^<button class="like" hx-post="/blog/hello/like" data-theme="dark" data-request="` + regexp.QuoteMeta(id) + `" data-o-[0-9a-f]{8}>\d+ likes</button>\n*$`)
+	want := regexp.MustCompile(`^<button class="like" hx-post="/blog/hello/like" data-theme="dark" data-request="` + regexp.QuoteMeta(id) + `" data-l-[0-9a-f]{8}>\d+ likes</button>\n*$`)
 	if resp.StatusCode != 200 || !want.MatchString(body) {
 		t.Errorf("POST /blog/hello/like: %d, X-Request-ID %q\n%s\nwant %s", resp.StatusCode, id, body, want)
 	}
@@ -211,8 +211,8 @@ func checkLocals(t *testing.T, s *server) {
 }
 
 var (
-	cssLink  = regexp.MustCompile(`<link rel="stylesheet" href="(/_orbit/[A-Za-z0-9_-]+-[A-Z0-9]{8}\.css)">`)
-	jsScript = regexp.MustCompile(`<script type="module" src="(/_orbit/[A-Za-z0-9_-]+-[A-Z0-9]{8}\.js)"></script>`)
+	cssLink  = regexp.MustCompile(`<link rel="stylesheet" href="(/_lyr/[A-Za-z0-9_-]+-[A-Z0-9]{8}\.css)">`)
+	jsScript = regexp.MustCompile(`<script type="module" src="(/_lyr/[A-Za-z0-9_-]+-[A-Z0-9]{8}\.js)"></script>`)
 )
 
 // checkAssets checks the bundles end to end (PLAN.md §5): head injection,
@@ -248,7 +248,7 @@ func checkAssets(t *testing.T, s *server) {
 	if b := bodies[js[1]]; !strings.Contains(b, "querySelectorAll") || strings.Contains(b, "NodeListOf") || strings.Contains(b, ": string") || strings.Contains(b, " as number") {
 		t.Errorf("JS bundle isn't stripped TypeScript:\n%s", b)
 	}
-	scope := regexp.MustCompile(`\.site\[data-o-[0-9a-f]{8}\]\{color:navy\}`)
+	scope := regexp.MustCompile(`\.site\[data-l-[0-9a-f]{8}\]\{color:navy\}`)
 	if b := bodies[css[1]]; !scope.MatchString(b) || !strings.Contains(b, ".card{border:1px solid gray}") {
 		t.Errorf("CSS bundle lacks the scoped and the global style:\n%s", b)
 	}
@@ -270,15 +270,15 @@ func checkAssets(t *testing.T, s *server) {
 }
 
 var (
-	islandRe = regexp.MustCompile(`<orbit-island src="/_orbit/island/[0-9a-f]{16}/Comments-[0-9a-f]{8}" props="[A-Za-z0-9_-]+"><p[^>]*>Loading comments…</p></orbit-island>`)
-	lazyRe   = regexp.MustCompile(`<orbit-lazy component="(Share-[0-9a-f]{8})" client="visible" opts="200px"><share-buttons[^>]*><button[^>]*>Share</button></share-buttons>\s*</orbit-lazy>`)
-	lazyLine = regexp.MustCompile(`\{Kind: "lazy", URL: "(/_orbit/Share-[A-Z0-9]{8}\.js)", ID: "(Share-[0-9a-f]{8})"\}`)
+	islandRe = regexp.MustCompile(`<lyr-island src="/_lyr/island/[0-9a-f]{16}/Comments-[0-9a-f]{8}" props="[A-Za-z0-9_-]+"><p[^>]*>Loading comments…</p></lyr-island>`)
+	lazyRe   = regexp.MustCompile(`<lyr-lazy component="(Share-[0-9a-f]{8})" client="visible" opts="200px"><share-buttons[^>]*><button[^>]*>Share</button></share-buttons>\s*</lyr-lazy>`)
+	lazyLine = regexp.MustCompile(`\{Kind: "lazy", URL: "(/_lyr/Share-[A-Z0-9]{8}\.js)", ID: "(Share-[0-9a-f]{8})"\}`)
 )
 
 // checkLazy checks server:defer and client:* end to end (PLAN.md §13 "Lazy
-// loading"): the island placeholder with its fallback, the <orbit-lazy>
+// loading"): the island placeholder with its fallback, the <lyr-lazy>
 // wrapper, and Share's lazy entry in the compiled manifest, served from
-// /_orbit/ and not in the page bundle. The token's value is the runtime's.
+// /_lyr/ and not in the page bundle. The token's value is the runtime's.
 func checkLazy(t *testing.T, s *server, dir string) {
 	t.Helper()
 	_, post := s.get("/blog/hello")
@@ -287,9 +287,9 @@ func checkLazy(t *testing.T, s *server, dir string) {
 	}
 	m := lazyRe.FindStringSubmatch(post)
 	if m == nil {
-		t.Fatalf("GET /blog/hello: no <orbit-lazy> wrapper:\n%s", post)
+		t.Fatalf("GET /blog/hello: no <lyr-lazy> wrapper:\n%s", post)
 	}
-	manifest, err := os.ReadFile(filepath.Join(dir, "orbit_gen/manifest/manifest.go"))
+	manifest, err := os.ReadFile(filepath.Join(dir, "lyr_gen/manifest/manifest.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,36 +307,36 @@ func checkLazy(t *testing.T, s *server, dir string) {
 }
 
 // TestBuildSourcemap checks "sourcemap": true: external .map files next to
-// the bundles, not linked from them, with .orbit sources.
+// the bundles, not linked from them, with .lyr sources.
 func TestBuildSourcemap(t *testing.T) {
 	needE2E(t)
 	t.Parallel()
 	dir := fixture(t, false)
-	writeFile(t, dir, "orbit.json", `{"site": "https://fixture.example.com", "sourcemap": true}`)
-	if code, out := runOrbit(t, dir, "build"); code != 0 || out != "" {
-		t.Fatalf("orbit build: exit %d\n%s", code, out)
+	writeFile(t, dir, "lyr.json", `{"site": "https://fixture.example.com", "sourcemap": true}`)
+	if code, out := runLyr(t, dir, "build"); code != 0 || out != "" {
+		t.Fatalf("lyr build: exit %d\n%s", code, out)
 	}
-	entries, err := os.ReadDir(filepath.Join(dir, "dist/client/_orbit"))
+	entries, err := os.ReadDir(filepath.Join(dir, "dist/client/_lyr"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	maps := 0
 	for _, e := range entries {
 		name := e.Name()
-		data, err := os.ReadFile(filepath.Join(dir, "dist/client/_orbit", name))
+		data, err := os.ReadFile(filepath.Join(dir, "dist/client/_lyr", name))
 		if err != nil {
 			t.Fatal(err)
 		}
 		switch {
 		case strings.HasSuffix(name, ".map"):
 			maps++
-			if !strings.Contains(string(data), `"/src/`) || !strings.Contains(string(data), ".orbit") {
-				t.Errorf("%s has no .orbit source:\n%s", name, data)
+			if !strings.Contains(string(data), `"/src/`) || !strings.Contains(string(data), ".lyr") {
+				t.Errorf("%s has no .lyr source:\n%s", name, data)
 			}
 		case strings.Contains(string(data), "sourceMappingURL"):
 			t.Errorf("%s links its source map", name)
 		}
-		if !strings.HasSuffix(name, ".map") && !exists(filepath.Join(dir, "dist/client/_orbit", name+".map")) {
+		if !strings.HasSuffix(name, ".map") && !exists(filepath.Join(dir, "dist/client/_lyr", name+".map")) {
 			t.Errorf("%s has no .map", name)
 		}
 	}
@@ -345,50 +345,50 @@ func TestBuildSourcemap(t *testing.T) {
 	}
 }
 
-// TestBuildAssetError checks that an esbuild error fails orbit build at
-// its .orbit position.
+// TestBuildAssetError checks that an esbuild error fails lyr build at
+// its .lyr position.
 func TestBuildAssetError(t *testing.T) {
 	needE2E(t)
 	t.Parallel()
 	dir := fixture(t, false)
-	card := filepath.Join(dir, "src/components/Card.orbit")
+	card := filepath.Join(dir, "src/components/Card.lyr")
 	src, err := os.ReadFile(card)
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, dir, "src/components/Card.orbit", strings.Replace(string(src), `from "../scripts/util"`, `from "../scripts/nope"`, 1))
-	code, out := runOrbit(t, dir, "build")
-	if want := `src/components/Card.orbit:10:25: Could not resolve "../scripts/nope"` + "\n"; code != 1 || out != want {
-		t.Errorf("orbit build: exit %d\n%s\nwant exit 1\n%s", code, out, want)
+	writeFile(t, dir, "src/components/Card.lyr", strings.Replace(string(src), `from "../scripts/util"`, `from "../scripts/nope"`, 1))
+	code, out := runLyr(t, dir, "build")
+	if want := `src/components/Card.lyr:10:25: Could not resolve "../scripts/nope"` + "\n"; code != 1 || out != want {
+		t.Errorf("lyr build: exit %d\n%s\nwant exit 1\n%s", code, out, want)
 	}
-	if exists(filepath.Join(dir, "dist/server")) || exists(filepath.Join(dir, "orbit_gen")) {
-		t.Errorf("a failed build wrote dist/server or orbit_gen")
+	if exists(filepath.Join(dir, "dist/server")) || exists(filepath.Join(dir, "lyr_gen")) {
+		t.Errorf("a failed build wrote dist/server or lyr_gen")
 	}
 }
 
-// TestBuildError checks that a type error fails orbit build with the
-// error at its .orbit position, in the user's names, and writes no
+// TestBuildError checks that a type error fails lyr build with the
+// error at its .lyr position, in the user's names, and writes no
 // dist/server.
 func TestBuildError(t *testing.T) {
 	needE2E(t)
 	t.Parallel()
 	dir := fixture(t, false)
-	card := filepath.Join(dir, "src/components/Card.orbit")
+	card := filepath.Join(dir, "src/components/Card.lyr")
 	src, err := os.ReadFile(card)
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, dir, "src/components/Card.orbit", strings.Replace(string(src), "{props.Title}", "{props.Titel}", 1))
+	writeFile(t, dir, "src/components/Card.lyr", strings.Replace(string(src), "{props.Title}", "{props.Titel}", 1))
 
-	code, out := runOrbit(t, dir, "build")
+	code, out := runLyr(t, dir, "build")
 	if code != 1 {
-		t.Fatalf("orbit build: exit %d, want 1\n%s", code, out)
+		t.Fatalf("lyr build: exit %d, want 1\n%s", code, out)
 	}
-	want := "src/components/Card.orbit:7:34: props.Titel undefined (type Props has no field or method Titel)"
+	want := "src/components/Card.lyr:7:34: props.Titel undefined (type Props has no field or method Titel)"
 	if !strings.Contains("\n"+out, "\n"+want+"\n") {
 		t.Errorf("output lacks %q:\n%s", want, out)
 	}
-	for _, bad := range []string{"orbit__", "./src/", "orbit_gen/decl", "orbit_gen/impl/components/card/", "card.Props"} {
+	for _, bad := range []string{"lyr__", "./src/", "lyr_gen/decl", "lyr_gen/impl/components/card/", "card.Props"} {
 		if strings.Contains(out, bad) {
 			t.Errorf("output contains %q:\n%s", bad, out)
 		}

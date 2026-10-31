@@ -12,16 +12,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/check"
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/check"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // What the TypeScript child sees (PLAN.md §9b): the in-memory tsconfig,
-// the virtual documents of the .orbit files open in the editor (of every
+// the virtual documents of the .lyr files open in the editor (of every
 // file after the first references or rename), and the emitted .d.ts files
 // that differ from the disk, as overlays (Q5). Diagnostics are pulled,
-// debounced, for the documents of open .orbit files. Every function here
+// debounced, for the documents of open .lyr files. Every function here
 // runs with s.mu held.
 
 // tsDiagDelay debounces the diagnostic pulls, like gopls's
@@ -46,7 +46,7 @@ func (s *Server) tsOnReady(ws *workspace, c *Conn) {
 		}
 	}
 	// Fresh types: the startup typed check may not have run (no
-	// orbit_gen/), and nothing kept them fresh before the child ran.
+	// lyr_gen/), and nothing kept them fresh before the child ran.
 	s.dataChanged(ws)
 }
 
@@ -63,7 +63,7 @@ func (s *Server) tsRunningConn() *Conn {
 	return s.ts.proc.conn
 }
 
-// tsRegisterWatcher registers Orbit's watcher of the files the child
+// tsRegisterWatcher registers Lyr's watcher of the files the child
 // reads, once (PLAN.md §9b: instead of the child's own globs).
 func (s *Server) tsRegisterWatcher() {
 	if s.ts.watching || !s.caps.watchDynamic {
@@ -72,7 +72,7 @@ func (s *Server) tsRegisterWatcher() {
 	s.ts.watching = true
 	go s.client.Call(context.Background(), "client/registerCapability", map[string]any{
 		"registrations": []any{map[string]any{
-			"id":     "orbit-ts-files",
+			"id":     "lyr-ts-files",
 			"method": "workspace/didChangeWatchedFiles",
 			"registerOptions": map[string]any{
 				"watchers": []any{map[string]any{"globPattern": "**/*.{ts,mts,cts,tsx,js,mjs,cjs,jsx,json}"}},
@@ -81,7 +81,7 @@ func (s *Server) tsRegisterWatcher() {
 	})
 }
 
-// tsconfigText is the in-memory tsconfig: the one orbit check writes
+// tsconfigText is the in-memory tsconfig: the one lyr check writes
 // (PLAN.md §9b Q3), which sits two directories down as well.
 func tsconfigText(root string) string {
 	u, _ := check.ReadUserTsconfig(root)
@@ -111,7 +111,7 @@ func (s *Server) tsSyncTsconfig(ws *workspace, c *Conn) {
 	s.ts.tsconfig = text
 }
 
-// tsSyncFile rebuilds the virtual documents of the .orbit file at p after
+// tsSyncFile rebuilds the virtual documents of the .lyr file at p after
 // its source changed, and opens, changes or closes them in the child as
 // needed. A parse without a template keeps the previous documents.
 func (s *Server) tsSyncFile(ws *workspace, p string) {
@@ -181,7 +181,7 @@ func (s *Server) tsSyncFile(ws *workspace, p string) {
 	ws.vdocs[p] = docs
 }
 
-// tsOpenAll opens the documents of every .orbit file, once per session,
+// tsOpenAll opens the documents of every .lyr file, once per session,
 // so references and rename see closed files too (Q7).
 func (s *Server) tsOpenAll(ws *workspace) {
 	if s.ts.all || s.tsRunningConn() == nil {
@@ -195,11 +195,11 @@ func (s *Server) tsOpenAll(ws *workspace) {
 	s.logf("typescript: opened every script's document (%v)", time.Since(start).Round(time.Microsecond))
 }
 
-// tsDirty schedules a diagnostic pull of d if its .orbit file is open
+// tsDirty schedules a diagnostic pull of d if its .lyr file is open
 // in the editor.
 func (s *Server) tsDirty(d *vdoc) {
 	ws := s.ws
-	if ws == nil || ws.docs[d.orbit] == nil {
+	if ws == nil || ws.docs[d.lyr] == nil {
 		return
 	}
 	if s.ts.dirty == nil {
@@ -212,7 +212,7 @@ func (s *Server) tsDirty(d *vdoc) {
 	s.ts.diagTimer = time.AfterFunc(tsDiagDelay, s.tsPull)
 }
 
-// tsDirtyAll schedules a pull of every open .orbit file's documents (the
+// tsDirtyAll schedules a pull of every open .lyr file's documents (the
 // child's diagnostic refresh, a types overlay change).
 func (s *Server) tsDirtyAll(ws *workspace) {
 	for p := range ws.docs {
@@ -225,7 +225,7 @@ func (s *Server) tsDirtyAll(ws *workspace) {
 }
 
 // tsPull pulls the diagnostics of the dirty documents and publishes them
-// with the .orbit file's others (source "ts").
+// with the .lyr file's others (source "ts").
 func (s *Server) tsPull() {
 	s.mu.Lock()
 	ws, c := s.ws, s.tsRunningConn()
@@ -238,7 +238,7 @@ func (s *Server) tsPull() {
 	var pulls []pull
 	if ws != nil && c != nil {
 		for uri := range dirty {
-			if d := ws.vdocByURI(uri); d != nil && d.open && ws.docs[d.orbit] != nil {
+			if d := ws.vdocByURI(uri); d != nil && d.open && ws.docs[d.lyr] != nil {
 				d.pullSeq++
 				pulls = append(pulls, pull{d, d.version, d.pullSeq})
 			}
@@ -262,9 +262,9 @@ func (s *Server) tsPull() {
 				return // changed meanwhile, or a later pull is in flight
 			}
 			pl.d.diags = ws.tsFilterDiags(pl.d, rep.Items)
-			s.publish(ws, pl.d.orbit)
+			s.publish(ws, pl.d.lyr)
 			if h := tsHooks.Load(); h != nil && h.pulled != nil {
-				h.pulled(pl.d.orbit)
+				h.pulled(pl.d.lyr)
 			}
 		}()
 	}
@@ -273,7 +273,7 @@ func (s *Server) tsPull() {
 // tsFilterDiags keeps the diagnostics that start inside d's scripts,
 // labeled source "ts" (the unnecessary/deprecated hints stay).
 func (ws *workspace) tsFilterDiags(d *vdoc, items []obj) []jsonRaw {
-	lines := ws.lines[d.orbit]
+	lines := ws.lines[d.lyr]
 	if lines == nil {
 		return nil
 	}
@@ -292,7 +292,7 @@ func (ws *workspace) tsFilterDiags(d *vdoc, items []obj) []jsonRaw {
 }
 
 // tsDiagnostics returns the TypeScript diagnostics to publish for the
-// .orbit file at p: only while it's open in the editor.
+// .lyr file at p: only while it's open in the editor.
 func (ws *workspace) tsDiagnostics(p string) []jsonRaw {
 	if ws.docs[p] == nil {
 		return nil
@@ -357,7 +357,7 @@ func (s *Server) tsPushTypes(ws *workspace) {
 }
 
 // adoptTypes takes the data contracts of a typed check: known are the
-// .orbit files it compiled (others keep their previous contract), units
+// .lyr files it compiled (others keep their previous contract), units
 // their contracts (nil without data). It re-emits the .d.ts files and
 // pushes them to the child.
 func (s *Server) adoptTypes(ws *workspace, known map[string]bool, units map[string]*compiler.UnitTypes) {
@@ -385,7 +385,7 @@ func (s *Server) adoptTypes(ws *workspace, known map[string]bool, units map[stri
 }
 
 // typesOf collects a compiled project's data contracts for adoptTypes:
-// the .orbit files it compiled (all with a pass-1 output, or with roots
+// the .lyr files it compiled (all with a pass-1 output, or with roots
 // only those with a data contract, the ones a scoped check type-checks),
 // and the contracts of those with data.
 func typesOf(p *project.Project, roots bool) (known map[string]bool, units map[string]*compiler.UnitTypes) {
@@ -402,14 +402,14 @@ func typesOf(p *project.Project, roots bool) (known map[string]bool, units map[s
 	return known, units
 }
 
-// hasData reports whether the .orbit file f has a data contract (in its
+// hasData reports whether the .lyr file f has a data contract (in its
 // tolerant output): edits of such a file (or of one that had one) rerun
 // the typed check while the TypeScript child runs.
 func hasData(f *project.File) bool { return project.HasData(f) }
 
 // tsWatched handles the watched-file events the child cares about (with
 // s.mu held): a root tsconfig.json change recomputes the in-memory one,
-// orbit_gen/types/ changes re-compare the overlays, and every event of a
+// lyr_gen/types/ changes re-compare the overlays, and every event of a
 // TypeScript, JavaScript or JSON file under the root is forwarded.
 func (s *Server) tsWatched(ws *workspace, changes []any, rels []string) {
 	c := s.tsRunningConn()
@@ -438,7 +438,7 @@ func (s *Server) tsWatched(ws *workspace, changes []any, rels []string) {
 	}
 }
 
-// anyData reports whether a data contract may need computing: some .orbit
+// anyData reports whether a data contract may need computing: some .lyr
 // file has JSON sites, or had them at the last typed check.
 func (ws *workspace) anyData() bool {
 	if len(ws.tsUnits) > 0 {
@@ -452,7 +452,7 @@ func (ws *workspace) anyData() bool {
 	return false
 }
 
-// isTSWatched reports whether a module-relative path is one Orbit's
+// isTSWatched reports whether a module-relative path is one Lyr's
 // TypeScript watcher covers.
 func isTSWatched(rel string) bool {
 	switch filepath.Ext(rel) {
@@ -467,6 +467,6 @@ func isTSWatched(rel string) bool {
 var tsHooks atomic.Pointer[tsTestHooks]
 
 type tsTestHooks struct {
-	pulled func(orbit string)
+	pulled func(lyr string)
 	types  func()
 }

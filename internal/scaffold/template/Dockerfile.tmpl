@@ -7,8 +7,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-# No Node or Bun needed: esbuild runs inside the orbit CLI.
-RUN CGO_ENABLED=0 go tool orbit build --embed
+# No Node or Bun needed: esbuild runs inside the lyr CLI.
+RUN CGO_ENABLED=0 go tool lyr build --embed
 
 # Final stage: only the self-contained binary.
 FROM gcr.io/distroless/static-debian12:nonroot

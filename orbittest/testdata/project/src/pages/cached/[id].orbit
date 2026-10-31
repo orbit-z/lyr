@@ -1,6 +1,0 @@
----
-// A cached page (PLAN.md §4h): orbit.json's routeRules give it maxAge and
-// the "cached" tag; the page adds its own tag.
-ctx.Cache().Set(orbit.CacheOptions{Tags: []string{"item:" + params.ID}})
----
-<p>item={params.ID} user={locals.User}</p>

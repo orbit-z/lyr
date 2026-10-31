@@ -26,22 +26,22 @@ func TestFiles(t *testing.T) {
 		"go.mod",
 		"public/favicon.svg",
 		"src/env.d.ts",
-		"src/layouts/Base.orbit",
-		"src/pages/404.orbit",
-		"src/pages/index.orbit",
+		"src/layouts/Base.lyr",
+		"src/pages/404.lyr",
+		"src/pages/index.lyr",
 		"tsconfig.json",
 	}
 	if got := slices.Sorted(maps.Keys(files)); !slices.Equal(got, want) {
 		t.Errorf("files:\n%q\nwant:\n%q", got, want)
 	}
 
-	gomod := "module example.com/blog\n\ngo 1.27\n\ntoolchain go1.27.3\n\ntool github.com/orbit-z/orbit/cmd/orbit\n\nrequire github.com/orbit-z/orbit v0.1.0\n"
+	gomod := "module example.com/blog\n\ngo 1.27\n\ntoolchain go1.27.3\n\ntool github.com/orbit-z/lyr/cmd/lyr\n\nrequire github.com/orbit-z/lyr v0.1.0\n"
 	if got := string(files["go.mod"]); got != gomod {
 		t.Errorf("go.mod:\n%s\nwant:\n%s", got, gomod)
 	}
 	main := files["cmd/server/main.go"]
-	if !strings.Contains(string(main), "\t\"example.com/blog/orbit_gen/app\"\n") ||
-		!strings.Contains(string(main), "if err := orbit.ListenAndServe(site.TrailingSlash(mux)); err != nil {\n\t\tlog.Fatal(err)\n\t}") {
+	if !strings.Contains(string(main), "\t\"example.com/blog/lyr_gen/app\"\n") ||
+		!strings.Contains(string(main), "if err := lyr.ListenAndServe(site.TrailingSlash(mux)); err != nil {\n\t\tlog.Fatal(err)\n\t}") {
 		t.Errorf("main.go:\n%s", main)
 	}
 	if f, err := format.Source(main); err != nil || string(f) != string(main) {
@@ -51,23 +51,23 @@ func TestFiles(t *testing.T) {
 	for _, s := range []string{
 		"FROM golang:1.27.3 AS build\nWORKDIR /src\n",
 		"COPY go.mod go.sum ./\nRUN go mod download\n",
-		"RUN CGO_ENABLED=0 go tool orbit build --embed\n",
+		"RUN CGO_ENABLED=0 go tool lyr build --embed\n",
 		"FROM gcr.io/distroless/static-debian12:nonroot\nCOPY --from=build /src/dist/server /server\nENV PORT=8080\nEXPOSE 8080\nUSER nonroot:nonroot\nENTRYPOINT [\"/server\"]\n",
 	} {
 		if !strings.Contains(docker, s) {
 			t.Errorf("Dockerfile lacks %q:\n%s", s, docker)
 		}
 	}
-	if got := string(files[".dockerignore"]); got != ".git\n.orbit\ndist\norbit_gen\n" {
+	if got := string(files[".dockerignore"]); got != ".git\n.lyr\ndist\nlyr_gen\n" {
 		t.Errorf(".dockerignore: %q", got)
 	}
-	if got := string(files[".gitignore"]); got != "orbit_gen/\n.orbit/\ndist/\nnode_modules/\n" {
+	if got := string(files[".gitignore"]); got != "lyr_gen/\n.lyr/\ndist/\nnode_modules/\n" {
 		t.Errorf(".gitignore: %q", got)
 	}
-	if !strings.Contains(string(files["src/layouts/Base.orbit"]), "<style>") {
-		t.Error("Base.orbit has no <style>")
+	if !strings.Contains(string(files["src/layouts/Base.lyr"]), "<style>") {
+		t.Error("Base.lyr has no <style>")
 	}
-	for _, s := range []string{`"allowImportingTsExtensions": true`, `"moduleResolution": "Bundler"`, `"include": ["src/**/*.ts", "orbit_gen/types/*.d.ts"]`, `"rootDirs": [".", "orbit_gen/types"]`, `"paths": { "@/*": ["./src/*"] }`} {
+	for _, s := range []string{`"allowImportingTsExtensions": true`, `"moduleResolution": "Bundler"`, `"include": ["src/**/*.ts", "lyr_gen/types/*.d.ts"]`, `"rootDirs": [".", "lyr_gen/types"]`, `"paths": { "@/*": ["./src/*"] }`} {
 		if !strings.Contains(string(files["tsconfig.json"]), s) {
 			t.Errorf("tsconfig.json lacks %s", s)
 		}
@@ -76,8 +76,8 @@ func TestFiles(t *testing.T) {
 
 func TestFilesReplace(t *testing.T) {
 	for dir, want := range map[string]string{
-		"/home/me/orbit":  "replace github.com/orbit-z/orbit => /home/me/orbit\n",
-		"/home/me/my src": "replace github.com/orbit-z/orbit => \"/home/me/my src\"\n",
+		"/home/me/lyr":    "replace github.com/orbit-z/lyr => /home/me/lyr\n",
+		"/home/me/my src": "replace github.com/orbit-z/lyr => \"/home/me/my src\"\n",
 	} {
 		o := opts
 		o.Version, o.Replace = "v0.0.0", dir
@@ -86,7 +86,7 @@ func TestFilesReplace(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := string(files["go.mod"])
-		if !strings.HasSuffix(got, "require github.com/orbit-z/orbit v0.0.0\n\n"+want) {
+		if !strings.HasSuffix(got, "require github.com/orbit-z/lyr v0.0.0\n\n"+want) {
 			t.Errorf("go.mod:\n%s\nwant suffix %q", got, want)
 		}
 	}
@@ -115,11 +115,11 @@ func TestFallbackToolchain(t *testing.T) {
 }
 
 func TestResolve(t *testing.T) {
-	checkout := t.TempDir() // a git checkout of Orbit
-	write(t, checkout, "go.mod", "module github.com/orbit-z/orbit\n\ngo 1.27\n")
+	checkout := t.TempDir() // a git checkout of Lyr
+	write(t, checkout, "go.mod", "module github.com/orbit-z/lyr\n\ngo 1.27\n")
 	write(t, checkout, ".git", "gitdir: elsewhere\n")
 	cache := t.TempDir() // a module cache copy: no .git
-	write(t, cache, "go.mod", "module github.com/orbit-z/orbit\n\ngo 1.27\n")
+	write(t, cache, "go.mod", "module github.com/orbit-z/lyr\n\ngo 1.27\n")
 	other := t.TempDir()
 	write(t, other, "go.mod", "module example.com/other\n")
 
@@ -132,15 +132,15 @@ func TestResolve(t *testing.T) {
 		{version: "v0.1.0", src: checkout, want: Source{Version: "v0.1.0"}},
 		{version: "v0.2.0-rc.1", want: Source{Version: "v0.2.0-rc.1"}},
 		{version: "v0.1.0", env: checkout, want: Source{Version: "v0.0.0", Replace: checkout}},
-		{version: "v0.1.0", env: other, err: "not a checkout of github.com/orbit-z/orbit"},
+		{version: "v0.1.0", env: other, err: "not a checkout of github.com/orbit-z/lyr"},
 		{version: "(devel)", src: checkout, want: Source{Version: "v0.0.0", Replace: checkout}},
 		{version: "", src: checkout, want: Source{Version: "v0.0.0", Replace: checkout}},
 		{version: pseudo, src: checkout, want: Source{Version: "v0.0.0", Replace: checkout}},
 		{version: pseudo + "+dirty", src: checkout, want: Source{Version: "v0.0.0", Replace: checkout}},
 		{version: pseudo, src: cache, want: Source{Version: pseudo}},
 		{version: pseudo + "+dirty", src: cache, err: "development build (version " + pseudo + "+dirty)"},
-		{version: "(devel)", src: "", err: "set ORBIT_REPLACE=/path/to/orbit"},
-		{version: "(devel)", src: other, err: "set ORBIT_REPLACE"},
+		{version: "(devel)", src: "", err: "set LYR_REPLACE=/path/to/lyr"},
+		{version: "(devel)", src: other, err: "set LYR_REPLACE"},
 	}
 	for _, tt := range tests {
 		got, err := resolve(tt.version, tt.src, tt.env)
@@ -175,9 +175,9 @@ func TestCreate(t *testing.T) {
 	if err := Create(dir, opts); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(dir, "src", "pages", "index.orbit"))
-	if err != nil || !strings.Contains(string(data), `Base "../layouts/Base.orbit"`) {
-		t.Errorf("index.orbit: %v\n%s", err, data)
+	data, err := os.ReadFile(filepath.Join(dir, "src", "pages", "index.lyr"))
+	if err != nil || !strings.Contains(string(data), `Base "../layouts/Base.lyr"`) {
+		t.Errorf("index.lyr: %v\n%s", err, data)
 	}
 	if err := Create(dir, opts); !errors.Is(err, ErrNotEmpty) {
 		t.Errorf("Create into a non-empty dir: %v", err)

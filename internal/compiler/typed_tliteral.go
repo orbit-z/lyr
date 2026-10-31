@@ -6,7 +6,7 @@ package compiler
 // methods, or Go's + when they're all strings, and a prop's literal its
 // conversion to the field's type. Constant pieces are folded into the
 // static text. A piece is inert when its static type can't carry markup:
-// that decides the orbit.HTML/URL/CSS conversions and the style and on*
+// that decides the lyr.HTML/URL/CSS conversions and the style and on*
 // warnings.
 
 import (
@@ -17,10 +17,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/jsfloat"
+	"github.com/orbit-z/lyr/internal/jsfloat"
 )
 
-// tyQual names packages by their name in type strings ("orbit.URL"), and
+// tyQual names packages by their name in type strings ("lyr.URL"), and
 // leaves the component's own implementation package out.
 func tyQual(p *types.Package) string {
 	if strings.HasSuffix(p.Name(), "_impl") {
@@ -38,7 +38,7 @@ func article(s string) string {
 }
 
 // classifyPiece picks the write of a template literal's piece: as {…} in
-// text, except that orbit.HTML is escaped like a string (a literal is
+// text, except that lyr.HTML is escaped like a string (a literal is
 // text), a constant without String/Error/Format methods is folded, and in
 // an attribute (attr) the text writes are attribute pieces. bad is set for
 // a Renderer piece, which is an error.
@@ -196,9 +196,9 @@ func (e *tyEnv) concatWrite(call *ast.CallExpr, site *CallSite, info *types.Info
 			if t, _, ok := tyStatic(tv); ok {
 				pt = article(types.TypeString(t, tyQual))
 			}
-			msg := pt + " piece can't be part of an " + name + " prop: make the prop a string (filtered where it's written) or convert the piece with " + name + "(…)"
+			msg := pt + " piece can't be part of " + article(name) + " prop: make the prop a string (filtered where it's written) or convert the piece with " + name + "(…)"
 			if site.Attr != nil && site.Attr.Directive == SetHTML {
-				msg = pt + " piece can't be part of set:html: write the literal as {…} content, or convert the piece with orbit.HTML(…)"
+				msg = pt + " piece can't be part of set:html: write the literal as {…} content, or convert the piece with lyr.HTML(…)"
 			}
 			diags = append(diags, Diagnostic{SeverityError, l.Parts[i].Span, msg})
 			break
@@ -224,7 +224,7 @@ func (e *tyEnv) concatWrite(call *ast.CallExpr, site *CallSite, info *types.Info
 }
 
 // tySpanMap maps the Go spans of a call site's sub-expressions in the
-// pass-1 file back to .orbit spans: by arithmetic when the site's code is
+// pass-1 file back to .lyr spans: by arithmetic when the site's code is
 // copied byte for byte, else through the source map, with the
 // concatenations (whose Go code starts and ends in glue) mapped to their
 // literals.
@@ -251,11 +251,11 @@ func (m *tySpanMap) span(site *CallSite, n ast.Node) Span {
 	}
 	s, ok := m.starts[a]
 	if !ok {
-		s, _ = m.smap.OrbitOffset(a)
+		s, _ = m.smap.LyrOffset(a)
 	}
 	e, ok := m.ends[b]
 	if !ok {
-		e, _ = m.smap.OrbitOffset(b)
+		e, _ = m.smap.LyrOffset(b)
 	}
 	return Span{s, max(s, e)}
 }
@@ -267,7 +267,7 @@ func isStringKind(t types.Type) bool {
 }
 
 // litTrusted reports whether a whole-value literal on a style or on*
-// attribute gets no warning: every piece inert (orbit.CSS counts on
+// attribute gets no warning: every piece inert (lyr.CSS counts on
 // style), tvs being the pieces' types.
 func (e *tyEnv) litTrusted(name string, tvs []types.TypeAndValue) bool {
 	var marker types.Type

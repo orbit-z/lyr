@@ -12,9 +12,9 @@ import (
 	"time"
 )
 
-var page = strings.Repeat("<p>Hello, Orbit.</p>\n", 200)
+var page = strings.Repeat("<p>Hello, Lyr.</p>\n", 200)
 
-// buffered answers like an Orbit page: one write with a Content-Length.
+// buffered answers like a Lyr page: one write with a Content-Length.
 var buffered = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(page)))

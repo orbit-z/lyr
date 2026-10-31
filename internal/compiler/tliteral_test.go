@@ -35,7 +35,7 @@ func TestTLiteralTyped(t *testing.T) {
 		}
 	}
 	want := []string{
-		"src/pages/index.orbit:13:92: warning: onclick={…} is escaped for HTML, not for JavaScript; don't put untrusted values here",
+		"src/pages/index.lyr:13:92: warning: onclick={…} is escaped for HTML, not for JavaScript; don't put untrusted values here",
 	}
 	if strings.Join(diags, "\n") != strings.Join(want, "\n") {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", strings.Join(diags, "\n"), strings.Join(want, "\n"))
@@ -113,9 +113,9 @@ import (
 	"bytes"
 	"testing"
 
-	allocs "example.com/blog/orbit_gen/decl/pages/allocs"
-	_ "example.com/blog/orbit_gen/impl/pages/allocs"
-	"github.com/orbit-z/orbit"
+	allocs "example.com/blog/lyr_gen/decl/pages/allocs"
+	_ "example.com/blog/lyr_gen/impl/pages/allocs"
+	"github.com/orbit-z/lyr"
 )
 
 type props struct{ Title string }
@@ -127,18 +127,18 @@ func use(p props) { sink = p }
 
 func TestAllocs(t *testing.T) {
 	var buf bytes.Buffer
-	w := orbit.NewWriter(&buf)
-	ctx := &orbit.Ctx{}
+	w := lyr.NewWriter(&buf)
+	ctx := &lyr.Ctx{}
 	n := testing.AllocsPerRun(100, func() {
 		buf.Reset()
-		if err := allocs.Render(ctx, w, allocs.Props{}, orbit.Slots{}); err != nil {
+		if err := allocs.Render(ctx, w, allocs.Props{}, lyr.Slots{}); err != nil {
 			t.Fatal(err)
 		}
 	})
 	t.Logf("allocs page=%v", n)
 	i, s := 300, "ab"
 	t.Logf("allocs prop=%v", testing.AllocsPerRun(100, func() {
-		use(props{Title: orbit.TB(make([]byte, 0, 64)).S("Chapter ").Int(int64(i)).String()})
+		use(props{Title: lyr.TB(make([]byte, 0, 64)).S("Chapter ").Int(int64(i)).String()})
 	}))
 	t.Logf("allocs concat=%v", testing.AllocsPerRun(100, func() {
 		use(props{Title: ("x-" + s)})
@@ -152,20 +152,20 @@ func TestAllocs(t *testing.T) {
 // TestTLiteralErrors: the typed pass's errors and warnings for template
 // literals (PLAN.md §2.10): props that can't hold a string (pass 1 for a
 // visibly non-string type, the typed pass for the rest), pieces that
-// aren't inert for an orbit.URL/HTML/CSS target or set:html, Renderer
+// aren't inert for a lyr.URL/HTML/CSS target or set:html, Renderer
 // pieces, and the style warning decided by the pieces' static types
 // (Q4).
 func TestTLiteralErrors(t *testing.T) {
 	srcs := map[string]string{
-		"src/components/Card.orbit": "---\nimport \"fmt\"\n\ntype Kind int\n\ntype Props struct {\n\tCount int\n\tKind  Kind\n\tHref  orbit.URL\n\tBody  orbit.HTML\n\tAny   fmt.Stringer\n}\n---\n<a href={props.Href}>{props.Count}{props.Kind}{props.Any}</a><i set:html={props.Body}></i>\n",
-		"src/pages/index.orbit": "---\nimport \"fmt\"\n\nimport Card \"../components/Card.orbit\"\n\n" +
+		"src/components/Card.lyr": "---\nimport \"fmt\"\n\ntype Kind int\n\ntype Props struct {\n\tCount int\n\tKind  Kind\n\tHref  lyr.URL\n\tBody  lyr.HTML\n\tAny   fmt.Stringer\n}\n---\n<a href={props.Href}>{props.Count}{props.Kind}{props.Any}</a><i set:html={props.Body}></i>\n",
+		"src/pages/index.lyr": "---\nimport \"fmt\"\n\nimport Card \"../components/Card.lyr\"\n\n" +
 			"type Count int\n\nfunc (c Count) String() string { return \"c\" }\n\n" +
 			"type PCount int\n\nfunc (c *PCount) String() string { return \"p\" }\n\n" +
 			"type ECount int\n\nfunc (ECount) Error() string { return \"e\" }\n\n" +
 			"type FCount int\n\nfunc (FCount) Format(fmt.State, rune) {}\n\n" +
 			"type Pct int\n\nconst k = 3\n\nconst kc Count = 3\n\n" +
 			"n, s, c, pc, ec, fc, pct := 1, \"s\", Count(1), PCount(2), ECount(3), FCount(4), Pct(5)\n" +
-			"u := orbit.URL(\"/u\")\ncss := orbit.CSS(\"a:b\")\n---\n" +
+			"u := lyr.URL(\"/u\")\ncss := lyr.CSS(\"a:b\")\n---\n" +
 			"<Card count={`x${n}`} />\n" + // 32: pass 1
 			"<Card kind={`x${n}`} />\n" + // 33: typed
 			"<Card href={`/b/${s}`} />\n" + // 34: string piece
@@ -189,24 +189,24 @@ func TestTLiteralErrors(t *testing.T) {
 			got = append(got, d.Format(pf.path, pf.f.Lines))
 		}
 	}
-	const url = " piece can't be part of an orbit.URL prop: make the prop a string (filtered where it's written) or convert the piece with orbit.URL(…)"
+	const url = " piece can't be part of a lyr.URL prop: make the prop a string (filtered where it's written) or convert the piece with lyr.URL(…)"
 	const style = ": warning: style={…} is escaped for HTML, not for CSS; don't put untrusted values here"
 	want := []string{
 		// Pass 1 only: the typed pass doesn't repeat it.
-		"pass1 src/pages/index.orbit:32:7: a template literal is a string; prop count of <Card> is int",
-		"src/pages/index.orbit:33:7: a template literal is a string; prop kind of <Card> is card.Kind",
-		"src/pages/index.orbit:34:19: a string" + url,
-		"src/pages/index.orbit:36:17: a Count" + url,  // String on Count
-		"src/pages/index.orbit:37:17: a PCount" + url, // String on *PCount
-		"src/pages/index.orbit:38:17: an ECount" + url,
-		"src/pages/index.orbit:39:17: a FCount" + url,
-		"src/pages/index.orbit:40:17: a Count" + url, // a constant of a Stringer type
-		"src/pages/index.orbit:41:16: an orbit.URL piece can't be part of an orbit.HTML prop: make the prop a string (filtered where it's written) or convert the piece with orbit.HTML(…)",
-		"src/pages/index.orbit:42:20: a string piece can't be part of set:html: write the literal as {…} content, or convert the piece with orbit.HTML(…)",
-		`src/pages/index.orbit:43:8: can't put slots.Get("x") (orbit.Renderer) in a template literal: it renders HTML, and a template literal is text`,
-		"src/pages/index.orbit:45:4" + style,
-		"src/pages/index.orbit:46:4" + style,
-		"src/pages/index.orbit:47:4" + style,
+		"pass1 src/pages/index.lyr:32:7: a template literal is a string; prop count of <Card> is int",
+		"src/pages/index.lyr:33:7: a template literal is a string; prop kind of <Card> is card.Kind",
+		"src/pages/index.lyr:34:19: a string" + url,
+		"src/pages/index.lyr:36:17: a Count" + url,  // String on Count
+		"src/pages/index.lyr:37:17: a PCount" + url, // String on *PCount
+		"src/pages/index.lyr:38:17: an ECount" + url,
+		"src/pages/index.lyr:39:17: a FCount" + url,
+		"src/pages/index.lyr:40:17: a Count" + url, // a constant of a Stringer type
+		"src/pages/index.lyr:41:16: a lyr.URL piece can't be part of a lyr.HTML prop: make the prop a string (filtered where it's written) or convert the piece with lyr.HTML(…)",
+		"src/pages/index.lyr:42:20: a string piece can't be part of set:html: write the literal as {…} content, or convert the piece with lyr.HTML(…)",
+		`src/pages/index.lyr:43:8: can't put slots.Get("x") (lyr.Renderer) in a template literal: it renders HTML, and a template literal is text`,
+		"src/pages/index.lyr:45:4" + style,
+		"src/pages/index.lyr:46:4" + style,
+		"src/pages/index.lyr:47:4" + style,
 	}
 	slices.Sort(got)
 	slices.Sort(want)

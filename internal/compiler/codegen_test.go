@@ -15,7 +15,7 @@ import (
 )
 
 // A codegen case is a directory testdata/codegen/<case>/ holding a project
-// tree src/…/*.orbit, an optional "options" file (lines "compress=jsx",
+// tree src/…/*.lyr, an optional "options" file (lines "compress=jsx",
 // "compress=false" (the cases default to "html"), "mode=tolerant", "locals=<path>"), and optionally a
 // main.go.txt with the HTML it must print, want.html (a golden compile
 // test). Generated files are checked against <pkg>.decl.go.golden,
@@ -24,7 +24,7 @@ import (
 
 type cgCase struct {
 	dir   string
-	files []string // project-relative .orbit paths, sorted
+	files []string // project-relative .lyr paths, sorted
 	opts  Options
 }
 
@@ -35,7 +35,7 @@ func loadCase(t *testing.T, dir string) *cgCase {
 		if err != nil {
 			return err
 		}
-		if !d.IsDir() && strings.HasSuffix(p, ".orbit") {
+		if !d.IsDir() && strings.HasSuffix(p, ".lyr") {
 			rel, _ := filepath.Rel(dir, p)
 			c.files = append(c.files, filepath.ToSlash(rel))
 		}
@@ -160,13 +160,13 @@ func dumpMap(r *cgResult) string {
 	var b strings.Builder
 	src := r.f.Src
 	for _, gf := range []*GenFile{r.out.Decl, r.out.Impl} {
-		fmt.Fprintf(&b, "%s (%s)\n", gf.Path, gf.Map.Orbit)
+		fmt.Fprintf(&b, "%s (%s)\n", gf.Path, gf.Map.Lyr)
 		for _, s := range gf.Map.Segments {
-			orbit := "-"
+			lyr := "-"
 			if s.Kind != SegEcho {
-				orbit = fmt.Sprintf("%s %q", r.f.Lines.Position(s.OrbitStart), src[s.OrbitStart:s.OrbitEnd])
+				lyr = fmt.Sprintf("%s %q", r.f.Lines.Position(s.LyrStart), src[s.LyrStart:s.LyrEnd])
 			}
-			fmt.Fprintf(&b, "  %-5s %s -> %d-%d %q\n", segKindNames[s.Kind], orbit, s.GoStart, s.GoEnd, gf.Content[s.GoStart:s.GoEnd])
+			fmt.Fprintf(&b, "  %-5s %s -> %d-%d %q\n", segKindNames[s.Kind], lyr, s.GoStart, s.GoEnd, gf.Content[s.GoStart:s.GoEnd])
 		}
 	}
 	b.WriteString("call sites\n")
@@ -196,7 +196,7 @@ func dumpMap(r *cgResult) string {
 // checkOutput checks the contract invariants of a generated output: exact
 // segments copy their bytes, segments are sorted and don't overlap, every
 // non-echo segment's start, read back through go/scanner with directives
-// honored, lands on its .orbit position, call sites hold their code, and
+// honored, lands on its .lyr position, call sites hold their code, and
 // generating again gives the same bytes.
 func checkOutput(t *testing.T, r *cgResult) {
 	t.Helper()
@@ -210,15 +210,15 @@ func checkOutput(t *testing.T, r *cgResult) {
 			if i > 0 && s.GoStart < segs[i-1].GoEnd {
 				t.Errorf("%s: segment %d overlaps or is out of order: %+v after %+v", gf.Path, i, s, segs[i-1])
 			}
-			if s.Kind == SegExact && src[s.OrbitStart:s.OrbitEnd] != string(gf.Content[s.GoStart:s.GoEnd]) {
-				t.Errorf("%s: exact segment %+v: %q != %q", gf.Path, s, src[s.OrbitStart:s.OrbitEnd], gf.Content[s.GoStart:s.GoEnd])
+			if s.Kind == SegExact && src[s.LyrStart:s.LyrEnd] != string(gf.Content[s.GoStart:s.GoEnd]) {
+				t.Errorf("%s: exact segment %+v: %q != %q", gf.Path, s, src[s.LyrStart:s.LyrEnd], gf.Content[s.GoStart:s.GoEnd])
 			}
 		}
 		checkPositions(t, r, gf)
 	}
 	for _, cs := range r.out.CallSites {
 		if tw, ok := r.in.Typed[cs.Key]; ok && (tw.Kind == WriteSkip || tw.Kind == WriteFold || tw.If != nil || tw.Opt) {
-			continue // untyped nil: nothing emitted; a lowered orbit.If or Opt: Arg is its value
+			continue // untyped nil: nothing emitted; a lowered lyr.If or Opt: Arg is its value
 		}
 		if literalSite(cs) {
 			continue
@@ -265,7 +265,7 @@ func checkPositions(t *testing.T, r *cgResult, gf *GenFile) {
 			continue
 		}
 		got := fset.PositionFor(pos, true)
-		want := r.f.Lines.Position(seg.OrbitStart)
+		want := r.f.Lines.Position(seg.LyrStart)
 		if path.Clean(filepath.ToSlash(got.Filename)) != r.path || got.Line != want.Line || got.Column != want.Col {
 			t.Errorf("%s: segment %q at %s:%d:%d, want %s:%s", gf.Path, gf.Content[seg.GoStart:seg.GoEnd], got.Filename, got.Line, got.Column, r.path, want)
 		}
@@ -331,31 +331,31 @@ func TestSourceMapRoundTrip(t *testing.T) {
 			m := gf.Map
 			for _, s := range m.Segments {
 				if s.Kind == SegEcho {
-					if _, ok := m.OrbitOffset(s.GoStart); ok {
+					if _, ok := m.LyrOffset(s.GoStart); ok {
 						t.Errorf("%s: echo segment maps back", gf.Path)
 					}
 					continue
 				}
-				for off := s.OrbitStart; off <= s.OrbitEnd; off++ {
+				for off := s.LyrStart; off <= s.LyrEnd; off++ {
 					g, ok := m.GoOffset(off)
 					if !ok {
 						t.Fatalf("%s: GoOffset(%d) not ok", gf.Path, off)
 					}
-					back, ok := m.OrbitOffset(g)
+					back, ok := m.LyrOffset(g)
 					if !ok {
-						t.Fatalf("%s: OrbitOffset(%d) not ok", gf.Path, g)
+						t.Fatalf("%s: LyrOffset(%d) not ok", gf.Path, g)
 					}
 					if s.Kind == SegExact && back != off {
 						t.Errorf("%s: %d -> %d -> %d", gf.Path, off, g, back)
 					}
-					if back < s.OrbitStart || back > s.OrbitEnd {
-						t.Errorf("%s: span %d -> %d -> %d outside %d-%d", gf.Path, off, g, back, s.OrbitStart, s.OrbitEnd)
+					if back < s.LyrStart || back > s.LyrEnd {
+						t.Errorf("%s: span %d -> %d -> %d outside %d-%d", gf.Path, off, g, back, s.LyrStart, s.LyrEnd)
 					}
 				}
 			}
 			// Glue (the package clause) maps nowhere.
 			glue := bytes.Index(gf.Content, []byte("package "))
-			if _, ok := m.OrbitOffset(glue); ok {
+			if _, ok := m.LyrOffset(glue); ok {
 				t.Errorf("%s: glue maps back", gf.Path)
 			}
 		}
@@ -370,21 +370,21 @@ func TestSourceMapLookup(t *testing.T) {
 		{SegExact, 30, 30, 300, 300},
 	}}
 	for _, tc := range []struct {
-		orbit, gooff int
-		ok           bool
+		lyr, gooff int
+		ok         bool
 	}{{9, 0, false}, {10, 100, true}, {14, 104, true}, {15, 105, true}, {17, 107, true}, {20, 107, true}, {21, 0, false}, {30, 300, true}} {
-		g, ok := m.GoOffset(tc.orbit)
+		g, ok := m.GoOffset(tc.lyr)
 		if ok != tc.ok || ok && g != tc.gooff {
-			t.Errorf("GoOffset(%d) = %d, %v; want %d, %v", tc.orbit, g, ok, tc.gooff, tc.ok)
+			t.Errorf("GoOffset(%d) = %d, %v; want %d, %v", tc.lyr, g, ok, tc.gooff, tc.ok)
 		}
 	}
 	for _, tc := range []struct {
-		gooff, orbit int
-		ok           bool
+		gooff, lyr int
+		ok         bool
 	}{{99, 0, false}, {100, 10, true}, {105, 15, true}, {106, 16, true}, {107, 17, true}, {150, 0, false}, {201, 0, false}, {300, 30, true}} {
-		o, ok := m.OrbitOffset(tc.gooff)
-		if ok != tc.ok || ok && o != tc.orbit {
-			t.Errorf("OrbitOffset(%d) = %d, %v; want %d, %v", tc.gooff, o, ok, tc.orbit, tc.ok)
+		o, ok := m.LyrOffset(tc.gooff)
+		if ok != tc.ok || ok && o != tc.lyr {
+			t.Errorf("LyrOffset(%d) = %d, %v; want %d, %v", tc.gooff, o, ok, tc.lyr, tc.ok)
 		}
 	}
 	var nilMap *SourceMap

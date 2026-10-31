@@ -6,7 +6,7 @@ ROOT=$(cd "$(dirname "$0")" && pwd)
 N=$1; WHAT=${2:-all}
 SITE=$ROOT/sites/s$N
 TB=$ROOT/bin/tcbench
-SCR=${SCR:-${TMPDIR:-/tmp}/orbit-tcspike}
+SCR=${SCR:-${TMPDIR:-/tmp}/lyr-tcspike}
 REPS=${REPS:-5}
 mkdir -p "$SCR"
 PIN=() # kept empty: pinning is done by re-exec'ing the whole script
@@ -22,8 +22,8 @@ stats() { # label values...
   local arr=($sorted); local n=${#arr[@]}
   printf '%-58s min %6s  median %6s  ms  (n=%d: %s)\n' "$label" "${arr[0]}" "${arr[$((n/2))]}" "$n" "$*"
 }
-gen() { "$ROOT/bin/gensite" -n "$N" -out "$SITE" -stub "$ROOT/orbitstub" >/dev/null; }
-build() { (cd "$SITE" && go build -o "$SCR/render" ./orbit_gen/cmd/render); }
+gen() { "$ROOT/bin/gensite" -n "$N" -out "$SITE" -stub "$ROOT/lyrstub" >/dev/null; }
+build() { (cd "$SITE" && go build -o "$SCR/render" ./lyr_gen/cmd/render); }
 freshcache() { rm -rf "$SCR/gc"; if [[ ${1:-} == std ]]; then cp -a "$SCR/gc-std" "$SCR/gc"; else mkdir -p "$SCR/gc"; fi; export GOCACHE=$SCR/gc; }
 
 echo "# s$N  nproc=$(nproc) pin=${PINNED:-none}  $(date -Is)  load: $(cut -d' ' -f1-3 /proc/loadavg)"
@@ -31,7 +31,7 @@ echo "# s$N  nproc=$(nproc) pin=${PINNED:-none}  $(date -Is)  load: $(cut -d' ' 
 # std-warm cache: stdlib and the stub runtime compiled, project packages not.
 if [[ ! -d $SCR/gc-std ]]; then
   gen
-  (cd "$SITE" && GOCACHE=$SCR/gc-std.tmp go build github.com/bertrandkhe/orbit net/http time strings strconv fmt bytes os) && mv "$SCR/gc-std.tmp" "$SCR/gc-std"
+  (cd "$SITE" && GOCACHE=$SCR/gc-std.tmp go build github.com/bertrandkhe/lyr net/http time strings strconv fmt bytes os) && mv "$SCR/gc-std.tmp" "$SCR/gc-std"
 fi
 
 if [[ $WHAT == cold || $WHAT == all ]]; then
@@ -41,9 +41,9 @@ if [[ $WHAT == cold || $WHAT == all ]]; then
       gen; freshcache $kind; a+=($(ms "$TB" -dir "$SITE" -mode pkgs-all -n 1 -q))
       gen; freshcache $kind; b+=($(ms "$TB" -dir "$SITE" -mode custom-all -n 1 -q))
       gen; freshcache $kind; c+=($(ms build))
-      gen; freshcache $kind; d+=($(ms bash -c "'$TB' -dir '$SITE' -mode pkgs-all -n 1 -q -rewrite && cd '$SITE' && go build -o '$SCR/render' ./orbit_gen/cmd/render"))
-      gen; freshcache $kind; e+=($(ms bash -c "'$TB' -dir '$SITE' -mode custom-all -n 1 -q -rewrite && cd '$SITE' && go build -o '$SCR/render' ./orbit_gen/cmd/render"))
-      gen; freshcache $kind; f+=($(ms bash -c "'$TB' -dir '$SITE' -mode custom-srcdecl -n 1 -q -rewrite && cd '$SITE' && go build -o '$SCR/render' ./orbit_gen/cmd/render"))
+      gen; freshcache $kind; d+=($(ms bash -c "'$TB' -dir '$SITE' -mode pkgs-all -n 1 -q -rewrite && cd '$SITE' && go build -o '$SCR/render' ./lyr_gen/cmd/render"))
+      gen; freshcache $kind; e+=($(ms bash -c "'$TB' -dir '$SITE' -mode custom-all -n 1 -q -rewrite && cd '$SITE' && go build -o '$SCR/render' ./lyr_gen/cmd/render"))
+      gen; freshcache $kind; f+=($(ms bash -c "'$TB' -dir '$SITE' -mode custom-srcdecl -n 1 -q -rewrite && cd '$SITE' && go build -o '$SCR/render' ./lyr_gen/cmd/render"))
     done
     stats "cold($kind cache) packages.Load all impl" "${a[@]}"
     stats "cold($kind cache) custom importer all impl" "${b[@]}"
@@ -54,9 +54,9 @@ if [[ $WHAT == cold || $WHAT == all ]]; then
   done
 fi
 
-warmup() { freshcache std; gen; rm -rf "$SCR/pass1"; cp -a "$SITE/orbit_gen/impl" "$SCR/pass1"; cp "$SITE/orbit_gen/decl/components/$C/decl.go" "$SCR/decl.go"; cp "$SITE/internal/posts/posts.go" "$SCR/posts.go"
+warmup() { freshcache std; gen; rm -rf "$SCR/pass1"; cp -a "$SITE/lyr_gen/impl" "$SCR/pass1"; cp "$SITE/lyr_gen/decl/components/$C/decl.go" "$SCR/decl.go"; cp "$SITE/internal/posts/posts.go" "$SCR/posts.go"
   "$TB" -dir "$SITE" -mode custom-all -n 1 -q -rewrite >/dev/null; build; build; }
-restore() { for p in ${1//,/ }; do cp "$SCR/pass1/$p/render.go" "$SITE/orbit_gen/impl/$p/render.go"; done; }
+restore() { for p in ${1//,/ }; do cp "$SCR/pass1/$p/render.go" "$SITE/lyr_gen/impl/$p/render.go"; done; }
 
 if [[ $WHAT == warm || $WHAT == all ]]; then
   warmup
@@ -73,8 +73,8 @@ if [[ $WHAT == dev || $WHAT == all ]]; then
   ALL=$(cd "$SCR/pass1" && find . -name render.go | xargs -n1 dirname | sed 's|^\./||' | sort | paste -sd,)
   IMPORTERS=$(grep -rl "decl/components/$C\"" "$SCR/pass1" | xargs -n1 dirname | sed "s|$SCR/pass1/||" | sort -u | paste -sd,)
   echo "edited component: $C; impl packages affected by a Props change: $IMPORTERS"
-  editbody() { sed "s|</ul>\\\\n|</ul><!--v$1-->\\\\n|" "$SCR/pass1/components/$C/render.go" > "$SITE/orbit_gen/impl/components/$C/render.go"; }
-  editprops() { sed "s|^\tAuthor   \*posts.Author|\tAuthor   *posts.Author\n\tExtra$1 int|" "$SCR/decl.go" > "$SITE/orbit_gen/decl/components/$C/decl.go"; restore "$IMPORTERS"; }
+  editbody() { sed "s|</ul>\\\\n|</ul><!--v$1-->\\\\n|" "$SCR/pass1/components/$C/render.go" > "$SITE/lyr_gen/impl/components/$C/render.go"; }
+  editprops() { sed "s|^\tAuthor   \*posts.Author|\tAuthor   *posts.Author\n\tExtra$1 int|" "$SCR/decl.go" > "$SITE/lyr_gen/decl/components/$C/decl.go"; restore "$IMPORTERS"; }
   edituser() { cp "$SCR/posts.go" "$SITE/internal/posts/posts.go"; echo "func F$1() int { return $1 }" >> "$SITE/internal/posts/posts.go"; restore "$ALL"; }
   k=0
   for approach in ${APPROACHES:-none pkgs custom srcdecl}; do

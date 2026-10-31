@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"encoding/json"
@@ -8,12 +8,12 @@ import (
 	"sync"
 )
 
-// devManifestName is the dev manifest's name in $ORBIT_STATIC, written by
-// orbit dev after every asset rebuild (PLAN.md §5 Manifest).
+// devManifestName is the dev manifest's name in $LYR_STATIC, written by
+// lyr dev after every asset rebuild (PLAN.md §5 Manifest).
 const devManifestName = "manifest.json"
 
-// devManifest gives the page assets in dev (ORBIT_DEV=1 with ORBIT_STATIC
-// set): they come from $ORBIT_STATIC/manifest.json instead of the compiled
+// devManifest gives the page assets in dev (LYR_DEV=1 with LYR_STATIC
+// set): they come from $LYR_STATIC/manifest.json instead of the compiled
 // manifest, so a CSS/JS rebuild with new hashes needs no Go rebuild. The
 // file is stat'ed on every page request and re-read when it changed. It is
 // never used in production.
@@ -59,7 +59,7 @@ func (m *devManifest) assets(r *Route) []Asset {
 }
 
 // load reads the manifest. A file that doesn't parse keeps the previous
-// one (orbit dev writes it atomically, so that is a bug), with one log line.
+// one (lyr dev writes it atomically, so that is a bug), with one log line.
 func (m *devManifest) load(info os.FileInfo) {
 	data, err := os.ReadFile(m.path)
 	var j devManifestJSON
@@ -68,7 +68,7 @@ func (m *devManifest) load(info os.FileInfo) {
 	}
 	if err != nil {
 		if !m.warned {
-			log.Printf("orbit: dev manifest %s: %v", m.path, err)
+			log.Printf("lyr: dev manifest %s: %v", m.path, err)
 			m.warned = true
 		}
 		return

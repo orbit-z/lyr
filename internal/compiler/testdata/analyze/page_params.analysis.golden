@@ -1,5 +1,5 @@
-info src/pages/blog/[post-id]/[...rest].orbit page route="/blog/[post-id]/[...rest]"
-implicit orbit: none
+info src/pages/blog/[post-id]/[...rest].lyr page route="/blog/[post-id]/[...rest]"
+implicit lyr: none
 stmt @4-46 "title := params.PostID + \"/\" + params.Rest"
 echo [title]
 terminating false

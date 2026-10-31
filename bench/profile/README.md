@@ -1,6 +1,6 @@
 # bench/profile: where the CPU goes on `/cards`
 
-CPU profiles of Orbit and Astro serving the render-heavy `/cards` page (500 `Card`s with nested `Badge`s, see `bench/README.md`) under the same closed-loop load as `bench/run.sh`. The summary is in [`docs/performance.md`](../../docs/performance.md#where-the-time-goes-orbit-vs-astro); this page has the method and the detailed numbers.
+CPU profiles of Lyr and Astro serving the render-heavy `/cards` page (500 `Card`s with nested `Badge`s, see `bench/README.md`) under the same closed-loop load as `bench/run.sh`. The summary is in [`docs/performance.md`](../../docs/performance.md#where-the-time-goes-lyr-vs-astro); this page has the method and the detailed numbers.
 
 ## Running
 
@@ -18,17 +18,17 @@ It needs what `bench/run.sh` needs (Go 1.27, Node ≥ 22.12 with npm, `curl`, `t
 | `astro.cpuprofile` | the V8 CPU profile (open it in Chrome DevTools → Performance, or `speedscope`) |
 | `astro.cpuprofile.json` | main-thread GC pauses, process CPU and event-loop utilization over the same window |
 | `astro-promises.json` | promises and other async resources created by 100 sequential requests |
-| `orbit.pprof`, `orbit-server` | the Go CPU profile and the binary it belongs to (`go tool pprof -http=: orbit-server orbit.pprof`) |
-| `load-astro.json`, `load-orbit.json` | the load generator's result for each profiled run |
+| `lyr.pprof`, `lyr-server` | the Go CPU profile and the binary it belongs to (`go tool pprof -http=: lyr-server lyr.pprof`) |
+| `load-astro.json`, `load-lyr.json` | the load generator's result for each profiled run |
 
-Settings are environment variables: `PAGE` (`cards`), `CONCURRENCY` (`64`), `WARMUP`/`DURATION` (whole seconds, `5s`/`20s`), `SERVERS` (`astro orbit`), `ASTRO_CPUS` (`0-3,8-11`), `ORBIT_CPUS` (`0`), `ORBIT_GOMAXPROCS` (`1`), `LOAD_CPUS` (`4-7,12-15`). The ports (4410–4412) differ from `bench/run.sh`'s.
+Settings are environment variables: `PAGE` (`cards`), `CONCURRENCY` (`64`), `WARMUP`/`DURATION` (whole seconds, `5s`/`20s`), `SERVERS` (`astro lyr`), `ASTRO_CPUS` (`0-3,8-11`), `LYR_CPUS` (`0`), `LYR_GOMAXPROCS` (`1`), `LOAD_CPUS` (`4-7,12-15`). The ports (4410–4412) differ from `bench/run.sh`'s.
 
 ## Method
 
-- **The same configurations as the published rows**: Astro is the "Astro" row (one Node process on the 8 server CPUs); Orbit is the "`GOMAXPROCS=1`" row (one CPU). The load generator runs on its own cores, 64 keep-alive connections, and the profile covers only the measured window, after the warm-up.
+- **The same configurations as the published rows**: Astro is the "Astro" row (one Node process on the 8 server CPUs); Lyr is the "`GOMAXPROCS=1`" row (one CPU). The load generator runs on its own cores, 64 keep-alive connections, and the profile covers only the measured window, after the warm-up.
 - **Astro**: `node --import bench/profile/node-hook.mjs dist/server/entry.mjs`. The hook starts the V8 sampling profiler in-process (`node:inspector`, 200 µs interval) on the first `SIGUSR2` and writes it on the second. Over the same window it records main-thread GC pauses (`perf_hooks` `gc` entries), `process.cpuUsage()` and event-loop utilization. A second, untimed server run counts async resources with `async_hooks` over 100 sequential requests (the hook is too slow for the timed run).
 - **Astro attribution**: `dist/server` is a rolldown bundle that keeps `//#region node_modules/…` and `//#region src/…` comments, so `summarize-cpuprofile.mjs` maps each sampled line back to its original file (`astro/dist/runtime/server/render/streaming.js`, `src/components/Card.astro`, …). Self time goes to the sampled frame; a native frame (a V8 builtin or C++ binding such as `writev`) counts under its nearest JavaScript caller. TurboFan inlines small functions into their callers, so function-level splits are approximate; the categories, which group whole files, are more robust.
-- **Orbit**: the site's own `cmd/server`, built with `go build -overlay` adding `pprof.go.in`, which serves `net/http/pprof` on a separate listener when `ORBIT_PPROF_ADDR` is set. The site's handler chain is unchanged, and the overlay leaves the site's files and `dist/` alone. The script fetches a 20 s `/debug/pprof/profile` during the window; `summarize-pprof.mjs` reads `go tool pprof -traces` and puts each sample in the first category whose rule matches anywhere in its stack (GC, then `mallocgc`, then syscalls, then the page render, …).
+- **Lyr**: the site's own `cmd/server`, built with `go build -overlay` adding `pprof.go.in`, which serves `net/http/pprof` on a separate listener when `LYR_PPROF_ADDR` is set. The site's handler chain is unchanged, and the overlay leaves the site's files and `dist/` alone. The script fetches a 20 s `/debug/pprof/profile` during the window; `summarize-pprof.mjs` reads `go tool pprof -traces` and puts each sample in the first category whose rule matches anywhere in its stack (GC, then `mallocgc`, then syscalls, then the page render, …).
 - **Noise**: the profiler itself costs CPU (Astro ran at about 2.0 ms CPU per page instead of the published 1.56 ms), and other jobs may share the machine. Compare **shares**, not absolute numbers, and don't replace the published req/s with these.
 
 ## Results (2026-10-25)
@@ -62,7 +62,7 @@ Inclusive (synchronous stacks): the render (`renderStreamToAsyncIterable`) 72%, 
 
 **Render vs. overhead**: the render categories (engine, instances, escaping, compiled code) are 75% of Astro's main-thread CPU on `/cards`. For comparison, the published `/fetch` page (a 20-item list after a 10 ms wait) costs Astro 0.114 ms CPU per request, about 7% of `/cards`' 1.56 ms, which bounds Astro's fixed per-request cost.
 
-### Orbit
+### Lyr
 
 8,057 req/s, 0.114 ms CPU per request while profiled. 18.35 s of samples in 20 s (0.92 cores).
 
@@ -73,16 +73,16 @@ Inclusive (synchronous stacks): the render (`renderStreamToAsyncIterable`) 72%, 
 | allocation (`mallocgc`; mostly the 500 slot closures) | 6.5% |
 | GC (background marking, sweeping, assists) | 3.4% |
 | `net/http` (request parsing, headers, connection) | 1.8% |
-| Orbit serving (routing, pooled context, response) | 1.5% |
+| Lyr serving (routing, pooled context, response) | 1.5% |
 | scheduler and other runtime | 0.3% |
 
-Inside the render, by innermost frame: buffer writes (`bytes.Buffer`, `memmove` of the merged static HTML and the text) 29.3% of all CPU, escaping (`firstEsc` scan + `escapeSlow`; this page's text is full of `<&>`) 24.0%, other Orbit runtime (`Writer.Raw`, `Enter`/`Leave` depth guard, `URL`, `AttrBool`) 6.6%, the generated component code itself 5.6%, `strconv` 1.6%, runtime bookkeeping 1.3%.
+Inside the render, by innermost frame: buffer writes (`bytes.Buffer`, `memmove` of the merged static HTML and the text) 29.3% of all CPU, escaping (`firstEsc` scan + `escapeSlow`; this page's text is full of `<&>`) 24.0%, other Lyr runtime (`Writer.Raw`, `Enter`/`Leave` depth guard, `URL`, `AttrBool`) 6.6%, the generated component code itself 5.6%, `strconv` 1.6%, runtime bookkeeping 1.3%.
 
 ### Side by side, per page
 
-Using the published CPU per page (Astro 1.56 ms, Orbit 0.12 ms) and the shares above:
+Using the published CPU per page (Astro 1.56 ms, Lyr 0.12 ms) and the shares above:
 
-| | Astro | Orbit | Ratio |
+| | Astro | Lyr | Ratio |
 |---|---:|---:|---:|
 | render (all template work, incl. escaping) | ≈ 1.17 ms | ≈ 0.08 ms | ≈ 14× |
 | escaping and attributes | ≈ 0.26 ms | ≈ 0.03 ms | ≈ 9× |
@@ -110,4 +110,4 @@ Where templ's 8,985 allocations per page come from (share of allocated objects):
 | `runtime.GeneratedTemplate`, `templ.WithChildren`, the `Card`/children closures | 33% | each component call builds a `templ.Component` value and closure, and its children another |
 | `html.EscapeString` (`strings.Replacer`) | 13% | escaping always returns a new string when there's something to escape |
 
-CPU: `fmt.Sprint` 24% of the run inclusive, `html.EscapeString` 18%, `mallocgc` 13%, background GC 8%, `context.WithValue` 4%. Orbit's 501 allocations are the 500 slot closures plus the layout's; ints are formatted with `strconv` straight into the buffer and escaping writes into it without an intermediate string.
+CPU: `fmt.Sprint` 24% of the run inclusive, `html.EscapeString` 18%, `mallocgc` 13%, background GC 8%, `context.WithValue` 4%. Lyr's 501 allocations are the 500 slot closures plus the layout's; ints are formatted with `strconv` straight into the buffer and escaping writes into it without an intermediate string.

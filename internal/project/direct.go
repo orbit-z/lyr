@@ -8,12 +8,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
-// The build flavor (PLAN.md §3.5): orbit build calls components directly
+// The build flavor (PLAN.md §3.5): lyr build calls components directly
 // where the import graph allows it, through impl files overlaid on
-// orbit_gen/ with go build -overlay. orbit_gen/ itself keeps the hook
+// lyr_gen/ with go build -overlay. lyr_gen/ itself keeps the hook
 // flavor.
 
 // DirectCalls returns the direct calls of every file's build flavor, by
@@ -78,7 +78,7 @@ func (p *Project) DirectCalls() map[string]*compiler.DirectCalls {
 // of every file in DirectCalls, generated again with the typed
 // writes Typecheck chose and the file's DirectCalls, at its BuildDir path
 // (compiler.BuildPath), sorted, then the overlay file (OverlayFile) that
-// maps each orbit_gen/ path to it. Call it after Typecheck, on a project
+// maps each lyr_gen/ path to it. Call it after Typecheck, on a project
 // without errors.
 func (p *Project) BuildFiles() ([]GenFile, error) {
 	direct := p.DirectCalls()

@@ -4,37 +4,37 @@ import (
 	"bytes"
 	"fmt"
 
-	layout "example.com/blog/orbit_gen/decl/components/layout"
-	slug "example.com/blog/orbit_gen/decl/pages/blog/slug_param"
-	redirect "example.com/blog/orbit_gen/decl/pages/redirect"
-	_ "example.com/blog/orbit_gen/impl/components/layout"
-	_ "example.com/blog/orbit_gen/impl/pages/blog/slug_param"
-	_ "example.com/blog/orbit_gen/impl/pages/redirect"
-	"github.com/orbit-z/orbit"
+	layout "example.com/blog/lyr_gen/decl/components/layout"
+	slug "example.com/blog/lyr_gen/decl/pages/blog/slug_param"
+	redirect "example.com/blog/lyr_gen/decl/pages/redirect"
+	_ "example.com/blog/lyr_gen/impl/components/layout"
+	_ "example.com/blog/lyr_gen/impl/pages/blog/slug_param"
+	_ "example.com/blog/lyr_gen/impl/pages/redirect"
+	"github.com/orbit-z/lyr"
 )
 
 func main() {
 	var buf bytes.Buffer
-	err := slug.Orbit__Render(&orbit.Ctx{}, orbit.NewWriter(&buf), slug.Props{}, orbit.Slots{}, slug.Params{Slug: "hello<"})
+	err := slug.Lyr__Render(&lyr.Ctx{}, lyr.NewWriter(&buf), slug.Props{}, lyr.Slots{}, slug.Params{Slug: "hello<"})
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println(buf.String())
 
 	buf.Reset()
-	if err := layout.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), layout.Props{Title: "fallbacks"}, orbit.Slots{}); err != nil {
+	if err := layout.Render(&lyr.Ctx{}, lyr.NewWriter(&buf), layout.Props{Title: "fallbacks"}, lyr.Slots{}); err != nil {
 		panic(err)
 	}
 	fmt.Println(buf.String())
 
 	// Render passes params from the Ctx: none here.
 	buf.Reset()
-	if err := slug.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), slug.Props{}, orbit.Slots{}); err != nil {
+	if err := slug.Render(&lyr.Ctx{}, lyr.NewWriter(&buf), slug.Props{}, lyr.Slots{}); err != nil {
 		panic(err)
 	}
 	fmt.Println(buf.String())
 
 	buf.Reset()
-	err = redirect.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), redirect.Props{}, orbit.Slots{})
+	err = redirect.Render(&lyr.Ctx{}, lyr.NewWriter(&buf), redirect.Props{}, lyr.Slots{})
 	fmt.Printf("%v %q\n", err, buf.String())
 }

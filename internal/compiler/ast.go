@@ -1,7 +1,7 @@
 package compiler
 
 // This file defines the template AST. Every node embeds a Span with byte
-// offsets into the original .orbit file (frontmatter included), and so do the
+// offsets into the original .lyr file (frontmatter included), and so do the
 // sub-parts that codegen copies into Go (expressions, control headers, tag
 // and attribute names) and that the LSP classifies cursors by.
 //
@@ -32,7 +32,7 @@ type RawText struct {
 	Text string
 }
 
-// File is the result of parsing a whole .orbit file.
+// File is the result of parsing a whole .lyr file.
 type File struct {
 	Src         string
 	Mode        Mode
@@ -214,7 +214,7 @@ type Element struct {
 	asTag []Diagnostic
 }
 
-// Component is a capitalized tag: a call of an imported .orbit component, or
+// Component is a capitalized tag: a call of an imported .lyr component, or
 // of the current one for <Self>.
 type Component struct {
 	Span
@@ -264,7 +264,7 @@ type Script struct {
 	Inline bool
 	// JSON is true with set:json (a <script type="application/json">).
 	JSON bool
-	// Processed is true when Orbit compiles and bundles the script: Astro's
+	// Processed is true when Lyr compiles and bundles the script: Astro's
 	// rule, no attributes at all or only a src with a relative local path
 	// ("./x.ts", "../x.ts"). Any other attribute leaves it as is.
 	Processed bool
@@ -387,7 +387,7 @@ func (a *Attr) IsStatic() bool { return a.Kind == AttrQuoted || a.Kind == AttrUn
 // IsExpr reports whether the attribute's value is Go code (a={expr} or {a}).
 func (a *Attr) IsExpr() bool { return a.Kind == AttrExpr || a.Kind == AttrShorthand }
 
-// Directive is what Orbit makes of an attribute name.
+// Directive is what Lyr makes of an attribute name.
 type Directive uint8
 
 const (

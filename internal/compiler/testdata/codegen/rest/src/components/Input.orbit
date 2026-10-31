@@ -1,8 +1,0 @@
----
-type Props struct {
-	Label string
-	Attrs orbit.RestAttrs
-}
----
-<label class="field">{props.Label}<input {...props.Attrs} /></label>
-<span class:list={"tag", "on": props.Attrs.Has("required")} title="t" {...props.Attrs}>{props.Label}</span>

@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"fmt"
 
-	tree "example.com/blog/orbit_gen/decl/components/tree"
-	_ "example.com/blog/orbit_gen/impl/components/tree"
-	"github.com/orbit-z/orbit"
+	tree "example.com/blog/lyr_gen/decl/components/tree"
+	_ "example.com/blog/lyr_gen/impl/components/tree"
+	"github.com/orbit-z/lyr"
 )
 
 func main() {
@@ -15,12 +15,12 @@ func main() {
 		{Name: "b"},
 	}}
 	var buf bytes.Buffer
-	if err := tree.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), tree.Props{Node: root}, orbit.Slots{}); err != nil {
+	if err := tree.Render(&lyr.Ctx{}, lyr.NewWriter(&buf), tree.Props{Node: root}, lyr.Slots{}); err != nil {
 		panic(err)
 	}
 	fmt.Println(buf.String())
 	// The depth guard stops runaway recursion with an error.
-	err := tree.Render(&orbit.Ctx{}, orbit.NewWriter(&bytes.Buffer{}), tree.Props{Node: deep(1100)}, orbit.Slots{})
+	err := tree.Render(&lyr.Ctx{}, lyr.NewWriter(&bytes.Buffer{}), tree.Props{Node: deep(1100)}, lyr.Slots{})
 	fmt.Println(err != nil)
 }
 

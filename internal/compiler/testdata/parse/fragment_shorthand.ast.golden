@@ -1,53 +1,53 @@
-Frontmatter @0-34 closed=true open=@0-3 close=@31-34 code=@4-31 "import Card \"./Card.orbit\"\n"
-Template @35-264
-  Fragment @35-72
-    <> name=@36-36 start=@35-37 end=@69-72
-    Text @37-40 "\n  "
-    Element @40-54
-      <h1> name=@41-43 start=@40-44 end=@49-54
-      Text @44-49 "Title"
-    Text @54-57 "\n  "
-    Element @57-68
-      <p> name=@58-59 start=@57-60 end=@64-68
-      Text @60-64 "Body"
-    Text @68-69 "\n"
-  Text @72-73 "\n"
-  Element @73-154
-    <ul> name=@74-76 start=@73-77 end=@149-154
-    Text @77-80 "\n  "
-    For @80-148 header=@80-105 clause=@85-104 "_, x := range items" end=@142-148
-      Text @105-110 "\n    "
-      Fragment @110-139
-        <> name=@111-111 start=@110-112 end=@136-139
-        Element @112-124
-          <li> name=@113-115 start=@112-116 end=@119-124
-          Expr @116-119 code=@117-118 "x"
-        Element @124-136
-          <li> name=@125-127 start=@124-128 end=@131-136
-          Text @128-131 "sep"
-      Text @139-142 "\n  "
-    Text @148-149 "\n"
-  Text @154-155 "\n"
-  Component @155-257
-    <Card> name=@156-160 start=@155-161 end=@250-257
-    Text @161-164 "\n  "
-    Fragment @164-227
-      <Fragment> name=@165-173 start=@164-188 end=@216-227
-        attr quoted @174-187 name=@174-178 "slot" directive=slot value=@180-186 "footer"
-      Fragment @188-194
-        <> name=@189-189 start=@188-190 end=@191-194
-        Text @190-191 "a"
-      Fragment @194-216
-        <Fragment> name=@195-203 start=@194-204 end=@205-216
-        Text @204-205 "b"
-    Text @227-230 "\n  "
-    Fragment @230-249
-      <> name=@231-231 start=@230-232 end=@246-249
-      Element @232-246
-        <b> name=@233-234 start=@232-235 end=@242-246
-        Text @235-242 "default"
-    Text @249-250 "\n"
-  Text @257-258 "\n"
-  Fragment @258-263
-    <> name=@259-259 start=@258-260 end=@260-263
-  Text @263-264 "\n"
+Frontmatter @0-32 closed=true open=@0-3 close=@29-32 code=@4-29 "import Card \"./Card.lyr\"\n"
+Template @33-262
+  Fragment @33-70
+    <> name=@34-34 start=@33-35 end=@67-70
+    Text @35-38 "\n  "
+    Element @38-52
+      <h1> name=@39-41 start=@38-42 end=@47-52
+      Text @42-47 "Title"
+    Text @52-55 "\n  "
+    Element @55-66
+      <p> name=@56-57 start=@55-58 end=@62-66
+      Text @58-62 "Body"
+    Text @66-67 "\n"
+  Text @70-71 "\n"
+  Element @71-152
+    <ul> name=@72-74 start=@71-75 end=@147-152
+    Text @75-78 "\n  "
+    For @78-146 header=@78-103 clause=@83-102 "_, x := range items" end=@140-146
+      Text @103-108 "\n    "
+      Fragment @108-137
+        <> name=@109-109 start=@108-110 end=@134-137
+        Element @110-122
+          <li> name=@111-113 start=@110-114 end=@117-122
+          Expr @114-117 code=@115-116 "x"
+        Element @122-134
+          <li> name=@123-125 start=@122-126 end=@129-134
+          Text @126-129 "sep"
+      Text @137-140 "\n  "
+    Text @146-147 "\n"
+  Text @152-153 "\n"
+  Component @153-255
+    <Card> name=@154-158 start=@153-159 end=@248-255
+    Text @159-162 "\n  "
+    Fragment @162-225
+      <Fragment> name=@163-171 start=@162-186 end=@214-225
+        attr quoted @172-185 name=@172-176 "slot" directive=slot value=@178-184 "footer"
+      Fragment @186-192
+        <> name=@187-187 start=@186-188 end=@189-192
+        Text @188-189 "a"
+      Fragment @192-214
+        <Fragment> name=@193-201 start=@192-202 end=@203-214
+        Text @202-203 "b"
+    Text @225-228 "\n  "
+    Fragment @228-247
+      <> name=@229-229 start=@228-230 end=@244-247
+      Element @230-244
+        <b> name=@231-232 start=@230-233 end=@240-244
+        Text @233-240 "default"
+    Text @247-248 "\n"
+  Text @255-256 "\n"
+  Fragment @256-261
+    <> name=@257-257 start=@256-258 end=@258-261
+  Text @261-262 "\n"

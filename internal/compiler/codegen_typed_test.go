@@ -14,16 +14,16 @@ func TestTypedReemit(t *testing.T) {
 	c := loadCase(t, "testdata/codegen/card")
 	res := generateCase(t, c)
 	choose := map[string]TypedWrite{
-		"label":                             {Kind: WriteString},
-		"n":                                 {Kind: WriteInt, Conv: "int64"},
-		"props.Featured":                    {Kind: WriteAttrBool},
-		"props.PostID":                      {Kind: WriteAttrInt, Conv: "int64"},
-		"props.Href":                        {Kind: WriteAttrURL},
-		"l.text":                            {Kind: WriteString},
-		"l.href":                            {Kind: WriteAttrURL},
-		`"<escaped>"`:                       {Kind: WriteString},
-		`"javascript:img"`:                  {Kind: WriteAttrURL},
-		`orbit.URL("javascript:trusted()")`: {Kind: WriteAttrString, Conv: "string"},
+		"label":                           {Kind: WriteString},
+		"n":                               {Kind: WriteInt, Conv: "int64"},
+		"props.Featured":                  {Kind: WriteAttrBool},
+		"props.PostID":                    {Kind: WriteAttrInt, Conv: "int64"},
+		"props.Href":                      {Kind: WriteAttrURL},
+		"l.text":                          {Kind: WriteString},
+		"l.href":                          {Kind: WriteAttrURL},
+		`"<escaped>"`:                     {Kind: WriteString},
+		`"javascript:img"`:                {Kind: WriteAttrURL},
+		`lyr.URL("javascript:trusted()")`: {Kind: WriteAttrString, Conv: "string"},
 	}
 	m := newGenModule(t)
 	for _, r := range res {
@@ -58,7 +58,7 @@ func TestTypedReemit(t *testing.T) {
 		if bytes.Equal(out.Impl.Content, r.out.Impl.Content) && len(typed) > 0 {
 			t.Errorf("%s: typed writes changed nothing", r.path)
 		}
-		if r.path == "src/components/Card.orbit" {
+		if r.path == "src/components/Card.lyr" {
 			golden(t, "testdata/codegen/card/components_card.render.go.typed.golden", string(out.Impl.Content))
 		}
 		m.writeOutput(out)
@@ -80,7 +80,7 @@ func TestTypedReemit(t *testing.T) {
 // TestTypedSkip checks WriteSkip emits nothing and keeps the site.
 func TestTypedSkip(t *testing.T) {
 	src := "<p>{nil}</p>"
-	f, a := cgAnalyze(t, "src/components/X.orbit", src, Strict)
+	f, a := cgAnalyze(t, "src/components/X.lyr", src, Strict)
 	in := &Input{File: f, Analysis: a, Options: Options{Module: testModule}}
 	p1 := Generate(in)
 	in.Typed = TypedWrites{p1.CallSites[0].Key: {Kind: WriteSkip}}

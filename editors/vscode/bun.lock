@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "orbit",
+      "name": "lyr",
       "dependencies": {
         "vscode-languageclient": "10.1.2",
       },

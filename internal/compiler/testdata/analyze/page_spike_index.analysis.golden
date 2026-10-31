@@ -1,7 +1,7 @@
-info src/pages/spike_index.orbit page route="/spike_index"
-orbitimport @11-12 "A" path="../components/A.orbit" resolved=src/components/A.orbit @11-36 pathspan=@13-36 place=impl
-implicit orbit: none
-stmt @38-81 "items := []A.Item{{Name: \"root\", Count: 2}}"
+info src/pages/spike_index.lyr page route="/spike_index"
+lyrimport @11-12 "A" path="../components/A.lyr" resolved=src/components/A.lyr @11-34 pathspan=@13-34 place=impl
+implicit lyr: none
+stmt @36-79 "items := []A.Item{{Name: \"root\", Count: 2}}"
 echo [items]
 terminating false
 props declared=false listable=true span=@0-0

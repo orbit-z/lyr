@@ -1,0 +1,19 @@
+---
+import "strings"
+
+import Link "../components/Link.lyr"
+import Opt "../components/Opt.lyr"
+import Button "../components/Button.lyr"
+
+url, summary := "https://go.dev/blog", "Go & more"
+ext := strings.HasPrefix(url, "http")
+var describedBy lyr.Opt[string]
+n := 5
+---
+<Link href={url} rel={lyr.If(ext, "noopener")}>Go blog</Link>
+<Link href="/about" rel="author" id="me" n={3} f={2} on>About</Link>
+<Link href="/x" title={summary} id={Link.Slug("s")} rel={describedBy} n={n} on={ext} style={lyr.CSS("color: red")}>X</Link>
+<Link href="/y" id={lyr.If(ext, "c")} rel={lyr.NonZero(summary)} title={lyr.If(!ext, "never")} f={1.5}>Y</Link>
+<Opt on s="v" />
+<Opt />
+<Button aria-describedby={lyr.If(ext, "help")} aria-x={lyr.If(!ext, "no")} href={lyr.Some("javascript:x")} data-n={lyr.Some(n)} hidden={lyr.Some(true)} title={describedBy}>B</Button>

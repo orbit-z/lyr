@@ -1,0 +1,18 @@
+---
+import Comments "../components/Comments.lyr"
+import Counter "../components/Counter.lyr"
+import Tree "../components/Tree.lyr"
+import Wrap "../components/Wrap.lyr"
+---
+<main>
+  <Comments server:defer postID={7} title="t"><p slot="fallback">Loading comments…</p></Comments>
+  <Comments server:defer />
+  <Counter client:load start={1} />
+  <Counter client:idle start={2} />
+  <Counter client:visible />
+  <Counter client:visible="200px" />
+  <Counter client:media="(max-width: 600px)" />
+  <Wrap client:visible><Counter client:idle start={3} /></Wrap>
+  <Tree depth={1} />
+</main>
+<style>p { color: gray }</style>

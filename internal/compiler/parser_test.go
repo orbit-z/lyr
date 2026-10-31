@@ -17,19 +17,19 @@ func naiveScanner() bool {
 	return scanBraced(s, 0) != len(s)-1
 }
 
-// TestParseGolden parses every testdata/parse/*.orbit file and compares the
+// TestParseGolden parses every testdata/parse/*.lyr file and compares the
 // AST dump and the diagnostics with the .ast.golden and .diag.golden files.
 // Files named tolerant_* are parsed in Tolerant mode, the others in Strict
 // mode. Files named goaware_* need the Go-aware scanBraced and are skipped
 // while the naive placeholder is in place.
 func TestParseGolden(t *testing.T) {
-	paths, err := filepath.Glob("testdata/parse/*.orbit")
+	paths, err := filepath.Glob("testdata/parse/*.lyr")
 	if err != nil || len(paths) == 0 {
 		t.Fatalf("no testdata: %v", err)
 	}
 	for _, path := range paths {
 		name := filepath.Base(path)
-		t.Run(strings.TrimSuffix(name, ".orbit"), func(t *testing.T) {
+		t.Run(strings.TrimSuffix(name, ".lyr"), func(t *testing.T) {
 			if strings.HasPrefix(name, "goaware_") && naiveScanner() {
 				t.Skip("needs the Go-aware scanBraced: the naive placeholder counts braces inside Go strings and comments")
 			}
@@ -43,8 +43,8 @@ func TestParseGolden(t *testing.T) {
 			}
 			f := Parse(string(src), mode)
 			checkInvariants(t, f)
-			golden(t, strings.TrimSuffix(path, ".orbit")+".ast.golden", dumpFile(f))
-			golden(t, strings.TrimSuffix(path, ".orbit")+".diag.golden", dumpDiags(f, name))
+			golden(t, strings.TrimSuffix(path, ".lyr")+".ast.golden", dumpFile(f))
+			golden(t, strings.TrimSuffix(path, ".lyr")+".diag.golden", dumpDiags(f, name))
 		})
 	}
 }
@@ -124,7 +124,7 @@ func TestLineIndex(t *testing.T) {
 		}
 	}
 	d := Diagnostic{SeverityWarning, Span{4, 5}, "careful"}
-	if got := d.Format("src/x.orbit", x); got != "src/x.orbit:2:2: warning: careful" {
+	if got := d.Format("src/x.lyr", x); got != "src/x.lyr:2:2: warning: careful" {
 		t.Errorf("Format = %q", got)
 	}
 }
@@ -160,7 +160,7 @@ func TestGoAwareBraces(t *testing.T) {
 }
 
 func TestParseModesAgree(t *testing.T) {
-	paths, _ := filepath.Glob("testdata/parse/*.orbit")
+	paths, _ := filepath.Glob("testdata/parse/*.lyr")
 	for _, path := range paths {
 		src, _ := os.ReadFile(path)
 		s, l := Parse(string(src), Strict), Parse(string(src), Tolerant)
@@ -171,7 +171,7 @@ func TestParseModesAgree(t *testing.T) {
 }
 
 func FuzzParse(f *testing.F) {
-	paths, _ := filepath.Glob("testdata/parse/*.orbit")
+	paths, _ := filepath.Glob("testdata/parse/*.lyr")
 	for _, path := range paths {
 		src, _ := os.ReadFile(path)
 		f.Add(string(src))
@@ -197,7 +197,7 @@ func FuzzParse(f *testing.F) {
 // benchTemplate builds a realistic template of about 200 lines.
 func benchTemplate() string {
 	var b strings.Builder
-	b.WriteString("---\nimport Card \"../components/Card.orbit\"\n\nlist, err := posts.All()\nif err != nil { return err }\n---\n")
+	b.WriteString("---\nimport Card \"../components/Card.lyr\"\n\nlist, err := posts.All()\nif err != nil { return err }\n---\n")
 	b.WriteString("<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"utf-8\">\n    <title>{props.Title} · Blog</title>\n  </head>\n  <body>\n")
 	for i := 0; i < 12; i++ {
 		b.WriteString(`    <section class="posts" data-index={i} {...props.Attrs}>

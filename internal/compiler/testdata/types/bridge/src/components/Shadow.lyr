@@ -1,0 +1,4 @@
+---
+import "example.com/blog/internal/lyr"
+---
+<p data-x={lyr.JSON(1)}></p>

@@ -1,2 +1,0 @@
-<div set:html={orbit.HTML("<b>x</b>")}></div>
-{strings.ToUpper("x")}

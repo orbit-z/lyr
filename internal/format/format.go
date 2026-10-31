@@ -1,10 +1,10 @@
-// Package format formats .orbit files (PLAN.md §6.1): the frontmatter,
+// Package format formats .lyr files (PLAN.md §6.1): the frontmatter,
 // template expressions and control headers with go/format, and <script> and
 // <style> content with bun fmt. Template text, tags, attributes and the
 // whitespace between them are never changed, so a formatted file renders the
 // same bytes.
 //
-// It is used by orbit fmt and by the language server's
+// It is used by lyr fmt and by the language server's
 // textDocument/formatting.
 package format
 
@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // Options configures formatting.
@@ -112,7 +112,7 @@ func Regions(src string, opts Options) Result {
 	edits := fx.edits()
 	res := Result{Edits: edits, Errors: fx.bunErrs, BunFailed: len(fx.bunErrs) > 0, Skipped: skipped, Warnings: fx.warns}
 	// The template must parse to the same tree; otherwise give up on the
-	// whole file (this would be an Orbit bug).
+	// whole file (this would be a Lyr bug).
 	if len(edits) > 0 {
 		out := Apply(src, edits)
 		g := compiler.Parse(out, compiler.Strict)

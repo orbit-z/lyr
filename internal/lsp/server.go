@@ -1,6 +1,6 @@
-// Package lsp is orbit lsp, Orbit's language server (PLAN.md §9). It
-// speaks LSP over stdio to the editor, generates every .orbit file in
-// memory (tolerant mode, never writing orbit_gen/), sends the generated Go
+// Package lsp is lyr lsp, Lyr's language server (PLAN.md §9). It
+// speaks LSP over stdio to the editor, generates every .lyr file in
+// memory (tolerant mode, never writing lyr_gen/), sends the generated Go
 // that isn't on disk to its own gopls as overlays, proxies Go features to it with positions
 // mapped through the source maps, and answers template features natively.
 package lsp
@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // Options configure Run.
@@ -89,7 +89,7 @@ type Server struct {
 	mapped     chan struct{}
 	mappedOnce sync.Once
 
-	// The typed checks after orbit_gen/ changes (disk.go): the debounce
+	// The typed checks after lyr_gen/ changes (disk.go): the debounce
 	// timer, and whether one runs and another was asked for meanwhile.
 	diskTimer                *time.Timer
 	diskRunning, diskPending bool
@@ -121,7 +121,7 @@ type clientCaps struct {
 }
 
 func (s *Server) logf(format string, args ...any) {
-	fmt.Fprintf(s.opts.Log, "orbit lsp: "+format+"\n", args...)
+	fmt.Fprintf(s.opts.Log, "lyr lsp: "+format+"\n", args...)
 }
 
 func (s *Server) markReady()  { s.readyOnce.Do(func() { close(s.ready) }) }
@@ -208,7 +208,7 @@ func (s *Server) request(ctx context.Context, method string, params jsonRaw) (an
 		return res, err
 	}
 	// Every request below may map positions through the generated files,
-	// which the startup typed check can still switch to orbit_gen/'s typed
+	// which the startup typed check can still switch to lyr_gen/'s typed
 	// content.
 	s.waitMapped(ctx)
 	switch method {
@@ -294,7 +294,7 @@ func (s *Server) notification(method string, params jsonRaw) {
 }
 
 // initialize answers the editor's initialize: it finds the project from
-// the workspace root and loads it (parse and generate every .orbit file in
+// the workspace root and loads it (parse and generate every .lyr file in
 // memory). gopls starts on initialized.
 func (s *Server) initialize(params jsonRaw) (any, *rpcError) {
 	var p struct {
@@ -367,8 +367,8 @@ func (s *Server) initialize(params jsonRaw) (any, *rpcError) {
 			"codeActionProvider":        map[string]any{"codeActionKinds": []string{"quickfix"}},
 			// resolveProvider for the TypeScript child's items (their
 			// documentation and auto-import edits come on resolve);
-			// gopls's and Orbit's items resolve to themselves. The trigger
-			// characters are Orbit's and TypeScript's; each region ignores
+			// gopls's and Lyr's items resolve to themselves. The trigger
+			// characters are Lyr's and TypeScript's; each region ignores
 			// the others' (PLAN.md §9b).
 			"completionProvider": map[string]any{
 				"triggerCharacters": []string{".", "<", " ", ":", `"`, "'", "{", "/", "`", "@", "#", "*"},
@@ -376,7 +376,7 @@ func (s *Server) initialize(params jsonRaw) (any, *rpcError) {
 			},
 			"signatureHelpProvider": map[string]any{"triggerCharacters": []string{"(", ",", "<"}},
 		},
-		"serverInfo": map[string]any{"name": "orbit", "version": s.opts.Version},
+		"serverInfo": map[string]any{"name": "lyr", "version": s.opts.Version},
 	}, nil
 }
 
@@ -385,15 +385,15 @@ func (s *Server) load(root string) {
 	ws, err := loadWorkspace(root)
 	if err != nil {
 		s.logf("loading %s: %v", root, err)
-		s.showMessage(msgError, "Orbit: "+err.Error())
+		s.showMessage(msgError, "Lyr: "+err.Error())
 		return
 	}
 	s.ws = ws
-	s.logf("project %s: %d .orbit files", ws.root, len(ws.proj.Files))
+	s.logf("project %s: %d .lyr files", ws.root, len(ws.proj.Files))
 }
 
 // start runs once the project is known and the editor is initialized:
-// Orbit's diagnostics, the .orbit file watcher and gopls.
+// Lyr's diagnostics, the .lyr file watcher and gopls.
 func (s *Server) start(ws *workspace) {
 	s.mu.Lock()
 	if s.started {
@@ -407,10 +407,10 @@ func (s *Server) start(ws *workspace) {
 	if watch {
 		go s.client.Call(context.Background(), "client/registerCapability", map[string]any{
 			"registrations": []any{map[string]any{
-				"id":     "orbit-files",
+				"id":     "lyr-files",
 				"method": "workspace/didChangeWatchedFiles",
 				"registerOptions": map[string]any{
-					"watchers": []any{map[string]any{"globPattern": "**/*.orbit"},
+					"watchers": []any{map[string]any{"globPattern": "**/*.lyr"},
 						map[string]any{"globPattern": "**/*.{md,markdown,mdown,mkdn,mkd,mdwn}"},
 						map[string]any{"globPattern": "**/tsconfig*.json"}},
 				},
@@ -446,14 +446,14 @@ func (s *Server) showMessage(typ int, text string) {
 	s.client.Notify("window/showMessage", map[string]any{"type": typ, "message": text})
 }
 
-// workspaceFor returns the workspace for an .orbit document, loading the
+// workspaceFor returns the workspace for a .lyr document, loading the
 // project around it when the editor's root had none.
 func (s *Server) workspaceFor(uri string) *workspace {
 	if s.ws != nil {
 		return s.ws
 	}
 	abs := uriToPath(uri)
-	if abs == "" || !strings.HasSuffix(abs, ".orbit") {
+	if abs == "" || !strings.HasSuffix(abs, ".lyr") {
 		return nil
 	}
 	root, err := findRoot(filepath.Dir(abs))
@@ -560,7 +560,7 @@ func (s *Server) didChange(params jsonRaw) {
 		return
 	}
 	doc.version = p.TextDocument.Version
-	// An .orbit edit reruns the Markdown typed check only when the file is
+	// A .lyr edit reruns the Markdown typed check only when the file is
 	// a compiled Markdown file's layout and its decl package (its Props)
 	// changed.
 	var decl []byte
@@ -626,7 +626,7 @@ func (s *Server) didClose(params jsonRaw) {
 		return
 	}
 	delete(ws.docs, path)
-	// As for .orbit files, the diagnostics stay: they're about the disk
+	// As for .lyr files, the diagnostics stay: they're about the disk
 	// content now.
 	if doc.md {
 		if ws.reloadMarkdown(path) {
@@ -652,7 +652,7 @@ func (s *Server) didClose(params jsonRaw) {
 	s.publishAll(ws)
 }
 
-// didChangeWatchedFiles handles the editor's file events: .orbit files
+// didChangeWatchedFiles handles the editor's file events: .lyr files
 // that aren't open are reloaded from disk; everything else is forwarded to
 // gopls, and generated files are re-compared with their overlays.
 func (s *Server) didChangeWatchedFiles(params jsonRaw) {
@@ -670,7 +670,7 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 	ws := s.ws
 	var forward []any
 	var gens []*genFile
-	orbitChanged, mdChanged, dataChanged, secChanged := false, false, false, false
+	lyrChanged, mdChanged, dataChanged, secChanged := false, false, false, false
 	all := make([]any, len(p.Changes))
 	rels := make([]string, len(p.Changes))
 	for i, c := range p.Changes {
@@ -682,38 +682,38 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 		rel := ws.rel(uriToPath(c.URI))
 		rels[i] = rel
 		switch {
-		case isOrbitSource(rel):
+		case isLyrSource(rel):
 			if ws.docs[rel] == nil {
 				had, hadSec := hasData(ws.byPath[rel]), hasSecurity(ws.byPath[rel])
 				ws.reloadFromDisk(rel)
-				orbitChanged = true
+				lyrChanged = true
 				dataChanged = dataChanged || had || hasData(ws.byPath[rel])
 				secChanged = secChanged || hadSec || hasSecurity(ws.byPath[rel])
 				s.tsSyncFile(ws, rel)
 			}
 			continue
 		case isMarkdownSource(rel):
-			// Like .orbit files: the editor's buffer wins over the disk.
+			// Like .lyr files: the editor's buffer wins over the disk.
 			if ws.docs[rel] == nil && ws.reloadMarkdown(rel) {
-				orbitChanged, mdChanged = true, true
+				lyrChanged, mdChanged = true, true
 			}
 			continue
 		case isGenPath(rel):
 			if g := ws.gen[rel]; g != nil {
 				gens = append(gens, g)
 			}
-			s.mdInvalid = true // orbit dev rewrites it after .go edits too
+			s.mdInvalid = true // lyr dev rewrites it after .go edits too
 		case ws.proj.IsTsconfig(rel):
 			// Its paths aliases resolve the components' imports
 			// (PLAN.md §2.2); the TypeScript child gets it too
 			// (tsWatched).
 			ws.reloadAliases()
-			orbitChanged = true
+			lyrChanged = true
 			continue
 		case invalidatesExports(rel):
 			s.mdInvalid, mdChanged, dataChanged, secChanged = true, true, true, true
 		case isTSWatched(rel):
-			continue // Orbit's TypeScript watcher's: the child's (tsWatched), not gopls's
+			continue // Lyr's TypeScript watcher's: the child's (tsWatched), not gopls's
 		}
 		forward = append(forward, c)
 	}
@@ -738,7 +738,7 @@ func (s *Server) didChangeWatchedFiles(params jsonRaw) {
 	if mdChanged {
 		s.markdownChanged(ws)
 	}
-	if orbitChanged {
+	if lyrChanged {
 		s.publishAll(ws)
 	}
 }
@@ -777,14 +777,14 @@ type cursor struct {
 	reg   region
 }
 
-// resolve finds the cursor of a request on an .orbit document (with s.mu
+// resolve finds the cursor of a request on a .lyr document (with s.mu
 // held).
 func (s *Server) resolve(uri string, pos Position) (cursor, bool) {
 	ws := s.ws
 	if ws == nil {
 		return cursor{}, false
 	}
-	path := ws.orbitPath(uri)
+	path := ws.lyrPath(uri)
 	f, lines := ws.file(path)
 	if f == nil || lines == nil {
 		return cursor{}, false
@@ -905,7 +905,7 @@ func (s *Server) hover(ctx context.Context, params jsonRaw) (any, *rpcError) {
 	return h.marshal(), nil
 }
 
-// definition: native on tags, props and .orbit imports; gopls in Go
+// definition: native on tags, props and .lyr imports; gopls in Go
 // regions, with params mapped to the page file.
 func (s *Server) definition(ctx context.Context, params jsonRaw) (any, *rpcError) {
 	o, uri, pos, ok := textPosition(params)
@@ -978,13 +978,13 @@ var (
 	// doc of the variable it declares.
 	directiveLine = regexp.MustCompile(`(?m)^line \S+:\d+(:\d+)?[ \t]*\n?`)
 	// genDocLink is gopls's pkg.go.dev link for a generated package.
-	genDocLink = regexp.MustCompile(`\[[^\]]*\]\(https://pkg\.go\.dev/[^)]*/orbit_gen/[^)]*\)`)
+	genDocLink = regexp.MustCompile(`\[[^\]]*\]\(https://pkg\.go\.dev/[^)]*/lyr_gen/[^)]*\)`)
 	// emptySection is a markdown rule left with nothing after it.
 	emptySection = regexp.MustCompile(`(\s*\n---\s*)+$`)
 )
 
 // scrubHover removes generated-code details from gopls's hover markdown:
-// line directive text and links to orbit_gen packages.
+// line directive text and links to lyr_gen packages.
 func scrubHover(v string) string {
 	v = directiveLine.ReplaceAllString(v, "")
 	v = genDocLink.ReplaceAllString(v, "")

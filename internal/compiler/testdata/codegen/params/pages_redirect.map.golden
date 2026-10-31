@@ -1,7 +1,7 @@
-orbit_gen/decl/pages/redirect/decl.go (src/pages/redirect.orbit)
-orbit_gen/impl/pages/redirect/render.go (src/pages/redirect.orbit)
-  exact 2:1 "n := 1" -> 689-695 "n := 1"
-  echo  - -> 725-726 "n"
-  exact 3:1 "return " -> 776-783 "return "
-  exact 3:8 "ctx.Redirect(\"/login\", 302+n-1)" -> 906-937 "ctx.Redirect(\"/login\", 302+n-1)"
+lyr_gen/decl/pages/redirect/decl.go (src/pages/redirect.lyr)
+lyr_gen/impl/pages/redirect/render.go (src/pages/redirect.lyr)
+  exact 2:1 "n := 1" -> 637-643 "n := 1"
+  echo  - -> 673-674 "n"
+  exact 3:1 "return " -> 722-729 "return "
+  exact 3:8 "ctx.Redirect(\"/login\", 302+n-1)" -> 846-877 "ctx.Redirect(\"/login\", 302+n-1)"
 call sites

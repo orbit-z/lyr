@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // The generated packages of a Markdown file (PLAN.md §2.4): decl holds
@@ -24,7 +24,7 @@ type GenInput struct {
 	Options compiler.Options
 	// Index is the project's component index, for the layout.
 	Index compiler.ComponentIndex
-	// TrailingSlashAlways is orbit.json "trailingSlash": "always": URL is
+	// TrailingSlashAlways is lyr.json "trailingSlash": "always": URL is
 	// then the route plus "/" (CanonicalURL).
 	TrailingSlashAlways bool
 }
@@ -81,7 +81,7 @@ func Generate(d *Doc, in GenInput) *compiler.Output {
 			usesTime = usesTime || usesTimeOf(f.Value)
 			code := goLit(f.Value, false)
 			if opt {
-				// An orbit.Opt[T] prop: Wrap gives an untyped constant T.
+				// A lyr.Opt[T] prop: Wrap gives an untyped constant T.
 				code = compiler.NameRuntime + ".Wrap(p." + name + ", " + code + ")"
 			}
 			assigns = append(assigns, assign{pos: f.KeyPos, code: "p." + name + " = " + code})
@@ -121,7 +121,7 @@ func (in GenInput) layout(d *Doc, ds *[]compiler.Diagnostic) *compiler.Component
 }
 
 // headingsField reports whether Props has a Headings field of a type
-// written as []<pkg>.Heading: pass 1's guess at []orbit.Heading.
+// written as []<pkg>.Heading: pass 1's guess at []lyr.Heading.
 func headingsField(p *compiler.PropsInfo) bool {
 	for _, f := range p.Fields {
 		if f.Name == "Headings" {
@@ -133,7 +133,7 @@ func headingsField(p *compiler.PropsInfo) bool {
 }
 
 // optField reports whether the layout's Props field name has a type
-// written as orbit.Opt[…] (pass 1's view; the typed pass reads the type).
+// written as lyr.Opt[…] (pass 1's view; the typed pass reads the type).
 func optField(p *compiler.PropsInfo, name string) bool {
 	for _, f := range p.Fields {
 		if f.Name == name {
@@ -144,7 +144,7 @@ func optField(p *compiler.PropsInfo, name string) bool {
 }
 
 // noValueDiag is the error for a top-level key with no value that doesn't
-// set an orbit.Opt prop.
+// set a lyr.Opt prop.
 func noValueDiag(f *Field) compiler.Diagnostic {
 	return compiler.Diagnostic{Severity: compiler.SeverityError,
 		Span: compiler.Span{Start: f.Value.Pos, End: f.Value.Pos}, Message: noValueError(f.Key)}
@@ -153,7 +153,7 @@ func noValueDiag(f *Field) compiler.Diagnostic {
 func headingsConflict(f *Field, layout string) compiler.Diagnostic {
 	return compiler.Diagnostic{Severity: compiler.SeverityError,
 		Span:    compiler.Span{Start: f.KeyPos, End: f.KeyPos + len(f.Key)},
-		Message: fmt.Sprintf("frontmatter key %q can't be set: Orbit fills %s.Props.Headings with the page's headings; rename the key", f.Key, layout)}
+		Message: fmt.Sprintf("frontmatter key %q can't be set: Lyr fills %s.Props.Headings with the page's headings; rename the key", f.Key, layout)}
 }
 
 // genDecl generates the declaration package.
@@ -212,14 +212,14 @@ func genDecl(d *Doc, in GenInput) *compiler.GenFile {
 	fmt.Fprintf(&b, "func Render(%s *%s.Ctx, %s *%s.Writer, %s Props, %s %s.Slots) error {\n",
 		compiler.NameCtx, compiler.NameRuntime, compiler.NameW, compiler.NameRuntime, compiler.NameProps, compiler.NameSlots, compiler.NameRuntime)
 	fmt.Fprintf(&b, "\tif %s == nil {\n\t\tpanic(%s)\n\t}\n", compiler.NameHook,
-		strconv.Quote("orbit: "+in.Info.Path+" not linked; import "+in.Options.Module+"/"+compiler.GenDir+"/app"))
+		strconv.Quote("lyr: "+in.Info.Path+" not linked; import "+in.Options.Module+"/"+compiler.GenDir+"/app"))
 	args := compiler.NameCtx + ", " + compiler.NameW + ", " + compiler.NameProps + ", " + compiler.NameSlots
 	if page {
 		args += ", Params{}"
 	}
 	fmt.Fprintf(&b, "\treturn %s(%s)\n}\n", compiler.NameHook, args)
 	return &compiler.GenFile{Path: path, ImportPath: in.Pkg.DeclImportPath(in.Options.Module), Package: in.Pkg.Name,
-		Content: []byte(b.String()), Map: &compiler.SourceMap{Orbit: in.Info.Path, Gen: path}}
+		Content: []byte(b.String()), Map: &compiler.SourceMap{Lyr: in.Info.Path, Gen: path}}
 }
 
 // genImpl generates the implementation package. imports are extra import
@@ -248,8 +248,8 @@ func genImpl(d *Doc, in GenInput, layout *compiler.ComponentInfo, assigns []assi
 	line(")")
 	line("")
 	if layout != nil {
-		line("// orbit__lprops are the layout's props, built once from the frontmatter.")
-		line("var orbit__lprops = func() (p " + LayoutAlias + ".Props) {")
+		line("// lyr__lprops are the layout's props, built once from the frontmatter.")
+		line("var lyr__lprops = func() (p " + LayoutAlias + ".Props) {")
 		for i, a := range assigns {
 			if a.pos >= 0 {
 				pos := d.Lines.Position(a.pos)
@@ -265,11 +265,11 @@ func genImpl(d *Doc, in GenInput, layout *compiler.ComponentInfo, assigns []assi
 		line("}()")
 		line("")
 	}
-	line("const orbit__html = " + strconv.Quote(d.HTML))
+	line("const lyr__html = " + strconv.Quote(d.HTML))
 	line("")
 	if layout != nil {
-		line("func orbit__content(" + compiler.NameW + " *" + compiler.NameRuntime + ".Writer) error {")
-		line("\t" + compiler.NameW + ".Raw(orbit__html)")
+		line("func lyr__content(" + compiler.NameW + " *" + compiler.NameRuntime + ".Writer) error {")
+		line("\t" + compiler.NameW + ".Raw(lyr__html)")
 		line("\treturn " + compiler.NameW + ".Err()")
 		line("}")
 		line("")
@@ -287,13 +287,13 @@ func genImpl(d *Doc, in GenInput, layout *compiler.ComponentInfo, assigns []assi
 	line("\t}")
 	line("\tdefer " + compiler.NameW + ".Leave()")
 	if layout != nil {
-		line("\treturn " + LayoutAlias + ".Render(" + compiler.NameCtx + ", " + compiler.NameW + ", orbit__lprops, " +
-			compiler.NameRuntime + ".Slots{Default: orbit__content})")
+		line("\treturn " + LayoutAlias + ".Render(" + compiler.NameCtx + ", " + compiler.NameW + ", lyr__lprops, " +
+			compiler.NameRuntime + ".Slots{Default: lyr__content})")
 	} else {
-		line("\t" + compiler.NameW + ".Raw(orbit__html)")
+		line("\t" + compiler.NameW + ".Raw(lyr__html)")
 		line("\treturn " + compiler.NameW + ".Err()")
 	}
 	line("}")
 	return &compiler.GenFile{Path: path, ImportPath: in.Pkg.ImplImportPath(in.Options.Module), Package: in.Pkg.ImplName(),
-		Content: []byte(b.String()), Map: &compiler.SourceMap{Orbit: in.Info.Path, Gen: path}}
+		Content: []byte(b.String()), Map: &compiler.SourceMap{Lyr: in.Info.Path, Gen: path}}
 }

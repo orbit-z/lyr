@@ -25,7 +25,7 @@ const (
 //   - a closing tag or block that skips open ones closes them where it is;
 //   - a stray closer is dropped.
 
-// Parse parses a whole .orbit file: the frontmatter split, then the
+// Parse parses a whole .lyr file: the frontmatter split, then the
 // template, then the structural checks that need no frontmatter or types
 // (tag nesting, directive placement and values, Fragment attributes, the
 // on*/style warnings). It never panics and always returns a File; errors are

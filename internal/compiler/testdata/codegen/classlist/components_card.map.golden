@@ -1,8 +1,8 @@
-orbit_gen/decl/components/card/decl.go (src/components/Card.orbit)
-  exact 2:1 "type Props struct {\n\tClass string\n\tTitle string\n}" -> 155-204 "type Props struct {\n\tClass string\n\tTitle string\n}"
-orbit_gen/impl/components/card/render.go (src/components/Card.orbit)
-  exact 7:17 "props.Class" -> 683-694 "props.Class"
-  exact 7:31 "props.Title" -> 809-820 "props.Title"
+lyr_gen/decl/components/card/decl.go (src/components/Card.lyr)
+  exact 2:1 "type Props struct {\n\tClass string\n\tTitle string\n}" -> 147-196 "type Props struct {\n\tClass string\n\tTitle string\n}"
+lyr_gen/impl/components/card/render.go (src/components/Card.lyr)
+  exact 7:17 "props.Class" -> 631-642 "props.Class"
+  exact 7:31 "props.Title" -> 751-762 "props.Title"
 call sites
-  attr class key=74 "props.Class" call="orbit__w.Attr(\"class\",\n/*line ../../../../src/components/Card.orbit:7:17*/props.Class/*line render.go:21:87*/,\n\t)"
-  content key=88 "props.Title" call="orbit__w.Expr(\n/*line ../../../../src/components/Card.orbit:7:31*/props.Title/*line render.go:25:87*/,\n\t)"
+  attr class key=74 "props.Class" call="lyr__w.Attr(\"class\",\n/*line ../../../../src/components/Card.lyr:7:17*/props.Class/*line render.go:21:85*/,\n\t)"
+  content key=88 "props.Title" call="lyr__w.Expr(\n/*line ../../../../src/components/Card.lyr:7:31*/props.Title/*line render.go:25:85*/,\n\t)"

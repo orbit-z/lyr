@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"os"
@@ -17,13 +17,13 @@ func TestDevManifest(t *testing.T) {
 		return nil
 	}
 	routes := []Route{
-		{Pattern: "/", File: "src/pages/index.orbit", Render: page, Assets: []Asset{{Kind: "css", URL: "/_orbit/compiled.css"}}},
-		{Pattern: "/other", File: "src/pages/other.orbit", Render: page},
+		{Pattern: "/", File: "src/pages/index.lyr", Render: page, Assets: []Asset{{Kind: "css", URL: "/_lyr/compiled.css"}}},
+		{Pattern: "/other", File: "src/pages/other.lyr", Render: page},
 	}
 	manifest := filepath.Join(static, "manifest.json")
-	t.Setenv("ORBIT_DEV", "1")
-	t.Setenv("ORBIT_STATIC", static)
-	t.Setenv("ORBIT_PUBLIC", "")
+	t.Setenv("LYR_DEV", "1")
+	t.Setenv("LYR_STATIC", static)
+	t.Setenv("LYR_PUBLIC", "")
 	s := NewSite(routes, nil)
 	get := func(path string) string {
 		t.Helper()
@@ -35,12 +35,12 @@ func TestDevManifest(t *testing.T) {
 	}
 
 	// No manifest yet: the compiled assets.
-	if body := get("/"); !strings.Contains(body, `href="/_orbit/compiled.css"`) {
+	if body := get("/"); !strings.Contains(body, `href="/_lyr/compiled.css"`) {
 		t.Errorf("without a manifest: %s", body)
 	}
 
-	writeFile(t, manifest, `{"pages": {"src/pages/index.orbit": [{"kind": "css", "url": "/_orbit/index-AAAA.css"}, {"kind": "js", "url": "/_orbit/index-AAAA.js"}]}}`)
-	want := `<title>x</title><link rel="stylesheet" href="/_orbit/index-AAAA.css"><script type="module" src="/_orbit/index-AAAA.js"></script></head>`
+	writeFile(t, manifest, `{"pages": {"src/pages/index.lyr": [{"kind": "css", "url": "/_lyr/index-AAAA.css"}, {"kind": "js", "url": "/_lyr/index-AAAA.js"}]}}`)
+	want := `<title>x</title><link rel="stylesheet" href="/_lyr/index-AAAA.css"><script type="module" src="/_lyr/index-AAAA.js"></script></head>`
 	if body := get("/"); !strings.Contains(body, want) {
 		t.Errorf("from the manifest:\n%s\nwant %s", body, want)
 	}
@@ -48,9 +48,9 @@ func TestDevManifest(t *testing.T) {
 		t.Errorf("page not in the manifest got assets: %s", body)
 	}
 
-	// A rewrite (same size, renamed into place as orbit dev does) is picked up.
+	// A rewrite (same size, renamed into place as lyr dev does) is picked up.
 	tmp := filepath.Join(static, ".tmp")
-	writeFile(t, tmp, `{"pages": {"src/pages/index.orbit": [{"kind": "css", "url": "/_orbit/index-BBBB.css"}, {"kind": "js", "url": "/_orbit/index-BBBB.js"}]}}`)
+	writeFile(t, tmp, `{"pages": {"src/pages/index.lyr": [{"kind": "css", "url": "/_lyr/index-BBBB.css"}, {"kind": "js", "url": "/_lyr/index-BBBB.js"}]}}`)
 	future := time.Now().Add(time.Second)
 	if err := os.Chtimes(tmp, future, future); err != nil {
 		t.Fatal(err)
@@ -73,7 +73,7 @@ func TestDevManifest(t *testing.T) {
 	}
 
 	// Production ignores the file.
-	t.Setenv("ORBIT_DEV", "")
+	t.Setenv("LYR_DEV", "")
 	prod := NewSite(routes, nil)
 	if prod.devAssets != nil {
 		t.Errorf("production site reads the dev manifest")

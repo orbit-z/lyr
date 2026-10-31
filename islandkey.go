@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"crypto/rand"
@@ -12,13 +12,13 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/islandcrypto"
+	"github.com/orbit-z/lyr/internal/islandcrypto"
 )
 
 // Island key and build ID resolution (PLAN.md §4 "Island key", "Build ID").
 
-// buildKey and buildID are set by orbit build with
-// -ldflags=-X github.com/orbit-z/orbit.buildKey=… -X …buildID=…: a
+// buildKey and buildID are set by lyr build with
+// -ldflags=-X github.com/orbit-z/lyr.buildKey=… -X …buildID=…: a
 // random island key (standard base64 of 32 bytes) and build ID (16 hex
 // chars) per build. Both are empty in a plain go build or go run.
 var (
@@ -26,7 +26,7 @@ var (
 	buildID  string
 )
 
-// testBuildID is the build ID under go test (and in orbittest.Render).
+// testBuildID is the build ID under go test (and in lyrtest.Render).
 const testBuildID = "0000000000000000"
 
 // keyring is the island key and build ID a Site seals placeholders with.
@@ -34,7 +34,7 @@ type keyring struct {
 	// seal is the *islandcrypto.Sealer, held as any so the Sealer's type
 	// (and its sync.Pool's generic atomic.Pointer instantiations) stays out
 	// of Ctx's and Site's type graph: otherwise every generated package
-	// that mentions *orbit.Ctx compiles those instantiations and their type
+	// that mentions *lyr.Ctx compiles those instantiations and their type
 	// descriptors again (dev-loop compile time and object size). Use
 	// sealerOf, a function rather than a method for the same reason: a
 	// method's signature is loaded with its receiver type.
@@ -47,11 +47,11 @@ type keyring struct {
 func sealerOf(kr *keyring) *islandcrypto.Sealer { return kr.seal.(*islandcrypto.Sealer) }
 
 // WithKey sets the 32-byte island key that seals server:defer props,
-// overriding $ORBIT_KEY and the key embedded by orbit build. A key of
+// overriding $LYR_KEY and the key embedded by lyr build. A key of
 // another length panics.
 func WithKey(key []byte) Option {
 	if len(key) != islandcrypto.KeySize {
-		panic("orbit: WithKey: the island key must be 32 bytes, got " + strconv.Itoa(len(key)))
+		panic("lyr: WithKey: the island key must be 32 bytes, got " + strconv.Itoa(len(key)))
 	}
 	k := append([]byte(nil), key...)
 	return func(o *siteOptions) { o.key = k }
@@ -66,7 +66,7 @@ func resolveKeyring(key []byte) *keyring {
 	return &keyring{seal: mustSealer(key), buildID: processBuildID()}
 }
 
-// envKeyring caches the keyring for one $ORBIT_KEY value, so RenderComponent
+// envKeyring caches the keyring for one $LYR_KEY value, so RenderComponent
 // can re-read the variable per call (as NewSite does) without re-deriving
 // keys.
 type envKeyring struct {
@@ -76,11 +76,11 @@ type envKeyring struct {
 
 var envCache atomic.Pointer[envKeyring]
 
-// defaultKeyring is the key resolution without WithKey: $ORBIT_KEY, then
-// the fixed test key under go test, then the key embedded by orbit build,
-// then a random key for the process. An invalid $ORBIT_KEY panics.
+// defaultKeyring is the key resolution without WithKey: $LYR_KEY, then
+// the fixed test key under go test, then the key embedded by lyr build,
+// then a random key for the process. An invalid $LYR_KEY panics.
 func defaultKeyring() *keyring {
-	env := os.Getenv("ORBIT_KEY")
+	env := os.Getenv("LYR_KEY")
 	if env == "" {
 		switch {
 		case testing.Testing():
@@ -96,9 +96,9 @@ func defaultKeyring() *keyring {
 	key, err := base64.StdEncoding.DecodeString(env)
 	switch {
 	case err != nil:
-		panic("orbit: ORBIT_KEY isn't valid standard base64; it must be a 32-byte key as printed by \"orbit create-key\"")
+		panic("lyr: LYR_KEY isn't valid standard base64; it must be a 32-byte key as printed by \"lyr create-key\"")
 	case len(key) != islandcrypto.KeySize:
-		panic("orbit: ORBIT_KEY decodes to " + strconv.Itoa(len(key)) + " bytes; it must be a 32-byte key as printed by \"orbit create-key\"")
+		panic("lyr: LYR_KEY decodes to " + strconv.Itoa(len(key)) + " bytes; it must be a 32-byte key as printed by \"lyr create-key\"")
 	}
 	kr := &keyring{seal: mustSealer(key), buildID: processBuildID()}
 	envCache.Store(&envKeyring{env: env, kr: kr})
@@ -106,18 +106,18 @@ func defaultKeyring() *keyring {
 }
 
 // testKeyring is the fixed test key and build ID 0000000000000000, used
-// under go test (unless ORBIT_KEY or WithKey is set) and always by
-// orbittest.Render, so placeholders are the same on every run.
+// under go test (unless LYR_KEY or WithKey is set) and always by
+// lyrtest.Render, so placeholders are the same on every run.
 var testKeyring = sync.OnceValue(func() *keyring {
 	var key [islandcrypto.KeySize]byte
-	copy(key[:], "orbit fixed test island key 0000")
+	copy(key[:], "lyr fixed test island key 0000")
 	return &keyring{seal: mustSealer(key[:]), buildID: testBuildID}
 })
 
 var embeddedKeyring = sync.OnceValue(func() *keyring {
 	key, err := base64.StdEncoding.DecodeString(buildKey)
 	if err != nil || len(key) != islandcrypto.KeySize {
-		panic("orbit: the island key embedded by orbit build (orbit.buildKey) isn't standard base64 of 32 bytes; rebuild with orbit build")
+		panic("lyr: the island key embedded by lyr build (lyr.buildKey) isn't standard base64 of 32 bytes; rebuild with lyr build")
 	}
 	return &keyring{seal: mustSealer(key), buildID: processBuildID()}
 })
@@ -137,17 +137,17 @@ func (kr *keyring) warnIfRandom(islands int) {
 		return
 	}
 	warnRandomKey.Do(func() {
-		log.Print("orbit: no island key (ORBIT_KEY is unset and the binary wasn't built by orbit build); using a random key for this process, so other instances can't open its server:defer islands. Set ORBIT_KEY (see orbit create-key).")
+		log.Print("lyr: no island key (LYR_KEY is unset and the binary wasn't built by lyr build); using a random key for this process, so other instances can't open its server:defer islands. Set LYR_KEY (see lyr create-key).")
 	})
 }
 
-// processBuildID is the build ID: the one embedded by orbit build, or
+// processBuildID is the build ID: the one embedded by lyr build, or
 // 0000000000000000 under go test, or random for the process.
 var processBuildID = sync.OnceValue(func() string {
 	switch {
 	case buildID != "":
 		if !isBuildID(buildID) {
-			panic(fmt.Sprintf("orbit: the build ID embedded by orbit build (orbit.buildID=%q) must be 16 lowercase hex characters; rebuild with orbit build", buildID))
+			panic(fmt.Sprintf("lyr: the build ID embedded by lyr build (lyr.buildID=%q) must be 16 lowercase hex characters; rebuild with lyr build", buildID))
 		}
 		return buildID
 	case testing.Testing():
@@ -173,7 +173,7 @@ func isBuildID(s string) bool {
 func mustSealer(key []byte) *islandcrypto.Sealer {
 	s, err := islandcrypto.New(key)
 	if err != nil {
-		panic("orbit: " + err.Error())
+		panic("lyr: " + err.Error())
 	}
 	return s
 }

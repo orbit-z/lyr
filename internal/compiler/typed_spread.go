@@ -3,7 +3,7 @@ package compiler
 // The typed pass of the spreads on component tags (PLAN.md §2.11): pass 1
 // emits each as a SiteSpread call (SpreadCheck, RestFromAny, RestMergeAny)
 // whose second argument is the callee's zero Props and whose last is the
-// operand. An attribute type on a callee with an orbit.RestAttrs field is
+// operand. An attribute type on a callee with a lyr.RestAttrs field is
 // merged into it (WriteSpreadAttrs); a struct, or a pointer to one, sets
 // props field by field (WriteSpreadProps); anything else is an error. Then
 // each tag's order rules: a value that is always overwritten is an error.
@@ -156,7 +156,7 @@ func (e *tyEnv) spreadWrite(sc tySpreadCall, info *types.Info) (TypedWrite, *tyS
 		if tag.Rest != "" {
 			return TypedWrite{Kind: WriteSpreadAttrs}, nil, nil
 		}
-		return TypedWrite{}, nil, errAt("{...} spread on <%s> needs an orbit.RestAttrs field in its Props, to pass HTML attributes through", tag.Tag)
+		return TypedWrite{}, nil, errAt("{...} spread on <%s> needs a lyr.RestAttrs field in its Props, to pass HTML attributes through", tag.Tag)
 	}
 	base, ptr := t, false
 	if p, ok := t.Underlying().(*types.Pointer); ok && !isUntyped(t) {
@@ -168,7 +168,7 @@ func (e *tyEnv) spreadWrite(sc tySpreadCall, info *types.Info) (TypedWrite, *tyS
 		if !isUntyped(t) {
 			got = types.TypeString(tv.Type, q)
 		}
-		return TypedWrite{}, nil, errAt("%s: %s is %s; spread a struct (its fields set props) or an orbit.Attrs, orbit.AttrList or orbit.RestAttrs (pass-through attributes)", what, op, got)
+		return TypedWrite{}, nil, errAt("%s: %s is %s; spread a struct (its fields set props) or a lyr.Attrs, lyr.AttrList or lyr.RestAttrs (pass-through attributes)", what, op, got)
 	}
 	dst := structFields(pst)
 	byName := make(map[string]tyField, len(dst))

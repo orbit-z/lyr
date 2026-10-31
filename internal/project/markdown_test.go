@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // mdLayout is a layout whose Props a Markdown page fills.
@@ -22,7 +22,7 @@ type Props struct {
     Date     time.Time
     Tags     []string
     Order    uint8
-    Headings []orbit.Heading
+    Headings []lyr.Heading
 }
 ---
 <!DOCTYPE html>
@@ -40,16 +40,16 @@ type Props struct {
 // mdFiles is a project with Markdown pages, an imported Markdown file, and
 // Markdown files that aren't compiled (not pages, not imported).
 var mdFiles = map[string]string{
-	"src/layouts/Post.orbit": mdLayout,
+	"src/layouts/Post.lyr": mdLayout,
 	"src/pages/blog/hello.md": `---
-title: Hello, Orbit
+title: Hello, Lyr
 date: 2026-10-26
 tags: [news, go]
 order: 3
-layout: ../../layouts/Post.orbit
+layout: ../../layouts/Post.lyr
 ---
 
-Orbit compiles this file to Go.
+Lyr compiles this file to Go.
 
 ## Why Markdown
 
@@ -57,13 +57,13 @@ Orbit compiles this file to Go.
 
 Read the [routing guide](./routing-guide.md#setup) and [the intro](./routing-guide.md#file-based-routing).
 `,
-	"src/pages/blog/routing-guide.md": "---\ntitle: File-based routing\nlayout: ../../layouts/Post.orbit\n---\n# File-based routing\n",
+	"src/pages/blog/routing-guide.md": "---\ntitle: File-based routing\nlayout: ../../layouts/Post.lyr\n---\n# File-based routing\n",
 	"src/pages/404.md":                "# Not here\n",
 	"src/content/intro.md":            "---\nauthor: Ada\n---\nShort **intro**.\n",
 	"src/content/unused.md":           "---\nbroken: [\n---\n",
 	"src/pages/_drafts/next.md":       "---\nbroken: [\n---\n",
 	"src/README.md":                   "---\nbroken: [\n---\n",
-	"src/pages/index.orbit": `---
+	"src/pages/index.lyr": `---
 import (
     Intro "../content/intro.md"
     Hello "./blog/hello.md"
@@ -80,7 +80,7 @@ import (
 	"strings"
 	"testing"
 
-	"example.com/blog/orbit_gen/app"
+	"example.com/blog/lyr_gen/app"
 )
 
 func get(t *testing.T, path string) (int, string) {
@@ -96,10 +96,10 @@ func TestPages(t *testing.T) {
 		code int
 		want []string
 	}{
-		{"/blog/hello", 200, []string{"<title>Hello, Orbit</title>", "<a href=\"#why-markdown\" data-o-",
-			">2026-10-26 2 3</p>", "<article class=\"prose\" data-o-", "<h2 id=\"why-markdown\">Why Markdown</h2>",
+		{"/blog/hello", 200, []string{"<title>Hello, Lyr</title>", "<a href=\"#why-markdown\" data-l-",
+			">2026-10-26 2 3</p>", "<article class=\"prose\" data-l-", "<h2 id=\"why-markdown\">Why Markdown</h2>",
 			"<a href=\"/blog/routing-guide#setup\">routing guide</a>", "<span class=\"nx\">fmt</span>"}},
-		{"/", 200, []string{"<a href=\"/blog/hello\">Hello, Orbit</a> (1)", "<p>Short <strong>intro</strong>.</p>\n by Ada</main>"}},
+		{"/", 200, []string{"<a href=\"/blog/hello\">Hello, Lyr</a> (1)", "<p>Short <strong>intro</strong>.</p>\n by Ada</main>"}},
 		{"/nope", 404, []string{"<h1 id=\"not-here\">Not here</h1>"}},
 	} {
 		code, body := get(t, tt.path)
@@ -132,11 +132,11 @@ func TestMarkdownProject(t *testing.T) {
 		t.Errorf("%d go list runs, want 1 (the one started during Front)", res.Timings.GoLists)
 	}
 	for _, path := range []string{
-		"orbit_gen/decl/pages/blog/hello_md/decl.go", "orbit_gen/impl/pages/blog/hello_md/render.go",
-		"orbit_gen/decl/content/intro_md/decl.go", "orbit_gen/impl/content/intro_md/render.go",
+		"lyr_gen/decl/pages/blog/hello_md/decl.go", "lyr_gen/impl/pages/blog/hello_md/render.go",
+		"lyr_gen/decl/content/intro_md/decl.go", "lyr_gen/impl/content/intro_md/render.go",
 	} {
 		content := p.read(path)
-		golden := filepath.Join("testdata", "markdown", strings.ReplaceAll(strings.TrimPrefix(path, "orbit_gen/"), "/", "_")+".golden")
+		golden := filepath.Join("testdata", "markdown", strings.ReplaceAll(strings.TrimPrefix(path, "lyr_gen/"), "/", "_")+".golden")
 		if *update {
 			if err := os.MkdirAll(filepath.Dir(golden), 0o755); err != nil {
 				t.Fatal(err)
@@ -150,12 +150,12 @@ func TestMarkdownProject(t *testing.T) {
 			t.Errorf("%s differs from %s (run with -update to accept):\n%s", path, golden, content)
 		}
 	}
-	for _, path := range []string{"orbit_gen/decl/content/unused_md", "orbit_gen/decl/p_readme_md", "orbit_gen/decl/pages/p_drafts"} {
+	for _, path := range []string{"lyr_gen/decl/content/unused_md", "lyr_gen/decl/p_readme_md", "lyr_gen/decl/pages/p_drafts"} {
 		if p.exists(path) {
 			t.Errorf("%s generated", path)
 		}
 	}
-	app := p.read("orbit_gen/app/app.go")
+	app := p.read("lyr_gen/app/app.go")
 	for _, w := range []string{`Pattern: "/blog/hello"`, `File:    "src/pages/blog/hello.md"`, `Pattern: "404"`, `File:    "src/pages/404.md"`} {
 		if !strings.Contains(app, w) {
 			t.Errorf("no %q in app.go:\n%s", w, app)
@@ -168,7 +168,7 @@ func TestMarkdownProject(t *testing.T) {
 		t.Fatalf("hello.md assets: %v", css)
 	}
 	sheet := string(res.Project.Assets.File(css[0].URL).Contents)
-	if !strings.HasPrefix(sheet, ".chroma{") || !strings.Contains(sheet, "light-dark(") || !strings.Contains(sheet, ".prose[data-o-") {
+	if !strings.HasPrefix(sheet, ".chroma{") || !strings.Contains(sheet, "light-dark(") || !strings.Contains(sheet, ".prose[data-l-") {
 		t.Errorf("hello.md stylesheet:\n%s", sheet)
 	}
 	if got := res.Project.Assets.Pages["src/pages/blog/routing-guide.md"]; len(got) != 1 {
@@ -188,25 +188,25 @@ func TestMarkdownProject(t *testing.T) {
 // with their positions.
 func TestMarkdownFrontErrors(t *testing.T) {
 	p := newTestProject(t, map[string]string{
-		"src/layouts/Post.orbit":           mdLayout,
-		"src/pages/about.md":               "# About\n",
-		"src/pages/about.orbit":            "<p>About</p>\n",
-		"src/pages/blog/[slug].md":         "# Post\n",
-		"src/pages/a.md":                   "---\ntitle: A\ntilte: typo\nheadings: x\nlayout: ../layouts/Post.orbit\n---\n",
-		"src/pages/b.md":                   "---\nlayout: ../layouts/Nope.orbit\n---\n",
-		"src/pages/c.md":                   "---\ntitle: [\n---\n",
-		"src/pages/d.md":                   "See [x](./nope.md) and [intro](../content/intro.md).\n",
-		"src/content/intro.md":             "Intro.\n",
-		"src/pages/e.orbit":                "---\nimport Missing \"../content/missing.md\"\n---\n<Missing x=\"1\" />\n",
-		"src/pages/f.orbit":                "---\nimport Intro \"../content/intro.md\"\n---\n<Intro x=\"1\" />\n",
-		"src/pages/g.orbit":                "---\nimport Intro \"../content/intro.md\"\n\nx := struct{ Title string }{}\n---\n<Intro {...x} />\n",
-		"src/pages/hello.markdown":         "Hi\n",
-		"src/pages/hello.md":               "Hi\n",
-		"src/pages/docs/index.md":          "Hi\n",
-		"src/pages/docs.orbit":             "<p>docs</p>\n",
-		"src/components/Unused.orbit":      "---\nimport Intro \"../content/intro.md\"\n---\n<p></p>\n",
-		"src/pages/_drafts/broken.md":      "---\n: [\n---\n",
-		"src/components/NotImported.orbit": "<p></p>\n",
+		"src/layouts/Post.lyr":           mdLayout,
+		"src/pages/about.md":             "# About\n",
+		"src/pages/about.lyr":            "<p>About</p>\n",
+		"src/pages/blog/[slug].md":       "# Post\n",
+		"src/pages/a.md":                 "---\ntitle: A\ntilte: typo\nheadings: x\nlayout: ../layouts/Post.lyr\n---\n",
+		"src/pages/b.md":                 "---\nlayout: ../layouts/Nope.lyr\n---\n",
+		"src/pages/c.md":                 "---\ntitle: [\n---\n",
+		"src/pages/d.md":                 "See [x](./nope.md) and [intro](../content/intro.md).\n",
+		"src/content/intro.md":           "Intro.\n",
+		"src/pages/e.lyr":                "---\nimport Missing \"../content/missing.md\"\n---\n<Missing x=\"1\" />\n",
+		"src/pages/f.lyr":                "---\nimport Intro \"../content/intro.md\"\n---\n<Intro x=\"1\" />\n",
+		"src/pages/g.lyr":                "---\nimport Intro \"../content/intro.md\"\n\nx := struct{ Title string }{}\n---\n<Intro {...x} />\n",
+		"src/pages/hello.markdown":       "Hi\n",
+		"src/pages/hello.md":             "Hi\n",
+		"src/pages/docs/index.md":        "Hi\n",
+		"src/pages/docs.lyr":             "<p>docs</p>\n",
+		"src/components/Unused.lyr":      "---\nimport Intro \"../content/intro.md\"\n---\n<p></p>\n",
+		"src/pages/_drafts/broken.md":    "---\n: [\n---\n",
+		"src/components/NotImported.lyr": "<p></p>\n",
 	})
 	proj, err := Load(p.Dir)
 	if err != nil {
@@ -214,20 +214,20 @@ func TestMarkdownFrontErrors(t *testing.T) {
 	}
 	proj.Front()
 	want := []string{
-		`src/components/Unused.orbit:2:8: component Intro is imported but not used; remove the import`,
+		`src/components/Unused.lyr:2:8: component Intro is imported but not used; remove the import`,
 		`src/pages/a.md:3:1: unknown frontmatter key "tilte" for layout Post (props: title, date, tags, order, headings)`,
-		`src/pages/a.md:4:1: frontmatter key "headings" can't be set: Orbit fills Post.Props.Headings with the page's headings; rename the key`,
-		`src/pages/about.orbit: route /about is already defined by src/pages/about.md; remove or rename one of them`,
-		`src/pages/b.md:2:9: layout ../layouts/Nope.orbit: no such file`,
-		`src/pages/blog/[slug].md: a Markdown page can't have route params; rename it, or write a [slug].orbit page`,
+		`src/pages/a.md:4:1: frontmatter key "headings" can't be set: Lyr fills Post.Props.Headings with the page's headings; rename the key`,
+		`src/pages/about.md: route /about is already defined by src/pages/about.lyr; remove or rename one of them`,
+		`src/pages/b.md:2:9: layout ../layouts/Nope.lyr: no such file`,
+		`src/pages/blog/[slug].md: a Markdown page can't have route params; rename it, or write a [slug].lyr page`,
 		`src/pages/c.md:2:1: invalid YAML in the frontmatter: did not find expected node content`,
 		`src/pages/d.md:1:5: link ./nope.md: no such file`,
 		`src/pages/d.md:1:24: link ../content/intro.md: src/content/intro.md isn't a page, so it has no URL; link to a page, or import it into one`,
-		`src/pages/docs/index.md: route /docs is already defined by src/pages/docs.orbit; remove or rename one of them`,
-		`src/pages/e.orbit:2:16: no such component: src/content/missing.md`,
-		`src/pages/f.orbit:4:8: unknown prop "x" on <Intro> (Intro takes no props)`,
-		`src/pages/g.orbit:6:8: unknown prop {...x} on <Intro> (Intro takes no props)`,
-		`src/pages/hello.md: generates the same Go package as src/pages/hello.markdown (orbit_gen/decl/pages/hello_md); rename one of them`,
+		`src/pages/docs/index.md: route /docs is already defined by src/pages/docs.lyr; remove or rename one of them`,
+		`src/pages/e.lyr:2:16: no such component: src/content/missing.md`,
+		`src/pages/f.lyr:4:8: unknown prop "x" on <Intro> (Intro takes no props)`,
+		`src/pages/g.lyr:6:8: unknown prop {...x} on <Intro> (Intro takes no props)`,
+		`src/pages/hello.md: generates the same Go package as src/pages/hello.markdown (lyr_gen/decl/pages/hello_md); rename one of them`,
 		`src/pages/hello.md: route /hello is already defined by src/pages/hello.markdown; remove or rename one of them`,
 	}
 	if got := joinLines(diagStrings(proj.Diagnostics)); got != joinLines(want) {
@@ -240,9 +240,9 @@ func TestMarkdownFrontErrors(t *testing.T) {
 func TestMarkdownTypedErrors(t *testing.T) {
 	needGo(t)
 	p := newTestProject(t, map[string]string{
-		"src/layouts/Post.orbit": mdLayout,
-		"src/pages/a.md":         "---\ntitle: Hi\norder: 300\ndate: \"2026-10-26\"\nlayout: ../layouts/Post.orbit\n---\n",
-		"src/pages/b.md":         "---\ntags: news\nlayout: ../layouts/Post.orbit\n---\n",
+		"src/layouts/Post.lyr": mdLayout,
+		"src/pages/a.md":       "---\ntitle: Hi\norder: 300\ndate: \"2026-10-26\"\nlayout: ../layouts/Post.lyr\n---\n",
+		"src/pages/b.md":       "---\ntags: news\nlayout: ../layouts/Post.lyr\n---\n",
 	})
 	res := p.generate()
 	want := []string{
@@ -254,7 +254,7 @@ func TestMarkdownTypedErrors(t *testing.T) {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, joinLines(want))
 	}
 	if res.Write != nil {
-		t.Error("wrote orbit_gen/ despite errors")
+		t.Error("wrote lyr_gen/ despite errors")
 	}
 }
 
@@ -265,24 +265,24 @@ func TestMarkdownTypedErrors(t *testing.T) {
 func TestMarkdownFallback(t *testing.T) {
 	needGo(t)
 	p := newTestProject(t, map[string]string{
-		"src/layouts/Post.orbit": "---\ntype Props struct {\n    Title string\n    Broken undefinedType\n}\n---\n<slot />\n",
-		"src/pages/a.md":         "---\ntitle: 3\nlayout: ../layouts/Post.orbit\n---\n",
+		"src/layouts/Post.lyr": "---\ntype Props struct {\n    Title string\n    Broken undefinedType\n}\n---\n<slot />\n",
+		"src/pages/a.md":       "---\ntitle: 3\nlayout: ../layouts/Post.lyr\n---\n",
 	})
 	res := p.generate()
 	if res.HasErrors() || res.Write == nil {
 		t.Fatalf("generate: %v", diagStrings(res.Diagnostics))
 	}
-	if impl := p.read("orbit_gen/impl/pages/a_md/render.go"); !strings.Contains(impl, "//line ../../../../src/pages/a.md:2:1\np.Title = 3\n") {
+	if impl := p.read("lyr_gen/impl/pages/a_md/render.go"); !strings.Contains(impl, "//line ../../../../src/pages/a.md:2:1\np.Title = 3\n") {
 		t.Errorf("not the fallback:\n%s", impl)
 	}
 	out, err := p.goCmd("build", "./...")
-	if clean := string(res.Project.CleanGoOutput([]byte(out))); err == nil || !strings.Contains(clean, "src/layouts/Post.orbit:4:12: undefined: undefinedType") {
+	if clean := string(res.Project.CleanGoOutput([]byte(out))); err == nil || !strings.Contains(clean, "src/layouts/Post.lyr:4:12: undefined: undefinedType") {
 		t.Errorf("go build: %v\n%s", err, clean)
 	}
 
 	// The layout fixed, but no export data: the mismatch is reported at
 	// the frontmatter key.
-	p.write("src/layouts/Post.orbit", "---\ntype Props struct {\n    Title string\n}\n---\n<slot />\n")
+	p.write("src/layouts/Post.lyr", "---\ntype Props struct {\n    Title string\n}\n---\n<slot />\n")
 	proj, err := Load(p.Dir)
 	if err != nil {
 		t.Fatal(err)
@@ -314,8 +314,8 @@ func (failLoader) Load(context.Context, *gotoken.FileSet, []string) (types.Impor
 // changes of Markdown files (SetMarkdown, then Front).
 func TestMarkdownRefresh(t *testing.T) {
 	p := newTestProject(t, map[string]string{
-		"src/pages/index.orbit": "<p>home</p>\n",
-		"src/content/intro.md":  "---\nauthor: Ada\n---\nIntro.\n",
+		"src/pages/index.lyr":  "<p>home</p>\n",
+		"src/content/intro.md": "---\nauthor: Ada\n---\nIntro.\n",
 	})
 	proj, err := Load(p.Dir)
 	if err != nil {
@@ -326,7 +326,7 @@ func TestMarkdownRefresh(t *testing.T) {
 	}
 	// An edit that imports the Markdown file compiles it.
 	proj.Files[0].Src = "---\nimport Intro \"../content/intro.md\"\n---\n<Intro /> {Intro.Frontmatter.Author}\n"
-	out := proj.Refresh([]string{"src/pages/index.orbit"})
+	out := proj.Refresh([]string{"src/pages/index.lyr"})
 	if len(out) != 2 || len(proj.Files) != 2 || len(proj.Diagnostics) > 0 {
 		t.Fatalf("Refresh: %d files out, %d in the project, %v", len(out), len(proj.Files), diagStrings(proj.Diagnostics))
 	}
@@ -342,7 +342,7 @@ func TestMarkdownRefresh(t *testing.T) {
 	// Removed: the import is now an error.
 	proj.SetMarkdown("src/content/intro.md", "", true)
 	proj.Front()
-	if got := joinLines(diagStrings(proj.Diagnostics)); got != "src/pages/index.orbit:2:14: no such component: src/content/intro.md" {
+	if got := joinLines(diagStrings(proj.Diagnostics)); got != "src/pages/index.lyr:2:14: no such component: src/content/intro.md" {
 		t.Errorf("after the removal: %s", got)
 	}
 }
@@ -350,7 +350,7 @@ func TestMarkdownRefresh(t *testing.T) {
 // TestUpdateMarkdown: the language server's edits of open Markdown files.
 func TestUpdateMarkdown(t *testing.T) {
 	p := newTestProject(t, map[string]string{
-		"src/pages/index.orbit": "---\nimport Intro \"../content/intro.md\"\n---\n<Intro />\n",
+		"src/pages/index.lyr":   "---\nimport Intro \"../content/intro.md\"\n---\n<Intro />\n",
 		"src/pages/about.md":    "# About\n\n[intro](./other.md)\n",
 		"src/pages/other.md":    "# Other\n",
 		"src/content/intro.md":  "Intro.\n",

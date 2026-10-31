@@ -1,0 +1,6 @@
+---
+// A cached page (PLAN.md §4h): lyr.json's routeRules give it maxAge and
+// the "cached" tag; the page adds its own tag.
+ctx.Cache().Set(lyr.CacheOptions{Tags: []string{"item:" + params.ID}})
+---
+<p>item={params.ID} user={locals.User}</p>

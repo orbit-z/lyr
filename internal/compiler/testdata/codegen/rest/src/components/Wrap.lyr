@@ -1,0 +1,8 @@
+---
+import Input "./Input.lyr"
+
+type Props struct {
+	Attrs lyr.RestAttrs
+}
+---
+<Input label="wrapped" {...props.Attrs} />

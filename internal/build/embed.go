@@ -7,16 +7,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
-// EmbedTag is the build tag of an orbit build --embed server: it compiles
-// orbit_gen/app/embed.go, which makes app.New() serve orbit_gen/static.
-const EmbedTag = "orbit_embed"
+// EmbedTag is the build tag of a lyr build --embed server: it compiles
+// lyr_gen/app/embed.go, which makes app.New() serve lyr_gen/static.
+const EmbedTag = "lyr_embed"
 
-// writeStatic is PLAN.md §6 orbit build step 6 for --embed: it replaces
-// orbit_gen/static/client with a copy of the staged dist/client (go:embed
+// writeStatic is PLAN.md §6 lyr build step 6 for --embed: it replaces
+// lyr_gen/static/client with a copy of the staged dist/client (go:embed
 // can't reach outside the package directory) and writes static.go. The
 // generated doc.go stays, so the package exists without the build tag.
 func writeStatic(root, client string) error {
@@ -41,13 +41,13 @@ func writeStatic(root, client string) error {
 	return os.WriteFile(filepath.Join(dir, "static.go"), staticGo(hasFiles), 0o644)
 }
 
-// staticGo is orbit_gen/static/static.go. go:embed rejects a directory with
+// staticGo is lyr_gen/static/static.go. go:embed rejects a directory with
 // no files, so a site without assets or public/ files embeds nothing.
 func staticGo(hasFiles bool) []byte {
 	var b bytes.Buffer
 	b.WriteString(compiler.GenHeader + "\n\n")
 	b.WriteString("//go:build " + EmbedTag + "\n\n")
-	b.WriteString("// Package static holds dist/client, embedded by orbit build --embed.\n")
+	b.WriteString("// Package static holds dist/client, embedded by lyr build --embed.\n")
 	b.WriteString("package static\n\n")
 	if !hasFiles {
 		b.WriteString("import \"embed\"\n\n")
@@ -57,7 +57,7 @@ func staticGo(hasFiles bool) []byte {
 	}
 	b.WriteString("import (\n\t\"embed\"\n\t\"io/fs\"\n)\n\n")
 	b.WriteString("//go:embed all:client\nvar files embed.FS\n\n")
-	b.WriteString("// FS is dist/client: the /_orbit/ assets and the public/ files.\n")
+	b.WriteString("// FS is dist/client: the /_lyr/ assets and the public/ files.\n")
 	b.WriteString("var FS, _ = fs.Sub(files, \"client\")\n")
 	return b.Bytes()
 }

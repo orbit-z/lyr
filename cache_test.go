@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -254,17 +254,17 @@ func TestCacheSetMerge(t *testing.T) {
 func TestCacheMissThenHit(t *testing.T) {
 	var n atomic.Int32
 	s, st := cacheSite(t, []Route{
-		{Pattern: "/", File: "src/pages/index.orbit", Render: counted(&n, setOpts(hour), "home")},
-		{Pattern: "/plain", File: "src/pages/plain.orbit", Render: counted(&n, nil, "plain")},
+		{Pattern: "/", File: "src/pages/index.lyr", Render: counted(&n, setOpts(hour), "home")},
+		{Pattern: "/plain", File: "src/pages/plain.lyr", Render: counted(&n, nil, "plain")},
 	})
 	h := s.Handler()
 	r1 := get(h, "/")
 	r2 := get(h, "/")
-	if r1.Code != 200 || r1.Header().Get("X-Orbit-Cache") != "MISS" || r1.Body.String() != "home #1" {
-		t.Fatalf("first: %d %q %q", r1.Code, r1.Header().Get("X-Orbit-Cache"), r1.Body)
+	if r1.Code != 200 || r1.Header().Get("X-Lyr-Cache") != "MISS" || r1.Body.String() != "home #1" {
+		t.Fatalf("first: %d %q %q", r1.Code, r1.Header().Get("X-Lyr-Cache"), r1.Body)
 	}
-	if r2.Header().Get("X-Orbit-Cache") != "HIT" || r2.Body.String() != "home #1" || n.Load() != 1 {
-		t.Fatalf("second: %q %q, %d renders", r2.Header().Get("X-Orbit-Cache"), r2.Body, n.Load())
+	if r2.Header().Get("X-Lyr-Cache") != "HIT" || r2.Body.String() != "home #1" || n.Load() != 1 {
+		t.Fatalf("second: %q %q, %d renders", r2.Header().Get("X-Lyr-Cache"), r2.Body, n.Load())
 	}
 	for _, name := range []string{"Content-Type", "Content-Length", "Etag"} {
 		if r1.Header().Get(name) == "" || r1.Header().Get(name) != r2.Header().Get(name) {
@@ -283,8 +283,8 @@ func TestCacheMissThenHit(t *testing.T) {
 	}
 	// A page that doesn't set options: rendered each time, no header.
 	p1, p2 := get(h, "/plain"), get(h, "/plain")
-	if p1.Header().Get("X-Orbit-Cache") != "" || p2.Body.String() != "plain #3" {
-		t.Errorf("plain: %q %q", p1.Header().Get("X-Orbit-Cache"), p2.Body)
+	if p1.Header().Get("X-Lyr-Cache") != "" || p2.Body.String() != "plain #3" {
+		t.Errorf("plain: %q %q", p1.Header().Get("X-Lyr-Cache"), p2.Body)
 	}
 	if st.puts.Load() != 1 {
 		t.Errorf("%d puts, want 1", st.puts.Load())
@@ -294,14 +294,14 @@ func TestCacheMissThenHit(t *testing.T) {
 func TestCacheKey(t *testing.T) {
 	var n atomic.Int32
 	routes := []Route{
-		{Pattern: "/", File: "src/pages/index.orbit", Render: counted(&n, setOpts(hour), "home")},
-		{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].orbit", Render: counted(&n, setOpts(hour), "post")},
+		{Pattern: "/", File: "src/pages/index.lyr", Render: counted(&n, setOpts(hour), "home")},
+		{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].lyr", Render: counted(&n, setOpts(hour), "post")},
 	}
 	s, st := cacheSite(t, routes)
 	h := s.Handler()
 	get(h, "/?b=2&a=1&utm_source=x&fbclid=y&a=0&REF=z&UTM_Medium=q")
-	if r := get(h, "/?a=1&a=0&b=2"); r.Header().Get("X-Orbit-Cache") != "HIT" {
-		t.Errorf("normalized query: %q (keys %q)", r.Header().Get("X-Orbit-Cache"), st.keys())
+	if r := get(h, "/?a=1&a=0&b=2"); r.Header().Get("X-Lyr-Cache") != "HIT" {
+		t.Errorf("normalized query: %q (keys %q)", r.Header().Get("X-Lyr-Cache"), st.keys())
 	}
 	get(h, "/blog/hello%20world")
 	r := httptest.NewRequest("GET", "/", nil)
@@ -341,20 +341,20 @@ func TestCacheKey(t *testing.T) {
 
 func TestCacheGETOnly(t *testing.T) {
 	var n atomic.Int32
-	s, st := cacheSite(t, []Route{{Pattern: "/", File: "src/pages/index.orbit", Render: counted(&n, setOpts(hour), "home")}})
+	s, st := cacheSite(t, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: counted(&n, setOpts(hour), "home")}})
 	h := s.Handler()
 	for _, m := range []string{"HEAD", "POST", "PUT"} {
 		rec := do(h, m, "/")
-		if rec.Code != 200 || rec.Header().Get("X-Orbit-Cache") != "" {
-			t.Errorf("%s: %d %q", m, rec.Code, rec.Header().Get("X-Orbit-Cache"))
+		if rec.Code != 200 || rec.Header().Get("X-Lyr-Cache") != "" {
+			t.Errorf("%s: %d %q", m, rec.Code, rec.Header().Get("X-Lyr-Cache"))
 		}
 	}
 	if st.puts.Load() != 0 {
 		t.Fatalf("stored a non-GET response")
 	}
 	get(h, "/")
-	if rec := do(h, "HEAD", "/"); rec.Header().Get("X-Orbit-Cache") != "" || n.Load() != 5 {
-		t.Errorf("HEAD after a store: %q, %d renders", rec.Header().Get("X-Orbit-Cache"), n.Load())
+	if rec := do(h, "HEAD", "/"); rec.Header().Get("X-Lyr-Cache") != "" || n.Load() != 5 {
+		t.Errorf("HEAD after a store: %q, %d renders", rec.Header().Get("X-Lyr-Cache"), n.Load())
 	}
 }
 
@@ -365,15 +365,15 @@ func TestCacheNeverStored(t *testing.T) {
 	}
 	var n atomic.Int32
 	routes := []Route{
-		{Pattern: "/error", File: "e.orbit", Render: counted(&n, set(func(*Ctx) error { return errors.New("db down") }), "")},
-		{Pattern: "/panic", File: "p.orbit", Render: counted(&n, set(func(*Ctx) error { panic("boom") }), "")},
-		{Pattern: "/handled", File: "h.orbit", Render: counted(&n, set(func(*Ctx) error { return errHandled }), "")},
-		{Pattern: "/missing", File: "m.orbit", Render: counted(&n, set(func(*Ctx) error { return ErrNotFound }), "")},
-		{Pattern: "/cookie", File: "c.orbit", Render: counted(&n, set(func(c *Ctx) error { c.Header().Set("Set-Cookie", "a=1"); return nil }), "")},
-		{Pattern: "/mwcookie", File: "mc.orbit", Render: counted(&n, set(func(*Ctx) error { return nil }), "")},
-		{Pattern: "/varycookie", File: "vc.orbit", Render: counted(&n, set(func(c *Ctx) error { c.Header().Set("Vary", "Accept, cookie"); return nil }), "")},
-		{Pattern: "/varystar", File: "vs.orbit", Render: counted(&n, set(func(c *Ctx) error { c.Header().Set("Vary", "*"); return nil }), "")},
-		{Pattern: notFoundPattern, File: "src/pages/404.orbit", Render: counted(&n, setOpts(hour), "404")},
+		{Pattern: "/error", File: "e.lyr", Render: counted(&n, set(func(*Ctx) error { return errors.New("db down") }), "")},
+		{Pattern: "/panic", File: "p.lyr", Render: counted(&n, set(func(*Ctx) error { panic("boom") }), "")},
+		{Pattern: "/handled", File: "h.lyr", Render: counted(&n, set(func(*Ctx) error { return errHandled }), "")},
+		{Pattern: "/missing", File: "m.lyr", Render: counted(&n, set(func(*Ctx) error { return ErrNotFound }), "")},
+		{Pattern: "/cookie", File: "c.lyr", Render: counted(&n, set(func(c *Ctx) error { c.Header().Set("Set-Cookie", "a=1"); return nil }), "")},
+		{Pattern: "/mwcookie", File: "mc.lyr", Render: counted(&n, set(func(*Ctx) error { return nil }), "")},
+		{Pattern: "/varycookie", File: "vc.lyr", Render: counted(&n, set(func(c *Ctx) error { c.Header().Set("Vary", "Accept, cookie"); return nil }), "")},
+		{Pattern: "/varystar", File: "vs.lyr", Render: counted(&n, set(func(c *Ctx) error { c.Header().Set("Vary", "*"); return nil }), "")},
+		{Pattern: notFoundPattern, File: "src/pages/404.lyr", Render: counted(&n, setOpts(hour), "404")},
 	}
 	s, st := cacheSite(t, routes, WithErrorHandler(func(w http.ResponseWriter, r *http.Request, err error) bool {
 		if errors.Is(err, errHandled) {
@@ -391,8 +391,8 @@ func TestCacheNeverStored(t *testing.T) {
 	codes := map[string]int{"/error": 500, "/panic": 500, "/handled": 418, "/missing": 404, "/cookie": 200, "/mwcookie": 200, "/varycookie": 200, "/varystar": 200, "/nope": 404}
 	for target, code := range codes {
 		for range 2 {
-			if rec := get(mw, target); rec.Code != code || rec.Header().Get("X-Orbit-Cache") != "" {
-				t.Errorf("%s: %d %q, want %d and no X-Orbit-Cache", target, rec.Code, rec.Header().Get("X-Orbit-Cache"), code)
+			if rec := get(mw, target); rec.Code != code || rec.Header().Get("X-Lyr-Cache") != "" {
+				t.Errorf("%s: %d %q, want %d and no X-Lyr-Cache", target, rec.Code, rec.Header().Get("X-Lyr-Cache"), code)
 			}
 		}
 	}
@@ -412,7 +412,7 @@ var errHandled = errors.New("handled")
 
 func TestCacheRedirectStored(t *testing.T) {
 	var n atomic.Int32
-	s, st := cacheSite(t, []Route{{Pattern: "/old", File: "src/pages/old.orbit", Render: counted(&n, func(c *Ctx) error {
+	s, st := cacheSite(t, []Route{{Pattern: "/old", File: "src/pages/old.lyr", Render: counted(&n, func(c *Ctx) error {
 		c.Cache().Set(hour)
 		c.Header().Set("X-Page", "1")
 		return c.Redirect("/new", http.StatusMovedPermanently)
@@ -424,8 +424,8 @@ func TestCacheRedirectStored(t *testing.T) {
 			t.Errorf("response %d: %d %v", i, r.Code, r.Header())
 		}
 	}
-	if r1.Header().Get("X-Orbit-Cache") != "MISS" || r2.Header().Get("X-Orbit-Cache") != "HIT" || n.Load() != 1 || st.puts.Load() != 1 {
-		t.Errorf("%q %q, %d renders", r1.Header().Get("X-Orbit-Cache"), r2.Header().Get("X-Orbit-Cache"), n.Load())
+	if r1.Header().Get("X-Lyr-Cache") != "MISS" || r2.Header().Get("X-Lyr-Cache") != "HIT" || n.Load() != 1 || st.puts.Load() != 1 {
+		t.Errorf("%q %q, %d renders", r1.Header().Get("X-Lyr-Cache"), r2.Header().Get("X-Lyr-Cache"), n.Load())
 	}
 	if r2.Body.String() != r1.Body.String() || !strings.Contains(r1.Body.String(), "/new") {
 		t.Errorf("bodies %q %q", r1.Body, r2.Body)
@@ -434,7 +434,7 @@ func TestCacheRedirectStored(t *testing.T) {
 
 func TestCacheVary(t *testing.T) {
 	var n atomic.Int32
-	s, st := cacheSite(t, []Route{{Pattern: "/", File: "src/pages/index.orbit", Render: func(c *Ctx, w *Writer) error {
+	s, st := cacheSite(t, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: func(c *Ctx, w *Writer) error {
 		n.Add(1)
 		c.Cache().Set(hour)
 		c.Header().Set("Vary", "accept-language, Set-Cookie")
@@ -446,8 +446,8 @@ func TestCacheVary(t *testing.T) {
 		{"en", "MISS", "lang=en"}, {"fr", "MISS", "lang=fr"}, {"en", "HIT", "lang=en"}, {"fr", "HIT", "lang=fr"}, {"", "MISS", "lang="},
 	} {
 		r := get(h, "/", "Accept-Language", tt.lang)
-		if r.Header().Get("X-Orbit-Cache") != tt.state || r.Body.String() != tt.body {
-			t.Errorf("request %d (%q): %q %q, want %q %q", i, tt.lang, r.Header().Get("X-Orbit-Cache"), r.Body, tt.state, tt.body)
+		if r.Header().Get("X-Lyr-Cache") != tt.state || r.Body.String() != tt.body {
+			t.Errorf("request %d (%q): %q %q, want %q %q", i, tt.lang, r.Header().Get("X-Lyr-Cache"), r.Body, tt.state, tt.body)
 		}
 	}
 	if n.Load() != 3 {
@@ -462,7 +462,7 @@ func TestCacheVary(t *testing.T) {
 func TestCacheStatusAndHeaders(t *testing.T) {
 	var n atomic.Int32
 	s, _ := cacheSite(t, []Route{
-		{Pattern: "/gone", File: "g.orbit", Render: counted(&n, func(c *Ctx) error {
+		{Pattern: "/gone", File: "g.lyr", Render: counted(&n, func(c *Ctx) error {
 			c.Cache().Set(hour)
 			c.SetStatus(http.StatusGone)
 			c.Header().Set("Cache-Control", "public, max-age=60")
@@ -477,7 +477,7 @@ func TestCacheStatusAndHeaders(t *testing.T) {
 	})
 	get(mw, "/gone")
 	r := get(mw, "/gone")
-	if r.Code != 410 || r.Header().Get("X-Orbit-Cache") != "HIT" || r.Header().Get("Cache-Control") != "public, max-age=60" ||
+	if r.Code != 410 || r.Header().Get("X-Lyr-Cache") != "HIT" || r.Header().Get("Cache-Control") != "public, max-age=60" ||
 		r.Header().Get("Content-Type") != "text/plain" || r.Header().Get("X-Request-Id") != "r1" {
 		t.Errorf("%d %v", r.Code, r.Header())
 	}
@@ -491,14 +491,14 @@ func TestCacheConditional(t *testing.T) {
 	var n atomic.Int32
 	lm := time.Date(2026, 10, 1, 8, 0, 0, 0, time.UTC)
 	s, _ := cacheSite(t, []Route{
-		{Pattern: "/", File: "i.orbit", Render: counted(&n, setOpts(hour), "home")},
-		{Pattern: "/etag", File: "e.orbit", Render: counted(&n, setOpts(CacheOptions{MaxAge: time.Hour, ETag: `"v1"`, LastModified: lm}), "etag")},
-		{Pattern: "/manual", File: "m.orbit", Render: counted(&n, func(c *Ctx) error {
+		{Pattern: "/", File: "i.lyr", Render: counted(&n, setOpts(hour), "home")},
+		{Pattern: "/etag", File: "e.lyr", Render: counted(&n, setOpts(CacheOptions{MaxAge: time.Hour, ETag: `"v1"`, LastModified: lm}), "etag")},
+		{Pattern: "/manual", File: "m.lyr", Render: counted(&n, func(c *Ctx) error {
 			c.Header().Set("ETag", `"m1"`)
 			c.Header().Set("Last-Modified", lm.Format(http.TimeFormat))
 			return nil
 		}, "manual")},
-		{Pattern: "/own", File: "o.orbit", Render: counted(&n, func(c *Ctx) error {
+		{Pattern: "/own", File: "o.lyr", Render: counted(&n, func(c *Ctx) error {
 			c.Header().Set("ETag", `"o1"`)
 			c.Header().Set("Cache-Control", "max-age=10")
 			return nil
@@ -543,7 +543,7 @@ func TestCacheConditional(t *testing.T) {
 	if e.Header().Get("Etag") != `"v1"` || e.Header().Get("Last-Modified") != lm.Format(http.TimeFormat) || e.Header().Get("Cache-Control") != "no-cache" {
 		t.Errorf("/etag headers %v", e.Header())
 	}
-	if m := get(h, "/manual"); m.Header().Get("Cache-Control") != "no-cache" || m.Header().Get("X-Orbit-Cache") != "" {
+	if m := get(h, "/manual"); m.Header().Get("Cache-Control") != "no-cache" || m.Header().Get("X-Lyr-Cache") != "" {
 		t.Errorf("/manual headers %v", m.Header())
 	}
 	if o := get(h, "/own"); o.Header().Get("Cache-Control") != "max-age=10" {
@@ -553,7 +553,7 @@ func TestCacheConditional(t *testing.T) {
 	if err := s.InvalidateCache(context.Background(), InvalidateOptions{Path: "/"}); err != nil {
 		t.Fatal(err)
 	}
-	s2, _ := cacheSite(t, []Route{{Pattern: "/", File: "i.orbit", Render: func(c *Ctx, w *Writer) error { c.Cache().Set(hour); w.Raw("home #1"); return nil }}})
+	s2, _ := cacheSite(t, []Route{{Pattern: "/", File: "i.lyr", Render: func(c *Ctx, w *Writer) error { c.Cache().Set(hour); w.Raw("home #1"); return nil }}})
 	if got := get(s2.Handler(), "/").Header().Get("Etag"); got != etag {
 		t.Errorf("same body on another site: ETag %q, want %q", got, etag)
 	}
@@ -565,10 +565,10 @@ func TestCacheProviders(t *testing.T) {
 		w.Raw("x")
 		return nil
 	}
-	routes := []Route{{Pattern: "/", File: "i.orbit", Render: page}}
+	routes := []Route{{Pattern: "/", File: "i.lyr", Render: page}}
 	s := testSite(t, routes, WithCache(plainProvider{}))
 	r := get(s.Handler(), "/")
-	if r.Header().Get("Cdn-Cache-Control") != "max-age=90, stale-while-revalidate=1" || r.Header().Get("Cache-Tag") != "a, b" || r.Header().Get("X-Orbit-Cache") != "" {
+	if r.Header().Get("Cdn-Cache-Control") != "max-age=90, stale-while-revalidate=1" || r.Header().Get("Cache-Tag") != "a, b" || r.Header().Get("X-Lyr-Cache") != "" {
 		t.Errorf("default headers: %v", r.Header())
 	}
 	hp := &headerProvider{}
@@ -583,7 +583,7 @@ func TestCacheProviders(t *testing.T) {
 		c.Header().Set("Set-Cookie", "a=1")
 		return page(c, w)
 	}
-	s = testSite(t, []Route{{Pattern: "/", File: "i.orbit", Render: page}, {Pattern: "/cookie", File: "c.orbit", Render: cookie}},
+	s = testSite(t, []Route{{Pattern: "/", File: "i.lyr", Render: page}, {Pattern: "/cookie", File: "c.lyr", Render: cookie}},
 		WithCache(plainProvider{}), withLocalsCache())
 	mw := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r, l := EnsureLocals[cacheLocals](r)
@@ -601,7 +601,7 @@ func TestCacheProviders(t *testing.T) {
 		t.Errorf("anonymous: %v", r.Header())
 	}
 	// Nothing active: no headers.
-	s = testSite(t, []Route{{Pattern: "/", File: "i.orbit", Render: func(c *Ctx, w *Writer) error { return nil }}}, WithCache(hp))
+	s = testSite(t, []Route{{Pattern: "/", File: "i.lyr", Render: func(c *Ctx, w *Writer) error { return nil }}}, WithCache(hp))
 	get(s.Handler(), "/")
 	if hp.calls.Load() != 1 {
 		t.Errorf("WriteCacheHeaders called %d times, want 1", hp.calls.Load())
@@ -609,21 +609,21 @@ func TestCacheProviders(t *testing.T) {
 }
 
 func TestCacheDev(t *testing.T) {
-	t.Setenv("ORBIT_DEV", "1")
+	t.Setenv("LYR_DEV", "1")
 	var enabled atomic.Bool
 	var invErr atomic.Value
 	hp := &headerProvider{}
 	st := newFakeStore()
 	for _, p := range []CacheProvider{st, hp} {
 		var n atomic.Int32
-		s := testSite(t, []Route{{Pattern: "/", File: "i.orbit", Render: counted(&n, func(c *Ctx) error {
+		s := testSite(t, []Route{{Pattern: "/", File: "i.lyr", Render: counted(&n, func(c *Ctx) error {
 			c.Cache().Set(hour)
 			enabled.Store(c.Cache().Enabled())
 			invErr.Store(errBox{c.Cache().Invalidate(context.Background(), InvalidateOptions{Tags: []string{"x"}})})
 			return nil
 		}, "x")}}, WithCache(p))
 		for range 2 {
-			if r := get(s.Handler(), "/"); r.Header().Get("X-Orbit-Cache") != "" || r.Header().Get("Surrogate-Control") != "" || r.Header().Get("Etag") != "" {
+			if r := get(s.Handler(), "/"); r.Header().Get("X-Lyr-Cache") != "" || r.Header().Get("Surrogate-Control") != "" || r.Header().Get("Etag") != "" {
 				t.Errorf("dev headers %v", r.Header())
 			}
 		}
@@ -648,7 +648,7 @@ func TestCacheNoProvider(t *testing.T) {
 	var invErr atomic.Value
 	var n atomic.Int32
 	s := testSite(t, []Route{
-		{Pattern: "/", File: "i.orbit", Render: counted(&n, func(c *Ctx) error {
+		{Pattern: "/", File: "i.lyr", Render: counted(&n, func(c *Ctx) error {
 			c.Cache().Set(hour)
 			invErr.Store(errBox{c.Cache().Invalidate(context.Background(), InvalidateOptions{})})
 			if c.Cache().Enabled() {
@@ -656,10 +656,10 @@ func TestCacheNoProvider(t *testing.T) {
 			}
 			return nil
 		}, "x")},
-		{Pattern: "/off", File: "o.orbit", Render: counted(&n, func(c *Ctx) error { c.Cache().Disable(); return nil }, "x")},
+		{Pattern: "/off", File: "o.lyr", Render: counted(&n, func(c *Ctx) error { c.Cache().Disable(); return nil }, "x")},
 	})
 	for range 3 {
-		if r := get(s.Handler(), "/"); r.Code != 200 || r.Header().Get("X-Orbit-Cache") != "" {
+		if r := get(s.Handler(), "/"); r.Code != 200 || r.Header().Get("X-Lyr-Cache") != "" {
 			t.Errorf("%d %v", r.Code, r.Header())
 		}
 	}
@@ -693,7 +693,7 @@ func withLocalsCache() Option {
 
 func TestCacheMiddleware(t *testing.T) {
 	var n, mwRuns atomic.Int32
-	s, _ := cacheSite(t, []Route{{Pattern: "/", File: "i.orbit", Render: counted(&n, func(c *Ctx) error {
+	s, _ := cacheSite(t, []Route{{Pattern: "/", File: "i.lyr", Render: counted(&n, func(c *Ctx) error {
 		c.Cache().Set(CacheOptions{MaxAge: time.Hour})
 		if LocalsOf[cacheLocals](c).Cache.Options().MaxAge != time.Hour {
 			return errors.New("ctx.Cache() isn't the Locals field")
@@ -714,19 +714,19 @@ func TestCacheMiddleware(t *testing.T) {
 		lastEnabled.Store(l.Cache.Enabled())
 		lastOpts.Store(l.Cache.Options())
 	})
-	if r := get(h, "/"); r.Header().Get("X-Orbit-Cache") != "MISS" {
-		t.Fatalf("first: %q", r.Header().Get("X-Orbit-Cache"))
+	if r := get(h, "/"); r.Header().Get("X-Lyr-Cache") != "MISS" {
+		t.Fatalf("first: %q", r.Header().Get("X-Lyr-Cache"))
 	}
 	if o := lastOpts.Load().(CacheOptions); !lastEnabled.Load() || !slices.Equal(o.Tags, []string{"mw"}) || o.MaxAge != time.Hour {
 		t.Errorf("middleware's view after next: enabled %v, %+v", lastEnabled.Load(), o)
 	}
-	if r := get(h, "/"); r.Header().Get("X-Orbit-Cache") != "HIT" || mwRuns.Load() != 2 {
-		t.Errorf("HIT: %q, middleware ran %d times", r.Header().Get("X-Orbit-Cache"), mwRuns.Load())
+	if r := get(h, "/"); r.Header().Get("X-Lyr-Cache") != "HIT" || mwRuns.Load() != 2 {
+		t.Errorf("HIT: %q, middleware ran %d times", r.Header().Get("X-Lyr-Cache"), mwRuns.Load())
 	}
 	// Disable before the lookup: a fresh render, no header, nothing stored.
 	r := get(h, "/", "X-User", "ann")
-	if r.Header().Get("X-Orbit-Cache") != "" || n.Load() != 2 || r.Body.String() != "x #2" {
-		t.Errorf("signed in: %q %q, %d renders", r.Header().Get("X-Orbit-Cache"), r.Body, n.Load())
+	if r.Header().Get("X-Lyr-Cache") != "" || n.Load() != 2 || r.Body.String() != "x #2" {
+		t.Errorf("signed in: %q %q, %d renders", r.Header().Get("X-Lyr-Cache"), r.Body, n.Load())
 	}
 	if r := get(h, "/"); r.Body.String() != "x #1" {
 		t.Errorf("anonymous after signed in: %q", r.Body)
@@ -735,7 +735,7 @@ func TestCacheMiddleware(t *testing.T) {
 
 func TestCacheLocalsOfMovesHandle(t *testing.T) {
 	var got atomic.Value
-	s, st := cacheSite(t, []Route{{Pattern: "/", File: "i.orbit", Render: func(c *Ctx, w *Writer) error {
+	s, st := cacheSite(t, []Route{{Pattern: "/", File: "i.lyr", Render: func(c *Ctx, w *Writer) error {
 		c.Cache().Set(CacheOptions{MaxAge: time.Hour, Tags: []string{"before"}})
 		l := LocalsOf[cacheLocals](c) // no middleware: allocated here
 		if c.Cache() != &l.Cache {
@@ -757,10 +757,10 @@ func TestCacheLocalsOfMovesHandle(t *testing.T) {
 func TestCacheRouteRules(t *testing.T) {
 	var n atomic.Int32
 	routes := []Route{
-		{Pattern: "/blog/[slug]", File: "s.orbit", Render: counted(&n, setOpts(CacheOptions{MaxAge: time.Hour, Tags: []string{"post"}}), "post")},
-		{Pattern: "/blog/off", File: "o.orbit", Render: counted(&n, func(c *Ctx) error { c.Cache().Disable(); return nil }, "off")},
-		{Pattern: "/blog/plain", File: "p.orbit", Render: counted(&n, nil, "plain")},
-		{Pattern: "/about", File: "a.orbit", Render: counted(&n, nil, "about")},
+		{Pattern: "/blog/[slug]", File: "s.lyr", Render: counted(&n, setOpts(CacheOptions{MaxAge: time.Hour, Tags: []string{"post"}}), "post")},
+		{Pattern: "/blog/off", File: "o.lyr", Render: counted(&n, func(c *Ctx) error { c.Cache().Disable(); return nil }, "off")},
+		{Pattern: "/blog/plain", File: "p.lyr", Render: counted(&n, nil, "plain")},
+		{Pattern: "/about", File: "a.lyr", Render: counted(&n, nil, "about")},
 	}
 	rules := WithRouteRules(RouteRule{Pattern: "/blog/[...path]", Options: CacheOptions{MaxAge: 300 * time.Second, SWR: time.Hour, Tags: []string{"blog"}}},
 		RouteRule{Pattern: "/blog/plain", Options: CacheOptions{MaxAge: 5 * time.Second}})
@@ -774,8 +774,8 @@ func TestCacheRouteRules(t *testing.T) {
 	})
 	for _, target := range []string{"/blog/hello", "/blog/off", "/blog/plain", "/about", "/blog/plain?mw"} {
 		get(mw, target)
-		if r := get(mw, target); (r.Header().Get("X-Orbit-Cache") == "HIT") != (target != "/blog/off" && target != "/about") {
-			t.Errorf("%s: second request %q", target, r.Header().Get("X-Orbit-Cache"))
+		if r := get(mw, target); (r.Header().Get("X-Lyr-Cache") == "HIT") != (target != "/blog/off" && target != "/about") {
+			t.Errorf("%s: second request %q", target, r.Header().Get("X-Lyr-Cache"))
 		}
 	}
 	for key, want := range map[string]CacheOptions{
@@ -796,7 +796,7 @@ func TestCacheRouteRules(t *testing.T) {
 			t.Errorf("%s: %+v, want %+v", key, e, want)
 		}
 	}
-	if msg := panicMessage(func() { testSite(t, routes, WithRouteRules(RouteRule{Pattern: "/blog/[slug"})) }); !strings.Contains(msg, "orbit.json routeRules") {
+	if msg := panicMessage(func() { testSite(t, routes, WithRouteRules(RouteRule{Pattern: "/blog/[slug"})) }); !strings.Contains(msg, "lyr.json routeRules") {
 		t.Errorf("bad pattern: %q", msg)
 	}
 	if msg := panicMessage(func() { testSite(t, routes, WithRouteRules(RouteRule{Pattern: "blog"})) }); !strings.Contains(msg, "must start with /") {
@@ -804,18 +804,18 @@ func TestCacheRouteRules(t *testing.T) {
 	}
 	// Inert without a provider.
 	s = testSite(t, routes, rules)
-	if r := get(s.Handler(), "/blog/plain"); r.Header().Get("X-Orbit-Cache") != "" {
+	if r := get(s.Handler(), "/blog/plain"); r.Header().Get("X-Lyr-Cache") != "" {
 		t.Errorf("rule without a provider: %v", r.Header())
 	}
 }
 
 func TestCacheRouteRulesTrailingSlash(t *testing.T) {
 	var n atomic.Int32
-	s, st := cacheSite(t, []Route{{Pattern: "/blog/[slug]", File: "s.orbit", Render: counted(&n, nil, "post")}},
+	s, st := cacheSite(t, []Route{{Pattern: "/blog/[slug]", File: "s.lyr", Render: counted(&n, nil, "post")}},
 		WithTrailingSlash(TrailingSlashAlways), WithRouteRules(RouteRule{Pattern: "/blog/[slug]", Options: CacheOptions{MaxAge: time.Hour}}))
 	get(s.Handler(), "/blog/a/")
-	if r := get(s.Handler(), "/blog/a/"); r.Header().Get("X-Orbit-Cache") != "HIT" {
-		t.Errorf("always mode: %q (keys %q)", r.Header().Get("X-Orbit-Cache"), st.keys())
+	if r := get(s.Handler(), "/blog/a/"); r.Header().Get("X-Lyr-Cache") != "HIT" {
+		t.Errorf("always mode: %q (keys %q)", r.Header().Get("X-Lyr-Cache"), st.keys())
 	}
 }
 
@@ -825,7 +825,7 @@ type cachedIslandProps struct{ N int }
 
 func TestCacheIslands(t *testing.T) {
 	var n atomic.Int32
-	isl := []Island{NewIsland(cachedIslandID, "src/components/Cached.orbit", func(c *Ctx, w *Writer, p cachedIslandProps, s Slots) error {
+	isl := []Island{NewIsland(cachedIslandID, "src/components/Cached.lyr", func(c *Ctx, w *Writer, p cachedIslandProps, s Slots) error {
 		n.Add(1)
 		if p.N > 0 {
 			c.Cache().Set(CacheOptions{MaxAge: time.Hour, Tags: []string{"island"}})
@@ -834,8 +834,8 @@ func TestCacheIslands(t *testing.T) {
 		return nil
 	})}
 	st := newFakeStore()
-	t.Setenv("ORBIT_STATIC", "")
-	t.Setenv("ORBIT_DEV", "")
+	t.Setenv("LYR_STATIC", "")
+	t.Setenv("LYR_DEV", "")
 	// The rule would match every path, but rules never apply to islands.
 	s := NewSite(nil, isl, WithStaticDir(t.TempDir()), WithCache(st),
 		WithRouteRules(RouteRule{Pattern: "/[...rest]", Options: CacheOptions{MaxAge: time.Hour}}))
@@ -845,8 +845,8 @@ func TestCacheIslands(t *testing.T) {
 	}
 	u := url(`{"N":1}`)
 	r1, r2 := get(h, u), get(h, u)
-	if r1.Header().Get("X-Orbit-Cache") != "MISS" || r2.Header().Get("X-Orbit-Cache") != "HIT" || r2.Body.String() != "1" || n.Load() != 1 {
-		t.Fatalf("island: %q %q %q, %d renders", r1.Header().Get("X-Orbit-Cache"), r2.Header().Get("X-Orbit-Cache"), r2.Body, n.Load())
+	if r1.Header().Get("X-Lyr-Cache") != "MISS" || r2.Header().Get("X-Lyr-Cache") != "HIT" || r2.Body.String() != "1" || n.Load() != 1 {
+		t.Fatalf("island: %q %q %q, %d renders", r1.Header().Get("X-Lyr-Cache"), r2.Header().Get("X-Lyr-Cache"), r2.Body, n.Load())
 	}
 	if r2.Header().Get("Cache-Control") != "private, no-store" || r2.Header().Get("X-Robots-Tag") != "noindex" || r2.Header().Get("Etag") == "" {
 		t.Errorf("island headers %v", r2.Header())
@@ -854,19 +854,19 @@ func TestCacheIslands(t *testing.T) {
 	if r := get(h, u, "If-None-Match", r1.Header().Get("Etag")); r.Code != 304 {
 		t.Errorf("island 304: %d", r.Code)
 	}
-	// Props that don't Set: rules don't apply to /_orbit/, nothing stored.
+	// Props that don't Set: rules don't apply to /_lyr/, nothing stored.
 	u0 := url(`{"N":0}`)
 	get(h, u0)
-	if r := get(h, u0); r.Header().Get("X-Orbit-Cache") != "" || n.Load() != 3 {
-		t.Errorf("uncached island: %q, %d renders", r.Header().Get("X-Orbit-Cache"), n.Load())
+	if r := get(h, u0); r.Header().Get("X-Lyr-Cache") != "" || n.Load() != 3 {
+		t.Errorf("uncached island: %q, %d renders", r.Header().Get("X-Lyr-Cache"), n.Load())
 	}
 	// POST islands always render.
 	tok := strings.SplitN(u, "?p=", 2)[1]
 	r := httptest.NewRequest("POST", strings.SplitN(u, "?", 2)[0], strings.NewReader(tok))
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, r)
-	if rec.Code != 200 || rec.Header().Get("X-Orbit-Cache") != "" || n.Load() != 4 {
-		t.Errorf("POST: %d %q, %d renders", rec.Code, rec.Header().Get("X-Orbit-Cache"), n.Load())
+	if rec.Code != 200 || rec.Header().Get("X-Lyr-Cache") != "" || n.Load() != 4 {
+		t.Errorf("POST: %d %q, %d renders", rec.Code, rec.Header().Get("X-Lyr-Cache"), n.Load())
 	}
 	if st.puts.Load() != 1 {
 		t.Errorf("%d puts", st.puts.Load())
@@ -909,8 +909,8 @@ func TestCacheHandler(t *testing.T) {
 	}
 	get(frag, "/frag?id=a")
 	r := get(frag, "/frag?id=a")
-	if r.Header().Get("X-Orbit-Cache") != "HIT" || r.Body.String() != "<p>a</p>" || r.Header().Get("Content-Type") != "text/html; charset=utf-8" || n.Load() != 1 {
-		t.Errorf("fragment: %q %q %v, %d calls", r.Header().Get("X-Orbit-Cache"), r.Body, r.Header(), n.Load())
+	if r.Header().Get("X-Lyr-Cache") != "HIT" || r.Body.String() != "<p>a</p>" || r.Header().Get("Content-Type") != "text/html; charset=utf-8" || n.Load() != 1 {
+		t.Errorf("fragment: %q %q %v, %d calls", r.Header().Get("X-Lyr-Cache"), r.Body, r.Header(), n.Load())
 	}
 	if e := st.entry("example.com/frag?id=a"); e == nil || !slices.Equal(e.Tags, []string{"frag:a"}) {
 		t.Errorf("fragment entry %+v", e)
@@ -918,13 +918,13 @@ func TestCacheHandler(t *testing.T) {
 	h := withLocals(api)
 	get(h, "/api")
 	r = get(h, "/api")
-	if r.Code != 201 || r.Header().Get("X-Orbit-Cache") != "HIT" || r.Body.String() != `{"ok":true}` || r.Header().Get("Content-Type") != "application/json" || n.Load() != 2 {
-		t.Errorf("api: %d %q %q, %d calls", r.Code, r.Header().Get("X-Orbit-Cache"), r.Body, n.Load())
+	if r.Code != 201 || r.Header().Get("X-Lyr-Cache") != "HIT" || r.Body.String() != `{"ok":true}` || r.Header().Get("Content-Type") != "application/json" || n.Load() != 2 {
+		t.Errorf("api: %d %q %q, %d calls", r.Code, r.Header().Get("X-Lyr-Cache"), r.Body, n.Load())
 	}
 	// Without the locals, the handler can't set options: rendered each time.
 	get(api, "/api2")
-	if r := get(api, "/api2"); r.Header().Get("X-Orbit-Cache") != "" || n.Load() != 4 {
-		t.Errorf("no locals: %q, %d calls", r.Header().Get("X-Orbit-Cache"), n.Load())
+	if r := get(api, "/api2"); r.Header().Get("X-Lyr-Cache") != "" || n.Load() != 4 {
+		t.Errorf("no locals: %q, %d calls", r.Header().Get("X-Lyr-Cache"), n.Load())
 	}
 	// Without a provider it's the handler itself.
 	plain := testSite(t, nil)
@@ -938,7 +938,7 @@ func TestCacheHandler(t *testing.T) {
 }
 
 func TestCacheConcurrentChildren(t *testing.T) {
-	s, st := cacheSite(t, []Route{{Pattern: "/", File: "i.orbit", Render: func(c *Ctx, w *Writer) error {
+	s, st := cacheSite(t, []Route{{Pattern: "/", File: "i.lyr", Render: func(c *Ctx, w *Writer) error {
 		c.Cache().Set(CacheOptions{MaxAge: time.Minute, Tags: []string{"page"}})
 		for i := range 3 {
 			if err := Concurrent(c, w, func(c *Ctx, w *Writer, i int, s Slots) error {
@@ -954,8 +954,8 @@ func TestCacheConcurrentChildren(t *testing.T) {
 		}
 		return nil
 	}}})
-	if r := get(s.Handler(), "/"); r.Body.String() != "012" || r.Header().Get("X-Orbit-Cache") != "MISS" {
-		t.Fatalf("%q %q", r.Body, r.Header().Get("X-Orbit-Cache"))
+	if r := get(s.Handler(), "/"); r.Body.String() != "012" || r.Header().Get("X-Lyr-Cache") != "MISS" {
+		t.Fatalf("%q %q", r.Body, r.Header().Get("X-Lyr-Cache"))
 	}
 	e := st.entry("example.com/")
 	if e == nil || e.MaxAge != time.Hour || !slices.Equal(e.Tags, []string{"page", "child0", "child1", "child2"}) {
@@ -966,11 +966,11 @@ func TestCacheConcurrentChildren(t *testing.T) {
 func TestCacheInvalidate(t *testing.T) {
 	var n atomic.Int32
 	s, st := cacheSite(t, []Route{
-		{Pattern: "/blog/[slug]", File: "s.orbit", Render: counted(&n, func(c *Ctx) error {
+		{Pattern: "/blog/[slug]", File: "s.lyr", Render: counted(&n, func(c *Ctx) error {
 			c.Cache().Set(CacheOptions{MaxAge: time.Hour, Tags: []string{"post:" + c.Param("slug")}})
 			return nil
 		}, "post")},
-		{Pattern: "/purge", File: "p.orbit", Render: func(c *Ctx, w *Writer) error {
+		{Pattern: "/purge", File: "p.lyr", Render: func(c *Ctx, w *Writer) error {
 			return c.Cache().Invalidate(c.Request.Context(), InvalidateOptions{Tags: []string{"post:a"}})
 		}},
 	})
@@ -987,8 +987,8 @@ func TestCacheInvalidate(t *testing.T) {
 	if err := s.InvalidateCache(context.Background(), InvalidateOptions{Path: "/blog/b"}); err != nil || len(st.keys()) != 0 {
 		t.Errorf("path purge: %v, %q", err, st.keys())
 	}
-	if r := get(h, "/blog/a"); r.Header().Get("X-Orbit-Cache") != "MISS" {
-		t.Errorf("after the purge: %q", r.Header().Get("X-Orbit-Cache"))
+	if r := get(h, "/blog/a"); r.Header().Get("X-Lyr-Cache") != "MISS" {
+		t.Errorf("after the purge: %q", r.Header().Get("X-Lyr-Cache"))
 	}
 }
 
@@ -1000,7 +1000,7 @@ func TestCacheStaleWhileRevalidate(t *testing.T) {
 	fail.Store("")
 	release := make(chan struct{})
 	var block atomic.Bool
-	s, st := cacheSite(t, []Route{{Pattern: "/", File: "i.orbit", Render: counted(&n, func(c *Ctx) error {
+	s, st := cacheSite(t, []Route{{Pattern: "/", File: "i.lyr", Render: counted(&n, func(c *Ctx) error {
 		if block.Load() {
 			<-release
 		}
@@ -1014,7 +1014,7 @@ func TestCacheStaleWhileRevalidate(t *testing.T) {
 		return nil
 	}, "v")}})
 	h := s.Handler()
-	if r := get(h, "/"); r.Header().Get("X-Orbit-Cache") != "MISS" {
+	if r := get(h, "/"); r.Header().Get("X-Lyr-Cache") != "MISS" {
 		t.Fatal(r.Header())
 	}
 	clock.add(20 * time.Second)
@@ -1022,8 +1022,8 @@ func TestCacheStaleWhileRevalidate(t *testing.T) {
 	var wg sync.WaitGroup
 	for range 20 {
 		wg.Go(func() {
-			if r := get(h, "/"); r.Header().Get("X-Orbit-Cache") != "STALE" || r.Body.String() != "v #1" {
-				t.Errorf("stale: %q %q", r.Header().Get("X-Orbit-Cache"), r.Body)
+			if r := get(h, "/"); r.Header().Get("X-Lyr-Cache") != "STALE" || r.Body.String() != "v #1" {
+				t.Errorf("stale: %q %q", r.Header().Get("X-Lyr-Cache"), r.Body)
 			}
 		})
 	}
@@ -1034,15 +1034,15 @@ func TestCacheStaleWhileRevalidate(t *testing.T) {
 	if n.Load() != 2 || st.puts.Load() != 2 {
 		t.Fatalf("%d renders, %d puts; want exactly one background render", n.Load(), st.puts.Load())
 	}
-	if r := get(h, "/"); r.Header().Get("X-Orbit-Cache") != "HIT" || r.Body.String() != "v #2" {
-		t.Errorf("after revalidation: %q %q", r.Header().Get("X-Orbit-Cache"), r.Body)
+	if r := get(h, "/"); r.Header().Get("X-Lyr-Cache") != "HIT" || r.Body.String() != "v #2" {
+		t.Errorf("after revalidation: %q %q", r.Header().Get("X-Lyr-Cache"), r.Body)
 	}
 	// Errors and panics keep the old copy and are logged.
 	for i, mode := range []string{"error", "panic"} {
 		fail.Store(mode)
 		clock.add(20 * time.Second)
-		if r := get(h, "/"); r.Header().Get("X-Orbit-Cache") != "STALE" || r.Body.String() != "v #2" {
-			t.Errorf("%s: %q %q", mode, r.Header().Get("X-Orbit-Cache"), r.Body)
+		if r := get(h, "/"); r.Header().Get("X-Lyr-Cache") != "STALE" || r.Body.String() != "v #2" {
+			t.Errorf("%s: %q %q", mode, r.Header().Get("X-Lyr-Cache"), r.Body)
 		}
 		waitFlights(t, s)
 		if st.puts.Load() != 2 || n.Load() != int32(3+i) {
@@ -1050,7 +1050,7 @@ func TestCacheStaleWhileRevalidate(t *testing.T) {
 		}
 	}
 	out := logs.String()
-	for _, want := range []string{"orbit: revalidating GET /: api down; the stale copy is kept", "orbit: revalidating GET /: panic: kaboom; the stale copy is kept"} {
+	for _, want := range []string{"lyr: revalidating GET /: api down; the stale copy is kept", "lyr: revalidating GET /: panic: kaboom; the stale copy is kept"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("log lacks %q:\n%s", want, out)
 		}
@@ -1058,8 +1058,8 @@ func TestCacheStaleWhileRevalidate(t *testing.T) {
 	// Past MaxAge + SWR: a miss.
 	fail.Store("")
 	clock.add(2 * time.Minute)
-	if r := get(h, "/"); r.Header().Get("X-Orbit-Cache") != "MISS" || r.Body.String() != "v #5" {
-		t.Errorf("expired: %q %q", r.Header().Get("X-Orbit-Cache"), r.Body)
+	if r := get(h, "/"); r.Header().Get("X-Lyr-Cache") != "MISS" || r.Body.String() != "v #5" {
+		t.Errorf("expired: %q %q", r.Header().Get("X-Lyr-Cache"), r.Body)
 	}
 }
 
@@ -1068,7 +1068,7 @@ func TestCacheCoalescing(t *testing.T) {
 	var cookie, block atomic.Bool
 	entered := make(chan struct{}, 1)
 	release := make(chan struct{})
-	s, _ := cacheSite(t, []Route{{Pattern: "/", File: "i.orbit", Render: counted(&n, func(c *Ctx) error {
+	s, _ := cacheSite(t, []Route{{Pattern: "/", File: "i.lyr", Render: counted(&n, func(c *Ctx) error {
 		if block.Load() {
 			entered <- struct{}{}
 			<-release
@@ -1099,7 +1099,7 @@ func TestCacheCoalescing(t *testing.T) {
 		wg.Go(func() {
 			r := get(h, "/")
 			mu.Lock()
-			states = append(states, r.Header().Get("X-Orbit-Cache"))
+			states = append(states, r.Header().Get("X-Lyr-Cache"))
 			mu.Unlock()
 		})
 		<-entered
@@ -1109,7 +1109,7 @@ func TestCacheCoalescing(t *testing.T) {
 			wg.Go(func() {
 				r := get(h, "/")
 				mu.Lock()
-				states = append(states, r.Header().Get("X-Orbit-Cache"))
+				states = append(states, r.Header().Get("X-Lyr-Cache"))
 				mu.Unlock()
 			})
 		}
@@ -1137,13 +1137,13 @@ func TestCacheCoalescing(t *testing.T) {
 func TestCacheRace(t *testing.T) {
 	clock := useClock(t)
 	var n atomic.Int32
-	s, _ := cacheSite(t, []Route{{Pattern: "/", File: "i.orbit", Render: counted(&n, setOpts(CacheOptions{MaxAge: time.Second, SWR: time.Second, Tags: []string{"t"}}), "v")}},
+	s, _ := cacheSite(t, []Route{{Pattern: "/", File: "i.lyr", Render: counted(&n, setOpts(CacheOptions{MaxAge: time.Second, SWR: time.Second, Tags: []string{"t"}}), "v")}},
 		withLocalsCache(), WithLocalsRoute(func(l *cacheLocals) *RouteInfo { return &l.Route }))
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r, l := EnsureLocals[cacheLocals](r)
 		l.Cache.Set(CacheOptions{Tags: []string{"mw"}})
 		s.Handler().ServeHTTP(w, r)
-		// After next, the middleware reads what Orbit filled, while a
+		// After next, the middleware reads what Lyr filled, while a
 		// background revalidation may run with the same locals.
 		_ = l.Cache.Options()
 		_ = l.Route.Pattern

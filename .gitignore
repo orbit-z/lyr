@@ -1,7 +1,7 @@
 # Build outputs
 dist/
-.orbit/
-orbit_gen/
+.lyr/
+lyr_gen/
 bin/
 *.test
 *.out

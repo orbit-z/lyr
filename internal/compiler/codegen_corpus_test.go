@@ -11,7 +11,7 @@ import (
 // and every compressHTML mode: codegen must never hit an internal error,
 // and its maps and directives must hold.
 func TestGenerateParseCorpus(t *testing.T) {
-	files, err := filepath.Glob("testdata/parse/*.orbit")
+	files, err := filepath.Glob("testdata/parse/*.lyr")
 	if err != nil {
 		t.Fatal(err)
 	}

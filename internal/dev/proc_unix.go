@@ -8,7 +8,7 @@ import (
 )
 
 // appProcAttr puts the app in its own process group, so a Ctrl-C in the
-// terminal reaches it once, through orbit dev (which stops it with SIGINT).
+// terminal reaches it once, through lyr dev (which stops it with SIGINT).
 func appProcAttr() *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{Setpgid: true}
 }

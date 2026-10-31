@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"errors"
@@ -17,7 +17,7 @@ type likeProps struct {
 // likeButton stands in for a generated component's Render: it reads the
 // request's locals and writes a fragment.
 func likeButton(c *Ctx, w *Writer, p likeProps, s Slots) error {
-	if err := w.Enter("src/components/LikeButton.orbit"); err != nil {
+	if err := w.Enter("src/components/LikeButton.lyr"); err != nil {
 		return err
 	}
 	defer w.Leave()

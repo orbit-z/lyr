@@ -1,5 +1,5 @@
 // Package typed is the prototype of the pass-2 mapping (PLAN.md §3.3): for
-// each orbit__w.Expr(x) call, look at the static type of x and pick the typed
+// each lyr__w.Expr(x) call, look at the static type of x and pick the typed
 // write that produces byte-identical output to Expr's runtime type switch.
 package typed
 
@@ -10,7 +10,7 @@ import (
 	"sort"
 )
 
-const orbitPath = "github.com/bertrandkhe/orbit"
+const lyrPath = "github.com/bertrandkhe/lyr"
 
 type Kind int
 
@@ -42,16 +42,16 @@ type Decision struct {
 
 // Env holds the runtime types the mapping compares against.
 type Env struct {
-	html, url, renderer types.Type // orbit.HTML, orbit.URL, orbit.Renderer
-	renderFunc          types.Type // func(*orbit.Writer) error
+	html, url, renderer types.Type // lyr.HTML, lyr.URL, lyr.Renderer
+	renderFunc          types.Type // func(*lyr.Writer) error
 	stringer            *types.Interface
 	errorIface          *types.Interface
 	byteSlice           types.Type
 }
 
-// NewEnv finds the orbit package among pkg's imports (direct or indirect).
-func NewEnv(orbit *types.Package) *Env {
-	sc := orbit.Scope()
+// NewEnv finds the lyr package among pkg's imports (direct or indirect).
+func NewEnv(lyr *types.Package) *Env {
+	sc := lyr.Scope()
 	writer := sc.Lookup("Writer").Type()
 	errT := types.Universe.Lookup("error").Type()
 	// fmt.Stringer, built structurally so we don't need fmt's *types.Package.
@@ -72,12 +72,12 @@ func NewEnv(orbit *types.Package) *Env {
 	}
 }
 
-// FindOrbit returns the orbit runtime package as seen from pkg.
-func FindOrbit(pkg *types.Package) *types.Package {
+// FindLyr returns the lyr runtime package as seen from pkg.
+func FindLyr(pkg *types.Package) *types.Package {
 	seen := map[*types.Package]bool{}
 	var walk func(p *types.Package) *types.Package
 	walk = func(p *types.Package) *types.Package {
-		if p.Path() == orbitPath {
+		if p.Path() == lyrPath {
 			return p
 		}
 		if seen[p] {
@@ -141,7 +141,7 @@ func (e *Env) Classify(tv types.TypeAndValue) Decision {
 	case types.Identical(t, e.renderer):
 		return Decision{Kind: Render}
 	case types.Identical(t, e.renderFunc):
-		return Decision{Kind: Render, Conv: "orbit.Renderer"}
+		return Decision{Kind: Render, Conv: "lyr.Renderer"}
 	}
 	if types.IsInterface(t) {
 		// A static interface type: the dynamic value could be anything that
@@ -198,7 +198,7 @@ type Edit struct {
 // Stats counts decisions per kind.
 type Stats map[Kind]int
 
-// Rewrite finds every orbit__w.Expr(x) call in files and returns, per file
+// Rewrite finds every lyr__w.Expr(x) call in files and returns, per file
 // name, the source with typed writes substituted.
 func Rewrite(fset *token.FileSet, files []*ast.File, info *types.Info, env *Env, src map[string][]byte, stats Stats) map[string][]byte {
 	out := map[string][]byte{}
@@ -214,7 +214,7 @@ func Rewrite(fset *token.FileSet, files []*ast.File, info *types.Info, env *Env,
 			if !ok || sel.Sel.Name != "Expr" {
 				return true
 			}
-			if id, ok := sel.X.(*ast.Ident); !ok || id.Name != "orbit__w" {
+			if id, ok := sel.X.(*ast.Ident); !ok || id.Name != "lyr__w" {
 				return true
 			}
 			arg := call.Args[0]
@@ -234,7 +234,7 @@ func Rewrite(fset *token.FileSet, files []*ast.File, info *types.Info, env *Env,
 				if d.Conv != "" {
 					x = d.Conv + "(" + x + ")"
 				}
-				text = "orbit__w." + d.Kind.String() + "(" + x + ")"
+				text = "lyr__w." + d.Kind.String() + "(" + x + ")"
 			}
 			edits = append(edits, Edit{off(call.Pos()), off(call.End()), text})
 			return true

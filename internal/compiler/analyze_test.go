@@ -13,15 +13,15 @@ import (
 // page_* files are pages (route from anTestRoutes, else "/<name>"), the
 // others components under src/components.
 func anTestInfo(name string) FileInfo {
-	base := strings.TrimSuffix(name, ".orbit")
+	base := strings.TrimSuffix(name, ".lyr")
 	if rest, ok := strings.CutPrefix(base, "page_"); ok {
 		route, ok := anTestRoutes[rest]
 		if !ok {
 			route = "/" + rest
 		}
-		return FileInfo{Path: "src/pages" + route + ".orbit", Role: RolePage, Route: route}
+		return FileInfo{Path: "src/pages" + route + ".lyr", Role: RolePage, Route: route}
 	}
-	return FileInfo{Path: "src/components/" + base + ".orbit", Role: RoleComponent}
+	return FileInfo{Path: "src/components/" + base + ".lyr", Role: RoleComponent}
 }
 
 var anTestRoutes = map[string]string{
@@ -50,11 +50,11 @@ func dumpAnalysis(f *File, a *Analysis) string {
 	for _, i := range a.GoImports {
 		fmt.Fprintf(&b, "goimport name=%q path=%q %s path=%s place=%s\n", i.Name, i.Path, spanText(src, i.Span), sp(i.PathSpan), placeString(i.Place))
 	}
-	for _, o := range a.OrbitImports {
-		fmt.Fprintf(&b, "orbitimport %s path=%q resolved=%s %s pathspan=%s place=%s\n",
+	for _, o := range a.LyrImports {
+		fmt.Fprintf(&b, "lyrimport %s path=%q resolved=%s %s pathspan=%s place=%s\n",
 			spanText(src, o.AliasSpan), o.Path, o.Resolved, sp(o.Span), sp(o.PathSpan), placeString(o.Place))
 	}
-	fmt.Fprintf(&b, "implicit orbit: %s\n", placeString(a.ImplicitOrbit))
+	fmt.Fprintf(&b, "implicit lyr: %s\n", placeString(a.ImplicitLyr))
 	kinds := [...]string{"type", "const", "func"}
 	for _, d := range a.Decls {
 		fmt.Fprintf(&b, "decl %s %s place=%s", kinds[d.Kind], sp(d.Span), placeString(d.Place))
@@ -151,10 +151,10 @@ func checkAnalysis(t testing.TB, f *File, a *Analysis) {
 			t.Fatal("unplaced import")
 		}
 	}
-	for _, o := range a.OrbitImports {
-		in("orbit import", o.Span)
+	for _, o := range a.LyrImports {
+		in("lyr import", o.Span)
 		in("alias", o.AliasSpan)
-		in("orbit path", o.PathSpan)
+		in("lyr path", o.PathSpan)
 	}
 	in("props", a.Props.Span)
 	for _, fl := range a.Props.Fields {
@@ -166,13 +166,13 @@ func checkAnalysis(t testing.TB, f *File, a *Analysis) {
 }
 
 func TestAnalyzeGolden(t *testing.T) {
-	paths, err := filepath.Glob("testdata/analyze/*.orbit")
+	paths, err := filepath.Glob("testdata/analyze/*.lyr")
 	if err != nil || len(paths) == 0 {
 		t.Fatalf("no testdata: %v", err)
 	}
 	for _, path := range paths {
 		name := filepath.Base(path)
-		t.Run(strings.TrimSuffix(name, ".orbit"), func(t *testing.T) {
+		t.Run(strings.TrimSuffix(name, ".lyr"), func(t *testing.T) {
 			src, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
@@ -184,7 +184,7 @@ func TestAnalyzeGolden(t *testing.T) {
 			f := Parse(string(src), mode)
 			a := Analyze(f, anTestInfo(name))
 			checkAnalysis(t, f, a)
-			base := strings.TrimSuffix(path, ".orbit")
+			base := strings.TrimSuffix(path, ".lyr")
 			golden(t, base+".analysis.golden", dumpAnalysis(f, a))
 			golden(t, base+".diag.golden", dumpAnalysisDiags(f, a))
 		})
@@ -194,7 +194,7 @@ func TestAnalyzeGolden(t *testing.T) {
 func anComp(t *testing.T, src string) *Analysis {
 	t.Helper()
 	f := Parse(src, Strict)
-	a := Analyze(f, FileInfo{Path: "src/components/X.orbit"})
+	a := Analyze(f, FileInfo{Path: "src/components/X.lyr"})
 	checkAnalysis(t, f, a)
 	return a
 }
@@ -219,10 +219,10 @@ func anPlaces(a *Analysis) map[string]string {
 	for _, i := range a.GoImports {
 		m["import "+i.Path] = placeString(i.Place)
 	}
-	for _, o := range a.OrbitImports {
+	for _, o := range a.LyrImports {
 		m["alias "+o.Alias] = placeString(o.Place)
 	}
-	m["orbit"] = placeString(a.ImplicitOrbit)
+	m["lyr"] = placeString(a.ImplicitLyr)
 	return m
 }
 
@@ -249,7 +249,7 @@ x := helper()
 <p>{x}</p>`, map[string]string{
 			"Item": "decl", "Kind": "decl", "Max": "impl", "limit": "impl", "Item.method": "decl",
 			"name": "decl", "helper": "impl", "Props": "decl",
-			"import strings": "both", "import strconv": "decl", "orbit": "none",
+			"import strings": "both", "import strconv": "decl", "lyr": "none",
 		}},
 		{"group placed as a whole", `---
 type (
@@ -259,46 +259,46 @@ type (
 )
 type Lone int
 ---
-`, map[string]string{"Props,A,Other": "decl", "Lone": "impl", "orbit": "none"}},
+`, map[string]string{"Props,A,Other": "decl", "Lone": "impl", "lyr": "none"}},
 		{"shadowing local", `---
 import "strings"
 strings := []string{"a"}
 _ = strings
 ---
-{len(strings)}`, map[string]string{"import strings": "impl", "orbit": "none"}},
+{len(strings)}`, map[string]string{"import strings": "impl", "lyr": "none"}},
 		{"shadowing local hides import use in template", `---
 import "strings"
 ---
-{for _, strings := range []string{"a"}}{strings}{/for}`, map[string]string{"import strings": "impl", "orbit": "none"}},
-		{"implicit orbit, decl and impl", `---
-type Props struct{ Body orbit.HTML }
+{for _, strings := range []string{"a"}}{strings}{/for}`, map[string]string{"import strings": "impl", "lyr": "none"}},
+		{"implicit lyr, decl and impl", `---
+type Props struct{ Body lyr.HTML }
 ---
-<div set:html={orbit.HTML("x")}></div>`, map[string]string{"Props": "decl", "orbit": "both"}},
-		{"orbit shadowed in a nested block", `---
+<div set:html={lyr.HTML("x")}></div>`, map[string]string{"Props": "decl", "lyr": "both"}},
+		{"lyr shadowed in a nested block", `---
 ---
-{for _, orbit := range []int{1}}{orbit}{/for}`, map[string]string{"orbit": "none"}},
-		{"explicit orbit import merged", `---
-import "github.com/orbit-z/orbit"
-x := orbit.HTML("a")
+{for _, lyr := range []int{1}}{lyr}{/for}`, map[string]string{"lyr": "none"}},
+		{"explicit lyr import merged", `---
+import "github.com/orbit-z/lyr"
+x := lyr.HTML("a")
 ---
-{x}`, map[string]string{"import github.com/orbit-z/orbit": "impl", "orbit": "none"}},
-		{"explicit orbit import, used in decl too", `---
-import orbit "github.com/orbit-z/orbit"
-type Props struct{ H orbit.HTML }
+{x}`, map[string]string{"import github.com/orbit-z/lyr": "impl", "lyr": "none"}},
+		{"explicit lyr import, used in decl too", `---
+import lyr "github.com/orbit-z/lyr"
+type Props struct{ H lyr.HTML }
 ---
-{orbit.HTML("x")}`, map[string]string{"import github.com/orbit-z/orbit": "both", "Props": "decl", "orbit": "none"}},
+{lyr.HTML("x")}`, map[string]string{"import github.com/orbit-z/lyr": "both", "Props": "decl", "lyr": "none"}},
 		{"unused and blank imports", `---
 import (
 	"fmt"
 	_ "embed"
 )
 ---
-`, map[string]string{"import fmt": "impl", "import embed": "impl", "orbit": "none"}},
-		{"orbit alias in decl and template", `---
-import B "./B.orbit"
+`, map[string]string{"import fmt": "impl", "import embed": "impl", "lyr": "none"}},
+		{"lyr alias in decl and template", `---
+import B "./B.lyr"
 type Props struct{ T B.Tag }
 ---
-<B />`, map[string]string{"alias B": "both", "Props": "decl", "orbit": "none"}},
+<B />`, map[string]string{"alias B": "both", "Props": "decl", "lyr": "none"}},
 		{"versioned import name", `---
 import (
 	"github.com/go-chi/chi/v5"
@@ -307,20 +307,20 @@ import (
 type Props struct{ R chi.Router }
 var y yaml.Node
 ---
-`, map[string]string{"import github.com/go-chi/chi/v5": "decl", "import gopkg.in/yaml.v3": "impl", "Props": "decl", "orbit": "none"}},
+`, map[string]string{"import github.com/go-chi/chi/v5": "decl", "import gopkg.in/yaml.v3": "impl", "Props": "decl", "lyr": "none"}},
 		{"cycle", `---
 type Props struct{ N *Node }
 type Node struct{ Next *Node; P *Pair }
 type Pair struct{ N *Node }
 ---
-`, map[string]string{"Props": "decl", "Node": "decl", "Pair": "decl", "orbit": "none"}},
-		{"page: everything impl", "---\ntype Item int\n---\n", map[string]string{"Item": "impl", "orbit": "none"}},
+`, map[string]string{"Props": "decl", "Node": "decl", "Pair": "decl", "lyr": "none"}},
+		{"page: everything impl", "---\ntype Item int\n---\n", map[string]string{"Item": "impl", "lyr": "none"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			info := FileInfo{Path: "src/components/X.orbit"}
+			info := FileInfo{Path: "src/components/X.lyr"}
 			if strings.HasPrefix(tt.name, "page") {
-				info = FileInfo{Path: "src/pages/x.orbit", Role: RolePage, Route: "/x"}
+				info = FileInfo{Path: "src/pages/x.lyr", Role: RolePage, Route: "/x"}
 			}
 			f := Parse(tt.src, Strict)
 			a := Analyze(f, info)
@@ -400,7 +400,7 @@ func TestAnalyzeEcho(t *testing.T) {
 	}
 	for _, tt := range tests {
 		f := Parse("---\n"+tt.body+"\n---\n", Strict)
-		a := Analyze(f, FileInfo{Path: "src/components/X.orbit"})
+		a := Analyze(f, FileInfo{Path: "src/components/X.lyr"})
 		if !slices.Equal(a.Echo, tt.want) {
 			t.Errorf("%q: echo %q, want %q", tt.body, a.Echo, tt.want)
 		}
@@ -438,7 +438,7 @@ func TestAnalyzeTerminating(t *testing.T) {
 	}
 	for _, tt := range tests {
 		f := Parse("---\n"+tt.body+"\n---\n", Strict)
-		a := Analyze(f, FileInfo{Path: "src/components/X.orbit"})
+		a := Analyze(f, FileInfo{Path: "src/components/X.lyr"})
 		if a.Terminating != tt.want {
 			t.Errorf("%q: terminating %v, want %v", tt.body, a.Terminating, tt.want)
 		}
@@ -450,7 +450,7 @@ func TestAnalyzeTerminating(t *testing.T) {
 		"---\nreturn nil\n---\n<p>x</p>":        true,
 		"---\nreturn nil\n---\n<!-- c -->":      true,
 	} {
-		a := Analyze(Parse(src, Strict), FileInfo{Path: "src/components/X.orbit"})
+		a := Analyze(Parse(src, Strict), FileInfo{Path: "src/components/X.lyr"})
 		if got := a.HasErrors(); got != wantErr {
 			t.Errorf("%q: errors %v, want %v (%v)", src, got, wantErr, anMessages(a))
 		}
@@ -473,7 +473,7 @@ func TestAnalyzeParams(t *testing.T) {
 		{"/post-[id]", nil, nil},
 	}
 	for _, tt := range tests {
-		a := Analyze(Parse("", Strict), FileInfo{Path: "src/pages/x.orbit", Role: RolePage, Route: tt.route})
+		a := Analyze(Parse("", Strict), FileInfo{Path: "src/pages/x.lyr", Role: RolePage, Route: tt.route})
 		if !slices.Equal(a.Params, tt.want) {
 			t.Errorf("%s: params %v, want %v", tt.route, a.Params, tt.want)
 		}
@@ -499,20 +499,20 @@ func TestAnalyzeShadowing(t *testing.T) {
 		}
 	}
 	bad := map[string]string{
-		"---\nprops := 1\n---\n":            "props is provided by Orbit and can't be redeclared here",
-		"---\nvar ctx int\n---\n":           "ctx is provided by Orbit and can't be redeclared here",
-		"---\nx, slots := 1, 2\n---\n":      "slots is provided by Orbit and can't be redeclared here",
-		"---\nlocals := 1\n---\n":           "locals is provided by Orbit and can't be redeclared here",
-		"---\norbit := 42\n---\n":           "orbit is provided by Orbit and can't be redeclared here",
-		"---\nvar (\n\tprops int\n)\n---\n": "props is provided by Orbit and can't be redeclared here",
+		"---\nprops := 1\n---\n":            "props is provided by Lyr and can't be redeclared here",
+		"---\nvar ctx int\n---\n":           "ctx is provided by Lyr and can't be redeclared here",
+		"---\nx, slots := 1, 2\n---\n":      "slots is provided by Lyr and can't be redeclared here",
+		"---\nlocals := 1\n---\n":           "locals is provided by Lyr and can't be redeclared here",
+		"---\nlyr := 42\n---\n":             "lyr is provided by Lyr and can't be redeclared here",
+		"---\nvar (\n\tprops int\n)\n---\n": "props is provided by Lyr and can't be redeclared here",
 	}
 	for src, want := range bad {
 		if got := anMessages(anComp(t, src)); !slices.Equal(got, []string{want}) {
 			t.Errorf("%q: %q, want %q", src, got, want)
 		}
 	}
-	a := Analyze(Parse("---\nparams := 1\n---\n", Strict), FileInfo{Path: "src/pages/x.orbit", Role: RolePage, Route: "/x"})
-	if got := anMessages(a); !slices.Equal(got, []string{"params is provided by Orbit and can't be redeclared here"}) {
+	a := Analyze(Parse("---\nparams := 1\n---\n", Strict), FileInfo{Path: "src/pages/x.lyr", Role: RolePage, Route: "/x"})
+	if got := anMessages(a); !slices.Equal(got, []string{"params is provided by Lyr and can't be redeclared here"}) {
 		t.Errorf("page params: %q", got)
 	}
 }
@@ -547,9 +547,9 @@ func TestAnalyzeUsesLocals(t *testing.T) {
 func TestNewComponentInfo(t *testing.T) {
 	src := "---\ntype Props struct{ Title string }\n---\n<slot /><slot name=\"footer\" /><slot name=\"footer\">x</slot><slot />"
 	f := Parse(src, Strict)
-	a := Analyze(f, FileInfo{Path: "src/components/My-Card.orbit"})
+	a := Analyze(f, FileInfo{Path: "src/components/My-Card.lyr"})
 	ci := NewComponentInfo(f, a)
-	if ci.Name != "My-Card" || ci.Pkg.Rel != "components/my_card" || ci.ID != ComponentID("src/components/My-Card.orbit") {
+	if ci.Name != "My-Card" || ci.Pkg.Rel != "components/my_card" || ci.ID != ComponentID("src/components/My-Card.lyr") {
 		t.Errorf("info %+v", ci)
 	}
 	if !slices.Equal(ci.Slots, []string{"default", "footer"}) {
@@ -561,7 +561,7 @@ func TestNewComponentInfo(t *testing.T) {
 }
 
 func FuzzAnalyze(f *testing.F) {
-	for _, glob := range []string{"testdata/analyze/*.orbit", "testdata/parse/*.orbit"} {
+	for _, glob := range []string{"testdata/analyze/*.lyr", "testdata/parse/*.lyr"} {
 		paths, _ := filepath.Glob(glob)
 		for _, path := range paths {
 			src, _ := os.ReadFile(path)
@@ -571,13 +571,13 @@ func FuzzAnalyze(f *testing.F) {
 	for _, s := range []string{
 		"---\nfunc", "---\nfunc (", "---\nfunc (r T", "---\ntype Props struct{", "---\nimport (", "---\nimport \"",
 		"---\nif x {\n---\n{x}", "---\n}\n---\n{)}", "---\n/*\n---\n", "---\n`\n---\n", "---\nfor ;; {\n",
-		"---\ntype Props[T any] struct{ x T }\n---\n", "---\nimport X \"../../../x.orbit\"\n---\n",
+		"---\ntype Props[T any] struct{ x T }\n---\n", "---\nimport X \"../../../x.lyr\"\n---\n",
 	} {
 		f.Add(s)
 	}
 	infos := []FileInfo{
-		{Path: "src/components/X.orbit"},
-		{Path: "src/pages/blog/[slug].orbit", Role: RolePage, Route: "/blog/[slug]"},
+		{Path: "src/components/X.lyr"},
+		{Path: "src/pages/blog/[slug].lyr", Role: RolePage, Route: "/blog/[slug]"},
 	}
 	f.Fuzz(func(t *testing.T, src string) {
 		for _, mode := range []Mode{Strict, Tolerant} {

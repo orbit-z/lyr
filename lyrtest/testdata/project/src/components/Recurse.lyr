@@ -1,0 +1,8 @@
+---
+import Cacher "./Cacher.lyr"
+
+type Props struct {
+	N int
+}
+---
+<Cacher><Self n={props.N + 1} /></Cacher>

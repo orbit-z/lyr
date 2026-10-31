@@ -1,5 +1,5 @@
-info src/pages/props.orbit page route="/props"
-implicit orbit: none
+info src/pages/props.lyr page route="/props"
+implicit lyr: none
 decl type @4-39 place=impl Props@9-14
   "type Props struct {\n\tTitle string\n}"
 decl type @41-91 place=impl Params@49-55 Extra@79-84

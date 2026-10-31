@@ -1,0 +1,6 @@
+---
+import lyr "github.com/orbit-z/lyr"
+
+type Props struct{ Body lyr.HTML }
+---
+<div set:html={props.Body}></div>

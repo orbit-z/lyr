@@ -1,0 +1,9 @@
+---
+link:=props.Attrs.Has("href")
+Tag   := lyr.Cond(link,"a","button")
+theme:=lyr.AttrList{lyr.A("data-theme","dark"),lyr.A("data-n",3)}
+---
+<Tag {...props.Attrs}   type={lyr.If(!link,"button")}><slot /></Tag>
+<Tag/>
+<html {...theme}   lang="en"></html>
+{for _,T:=range tags}<T>{T}</T>{/for}

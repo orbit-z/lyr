@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/markdown"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/markdown"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // blockCompletion returns the control block items at the "|" of src (which
@@ -48,7 +48,7 @@ func TestBlockCompletionLabels(t *testing.T) {
 		{"prefix", fm + "<p>{i|}</p>\n", top},
 		{"top level", "{fo|}\n", top},
 		{"retyping {if}", "<p>{if|}</p>\n", top},
-		{"in a slot", "---\nimport Box \"./Box.orbit\"\n---\n<Box>{|}</Box>\n", top},
+		{"in a slot", "---\nimport Box \"./Box.lyr\"\n---\n<Box>{|}</Box>\n", top},
 		{"in RCDATA", "<title>{|}</title>\n", top},
 		{"in an if", "{if true}<b>x</b>{|}{/if}\n", []string{"if", "for", "switch", "else if", "else", "/if"}},
 		{"in an else if", "{if true}a{else if false}{|}{/if}\n", []string{"if", "for", "switch", "else if", "else", "/if"}},
@@ -179,13 +179,13 @@ func TestBlockCompletionServer(t *testing.T) {
 		t.Skip("skipping in -short mode")
 	}
 	const page = "---\nxs := []int{1}\n---\n<ul class={}>{for _, x := range xs}<li>{x}</li>{}{/for}</ul>\n"
-	dir := writeProject(t, map[string]string{"src/pages/index.orbit": page})
+	dir := writeProject(t, map[string]string{"src/pages/index.lyr": page})
 	stub, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
 	c := startClient(t, dir, map[string]any{"goplsPath": stub}, stubEnv+"=record:"+filepath.Join(t.TempDir(), "rec"))
-	const rel = "src/pages/index.orbit"
+	const rel = "src/pages/index.lyr"
 	text := c.open(rel)
 	items := c.complete(rel, at(t, text, "{}{/for}", 0, 1))
 	if got := labels(items); !slices.Equal(got, []string{"if", "for", "switch", "/for"}) {

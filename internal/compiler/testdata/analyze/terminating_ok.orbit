@@ -1,9 +1,0 @@
----
-x, err := load()
-if err != nil {
-	return err
-}
-return orbit.ErrNotFound
----
-
-{/* nothing renders */}

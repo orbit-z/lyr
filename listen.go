@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"context"
@@ -20,11 +20,11 @@ const (
 	shutdownGrace     = 5 * time.Second
 )
 
-// Addr returns the address to listen on: $ORBIT_ADDR, else ":"+$PORT, else
-// ":4321". orbit dev sets ORBIT_ADDR, so a server that starts its own
-// http.Server should listen on Addr() to work under orbit dev.
+// Addr returns the address to listen on: $LYR_ADDR, else ":"+$PORT, else
+// ":4321". lyr dev sets LYR_ADDR, so a server that starts its own
+// http.Server should listen on Addr() to work under lyr dev.
 func Addr() string {
-	if a := os.Getenv("ORBIT_ADDR"); a != "" {
+	if a := os.Getenv("LYR_ADDR"); a != "" {
 		return a
 	}
 	if p := os.Getenv("PORT"); p != "" {
@@ -38,7 +38,7 @@ func Addr() string {
 // nil after a graceful shutdown, and otherwise the error that stopped the
 // server, so call it as
 //
-//	if err := orbit.ListenAndServe(h); err != nil {
+//	if err := lyr.ListenAndServe(h); err != nil {
 //		log.Fatal(err)
 //	}
 //
@@ -47,14 +47,14 @@ func Addr() string {
 // command-line flags.
 //
 // Once listening, it logs the server's URL with the log package, such as
-// "orbit: listening on http://localhost:4321", except under orbit dev
-// (ORBIT_DEV=1), whose proxy prints its own URL.
+// "lyr: listening on http://localhost:4321", except under lyr dev
+// (LYR_DEV=1), whose proxy prints its own URL.
 func ListenAndServe(h http.Handler) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	var ready func(net.Addr)
-	if os.Getenv("ORBIT_DEV") != "1" {
-		ready = func(a net.Addr) { log.Printf("orbit: listening on %s", listenURL(a)) }
+	if os.Getenv("LYR_DEV") != "1" {
+		ready = func(a net.Addr) { log.Printf("lyr: listening on %s", listenURL(a)) }
 	}
 	return serve(ctx, stop, Addr(), h, ready)
 }
@@ -109,7 +109,7 @@ func serve(ctx context.Context, stop func(), addr string, h http.Handler, ready 
 	}
 	if err != nil {
 		srv.Close()
-		return fmt.Errorf("orbit: shutdown: %w", err)
+		return fmt.Errorf("lyr: shutdown: %w", err)
 	}
 	return nil
 }

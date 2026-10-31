@@ -1,0 +1,18 @@
+---
+type Hook struct {
+	Name   string
+	Notify func()
+	skip   func()
+	Hidden func() `json:"-"`
+}
+
+type Props struct {
+	Hook  Hook
+	Ch    chan int
+	ByKey map[[2]int]string
+	Any   any
+}
+---
+<div data-hook={lyr.JSON(props.Hook)} data-ch={lyr.JSON(props.Ch)} data-by-key={lyr.JSON(props.ByKey)} data-any={lyr.JSON(props.Any)}></div>
+<pre>{lyr.JSON(1i)}</pre>
+<script type="application/json" id="cb" set:json={func() {}}></script>

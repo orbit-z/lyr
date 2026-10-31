@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"net/http"
@@ -145,7 +145,7 @@ func TestLocalsOfTypeMismatchPanics(t *testing.T) {
 	LocalsOf[testLocals](c)
 	defer func() {
 		msg, _ := recover().(string)
-		if !strings.Contains(msg, "*orbit.otherLocals") || !strings.Contains(msg, "*orbit.testLocals") {
+		if !strings.Contains(msg, "*lyr.otherLocals") || !strings.Contains(msg, "*lyr.testLocals") {
 			t.Errorf("panic = %q, want both type names", msg)
 		}
 	}()

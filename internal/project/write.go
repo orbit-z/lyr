@@ -11,10 +11,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
-// StaticDir is orbit_gen/static, written by orbit build --embed. Generate
+// StaticDir is lyr_gen/static, written by lyr build --embed. Generate
 // only writes its doc.go and never removes anything there: its embedded
 // copies of dist/client have no marker.
 const StaticDir = compiler.GenDir + "/static"
@@ -27,19 +27,19 @@ type WriteResult struct {
 }
 
 // WriteGenerated writes files under root (each Path must be under
-// orbit_gen/) and removes stale generated files. A file whose content is
+// lyr_gen/) and removes stale generated files. A file whose content is
 // unchanged isn't rewritten, so its mtime (and the go build cache) stays
 // warm; changed files are written atomically, to a temporary file renamed
-// over the old one. A file under orbit_gen/ that isn't in files is removed
+// over the old one. A file under lyr_gen/ that isn't in files is removed
 // only if it starts with the generated-code marker, so files the user put
 // there are kept; directories left empty by a removal are removed too.
-// orbit_gen/static is never touched.
+// lyr_gen/static is never touched.
 func WriteGenerated(root string, files []GenFile) (*WriteResult, error) {
 	res := &WriteResult{}
 	keep := map[string]bool{}
 	for _, f := range files {
 		if !strings.HasPrefix(f.Path, compiler.GenDir+"/") || path.Clean(f.Path) != f.Path {
-			return nil, errors.New("orbit: generated file outside " + compiler.GenDir + "/: " + f.Path)
+			return nil, errors.New("lyr: generated file outside " + compiler.GenDir + "/: " + f.Path)
 		}
 		keep[f.Path] = true
 	}
@@ -77,7 +77,7 @@ func writeIfChanged(name string, content []byte) (bool, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return false, err
 	}
-	tmp, err := os.CreateTemp(dir, ".orbit-tmp-*")
+	tmp, err := os.CreateTemp(dir, ".lyr-tmp-*")
 	if err != nil {
 		return false, err
 	}
@@ -97,7 +97,7 @@ func writeIfChanged(name string, content []byte) (bool, error) {
 // DiffGenerated reports what WriteGenerated(root, files) would change,
 // without writing anything: the files whose content differs or that are
 // missing (Written), and the stale generated files it would remove
-// (Removed). orbit doctor uses it to tell whether orbit_gen/ is fresh.
+// (Removed). lyr doctor uses it to tell whether lyr_gen/ is fresh.
 func DiffGenerated(root string, files []GenFile) (*WriteResult, error) {
 	res := &WriteResult{}
 	keep := map[string]bool{}
@@ -124,7 +124,7 @@ func DiffGenerated(root string, files []GenFile) (*WriteResult, error) {
 	return res, nil
 }
 
-// removeStale deletes the marked files under root/orbit_gen that aren't in
+// removeStale deletes the marked files under root/lyr_gen that aren't in
 // keep, then the directories that became empty.
 func removeStale(root string, keep map[string]bool) ([]string, error) {
 	gen := filepath.Join(root, compiler.GenDir)
@@ -143,7 +143,7 @@ func removeStale(root string, keep map[string]bool) ([]string, error) {
 		dirs[filepath.Dir(p)] = true
 	}
 	// Remove emptied directories, deepest first, up to (not including)
-	// orbit_gen itself.
+	// lyr_gen itself.
 	list := make([]string, 0, len(dirs))
 	for d := range dirs {
 		list = append(list, d)
@@ -162,7 +162,7 @@ func removeStale(root string, keep map[string]bool) ([]string, error) {
 }
 
 // staleFiles returns the absolute paths of the marked files under
-// root/orbit_gen (outside orbit_gen/static) that aren't in keep.
+// root/lyr_gen (outside lyr_gen/static) that aren't in keep.
 func staleFiles(root string, keep map[string]bool) ([]string, error) {
 	gen := filepath.Join(root, compiler.GenDir)
 	var stale []string

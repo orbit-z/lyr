@@ -1,0 +1,51 @@
+---
+type Props struct {
+	Slug  string
+	Likes int
+}
+
+// like is what the script reads: lyr.JSON keeps its Go type on the
+// TypeScript side (import { data } from "./LikeButton.lyr").
+type like struct {
+	Slug  string `json:"slug"`
+	Likes int    `json:"likes"`
+}
+---
+<like-button data-like={lyr.JSON(like{props.Slug, props.Likes})}>
+  <button type="button" class="like">♥ <span>{props.Likes}</span></button>
+</like-button>
+<style>
+  .like {
+    padding: 0.3rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+  }
+</style>
+<script>
+  import { plural } from "../scripts/util";
+  import { data } from "./LikeButton.lyr";
+
+  // POST /blog/{slug}/like is a custom route in cmd/server: it answers with
+  // a freshly rendered LikeButton, which replaces this one.
+  class LikeButton extends HTMLElement {
+    connectedCallback(): void {
+      const like = data(this, "like");
+      const button = this.querySelector("button")!;
+      button.title = plural(like.likes, "like");
+      button.addEventListener("click", () => this.like(), { once: true });
+    }
+
+    async like(): Promise<void> {
+      const res = await fetch(`/blog/${data(this, "like").slug}/like`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        this.outerHTML = await res.text();
+      }
+    }
+  }
+  customElements.define("like-button", LikeButton);
+</script>

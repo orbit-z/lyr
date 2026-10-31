@@ -12,7 +12,7 @@ import (
 // TestBridgeTypes runs each testdata/types/<case> through the real
 // pipeline and compares the emitted .d.ts files (EmitTypes over every
 // unit's Types) with want/, and the typed pass's diagnostics with
-// diags.golden. A case has src/**/*.orbit files and, under go/, user Go
+// diags.golden. A case has src/**/*.lyr files and, under go/, user Go
 // packages copied into the module (go/internal/posts/posts.go →
 // internal/posts/posts.go). Refresh with -update.
 func TestBridgeTypes(t *testing.T) {
@@ -36,7 +36,7 @@ func TestBridgeTypes(t *testing.T) {
 					return err
 				}
 				switch {
-				case strings.HasPrefix(rel, "src/") && strings.HasSuffix(rel, ".orbit"):
+				case strings.HasPrefix(rel, "src/") && strings.HasSuffix(rel, ".lyr"):
 					srcs[rel] = string(data)
 				case strings.HasPrefix(rel, "go/"):
 					m.write(strings.TrimPrefix(rel, "go/"), string(data))

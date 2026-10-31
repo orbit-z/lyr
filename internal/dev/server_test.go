@@ -78,7 +78,7 @@ func TestInject(t *testing.T) {
 		w.Header().Set("Content-Length", strconv.Itoa(len(page)))
 		io.WriteString(w, page)
 	})
-	mux.HandleFunc("/_orbit/island/0000000000000000/x", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/_lyr/island/0000000000000000/x", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		io.WriteString(w, "<section>fragment</section>")
 	})
@@ -110,7 +110,7 @@ func TestInject(t *testing.T) {
 	}
 
 	// A fragment has no </body>: untouched.
-	if w := get(s, "/_orbit/island/0000000000000000/x"); w.Body.String() != "<section>fragment</section>" {
+	if w := get(s, "/_lyr/island/0000000000000000/x"); w.Body.String() != "<section>fragment</section>" {
 		t.Errorf("fragment: %q", w.Body)
 	}
 	// Not HTML: untouched.
@@ -135,7 +135,7 @@ func TestInject(t *testing.T) {
 }
 
 // TestRequestsWait checks that requests wait while a rebuild is in
-// progress, and that /__orbit/* never waits.
+// progress, and that /__lyr/* never waits.
 func TestRequestsWait(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s, _ := testServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -205,10 +205,10 @@ func TestOverlay(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(s.root, "src/components"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(s.root, "src/components/Card.orbit"), []byte(src), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(s.root, "src/components/Card.lyr"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	s.failure = compileFailure("# example.com/site/orbit_gen/impl/components/card\nsrc/components/Card.orbit:5:13: props.Psot undefined (type Props has no field or method Psot, but does have field Post)\n")
+	s.failure = compileFailure("# example.com/site/lyr_gen/impl/components/card\nsrc/components/Card.lyr:5:13: props.Psot undefined (type Props has no field or method Psot, but does have field Post)\n")
 
 	w := get(s, "/", "Accept", "text/html,application/xhtml+xml")
 	body := w.Body.String()
@@ -216,7 +216,7 @@ func TestOverlay(t *testing.T) {
 		t.Errorf("overlay: %d %s", w.Code, w.Header().Get("Content-Type"))
 	}
 	for _, want := range []string{
-		`<span class="pos">src/components/Card.orbit:5:13</span>: props.Psot undefined`,
+		`<span class="pos">src/components/Card.lyr:5:13</span>: props.Psot undefined`,
 		`&lt;h2&gt;{props.Psot}&lt;/h2&gt;`, // the code frame
 		"&gt; 5 │ ",
 		reloadTag,
@@ -325,14 +325,14 @@ func TestAppEnv(t *testing.T) {
 		return false
 	}
 	env := appEnv([]string{"PATH=/bin"}, nil)
-	for _, kv := range []string{"ORBIT_DEV=1", "ORBIT_STATIC=.orbit/dev", "ORBIT_PUBLIC=public"} {
+	for _, kv := range []string{"LYR_DEV=1", "LYR_STATIC=.lyr/dev", "LYR_PUBLIC=public"} {
 		if !has(env, kv) {
 			t.Errorf("no %s in %v", kv, env)
 		}
 	}
 	var key string
 	for _, e := range env {
-		if v, ok := strings.CutPrefix(e, "ORBIT_KEY="); ok {
+		if v, ok := strings.CutPrefix(e, "LYR_KEY="); ok {
 			key = v
 		}
 	}
@@ -340,14 +340,14 @@ func TestAppEnv(t *testing.T) {
 		t.Errorf("session key %q", key)
 	}
 	// The user's own key wins.
-	env = appEnv([]string{"ORBIT_KEY=mine"}, nil)
+	env = appEnv([]string{"LYR_KEY=mine"}, nil)
 	n := 0
 	for _, e := range env {
-		if strings.HasPrefix(e, "ORBIT_KEY=") {
+		if strings.HasPrefix(e, "LYR_KEY=") {
 			n++
 		}
 	}
-	if n != 1 || !has(env, "ORBIT_KEY=mine") {
+	if n != 1 || !has(env, "LYR_KEY=mine") {
 		t.Errorf("user key: %v", env)
 	}
 }

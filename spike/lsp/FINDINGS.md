@@ -1,12 +1,12 @@
 # Spike B: the LSP proxy against real gopls (milestone 0)
 
-This spike tests how real gopls behaves when Orbit's language server proxies to it with in-memory overlays of the generated Go (PLAN.md §9). It drives gopls directly, acting as the client `orbit lsp` would be. The coordinator reran the `minimal` session independently and got the same results.
+This spike tests how real gopls behaves when Lyr's language server proxies to it with in-memory overlays of the generated Go (PLAN.md §9). It drives gopls directly, acting as the client `lyr lsp` would be. The coordinator reran the `minimal` session independently and got the same results.
 
 ## Setup
 - **gopls**: v0.24.0 (2026-10-14), built with go1.27.3 into `spike/lsp/bin/gopls`. The old `~/go/bin/gopls` (v0.18.1, built with go1.23.4) was left untouched.
-- **Project**: `spike/lsp/project` (`example.com/blog`, `go 1.27`, `toolchain go1.27.3`). It has `internal/posts` and reference-only `.orbit` sources, and **no `orbit_gen/` on disk**.
-- **Stub runtime**: `spike/lsp/orbitstub`, `replace`d. `Ctx` holds `*http.Request`, so `net/http` is type-checked.
-- **Codegen**: `harness/gen.go` emits the §3.1/§3.2 layout with inline `/*line*/` directives and resets. Sanity check with `go run ./harness -dump DIR`: then `go build` in `DIR/project` reports `./src/pages/index.orbit:6:10: undefined: hoem`.
+- **Project**: `spike/lsp/project` (`example.com/blog`, `go 1.27`, `toolchain go1.27.3`). It has `internal/posts` and reference-only `.lyr` sources, and **no `lyr_gen/` on disk**.
+- **Stub runtime**: `spike/lsp/lyrstub`, `replace`d. `Ctx` holds `*http.Request`, so `net/http` is type-checked.
+- **Codegen**: `harness/gen.go` emits the §3.1/§3.2 layout with inline `/*line*/` directives and resets. Sanity check with `go run ./harness -dump DIR`: then `go build` in `DIR/project` reports `./src/pages/index.lyr:6:10: undefined: hoem`.
 - **Harness**: `harness/jsonrpc.go`, a stdio JSON-RPC client using `json.RawMessage`. Run it as `go run ./harness [-only main|utf16|old|timing|hoverdoc|scale|refs|refs2|refs3|minimal|shape] [-delay 50ms] [-verbose]`. Evidence goes to `results/*.md` and `results/*.log`.
 
 All positions are 0-based LSP positions.
@@ -31,9 +31,9 @@ All positions are 0-based LSP positions.
 - **1b. Caveat**:
   - The initial workspace load doesn't see overlay-only directories. gopls loads each overlay with its own serial `go list file=…` (about 25–35 ms each).
   - Forward lookups work on demand.
-  - **Reverse lookups (references, rename) silently miss importers** until everything has loaded (0–50 of 50 runs incomplete in `results/refs.md`). On-disk `orbit_gen` was always complete.
+  - **Reverse lookups (references, rename) silently miss importers** until everything has loaded (0–50 of 50 runs incomplete in `results/refs.md`). On-disk `lyr_gen` was always complete.
   - "All diagnostics published, plus 2 s of quiet" isn't a reliable readiness signal.
-  - **A barrier that works**: one `textDocument/documentHighlight` per overlay, sent in parallel. 2.4–2.5 s for 102 overlays, after which references were complete 3/3. The same barrier takes 0.8 s with `orbit_gen` on disk.
+  - **A barrier that works**: one `textDocument/documentHighlight` per overlay, sent in parallel. 2.4–2.5 s for 102 overlays, after which references were complete 3/3. The same barrier takes 0.8 s with `lyr_gen` on disk.
 - **1c. Side effects**:
   - A spurious `go.mod` warning: `"<module> is not used in this module"` (source `go mod tidy`) for modules imported only by overlays.
   - `window/showMessage` "Warning: editing render.go, a generated file." on the first `didChange` of each overlay.
@@ -55,16 +55,16 @@ All positions are 0-based LSP positions.
 - Completion sees the new field within 1–2 ms.
 
 ### 4. Line directives: ignored by gopls
-| Error | `.orbit` | gopls (generated URI, raw position) |
+| Error | `.lyr` | gopls (generated URI, raw position) |
 |---|---|---|
-| `title := hoem` | index.orbit:6:10 | render.go 22:55 |
+| `title := hoem` | index.lyr:6:10 | render.go 22:55 |
 | `{titel}` | 9:5 | render.go 27:46 |
 | key `Psot` | 11:9 | render.go 33:50 |
-| `posts.Postt` in Props | Card.orbit:4:20 | decl.go 10:19, plus a knock-on error in the impl |
+| `posts.Postt` in Props | Card.lyr:4:20 | decl.go 10:19, plus a knock-on error in the impl |
 
-- Diagnostics, hover, definition and references all use generated URIs and raw positions. Nothing is ever reported for a `.orbit` URI (gopls uses `PositionFor(pos, false)`).
-- **4c. Doc leak**: inline `/*line*/` comments become a declaration's doc or line comment. Hover then shows `line decl.go:13:24` or `line ../../../../src/components/Card.orbit:3:1 Props are …`.
-  - **Fix**: frame hoisted declarations with **own-line `//line`** directives, which `go/ast` strips from docs. `go build` still reports `./src/components/Card.orbit:5:20` correctly. Inline spans keep `/*line*/`.
+- Diagnostics, hover, definition and references all use generated URIs and raw positions. Nothing is ever reported for a `.lyr` URI (gopls uses `PositionFor(pos, false)`).
+- **4c. Doc leak**: inline `/*line*/` comments become a declaration's doc or line comment. Hover then shows `line decl.go:13:24` or `line ../../../../src/components/Card.lyr:3:1 Props are …`.
+  - **Fix**: frame hoisted declarations with **own-line `//line`** directives, which `go/ast` strips from docs. `go build` still reports `./src/components/Card.lyr:5:20` correctly. Inline spans keep `/*line*/`.
 
 ### 5. Position encoding: FAIL
 - gopls v0.24.0 never returns `positionEncoding`, whatever the client offers.
@@ -86,7 +86,7 @@ All positions are 0-based LSP positions.
 - Renaming a `Props` field gives 3 `TextDocumentEdit`s: the decl, the Card impl, and the page's field key. All carry overlay URIs and versions.
 - gopls **always returns `documentChanges`**, even when the client says it doesn't support them.
 - **Race**: a rename right after startup returned only 2 of the 3 files (see 1b).
-- `prepareRename` also succeeds on glue identifiers such as `orbit__w`, so Orbit must gate it.
+- `prepareRename` also succeeds on glue identifiers such as `lyr__w`, so Lyr must gate it.
 
 ### 8. Timing
 | Scenario | Time |
@@ -114,11 +114,11 @@ All positions are 0-based LSP positions.
   - Swallow the "editing a generated file" message.
   - Drop the overlay-only "not used in this module" go.mod warning.
   - Set `diagnosticsDelay: 50ms` unless the user overrides it.
-- **§9 diagnostics**: gopls ignores directives everywhere. The mapper only translates `orbit_gen/**` locations; the directives exist for `go build`/`go vet`.
+- **§9 diagnostics**: gopls ignores directives everywhere. The mapper only translates `lyr_gen/**` locations; the directives exist for `go build`/`go vet`.
 - **§9 rename**:
   - Convert `documentChanges` to `changes` for clients that lack support.
   - Handle the `_ = name` echo lines (choice C).
-  - Gate `prepareRename` on Orbit's own Go-region routing.
+  - Gate `prepareRename` on Lyr's own Go-region routing.
   - Wait for the barrier.
 - **§9 `Props{}` completion**: keep only kind 5 (Field) items with no `.` in the label. Use their inline docs, and replace the snippet with attribute insert text (`post={$1}`).
 - **§9 startup version check**: warn when gopls was built with an older Go than the project's (choice E).
@@ -127,10 +127,10 @@ All positions are 0-based LSP positions.
 
 ## Choices for the user
 - **A. Client position encoding**: (1) always UTF-16 *(recommended)*; (2) offer UTF-8 where the client supports it.
-- **B. Startup when `orbit_gen` is missing**:
+- **B. Startup when `lyr_gen` is missing**:
   - (1) overlay-only plus the readiness barrier *(recommended)*;
-  - (2) (1) plus a nudge or action to run `orbit generate`;
-  - (3) the LSP writes `orbit_gen` when it's missing (reverses a §9 rule).
+  - (2) (1) plus a nudge or action to run `lyr generate`;
+  - (3) the LSP writes `lyr_gen` when it's missing (reverses a §9 rule).
 - **C. Echo lines in rename**:
   - (1) a source-map kind `echo`, with edits there dropped *(recommended)*;
   - (2) map echo lines back to the declaration and deduplicate;

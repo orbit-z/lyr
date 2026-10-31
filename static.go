@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -14,13 +14,13 @@ import (
 	"strings"
 )
 
-// Static files: the /_orbit/* assets and the public/ files.
+// Static files: the /_lyr/* assets and the public/ files.
 //
 // In production, a file set is an fs.FS plus an index of its regular files,
 // built once in NewSite, so the lookup that every GET runs before the page
 // router is a map read: no system call and no allocation. Files added after
-// startup aren't served until a restart. In dev (ORBIT_DEV=1), files are
-// looked up per request, because orbit dev rebuilds them while the server
+// startup aren't served until a restart. In dev (LYR_DEV=1), files are
+// looked up per request, because lyr dev rebuilds them while the server
 // runs.
 
 // Shared, read-only Cache-Control values (cap == len, see htmlContentType).
@@ -41,12 +41,12 @@ type fileMeta struct {
 	etag string // set when the file has no modification time (embedded files)
 }
 
-// resolveStatic picks the static file source: $ORBIT_STATIC, then
+// resolveStatic picks the static file source: $LYR_STATIC, then
 // WithStaticDir, then WithStaticFS, then client/ in the directory of the
 // running binary. A missing directory gives an empty set.
 func resolveStatic(o siteOptions, dev bool) fileSet {
-	if dir := os.Getenv("ORBIT_STATIC"); dir != "" {
-		warnMissingDir("ORBIT_STATIC", dir, dev)
+	if dir := os.Getenv("LYR_STATIC"); dir != "" {
+		warnMissingDir("LYR_STATIC", dir, dev)
 		return newDirFiles(dir, dev)
 	}
 	if o.staticDir != "" {
@@ -67,13 +67,13 @@ func resolveStatic(o siteOptions, dev bool) fileSet {
 }
 
 // warnMissingDir logs one line when an explicitly set static directory
-// doesn't exist. Not in dev, where orbit dev may create it after startup.
+// doesn't exist. Not in dev, where lyr dev may create it after startup.
 func warnMissingDir(source, dir string, dev bool) {
 	if dev {
 		return
 	}
 	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
-		log.Printf("orbit: %s directory %s doesn't exist; no static files are served from it", source, dir)
+		log.Printf("lyr: %s directory %s doesn't exist; no static files are served from it", source, dir)
 	}
 }
 
@@ -166,8 +166,8 @@ func (s *Site) fileCandidate(r *http.Request) (set *fileSet, name string, cache 
 	}
 	name = p[1:]
 	set, cache = &s.public, cachePublic
-	if strings.HasPrefix(name, "_orbit/") {
-		if strings.HasPrefix(name, "_orbit/island/") {
+	if strings.HasPrefix(name, "_lyr/") {
+		if strings.HasPrefix(name, "_lyr/island/") {
 			return nil, "", nil, false
 		}
 		set, cache = &s.assets, cacheImmutable
@@ -207,7 +207,7 @@ func (s *Site) hasFile(r *http.Request) bool {
 }
 
 // serveFile serves a GET or HEAD for a static file, and reports whether it
-// did. Paths under /_orbit/island/ are reserved for island requests and are
+// did. Paths under /_lyr/island/ are reserved for island requests and are
 // never files. Directories are never served, and a path is never redirected.
 func (s *Site) serveFile(w http.ResponseWriter, r *http.Request) bool {
 	set, name, cache, ok := s.fileCandidate(r)

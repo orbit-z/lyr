@@ -5,7 +5,7 @@ package compiler
 //
 // The frontmatter is split into depth-0 statements with go/scanner. Three
 // synthetic Go files are then parsed with go/parser, each keeping the
-// .orbit offsets (a constant shift, or a segment table for template code):
+// .lyr offsets (a constant shift, or a segment table for template code):
 //   - the import file: the import declarations only;
 //   - the decl file: the hoisted type, const and func declarations, for the
 //     Props closure (resolution against the file scope) and PropsInfo;
@@ -29,7 +29,7 @@ import (
 
 // anGlueCall is the function the body file wraps template expressions in.
 // Its prefix keeps it apart from user names (which may not use it).
-const anGlueCall = "orbit__e"
+const anGlueCall = "lyr__e"
 
 type anState struct {
 	f        *File
@@ -61,7 +61,7 @@ type anState struct {
 
 	bodyTF     *gotoken.File
 	bodyPrefix int
-	// declErrs are the .orbit offsets of the decl file's syntax errors.
+	// declErrs are the .lyr offsets of the decl file's syntax errors.
 	declErrs []int
 }
 
@@ -141,7 +141,7 @@ func (s *anState) parseFM(text, prefix, suffix string, mode goparser.Mode) (*ast
 	return file, fset.File(file.Package), errs
 }
 
-// fmOff maps a position of a frontmatter-based synthetic file to a .orbit
+// fmOff maps a position of a frontmatter-based synthetic file to a .lyr
 // offset; ok is false outside the frontmatter part.
 func (s *anState) fmOff(tf *gotoken.File, p gotoken.Pos, prefix int) (int, bool) {
 	if tf == nil || !p.IsValid() || int(p) < tf.Base() || int(p) > tf.Base()+tf.Size() {
@@ -198,12 +198,12 @@ func (s *anState) parseImports() {
 		ext := strings.ToLower(path.Ext(p))
 		relative := IsPathImport(p)
 		switch {
-		case ext == ".orbit" || IsMarkdown(ext):
-			s.orbitImport(name, nameSpan, p, pathSpan, full)
+		case ext == ".lyr" || IsMarkdown(ext):
+			s.lyrImport(name, nameSpan, p, pathSpan, full)
 		case ext == ".tsx" || ext == ".jsx" || ext == ".svelte" || ext == ".vue":
-			s.errorf(pathSpan, "framework components aren't supported; use a .orbit component with a <script>")
+			s.errorf(pathSpan, "framework components aren't supported; use a .lyr component with a <script>")
 		case relative:
-			s.errorf(pathSpan, "only .orbit and .md files can be imported by relative path; import client modules from a <script>")
+			s.errorf(pathSpan, "only .lyr and .md files can be imported by relative path; import client modules from a <script>")
 		default:
 			if name == "." {
 				s.errorf(nameSpan, "dot imports aren't supported in a component; import the package by name")
@@ -213,7 +213,7 @@ func (s *anState) parseImports() {
 	}
 }
 
-func (s *anState) orbitImport(alias string, aliasSpan Span, p string, pathSpan, full Span) {
+func (s *anState) lyrImport(alias string, aliasSpan Span, p string, pathSpan, full Span) {
 	switch alias {
 	case ".":
 		s.errorf(aliasSpan, "dot imports aren't supported in a component; import the package by name")
@@ -239,12 +239,12 @@ func (s *anState) orbitImport(alias string, aliasSpan Span, p string, pathSpan, 
 	if msg := AliasError(alias); msg != "" {
 		s.errorf(aliasSpan, "%s", msg)
 	}
-	s.a.OrbitImports = append(s.a.OrbitImports, OrbitImport{
+	s.a.LyrImports = append(s.a.LyrImports, LyrImport{
 		Alias: alias, AliasSpan: aliasSpan, Path: p, Span: full, PathSpan: pathSpan, Resolved: resolved,
 	})
 }
 
-// AliasError returns the error for an .orbit import alias that doesn't
+// AliasError returns the error for a .lyr import alias that doesn't
 // start with an uppercase letter (a lowercase tag is always an HTML
 // element), or "" when it does. The LSP checks a renamed alias with it.
 func AliasError(alias string) string {
@@ -372,10 +372,10 @@ func (s *anState) parseDecls() {
 	}
 }
 
-// off maps a decl-file position to a .orbit offset.
+// off maps a decl-file position to a .lyr offset.
 func (s *anState) off(p gotoken.Pos) (int, bool) { return s.fmOff(s.declTF, p, len(anPkgPrefix)) }
 
-// span returns the .orbit span of a decl-file node.
+// span returns the .lyr span of a decl-file node.
 func (s *anState) span(n ast.Node) Span {
 	a, _ := s.off(n.Pos())
 	b, _ := s.off(n.End())
@@ -405,9 +405,9 @@ func anRecvName(e ast.Expr) string {
 // --- the body file ---
 
 // anSynth builds the template part of the body file, mapping its copied
-// regions back to the .orbit file.
+// regions back to the .lyr file.
 type anSynth struct {
-	src  string // the .orbit file
+	src  string // the .lyr file
 	b    strings.Builder
 	segs []anSeg
 	// codes are the copied template Go regions, for the reserved-name scan.
@@ -416,7 +416,7 @@ type anSynth struct {
 	probes []*anProbe
 }
 
-type anSeg struct{ goStart, orbit, n int }
+type anSeg struct{ goStart, lyr, n int }
 
 func (y *anSynth) glue(t string) { y.b.WriteString(t) }
 
@@ -646,7 +646,7 @@ func (s *anState) usage(file *ast.File) {
 	}
 }
 
-// ctxRefs records the .orbit offsets of the template's uses of the implicit
+// ctxRefs records the .lyr offsets of the template's uses of the implicit
 // ctx: unresolved identifiers named ctx in the template part of the body
 // file, which starts at file offset tmplStart.
 func (s *anState) ctxRefs(file *ast.File, tf *gotoken.File, tmplStart int, y *anSynth) {
@@ -657,7 +657,7 @@ func (s *anState) ctxRefs(file *ast.File, tf *gotoken.File, tmplStart int, y *an
 		off := tf.Offset(id.Pos()) - tmplStart
 		for _, sg := range y.segs {
 			if sg.goStart <= off && off < sg.goStart+sg.n {
-				s.a.CtxRefs = append(s.a.CtxRefs, sg.orbit+off-sg.goStart)
+				s.a.CtxRefs = append(s.a.CtxRefs, sg.lyr+off-sg.goStart)
 				break
 			}
 		}
@@ -692,7 +692,7 @@ func (s *anState) echo(stmts []anBodyStmt) {
 		}
 		for _, n := range s.implicit {
 			if id.Name == n {
-				s.errorf(s.bodySpan(id), "%s is provided by Orbit and can't be redeclared here", id.Name)
+				s.errorf(s.bodySpan(id), "%s is provided by Lyr and can't be redeclared here", id.Name)
 			}
 		}
 		if !seen[id.Name] {
@@ -732,7 +732,7 @@ func (s *anState) echo(stmts []anBodyStmt) {
 	}
 }
 
-// bodySpan returns the .orbit span of a frontmatter identifier of the body
+// bodySpan returns the .lyr span of a frontmatter identifier of the body
 // file.
 func (s *anState) bodySpan(id *ast.Ident) Span {
 	a, _ := s.fmOff(s.bodyTF, id.Pos(), s.bodyPrefix)

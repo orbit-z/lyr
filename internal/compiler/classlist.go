@@ -19,7 +19,7 @@ import (
 const classListExample = `e.g. class:list={"card", "active": active}`
 
 // parseClassList parses the value of a class:list attribute into its items,
-// reporting syntax errors at their .orbit position. It returns nil when the
+// reporting syntax errors at their .lyr position. It returns nil when the
 // value doesn't parse or holds no items.
 func (p *parser) parseClassList(a *Attr) []ClassItem {
 	code := a.Code
@@ -110,7 +110,7 @@ type clItem struct {
 	// span is the item's position, for a static item's type error.
 	span Span
 	// rest is the operand of a rest spread on the element ("props.Attrs"),
-	// whose class is written here (orbit__w.RestClass).
+	// whose class is written here (lyr__w.RestClass).
 	rest string
 }
 
@@ -266,9 +266,9 @@ func (g *cgGen) classList(node Node, at, cl *Attr, merged []*Attr, rest []string
 }
 
 // classSite emits the write of a dynamic class:list item: on an element
-// (SiteClass) the fallback orbit__w.ClassAny(x) or the typed Class/Classes;
+// (SiteClass) the fallback lyr__w.ClassAny(x) or the typed Class/Classes;
 // in a component's class prop (SiteClassProp), an expression of type
-// string: orbit__rt.ClassString(x), or string(x) and JoinClasses(x...)
+// string: lyr__rt.ClassString(x), or string(x) and JoinClasses(x...)
 // when typed.
 func (g *cgGen) classSite(kind SiteKind, node Node, cl *Attr, code GoCode) {
 	o := g.o
@@ -330,7 +330,7 @@ func (g *cgGen) classSite(kind SiteKind, node Node, cl *Attr, code GoCode) {
 }
 
 // classOptSite emits the typed write of a class:list item of type
-// orbit.Opt[T] on an element (PLAN.md §2.6): T's Class or Classes write of
+// lyr.Opt[T] on an element (PLAN.md §2.6): T's Class or Classes write of
 // its value when it's set.
 func (g *cgGen) classOptSite(cs CallSite, tw TypedWrite) {
 	o := g.o
@@ -338,15 +338,15 @@ func (g *cgGen) classOptSite(cs CallSite, tw TypedWrite) {
 	o.ln("{")
 	o.depth++
 	o.ind()
-	o.str("orbit__o :=\n")
+	o.str("lyr__o :=\n")
 	o.exact(cs.Code.Span)
 	o.str("\n")
-	o.ln("if orbit__v, orbit__c := orbit__o.Get(); orbit__c {")
+	o.ln("if lyr__v, lyr__c := lyr__o.Get(); lyr__c {")
 	o.depth++
 	o.ind()
 	start := len(o.b)
 	o.str(NameW + "." + tw.Kind.Method() + "(")
-	arg := "orbit__v"
+	arg := "lyr__v"
 	if tw.Conv != "" {
 		arg = tw.Conv + "(" + arg + ")"
 	}
@@ -365,7 +365,7 @@ func (g *cgGen) classOptSite(cs CallSite, tw TypedWrite) {
 
 // classProp emits the value of a component's class prop set by class:list
 // (and the class attributes merged into it): a string constant when every
-// class is static, else orbit__rt.JoinClasses of the items.
+// class is static, else lyr__rt.JoinClasses of the items.
 func (g *cgGen) classProp(node Node, cl *Attr, merged []*Attr) {
 	o := g.o
 	items := classItems(cl, merged)

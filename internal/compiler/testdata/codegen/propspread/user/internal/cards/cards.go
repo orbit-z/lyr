@@ -2,12 +2,12 @@
 // test module by TestSpreadGolden).
 package cards
 
-import "github.com/orbit-z/orbit"
+import "github.com/orbit-z/lyr"
 
 // Card is a card's props, built by a helper.
 type Card struct {
 	Href, Title string
-	Note        orbit.Opt[string]
+	Note        lyr.Opt[string]
 	Lines       int
 }
 
@@ -28,7 +28,7 @@ var hrefs, titles = [...]string{"/c/0", "/c/1", "/c/2", "/c/3", "/c/4", "/c/5", 
 func Of(n int) Card {
 	c := Card{Href: hrefs[n], Title: titles[n], Lines: n}
 	if n%2 == 0 {
-		c.Note = orbit.Some("even")
+		c.Note = lyr.Some("even")
 	}
 	return c
 }

@@ -96,7 +96,7 @@ export function page(body: string, o: Options = {}): Page {
   (win.Range.prototype as any).createContextualFragment = (s: string) =>
     new HTMLParser(win, { evaluateScripts: true }).parse(s);
   const cfg = JSON.stringify({ dev: !!o.dev, lazy: o.lazy });
-  document.head.innerHTML = `<script type="application/json" id="orbit-loader">${cfg}</script>`;
+  document.head.innerHTML = `<script type="application/json" id="lyr-loader">${cfg}</script>`;
   document.body.innerHTML = body;
 
   const p: Page = {
@@ -122,7 +122,7 @@ export function page(body: string, o: Options = {}): Page {
 
   FakeIO.all = [];
   FakeMQL.all = [];
-  delete g.orbit__lazy;
+  delete g.lyr__lazy;
   g.window = globalThis;
   g.document = document;
   g.MutationObserver = win.MutationObserver;

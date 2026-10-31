@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CPU profiles of Orbit and Astro serving /cards under load. See
+# CPU profiles of Lyr and Astro serving /cards under load. See
 # bench/profile/README.md.
 #
 #   bench/profile/run.sh             both servers, 5 s warm-up + 20 s profiled
@@ -7,19 +7,19 @@
 #
 # Settings (environment):
 #   PAGE=cards  CONCURRENCY=64  WARMUP=5s  DURATION=20s (whole seconds)
-#   SERVERS="astro orbit"
-#   ASTRO_CPUS=0-3,8-11  ORBIT_CPUS=0  LOAD_CPUS=4-7,12-15   (taskset lists)
-#   ORBIT_GOMAXPROCS=1
+#   SERVERS="astro lyr"
+#   ASTRO_CPUS=0-3,8-11  LYR_CPUS=0  LOAD_CPUS=4-7,12-15   (taskset lists)
+#   LYR_GOMAXPROCS=1
 #   SKIP_BUILD=1  (reuse the existing site builds)
 #
 # Writes bench/results/profile-<date>/: astro.cpuprofile (+ .json stats),
-# astro-promises.json, orbit.pprof, orbit-server (the binary the profile
+# astro-promises.json, lyr.pprof, lyr-server (the binary the profile
 # belongs to), load-*.json, and summary.md with every table.
 set -euo pipefail
 
 PROF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BENCH="$(dirname "$PROF")"
-ORBIT_SITE="$BENCH/orbit-site"
+LYR_SITE="$BENCH/lyr-site"
 ASTRO_SITE="$BENCH/astro-site"
 
 QUICK="${QUICK:-0}"
@@ -32,16 +32,16 @@ else
 fi
 PAGE="${PAGE:-cards}"
 CONCURRENCY="${CONCURRENCY:-64}"
-SERVERS="${SERVERS:-astro orbit}"
+SERVERS="${SERVERS:-astro lyr}"
 # Same split as bench/run.sh: Astro gets the 8 server CPUs (as in the
-# published "Astro" row), Orbit one CPU with GOMAXPROCS=1 ("orbit-1").
+# published "Astro" row), Lyr one CPU with GOMAXPROCS=1 ("lyr-1").
 ASTRO_CPUS="${ASTRO_CPUS:-0-3,8-11}"
-ORBIT_CPUS="${ORBIT_CPUS:-0}"
-ORBIT_GOMAXPROCS="${ORBIT_GOMAXPROCS:-1}"
+LYR_CPUS="${LYR_CPUS:-0}"
+LYR_GOMAXPROCS="${LYR_GOMAXPROCS:-1}"
 LOAD_CPUS="${LOAD_CPUS:-4-7,12-15}"
 # Ports of their own, so a bench/run.sh running at the same time doesn't clash.
 ASTRO_PORT=4411
-ORBIT_PORT=4410
+LYR_PORT=4410
 PPROF_ADDR=127.0.0.1:4412
 
 OUT="$BENCH/results/profile-$(date +%Y-%m-%d-%H%M%S)"
@@ -100,9 +100,9 @@ wait_load() {
 log "building the load generator"
 (cd "$BENCH/load" && go build -o "$LOAD" .)
 if [[ "${SKIP_BUILD:-0}" != 1 ]]; then
-	if [[ " $SERVERS " == *" orbit "* ]]; then
-		log "building bench/orbit-site (go tool orbit build)"
-		(cd "$ORBIT_SITE" && go tool orbit build)
+	if [[ " $SERVERS " == *" lyr "* ]]; then
+		log "building bench/lyr-site (go tool lyr build)"
+		(cd "$LYR_SITE" && go tool lyr build)
 	fi
 	if [[ " $SERVERS " == *" astro "* ]]; then
 		log "building bench/astro-site (npm ci && npm run build)"
@@ -156,27 +156,27 @@ if [[ " $SERVERS " == *" astro "* ]]; then
 	node "$PROF/summarize-cpuprofile.mjs" "$OUT/astro.cpuprofile" "$OUT/load-astro.json" "$OUT/astro-promises.json" >>"$OUT/summary.md"
 fi
 
-# --- Orbit ---------------------------------------------------------------------
-if [[ " $SERVERS " == *" orbit "* ]]; then
-	log "Orbit: building dist/server with a pprof listener (go build -overlay)"
-	if [[ ! -d "$ORBIT_SITE/orbit_gen" ]]; then (cd "$ORBIT_SITE" && go tool orbit build); fi
-	printf '{"Replace":{"%s":"%s"}}\n' "$ORBIT_SITE/cmd/server/zz_pprof.go" "$PROF/pprof.go.in" >"$OUT/overlay.json"
-	(cd "$ORBIT_SITE" && go build -overlay "$OUT/overlay.json" -o "$OUT/orbit-server" ./cmd/server)
+# --- Lyr ---------------------------------------------------------------------
+if [[ " $SERVERS " == *" lyr "* ]]; then
+	log "Lyr: building dist/server with a pprof listener (go build -overlay)"
+	if [[ ! -d "$LYR_SITE/lyr_gen" ]]; then (cd "$LYR_SITE" && go tool lyr build); fi
+	printf '{"Replace":{"%s":"%s"}}\n' "$LYR_SITE/cmd/server/zz_pprof.go" "$PROF/pprof.go.in" >"$OUT/overlay.json"
+	(cd "$LYR_SITE" && go build -overlay "$OUT/overlay.json" -o "$OUT/lyr-server" ./cmd/server)
 
-	log "Orbit: CPU profile of /$PAGE under load (CPUs $ORBIT_CPUS, GOMAXPROCS=$ORBIT_GOMAXPROCS)"
-	read -ra p <<<"$(pin "$ORBIT_CPUS")"
-	(cd "$ORBIT_SITE" && GOMAXPROCS="$ORBIT_GOMAXPROCS" PORT="$ORBIT_PORT" ORBIT_PPROF_ADDR="$PPROF_ADDR" \
-		exec "${p[@]}" "$OUT/orbit-server") &
+	log "Lyr: CPU profile of /$PAGE under load (CPUs $LYR_CPUS, GOMAXPROCS=$LYR_GOMAXPROCS)"
+	read -ra p <<<"$(pin "$LYR_CPUS")"
+	(cd "$LYR_SITE" && GOMAXPROCS="$LYR_GOMAXPROCS" PORT="$LYR_PORT" LYR_PPROF_ADDR="$PPROF_ADDR" \
+		exec "${p[@]}" "$OUT/lyr-server") &
 	SERVER_PID=$!
-	wait_ready "http://127.0.0.1:$ORBIT_PORT/$PAGE"
-	start_load "$ORBIT_PORT" orbit
+	wait_ready "http://127.0.0.1:$LYR_PORT/$PAGE"
+	start_load "$LYR_PORT" lyr
 	sleep "$(secs "$WARMUP")"
-	curl -fs -o "$OUT/orbit.pprof" "http://$PPROF_ADDR/debug/pprof/profile?seconds=$(secs "$DURATION")"
+	curl -fs -o "$OUT/lyr.pprof" "http://$PPROF_ADDR/debug/pprof/profile?seconds=$(secs "$DURATION")"
 	wait_load
 	stop_server
 
-	go tool pprof -traces "$OUT/orbit-server" "$OUT/orbit.pprof" 2>/dev/null >"$OUT/orbit-traces.txt"
-	node "$PROF/summarize-pprof.mjs" "$OUT/orbit-traces.txt" "$OUT/load-orbit.json" >>"$OUT/summary.md"
+	go tool pprof -traces "$OUT/lyr-server" "$OUT/lyr.pprof" 2>/dev/null >"$OUT/lyr-traces.txt"
+	node "$PROF/summarize-pprof.mjs" "$OUT/lyr-traces.txt" "$OUT/load-lyr.json" >>"$OUT/summary.md"
 fi
 
 echo "- load average at end: $(cut -d' ' -f1-3 /proc/loadavg)" >>"$OUT/summary.md"

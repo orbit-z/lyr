@@ -11,17 +11,17 @@ import (
 // URLs, the 308s and a Markdown page's link (PLAN.md §4e).
 func TestBuildTrailingSlashAlways(t *testing.T) {
 	needE2E(t)
-	orbitCLI(t)
+	lyrCLI(t)
 	t.Parallel()
 	dir := fixture(t, false)
-	writeFile(t, dir, "orbit.json", `{"site": "https://fixture.example.com", "trailingSlash": "always"}`)
-	writeFile(t, dir, "src/pages/rss.xml.orbit", "---\nctx.Header().Set(\"Content-Type\", \"application/rss+xml\")\n---\n<rss></rss>\n")
+	writeFile(t, dir, "lyr.json", `{"site": "https://fixture.example.com", "trailingSlash": "always"}`)
+	writeFile(t, dir, "src/pages/rss.xml.lyr", "---\nctx.Header().Set(\"Content-Type\", \"application/rss+xml\")\n---\n<rss></rss>\n")
 	writeFile(t, dir, "src/pages/notes/a.md", "See [b](./b.md#setup).\n")
 	writeFile(t, dir, "src/pages/notes/b.md", "# Setup\n")
-	// A server entry with a gate before Orbit, behind site.TrailingSlash:
+	// A server entry with a gate before Lyr, behind site.TrailingSlash:
 	// the redirect comes first, as in Astro (PLAN.md §4e "Redirecting
 	// before middleware").
-	writeFile(t, dir, "src/pages/private.orbit", "<p>private</p>\n")
+	writeFile(t, dir, "src/pages/private.lyr", "<p>private</p>\n")
 	writeFile(t, dir, "cmd/server/main.go", `package main
 
 import (
@@ -29,16 +29,16 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 
-	"example.com/site/orbit_gen/app"
+	"example.com/site/lyr_gen/app"
 )
 
 func main() {
 	site := app.New()
 	mux := http.NewServeMux()
 	mux.Handle("/", site.Handler())
-	if err := orbit.ListenAndServe(site.TrailingSlash(gate(mux))); err != nil {
+	if err := lyr.ListenAndServe(site.TrailingSlash(gate(mux))); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -54,8 +54,8 @@ func gate(next http.Handler) http.Handler {
 	})
 }
 `)
-	if code, out := runOrbit(t, dir, "build"); code != 0 || out != "" {
-		t.Fatalf("orbit build: exit %d\n%s", code, out)
+	if code, out := runLyr(t, dir, "build"); code != 0 || out != "" {
+		t.Fatalf("lyr build: exit %d\n%s", code, out)
 	}
 	s := start(t, dir, filepath.Join(dir, "dist/server"))
 	defer s.stop()

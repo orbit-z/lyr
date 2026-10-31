@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var modeTitle = map[string]string{"overlay": "overlay-only", "disk": "`orbit_gen/` on disk"}
+var modeTitle = map[string]string{"overlay": "overlay-only", "disk": "`lyr_gen/` on disk"}
 
 func report(cfg config, results []*modeResult) {
 	// Startup.
@@ -18,7 +18,7 @@ func report(cfg config, results []*modeResult) {
 		get   func(startSample) time.Duration
 	}{
 		{"`initialize` answered", func(s startSample) time.Duration { return s.Initialize }},
-		{"Orbit's diagnostic on an opened page (unknown prop)", func(s startSample) time.Duration { return s.OrbitDiag }},
+		{"Lyr's diagnostic on an opened page (unknown prop)", func(s startSample) time.Duration { return s.LyrDiag }},
 		{"first hover answered", func(s startSample) time.Duration { return s.FirstHover }},
 		{"first completion answered (`{props.`)", func(s startSample) time.Duration { return s.FirstCompletion }},
 		{"first `<script>` completion answered (TypeScript child)", func(s startSample) time.Duration { return s.FirstTSCompletion }},
@@ -85,11 +85,11 @@ func report(cfg config, results []*modeResult) {
 		label string
 		get   func(*modeResult) int64
 	}{
-		{"orbit lsp, after the barrier", func(r *modeResult) int64 { return r.MemBarrier.Orbit.RSS }},
+		{"lyr lsp, after the barrier", func(r *modeResult) int64 { return r.MemBarrier.Lyr.RSS }},
 		{"gopls, after the barrier", func(r *modeResult) int64 { return r.MemBarrier.Gopls.RSS }},
-		{"orbit lsp, after the request runs", func(r *modeResult) int64 { return r.MemAfter.Orbit.RSS }},
+		{"lyr lsp, after the request runs", func(r *modeResult) int64 { return r.MemAfter.Lyr.RSS }},
 		{"gopls, after the request runs", func(r *modeResult) int64 { return r.MemAfter.Gopls.RSS }},
-		{"orbit lsp, peak", func(r *modeResult) int64 { return r.MemAfter.Orbit.HWM }},
+		{"lyr lsp, peak", func(r *modeResult) int64 { return r.MemAfter.Lyr.HWM }},
 		{"gopls, peak", func(r *modeResult) int64 { return r.MemAfter.Gopls.HWM }},
 		{"TypeScript child, after the request runs", func(r *modeResult) int64 { return r.MemAfter.TS.RSS }},
 		{"TypeScript child, after opening every script", func(r *modeResult) int64 { return r.MemTSAll.RSS }},

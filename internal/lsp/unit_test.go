@@ -166,7 +166,7 @@ label := "Héllo ✓ " + props.Title
 `
 
 const mapPage = `---
-import Card "../components/Card.orbit"
+import Card "../components/Card.lyr"
 ---
 <Card title="x" is-open />
 `
@@ -182,8 +182,8 @@ func memWorkspace(t *testing.T, files map[string]string) *workspace {
 }
 
 func TestSourceMapRoundTrip(t *testing.T) {
-	ws := memWorkspace(t, map[string]string{"src/components/Card.orbit": mapCard, "src/pages/index.orbit": mapPage})
-	const card = "src/components/Card.orbit"
+	ws := memWorkspace(t, map[string]string{"src/components/Card.lyr": mapCard, "src/pages/index.lyr": mapPage})
+	const card = "src/components/Card.lyr"
 	_, impl := ws.genOf(card)
 
 	// exact: every byte of "props.Title" maps both ways after non-ASCII.
@@ -212,7 +212,7 @@ func TestSourceMapRoundTrip(t *testing.T) {
 
 	// span: the attribute is-open maps to the whole field key IsOpen, and
 	// offsets past the key's length clamp.
-	const page = "src/pages/index.orbit"
+	const page = "src/pages/index.lyr"
 	_, pimpl := ws.genOf(page)
 	attr := strings.Index(mapPage, "is-open")
 	g, goOff, ok = ws.toGo(page, attr)
@@ -232,11 +232,11 @@ func TestSourceMapRoundTrip(t *testing.T) {
 		t.Fatal("no echo line")
 	}
 	if _, ok := impl.fromGo(echo + len("_ = ")); ok {
-		t.Error("an echo segment maps to the .orbit file")
+		t.Error("an echo segment maps to the .lyr file")
 	}
 	// Glue maps to nothing.
-	if _, ok := impl.fromGo(strings.Index(string(impl.content), "orbit__w.Enter")); ok {
-		t.Error("glue maps to the .orbit file")
+	if _, ok := impl.fromGo(strings.Index(string(impl.content), "lyr__w.Enter")); ok {
+		t.Error("glue maps to the .lyr file")
 	}
 	// Template text isn't Go.
 	if _, _, ok := ws.toGo(card, strings.Index(mapCard, "<p")); ok {
@@ -254,15 +254,15 @@ func TestSourceMapRoundTrip(t *testing.T) {
 	_, goOff, _ = ws.toGo(card, start)
 	r := impl.lines.rangeOf(goOff, goOff+len("props.Title"), encUTF16)
 	uri, out, _, ok := m.location(impl.uri, r)
-	if !ok || uriToPath(uri) != ws.absOrbit(card) || rangeText(mapCard, out) != "props.Title" {
+	if !ok || uriToPath(uri) != ws.absLyr(card) || rangeText(mapCard, out) != "props.Title" {
 		t.Errorf("location mapping: %v %v %q", ok, out, rangeText(mapCard, out))
 	}
 }
 
 func TestClassify(t *testing.T) {
-	ws := memWorkspace(t, map[string]string{"src/components/Card.orbit": mapCard, "src/pages/index.orbit": mapPage})
-	page := ws.byPath["src/pages/index.orbit"]
-	card := ws.byPath["src/components/Card.orbit"]
+	ws := memWorkspace(t, map[string]string{"src/components/Card.lyr": mapCard, "src/pages/index.lyr": mapPage})
+	page := ws.byPath["src/pages/index.lyr"]
+	card := ws.byPath["src/components/Card.lyr"]
 	for _, tc := range []struct {
 		f    string
 		src  string
@@ -294,11 +294,11 @@ func TestClassify(t *testing.T) {
 }
 
 func TestScrubHover(t *testing.T) {
-	in := "```go\nvar greeting string\n```\n\n---\n\nline ../../../../src/pages/index.orbit:4:1\n"
+	in := "```go\nvar greeting string\n```\n\n---\n\nline ../../../../src/pages/index.lyr:4:1\n"
 	if got := scrubHover(in); got != "```go\nvar greeting string\n```" {
 		t.Errorf("scrubHover = %q", got)
 	}
-	in = "```go\nfield Post string\n```\n\n---\n\nPost is the title.\n\n\n---\n\n[`(card.Props).Post` on pkg.go.dev](https://pkg.go.dev/example.com/site/orbit_gen/decl/components/card#Props.Post)"
+	in = "```go\nfield Post string\n```\n\n---\n\nPost is the title.\n\n\n---\n\n[`(card.Props).Post` on pkg.go.dev](https://pkg.go.dev/example.com/site/lyr_gen/decl/components/card#Props.Post)"
 	if got := scrubHover(in); got != "```go\nfield Post string\n```\n\n---\n\nPost is the title." {
 		t.Errorf("scrubHover = %q", got)
 	}
@@ -325,8 +325,8 @@ func TestGoplsVersions(t *testing.T) {
 }
 
 func TestMapWorkspaceEdit(t *testing.T) {
-	ws := memWorkspace(t, map[string]string{"src/components/Card.orbit": mapCard, "src/pages/index.orbit": mapPage})
-	_, impl := ws.genOf("src/components/Card.orbit")
+	ws := memWorkspace(t, map[string]string{"src/components/Card.lyr": mapCard, "src/pages/index.lyr": mapPage})
+	_, impl := ws.genOf("src/components/Card.lyr")
 	m := mapper{ws: ws, enc: encUTF16}
 	label := strings.Index(string(impl.content), "label :=")
 	echo := strings.Index(string(impl.content), "_ = label") + len("_ = ")
@@ -348,7 +348,7 @@ func TestMapWorkspaceEdit(t *testing.T) {
 		} `json:"changes"`
 	}
 	json.Unmarshal(out, &we)
-	edits := we.Changes[ws.orbitURI("src/components/Card.orbit")]
+	edits := we.Changes[ws.lyrURI("src/components/Card.lyr")]
 	if len(edits) != 1 || rangeText(mapCard, edits[0].Range) != "label" || bytes.Contains(out, []byte("documentChanges")) {
 		t.Errorf("mapped edit: %s", out)
 	}

@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"fmt"
 
-	bridge "example.com/blog/orbit_gen/decl/components/bridge"
-	_ "example.com/blog/orbit_gen/impl/components/bridge"
-	"github.com/orbit-z/orbit"
+	bridge "example.com/blog/lyr_gen/decl/components/bridge"
+	_ "example.com/blog/lyr_gen/impl/components/bridge"
+	"github.com/orbit-z/lyr"
 )
 
 func main() {
 	var buf bytes.Buffer
-	if err := bridge.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), bridge.Props{}, orbit.Slots{}); err != nil {
+	if err := bridge.Render(&lyr.Ctx{}, lyr.NewWriter(&buf), bridge.Props{}, lyr.Slots{}); err != nil {
 		panic(err)
 	}
 	fmt.Print(buf.String())

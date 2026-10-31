@@ -84,7 +84,7 @@ func validate(t *Template, p *parser) {
 }
 
 // isRelativePath reports whether a script src points at a local file by a
-// relative path, which Orbit bundles.
+// relative path, which Lyr bundles.
 func isRelativePath(v string) bool {
 	return strings.HasPrefix(v, "./") || strings.HasPrefix(v, "../")
 }
@@ -118,12 +118,12 @@ func (p *parser) checkTag(t *Tag, k tagKind, children []Node, raw *RawText) (def
 			}
 			nClassList++
 		case d == DefineVars:
-			p.errorf(a.Span, "define:vars isn't supported; pass data with orbit.JSON on a data-* attribute, or set:json")
+			p.errorf(a.Span, "define:vars isn't supported; pass data with lyr.JSON on a data-* attribute, or set:json")
 		case d == UnknownDirective:
 			p.unknownDirective(a)
 		case d == ServerConcurrent:
 			if k != tkComponent {
-				p.errorf(a.Span, "server:concurrent only works on .orbit components")
+				p.errorf(a.Span, "server:concurrent only works on .lyr components")
 				continue
 			}
 			if a.Kind != AttrEmpty {
@@ -134,7 +134,7 @@ func (p *parser) checkTag(t *Tag, k tagKind, children []Node, raw *RawText) (def
 			}
 		case d == ServerDefer:
 			if k != tkComponent {
-				p.errorf(a.Span, "server:defer only works on .orbit components")
+				p.errorf(a.Span, "server:defer only works on .lyr components")
 				continue
 			}
 			if a.Kind != AttrEmpty {
@@ -145,7 +145,7 @@ func (p *parser) checkTag(t *Tag, k tagKind, children []Node, raw *RawText) (def
 			}
 		case d.IsClient():
 			if k != tkComponent {
-				p.errorf(a.Span, "%s only works on .orbit components; move the <script> into a component", a.Name)
+				p.errorf(a.Span, "%s only works on .lyr components; move the <script> into a component", a.Name)
 				continue
 			}
 			nClient++
@@ -247,7 +247,7 @@ func (p *parser) checkClientValue(a *Attr) {
 
 func (p *parser) unknownDirective(a *Attr) {
 	if a.Name == "client:only" {
-		p.errorf(a.Span, "client:only is for framework components, which Orbit doesn't support; use client:load, client:idle, client:visible or client:media")
+		p.errorf(a.Span, "client:only is for framework components, which Lyr doesn't support; use client:load, client:idle, client:visible or client:media")
 		return
 	}
 	var valid string
@@ -265,10 +265,10 @@ func (p *parser) unknownDirective(a *Attr) {
 }
 
 // SecurityWarning is the warning for name={expr} (an HTML attribute, or
-// one passed through an orbit.RestAttrs field) when name is an event
+// one passed through a lyr.RestAttrs field) when name is an event
 // handler (on*) or style, whose values attribute escaping doesn't make
 // safe; "" for every other name. The typed pass emits it (PLAN.md §2.7),
-// except for a constant value and, on style, an orbit.CSS one.
+// except for a constant value and, on style, a lyr.CSS one.
 func SecurityWarning(name string) string {
 	lower := strings.ToLower(name)
 	switch {

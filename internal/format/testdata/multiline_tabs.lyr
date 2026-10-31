@@ -1,0 +1,15 @@
+---
+import "example.com/x/posts"
+---
+<section>
+	<div>
+		<Card post={posts.Post{
+  Title: "Hello",
+      Tags: []string{"go", "lyr"},
+}} />
+		{if len(a)>0 &&
+    len(b)>0}
+			<p>{a}</p>
+		{/if}
+	</div>
+</section>

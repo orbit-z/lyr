@@ -1,0 +1,48 @@
+---
+import (
+	"context"
+	"errors"
+	"time"
+)
+
+// Two slow fetches, loaded together (PLAN.md §4f).
+fail := ctx.URL.Query().Get("fail")
+var (
+	weather string
+	posts   []string
+)
+err := lyr.All(ctx,
+	func(rc context.Context) error {
+		time.Sleep(30 * time.Millisecond)
+		weather = "sunny"
+		return nil
+	},
+	func(rc context.Context) error {
+		switch fail {
+		case "error":
+			return errors.New("posts: unavailable")
+		case "notfound":
+			return lyr.ErrNotFound
+		case "panic":
+			var m map[string]int
+			m["x"] = 1
+		}
+		time.Sleep(30 * time.Millisecond)
+		posts = []string{"hello", "world"}
+		return nil
+	},
+)
+if err != nil {
+	return err
+}
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Loads</title>
+  </head>
+  <body>
+    <p>{weather}</p>
+    <ul>{for _, p := range posts}<li>{p}</li>{/for}</ul>
+  </body>
+</html>

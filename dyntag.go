@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"errors"
@@ -10,15 +10,15 @@ import (
 // renders the element it names. Generated code brackets the attributes with
 // TagOpen and Attrs, and the children with TagClose:
 //
-//	orbit__t1 := orbit__w.TagOpen("src/x.orbit:3:2", "Tag", Tag, true)
-//	if orbit__t1.Attrs() {
+//	lyr__t1 := lyr__w.TagOpen("src/x.lyr:3:2", "Tag", Tag, true)
+//	if lyr__t1.Attrs() {
 //		… the attributes, then ">" …
 //	}
 //	… the children …
-//	orbit__w.TagClose(orbit__t1)
+//	lyr__w.TagClose(lyr__t1)
 
 // Fragment is the dynamic-tag value for "no element": <Wrap> with Wrap ==
-// orbit.Fragment writes its children only, without its tags or attributes
+// lyr.Fragment writes its children only, without its tags or attributes
 // (Astro's Fragment). Compare with ==; it isn't meant to be printed.
 const Fragment = "#fragment"
 
@@ -42,7 +42,7 @@ const (
 func (t DynTag) Attrs() bool { return t.kind != dynNone }
 
 // For generated code. TagOpen checks the dynamic tag name and writes
-// "<name". pos is the .orbit position of the tag and expr the variable as
+// "<name". pos is the .lyr position of the tag and expr the variable as
 // written (Tag), for errors; content is set when the template gives the
 // tag children (or set:html, set:text).
 //
@@ -126,7 +126,7 @@ func (w *Writer) tagError(pos, expr, name string, p tagProblem) {
 	var msg string
 	switch {
 	case name == "":
-		msg = "dynamic tag " + expr + " is empty; use orbit.Fragment for no element"
+		msg = "dynamic tag " + expr + " is empty; use lyr.Fragment for no element"
 	case p == tagRejected:
 		msg = "<" + name + "> can't be a dynamic tag"
 	case p == tagVoidContent:
@@ -137,11 +137,11 @@ func (w *Writer) tagError(pos, expr, name string, p tagProblem) {
 	w.setErr(posErr(pos, msg))
 }
 
-// posErr is a render error with the .orbit position pos ("src/x.orbit:3:2:
-// msg"), or "orbit: msg" without one.
+// posErr is a render error with the .lyr position pos ("src/x.lyr:3:2:
+// msg"), or "lyr: msg" without one.
 func posErr(pos, msg string) error {
 	if pos == "" {
-		return errors.New("orbit: " + msg)
+		return errors.New("lyr: " + msg)
 	}
 	return &posError{pos: pos, err: errors.New(msg)}
 }

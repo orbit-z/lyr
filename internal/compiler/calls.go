@@ -7,7 +7,7 @@ package compiler
 // ComponentCall is one component call site of a template.
 type ComponentCall struct {
 	// Target is the called component's project-relative path: the
-	// resolved .orbit import, or the file itself for <Self>. "" when the
+	// resolved .lyr import, or the file itself for <Self>. "" when the
 	// tag matches no import.
 	Target string
 	// Defer is true for server:defer.
@@ -17,7 +17,7 @@ type ComponentCall struct {
 	Lazy Directive
 	// In is the index, in the same list, of the innermost lazy call site
 	// whose children (slot content) hold this call, or -1. Slot content
-	// renders inside the outer component's <orbit-lazy> wrapper, so it is
+	// renders inside the outer component's <lyr-lazy> wrapper, so it is
 	// part of that lazy subtree.
 	In int
 }
@@ -30,7 +30,7 @@ func ComponentCalls(f *File, a *Analysis) []ComponentCall {
 		return nil
 	}
 	imports := map[string]string{}
-	for _, imp := range a.OrbitImports {
+	for _, imp := range a.LyrImports {
 		if _, dup := imports[imp.Alias]; !dup {
 			imports[imp.Alias] = imp.Resolved
 		}

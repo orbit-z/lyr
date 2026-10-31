@@ -1,0 +1,16 @@
+---
+func If(c bool, v string) string {
+	if c {
+		return "mine:" + v
+	}
+	return "mine-off"
+}
+
+type fake struct{}
+
+func (fake) If(c bool, v string) string { return "fake:" + v }
+---
+<p title={If(true, "x")}>{If(false, "y")}</p>
+{for _, lyr := range []fake{{}}}
+  <b title={lyr.If(true, "z")}>{lyr.If(false, "w")}</b>
+{/for}

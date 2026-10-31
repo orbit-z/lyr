@@ -14,7 +14,7 @@ import (
 
 // JSONSite is a write that may give the component's scripts a typed key
 // (PLAN.md §5c "Client side"): a data-* attribute expression of an HTML
-// element (a key of data(el, key) if its value is an orbit.JSONValue), or
+// element (a key of data(el, key) if its value is a lyr.JSONValue), or
 // a set:json with a static id (a key of json(id)).
 type JSONSite struct {
 	// Block is true for set:json, whose key is the static id; false for a
@@ -22,10 +22,10 @@ type JSONSite struct {
 	Block bool
 	Name  string
 	// Attr is the attribute as written ("data-author-name", "set:json"),
-	// and Pos its offset in the .orbit file.
+	// and Pos its offset in the .lyr file.
 	Attr string
 	Pos  int
-	// Direct reports that the expression is a direct call orbit.JSON(arg)
+	// Direct reports that the expression is a direct call lyr.JSON(arg)
 	// of the runtime's function, recognized by the file's import name for
 	// it (no types needed, so pass 1 knows it).
 	Direct bool
@@ -59,10 +59,10 @@ func datasetName(name string) (string, bool) {
 }
 
 // runtimeNames returns the names under which the file's Go code sees the
-// runtime package: the implicit orbit, unless an import takes that name for
+// runtime package: the implicit lyr, unless an import takes that name for
 // another package, and every import of the runtime.
 func runtimeNames(a *Analysis) map[string]bool {
-	names := map[string]bool{"orbit": true}
+	names := map[string]bool{"lyr": true}
 	for _, im := range a.GoImports {
 		name := im.Name
 		if name == "" {
@@ -70,8 +70,8 @@ func runtimeNames(a *Analysis) map[string]bool {
 		}
 		if im.Path == RuntimePath {
 			names[name] = true
-		} else if name == "orbit" {
-			delete(names, "orbit")
+		} else if name == "lyr" {
+			delete(names, "lyr")
 		}
 	}
 	return names
@@ -101,7 +101,7 @@ func directJSONArg(e ast.Expr, names map[string]bool) ast.Expr {
 	return call.Args[0]
 }
 
-// isDirectJSON reports whether code is a direct orbit.JSON(arg) call.
+// isDirectJSON reports whether code is a direct lyr.JSON(arg) call.
 func (g *cgGen) isDirectJSON(code string) bool {
 	if !strings.Contains(code, "JSON") {
 		return false
@@ -124,7 +124,7 @@ func (g *cgGen) jsonAttrSite(a *Attr, expr Span) {
 		Direct: g.isDirectJSON(a.Code.Text), Expr: expr})
 }
 
-// setJSON emits a set:json write, orbit__w.JSON("<pos>", <expr>), and
+// setJSON emits a set:json write, lyr__w.JSON("<pos>", <expr>), and
 // records it as a JSON site when its element has a static id.
 func (g *cgGen) setJSON(set *Attr, node Node) {
 	o := g.o

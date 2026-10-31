@@ -1,0 +1,7 @@
+---
+type Props struct {
+	Variant string
+	Attrs   lyr.RestAttrs // every other attribute of the call site
+}
+---
+<button {...props.Attrs}>{props.Variant}</button>

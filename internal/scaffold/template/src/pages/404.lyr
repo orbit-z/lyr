@@ -1,0 +1,7 @@
+---
+import Base "../layouts/Base.lyr"
+---
+<Base title="Page not found">
+  <h1>Page not found</h1>
+  <p><a href="/">Go back home</a></p>
+</Base>

@@ -1,7 +1,7 @@
 package lsp
 
 // textDocument/formatting (PLAN.md §6.1): the whole document, with the
-// same rules as orbit fmt, one TextEdit per changed region.
+// same rules as lyr fmt, one TextEdit per changed region.
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/orbit-z/orbit/internal/check"
-	"github.com/orbit-z/orbit/internal/format"
+	"github.com/orbit-z/lyr/internal/check"
+	"github.com/orbit-z/lyr/internal/format"
 )
 
 // bunState is the Bun lookup, done once per session.
@@ -43,7 +43,7 @@ func (s *Server) formatting(ctx context.Context, params jsonRaw) (any, *rpcError
 	var src, rel, root string
 	ok := false
 	if ws != nil {
-		rel = ws.orbitPath(p.TextDocument.URI)
+		rel = ws.lyrPath(p.TextDocument.URI)
 		if f := ws.byPath[rel]; rel != "" && f != nil {
 			src, root, ok = f.Src, ws.root, true
 		}
@@ -53,7 +53,7 @@ func (s *Server) formatting(ctx context.Context, params jsonRaw) (any, *rpcError
 		return nil, nil // Markdown, or a file the server doesn't follow
 	}
 	s.bun.once.Do(func() {
-		s.bun.path, s.bun.notice = check.FindBun(context.Background(), "", "orbit: <script> and <style> aren't formatted")
+		s.bun.path, s.bun.notice = check.FindBun(context.Background(), "", "lyr: <script> and <style> aren't formatted")
 	})
 	res := format.Regions(src, format.Options{
 		Path:    filepath.ToSlash(rel),

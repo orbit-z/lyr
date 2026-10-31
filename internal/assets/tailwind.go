@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/evanw/esbuild/pkg/api"
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/tailwind"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/tailwind"
 )
 
 // Tailwind CSS (PLAN.md §5d). A .css file esbuild loads, or a <style>

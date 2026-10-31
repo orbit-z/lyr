@@ -13,13 +13,13 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // Dir is where the TypeScript half writes its files, relative to the
 // project root.
-const Dir = ".orbit/check"
+const Dir = ".lyr/check"
 
 // moduleTail ends every extracted script, so each is a module, as esbuild
 // bundles it: without it, two scripts declaring the same top-level const
@@ -28,22 +28,22 @@ const moduleTail = "\nexport {};\n"
 
 // Script is one extracted inline script.
 type Script struct {
-	// Orbit is the .orbit file's project-relative path.
-	Orbit string
+	// Lyr is the .lyr file's project-relative path.
+	Lyr string
 	// Path is the extracted file's project-relative path:
-	// ".orbit/check/src/components/Card.orbit.0.ts".
+	// ".lyr/check/src/components/Card.lyr.0.ts".
 	Path string
-	// Content is the script's text and its span in the .orbit file.
+	// Content is the script's text and its span in the .lyr file.
 	Content compiler.RawText
-	// Lines is the .orbit file's line index.
+	// Lines is the .lyr file's line index.
 	Lines *compiler.LineIndex
 }
 
-// ExtractPath returns the extracted file's path for script n of orbitPath:
+// ExtractPath returns the extracted file's path for script n of lyrPath:
 // the src/ tree is mirrored under Dir, so a relative import resolves as
-// from the .orbit file's directory (through rootDirs).
-func ExtractPath(orbitPath string, n int) string {
-	return path.Join(Dir, orbitPath) + "." + strconv.Itoa(n) + ".ts"
+// from the .lyr file's directory (through rootDirs).
+func ExtractPath(lyrPath string, n int) string {
+	return path.Join(Dir, lyrPath) + "." + strconv.Itoa(n) + ".ts"
 }
 
 // Extract lists the processed inline scripts of every parsed file of p.
@@ -59,7 +59,7 @@ func Extract(p *project.Project) []Script {
 			if s.Src != "" {
 				continue
 			}
-			out = append(out, Script{Orbit: f.Path, Path: ExtractPath(f.Path, s.Index), Content: s.Content, Lines: f.AST.Lines})
+			out = append(out, Script{Lyr: f.Path, Path: ExtractPath(f.Path, s.Index), Content: s.Content, Lines: f.AST.Lines})
 		}
 	}
 	return out
@@ -142,7 +142,7 @@ type Output struct {
 }
 
 // MapOutput rewrites bun check --no-pretty output run from root: positions
-// in extracted scripts become their .orbit file's line:col, positions in
+// in extracted scripts become their .lyr file's line:col, positions in
 // the user's .ts files keep their relative path, and both are printed as
 // file:L:C with a byte column (tsc's columns count UTF-16 units). bun's
 // summary ("Found 3 errors…", the per-file table, "✓ No type errors") is
@@ -189,7 +189,7 @@ func MapOutput(root string, out []byte, scripts []Script) Output {
 		col, _ := strconv.Atoi(m[3])
 		var pos compiler.Position
 		if s, ok := byPath[file]; ok {
-			file, pos = s.Orbit, s.Position(ln, col)
+			file, pos = s.Lyr, s.Position(ln, col)
 		} else {
 			lines, ok := files[file]
 			if !ok {
@@ -202,7 +202,7 @@ func MapOutput(root string, out []byte, scripts []Script) Output {
 			}
 		}
 		if strings.HasPrefix(file, compiler.GenDir+"/types/") {
-			// An error in a generated .d.ts is an Orbit bug (PLAN.md §5c).
+			// An error in a generated .d.ts is a Lyr bug (PLAN.md §5c).
 			b.WriteString("internal: ")
 		}
 		fmt.Fprintf(&b, "%s:%d:%d: %s %s\n", file, pos.Line, pos.Col, m[4], m[5])
@@ -212,7 +212,7 @@ func MapOutput(root string, out []byte, scripts []Script) Output {
 }
 
 // Position maps a 1-based line and UTF-16 column in the extracted file to
-// the .orbit file's line and byte column. Positions past the script's
+// the .lyr file's line and byte column. Positions past the script's
 // content (in moduleTail) are clamped to its end.
 func (s *Script) Position(line, col16 int) compiler.Position {
 	text := s.Content.Text

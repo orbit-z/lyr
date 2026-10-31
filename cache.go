@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 // (lookup, store, stale-while-revalidate, 304s) is in cache_serve.go.
 
 // CacheOptions are a response's cache settings, set with ctx.Cache().Set or
-// a route rule in orbit.json (Astro's CacheOptions).
+// a route rule in lyr.json (Astro's CacheOptions).
 type CacheOptions struct {
 	// MaxAge is how long a stored response stays fresh. A response is
 	// stored only when it's positive. Durations are whole seconds on the
@@ -45,14 +45,14 @@ type InvalidateOptions struct {
 }
 
 // ErrCacheNotEnabled is returned by Invalidate when the site has no cache
-// provider (orbit.WithCache).
-var ErrCacheNotEnabled = errors.New("orbit: caching is not enabled; configure a provider with orbit.WithCache")
+// provider (lyr.WithCache).
+var ErrCacheNotEnabled = errors.New("lyr: caching is not enabled; configure a provider with lyr.WithCache")
 
 // Cache is a request's cache handle: ctx.Cache() in pages and components,
 // or a field of this type in your Locals for middleware:
 //
 //	type Locals struct {
-//		Cache orbit.Cache
+//		Cache lyr.Cache
 //		// …
 //	}
 //
@@ -80,18 +80,18 @@ const (
 )
 
 const (
-	cacheModeOff = iota // no provider, or Orbit hasn't seen the request yet
+	cacheModeOff = iota // no provider, or Lyr hasn't seen the request yet
 	cacheModeOn         // a provider is configured, not in dev
-	cacheModeDev        // orbit dev: caching is off
+	cacheModeDev        // lyr dev: caching is off
 )
 
 // Set merges o into the request's options, with Astro's rules: MaxAge, SWR
 // and ETag take the last non-zero value, LastModified the latest time, and
 // Tags accumulate (duplicates are dropped). It also cancels an earlier
-// Disable. A route rule from orbit.json is applied before the page runs,
+// Disable. A route rule from lyr.json is applied before the page runs,
 // so the page's Set merges over it.
 //
-// Set records the options even when the site has no provider; Orbit then
+// Set records the options even when the site has no provider; Lyr then
 // logs a warning once.
 func (k *Cache) Set(o CacheOptions) {
 	var lm int64
@@ -150,9 +150,9 @@ func tagsOf(k *Cache) []string {
 }
 
 // Disable keeps the request out of the cache (Astro's set(false)): it
-// clears the options and tags, and Orbit neither looks the request up nor
+// clears the options and tags, and Lyr neither looks the request up nor
 // stores its response. Call it in middleware for per-user requests (a
-// signed-in visitor), before Orbit's lookup. A later Set enables the
+// signed-in visitor), before Lyr's lookup. A later Set enables the
 // handle again, but a request disabled before the lookup stays out of the
 // cache: it isn't stored and gets no cache headers.
 func (k *Cache) Disable() {
@@ -169,8 +169,8 @@ func clearOptions(k *Cache) {
 }
 
 // Enabled reports whether this request can be cached: a provider is
-// configured, the site isn't running under orbit dev, and Disable wasn't
-// called. A Locals field reports false in middleware until Orbit has seen
+// configured, the site isn't running under lyr dev, and Disable wasn't
+// called. A Locals field reports false in middleware until Lyr has seen
 // the request (after next is called).
 func (k *Cache) Enabled() bool {
 	return k.mode == cacheModeOn && k.state&cacheDisabled == 0
@@ -190,8 +190,8 @@ func (k *Cache) Options() CacheOptions {
 
 // Invalidate drops stored responses through the site's provider, like
 // Site.InvalidateCache. It returns ErrCacheNotEnabled without a provider,
-// and nil under orbit dev. A Locals field reaches the provider only once
-// Orbit has seen the request; in middleware, use Site.InvalidateCache.
+// and nil under lyr dev. A Locals field reaches the provider only once
+// Lyr has seen the request; in middleware, use Site.InvalidateCache.
 func (k *Cache) Invalidate(ctx context.Context, o InvalidateOptions) error {
 	switch k.mode {
 	case cacheModeDev:
@@ -266,7 +266,7 @@ func releaseCache(k *Cache) {
 }
 
 // Cache returns the request's cache handle. When your Locals has an
-// orbit.Cache field, it's that field (so middleware's Set and Disable apply);
+// lyr.Cache field, it's that field (so middleware's Set and Disable apply);
 // otherwise the Ctx's own. Every component of a request shares it.
 func (c *Ctx) Cache() *Cache {
 	if c.cacheP != nil {
@@ -285,24 +285,24 @@ var warnedNoProvider atomic.Bool
 // on a site without a provider (Astro warns once too).
 func warnNoProvider() {
 	if !warnedNoProvider.Load() && warnedNoProvider.CompareAndSwap(false, true) {
-		log.Print("orbit: ctx.Cache().Set was called, but caching is not enabled: configure a provider with orbit.WithCache in app.New()")
+		log.Print("lyr: ctx.Cache().Set was called, but caching is not enabled: configure a provider with lyr.WithCache in app.New()")
 	}
 }
 
 // CacheProvider is a route-cache provider, configured with WithCache. A
 // provider is a store (CacheStore, Astro's runtime providers such as
 // memoryCache), a header writer (CacheHeaderWriter, for CDNs), or neither:
-// then Orbit writes Astro's default headers (CDN-Cache-Control, Cache-Tag,
-// Last-Modified, ETag) and the CDN does the caching. Orbit runs the
+// then Lyr writes Astro's default headers (CDN-Cache-Control, Cache-Tag,
+// Last-Modified, ETag) and the CDN does the caching. Lyr runs the
 // request flow (keys, freshness, stale-while-revalidate, Vary, the
-// Set-Cookie refusal, 304s, X-Orbit-Cache) for every provider.
+// Set-Cookie refusal, 304s, X-Lyr-Cache) for every provider.
 type CacheProvider interface {
 	// Invalidate drops the responses o selects.
 	Invalidate(ctx context.Context, o InvalidateOptions) error
 }
 
 // CacheHeaderWriter is a provider that turns the options into its CDN's
-// headers (Astro's setHeaders). Orbit calls WriteCacheHeaders on a
+// headers (Astro's setHeaders). Lyr calls WriteCacheHeaders on a
 // response whose options are active (a MaxAge or tags, not disabled), after
 // the page's own headers are set; o is read-only.
 type CacheHeaderWriter interface {
@@ -311,15 +311,15 @@ type CacheHeaderWriter interface {
 }
 
 // CacheStore is a provider that stores responses (Astro's onRequest
-// providers): Orbit looks each cacheable GET request up with Get, and
-// stores a response with Put. With a store, Orbit never writes
+// providers): Lyr looks each cacheable GET request up with Get, and
+// stores a response with Put. With a store, Lyr never writes
 // CDN-Cache-Control or Cache-Tag.
 //
 // A store may also implement CacheQuery() CacheQuery to choose which query
 // parameters are part of the key.
 type CacheStore interface {
 	CacheProvider
-	// Get returns the response stored under key, or nil. Orbit checks
+	// Get returns the response stored under key, or nil. Lyr checks
 	// its freshness. key is valid only during the call.
 	Get(key CacheKey) *CachedResponse
 	// Put stores e under key, replacing any earlier response. key is
@@ -349,8 +349,8 @@ type CacheKey struct {
 // cacheSeed hashes every cache key of the process.
 var cacheSeed = maphash.MakeSeed()
 
-// NewCacheKey returns the key for s, with the same hash Orbit gives it. A
-// store uses it in its own tests; Orbit builds the keys it passes.
+// NewCacheKey returns the key for s, with the same hash Lyr gives it. A
+// store uses it in its own tests; Lyr builds the keys it passes.
 func NewCacheKey(s string) CacheKey {
 	return CacheKey{hash: maphash.String(cacheSeed, s), s: s}
 }
@@ -363,7 +363,7 @@ func (k CacheKey) Hash() uint64 { return k.hash }
 // passed to; copy it (strings.Clone) to keep it.
 func (k CacheKey) String() string { return k.s }
 
-// CachedResponse is a stored response. Orbit builds it; a store keeps it
+// CachedResponse is a stored response. Lyr builds it; a store keeps it
 // as given and must not change it.
 type CachedResponse struct {
 	Status int
@@ -408,9 +408,9 @@ const (
 	entryExpired
 )
 
-// For generated code. RouteRule is one orbit.json "routeRules" entry:
+// For generated code. RouteRule is one lyr.json "routeRules" entry:
 // default cache options for the requests whose path matches Pattern
-// (Orbit's route syntax). The generated app.New() passes them with
+// (Lyr's route syntax). The generated app.New() passes them with
 // WithRouteRules.
 type RouteRule struct {
 	Pattern string
@@ -418,18 +418,18 @@ type RouteRule struct {
 }
 
 // WithCache configures the site's cache provider: a store such as
-// cache.NewMemory (github.com/orbit-z/orbit/cache), a CDN header writer, or a
+// cache.NewMemory (github.com/orbit-z/lyr/cache), a CDN header writer, or a
 // plain provider for Astro's default headers. Pass it to app.New() in
-// cmd/server/main.go. Under orbit dev, caching is off. With several
+// cmd/server/main.go. Under lyr dev, caching is off. With several
 // WithCache options, the last one wins.
 func WithCache(p CacheProvider) Option {
 	return func(o *siteOptions) { o.cache = p }
 }
 
 // For generated code. WithRouteRules sets default cache options per route
-// pattern (orbit.json "routeRules"); the generated app.New() passes them. Patterns use Orbit's
+// pattern (lyr.json "routeRules"); the generated app.New() passes them. Patterns use Lyr's
 // route syntax and priority, and match the request path, whichever page
-// serves it; they never match /_orbit/ paths. The first matching rule is
+// serves it; they never match /_lyr/ paths. The first matching rule is
 // applied before the page renders, as a first Set. Rules do nothing
 // without a provider. An invalid pattern panics in NewSite.
 func WithRouteRules(rules ...RouteRule) Option {
@@ -447,10 +447,10 @@ type localsCache struct {
 }
 
 // For generated code. WithLocalsCache tells the site where the
-// orbit.Cache field of your Locals is. The generated app.New() passes it,
+// lyr.Cache field of your Locals is. The generated app.New() passes it,
 // before the caller's options, when src/locals declares one:
 //
-//	orbit.WithLocalsCache(func(l *locals.Locals) *orbit.Cache { return &l.Cache })
+//	lyr.WithLocalsCache(func(l *locals.Locals) *lyr.Cache { return &l.Cache })
 func WithLocalsCache[L any](field func(*L) *Cache) Option {
 	lc := &localsCache{
 		attached: func(r *http.Request) (any, *Cache) {
@@ -487,10 +487,10 @@ func moveCacheToLocals[L any](c *Ctx, l *L) {
 
 // InvalidateCache drops stored responses through the provider: every
 // response carrying one of o.Tags, and every variant of o.Path. It returns
-// ErrCacheNotEnabled without a provider, and nil under orbit dev. Use it in
+// ErrCacheNotEnabled without a provider, and nil under lyr dev. Use it in
 // admin handlers and webhooks:
 //
-//	err := site.InvalidateCache(r.Context(), orbit.InvalidateOptions{Tags: []string{"post:" + id}})
+//	err := site.InvalidateCache(r.Context(), lyr.InvalidateOptions{Tags: []string{"post:" + id}})
 func (s *Site) InvalidateCache(ctx context.Context, o InvalidateOptions) error {
 	switch {
 	case s.dev:

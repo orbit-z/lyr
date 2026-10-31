@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"context"
@@ -22,10 +22,10 @@ func TestAddr(t *testing.T) {
 		{"127.0.0.1:9000", "", "127.0.0.1:9000"},
 	}
 	for _, tt := range tests {
-		t.Setenv("ORBIT_ADDR", tt.addr)
+		t.Setenv("LYR_ADDR", tt.addr)
 		t.Setenv("PORT", tt.port)
 		if got := Addr(); got != tt.want {
-			t.Errorf("ORBIT_ADDR=%q PORT=%q: Addr() = %q, want %q", tt.addr, tt.port, got, tt.want)
+			t.Errorf("LYR_ADDR=%q PORT=%q: Addr() = %q, want %q", tt.addr, tt.port, got, tt.want)
 		}
 	}
 }
@@ -98,8 +98,8 @@ func TestListenURL(t *testing.T) {
 	}
 }
 
-// TestListenAndServeLogs checks the "listening on" line, and that orbit dev
-// (ORBIT_DEV=1) gets none. The server is stopped with a SIGINT to the test
+// TestListenAndServeLogs checks the "listening on" line, and that lyr dev
+// (LYR_DEV=1) gets none. The server is stopped with a SIGINT to the test
 // process, which ListenAndServe catches.
 func TestListenAndServeLogs(t *testing.T) {
 	if runtime.GOOS == "windows" {
@@ -112,8 +112,8 @@ func TestListenAndServeLogs(t *testing.T) {
 		}
 		addr := ln.Addr().String()
 		ln.Close()
-		t.Setenv("ORBIT_ADDR", addr)
-		t.Setenv("ORBIT_DEV", map[bool]string{true: "1"}[dev])
+		t.Setenv("LYR_ADDR", addr)
+		t.Setenv("LYR_DEV", map[bool]string{true: "1"}[dev])
 		var logs syncLog
 		log.SetOutput(&logs)
 		flags := log.Flags()
@@ -139,12 +139,12 @@ func TestListenAndServeLogs(t *testing.T) {
 		}
 		log.SetOutput(os.Stderr)
 		log.SetFlags(flags)
-		want := "orbit: listening on http://" + addr + "\n"
+		want := "lyr: listening on http://" + addr + "\n"
 		if dev {
 			want = ""
 		}
 		if got := logs.String(); got != want {
-			t.Errorf("ORBIT_DEV=%v: log %q, want %q", dev, got, want)
+			t.Errorf("LYR_DEV=%v: log %q, want %q", dev, got, want)
 		}
 	}
 }

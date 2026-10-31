@@ -1,14 +1,14 @@
-orbit_gen/decl/components/button/decl.go (src/components/Button.orbit)
-  exact 2:1 "type Props struct {\n\tVariant string\n\tType    string\n\tAttrs   orbit.RestAttrs // every other attribute of the call site\n}" -> 193-313 "type Props struct {\n\tVariant string\n\tType    string\n\tAttrs   orbit.RestAttrs // every other attribute of the call site\n}"
-orbit_gen/impl/components/button/render.go (src/components/Button.orbit)
-  exact 8:1 "typ := props.Type" -> 640-657 "typ := props.Type"
-  exact 9:1 "if typ == \"\" {\n\ttyp = \"button\"\n}" -> 734-766 "if typ == \"\" {\n\ttyp = \"button\"\n}"
-  echo  - -> 796-799 "typ"
-  exact 13:5 "props.Attrs.Has(\"href\")" -> 857-880 "props.Attrs.Has(\"href\")"
-  exact 14:8 "props.Attrs" -> 1008-1019 "props.Attrs"
-  exact 16:13 "props.Attrs" -> 1436-1447 "props.Attrs"
-  exact 16:32 "typ" -> 1560-1563 "typ"
-  exact 16:56 "\"btn-\" + props.Variant" -> 1699-1721 "\"btn-\" + props.Variant"
+lyr_gen/decl/components/button/decl.go (src/components/Button.lyr)
+  exact 2:1 "type Props struct {\n\tVariant string\n\tType    string\n\tAttrs   lyr.RestAttrs // every other attribute of the call site\n}" -> 181-299 "type Props struct {\n\tVariant string\n\tType    string\n\tAttrs   lyr.RestAttrs // every other attribute of the call site\n}"
+lyr_gen/impl/components/button/render.go (src/components/Button.lyr)
+  exact 8:1 "typ := props.Type" -> 592-609 "typ := props.Type"
+  exact 9:1 "if typ == \"\" {\n\ttyp = \"button\"\n}" -> 684-716 "if typ == \"\" {\n\ttyp = \"button\"\n}"
+  echo  - -> 746-749 "typ"
+  exact 13:5 "props.Attrs.Has(\"href\")" -> 805-828 "props.Attrs.Has(\"href\")"
+  exact 14:8 "props.Attrs" -> 950-961 "props.Attrs"
+  exact 16:13 "props.Attrs" -> 1348-1359 "props.Attrs"
+  exact 16:32 "typ" -> 1468-1471 "typ"
+  exact 16:56 "\"btn-\" + props.Variant" -> 1601-1623 "\"btn-\" + props.Variant"
 call sites
-  attr type key=298 "typ" call="orbit__w.Attr(\"type\",\n/*line ../../../../src/components/Button.orbit:16:32*/typ/*line render.go:44:82*/,\n\t\t)"
-  class key=322 "\"btn-\" + props.Variant" call="orbit__w.ClassAny(\n/*line ../../../../src/components/Button.orbit:16:56*/\"btn-\" + props.Variant/*line render.go:48:102*/,\n\t\t)"
+  attr type key=296 "typ" call="lyr__w.Attr(\"type\",\n/*line ../../../../src/components/Button.lyr:16:32*/typ/*line render.go:44:80*/,\n\t\t)"
+  class key=320 "\"btn-\" + props.Variant" call="lyr__w.ClassAny(\n/*line ../../../../src/components/Button.lyr:16:56*/\"btn-\" + props.Variant/*line render.go:48:99*/,\n\t\t)"

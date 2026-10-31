@@ -1,0 +1,17 @@
+---
+import (
+	"github.com/orbit-z/lyr/bench/go/data"
+
+	Card "../../components/Card.lyr"
+	Header "../../components/Header.lyr"
+	Layout "../../layouts/Layout.lyr"
+)
+---
+<Layout title={params.Slug}>
+  <Header title={params.Slug} links={data.Nav} />
+  <main>
+    <Card id={1000} title={params.Slug} count={1} featured href={"/post/" + params.Slug} body="A small page & a route param">
+      <em>static slot</em>
+    </Card>
+  </main>
+</Layout>

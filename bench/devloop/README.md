@@ -1,14 +1,14 @@
-# devloop: the orbit dev rebuild budget
+# devloop: the lyr dev rebuild budget
 
-This program measures the stages `orbit dev` will chain after a save
+This program measures the stages `lyr dev` will chain after a save
 (PLAN.md §7), before `internal/dev` exists. The goal is to know where the
 ~1 s save-to-browser budget goes. It builds a synthetic project, then
 applies each kind of edit several times. For each one it measures the time
 from "file written" to "new server binary ready" and to "new server
 accepting connections".
 
-It is a separate module (`github.com/orbit-z/orbit/bench/devloop`,
-`replace … => ../..`). That lets it import Orbit's `internal/` packages
+It is a separate module (`github.com/orbit-z/lyr/bench/devloop`,
+`replace … => ../..`). That lets it import Lyr's `internal/` packages
 without adding anything to the root module.
 
 ## Run
@@ -28,7 +28,7 @@ too: the type checker and `go build -p` size their parallelism from it.
 
 | Flag | Meaning |
 |---|---|
-| `-files 200` | `.orbit` files: 1/5 pages, 2 layouts, the rest components |
+| `-files 200` | `.lyr` files: 1/5 pages, 2 layouts, the rest components |
 | `-runs 7` | measured runs per edit kind, after one warm-up run that isn't counted |
 | `-kinds body,props` | run only these edit kinds |
 | `-ldflags -w` | the `go build -ldflags` value (`""` for full DWARF, `"-s -w"`) |
@@ -36,7 +36,7 @@ too: the type checker and `go build -p` size their parallelism from it.
 | `-fresh=false` | skip the fresh-checker comparison (it runs off the critical path) |
 | `-json out.json` | also write every sample |
 | `-keep -dir d` | build the project in `d` and keep it |
-| `-dev` | measure `internal/dev`'s pipeline, which is what `orbit dev` runs (below) |
+| `-dev` | measure `internal/dev`'s pipeline, which is what `lyr dev` runs (below) |
 | `-fullfront` | `project.Load` and `Front` the whole project on every edit, instead of `project.Reload` (the front before per-file reloads) |
 | `-nopreload` | on a `.go` edit, run `go list -export` in the check stage, instead of starting it (`Checker.Preload`) at the start of the step |
 | `DEVLOOP_VERBOSE=1` | log every package `go build` compiled |
@@ -46,15 +46,15 @@ build cache from an earlier run. The header prints the load average at the
 start and at the end. If it's well above 1, other work was competing and
 the numbers are noisy.
 
-## `-dev`: the real `orbit dev` pipeline
+## `-dev`: the real `lyr dev` pipeline
 
 By default each step runs the prototype stages described below, which
 predate `internal/dev`. With `-dev`, each step instead calls
 `internal/dev.Pipeline.Run` with the paths the edit wrote, so it measures
-what `orbit dev` runs after a debounced save: the change classifier, the
+what `lyr dev` runs after a debounced save: the change classifier, the
 resident checker, esbuild skipped when no style or script changed, and,
 on a `.go`-only edit, `go build` started before regenerating (kept when
-regenerating writes nothing to `orbit_gen/`). The server swap and the
+regenerating writes nothing to `lyr_gen/`). The server swap and the
 first request are the same as in the default mode.
 
 In `-dev` mode:
@@ -64,17 +64,17 @@ In `-dev` mode:
   (the `early build` column says `used`, or `rebuilt after` when
   regenerating wrote files and `go build` ran again).
 - `-ldflags`, `-buildflags` and `-fresh` don't apply: the pipeline uses
-  `orbit dev`'s flags (`-ldflags=-s -w`, merged with any `-ldflags` in
-  `GOFLAGS`; `-gcflags=all=-dwarf=false`, no inlining in `orbit_gen/`,
+  `lyr dev`'s flags (`-ldflags=-s -w`, merged with any `-ldflags` in
+  `GOFLAGS`; `-gcflags=all=-dwarf=false`, no inlining in `lyr_gen/`,
   `-buildvcs=false`; no `GOGC`/`GOMEMLIMIT`),
   and other go flags come from `GOFLAGS`, e.g.
   `GOFLAGS=-gcflags=-l ./devloop -dev`.
 - `compiled` and `(link)` aren't measured (no action graph), and `noop` is
-  an empty change: `orbit dev` never runs one, so it shows only the front.
+  an empty change: `lyr dev` never runs one, so it shows only the front.
 
 ## The project
 
-There are 200 `.orbit` files by default. The generator is package `synth`, which `bench/lsp` uses too.
+There are 200 `.lyr` files by default. The generator is package `synth`, which `bench/lsp` uses too.
 
 - **Pages**: 40. They include the index, `[slug]` and `[...rest]` routes,
   and pages that use either layout.
@@ -97,19 +97,19 @@ The Go side:
 
 ## What a step does
 
-Each step is what a resident `orbit dev` would do. The column names below
+Each step is what a resident `lyr dev` would do. The column names below
 are the ones the table prints.
 
 | Column | What it measures |
 |---|---|
 | front | `project.Reload` of the last project with the edit's paths: discovery, then reading, parse, analyze and pass 1 of the changed files and of the importers of a file whose index entry changed, then the project checks (`project.Load` and `Front` of every file on the first step, or with `-fullfront`) |
-| esbuild | the resident dev `assets.New(Options{Dev: true})` context: `Bundle`, then `assets.WriteDev` to `.orbit/dev` |
-| check | the **resident** `compiler.Checker`: the first step calls `Check`, later steps call `Update` with the units whose pass-1 output changed. A `.go` edit calls `Invalidate` and `Preload` (of the last load's packages) at the start of the step, as `orbit dev` does, so `go list -export` runs during the front and esbuild, and the check stage only waits for what's left of it. Files it doesn't re-check keep their previous output. |
-| gen+write | `GenFiles` and `WriteGenerated`, which only rewrites files whose content changed. The compiled manifest is left empty, because dev reads `.orbit/dev/manifest.json`. |
+| esbuild | the resident dev `assets.New(Options{Dev: true})` context: `Bundle`, then `assets.WriteDev` to `.lyr/dev` |
+| check | the **resident** `compiler.Checker`: the first step calls `Check`, later steps call `Update` with the units whose pass-1 output changed. A `.go` edit calls `Invalidate` and `Preload` (of the last load's packages) at the start of the step, as `lyr dev` does, so `go list -export` runs during the front and esbuild, and the check stage only waits for what's left of it. Files it doesn't re-check keep their previous output. |
+| gen+write | `GenFiles` and `WriteGenerated`, which only rewrites files whose content changed. The compiled manifest is left empty, because dev reads `.lyr/dev/manifest.json`. |
 | go build | `go build -o <tmp> -ldflags=-w -debug-actiongraph=… ./cmd/server` |
 | (link) | the link action's share of `go build`, from the action graph |
 | stop old | SIGINT to the previous server, then wait for it to exit |
-| start | exec the new binary (`ORBIT_DEV=1`, `ORBIT_STATIC`, `ORBIT_ADDR=127.0.0.1:<free port>`), then poll until it accepts a TCP connection |
+| start | exec the new binary (`LYR_DEV=1`, `LYR_STATIC`, `LYR_ADDR=127.0.0.1:<free port>`), then poll until it accepts a TCP connection |
 | **binary ready** | front + esbuild + check + gen+write + go build |
 | **serving** | binary ready + stop old + start |
 | (1st GET /) | the first request after the start. The body edit checks that the new text is in it. |
@@ -119,7 +119,7 @@ The table also has these counters, taken from the last run:
 
 | Counter | What it counts |
 |---|---|
-| written | `orbit_gen` files rewritten |
+| written | `lyr_gen` files rewritten |
 | rechecked | units the resident checker re-checked |
 | compiled | packages `go build` compiled rather than took from the cache |
 | linked | whether `go build` relinked |

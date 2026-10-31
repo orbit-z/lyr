@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"bytes"
@@ -316,7 +316,7 @@ func TestJSON(t *testing.T) {
 
 	got, err := render(func(w *Writer) { w.Raw("a"); w.JSON("", make(chan int)); w.Raw("b") })
 	var ute *json.UnsupportedTypeError
-	if !errors.As(err, &ute) || !strings.HasPrefix(err.Error(), "orbit: set:json: ") {
+	if !errors.As(err, &ute) || !strings.HasPrefix(err.Error(), "lyr: set:json: ") {
 		t.Errorf("JSON(chan) error = %v", err)
 	}
 	if got != "a" {
@@ -325,7 +325,7 @@ func TestJSON(t *testing.T) {
 }
 
 func TestAttr(t *testing.T) {
-	const bad = ` href="about:invalid#orbit"`
+	const bad = ` href="about:invalid#lyr"`
 	tests := []struct {
 		name  string
 		attr  string
@@ -364,20 +364,20 @@ func TestAttr(t *testing.T) {
 		{"tab inside scheme", "href", "java\tscript:x", bad, ""},
 		{"newline inside scheme", "href", "javas\ncript:x", bad, ""},
 		{"vbscript", "href", "VBScript:x", bad, ""},
-		{"uppercase attr name", "HREF", "javascript:x", ` HREF="about:invalid#orbit"`, ""},
-		{"src", "src", "javascript:x", ` src="about:invalid#orbit"`, ""},
-		{"xlink:href", "xlink:href", "javascript:x", ` xlink:href="about:invalid#orbit"`, ""},
-		{"formaction", "formaction", "javascript:x", ` formaction="about:invalid#orbit"`, ""},
+		{"uppercase attr name", "HREF", "javascript:x", ` HREF="about:invalid#lyr"`, ""},
+		{"src", "src", "javascript:x", ` src="about:invalid#lyr"`, ""},
+		{"xlink:href", "xlink:href", "javascript:x", ` xlink:href="about:invalid#lyr"`, ""},
+		{"formaction", "formaction", "javascript:x", ` formaction="about:invalid#lyr"`, ""},
 		{"HTML in href filtered", "href", HTML("javascript:x"), bad, ""},
 		{"named string filtered", "href", slug("javascript:x"), bad, ""},
 		{"named URL filtered", "href", myURL("javascript:x"), bad, ""},
 		{"Stringer filtered", "href", fakeStringer("javascript:x"), bad, ""},
 		{"slice filtered as a whole", "href", []string{"java", "script:x"}, bad, ""},
-		{"orbit.URL passes", "href", URL("javascript:ok()"), ` href="javascript:ok()"`, ""},
-		{"orbit.URL still escaped", "href", URL(`/a?b=1&c="2"`), ` href="/a?b=1&amp;c=&quot;2&quot;"`, ""},
-		{"orbit.CSS filtered in href", "href", CSS("javascript:x"), bad, ""},
-		{"orbit.CSS escaped", "style", CSS(`content:"a&b";color:red`), ` style="content:&quot;a&amp;b&quot;;color:red"`, ""},
-		{"orbit.CSS not filtered elsewhere", "style", CSS("javascript:x"), ` style="javascript:x"`, ""},
+		{"lyr.URL passes", "href", URL("javascript:ok()"), ` href="javascript:ok()"`, ""},
+		{"lyr.URL still escaped", "href", URL(`/a?b=1&c="2"`), ` href="/a?b=1&amp;c=&quot;2&quot;"`, ""},
+		{"lyr.CSS filtered in href", "href", CSS("javascript:x"), bad, ""},
+		{"lyr.CSS escaped", "style", CSS(`content:"a&b";color:red`), ` style="content:&quot;a&amp;b&quot;;color:red"`, ""},
+		{"lyr.CSS not filtered elsewhere", "style", CSS("javascript:x"), ` style="javascript:x"`, ""},
 		{"safe URL", "href", "https://example.com/?a=1&b=2", ` href="https://example.com/?a=1&amp;b=2"`, ""},
 		{"relative URL", "href", "/javascript:x", ` href="/javascript:x"`, ""},
 		{"not a scheme", "href", "javascript", ` href="javascript"`, ""},
@@ -433,12 +433,12 @@ func TestTypedAttrs(t *testing.T) {
 		{"AttrString", func(w *Writer) { w.AttrString("title", `<"x">`) }, ` title="&lt;&quot;x&quot;&gt;"`},
 		{"AttrString no filter", func(w *Writer) { w.AttrString("href", "javascript:x") }, ` href="javascript:x"`},
 		{"AttrURL safe", func(w *Writer) { w.AttrURL("href", "/a&b") }, ` href="/a&amp;b"`},
-		{"AttrURL filtered", func(w *Writer) { w.AttrURL("href", " JaVaScRiPt:alert(1)") }, ` href="about:invalid#orbit"`},
-		{"AttrURL control", func(w *Writer) { w.AttrURL("src", "\x01javascript:") }, ` src="about:invalid#orbit"`},
+		{"AttrURL filtered", func(w *Writer) { w.AttrURL("href", " JaVaScRiPt:alert(1)") }, ` href="about:invalid#lyr"`},
+		{"AttrURL control", func(w *Writer) { w.AttrURL("src", "\x01javascript:") }, ` src="about:invalid#lyr"`},
 		{"URL safe", func(w *Writer) { w.URL("/a&b") }, `/a&amp;b`},
-		{"URL filtered", func(w *Writer) { w.URL(" JaVaScRiPt:alert(1)") }, `about:invalid#orbit`},
-		{"URL vbscript", func(w *Writer) { w.URL("vbscript:x") }, `about:invalid#orbit`},
-		{"URL control", func(w *Writer) { w.URL("\x01javascript:") }, `about:invalid#orbit`},
+		{"URL filtered", func(w *Writer) { w.URL(" JaVaScRiPt:alert(1)") }, `about:invalid#lyr`},
+		{"URL vbscript", func(w *Writer) { w.URL("vbscript:x") }, `about:invalid#lyr`},
+		{"URL control", func(w *Writer) { w.URL("\x01javascript:") }, `about:invalid#lyr`},
 		{"URL escaped", func(w *Writer) { w.URL(`/q?a="<'>"`) }, `/q?a=&quot;&lt;'&gt;&quot;`},
 		{"AttrBool true", func(w *Writer) { w.AttrBool("hidden", true) }, " hidden"},
 		{"AttrBool false", func(w *Writer) { w.AttrBool("hidden", false) }, ""},
@@ -476,7 +476,7 @@ func TestSpread(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `<a :c="javascript:ok" a="x" b="1" data-y.z="&lt;" hidden href="about:invalid#orbit" title="t" xlink:href="about:invalid#orbit">`
+	want := `<a :c="javascript:ok" a="x" b="1" data-y.z="&lt;" hidden href="about:invalid#lyr" title="t" xlink:href="about:invalid#lyr">`
 	if got != want {
 		t.Errorf("Spread =\n%s\nwant\n%s", got, want)
 	}
@@ -507,7 +507,7 @@ func TestSpreadInvalidName(t *testing.T) {
 			if err == nil {
 				t.Fatal("no error")
 			}
-			want := fmt.Sprintf("orbit: invalid attribute name %q in spread", name)
+			want := fmt.Sprintf("lyr: invalid attribute name %q in spread", name)
 			if err.Error() != want {
 				t.Errorf("error = %q, want %q", err, want)
 			}
@@ -529,7 +529,7 @@ func TestDepthGuard(t *testing.T) {
 	entered := 0
 	var a, b func() error
 	a = func() error {
-		if err := w.Enter("src/components/A.orbit"); err != nil {
+		if err := w.Enter("src/components/A.lyr"); err != nil {
 			return err
 		}
 		defer w.Leave()
@@ -537,7 +537,7 @@ func TestDepthGuard(t *testing.T) {
 		return b()
 	}
 	b = func() error {
-		if err := w.Enter("src/components/B.orbit"); err != nil {
+		if err := w.Enter("src/components/B.lyr"); err != nil {
 			return err
 		}
 		defer w.Leave()
@@ -551,7 +551,7 @@ func TestDepthGuard(t *testing.T) {
 	if entered != maxDepth {
 		t.Errorf("entered %d components, want %d", entered, maxDepth)
 	}
-	const prefix = "orbit: render depth exceeded 1000: src/components/A.orbit > src/components/B.orbit > src/components/A.orbit > "
+	const prefix = "lyr: render depth exceeded 1000: src/components/A.lyr > src/components/B.lyr > src/components/A.lyr > "
 	if msg := err.Error(); !strings.HasPrefix(msg, prefix) || !strings.HasSuffix(msg, " > …") {
 		t.Errorf("error = %q", msg)
 	}
@@ -594,14 +594,14 @@ func TestHeadEndFirstOnly(t *testing.T) {
 
 func TestInjectHead(t *testing.T) {
 	assets := []Asset{
-		{Kind: "css", URL: "/_orbit/a.css"},
-		{Kind: "js", URL: "/_orbit/b.js?x=1&y=2"},
-		{Kind: "lazy", URL: "/_orbit/lazy.js", ID: "c1"},
-		{Kind: "css", URL: "/_orbit/c.css"},
+		{Kind: "css", URL: "/_lyr/a.css"},
+		{Kind: "js", URL: "/_lyr/b.js?x=1&y=2"},
+		{Kind: "lazy", URL: "/_lyr/lazy.js", ID: "c1"},
+		{Kind: "css", URL: "/_lyr/c.css"},
 	}
-	const tags = `<link rel="stylesheet" href="/_orbit/a.css">` +
-		`<script type="module" src="/_orbit/b.js?x=1&amp;y=2"></script>` +
-		`<link rel="stylesheet" href="/_orbit/c.css">`
+	const tags = `<link rel="stylesheet" href="/_lyr/a.css">` +
+		`<script type="module" src="/_lyr/b.js?x=1&amp;y=2"></script>` +
+		`<link rel="stylesheet" href="/_lyr/c.css">`
 	tests := []struct {
 		name   string
 		write  func(w *Writer)
@@ -765,7 +765,7 @@ func FuzzEscape(f *testing.F) {
 }
 
 // checkEscaped fails if out has one of the bytes in raw, or a & that
-// doesn't start one of the references Orbit writes.
+// doesn't start one of the references Lyr writes.
 func checkEscaped(t *testing.T, out, raw string) {
 	t.Helper()
 	if strings.ContainsAny(out, raw) {

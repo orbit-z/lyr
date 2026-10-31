@@ -5,13 +5,13 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/markdown"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/markdown"
 )
 
 // Markdown files (PLAN.md §2.4). Load reads every Markdown file under src/
 // into Project.markdown; Front compiles the pages (Markdown files under
-// src/pages, not _-prefixed) and those imported by an .orbit file, as Files
+// src/pages, not _-prefixed) and those imported by a .lyr file, as Files
 // whose MD is set, with a stand-in AST (an empty template; the file's line index)
 // and Analysis (the layout as the only import).
 
@@ -45,7 +45,7 @@ func (p *Project) SetMarkdown(path, src string, removed bool) bool {
 }
 
 // mdActive returns the paths of the Markdown files to compile: the pages,
-// and those that an .orbit file imports.
+// and those that a .lyr file imports.
 func (p *Project) mdActive() []string {
 	var out []string
 	seen := map[string]bool{}
@@ -59,7 +59,7 @@ func (p *Project) mdActive() []string {
 		if f.IsMD() || f.Analysis == nil {
 			continue
 		}
-		for _, im := range f.Analysis.OrbitImports {
+		for _, im := range f.Analysis.LyrImports {
 			if _, ok := p.markdown[im.Resolved]; ok && !seen[im.Resolved] {
 				seen[im.Resolved] = true
 				out = append(out, im.Resolved)
@@ -71,7 +71,7 @@ func (p *Project) mdActive() []string {
 }
 
 // resolver tells the Markdown parser about the project's Markdown files,
-// with their pages' canonical URLs in the orbit.json trailingSlash mode.
+// with their pages' canonical URLs in the lyr.json trailingSlash mode.
 func (p *Project) resolver() markdown.Resolver {
 	return func(target string) (string, bool) {
 		if _, ok := p.markdown[target]; !ok {
@@ -109,7 +109,7 @@ func (p *Project) parseMarkdown(files []*File) {
 		f.AST = &compiler.File{Src: f.Src, Lines: f.MD.Lines, Template: &compiler.Template{}, Diagnostics: f.MD.Diagnostics}
 		f.Analysis = &compiler.Analysis{Info: f.Info, Props: compiler.PropsInfo{Listable: true}}
 		if f.MD.Layout != "" {
-			f.Analysis.OrbitImports = []compiler.OrbitImport{{Alias: markdown.LayoutAlias, Path: f.MD.LayoutRaw,
+			f.Analysis.LyrImports = []compiler.LyrImport{{Alias: markdown.LayoutAlias, Path: f.MD.LayoutRaw,
 				Resolved: f.MD.Layout, Place: compiler.PlaceImpl,
 				Span: compiler.Span{Start: f.MD.LayoutPos, End: f.MD.LayoutPos + len(f.MD.LayoutRaw)}}}
 		}
@@ -173,7 +173,7 @@ func mdPageError(f *File) string {
 	if !strings.HasPrefix(base, "[") {
 		base = "[slug]"
 	}
-	return fmt.Sprintf("a Markdown page can't have route params; rename it, or write a %s.orbit page", base)
+	return fmt.Sprintf("a Markdown page can't have route params; rename it, or write a %s.lyr page", base)
 }
 
 // highlighted reports whether the page's static graph has a Markdown file
@@ -210,14 +210,14 @@ func (p *Project) UpdateMarkdown(path, src string, removed bool) ([]*File, bool)
 		return nil, false
 	}
 	before := make(map[*File]*compiler.Output, len(p.Files))
-	var orbit []*File
+	var lyr []*File
 	for _, f := range p.Files {
 		before[f] = f.Pass1
 		if !f.IsMD() {
-			orbit = append(orbit, f)
+			lyr = append(lyr, f)
 		}
 	}
-	p.frontChanged(orbit, map[string]bool{path: true}, removed || !had)
+	p.frontChanged(lyr, map[string]bool{path: true}, removed || !had)
 	var out []*File
 	for _, f := range p.Files {
 		if prev, ok := before[f]; !ok || prev != f.Pass1 {

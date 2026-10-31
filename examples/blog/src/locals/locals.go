@@ -2,12 +2,12 @@
 // cmd/server hands to pages and components.
 package locals
 
-import "github.com/orbit-z/orbit"
+import "github.com/orbit-z/lyr"
 
 type Locals struct {
 	RequestID string
 	Theme     string // "light" or "dark"
 	// Route is the page, 404 or island route that answered the request.
-	// Orbit fills it; the logging middleware prints its pattern.
-	Route orbit.RouteInfo
+	// Lyr fills it; the logging middleware prints its pattern.
+	Route lyr.RouteInfo
 }

@@ -1,0 +1,9 @@
+---
+x, err := load()
+if err != nil {
+	return err
+}
+return lyr.ErrNotFound
+---
+
+{/* nothing renders */}

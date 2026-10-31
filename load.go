@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"context"
@@ -10,13 +10,13 @@ import (
 	"sync"
 )
 
-// Concurrent loads in a frontmatter: orbit.All (PLAN.md §4f).
+// Concurrent loads in a frontmatter: lyr.All (PLAN.md §4f).
 
 // All runs each load concurrently and waits for all of them. Each load gets a
 // context derived from c.Request.Context(), cancelled when a load fails (and
 // when All returns). All returns the first error in time, or nil.
 //
-// A failing load's error is prefixed with the .orbit line of its func
+// A failing load's error is prefixed with the .lyr line of its func
 // literal; errors.Is and errors.As still see the error, and ErrNotFound and
 // *RedirectError are returned as is. A panic in a load cancels the others
 // and is re-panicked on the calling goroutine once every load has returned,
@@ -93,11 +93,11 @@ func (g *loadGroup) fail(err error, p any) {
 	g.cancel()
 }
 
-// loadError prefixes a failing load's error with the .orbit line of the
+// loadError prefixes a failing load's error with the .lyr line of the
 // load's func literal (generated code carries line directives), the way
 // ErrorAt does with a return's position: control flow and already positioned
 // errors are returned as is, and so is the error of a load that isn't in a
-// .orbit file. It runs on the error path only.
+// .lyr file. It runs on the error path only.
 func loadError(load func(context.Context) error, err error) error {
 	if err == nil {
 		return nil
@@ -115,7 +115,7 @@ func loadError(load func(context.Context) error, err error) error {
 		return err
 	}
 	file, line := fn.FileLine(fn.Entry())
-	if !strings.HasSuffix(file, ".orbit") {
+	if !strings.HasSuffix(file, ".lyr") {
 		return err
 	}
 	return &posError{pos: relativeFile(file) + ":" + strconv.Itoa(line), err: err}

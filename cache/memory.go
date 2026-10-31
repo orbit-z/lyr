@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 )
 
 // MemoryOptions configure NewMemory.
@@ -17,27 +17,27 @@ type MemoryOptions struct {
 	// and tags, plus a fixed overhead per entry. A response bigger than
 	// MaxBytes divided by the number of shards is not stored.
 	MaxBytes int64
-	// Query says which query parameters are part of a key; Orbit reads it
+	// Query says which query parameters are part of a key; Lyr reads it
 	// once, in NewSite. Giving both Include and Exclude panics in NewMemory.
-	Query orbit.CacheQuery
+	Query lyr.CacheQuery
 	// Now is the clock for expiry; nil means time.Now. Tests set it.
 	Now func() time.Time
 	// OnInvalidate, when set, is called by Invalidate after the local
 	// purge, so an app can forward the purge to its other instances (which
 	// apply it with InvalidateLocal). Its error is Invalidate's.
-	OnInvalidate func(ctx context.Context, o orbit.InvalidateOptions) error
+	OnInvalidate func(ctx context.Context, o lyr.InvalidateOptions) error
 }
 
-// MemoryProvider is an in-process route cache, an orbit.CacheStore. Make
-// one with NewMemory and pass it to orbit.WithCache. It's safe for concurrent
+// MemoryProvider is an in-process route cache, a lyr.CacheStore. Make
+// one with NewMemory and pass it to lyr.WithCache. It's safe for concurrent
 // use.
 type MemoryProvider struct {
-	g            *engine[*orbit.CachedResponse]
-	query        orbit.CacheQuery
-	onInvalidate func(context.Context, orbit.InvalidateOptions) error
+	g            *engine[*lyr.CachedResponse]
+	query        lyr.CacheQuery
+	onInvalidate func(context.Context, lyr.InvalidateOptions) error
 }
 
-var _ orbit.CacheStore = (*MemoryProvider)(nil)
+var _ lyr.CacheStore = (*MemoryProvider)(nil)
 
 // entryOverhead approximates a stored response's own memory beyond its
 // body, headers, key and tags: the entry, its map slot and index sets.
@@ -48,7 +48,7 @@ const entryOverhead = 256
 const pathTag = "\x00path:"
 
 // NewMemory returns an in-process route cache. Responses are kept until
-// Stored + MaxAge + SWR (Orbit decides whether one is fresh or stale), and
+// Stored + MaxAge + SWR (Lyr decides whether one is fresh or stale), and
 // evicted least recently used first, approximately (CLOCK, per shard),
 // when a bound is reached. It panics if o.Query sets both Include and
 // Exclude, or if a bound is negative.
@@ -61,14 +61,14 @@ func NewMemory(o MemoryOptions) *MemoryProvider {
 
 func newMemory(o MemoryOptions, shards int) *MemoryProvider {
 	return &MemoryProvider{
-		g:            newEngine[*orbit.CachedResponse](o.MaxEntries, o.MaxBytes, o.Now, shards),
+		g:            newEngine[*lyr.CachedResponse](o.MaxEntries, o.MaxBytes, o.Now, shards),
 		query:        o.Query,
 		onInvalidate: o.OnInvalidate,
 	}
 }
 
 // Get returns the response stored under key, or nil. It doesn't allocate.
-func (m *MemoryProvider) Get(key orbit.CacheKey) *orbit.CachedResponse {
+func (m *MemoryProvider) Get(key lyr.CacheKey) *lyr.CachedResponse {
 	e, _, _ := m.g.get(key.Hash(), key.String())
 	return e
 }
@@ -76,12 +76,12 @@ func (m *MemoryProvider) Get(key orbit.CacheKey) *orbit.CachedResponse {
 // Put stores e under key, replacing the response stored there before. A
 // response with no lifetime (MaxAge + SWR not positive), or one bigger than
 // the byte budget, isn't stored, and the earlier one is dropped.
-func (m *MemoryProvider) Put(key orbit.CacheKey, e *orbit.CachedResponse) {
+func (m *MemoryProvider) Put(key lyr.CacheKey, e *lyr.CachedResponse) {
 	m.put(key.Hash(), key.String(), e)
 }
 
-// put is Put with the key's parts (tests can't make an orbit.CacheKey).
-func (m *MemoryProvider) put(h uint64, k string, e *orbit.CachedResponse) {
+// put is Put with the key's parts (tests can't make a lyr.CacheKey).
+func (m *MemoryProvider) put(h uint64, k string, e *lyr.CachedResponse) {
 	life := e.MaxAge + e.SWR
 	if life <= 0 {
 		m.g.delete(h, k)
@@ -94,7 +94,7 @@ func (m *MemoryProvider) put(h uint64, k string, e *orbit.CachedResponse) {
 }
 
 // responseSize approximates the memory e holds.
-func responseSize(key string, e *orbit.CachedResponse) int64 {
+func responseSize(key string, e *lyr.CachedResponse) int64 {
 	n := len(e.Body) + len(key) + len(e.Path) + entryOverhead
 	for name, vs := range e.Header {
 		n += len(name)
@@ -113,7 +113,7 @@ func responseSize(key string, e *orbit.CachedResponse) int64 {
 
 // Invalidate drops the responses o selects with InvalidateLocal, then calls
 // OnInvalidate, if set, and returns its error.
-func (m *MemoryProvider) Invalidate(ctx context.Context, o orbit.InvalidateOptions) error {
+func (m *MemoryProvider) Invalidate(ctx context.Context, o lyr.InvalidateOptions) error {
 	m.InvalidateLocal(o)
 	if m.onInvalidate != nil {
 		return m.onInvalidate(ctx, o)
@@ -125,15 +125,15 @@ func (m *MemoryProvider) Invalidate(ctx context.Context, o orbit.InvalidateOptio
 // response whose Path is o.Path (all its hosts, queries, variants and its
 // Vary marker), without calling OnInvalidate. Use it to apply a purge
 // received from another instance.
-func (m *MemoryProvider) InvalidateLocal(o orbit.InvalidateOptions) {
+func (m *MemoryProvider) InvalidateLocal(o lyr.InvalidateOptions) {
 	m.g.invalidateTags(o.Tags...)
 	if o.Path != "" {
 		m.g.invalidateTags(pathTag + o.Path)
 	}
 }
 
-// CacheQuery returns MemoryOptions.Query; Orbit calls it in NewSite.
-func (m *MemoryProvider) CacheQuery() orbit.CacheQuery { return m.query }
+// CacheQuery returns MemoryOptions.Query; Lyr calls it in NewSite.
+func (m *MemoryProvider) CacheQuery() lyr.CacheQuery { return m.query }
 
 // Clear drops every stored response, without calling OnInvalidate.
 func (m *MemoryProvider) Clear() { m.g.clear() }

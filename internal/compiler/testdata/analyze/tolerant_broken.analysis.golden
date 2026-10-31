@@ -1,6 +1,6 @@
-info src/components/tolerant_broken.orbit component route=""
+info src/components/tolerant_broken.lyr component route=""
 goimport name="" path="strings" @11-20 "\"strings\"" path=@11-20 place=impl
-implicit orbit: none
+implicit lyr: none
 decl type @22-85 place=decl Props@27-32
   "type Props struct {\n\tTitle string\n\nx := strings.ToUpper(\nif …"
 echo []

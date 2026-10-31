@@ -1,5 +1,5 @@
-// This file is added to bench/orbit-site's cmd/server by go build -overlay
-// (bench/profile/run.sh); it is not part of the site. With ORBIT_PPROF_ADDR
+// This file is added to bench/lyr-site's cmd/server by go build -overlay
+// (bench/profile/run.sh); it is not part of the site. With LYR_PPROF_ADDR
 // set, it serves net/http/pprof on that address, on its own listener, so
 // the site's handler and middleware chain are unchanged.
 
@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	addr := os.Getenv("ORBIT_PPROF_ADDR")
+	addr := os.Getenv("LYR_PPROF_ADDR")
 	if addr == "" {
 		return
 	}

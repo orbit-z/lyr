@@ -1,0 +1,13 @@
+---
+import (
+    "example.com/lyrbench/internal/data"
+    Layout "../layouts/Layout.lyr"
+    ItemList "../components/ItemList.lyr"
+)
+
+items := data.Fetch()
+---
+<Layout title="Fetched list">
+  <h1>Latest items</h1>
+  <ItemList items={items} />
+</Layout>

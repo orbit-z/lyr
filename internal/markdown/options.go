@@ -2,7 +2,7 @@
 // (go.yaml.in/yaml/v3), the body to HTML with goldmark (CommonMark, GFM,
 // footnotes, smart punctuation, raw HTML), github-slugger heading IDs,
 // relative .md link rewriting, and code blocks highlighted with Chroma
-// classes when Orbit generates code; then the Go declaration and
+// classes when Lyr generates code; then the Go declaration and
 // implementation packages of the file. It is part of the CLI only: user
 // servers never link it.
 package markdown
@@ -21,7 +21,7 @@ const (
 	DefaultDark  = "github-dark"
 )
 
-// Options are orbit.json's "markdown" key (PLAN.md §8). The zero value is
+// Options are lyr.json's "markdown" key (PLAN.md §8). The zero value is
 // the default: GFM and smart punctuation on, highlighting with the
 // github / github-dark themes and their CSS.
 type Options struct {

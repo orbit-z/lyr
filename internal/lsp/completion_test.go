@@ -12,7 +12,7 @@ import (
 
 // The completion part of the LSP integration test (PLAN.md §13).
 
-const boxOrbit = `---
+const boxLyr = `---
 type Props struct {
 	Title string
 }
@@ -20,9 +20,9 @@ type Props struct {
 <section><header><slot name="header" /></header><slot /></section>
 `
 
-const completeOrbit = `---
-import Card "../components/Card.orbit"
-import Box "../components/Box.orbit"
+const completeLyr = `---
+import Card "../components/Card.lyr"
+import Box "../components/Box.lyr"
 
 suffix := "!"
 greeting := "Héllo ✓ 😀" + suffix
@@ -140,25 +140,25 @@ func accept(text string, it *completionItem) string {
 func TestCompletion(t *testing.T) {
 	needGopls(t)
 	dir := writeProject(t, map[string]string{
-		"src/components/Card.orbit":   cardOrbit,
-		"src/components/Box.orbit":    boxOrbit,
-		"src/pages/complete.orbit":    completeOrbit,
-		"src/pages/index.orbit":       indexOrbit,
-		"src/pages/blog/[slug].orbit": slugOrbit,
-		"src/locals/locals.go":        localsGo,
-		"src/pages/blog/post.md":      "---\ntitle: Hi\ntags: [a, b]\n---\n# Hi\n",
-		"src/pages/md.orbit":          "---\nimport Post \"./blog/post.md\"\n---\n<p>{Post.Frontmatter.Title}</p>\n<Post />\n",
+		"src/components/Card.lyr":   cardLyr,
+		"src/components/Box.lyr":    boxLyr,
+		"src/pages/complete.lyr":    completeLyr,
+		"src/pages/index.lyr":       indexLyr,
+		"src/pages/blog/[slug].lyr": slugLyr,
+		"src/locals/locals.go":      localsGo,
+		"src/pages/blog/post.md":    "---\ntitle: Hi\ntags: [a, b]\n---\n# Hi\n",
+		"src/pages/md.lyr":          "---\nimport Post \"./blog/post.md\"\n---\n<p>{Post.Frontmatter.Title}</p>\n<Post />\n",
 	})
 	c := startClient(t, dir, nil)
-	const page = "src/pages/complete.orbit"
+	const page = "src/pages/complete.lyr"
 	text := c.open(page)
 
 	t.Run("props.", func(t *testing.T) {
-		card := c.open("src/components/Card.orbit")
+		card := c.open("src/components/Card.lyr")
 		src := strings.Replace(card, "{props.Post}", "{props.}", 1)
-		c.change("src/components/Card.orbit", src)
+		c.change("src/components/Card.lyr", src)
 		pos := at(t, src, "{props.}", 0, len("{props."))
-		items := c.complete("src/components/Card.orbit", pos)
+		items := c.complete("src/components/Card.lyr", pos)
 		for _, want := range []string{"Post", "Featured"} {
 			it := item(items, want)
 			if it == nil {
@@ -168,7 +168,7 @@ func TestCompletion(t *testing.T) {
 				t.Errorf("%s: edit %+v, want an insertion at %v", want, it.TextEdit, pos)
 			}
 		}
-		c.change("src/components/Card.orbit", card)
+		c.change("src/components/Card.lyr", card)
 		for _, it := range items {
 			if isGlueName(it.Label) {
 				t.Errorf("generated name offered: %s", it.Label)
@@ -177,27 +177,27 @@ func TestCompletion(t *testing.T) {
 	})
 
 	// The runtime's generated-code-only names (doc "For generated code.")
-	// aren't offered, after orbit., after an aliased import of the runtime,
+	// aren't offered, after lyr., after an aliased import of the runtime,
 	// or on a *Writer; the user API is.
 	t.Run("generated-code-only runtime names", func(t *testing.T) {
-		card := c.open("src/components/Card.orbit")
-		aliased := strings.Replace(card, "type Props", "import rt \"github.com/orbit-z/orbit\"\n\nvar _ rt.HTML\n\ntype Props", 1)
+		card := c.open("src/components/Card.lyr")
+		aliased := strings.Replace(card, "type Props", "import rt \"github.com/orbit-z/lyr\"\n\nvar _ rt.HTML\n\ntype Props", 1)
 		for _, tc := range []struct {
 			src, marker  string
 			want, hidden []string
 		}{
-			{strings.Replace(card, "{props.Post}", "{orbit.}", 1), "{orbit.",
+			{strings.Replace(card, "{props.Post}", "{lyr.}", 1), "{lyr.",
 				[]string{"If", "HTML", "Cond", "RestOf", "NewSite"},
 				[]string{"RestString", "ErrorAt", "Wrap", "SetHTML", "TB", "Route", "LocalsOf", "WithLocalsRoute"}},
 			{strings.Replace(aliased, "{props.Post}", "{rt.}", 1), "{rt.",
 				[]string{"If", "HTML"},
 				[]string{"RestString", "ErrorAt"}},
-			{strings.Replace(card, "{props.Post}", "{orbit.NewWriter(nil).}", 1), "{orbit.NewWriter(nil).",
+			{strings.Replace(card, "{props.Post}", "{lyr.NewWriter(nil).}", 1), "{lyr.NewWriter(nil).",
 				[]string{"String", "Raw", "AttrValue", "URL"},
 				[]string{"Enter", "Leave", "HeadEnd", "Class", "ClassStart", "TagOpen", "URLMark"}},
 		} {
-			c.change("src/components/Card.orbit", tc.src)
-			items := c.complete("src/components/Card.orbit", at(t, tc.src, tc.marker, 0, len(tc.marker)))
+			c.change("src/components/Card.lyr", tc.src)
+			items := c.complete("src/components/Card.lyr", at(t, tc.src, tc.marker, 0, len(tc.marker)))
 			for _, w := range tc.want {
 				if item(items, w) == nil {
 					t.Errorf("%s: completion %v, want %s", tc.marker, labels(items), w)
@@ -209,7 +209,7 @@ func TestCompletion(t *testing.T) {
 				}
 			}
 		}
-		c.change("src/components/Card.orbit", card)
+		c.change("src/components/Card.lyr", card)
 	})
 
 	// {c} is both the start of a control block and of an expression: the
@@ -242,43 +242,43 @@ func TestCompletion(t *testing.T) {
 
 	// {switch} headers and case lists are Go regions completed by gopls.
 	t.Run("switch header and case list", func(t *testing.T) {
-		card := c.open("src/components/Card.orbit")
+		card := c.open("src/components/Card.lyr")
 		for _, tc := range []struct{ tmpl, marker string }{
 			{"{switch props.}{case \"a\"}a{/switch}", "{switch props."},
 			{"{switch props.Post}{case props.}a{/switch}", "{case props."},
 			{"{switch}{case props.}a{default}b{/switch}", "{case props."},
 		} {
 			src := strings.Replace(card, "{props.Post}", tc.tmpl, 1)
-			c.change("src/components/Card.orbit", src)
-			items := c.complete("src/components/Card.orbit", at(t, src, tc.marker, 0, len(tc.marker)))
+			c.change("src/components/Card.lyr", src)
+			items := c.complete("src/components/Card.lyr", at(t, src, tc.marker, 0, len(tc.marker)))
 			for _, want := range []string{"Post", "Featured"} {
 				if item(items, want) == nil {
 					t.Errorf("%s: completion %v, want %s", tc.tmpl, labels(items), want)
 				}
 			}
 		}
-		c.change("src/components/Card.orbit", card)
+		c.change("src/components/Card.lyr", card)
 	})
 
 	// class:list items are Go regions: an item, a condition, and a list
 	// that doesn't parse while typing.
 	t.Run("class:list items", func(t *testing.T) {
-		card := c.open("src/components/Card.orbit")
+		card := c.open("src/components/Card.lyr")
 		for _, tc := range []struct{ tmpl, marker string }{
 			{`<p class:list={"a", props.}>x</p>`, "props."},
 			{`<p class:list={"a": props.}>x</p>`, "props."},
 			{`<p class:list={"a", props.Post, "b": props.}>x</p>`, `"b": props.`},
 		} {
 			src := strings.Replace(card, "{props.Post}", tc.tmpl, 1)
-			c.change("src/components/Card.orbit", src)
-			items := c.complete("src/components/Card.orbit", at(t, src, tc.marker, 0, len(tc.marker)))
+			c.change("src/components/Card.lyr", src)
+			items := c.complete("src/components/Card.lyr", at(t, src, tc.marker, 0, len(tc.marker)))
 			for _, want := range []string{"Post", "Featured"} {
 				if item(items, want) == nil {
 					t.Errorf("%s: completion %v, want %s", tc.tmpl, labels(items), want)
 				}
 			}
 		}
-		c.change("src/components/Card.orbit", card)
+		c.change("src/components/Card.lyr", card)
 	})
 
 	t.Run("component attributes", func(t *testing.T) {
@@ -333,10 +333,10 @@ func TestCompletion(t *testing.T) {
 	})
 
 	t.Run("params.", func(t *testing.T) {
-		slug := c.open("src/pages/blog/[slug].orbit")
+		slug := c.open("src/pages/blog/[slug].lyr")
 		src := strings.Replace(slug, "params.Slug", "params.", 1)
-		c.change("src/pages/blog/[slug].orbit", src)
-		items := c.complete("src/pages/blog/[slug].orbit", at(t, src, "params.", 0, len("params.")))
+		c.change("src/pages/blog/[slug].lyr", src)
+		items := c.complete("src/pages/blog/[slug].lyr", at(t, src, "params.", 0, len("params.")))
 		if item(items, "Slug") == nil {
 			t.Errorf("params.: %v, want Slug", labels(items))
 		}
@@ -345,7 +345,7 @@ func TestCompletion(t *testing.T) {
 	// A Markdown import (PLAN.md §2.4, §9): gopls completes its
 	// frontmatter through the generated decl package.
 	t.Run("Post.Frontmatter.", func(t *testing.T) {
-		const md = "src/pages/md.orbit"
+		const md = "src/pages/md.lyr"
 		src := c.open(md)
 		edited := strings.Replace(src, "Post.Frontmatter.Title", "Post.Frontmatter.", 1)
 		c.change(md, edited)
@@ -376,10 +376,10 @@ func TestCompletion(t *testing.T) {
 	})
 
 	t.Run("tag names", func(t *testing.T) {
-		index := c.open("src/pages/index.orbit")
+		index := c.open("src/pages/index.lyr")
 		src := strings.Replace(index, "<p>{count}</p>", "<\n<p>{count}</p>", 1)
-		c.change("src/pages/index.orbit", src)
-		items := c.complete("src/pages/index.orbit", at(t, src, "<\n<p>", 0, 1))
+		c.change("src/pages/index.lyr", src)
+		items := c.complete("src/pages/index.lyr", at(t, src, "<\n<p>", 0, 1))
 		// The editor's order: imported components, other components, HTML.
 		sorted := labels(slices.SortedStableFunc(slices.Values(items), func(a, b completionItem) int {
 			return strings.Compare(a.SortText, b.SortText)
@@ -393,7 +393,7 @@ func TestCompletion(t *testing.T) {
 			t.Fatalf("Box: additional edits %+v, want the import", box.AdditionalTextEdits)
 		}
 		after := accept(src, box)
-		if !strings.Contains(after, "import Card \"../components/Card.orbit\"\nimport Box \"../components/Box.orbit\"\n") ||
+		if !strings.Contains(after, "import Card \"../components/Card.lyr\"\nimport Box \"../components/Box.lyr\"\n") ||
 			!strings.Contains(after, "<Box\n<p>") {
 			t.Errorf("accepting Box gives:\n%s", after)
 		}
@@ -403,27 +403,27 @@ func TestCompletion(t *testing.T) {
 	})
 
 	t.Run("auto-import", func(t *testing.T) {
-		index := c.texts["src/pages/index.orbit"]
+		index := c.texts["src/pages/index.lyr"]
 		src := strings.Replace(index, "count := len(greeting)", "count := len(greeting)\nup := strings.ToU", 1)
 		src = strings.Replace(src, "<p>{count}</p>", "<p>{count}{up}</p>", 1)
-		c.change("src/pages/index.orbit", src)
-		items := c.complete("src/pages/index.orbit", at(t, src, "strings.ToU", 0, len("strings.ToU")))
+		c.change("src/pages/index.lyr", src)
+		items := c.complete("src/pages/index.lyr", at(t, src, "strings.ToU", 0, len("strings.ToU")))
 		it := item(items, "ToUpper")
 		if it == nil {
 			t.Fatalf("strings.ToU: %v, want ToUpper", labels(items))
 		}
 		after := accept(src, it)
-		want := "---\nimport Card \"../components/Card.orbit\"\nimport \"strings\"\n"
+		want := "---\nimport Card \"../components/Card.lyr\"\nimport \"strings\"\n"
 		if !strings.HasPrefix(after, want) || !strings.Contains(after, "up := strings.ToUpper") {
 			t.Errorf("accepting ToUpper gives:\n%s\nwant it to start with:\n%s", after, want)
 		}
 	})
 
 	t.Run("after non-ASCII text", func(t *testing.T) {
-		index := c.texts["src/pages/index.orbit"]
+		index := c.texts["src/pages/index.lyr"]
 		src := strings.Replace(index, `"Héllo ✓ 😀" + suffix`, `"Héllo ✓ 😀" + suf`, 1)
-		c.change("src/pages/index.orbit", src)
-		items := c.complete("src/pages/index.orbit", at(t, src, "+ suf", 0, len("+ suf")))
+		c.change("src/pages/index.lyr", src)
+		items := c.complete("src/pages/index.lyr", at(t, src, "+ suf", 0, len("+ suf")))
 		it := item(items, "suffix")
 		if it == nil || it.TextEdit == nil {
 			t.Fatalf("after non-ASCII: %v, want suffix", labels(items))
@@ -442,8 +442,8 @@ func TestCompletion(t *testing.T) {
 	})
 
 	t.Run("unsaved Props change", func(t *testing.T) {
-		card := strings.Replace(cardOrbit, "Featured bool", "Featured bool\n\t// Tags label the post.\n\tTags     []string", 1)
-		c.change("src/components/Card.orbit", card)
+		card := strings.Replace(cardLyr, "Featured bool", "Featured bool\n\t// Tags label the post.\n\tTags     []string", 1)
+		c.change("src/components/Card.lyr", card)
 		src := strings.Replace(text, "<Card post={greeting} />", "<Card  />", 1)
 		c.change(page, src)
 		items := c.complete(page, at(t, src, "<Card  />", 0, len("<Card ")))

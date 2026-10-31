@@ -1,4 +1,4 @@
-module orbitspike/lsp
+module lyrspike/lsp
 
 go 1.27
 

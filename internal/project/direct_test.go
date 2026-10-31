@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/compiler"
+	"github.com/orbit-z/lyr/internal/compiler"
 )
 
 // cycleFiles is a project with every shape of PLAN.md §3.5's cycle rule:
@@ -20,66 +20,66 @@ import (
 // calling into the A ↔ B cycle from outside, a <Self> tree, a page used as
 // a component, and a component used only with server:defer.
 var cycleFiles = map[string]string{
-	"src/components/A.orbit": `---
-import B "./B.orbit"
+	"src/components/A.lyr": `---
+import B "./B.lyr"
 
 type Props struct{ N int }
 ---
 <div class="a">{if props.N > 0}<B n={props.N - 1}><i>{props.N}</i></B>{/if}<slot /></div>
 `,
-	"src/components/B.orbit": `---
-import A "./A.orbit"
+	"src/components/B.lyr": `---
+import A "./A.lyr"
 
 type Props struct{ N int }
 ---
 <div class="b"><slot />{if props.N > 0}<A n={props.N - 1} />{/if}</div>
 `,
-	"src/components/C.orbit": `---
-import D "./D.orbit"
+	"src/components/C.lyr": `---
+import D "./D.lyr"
 
 type Props struct{ N int }
 ---
 <c>{if props.N > 0}<D n={props.N - 1}>{props.N}</D>{/if}<slot /></c>
 `,
-	"src/components/D.orbit": `---
-import E "./E.orbit"
+	"src/components/D.lyr": `---
+import E "./E.lyr"
 
 type Props struct{ N int }
 ---
 <d>{if props.N > 0}<E n={props.N - 1}><slot /></E>{/if}</d>
 `,
-	"src/components/E.orbit": `---
-import C "./C.orbit"
+	"src/components/E.lyr": `---
+import C "./C.lyr"
 
 type Props struct{ N int }
 ---
 <e>{if props.N > 0}<C n={props.N - 1} />{/if}<slot /></e>
 `,
-	"src/components/ToA.orbit": `---
-import A "./A.orbit"
+	"src/components/ToA.lyr": `---
+import A "./A.lyr"
 
 type Props struct{ N int }
 ---
 <section><A n={props.N}><slot /></A></section>
 `,
-	"src/components/Tree.orbit": `---
+	"src/components/Tree.lyr": `---
 type Props struct{ Depth int }
 ---
 <ul>{if props.Depth > 0}<Self depth={props.Depth - 1}><li>{props.Depth}</li></Self>{/if}<slot /></ul>
 `,
-	"src/components/Late.orbit": `---
+	"src/components/Late.lyr": `---
 type Props struct{ N int }
 ---
 <p>late {props.N}</p>
 `,
-	"src/pages/about.orbit": "<p>about</p>\n",
-	"src/pages/index.orbit": `---
+	"src/pages/about.lyr": "<p>about</p>\n",
+	"src/pages/index.lyr": `---
 import (
-	ToA "../components/ToA.orbit"
-	C "../components/C.orbit"
-	Tree "../components/Tree.orbit"
-	Late "../components/Late.orbit"
-	About "./about.orbit"
+	ToA "../components/ToA.lyr"
+	C "../components/C.lyr"
+	Tree "../components/Tree.lyr"
+	Late "../components/Late.lyr"
+	About "./about.lyr"
 )
 
 word := "hi"
@@ -99,7 +99,7 @@ import (
 	"io"
 	"net/http/httptest"
 
-	"example.com/blog/orbit_gen/app"
+	"example.com/blog/lyr_gen/app"
 )
 
 func main() {
@@ -144,11 +144,11 @@ func TestDirectCallsRule(t *testing.T) {
 		// A ↔ B cycle directly; index calls ToA, C and Tree directly, but
 		// not About (a page) or Late (server:defer only).
 		// The direct callees (A, C) export their render function.
-		"src/components/A.orbit":    {nil, false},
-		"src/components/C.orbit":    {nil, false},
-		"src/components/ToA.orbit":  {[]string{"src/components/A.orbit"}, false},
-		"src/components/Tree.orbit": {nil, true},
-		"src/pages/index.orbit":     {[]string{"src/components/C.orbit", "src/components/ToA.orbit", "src/components/Tree.orbit"}, false},
+		"src/components/A.lyr":    {nil, false},
+		"src/components/C.lyr":    {nil, false},
+		"src/components/ToA.lyr":  {[]string{"src/components/A.lyr"}, false},
+		"src/components/Tree.lyr": {nil, true},
+		"src/pages/index.lyr":     {[]string{"src/components/C.lyr", "src/components/ToA.lyr", "src/components/Tree.lyr"}, false},
 	}
 	if !reflect.DeepEqual(got, wantAll) {
 		t.Errorf("DirectCalls:\n got %v\nwant %v", got, wantAll)
@@ -158,7 +158,7 @@ func TestDirectCallsRule(t *testing.T) {
 // TestBuildFlavorCycles generates the cycle project, writes its build
 // flavor, and checks that go build and go vet pass with -overlay, that
 // every route's response is byte-identical between the flavors, that
-// BuildFiles is deterministic and sorted, and that it leaves orbit_gen/
+// BuildFiles is deterministic and sorted, and that it leaves lyr_gen/
 // as generate wrote it.
 func TestBuildFlavorCycles(t *testing.T) {
 	needGo(t)
@@ -176,11 +176,11 @@ func TestBuildFlavorCycles(t *testing.T) {
 		paths = append(paths, f.Path)
 	}
 	wantPaths := []string{
-		".orbit/build/impl/components/a/render.go",
-		".orbit/build/impl/components/c/render.go",
-		".orbit/build/impl/components/toa/render.go",
-		".orbit/build/impl/components/tree/render.go",
-		".orbit/build/impl/pages/index/render.go",
+		".lyr/build/impl/components/a/render.go",
+		".lyr/build/impl/components/c/render.go",
+		".lyr/build/impl/components/toa/render.go",
+		".lyr/build/impl/components/tree/render.go",
+		".lyr/build/impl/pages/index/render.go",
 		compiler.OverlayFile,
 	}
 	if !slices.Equal(paths, wantPaths) {
@@ -191,7 +191,7 @@ func TestBuildFlavorCycles(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range wantPaths[:5] {
-		if gen := "orbit_gen" + strings.TrimPrefix(p, compiler.BuildDir); ov.Replace[gen] != p {
+		if gen := "lyr_gen" + strings.TrimPrefix(p, compiler.BuildDir); ov.Replace[gen] != p {
 			t.Errorf("overlay maps %s to %q, want %s", gen, ov.Replace[gen], p)
 		}
 	}
@@ -200,18 +200,18 @@ func TestBuildFlavorCycles(t *testing.T) {
 		t.Errorf("BuildFiles isn't deterministic (%v)", err)
 	}
 	index := string(files[4].Content)
-	for _, want := range []string{"orbit__C.Orbit__RenderImpl", "orbit__ToA.Orbit__RenderImpl", "orbit__Tree.Orbit__RenderImpl", "About.Render", "orbit__rt.Defer("} {
+	for _, want := range []string{"lyr__C.Lyr__RenderImpl", "lyr__ToA.Lyr__RenderImpl", "lyr__Tree.Lyr__RenderImpl", "About.Render", "lyr__rt.Defer("} {
 		if !strings.Contains(index, want) {
 			t.Errorf("index build flavor lacks %q", want)
 		}
 	}
 
-	before := snapshot(t, filepath.Join(tp.Dir, "orbit_gen"))
+	before := snapshot(t, filepath.Join(tp.Dir, "lyr_gen"))
 	if err := WriteBuildFiles(tp.Dir, files); err != nil {
 		t.Fatal(err)
 	}
-	if after := snapshot(t, filepath.Join(tp.Dir, "orbit_gen")); !reflect.DeepEqual(before, after) {
-		t.Error("WriteBuildFiles changed orbit_gen/")
+	if after := snapshot(t, filepath.Join(tp.Dir, "lyr_gen")); !reflect.DeepEqual(before, after) {
+		t.Error("WriteBuildFiles changed lyr_gen/")
 	}
 	ovFlag := "-overlay=" + compiler.OverlayFile
 	for _, args := range [][]string{{"build", ovFlag, "./..."}, {"vet", ovFlag, "./..."}} {
@@ -237,8 +237,8 @@ func TestBuildFlavorCycles(t *testing.T) {
 }
 
 // islandRE matches what changes between runs of a binary not built by
-// orbit build: the key warning, and the island URL and token.
-var islandRE = regexp.MustCompile(`(?m)^.*no island key.*$|/_orbit/island/[0-9a-f]+/[^"]*" props="[^"]*"`)
+// lyr build: the key warning, and the island URL and token.
+var islandRE = regexp.MustCompile(`(?m)^.*no island key.*$|/_lyr/island/[0-9a-f]+/[^"]*" props="[^"]*"`)
 
 // snapshot reads every file under dir.
 func snapshot(t *testing.T, dir string) map[string][]byte {

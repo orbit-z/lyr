@@ -1,8 +1,0 @@
----
-import Cacher "./Cacher.orbit"
-
-type Props struct {
-	N int
-}
----
-<Cacher><Self n={props.N + 1} /></Cacher>

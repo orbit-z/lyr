@@ -1,0 +1,4 @@
+---
+import R "../components/R.lyr"
+---
+<div><R mode="top" /></div>

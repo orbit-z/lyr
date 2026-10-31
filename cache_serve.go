@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"fmt"
@@ -112,9 +112,9 @@ func compileRules(rules []RouteRule, always bool) *router {
 	routes := make([]Route, len(rules))
 	for i, r := range rules {
 		if !strings.HasPrefix(r.Pattern, "/") {
-			panic(fmt.Sprintf("orbit: WithRouteRules: pattern %q must start with /", r.Pattern))
+			panic(fmt.Sprintf("lyr: WithRouteRules: pattern %q must start with /", r.Pattern))
 		}
-		routes[i] = Route{Pattern: r.Pattern, File: "orbit.json routeRules"}
+		routes[i] = Route{Pattern: r.Pattern, File: "lyr.json routeRules"}
 	}
 	rt, err := newRouter(routes)
 	if err != nil {
@@ -139,7 +139,7 @@ type queryRules struct {
 
 func newQueryRules(q CacheQuery) queryRules {
 	if len(q.Include) > 0 && len(q.Exclude) > 0 {
-		panic("orbit: CacheQuery: Include and Exclude can't both be set")
+		panic("lyr: CacheQuery: Include and Exclude can't both be set")
 	}
 	r := queryRules{sort: !q.NoSort}
 	switch {
@@ -166,7 +166,7 @@ func newNameMatcher(patterns []string) *nameMatcher {
 	for _, p := range patterns {
 		p = strings.ToLower(p)
 		if _, err := path.Match(p, ""); err != nil {
-			panic(fmt.Sprintf("orbit: CacheQuery: bad pattern %q: %v", p, err))
+			panic(fmt.Sprintf("lyr: CacheQuery: bad pattern %q: %v", p, err))
 		}
 		if pre, ok := strings.CutSuffix(p, "*"); ok && !strings.ContainsAny(pre, `*?[\`) {
 			m.prefixes = append(m.prefixes, pre)

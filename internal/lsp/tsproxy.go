@@ -11,15 +11,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/tsengine"
+	"github.com/orbit-z/lyr/internal/tsengine"
 )
 
 // The TypeScript child (PLAN.md §9b "Process", "Acting as the TS child's
 // client"): TypeScript 7's native language server, started lazily on the
-// first .orbit document with a script, restarted once after a crash, and
+// first .lyr document with a script, restarted once after a crash, and
 // isolated from everything else: Go and template features never wait for
 // it or depend on it. Like gopls, it never gets an error answer, and its
-// broad file-watcher registrations aren't forwarded (Orbit forwards the
+// broad file-watcher registrations aren't forwarded (Lyr forwards the
 // events of a watcher of its own instead).
 
 // tsStatus is the TypeScript child's state.
@@ -44,10 +44,10 @@ type tsState struct {
 	// engine notice was shown.
 	crashes  int
 	notified bool
-	// all is set once every .orbit file's documents were opened, for
+	// all is set once every .lyr file's documents were opened, for
 	// references and rename (Q7); they stay open.
 	all bool
-	// watching is set once Orbit's watcher of TypeScript files is
+	// watching is set once Lyr's watcher of TypeScript files is
 	// registered with the editor.
 	watching bool
 	// The in-memory tsconfig as the child has it.
@@ -79,7 +79,7 @@ var tsTimeout = 10 * time.Second
 var tsStartTimeout = 2 * time.Minute
 
 // tsNoticePrefix starts the missing-engine notice.
-const tsNoticePrefix = "Orbit: TypeScript features in <script> blocks need TypeScript " + "7.0.2 or later"
+const tsNoticePrefix = "Lyr: TypeScript features in <script> blocks need TypeScript " + "7.0.2 or later"
 
 // tsEnsure starts the child if it's idle (with s.mu held).
 func (s *Server) tsEnsure(ws *workspace) {
@@ -118,7 +118,7 @@ func (s *Server) tsStart(ws *workspace, ready chan struct{}) {
 	start := time.Now()
 	eng, err := findEngine(context.Background(), tsengine.Options{Setting: setting, Root: ws.root, BunX: true})
 	if err != nil {
-		fail(tsNoticePrefix+": "+err.Error()+". Install it with: "+tsengine.Install+"; orbit doctor checks it. "+
+		fail(tsNoticePrefix+": "+err.Error()+". Install it with: "+tsengine.Install+"; lyr doctor checks it. "+
 			"Go and template features are unaffected.", true)
 		return
 	}
@@ -132,7 +132,7 @@ func (s *Server) tsStart(ws *workspace, ready chan struct{}) {
 		return
 	}
 	if err := cmd.Start(); err != nil {
-		fail("Orbit: can't start "+eng.Bin+": "+err.Error()+"; TypeScript features in <script> blocks are off.", true)
+		fail("Lyr: can't start "+eng.Bin+": "+err.Error()+"; TypeScript features in <script> blocks are off.", true)
 		return
 	}
 	proc := &tsProc{cmd: cmd, conn: newConn(stdout, stdin), exited: make(chan struct{})}
@@ -153,7 +153,7 @@ func (s *Server) tsStart(ws *workspace, ready chan struct{}) {
 	cancel()
 	if err != nil {
 		s.stopTS()
-		fail("Orbit: the TypeScript language server ("+eng.Describe()+") failed to start: "+err.Error()+
+		fail("Lyr: the TypeScript language server ("+eng.Describe()+") failed to start: "+err.Error()+
 			"; TypeScript features in <script> blocks are off.", true)
 		return
 	}
@@ -167,7 +167,7 @@ func (s *Server) tsStart(ws *workspace, ready chan struct{}) {
 		// Virtual documents rely on UTF-16 positions passing through;
 		// TypeScript 7 accepts utf-16 (PLAN.md §9b).
 		s.stopTS()
-		fail("Orbit: the TypeScript language server answered with position encoding "+enc+", not utf-16; TypeScript features in <script> blocks are off.", true)
+		fail("Lyr: the TypeScript language server answered with position encoding "+enc+", not utf-16; TypeScript features in <script> blocks are off.", true)
 		return
 	}
 	proc.conn.Notify("initialized", map[string]any{})
@@ -188,7 +188,7 @@ var findEngine = func(ctx context.Context, opts tsengine.Options) (tsengine.Engi
 
 // tsInitParams builds the child's initialize params from the editor's
 // capabilities (with s.mu held): UTF-16 only, configuration, client-side
-// file watching (Orbit forwards its own watcher's events), and pull
+// file watching (Lyr forwards its own watcher's events), and pull
 // diagnostics, without which TypeScript 7 diagnoses nothing.
 func (s *Server) tsInitParams(ws *workspace) map[string]any {
 	caps := cloneJSON(s.rawCaps)
@@ -201,7 +201,7 @@ func (s *Server) tsInitParams(ws *workspace) map[string]any {
 	uri := pathToURI(ws.root)
 	return map[string]any{
 		"processId":        os.Getpid(),
-		"clientInfo":       map[string]any{"name": "orbit lsp"},
+		"clientInfo":       map[string]any{"name": "lyr lsp"},
 		"rootUri":          uri,
 		"workspaceFolders": []any{map[string]any{"uri": uri, "name": filepath.Base(ws.root)}},
 		"capabilities":     caps,
@@ -306,7 +306,7 @@ func (s *Server) tsExited(proc *tsProc) {
 		s.logf("typescript: the language server exited unexpectedly; it restarts on the next request")
 	default:
 		s.logf("typescript: the language server exited again; TypeScript features are off")
-		s.showMessage(msgWarning, "Orbit: the TypeScript language server exited again, so TypeScript features in <script> blocks are off until the language server restarts.")
+		s.showMessage(msgWarning, "Lyr: the TypeScript language server exited again, so TypeScript features in <script> blocks are off until the language server restarts.")
 	}
 }
 
@@ -356,7 +356,7 @@ func (s *Server) fromTS(c *Conn, m *message) {
 			s.logf("typescript: %s", o.str("message"))
 		}
 	}
-	// publishDiagnostics: Orbit pulls diagnostics (tssync.go); the child
+	// publishDiagnostics: Lyr pulls diagnostics (tssync.go); the child
 	// pushes only for its tsconfig.
 }
 
@@ -412,7 +412,7 @@ func (s *Server) tsChildRequest(c *Conn, method string, params jsonRaw) jsonRaw 
 		var keep []obj
 		for _, r := range regs {
 			if r.str("method") == "workspace/didChangeWatchedFiles" {
-				continue // broad globs (<root>/**/*, /tmp/**/*); Orbit watches instead
+				continue // broad globs (<root>/**/*, /tmp/**/*); Lyr watches instead
 			}
 			r.set("id", "ts:"+r.str("id"))
 			keep = append(keep, r)

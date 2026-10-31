@@ -22,13 +22,13 @@ import (
 // Names).
 type tsNS struct {
 	// Key is the identity: the package import path; for a generated
-	// package, "orbit:" + the .orbit path (a component's decl and impl
+	// package, "lyr:" + the .lyr path (a component's decl and impl
 	// packages share it).
 	Key string
-	// Base is the preferred name: the package name, or the .orbit file's
+	// Base is the preferred name: the package name, or the .lyr file's
 	// base name without extension ("LikeButton").
 	Base string
-	// Path is used for disambiguation: the import path, or the .orbit path
+	// Path is used for disambiguation: the import path, or the .lyr path
 	// without extension ("src/components/LikeButton").
 	Path string
 }
@@ -59,17 +59,17 @@ type TSDecl struct {
 	Source TSSource
 }
 
-// TSSource is the Go declaration a .d.ts line stands for: in an .orbit
+// TSSource is the Go declaration a .d.ts line stands for: in a .lyr
 // file (a frontmatter type, or a data-* attribute), as byte offsets of the
-// .orbit source the typed pass saw; or in a Go file, as the compiler's
+// .lyr source the typed pass saw; or in a Go file, as the compiler's
 // file name and 1-based line and byte column.
 type TSSource struct {
-	// File is the project-relative .orbit path when Orbit is set, else the
+	// File is the project-relative .lyr path when Lyr is set, else the
 	// Go file name as recorded in the export data or FileSet (absolute,
 	// or module-path-relative under -trimpath); "" when unknown.
-	File  string
-	Orbit bool
-	// Start and End are byte offsets in the .orbit file (Orbit).
+	File string
+	Lyr  bool
+	// Start and End are byte offsets in the .lyr file (Lyr).
 	Start, End int
 	// Line and Col are 1-based, Col in bytes (export data may record only
 	// the line: Col is then 1), and Name is the declared name (a Go
@@ -203,7 +203,7 @@ func (m *tsMapper) Decls() []TSDecl {
 }
 
 // tsSpecial returns the inline mapping of the named types the table lists
-// by name: orbit.HTML and orbit.URL (named strings), time.Time (its
+// by name: lyr.HTML and lyr.URL (named strings), time.Time (its
 // MarshalJSON writes an RFC 3339 string) and json.Number (written as a
 // number literal).
 func tsSpecial(n *types.Named) (tsType, bool) {
@@ -367,7 +367,7 @@ func (m *tsMapper) namedUncached(n *types.Named) tsType {
 		return s
 	}
 	if elem, ok := optElem(n); ok {
-		// orbit.Opt[T]: null when none, else T's JSON (PLAN.md §2.6 (Q5)).
+		// lyr.Opt[T]: null when none, else T's JSON (PLAN.md §2.6 (Q5)).
 		e := m.typ(elem)
 		if !e.unknown {
 			e.null, e.nullRef = true, false
@@ -531,7 +531,7 @@ func (m *tsMapper) field(f *jsonField) TSField {
 	if f.omitZero {
 		opt = true
 		// nil is the zero value, unless an IsZero method decides (it's
-		// always called with a nil check for a pointer). An orbit.Opt's
+		// always called with a nil check for a pointer). A lyr.Opt's
 		// IsZero drops a none: its only null, unless T's value can be one.
 		if elem, isOpt := optElem(ft); isOpt {
 			e := m.typ(elem)

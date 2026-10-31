@@ -1,0 +1,33 @@
+---
+type Props struct {
+	// Variant is "" for the default style, or "primary".
+	Variant string
+	// Type is the button's type; "button" when unset. It's a prop because
+	// the component sets the attribute itself.
+	Type lyr.Opt[string]
+	// Attrs holds every other attribute of the call site (name, value,
+	// disabled, aria-*, data-*, class, …): they're written on the element.
+	Attrs lyr.RestAttrs
+}
+
+// With an href, the button is a link: Tag is a dynamic tag, <a> or
+// <button>, around the same attributes and content.
+link := props.Attrs.Has("href")
+Tag := lyr.Cond(link, "a", "button")
+---
+<Tag {...props.Attrs} type={lyr.If(!link, props.Type.Or("button"))} class:list={"btn", "btn-primary": props.Variant == "primary"}><slot /></Tag>
+<style>
+  .btn {
+    padding: 0.3rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .btn-primary {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+</style>

@@ -1,8 +1,8 @@
-orbit_gen/decl/components/plain/decl.go (src/components/Plain.orbit)
-orbit_gen/impl/components/plain/render.go (src/components/Plain.orbit)
-  exact 2:1 "names := []string{\"a\", \"b\"}" -> 636-663 "names := []string{\"a\", \"b\"}"
-  echo  - -> 694-699 "names"
-  exact 5:6 "_, locals := range names" -> 780-804 "_, locals := range names"
-  exact 5:36 "locals" -> 924-930 "locals"
+lyr_gen/decl/components/plain/decl.go (src/components/Plain.lyr)
+lyr_gen/impl/components/plain/render.go (src/components/Plain.lyr)
+  exact 2:1 "names := []string{\"a\", \"b\"}" -> 588-615 "names := []string{\"a\", \"b\"}"
+  echo  - -> 646-651 "names"
+  exact 5:6 "_, locals := range names" -> 728-752 "_, locals := range names"
+  exact 5:36 "locals" -> 866-872 "locals"
 call sites
-  content key=76 "locals" call="orbit__w.Expr(\n/*line ../../../../src/components/Plain.orbit:5:36*/locals/*line render.go:25:83*/,\n\t\t)"
+  content key=76 "locals" call="lyr__w.Expr(\n/*line ../../../../src/components/Plain.lyr:5:36*/locals/*line render.go:25:81*/,\n\t\t)"

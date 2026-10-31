@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-const testScope = "data-o-12345678"
+const testScope = "data-l-12345678"
 
 func TestScopeCSS(t *testing.T) {
 	const w = "[" + testScope + "]"
@@ -156,7 +156,7 @@ func TestScopeCSSErrors(t *testing.T) {
 
 // TestScopeCSSAttr checks the scope is the given attribute.
 func TestScopeCSSAttr(t *testing.T) {
-	attr := ScopeAttr("src/components/Card.orbit")
+	attr := ScopeAttr("src/components/Card.lyr")
 	got, _ := ScopeCSS("a{}", attr)
 	if want := "a[" + attr + "]{}"; got != want {
 		t.Errorf("got %q, want %q", got, want)

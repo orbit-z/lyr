@@ -22,7 +22,7 @@ func sessionRefs3(gopls string) *report {
 			r.p("init: %v", err)
 			continue
 		}
-		g := filepath.Join(projectDir, "orbit_gen")
+		g := filepath.Join(projectDir, "lyr_gen")
 		bd, bi := genBigPage(scaleN)
 		s.open("bigi", filepath.Join(g, "impl/pages/big/render.go"), bi)
 		s.open("bigd", filepath.Join(g, "decl/pages/big/decl.go"), bd)
@@ -61,13 +61,13 @@ func sessionRefs3(gopls string) *report {
 		r.p("- run %d: barrier (102 parallel documentHighlight) took %v; then references incomplete %d/%d %v", run, barrier.Round(time.Millisecond), len(missed), scaleN, missed)
 		s.c.shutdown()
 	}
-	// Same barrier with orbit_gen written to disk (in a temp copy), no overlays.
-	tmp, _ := os.MkdirTemp("", "orbitdisk")
+	// Same barrier with lyr_gen written to disk (in a temp copy), no overlays.
+	tmp, _ := os.MkdirTemp("", "lyrdisk")
 	defer os.RemoveAll(tmp)
 	os.CopyFS(tmp, os.DirFS(filepath.Dir(projectDir)))
 	os.RemoveAll(filepath.Join(tmp, "bin"))
 	root := filepath.Join(tmp, "project")
-	g := filepath.Join(root, "orbit_gen")
+	g := filepath.Join(root, "lyr_gen")
 	files := map[string]string{}
 	for i := 0; i < scaleN; i++ {
 		pkg := fmt.Sprintf("c%d", i)
@@ -99,7 +99,7 @@ func sessionRefs3(gopls string) *report {
 		}()
 	}
 	wg.Wait()
-	r.p("- orbit_gen on disk, no overlays: process start → same barrier done %v", time.Since(t0).Round(time.Millisecond))
+	r.p("- lyr_gen on disk, no overlays: process start → same barrier done %v", time.Since(t0).Round(time.Millisecond))
 	s.c.shutdown()
 	return r
 }

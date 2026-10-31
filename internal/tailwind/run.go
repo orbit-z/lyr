@@ -92,7 +92,7 @@ func NewProcessor(root string) *Processor {
 	return NewProcessorWith(root, func(ctx context.Context) (CLI, error) { return Find(ctx, DefaultEnv(), root) })
 }
 
-// NewProcessorWith is NewProcessor with its own lookup (tests, orbit
+// NewProcessorWith is NewProcessor with its own lookup (tests, lyr
 // doctor).
 func NewProcessorWith(root string, find func(ctx context.Context) (CLI, error)) *Processor {
 	return &Processor{root: root, find: find, sem: make(chan struct{}, max(runtime.GOMAXPROCS(0), 1)), entries: map[string]*entry{}}
@@ -205,7 +205,7 @@ func (pd *Pending) Wait() bool {
 }
 
 // Rerun starts, in the background, the stale inputs that the last bundle
-// used, with the same text: in orbit dev, the root inputs after a source
+// used, with the same text: in lyr dev, the root inputs after a source
 // change, in parallel with regenerating and go build. esbuild then finds
 // their outputs in the cache.
 func (p *Processor) Rerun(ctx context.Context) *Pending {
@@ -261,7 +261,7 @@ func (p *Processor) run(ctx context.Context, e *entry) {
 			why = err.Error()
 		}
 		e.err = &Error{File: file, Line: line, Col: col,
-			Msg: fmt.Sprintf("%s needs the Tailwind CSS CLI v4, %s; install it: %s; see orbit doctor", e.in.MarkerName, why, Install(runtime.GOOS, runtime.GOARCH))}
+			Msg: fmt.Sprintf("%s needs the Tailwind CSS CLI v4, %s; install it: %s; see lyr doctor", e.in.MarkerName, why, Install(runtime.GOOS, runtime.GOARCH))}
 		return
 	}
 	p.sem <- struct{}{}
@@ -281,7 +281,7 @@ func (p *Processor) run(ctx context.Context, e *entry) {
 	// The standalone CLI (a Bun executable) extracts its native addon to
 	// $TMPDIR under a fixed name, and concurrent runs race on that file
 	// ("cannot open shared object file"): each run gets its own TMPDIR.
-	if tmp, err := os.MkdirTemp("", "orbit-tailwind-"); err == nil {
+	if tmp, err := os.MkdirTemp("", "lyr-tailwind-"); err == nil {
 		defer os.RemoveAll(tmp)
 		cmd.Env = append(cmd.Env, "TMPDIR="+tmp, "TMP="+tmp, "TEMP="+tmp)
 	}

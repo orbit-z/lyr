@@ -1,0 +1,16 @@
+---
+import (
+	Base "../layouts/Base.lyr"
+	Card "../components/Card.lyr"
+	Note "./_partials/Note.lyr"
+)
+
+titles := []string{"a<b", "c&d"}
+---
+<Base title="Home">
+  <p class="site">{ctx.Site.String()}</p>
+  {for i, title := range titles}
+    <Card title={title} count={i + 1}><em>slot {title}</em></Card>
+  {/for}
+  <Note>noted</Note>
+</Base>

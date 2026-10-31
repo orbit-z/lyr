@@ -6,15 +6,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/internal/tailwind"
-	"github.com/orbit-z/orbit/internal/tailwind/tailwindtest"
+	"github.com/orbit-z/lyr/internal/tailwind"
+	"github.com/orbit-z/lyr/internal/tailwind/tailwindtest"
 )
 
 // twFiles is §5d's example: a Tailwind stylesheet imported from the
 // layout, which imports a Fontsource package; a component with utilities
 // and a scoped @apply through @reference.
 var twFiles = map[string]string{
-	".gitignore": "orbit_gen/\n.orbit/\ndist/\nnode_modules/\n",
+	".gitignore": "lyr_gen/\n.lyr/\ndist/\nnode_modules/\n",
 	"src/styles/global.css": "@import \"tailwindcss\";\n@import \"@fontsource-variable/figtree\";\n\n" +
 		"@theme {\n  --color-ember: #d1703f;\n  --font-ui: \"Figtree Variable\", system-ui, sans-serif;\n}\n\n" +
 		"@utility card-row {\n  @apply flex items-baseline gap-2;\n}\n\n" +
@@ -22,19 +22,19 @@ var twFiles = map[string]string{
 	"node_modules/@fontsource-variable/figtree/package.json":                          `{"name":"@fontsource-variable/figtree","version":"5.2.10","main":"index.css","exports":{".":{"sass":"./index.scss","default":"./index.css"},"./*":"./*"}}`,
 	"node_modules/@fontsource-variable/figtree/index.css":                             "/* figtree */\n@font-face {\n  font-family: 'Figtree Variable';\n  font-display: swap;\n  src: url(./files/figtree-latin-wght-normal.woff2) format('woff2-variations');\n}\n",
 	"node_modules/@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2": "wOF2fake",
-	"src/layouts/Base.orbit": "---\ntype Props struct{ Title string }\n---\n<html><head><title>{props.Title}</title></head>\n<body class=\"bg-zinc-900 font-ui\"><slot /></body></html>\n\n" +
+	"src/layouts/Base.lyr": "---\ntype Props struct{ Title string }\n---\n<html><head><title>{props.Title}</title></head>\n<body class=\"bg-zinc-900 font-ui\"><slot /></body></html>\n\n" +
 		"<style is:global>\n  @import \"../styles/global.css\";\n</style>\n",
-	"src/components/Card.orbit": "---\ntype Props struct {\n\tTitle  string\n\tActive bool\n}\nsize := \"p-8\"\n---\n" +
+	"src/components/Card.lyr": "---\ntype Props struct {\n\tTitle  string\n\tActive bool\n}\nsize := \"p-8\"\n---\n" +
 		"<article class={\"card-row rounded-lg \" + size + map[bool]string{true: \" ring-2 ring-ember\"}[props.Active]}>\n  <h2 class=\"title hocus:underline\">{props.Title}</h2>\n</article>\n\n" +
 		"<style>\n  @reference \"../styles/global.css\";\n  .title { @apply text-lg font-bold hover:text-ember; }\n</style>\n",
-	"src/pages/index.orbit": "<p class=\"italic\">home</p>\n",
-	"internal/ui/c.go":      "package ui\n\nconst Cls = \"tracking-wide\"\n",
-	"orbit_gen/x.go":        "package x\n\nconst y = \"line-through\"\n",
+	"src/pages/index.lyr": "<p class=\"italic\">home</p>\n",
+	"internal/ui/c.go":    "package ui\n\nconst Cls = \"tracking-wide\"\n",
+	"lyr_gen/x.go":        "package x\n\nconst y = \"line-through\"\n",
 }
 
 func twInput(t *testing.T, dir string) *Input {
 	return input(t, dir, map[string][]string{
-		"src/pages/index.orbit": {"src/layouts/Base.orbit", "src/components/Card.orbit", "src/pages/index.orbit"},
+		"src/pages/index.lyr": {"src/layouts/Base.lyr", "src/components/Card.lyr", "src/pages/index.lyr"},
 	})
 }
 
@@ -55,8 +55,8 @@ func TestTailwindReal(t *testing.T) {
 	dir := project(t, twFiles)
 	res := bundle(t, Options{Root: dir}, twInput(t, dir))
 	noErrors(t, res)
-	css := pageCSS(t, res, "src/pages/index.orbit")
-	scope := regexp.QuoteMeta("[data-o-")
+	css := pageCSS(t, res, "src/pages/index.lyr")
+	scope := regexp.QuoteMeta("[data-l-")
 	for _, want := range []string{
 		`\.card-row\{`, `\.rounded-lg\{`, `\.p-8\{`, `\.ring-2\{`, `\.ring-ember\{`, `\.bg-zinc-900\{`, `\.font-ui\{`,
 		`\.italic\{`, `\.tracking-wide\{`, `\.hocus\\:underline:(hover|focus)`,
@@ -64,7 +64,7 @@ func TestTailwindReal(t *testing.T) {
 		`\.title` + scope + `[^\]]*\]:hover\{color:var\(--color-ember`,
 		`--color-ember: #d1703f`,
 		`/\*! tailwindcss v4`,
-		`url\("/_orbit/figtree-latin-wght-normal-[A-Z0-9]{8}\.woff2"\)`,
+		`url\("/_lyr/figtree-latin-wght-normal-[A-Z0-9]{8}\.woff2"\)`,
 	} {
 		if !regexp.MustCompile(want).MatchString(css) {
 			t.Errorf("CSS has no %s:\n%s", want, css)
@@ -89,27 +89,27 @@ func TestTailwindReal(t *testing.T) {
 	dir2 := project(t, twFiles)
 	res2 := bundle(t, Options{Root: dir2}, twInput(t, dir2))
 	noErrors(t, res2)
-	if css2 := pageCSS(t, res2, "src/pages/index.orbit"); css2 != css {
+	if css2 := pageCSS(t, res2, "src/pages/index.lyr"); css2 != css {
 		t.Errorf("not deterministic:\n%s\n---\n%s", css, css2)
 	}
 }
 
 // TestTailwindRealErrors: an unknown @apply class is reported at the
-// @apply, in the .orbit file.
+// @apply, in the .lyr file.
 func TestTailwindRealErrors(t *testing.T) {
 	tailwindtest.Real(t)
 	files := map[string]string{}
 	for k, v := range twFiles {
 		files[k] = v
 	}
-	files["src/components/Card.orbit"] = strings.Replace(twFiles["src/components/Card.orbit"], "font-bold", "font-boldest", 1)
+	files["src/components/Card.lyr"] = strings.Replace(twFiles["src/components/Card.lyr"], "font-bold", "font-boldest", 1)
 	dir := project(t, files)
 	res := bundle(t, Options{Root: dir}, twInput(t, dir))
 	if len(res.Diagnostics) != 1 {
 		t.Fatalf("diagnostics: %+v", res.Diagnostics)
 	}
 	d := res.Diagnostics[0]
-	if d.File != "src/components/Card.orbit" || d.Line != 14 || d.Col != 12 || !strings.HasPrefix(d.Message, "Cannot apply unknown utility class `font-boldest`") {
+	if d.File != "src/components/Card.lyr" || d.Line != 14 || d.Col != 12 || !strings.HasPrefix(d.Message, "Cannot apply unknown utility class `font-boldest`") {
 		t.Errorf("diagnostic: %+v", d)
 	}
 }
@@ -124,11 +124,11 @@ func TestTailwindFake(t *testing.T) {
 		"src/styles/fonts.css":  "@font-face { font-family: F; src: url(./f/x.woff2); }\n",
 		"src/styles/f/x.woff2":  "font",
 		"src/styles/plain.css":  ".plain { color: blue }\n",
-		"src/layouts/Base.orbit": "<html><head></head><body><slot /></body></html>\n" +
+		"src/layouts/Base.lyr": "<html><head></head><body><slot /></body></html>\n" +
 			"<style is:global>\n  @import \"../styles/global.css\";\n  @import \"../styles/plain.css\";\n</style>\n",
-		"src/components/Card.orbit": "<h2 class=\"title\">x</h2>\n<style>\n  @reference \"../styles/global.css\";\n  .title { @apply font-bold; }\n</style>\n" +
+		"src/components/Card.lyr": "<h2 class=\"title\">x</h2>\n<style>\n  @reference \"../styles/global.css\";\n  .title { @apply font-bold; }\n</style>\n" +
 			"<style>\n  .other { color: green }\n</style>\n",
-		"src/pages/index.orbit": "<p>home</p>\n",
+		"src/pages/index.lyr": "<p>home</p>\n",
 	}
 	dir := project(t, files)
 	in := twInput(t, dir)
@@ -140,8 +140,8 @@ func TestTailwindFake(t *testing.T) {
 		t.Fatal(err)
 	}
 	noErrors(t, res)
-	css := pageCSS(t, res, "src/pages/index.orbit")
-	for _, want := range []string{".tw-base", ".g", ".plain", "--applied: font-bold", ".other", `url("/_orbit/x-`} {
+	css := pageCSS(t, res, "src/pages/index.lyr")
+	for _, want := range []string{".tw-base", ".g", ".plain", "--applied: font-bold", ".other", `url("/_lyr/x-`} {
 		if !strings.Contains(css, want) {
 			t.Errorf("CSS has no %s:\n%s", want, css)
 		}
@@ -151,7 +151,7 @@ func TestTailwindFake(t *testing.T) {
 		t.Errorf("order: %d %d %d\n%s", i, j, k, css)
 	}
 	// Scoped first, then Tailwind.
-	if !regexp.MustCompile(`\.title\[data-o-[^\]]+\]`).MatchString(css) {
+	if !regexp.MustCompile(`\.title\[data-l-[^\]]+\]`).MatchString(css) {
 		t.Errorf("block not scoped:\n%s", css)
 	}
 	lines := tailwindtest.Log(t, log)
@@ -205,17 +205,17 @@ func TestTailwindFakeErrors(t *testing.T) {
 		want               Diagnostic
 	}{
 		{"unknown class at its @apply", "@import \"tailwindcss\";\n", "<p>x</p>\n<style>\n  .a { color: red }\n  /* FAIL_TW */ .b { @apply nope; }\n</style>\n",
-			Diagnostic{File: "src/components/Card.orbit", Line: 4, Col: 22, Message: "Cannot apply unknown utility class `nope`."}},
+			Diagnostic{File: "src/components/Card.lyr", Line: 4, Col: 22, Message: "Cannot apply unknown utility class `nope`."}},
 		{"Tailwind's own position", "@import \"tailwindcss\";\n/* FAIL_TW_POS */\n.a { color: red\n", "<p>x</p>\n",
 			Diagnostic{File: "src/styles/global.css", Line: 2, Col: 3, Message: "Missing closing } at .a"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := project(t, map[string]string{
-				"src/styles/global.css":     tt.global,
-				"src/layouts/Base.orbit":    "<html><head></head><body><slot /></body></html>\n<style is:global>\n  @import \"../styles/global.css\";\n</style>\n",
-				"src/components/Card.orbit": tt.card,
-				"src/pages/index.orbit":     "<p>home</p>\n",
+				"src/styles/global.css":   tt.global,
+				"src/layouts/Base.lyr":    "<html><head></head><body><slot /></body></html>\n<style is:global>\n  @import \"../styles/global.css\";\n</style>\n",
+				"src/components/Card.lyr": tt.card,
+				"src/pages/index.lyr":     "<p>home</p>\n",
 			})
 			res := bundle(t, Options{Root: dir}, twInput(t, dir))
 			if len(res.Diagnostics) != 1 || res.Diagnostics[0] != tt.want {
@@ -239,15 +239,15 @@ func TestTailwindBlockOnce(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := project(t, map[string]string{
-				"src/styles/global.css":     "@import \"tailwindcss\";\n",
-				"src/components/Card.orbit": tt.card,
-				"src/pages/a.orbit":         "<p>a</p>\n<script>console.log(1)</script>\n",
-				"src/pages/b.orbit":         "<p>b</p>\n<script>console.log(2)</script>\n",
-				"src/pages/c.orbit":         "<p>c</p>\n",
+				"src/styles/global.css":   "@import \"tailwindcss\";\n",
+				"src/components/Card.lyr": tt.card,
+				"src/pages/a.lyr":         "<p>a</p>\n<script>console.log(1)</script>\n",
+				"src/pages/b.lyr":         "<p>b</p>\n<script>console.log(2)</script>\n",
+				"src/pages/c.lyr":         "<p>c</p>\n",
 			})
 			pages := map[string][]string{}
 			for _, p := range []string{"a", "b", "c"} {
-				pages["src/pages/"+p+".orbit"] = []string{"src/components/Card.orbit", "src/pages/" + p + ".orbit"}
+				pages["src/pages/"+p+".lyr"] = []string{"src/components/Card.lyr", "src/pages/" + p + ".lyr"}
 			}
 			before := len(tailwindtest.Log(t, log))
 			b := New(Options{Root: dir}).(*esbuildBundler)
@@ -266,7 +266,7 @@ func TestTailwindBlockOnce(t *testing.T) {
 				t.Fatalf("diagnostics: %+v", res.Diagnostics)
 			}
 			if tt.errs > 0 {
-				if d := res.Diagnostics[0]; d.File != "src/components/Card.orbit" || d.Line != 4 {
+				if d := res.Diagnostics[0]; d.File != "src/components/Card.lyr" || d.Line != 4 {
 					t.Errorf("diagnostic: %+v", d)
 				}
 				return
@@ -288,11 +288,11 @@ func TestTailwindNotFound(t *testing.T) {
 	noErrors(t, bundle(t, Options{Root: dir}, basicInput(t, dir)))
 
 	dir = project(t, map[string]string{
-		"src/styles/global.css":  "/* site */\n@import \"tailwindcss\";\n",
-		"src/layouts/Base.orbit": "<html><head></head><body><slot /></body></html>\n<style is:global>\n  @import \"../styles/global.css\";\n</style>\n",
-		"src/pages/index.orbit":  "<p>home</p>\n",
+		"src/styles/global.css": "/* site */\n@import \"tailwindcss\";\n",
+		"src/layouts/Base.lyr":  "<html><head></head><body><slot /></body></html>\n<style is:global>\n  @import \"../styles/global.css\";\n</style>\n",
+		"src/pages/index.lyr":   "<p>home</p>\n",
 	})
-	res := bundle(t, Options{Root: dir}, input(t, dir, map[string][]string{"src/pages/index.orbit": {"src/layouts/Base.orbit", "src/pages/index.orbit"}}))
+	res := bundle(t, Options{Root: dir}, input(t, dir, map[string][]string{"src/pages/index.lyr": {"src/layouts/Base.lyr", "src/pages/index.lyr"}}))
 	if len(res.Diagnostics) != 1 {
 		t.Fatalf("diagnostics: %+v", res.Diagnostics)
 	}

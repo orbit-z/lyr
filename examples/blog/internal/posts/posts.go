@@ -35,16 +35,16 @@ func date(s string) time.Time {
 // all is sorted newest first.
 var all = []Post{
 	{
-		ID: 4, Slug: "hello", Title: "Hello, Orbit",
+		ID: 4, Slug: "hello", Title: "Hello, Lyr",
 		Summary:   "Why this blog renders every page on the server, in Go.",
-		Body:      `<p>This blog is an <a href="https://github.com/orbit-z/orbit">Orbit</a> site: <code>.orbit</code> components with Go frontmatter, compiled to Go and rendered per request.</p><p>Scroll down for the share buttons and the comments, which load after the page.</p>`,
+		Body:      `<p>This blog is an <a href="https://github.com/orbit-z/lyr">Lyr</a> site: <code>.lyr</code> components with Go frontmatter, compiled to Go and rendered per request.</p><p>Scroll down for the share buttons and the comments, which load after the page.</p>`,
 		Tags:      []string{"news"},
 		Published: date("2026-10-20"),
 	},
 	{
 		ID: 3, Slug: "go-templates", Title: "Go templates, typed",
 		Summary:   "Template expressions are Go, checked by the Go compiler.",
-		Body:      `<p>A typo in <code>{props.Titel}</code> fails the build at its line in the <code>.orbit</code> file.</p>`,
+		Body:      `<p>A typo in <code>{props.Titel}</code> fails the build at its line in the <code>.lyr</code> file.</p>`,
 		Tags:      []string{"go", "guides"},
 		Published: date("2026-10-12"),
 	},

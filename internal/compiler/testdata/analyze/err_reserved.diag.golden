@@ -1,8 +1,8 @@
-src/components/err_reserved.orbit:2:1: orbit__x is reserved: names starting with orbit__ or Orbit__ are used by generated code
-src/components/err_reserved.orbit:3:5: Orbit__Render is reserved: names starting with orbit__ or Orbit__ are used by generated code
-src/components/err_reserved.orbit:4:6: orbit__T is reserved: names starting with orbit__ or Orbit__ are used by generated code
-src/components/err_reserved.orbit:4:23: orbit__f is reserved: names starting with orbit__ or Orbit__ are used by generated code
-src/components/err_reserved.orbit:6:11: orbit__x is reserved: names starting with orbit__ or Orbit__ are used by generated code
-src/components/err_reserved.orbit:6:22: Orbit__Render is reserved: names starting with orbit__ or Orbit__ are used by generated code
-src/components/err_reserved.orbit:7:5: orbit__ok is reserved: names starting with orbit__ or Orbit__ are used by generated code
-src/components/err_reserved.orbit:7:24: orbit__ok is reserved: names starting with orbit__ or Orbit__ are used by generated code
+src/components/err_reserved.lyr:2:1: lyr__x is reserved: names starting with lyr__ or Lyr__ are used by generated code
+src/components/err_reserved.lyr:3:5: Lyr__Render is reserved: names starting with lyr__ or Lyr__ are used by generated code
+src/components/err_reserved.lyr:4:6: lyr__T is reserved: names starting with lyr__ or Lyr__ are used by generated code
+src/components/err_reserved.lyr:4:21: lyr__f is reserved: names starting with lyr__ or Lyr__ are used by generated code
+src/components/err_reserved.lyr:6:11: lyr__x is reserved: names starting with lyr__ or Lyr__ are used by generated code
+src/components/err_reserved.lyr:6:20: Lyr__Render is reserved: names starting with lyr__ or Lyr__ are used by generated code
+src/components/err_reserved.lyr:7:5: lyr__ok is reserved: names starting with lyr__ or Lyr__ are used by generated code
+src/components/err_reserved.lyr:7:22: lyr__ok is reserved: names starting with lyr__ or Lyr__ are used by generated code

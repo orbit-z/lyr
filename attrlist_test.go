@@ -1,4 +1,4 @@
-package orbit
+package lyr
 
 import (
 	"encoding/json"
@@ -101,15 +101,15 @@ func TestSpreadListErrors(t *testing.T) {
 		l   AttrList
 		err string
 	}{
-		{AttrList{A("a b", 1)}, `src/x.orbit:2:7: invalid attribute name "a b" in spread`},
-		{AttrList{A("ok", 1), A("", 1)}, `src/x.orbit:2:7: invalid attribute name "" in spread`},
-		{AttrList{A("role", "a"), A("id", 1), A("role", "b")}, `src/x.orbit:2:7: attribute "role" twice in spread`},
-		{AttrList{A("Role", "a"), A("rOLE", "b")}, `src/x.orbit:2:7: attribute "rOLE" twice in spread`},
+		{AttrList{A("a b", 1)}, `src/x.lyr:2:7: invalid attribute name "a b" in spread`},
+		{AttrList{A("ok", 1), A("", 1)}, `src/x.lyr:2:7: invalid attribute name "" in spread`},
+		{AttrList{A("role", "a"), A("id", 1), A("role", "b")}, `src/x.lyr:2:7: attribute "role" twice in spread`},
+		{AttrList{A("Role", "a"), A("rOLE", "b")}, `src/x.lyr:2:7: attribute "rOLE" twice in spread`},
 	}
 	for _, tt := range tests {
 		got, err := render(func(w *Writer) {
 			w.Raw("<p")
-			SpreadOf(w, "src/x.orbit:2:7", tt.l)
+			SpreadOf(w, "src/x.lyr:2:7", tt.l)
 		})
 		if err == nil || err.Error() != tt.err {
 			t.Errorf("err = %v, want %s", err, tt.err)
@@ -118,12 +118,12 @@ func TestSpreadListErrors(t *testing.T) {
 			t.Errorf("wrote %q", got)
 		}
 	}
-	// SpreadList: Orbit's prefix, no position. Attrs through SpreadOf:
+	// SpreadList: Lyr's prefix, no position. Attrs through SpreadOf:
 	// the position.
-	if _, err := render(func(w *Writer) { w.SpreadList(AttrList{A("a b", 1)}) }); err == nil || err.Error() != `orbit: invalid attribute name "a b" in spread` {
+	if _, err := render(func(w *Writer) { w.SpreadList(AttrList{A("a b", 1)}) }); err == nil || err.Error() != `lyr: invalid attribute name "a b" in spread` {
 		t.Errorf("SpreadList: %v", err)
 	}
-	if _, err := render(func(w *Writer) { SpreadOf(w, "src/x.orbit:2:7", Attrs{"a b": 1}) }); err == nil || err.Error() != `src/x.orbit:2:7: invalid attribute name "a b" in spread` {
+	if _, err := render(func(w *Writer) { SpreadOf(w, "src/x.lyr:2:7", Attrs{"a b": 1}) }); err == nil || err.Error() != `src/x.lyr:2:7: invalid attribute name "a b" in spread` {
 		t.Errorf("SpreadOf(Attrs): %v", err)
 	}
 }
@@ -144,7 +144,7 @@ func TestAttrListJSON(t *testing.T) {
 	}
 	got, _ := render(func(w *Writer) { w.SpreadList(back) })
 	// The order is kept; the URL lost its trust.
-	if want := ` data-z="1" href="about:invalid#orbit" hidden aria-x="false" n="3" data-a="&quot;&lt;"`; got != want {
+	if want := ` data-z="1" href="about:invalid#lyr" hidden aria-x="false" n="3" data-a="&quot;&lt;"`; got != want {
 		t.Errorf("round trip = %s\nwant %s", got, want)
 	}
 	for _, bad := range []string{`[]`, `{"a b":"x"}`, `{"a":1}`, `{"a":"1","A":"2"}`} {
@@ -171,7 +171,7 @@ func TestRestAttrList(t *testing.T) {
 	l := AttrList{A("b", 1), A("a", "x"), A("class", "c1"), A("href", "javascript:x"), A("off", false)}
 	r := RestOf(l)
 	got, err := render(func(w *Writer) { w.SpreadRest(&r, true) })
-	if want := ` b="1" a="x" href="about:invalid#orbit" class="c1"`; err != nil || got != want {
+	if want := ` b="1" a="x" href="about:invalid#lyr" class="c1"`; err != nil || got != want {
 		t.Errorf("RestOf: got %s, %v; want %s", got, err, want)
 	}
 	if v, ok := r.Get("A"); !ok || v != "x" {
@@ -182,7 +182,7 @@ func TestRestAttrList(t *testing.T) {
 	}
 	m := RestMerge(Rest("own", ` a="y"`), l)
 	got, _ = render(func(w *Writer) { w.SpreadRest(&m, true) })
-	if want := ` a="y" b="1" href="about:invalid#orbit" class="own"`; got != want {
+	if want := ` a="y" b="1" href="about:invalid#lyr" class="own"`; got != want {
 		t.Errorf("merge: got %s, want %s", got, want)
 	}
 	if n := testing.AllocsPerRun(100, func() { m = RestMerge(Rest("own", ` a="y"`), l) }); n != 0 {
@@ -204,7 +204,7 @@ func TestRestAttrList(t *testing.T) {
 	}
 	// JSON keeps the order.
 	b, err := json.Marshal(RestMerge(Rest("k", ` z="0"`), l))
-	if want := `{"class":"k","z":"0","b":"1","a":"x","href":"about:invalid#orbit"}`; err != nil || string(b) != want {
+	if want := `{"class":"k","z":"0","b":"1","a":"x","href":"about:invalid#lyr"}`; err != nil || string(b) != want {
 		t.Errorf("JSON = %s, %v\nwant %s", b, err, want)
 	}
 	// Existing calls of RestOf with an Attrs still infer.
@@ -218,7 +218,7 @@ func TestAttrListAllocs(t *testing.T) {
 	theme, n, on := "dark", 3, true
 	allocs := testing.AllocsPerRun(1000, func() {
 		w.buf.Reset()
-		SpreadOf(w, "src/x.orbit:1:1", AttrList{A("data-theme", theme), A("data-n", n), A("hidden", on), A("data-f", 0.5), A("href", theme)})
+		SpreadOf(w, "src/x.lyr:1:1", AttrList{A("data-theme", theme), A("data-n", n), A("hidden", on), A("data-f", 0.5), A("href", theme)})
 	})
 	if allocs != 0 || w.Err() != nil {
 		t.Errorf("%v allocations, err %v; want 0", allocs, w.Err())
@@ -269,22 +269,22 @@ func BenchmarkSpreadList(b *testing.B) {
 // TestAttrListIsland: a deferred component's AttrList prop crosses the
 // island request as JSON and renders the same attributes, in order.
 func TestAttrListIsland(t *testing.T) {
-	t.Setenv("ORBIT_KEY", "")
-	t.Setenv("ORBIT_STATIC", "")
-	t.Setenv("ORBIT_PUBLIC", "")
+	t.Setenv("LYR_KEY", "")
+	t.Setenv("LYR_STATIC", "")
+	t.Setenv("LYR_PUBLIC", "")
 	type listProps struct{ List AttrList }
 	const id = "Box-0a1b2c3d"
 	box := func(c *Ctx, w *Writer, p listProps, s Slots) error {
 		w.Raw("<div")
-		SpreadOf(w, "src/components/Box.orbit:4:6", p.List)
+		SpreadOf(w, "src/components/Box.lyr:4:6", p.List)
 		w.Raw(">box</div>")
 		return nil
 	}
 	list := AttrList{A("data-z", "z"), A("data-n", 2), A("hidden", true), A("data-off", false), A("data-a", `"<`)}
 	want, _ := render(func(w *Writer) { box(nil, w, listProps{list}, Slots{}) })
 	page := func(c *Ctx, w *Writer) error { return Defer(c, w, id, listProps{list}, nil) }
-	s := NewSite([]Route{{Pattern: "/p", File: "src/pages/p.orbit", Render: page, Islands: true}},
-		[]Island{NewIsland(id, "src/components/Box.orbit", box)}, WithStaticDir(t.TempDir()))
+	s := NewSite([]Route{{Pattern: "/p", File: "src/pages/p.lyr", Render: page, Islands: true}},
+		[]Island{NewIsland(id, "src/components/Box.lyr", box)}, WithStaticDir(t.TempDir()))
 	h := s.Handler()
 	m := placeholderRe.FindStringSubmatch(do(h, "GET", "/p").Body.String())
 	if m == nil {

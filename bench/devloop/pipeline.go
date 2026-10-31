@@ -16,10 +16,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/orbit-z/orbit/internal/assets"
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/dev"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/assets"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/dev"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // goEnv is appended to the go command's environment, as in the project
@@ -33,7 +33,7 @@ var buildFlags []string
 // goEnv keeps the caller's GOFLAGS (e.g. GOFLAGS=-gcflags=-l).
 var goEnv = []string{strings.TrimSpace("GOFLAGS=" + os.Getenv("GOFLAGS") + " -mod=mod"), "GOWORK=off"}
 
-// devKey is a fixed ORBIT_KEY for the server (any 32 bytes), so it doesn't
+// devKey is a fixed LYR_KEY for the server (any 32 bytes), so it doesn't
 // log the random-key warning on every start.
 const devKey = "ZGV2bG9vcC1iZW5jaC1rZXktMDEyMzQ1Njc4OWFiY2Q="
 
@@ -47,7 +47,7 @@ type prevFile struct {
 	writes               compiler.TypedWrites
 }
 
-// pipeline is the resident state of a would-be orbit dev process.
+// pipeline is the resident state of a would-be lyr dev process.
 type pipeline struct {
 	root    string
 	devDir  string
@@ -69,7 +69,7 @@ type pipeline struct {
 func newPipeline(root, binDir, ldflags string) *pipeline {
 	return &pipeline{
 		root:    root,
-		devDir:  filepath.Join(root, ".orbit", "dev"),
+		devDir:  filepath.Join(root, ".lyr", "dev"),
 		binDir:  binDir,
 		ldflags: ldflags,
 		bundler: assets.New(assets.Options{Root: root, Dev: true}),
@@ -89,7 +89,7 @@ func (pl *pipeline) close() {
 // sample is one measured edit: stage durations and counters.
 type sample struct {
 	Front, Esbuild, Check, CheckFresh, GenWrite, GoBuild, Link, Stop, Start, FirstReq time.Duration
-	// Written is the number of orbit_gen files rewritten; Compiled the
+	// Written is the number of lyr_gen files rewritten; Compiled the
 	// packages go build compiled (not from the build cache); Rechecked the
 	// units the resident checker re-checked; Linked whether go build
 	// relinked.
@@ -223,9 +223,9 @@ func (pl *pipeline) step(ctx context.Context, o stepOpts) (sample, error) {
 	}
 
 	mark = time.Now()
-	// In dev the app reads asset URLs from .orbit/dev/manifest.json, so
+	// In dev the app reads asset URLs from .lyr/dev/manifest.json, so
 	// the compiled manifest stays empty: otherwise a CSS-only edit (new
-	// hashes) would change orbit_gen/manifest and force a Go rebuild.
+	// hashes) would change lyr_gen/manifest and force a Go rebuild.
 	p.Assets = nil
 	wr, err := project.WriteGenerated(p.Root, p.GenFiles())
 	if err != nil {
@@ -374,7 +374,7 @@ func (pl *pipeline) goBuild(ctx context.Context) (string, actionGraph, error) {
 	return bin, ag, nil
 }
 
-// stopServer stops the running server as orbit dev will: SIGINT, then wait.
+// stopServer stops the running server as lyr dev will: SIGINT, then wait.
 func (pl *pipeline) stopServer() {
 	if pl.server == nil {
 		return
@@ -400,7 +400,7 @@ func (pl *pipeline) startServer(bin string) error {
 	}
 	cmd := exec.Command(bin)
 	cmd.Dir = pl.root
-	cmd.Env = append(os.Environ(), "ORBIT_ADDR="+addr, "ORBIT_DEV=1", "ORBIT_STATIC="+pl.devDir, "ORBIT_KEY="+devKey)
+	cmd.Env = append(os.Environ(), "LYR_ADDR="+addr, "LYR_DEV=1", "LYR_STATIC="+pl.devDir, "LYR_KEY="+devKey)
 	cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
 	if err := cmd.Start(); err != nil {
 		return err

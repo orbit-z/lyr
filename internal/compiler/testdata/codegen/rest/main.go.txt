@@ -4,18 +4,18 @@ import (
 	"bytes"
 	"fmt"
 
-	_ "example.com/blog/orbit_gen/impl/components/button"
-	_ "example.com/blog/orbit_gen/impl/components/field"
-	_ "example.com/blog/orbit_gen/impl/components/input"
-	_ "example.com/blog/orbit_gen/impl/components/wrap"
-	index "example.com/blog/orbit_gen/decl/pages/index"
-	_ "example.com/blog/orbit_gen/impl/pages/index"
-	"github.com/orbit-z/orbit"
+	_ "example.com/blog/lyr_gen/impl/components/button"
+	_ "example.com/blog/lyr_gen/impl/components/field"
+	_ "example.com/blog/lyr_gen/impl/components/input"
+	_ "example.com/blog/lyr_gen/impl/components/wrap"
+	index "example.com/blog/lyr_gen/decl/pages/index"
+	_ "example.com/blog/lyr_gen/impl/pages/index"
+	"github.com/orbit-z/lyr"
 )
 
 func main() {
 	var buf bytes.Buffer
-	if err := index.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), index.Props{}, orbit.Slots{}); err != nil {
+	if err := index.Render(&lyr.Ctx{}, lyr.NewWriter(&buf), index.Props{}, lyr.Slots{}); err != nil {
 		panic(err)
 	}
 	fmt.Print(buf.String())

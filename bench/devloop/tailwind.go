@@ -12,8 +12,8 @@ import (
 
 // -tailwind (PLAN.md §5d): the project uses Tailwind CSS. A global.css
 // root imported from the Base layout, twelve utilities added to every
-// .orbit file (as the spike did), and a .gitignore that keeps orbit_gen/,
-// .orbit/ and the binaries out of Tailwind's scan. The CLI must be on PATH.
+// .lyr file (as the spike did), and a .gitignore that keeps lyr_gen/,
+// .lyr/ and the binaries out of Tailwind's scan. The CLI must be on PATH.
 
 var twUtilities = []string{"flex", "grid", "items-center", "justify-between", "gap-{n}", "p-{n}", "px-{n}", "py-{n}", "m-{n}", "mt-{n}",
 	"text-sm", "text-lg", "font-bold", "rounded-md", "shadow-sm", "bg-{c}-{s}", "text-{c}-{s}", "border", "border-{c}-{s}", "hover:bg-{c}-{s}",
@@ -44,7 +44,7 @@ func twClasses(i int) string {
 }
 
 func tailwindSetup(dir string) error {
-	if err := writeFile(dir, ".gitignore", "orbit_gen/\n.orbit/\ndist/\nnode_modules/\n.bin/\n"); err != nil {
+	if err := writeFile(dir, ".gitignore", "lyr_gen/\n.lyr/\ndist/\nnode_modules/\n.bin/\n"); err != nil {
 		return err
 	}
 	if err := writeFile(dir, "src/styles/global.css", "@import \"tailwindcss\";\n"); err != nil {
@@ -52,7 +52,7 @@ func tailwindSetup(dir string) error {
 	}
 	var files []string
 	filepath.WalkDir(filepath.Join(dir, "src"), func(p string, d fs.DirEntry, err error) error {
-		if err == nil && !d.IsDir() && strings.HasSuffix(p, ".orbit") {
+		if err == nil && !d.IsDir() && strings.HasSuffix(p, ".lyr") {
 			files = append(files, p)
 		}
 		return nil
@@ -69,7 +69,7 @@ func tailwindSetup(dir string) error {
 		} else if loc := slotTagRE.FindStringIndex(s); loc != nil {
 			s = s[:loc[0]] + `<div class="` + cls + `"><slot /></div>` + s[loc[1]:]
 		}
-		if strings.HasSuffix(p, filepath.FromSlash("src/layouts/Base.orbit")) {
+		if strings.HasSuffix(p, filepath.FromSlash("src/layouts/Base.lyr")) {
 			s += "\n<style is:global>\n  @import \"../styles/global.css\";\n</style>\n"
 		}
 		if err := os.WriteFile(p, []byte(s), 0o644); err != nil {

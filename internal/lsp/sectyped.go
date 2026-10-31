@@ -3,12 +3,12 @@ package lsp
 import (
 	"slices"
 
-	"github.com/orbit-z/orbit/internal/compiler"
-	"github.com/orbit-z/orbit/internal/project"
+	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/project"
 )
 
 // The style and on* security warnings in the editor (PLAN.md §2.7 (Q2) a).
-// The typed pass emits them (it knows when a value is an orbit.CSS or a
+// The typed pass emits them (it knows when a value is a lyr.CSS or a
 // constant), and the workspace never runs it on its tolerant project, so
 // the typed check (disk.go) keeps the warnings it found here, each tied to
 // its attribute's source text (style={s}). One is shown while the file has
@@ -17,12 +17,12 @@ import (
 // and goes away when the attribute is edited, until the next typed check.
 //
 // The typed check while typing (mdcheck.go) refreshes them too (user
-// decision, 2026-10-27): an edit of an .orbit file that has or had
+// decision, 2026-10-27): an edit of a .lyr file that has or had
 // candidates, or a Go file change, counts in ws.secEdit and schedules it,
 // and it type-checks the files with candidates and the decl packages they
 // import (project.CheckScope.Security). A typed check's warnings are
 // adopted only if ws.secEdit hasn't moved since its snapshot. Edits of
-// other .orbit files run nothing.
+// other .lyr files run nothing.
 //
 // The errors of spreads on component tags (PLAN.md §2.11 (Q5) a) travel the
 // same way: only the typed pass knows a spread's type, so a file with one
@@ -79,7 +79,7 @@ func securityCandidates(f *project.File) (attrs []*compiler.Attr, texts []string
 		}
 	}
 	// The set:html={expr} values (PLAN.md §2.6): the typed pass's error
-	// for a value that isn't an orbit.HTML is at the value, so the
+	// for a value that isn't a lyr.HTML is at the value, so the
 	// candidate is the value (an Attr of its span).
 	for i := range f.Pass1.CallSites {
 		if cs := &f.Pass1.CallSites[i]; cs.Kind == compiler.SiteHTML {
@@ -90,7 +90,7 @@ func securityCandidates(f *project.File) (attrs []*compiler.Attr, texts []string
 }
 
 // typedSecurityDiags returns the security warnings and spread errors of
-// p's .orbit files (after Typecheck): the typed pass's diagnostics at a
+// p's .lyr files (after Typecheck): the typed pass's diagnostics at a
 // candidate attribute that aren't in front (p.Diagnostics before it).
 func typedSecurityDiags(p *project.Project, front []project.Diagnostic) map[string][]secTypedDiag {
 	type found struct {
@@ -128,7 +128,7 @@ func typedSecurityDiags(p *project.Project, front []project.Diagnostic) map[stri
 	return out
 }
 
-// hasSecuritySites reports whether an .orbit file has a style or on*
+// hasSecuritySites reports whether a .lyr file has a style or on*
 // attribute with an expression value, or a spread on a component tag: only
 // then can the typed check find security warnings (or spread errors).
 func (ws *workspace) hasSecuritySites() bool {
@@ -140,7 +140,7 @@ func (ws *workspace) hasSecuritySites() bool {
 	return false
 }
 
-// hasSecurity reports whether the .orbit file f has a security warning
+// hasSecurity reports whether the .lyr file f has a security warning
 // candidate or a spread on a component tag (in its tolerant output): edits
 // of such a file (or of one that had one) rerun the typed check.
 func hasSecurity(f *project.File) bool {
@@ -148,7 +148,7 @@ func hasSecurity(f *project.File) bool {
 }
 
 // securityChanged records a change that the security warnings may depend
-// on (an edit of an .orbit file that has or had candidates, a Go file
+// on (an edit of a .lyr file that has or had candidates, a Go file
 // change) and schedules the typed check while typing (with s.mu held).
 // Without candidates left, there's nothing to check and no warning to
 // show.
@@ -165,7 +165,7 @@ func (s *Server) securityChanged(ws *workspace) {
 }
 
 // secTypedDiagnostics returns the typed check's security warnings of the
-// .orbit file at p that still apply to its current source.
+// .lyr file at p that still apply to its current source.
 func (ws *workspace) secTypedDiagnostics(p string, lines *lineIndex) []map[string]any {
 	stored := ws.secTyped[p]
 	if len(stored) == 0 {
@@ -181,7 +181,7 @@ func (ws *workspace) secTypedDiagnostics(p string, lines *lineIndex) []map[strin
 					sev = sevError
 				}
 				out = append(out, map[string]any{"range": lines.rangeOf(a.Start, a.End, encUTF16), "severity": sev,
-					"source": "orbit", "message": sd.message})
+					"source": "lyr", "message": sd.message})
 				break
 			}
 		}

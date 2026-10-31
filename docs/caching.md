@@ -1,8 +1,8 @@
 # Caching
 
-Orbit can keep a page's rendered response and serve it again without rendering it. A page says how long its response stays fresh with `ctx.Cache().Set`, `orbit.json` can set defaults per route, and a **provider** you pass in `cmd/server/main.go` stores the responses in memory or turns the options into CDN headers. It's Astro 7's route caching, in Go.
+Lyr can keep a page's rendered response and serve it again without rendering it. A page says how long its response stays fresh with `ctx.Cache().Set`, `lyr.json` can set defaults per route, and a **provider** you pass in `cmd/server/main.go` stores the responses in memory or turns the options into CDN headers. It's Astro 7's route caching, in Go.
 
-A render is fast in Orbit (from well under a microsecond to tens of microseconds), so caching pays off for pages that wait on data: a database, a catalogue API, a CMS. A cached copy is served in about 0.15 µs, without the wait.
+A render is fast in Lyr (from well under a microsecond to tens of microseconds), so caching pays off for pages that wait on data: a database, a catalogue API, a CMS. A cached copy is served in about 0.15 µs, without the wait.
 
 ## A cached blog
 
@@ -25,7 +25,7 @@ type Post struct {
 }
 
 var all = []Post{
-	{Slug: "hello", Title: "Hello, Orbit", Body: "The first post."},
+	{Slug: "hello", Title: "Hello, Lyr", Body: "The first post."},
 	{Slug: "routing", Title: "File-based routing", Body: "Pages are files."},
 }
 
@@ -45,7 +45,7 @@ func Find(slug string) (Post, error) {
 
 </details>
 
-`cmd/server/main.go` configures the provider, an in-memory store from the `github.com/orbit-z/orbit/cache` package, and adds an admin route that purges a post:
+`cmd/server/main.go` configures the provider, an in-memory store from the `github.com/orbit-z/lyr/cache` package, and adds an admin route that purges a post:
 
 ```go file=cmd/server/main.go
 package main
@@ -56,15 +56,15 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/orbit-z/orbit"
-	"github.com/orbit-z/orbit/cache"
+	"github.com/orbit-z/lyr"
+	"github.com/orbit-z/lyr/cache"
 
 	"example.com/blog/internal/session"
-	"example.com/blog/orbit_gen/app"
+	"example.com/blog/lyr_gen/app"
 )
 
 func main() {
-	site := app.New(orbit.WithCache(cache.NewMemory(cache.MemoryOptions{
+	site := app.New(lyr.WithCache(cache.NewMemory(cache.MemoryOptions{
 		MaxEntries: 5000,
 		MaxBytes:   256 << 20, // 256 MiB
 	})))
@@ -73,14 +73,14 @@ func main() {
 	mux.Handle("POST /admin/purge/{slug}", purge(site))
 	mux.Handle("/", site.Handler())
 
-	if err := orbit.ListenAndServe(site.TrailingSlash(session.Middleware(mux))); err != nil {
+	if err := lyr.ListenAndServe(site.TrailingSlash(session.Middleware(mux))); err != nil {
 		log.Fatal(err)
 	}
 }
 
 // purge drops a post's cached page and the blog index, after the post
 // was edited.
-func purge(site *orbit.Site) http.Handler {
+func purge(site *lyr.Site) http.Handler {
 	token := os.Getenv("PURGE_TOKEN")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := []byte(r.Header.Get("Authorization"))
@@ -88,7 +88,7 @@ func purge(site *orbit.Site) http.Handler {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
-		err := site.InvalidateCache(r.Context(), orbit.InvalidateOptions{
+		err := site.InvalidateCache(r.Context(), lyr.InvalidateOptions{
 			Tags: []string{"post:" + r.PathValue("slug")},
 			Path: "/blog",
 		})
@@ -101,9 +101,9 @@ func purge(site *orbit.Site) http.Handler {
 }
 ```
 
-`orbit.json` gives every page under `/blog` a default, in seconds as in Astro: fresh for 5 minutes, then served stale for up to an hour while it's refreshed, tagged `blog`:
+`lyr.json` gives every page under `/blog` a default, in seconds as in Astro: fresh for 5 minutes, then served stale for up to an hour while it's refreshed, tagged `blog`:
 
-```json file=orbit.json
+```json file=lyr.json
 {
   "routeRules": {
     "/blog/[...path]": { "maxAge": 300, "swr": 3600, "tags": ["blog"] }
@@ -113,24 +113,24 @@ func purge(site *orbit.Site) http.Handler {
 
 A post page sets its own lifetime, and a tag per post so one post can be purged:
 
-```orbit file=src/pages/blog/[slug].orbit
+```lyr file=src/pages/blog/[slug].lyr
 ---
 import (
 	"errors"
 	"time"
 
-	Layout "../../layouts/Base.orbit"
+	Layout "../../layouts/Base.lyr"
 	"example.com/blog/internal/posts"
 )
 
 post, err := posts.Find(params.Slug)
 if errors.Is(err, posts.ErrNotFound) {
-	return orbit.ErrNotFound
+	return lyr.ErrNotFound
 }
 if err != nil {
 	return err
 }
-ctx.Cache().Set(orbit.CacheOptions{
+ctx.Cache().Set(lyr.CacheOptions{
 	MaxAge: time.Hour,
 	Tags:   []string{"post:" + post.Slug},
 })
@@ -143,10 +143,10 @@ ctx.Cache().Set(orbit.CacheOptions{
 
 The index sets nothing: the route rule alone caches it.
 
-```orbit file=src/pages/blog/index.orbit
+```lyr file=src/pages/blog/index.lyr
 ---
 import (
-	Layout "../../layouts/Base.orbit"
+	Layout "../../layouts/Base.lyr"
 	"example.com/blog/internal/posts"
 )
 ---
@@ -159,17 +159,17 @@ import (
 </Layout>
 ```
 
-Middleware reaches the request's cache handle through a field of type `orbit.Cache` in your `Locals`:
+Middleware reaches the request's cache handle through a field of type `lyr.Cache` in your `Locals`:
 
 ```go file=src/locals/locals.go
 // Package locals declares the request-scoped data that middleware hands to pages.
 package locals
 
-import "github.com/orbit-z/orbit"
+import "github.com/orbit-z/lyr"
 
 type Locals struct {
 	User  string      // the signed-in user, "" for a visitor
-	Cache orbit.Cache // the request's cache handle
+	Cache lyr.Cache // the request's cache handle
 }
 ```
 
@@ -182,7 +182,7 @@ package session
 import (
 	"net/http"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 
 	"example.com/blog/src/locals"
 )
@@ -191,7 +191,7 @@ import (
 // requests out of the cache.
 func Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r, l := orbit.EnsureLocals[locals.Locals](r)
+		r, l := lyr.EnsureLocals[locals.Locals](r)
 		if c, err := r.Cookie("session"); err == nil && c.Value != "" {
 			l.User = c.Value // stands in for a session lookup
 			l.Cache.Disable()
@@ -201,7 +201,7 @@ func Middleware(next http.Handler) http.Handler {
 }
 ```
 
-The first `GET /blog/hello` renders the page and stores it: the response has `X-Orbit-Cache: MISS`. For the next hour, requests get the stored bytes without a render (`HIT`). For the hour after that, from the rule's `swr`, they get the old copy while one background render refreshes it (`STALE`). A signed-in visitor always gets a fresh render, and no `X-Orbit-Cache` header. `POST /admin/purge/hello` drops the post's page and the index; the next request for each is a `MISS` again.
+The first `GET /blog/hello` renders the page and stores it: the response has `X-Lyr-Cache: MISS`. For the next hour, requests get the stored bytes without a render (`HIT`). For the hour after that, from the rule's `swr`, they get the old copy while one background render refreshes it (`STALE`). A signed-in visitor always gets a fresh render, and no `X-Lyr-Cache` header. `POST /admin/purge/hello` drops the post's page and the index; the next request for each is a `MISS` again.
 
 ## How a cached request is served
 
@@ -223,7 +223,7 @@ So **your middleware runs on every request, HITs included**: authentication, log
 A request is looked up when all of these hold:
 
 - it's a `GET` (a `HEAD` or `POST` always renders, as in Astro);
-- the site has a provider, and isn't running under `orbit dev`;
+- the site has a provider, and isn't running under `lyr dev`;
 - the request's handle isn't disabled;
 - its route has stored a response before, or matches a [route rule](#route-rules-routerules). A page that never caches is never looked up.
 
@@ -246,19 +246,19 @@ A response is stored when the request's options have a `MaxAge` above zero (tags
 These are never stored:
 
 - render errors and panics, and the answers of your [`WithErrorHandler`](rendering.md#answering-errors-yourself-witherrorhandler);
-- the `404.orbit` page shown for `orbit.ErrNotFound`, and URLs no route matches;
+- the `404.lyr` page shown for `lyr.ErrNotFound`, and URLs no route matches;
 - a response with a `Set-Cookie` header, whether the page or your middleware set it;
 - a response with `Vary: Cookie` or `Vary: *`.
 
 The last two are refused with a warning on stderr, once per route and reason:
 
 ```text
-orbit: GET /blog/hello: not cached because it sets a cookie (Set-Cookie); later refusals for this route aren't logged
+lyr: GET /blog/hello: not cached because it sets a cookie (Set-Cookie); later refusals for this route aren't logged
 ```
 
 The entry keeps the page's own headers (those set with `ctx.Header()`), plus `Content-Type`, `Content-Length` and `ETag`. Headers your middleware set on the response aren't stored: your middleware runs on every HIT, so it sets them again.
 
-### `X-Orbit-Cache`
+### `X-Lyr-Cache`
 
 | Value | When |
 |---|---|
@@ -274,7 +274,7 @@ There's no `Age` header, as in Astro.
 From `MaxAge` to `MaxAge + SWR` after a response was stored, requests get the stale copy at once, and **one** background render per key refreshes it. If that render fails or panics, the error is logged and the stale copy is kept until `MaxAge + SWR` runs out:
 
 ```text
-orbit: revalidating GET /blog/hello: posts: database unavailable; the stale copy is kept
+lyr: revalidating GET /blog/hello: posts: database unavailable; the stale copy is kept
 ```
 
 Past `MaxAge + SWR`, a request is a miss. The background render runs with the values of the request that triggered it, including the same `locals` pointer. So if a page writes to `locals` (a memoizing loader, say) while your middleware reads them after `next` returns, the two race. Run `go test -race` on such code.
@@ -305,14 +305,14 @@ type CacheOptions struct {
 | `LastModified` | the latest time wins |
 | `Tags` | accumulate; duplicates are dropped |
 
-A zero value doesn't reset a field: `Set(orbit.CacheOptions{})` changes nothing. To keep a request out of the cache, call `Disable()`.
+A zero value doesn't reset a field: `Set(lyr.CacheOptions{})` changes nothing. To keep a request out of the cache, call `Disable()`.
 
 Durations are `time.Duration` (`time.Hour`), where Astro takes seconds. CDN headers carry whole seconds, so sub-second values are truncated there.
 
 The other methods:
 
-- **`Disable()`** is Astro's `set(false)`: it clears the options and tags, and Orbit neither looks the request up nor stores it. In middleware it runs before the lookup. A later `Set` enables the handle again, but a request disabled before the lookup stays out of the cache: it isn't stored and gets no cache headers.
-- **`Enabled()`** reports whether the request can be cached: a provider is configured, the site isn't under `orbit dev`, and `Disable` wasn't called.
+- **`Disable()`** is Astro's `set(false)`: it clears the options and tags, and Lyr neither looks the request up nor stores it. In middleware it runs before the lookup. A later `Set` enables the handle again, but a request disabled before the lookup stays out of the cache: it isn't stored and gets no cache headers.
+- **`Enabled()`** reports whether the request can be cached: a provider is configured, the site isn't under `lyr dev`, and `Disable` wasn't called.
 - **`Options()`** returns a snapshot of the merged options; its `Tags` is a copy.
 - **`Invalidate(ctx, o)`** purges through the provider, like `site.InvalidateCache` (see [Invalidation](#invalidation)).
 
@@ -322,17 +322,17 @@ A `Cache` belongs to one request: don't keep it or share it with other goroutine
 
 - **Pages, layouts, components and slot content**: `ctx.Cache()`.
 - **`server:concurrent` components**: each sets on its own copy, merged into the page's when the page assembles them, in source order.
-- **Content captured with `orbit.RenderHTML`** sets options only when it renders. A fragment served from a fragment cache must re-apply its tags, or a purge of those tags misses the page. See [Caching fragments](rendering.md#caching-fragments).
-- **Middleware**: through the `orbit.Cache` field of your `Locals`, as in `session.Middleware` above. `ctx.Cache()` is that field when your middleware attached the locals.
+- **Content captured with `lyr.RenderHTML`** sets options only when it renders. A fragment served from a fragment cache must re-apply its tags, or a purge of those tags misses the page. See [Caching fragments](rendering.md#caching-fragments).
+- **Middleware**: through the `lyr.Cache` field of your `Locals`, as in `session.Middleware` above. `ctx.Cache()` is that field when your middleware attached the locals.
 - **Your own handlers**: through `site.CacheHandler` (see [below](#custom-handlers-sitecachehandler)).
 
 ### The `Locals` field
 
-Give `Locals` a field of type `orbit.Cache` (any exported name works; the type is the marker) and `app.New()` wires it up. `Set` and `Disable` on it work from the first middleware on. `Enabled()` reports `false` and `Invalidate` returns `orbit.ErrCacheNotEnabled` on it until Orbit has seen the request, so in middleware, purge with `site.InvalidateCache`. Two `orbit.Cache` fields, an embedded one, an unexported one or a `*orbit.Cache` is an error at the field, as for [`RouteInfo`](middleware.md#logging-the-matched-route). See [Middleware and locals](middleware.md#keeping-requests-out-of-the-cache).
+Give `Locals` a field of type `lyr.Cache` (any exported name works; the type is the marker) and `app.New()` wires it up. `Set` and `Disable` on it work from the first middleware on. `Enabled()` reports `false` and `Invalidate` returns `lyr.ErrCacheNotEnabled` on it until Lyr has seen the request, so in middleware, purge with `site.InvalidateCache`. Two `lyr.Cache` fields, an embedded one, an unexported one or a `*lyr.Cache` is an error at the field, as for [`RouteInfo`](middleware.md#logging-the-matched-route). See [Middleware and locals](middleware.md#keeping-requests-out-of-the-cache).
 
 ## Route rules: `routeRules`
 
-`orbit.json`'s `routeRules` sets default options per route, without touching the pages:
+`lyr.json`'s `routeRules` sets default options per route, without touching the pages:
 
 ```json
 {
@@ -343,30 +343,30 @@ Give `Locals` a field of type `orbit.Cache` (any exported name works; the type i
 }
 ```
 
-- **Patterns** use Orbit's [route syntax](routing.md) (`[param]`, `[...rest]`, no globs) and its priority (static segments, then params, then rest params). They match the **request path**, whichever page serves it: `/blog/[...path]` covers `/blog`, `/blog/hello` and `/blog/2026/recap`. They also match the paths of a [`site.CacheHandler`](#custom-handlers-sitecachehandler), and never `/_orbit/` (islands set their own).
+- **Patterns** use Lyr's [route syntax](routing.md) (`[param]`, `[...rest]`, no globs) and its priority (static segments, then params, then rest params). They match the **request path**, whichever page serves it: `/blog/[...path]` covers `/blog`, `/blog/hello` and `/blog/2026/recap`. They also match the paths of a [`site.CacheHandler`](#custom-handlers-sitecachehandler), and never `/_lyr/` (islands set their own).
 - **Values**: `maxAge` and `swr` are whole seconds, as in Astro; `tags` is an array of strings.
 - **Order**: the matching rule is applied as a first `Set`, under what your middleware already set, before the page renders. Your middleware's values win over the rule, and the page's `Set` merges over both. A request your middleware disabled stays disabled.
 - **Without a provider**, rules do nothing.
-- **Errors**: `orbit.json` is checked when it loads. An invalid pattern, a negative or fractional number of seconds, an unknown key in a rule, or two rules that match the same paths is an error, such as `orbit.json: routeRules["/blog/[slug"]: …`.
+- **Errors**: `lyr.json` is checked when it loads. An invalid pattern, a negative or fractional number of seconds, an unknown key in a rule, or two rules that match the same paths is an error, such as `lyr.json: routeRules["/blog/[slug"]: …`.
 
 See [Configuration](configuration.md#routerules).
 
 ## Invalidation
 
 ```go
-err := site.InvalidateCache(r.Context(), orbit.InvalidateOptions{Tags: []string{"post:hello"}})
+err := site.InvalidateCache(r.Context(), lyr.InvalidateOptions{Tags: []string{"post:hello"}})
 ```
 
 - **`Tags`** drops every stored response carrying any of them.
 - **`Path`** is an escaped request path, such as `/blog/hello`. It drops every stored variant of that path: any query, any host, any `Vary` value.
 
-`site.InvalidateCache` is for your handlers and webhooks; in a page or component, `ctx.Cache().Invalidate(ctx.Request.Context(), o)` does the same. Both return `orbit.ErrCacheNotEnabled` when the site has no provider, and `nil` under `orbit dev`.
+`site.InvalidateCache` is for your handlers and webhooks; in a page or component, `ctx.Cache().Invalidate(ctx.Request.Context(), o)` does the same. Both return `lyr.ErrCacheNotEnabled` when the site has no provider, and `nil` under `lyr dev`.
 
 A purge reaches only the process it runs in. With several instances, see [Several instances](#several-instances).
 
 ## Conditional requests and `ETag`
 
-With a provider configured, Orbit answers conditional requests with a `304 Not Modified`, headers only:
+With a provider configured, Lyr answers conditional requests with a `304 Not Modified`, headers only:
 
 - **Stored responses** get a strong `ETag` unless the page set one: the base64 of a checksum of the body, so every instance gives the same one.
 - **Which requests**: `HIT`s, `STALE`s, and any successful page or island response that carries an `ETag` or `Last-Modified`, from `Set` or from `ctx.Header()`. So a page can set an `ETag` without being stored, and still get 304s.
@@ -377,7 +377,7 @@ A site without a provider answers no 304s for pages: its responses are as before
 
 ## `Cache-Control` for browsers
 
-Orbit never derives a browser `Cache-Control` from `MaxAge` when the provider stores responses: `MaxAge` is how long Orbit keeps the copy, not how long a browser may. Set `Cache-Control` yourself with `ctx.Header()` when you want browsers or a CDN to keep the page; the stored entry repeats it:
+Lyr never derives a browser `Cache-Control` from `MaxAge` when the provider stores responses: `MaxAge` is how long Lyr keeps the copy, not how long a browser may. Set `Cache-Control` yourself with `ctx.Header()` when you want browsers or a CDN to keep the page; the stored entry repeats it:
 
 ```go
 ctx.Header().Set("Cache-Control", "public, max-age=60")
@@ -402,19 +402,19 @@ See [Response headers and caching](lazy-loading.md#response-headers-and-caching)
 mux.Handle("GET /fragments/latest", site.CacheHandler(http.HandlerFunc(latest)))
 ```
 
-- `h` sets options through the `orbit.Cache` field of your `Locals` (`orbit.LocalsFromRequest[locals.Locals](r).Cache.Set(…)`), or through `ctx.Cache()` in a component it renders with `orbit.RenderComponent`.
+- `h` sets options through the `lyr.Cache` field of your `Locals` (`lyr.LocalsFromRequest[locals.Locals](r).Cache.Set(…)`), or through `ctx.Cache()` in a component it renders with `lyr.RenderComponent`.
 - `h`'s response is buffered, and its `Content-Type` is sniffed when it sets none. The headers `h` sets are stored with it; whatever status `h` writes is stored when the options ask, so don't `Set` on an error path.
-- Without a provider, or under `orbit dev`, `CacheHandler` returns `h` unchanged.
+- Without a provider, or under `lyr dev`, `CacheHandler` returns `h` unchanged.
 
 ## Providers
 
-`orbit.WithCache(p)` in `cmd/server/main.go` sets the site's provider; with several, the last one wins. Orbit runs the whole flow (keys, freshness, stale-while-revalidate, `Vary`, the cookie refusals, 304s, `X-Orbit-Cache`) for every provider. A provider is one of three kinds:
+`lyr.WithCache(p)` in `cmd/server/main.go` sets the site's provider; with several, the last one wins. Lyr runs the whole flow (keys, freshness, stale-while-revalidate, `Vary`, the cookie refusals, 304s, `X-Lyr-Cache`) for every provider. A provider is one of three kinds:
 
-| Kind | Interface | What Orbit does |
+| Kind | Interface | What Lyr does |
 |---|---|---|
-| A store, such as `cache.MemoryProvider` | `orbit.CacheStore` | Looks requests up with `Get`, stores responses with `Put`. Writes no CDN headers. |
-| A CDN header writer | `orbit.CacheHeaderWriter` | Calls `WriteCacheHeaders` on each response whose options are active, so the CDN caches. |
-| Neither | `orbit.CacheProvider` | Writes Astro's default headers: `CDN-Cache-Control: max-age=N, stale-while-revalidate=M`, `Cache-Tag: a, b`, `Last-Modified` and `ETag`. |
+| A store, such as `cache.MemoryProvider` | `lyr.CacheStore` | Looks requests up with `Get`, stores responses with `Put`. Writes no CDN headers. |
+| A CDN header writer | `lyr.CacheHeaderWriter` | Calls `WriteCacheHeaders` on each response whose options are active, so the CDN caches. |
+| Neither | `lyr.CacheProvider` | Writes Astro's default headers: `CDN-Cache-Control: max-age=N, stale-while-revalidate=M`, `Cache-Tag: a, b`, `Last-Modified` and `ETag`. |
 
 A provider that implements both `CacheStore` and `CacheHeaderWriter` is used as a store.
 
@@ -428,13 +428,13 @@ type CacheProvider interface {
 
 ### The memory provider: `cache.NewMemory`
 
-`cache.NewMemory` from `github.com/orbit-z/orbit/cache` makes an in-process store, Astro's `memoryCache()`:
+`cache.NewMemory` from `github.com/orbit-z/lyr/cache` makes an in-process store, Astro's `memoryCache()`:
 
 ```go
 p := cache.NewMemory(cache.MemoryOptions{
 	MaxEntries: 5000,      // default 1000
 	MaxBytes:   256 << 20, // optional
-	Query:      orbit.CacheQuery{Exclude: []string{"utm_*", "sort"}},
+	Query:      lyr.CacheQuery{Exclude: []string{"utm_*", "sort"}},
 })
 ```
 
@@ -451,7 +451,7 @@ A store's memory per entry is the body plus about half a kilobyte. The cache liv
 
 ### CDN header providers
 
-A provider that implements `orbit.CacheHeaderWriter` writes the headers its CDN reads. Orbit calls it after the page's own headers are set, for responses whose options are active (a `MaxAge` or tags, and not disabled); `o` is read-only. It writes every header it wants, `ETag` and `Last-Modified` included. To purge by path on a CDN that only purges by tag, tag each response with its path, as Astro's CDN adapters do with `astro-path:`:
+A provider that implements `lyr.CacheHeaderWriter` writes the headers its CDN reads. Lyr calls it after the page's own headers are set, for responses whose options are active (a `MaxAge` or tags, and not disabled); `o` is read-only. It writes every header it wants, `ETag` and `Last-Modified` included. To purge by path on a CDN that only purges by tag, tag each response with its path, as Astro's CDN adapters do with `astro-path:`:
 
 ```go file=internal/cdn/cdn.go
 // Package cdn is a cache provider for a CDN that reads Surrogate-Control
@@ -465,7 +465,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/orbit-z/orbit"
+	"github.com/orbit-z/lyr"
 )
 
 // Provider writes the CDN's headers; Purge calls its purge API.
@@ -473,7 +473,7 @@ type Provider struct {
 	Purge func(ctx context.Context, keys []string) error
 }
 
-func (p *Provider) WriteCacheHeaders(h http.Header, o *orbit.CacheOptions, r *http.Request) {
+func (p *Provider) WriteCacheHeaders(h http.Header, o *lyr.CacheOptions, r *http.Request) {
 	if o.MaxAge > 0 {
 		v := "max-age=" + strconv.FormatInt(int64(o.MaxAge.Seconds()), 10)
 		if o.SWR > 0 {
@@ -491,7 +491,7 @@ func (p *Provider) WriteCacheHeaders(h http.Header, o *orbit.CacheOptions, r *ht
 	}
 }
 
-func (p *Provider) Invalidate(ctx context.Context, o orbit.InvalidateOptions) error {
+func (p *Provider) Invalidate(ctx context.Context, o lyr.InvalidateOptions) error {
 	keys := slices.Clone(o.Tags)
 	if o.Path != "" {
 		keys = append(keys, "path:"+o.Path)
@@ -500,28 +500,28 @@ func (p *Provider) Invalidate(ctx context.Context, o orbit.InvalidateOptions) er
 }
 ```
 
-With a header provider, the CDN does the caching, so `X-Orbit-Cache` never appears and every request that reaches your server renders. The cookie refusals apply here too: a response that sets a cookie or varies on `Cookie` gets no CDN headers, and neither does a request your middleware disabled (see [Safety](#safety-what-orbit-checks-and-what-you-check)).
+With a header provider, the CDN does the caching, so `X-Lyr-Cache` never appears and every request that reaches your server renders. The cookie refusals apply here too: a response that sets a cookie or varies on `Cookie` gets no CDN headers, and neither does a request your middleware disabled (see [Safety](#safety-what-lyr-checks-and-what-you-check)).
 
 ### Writing a store
 
-A store implements `orbit.CacheStore`:
+A store implements `lyr.CacheStore`:
 
 ```go
 type CacheStore interface {
 	CacheProvider
-	Get(key CacheKey) *CachedResponse // nil: a miss; Orbit checks freshness
+	Get(key CacheKey) *CachedResponse // nil: a miss; Lyr checks freshness
 	Put(key CacheKey, e *CachedResponse)
 }
 ```
 
-- **Keys**: `key.Hash()` is a hash for sharding and map lookups, stable within a process only. `key.String()` is the key itself, valid only during the call: copy it (`strings.Clone`) to keep it. `orbit.NewCacheKey(s)` makes a key for your store's tests.
-- **Entries**: a `CachedResponse` holds `Status`, `Header`, `Body`, `Stored`, `MaxAge`, `SWR`, `Tags` and `Path`. It's immutable once passed to `Put`: keep it as given. Keep it at least until `Stored + MaxAge + SWR`; Orbit decides whether it's fresh or stale.
+- **Keys**: `key.Hash()` is a hash for sharding and map lookups, stable within a process only. `key.String()` is the key itself, valid only during the call: copy it (`strings.Clone`) to keep it. `lyr.NewCacheKey(s)` makes a key for your store's tests.
+- **Entries**: a `CachedResponse` holds `Status`, `Header`, `Body`, `Stored`, `MaxAge`, `SWR`, `Tags` and `Path`. It's immutable once passed to `Put`: keep it as given. Keep it at least until `Stored + MaxAge + SWR`; Lyr decides whether it's fresh or stale.
 - **`Vary` markers**: a response with a `Vary` header is stored under a variant key, with a marker under the URL's own key (an entry whose `Vary` field is set, with no body). Store markers like any other entry.
 - **`Invalidate`** drops the entries carrying any of `o.Tags`, and every entry whose `Path` is `o.Path`.
-- **Query parameters**: a store may also implement `CacheQuery() orbit.CacheQuery`, read once when the site is created.
+- **Query parameters**: a store may also implement `CacheQuery() lyr.CacheQuery`, read once when the site is created.
 - **Speed**: `Get` runs on every lookup, so keep it free of allocations; `cache.MemoryProvider`'s takes about 43 ns.
 
-A persistent or shared store (Redis, disk) is a provider in your own code or another module; Orbit ships only the memory one.
+A persistent or shared store (Redis, disk) is a provider in your own code or another module; Lyr ships only the memory one.
 
 ## Several instances
 
@@ -531,13 +531,13 @@ Each instance's `cache.MemoryProvider` is its own, so a purge must reach every i
 var mem *cache.MemoryProvider
 mem = cache.NewMemory(cache.MemoryOptions{
 	MaxEntries: 5000,
-	OnInvalidate: func(ctx context.Context, o orbit.InvalidateOptions) error {
+	OnInvalidate: func(ctx context.Context, o lyr.InvalidateOptions) error {
 		return bus.Publish(ctx, o) // your own code: send o to the other instances
 	},
 })
-site := app.New(orbit.WithCache(mem))
+site := app.New(lyr.WithCache(mem))
 
-go bus.Subscribe(func(o orbit.InvalidateOptions) {
+go bus.Subscribe(func(o lyr.InvalidateOptions) {
 	mem.InvalidateLocal(o) // a purge from another instance
 })
 ```
@@ -558,18 +558,18 @@ p, _, err := products.Load(ctx.Request.Context(), id, time.Minute, []string{"pro
 - **`Get(key)`** and **`Set(key, v, ttl, tags...)`** read and write directly; `Get` doesn't allocate (about 46 ns on a hit).
 - **`Load`** returns the stored value, or calls `load` once per key however many requests miss at the same time. The first caller runs it with `context.WithoutCancel` of its context; the others wait under their own context and get `ctx.Err()` if it ends first. An error is returned to every caller waiting on that load, and nothing is stored. A panic goes on in the first caller, and the others get an error wrapping `cache.ErrLoadPanicked`. `Load` also returns the entry's tags.
 - **`Delete(key)`**, **`InvalidateTags(tags...)`** and **`Clear()`** drop values; a load running at the time doesn't store its result.
-- **`MaxEntries`** (default 1000) and **`MaxBytes`** bound it as for `cache.NewMemory`; `Size` measures a value (by default, the length of a `string`, `[]byte` or `orbit.HTML`, else 0). `Len()` and `Bytes()` report it.
+- **`MaxEntries`** (default 1000) and **`MaxBytes`** bound it as for `cache.NewMemory`; `Size` measures a value (by default, the length of a `string`, `[]byte` or `lyr.HTML`, else 0). `Len()` and `Bytes()` report it.
 - **Values are stored as given**, not copied: don't change a value after storing it, or one you got from the store (a slice's elements, the fields behind a pointer).
 
 [Loading data](data-loading.md#cache-data-across-requests-cachestore) shows a data cache, and [Caching fragments](rendering.md#caching-fragments) a fragment cache that re-applies its tags to the page.
 
-## Safety: what Orbit checks and what you check
+## Safety: what Lyr checks and what you check
 
-A stored page is served to everyone. Orbit enforces what it can see:
+A stored page is served to everyone. Lyr enforces what it can see:
 
 - responses that set a cookie, or vary on `Cookie` or `*`, aren't stored;
 - only `GET` requests are looked up and stored;
-- nothing is stored under `orbit dev`, for errors, or for URLs no route matches;
+- nothing is stored under `lyr dev`, for errors, or for URLs no route matches;
 - your middleware runs on every HIT, so its authentication and redirects always run;
 - `Disable()` in middleware runs before the lookup, and a request disabled there is never stored and gets no CDN headers, whatever the page sets later.
 
@@ -581,11 +581,11 @@ It can't see into your `locals`, so this part is yours: **a page that calls `Set
 
 With a header provider, the same checks decide whether the response gets CDN headers: none for a response that sets a cookie or has `Vary: Cookie`/`Vary: *`, and none for a request your middleware disabled, even if the page calls `Set` afterwards.
 
-## In `orbit dev` and in tests
+## In `lyr dev` and in tests
 
-Under `orbit dev`, caching is off, as in Astro: nothing is stored or served from the store, no cache headers are written (a header provider's included), `Enabled()` reports `false` and `Invalidate` returns `nil`. Every save shows its result at once.
+Under `lyr dev`, caching is off, as in Astro: nothing is stored or served from the store, no cache headers are written (a header provider's included), `Enabled()` reports `false` and `Invalidate` returns `nil`. Every save shows its result at once.
 
-Under `go test`, a site built with `orbit.WithCache` caches like production, so `orbittest.Get` is how you test caching:
+Under `go test`, a site built with `lyr.WithCache` caches like production, so `lyrtest.Get` is how you test caching:
 
 ```go file=internal/views_test/cache_test.go
 package views_test
@@ -595,43 +595,43 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/orbit-z/orbit"
-	"github.com/orbit-z/orbit/cache"
-	"github.com/orbit-z/orbit/orbittest"
+	"github.com/orbit-z/lyr"
+	"github.com/orbit-z/lyr/cache"
+	"github.com/orbit-z/lyr/lyrtest"
 
 	"example.com/blog/internal/session"
-	"example.com/blog/orbit_gen/app"
+	"example.com/blog/lyr_gen/app"
 )
 
 func TestCaching(t *testing.T) {
-	site := app.New(orbit.WithCache(cache.NewMemory(cache.MemoryOptions{})))
+	site := app.New(lyr.WithCache(cache.NewMemory(cache.MemoryOptions{})))
 	h := session.Middleware(site.Handler())
-	state := func(path string, opts ...orbittest.Option) string {
+	state := func(path string, opts ...lyrtest.Option) string {
 		t.Helper()
-		return orbittest.Get(t, h, path, opts...).Header().Get("X-Orbit-Cache")
+		return lyrtest.Get(t, h, path, opts...).Header().Get("X-Lyr-Cache")
 	}
 
 	for _, want := range []string{"MISS", "HIT"} {
 		if got := state("/blog/hello"); got != want {
-			t.Errorf("GET /blog/hello: X-Orbit-Cache %q, want %q", got, want)
+			t.Errorf("GET /blog/hello: X-Lyr-Cache %q, want %q", got, want)
 		}
 	}
 	if got := state("/blog"); got != "MISS" { // cached by the route rule
-		t.Errorf("GET /blog: X-Orbit-Cache %q, want MISS", got)
+		t.Errorf("GET /blog: X-Lyr-Cache %q, want MISS", got)
 	}
 
 	signedIn := httptest.NewRequest(http.MethodGet, "/", nil)
 	signedIn.AddCookie(&http.Cookie{Name: "session", Value: "ana"})
-	if got := state("/blog/hello", orbittest.WithRequest(signedIn)); got != "" {
-		t.Errorf("signed in: X-Orbit-Cache %q, want none", got)
+	if got := state("/blog/hello", lyrtest.WithRequest(signedIn)); got != "" {
+		t.Errorf("signed in: X-Lyr-Cache %q, want none", got)
 	}
 
-	err := site.InvalidateCache(t.Context(), orbit.InvalidateOptions{Tags: []string{"post:hello"}})
+	err := site.InvalidateCache(t.Context(), lyr.InvalidateOptions{Tags: []string{"post:hello"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := state("/blog/hello"); got != "MISS" {
-		t.Errorf("after the purge: X-Orbit-Cache %q, want MISS", got)
+		t.Errorf("after the purge: X-Lyr-Cache %q, want MISS", got)
 	}
 }
 ```
@@ -640,13 +640,13 @@ Give each test its own site (or its own `cache.MemoryProvider`), so tests don't 
 
 ## Without a provider
 
-A site without `orbit.WithCache` renders every request, as before. `Set` still records the options (`Options()` returns them), and Orbit logs once per process:
+A site without `lyr.WithCache` renders every request, as before. `Set` still records the options (`Options()` returns them), and Lyr logs once per process:
 
 ```text
-orbit: ctx.Cache().Set was called, but caching is not enabled: configure a provider with orbit.WithCache in app.New()
+lyr: ctx.Cache().Set was called, but caching is not enabled: configure a provider with lyr.WithCache in app.New()
 ```
 
-The warning comes from pages and islands; options set only on the `Locals` field in middleware don't trigger it. `Invalidate` and `site.InvalidateCache` return `orbit.ErrCacheNotEnabled`, and route rules do nothing.
+The warning comes from pages and islands; options set only on the `Locals` field in middleware don't trigger it. `Invalidate` and `site.InvalidateCache` return `lyr.ErrCacheNotEnabled`, and route rules do nothing.
 
 ## Cost
 
@@ -666,22 +666,22 @@ On one hot key with 16 threads, a HIT costs about 30 ns per request in aggregate
 
 ## Coming from Astro
 
-| Astro | Orbit |
+| Astro | Lyr |
 |---|---|
-| `Astro.cache.set({ maxAge: 3600, swr: 60, tags: ["a"] })` | `ctx.Cache().Set(orbit.CacheOptions{MaxAge: time.Hour, SWR: time.Minute, Tags: []string{"a"}})` |
+| `Astro.cache.set({ maxAge: 3600, swr: 60, tags: ["a"] })` | `ctx.Cache().Set(lyr.CacheOptions{MaxAge: time.Hour, SWR: time.Minute, Tags: []string{"a"}})` |
 | `Astro.cache.set(false)` | `ctx.Cache().Disable()` |
-| `Astro.cache.invalidate({ tags })`, `{ path }` | `ctx.Cache().Invalidate(rc, orbit.InvalidateOptions{Tags: …})`, `site.InvalidateCache` |
-| `context.cache` in middleware | an `orbit.Cache` field in `Locals` |
-| `routeRules` in `astro.config` | `routeRules` in `orbit.json`, with Orbit's route patterns; still whole seconds |
+| `Astro.cache.invalidate({ tags })`, `{ path }` | `ctx.Cache().Invalidate(rc, lyr.InvalidateOptions{Tags: …})`, `site.InvalidateCache` |
+| `context.cache` in middleware | a `lyr.Cache` field in `Locals` |
+| `routeRules` in `astro.config` | `routeRules` in `lyr.json`, with Lyr's route patterns; still whole seconds |
 | `memoryCache()` | `cache.NewMemory(cache.MemoryOptions{…})` |
-| `cache: { provider }` | `app.New(orbit.WithCache(p))` |
-| `X-Astro-Cache` | `X-Orbit-Cache` |
+| `cache: { provider }` | `app.New(lyr.WithCache(p))` |
+| `X-Astro-Cache` | `X-Lyr-Cache` |
 
 What works differently:
 
 - **Your middleware runs on HITs.** Astro's cache wraps the middleware, so a HIT skips it and `set(false)` in middleware can't stop one.
 - **One background refresh per stale key**, and concurrent misses on a cached route wait for one render. Astro starts a refresh per stale request, and renders every miss.
-- **304s**: Orbit answers `If-None-Match` and `If-Modified-Since` itself, and gives stored responses an automatic `ETag`.
+- **304s**: Lyr answers `If-None-Match` and `If-Modified-Since` itself, and gives stored responses an automatic `ETag`.
 - **A path purge** drops every query variant and host of the path, as Astro's CDN providers do; Astro's memory provider drops only the exact path and query.
 - **Refusal warnings** are logged once per route and reason, not on every request.
 - **Byte bounds**: `MaxBytes` on top of Astro's entry count.

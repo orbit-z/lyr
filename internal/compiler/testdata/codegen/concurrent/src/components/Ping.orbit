@@ -1,8 +1,0 @@
----
-import Pong "./Pong.orbit"
-
-type Props struct {
-	N int
-}
----
-<i>ping {props.N}</i>{if props.N > 0}<Pong server:concurrent n={props.N - 1}><b>{ctx.URL.Path}</b></Pong>{/if}

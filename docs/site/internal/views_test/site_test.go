@@ -1,5 +1,5 @@
-// Package views_test tests the site's pages and components with orbittest.
-// Run go tool orbit generate first.
+// Package views_test tests the site's pages and components with lyrtest.
+// Run go tool lyr generate first.
 package views_test
 
 import (
@@ -9,24 +9,24 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orbit-z/orbit/orbittest"
+	"github.com/orbit-z/lyr/lyrtest"
 
-	"github.com/orbit-z/orbit/docs/site/internal/content"
-	"github.com/orbit-z/orbit/docs/site/orbit_gen/app"
-	"github.com/orbit-z/orbit/docs/site/orbit_gen/decl/components/sidebar"
-	"github.com/orbit-z/orbit/docs/site/orbit_gen/decl/pages/search"
-	"github.com/orbit-z/orbit/docs/site/orbit_gen/decl/pages/slug_rest"
-	"github.com/orbit-z/orbit/docs/site/src/locals"
+	"github.com/orbit-z/lyr/docs/site/internal/content"
+	"github.com/orbit-z/lyr/docs/site/lyr_gen/app"
+	"github.com/orbit-z/lyr/docs/site/lyr_gen/decl/components/sidebar"
+	"github.com/orbit-z/lyr/docs/site/lyr_gen/decl/pages/search"
+	"github.com/orbit-z/lyr/docs/site/lyr_gen/decl/pages/slug_rest"
+	"github.com/orbit-z/lyr/docs/site/src/locals"
 )
 
 func TestDocPageRenders(t *testing.T) {
-	html := orbittest.Render(t, slug_rest.Render, slug_rest.Props{},
-		orbittest.WithParam("slug", "reference/cli"),
-		orbittest.WithRequest(httptest.NewRequest("GET", "/reference/cli", nil)))
+	html := lyrtest.Render(t, slug_rest.Render, slug_rest.Props{},
+		lyrtest.WithParam("slug", "reference/cli"),
+		lyrtest.WithRequest(httptest.NewRequest("GET", "/reference/cli", nil)))
 	for _, want := range []string{
-		"<title>CLI · Orbit docs</title>",
+		"<title>CLI · Lyr docs</title>",
 		`<h1 id="cli">CLI`,
-		`id="orbit-build"`,
+		`id="lyr-build"`,
 		`href="/configuration#site"`, // ../configuration.md#site, rewritten
 	} {
 		if !strings.Contains(html, want) {
@@ -42,7 +42,7 @@ func TestSidebarMarksCurrentPage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	html := orbittest.Render(t, sidebar.Render, sidebar.Props{Nav: docs.Nav, Current: "/routing"})
+	html := lyrtest.Render(t, sidebar.Render, sidebar.Props{Nav: docs.Nav, Current: "/routing"})
 	got := currentRe.FindAllStringSubmatch(html, -1)
 	if len(got) != 1 || got[0][1] != "/routing" {
 		t.Errorf("aria-current links: %v, want only /routing", got)
@@ -50,7 +50,7 @@ func TestSidebarMarksCurrentPage(t *testing.T) {
 
 	// Through the whole site: the page's own link is the current one, in
 	// both copies of the sidebar (beside the page, and in the mobile menu).
-	page := orbittest.Get(t, app.New().Handler(), "/reference/template-syntax").Body.String()
+	page := lyrtest.Get(t, app.New().Handler(), "/reference/template-syntax").Body.String()
 	got = currentRe.FindAllStringSubmatch(page, -1)
 	if len(got) != 2 || got[0][1] != "/reference/template-syntax" || got[1][1] != "/reference/template-syntax" {
 		t.Errorf("aria-current links: %v, want only /reference/template-syntax, twice", got)
@@ -82,12 +82,12 @@ func TestStatusCodes(t *testing.T) {
 		{"/routing/", 308, "/routing"},
 		{"/search", 200, ""},
 	} {
-		rec := orbittest.Get(t, h, tt.path)
+		rec := lyrtest.Get(t, h, tt.path)
 		if rec.Code != tt.code || rec.Header().Get("Location") != tt.location {
 			t.Errorf("GET %s: %d %q, want %d %q", tt.path, rec.Code, rec.Header().Get("Location"), tt.code, tt.location)
 		}
 	}
-	nf := orbittest.Get(t, h, "/no-such-page").Body.String()
+	nf := lyrtest.Get(t, h, "/no-such-page").Body.String()
 	if !strings.Contains(nf, "Page not found") || !strings.Contains(nf, "<code>/no-such-page</code>") {
 		t.Errorf("404 page:\n%s", nf)
 	}
@@ -95,7 +95,7 @@ func TestStatusCodes(t *testing.T) {
 
 func TestSearch(t *testing.T) {
 	req := httptest.NewRequest("GET", "/search?q=EnsureLocals", nil)
-	html := orbittest.Render(t, search.Render, search.Props{}, orbittest.WithRequest(req))
+	html := lyrtest.Render(t, search.Render, search.Props{}, lyrtest.WithRequest(req))
 	if !strings.Contains(html, `href="/middleware`) {
 		t.Errorf("no result in middleware.md:\n%s", html)
 	}
@@ -104,14 +104,14 @@ func TestSearch(t *testing.T) {
 	}
 
 	req = httptest.NewRequest("GET", "/search?q=zzqxv+nothing", nil)
-	html = orbittest.Render(t, search.Render, search.Props{}, orbittest.WithRequest(req))
+	html = lyrtest.Render(t, search.Render, search.Props{}, lyrtest.WithRequest(req))
 	if !strings.Contains(html, "No results for") {
 		t.Errorf("expected no results:\n%s", html)
 	}
 
 	// The query is escaped, in the text and in the search box.
 	req = httptest.NewRequest("GET", `/search?q=<script>"`, nil)
-	html = orbittest.Render(t, search.Render, search.Props{}, orbittest.WithRequest(req))
+	html = lyrtest.Render(t, search.Render, search.Props{}, lyrtest.WithRequest(req))
 	if strings.Contains(html, "<script>\"") {
 		t.Errorf("query not escaped")
 	}
@@ -119,10 +119,10 @@ func TestSearch(t *testing.T) {
 
 func TestThemeFromLocals(t *testing.T) {
 	h := app.New().Handler()
-	if body := orbittest.Get(t, h, "/").Body.String(); strings.Contains(body, "data-theme=") {
+	if body := lyrtest.Get(t, h, "/").Body.String(); strings.Contains(body, "data-theme=") {
 		t.Errorf("data-theme set without a theme")
 	}
-	rec := orbittest.Get(t, h, "/", orbittest.WithLocals(&locals.Locals{Theme: "dark"}))
+	rec := lyrtest.Get(t, h, "/", lyrtest.WithLocals(&locals.Locals{Theme: "dark"}))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `<html lang="en" data-theme="dark"`) {
 		t.Errorf("dark theme not rendered: %d\n%.300s", rec.Code, rec.Body.String())
 	}
@@ -131,15 +131,15 @@ func TestThemeFromLocals(t *testing.T) {
 func TestLaunchPages(t *testing.T) {
 	h := app.New().Handler()
 
-	home := orbittest.Get(t, h, "/")
+	home := lyrtest.Get(t, h, "/")
 	body := home.Body.String()
 	for _, want := range []string{
 		"Astro's developer experience, with much faster SSR",
-		"go install github.com/orbit-z/orbit/cmd/orbit@latest",
+		"go install github.com/orbit-z/lyr/cmd/lyr@latest",
 		"14.6×", "57×",
-		`href="https://github.com/orbit-z/orbit"`,
-		`<link rel="canonical" href="https://orbit.example/">`,
-		`<meta property="og:image" content="https://orbit.example/og.png">`,
+		`href="https://github.com/orbit-z/lyr"`,
+		`<link rel="canonical" href="https://lyr.example/">`,
+		`<meta property="og:image" content="https://lyr.example/og.png">`,
 		"not affiliated with",
 		`class="version"`,
 		`<span class="kn">`, // the highlighted example
@@ -149,34 +149,34 @@ func TestLaunchPages(t *testing.T) {
 		}
 	}
 	for _, path := range []string{"/", "/routing", "/no-such-page"} {
-		if cc := orbittest.Get(t, h, path).Header().Get("Cache-Control"); cc != "private, no-cache" {
+		if cc := lyrtest.Get(t, h, path).Header().Get("Cache-Control"); cc != "private, no-cache" {
 			t.Errorf("%s: Cache-Control %q", path, cc)
 		}
 	}
-	if nf := orbittest.Get(t, h, "/nope").Body.String(); !strings.Contains(nf, `<meta name="robots" content="noindex">`) || strings.Contains(nf, "canonical") {
+	if nf := lyrtest.Get(t, h, "/nope").Body.String(); !strings.Contains(nf, `<meta name="robots" content="noindex">`) || strings.Contains(nf, "canonical") {
 		t.Errorf("404 page indexable")
 	}
 
-	sm := orbittest.Get(t, h, "/sitemap.xml")
+	sm := lyrtest.Get(t, h, "/sitemap.xml")
 	if ct := sm.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/xml") {
 		t.Errorf("sitemap Content-Type %q", ct)
 	}
-	if b := sm.Body.String(); !strings.Contains(b, "<loc>https://orbit.example/getting-started</loc>") || strings.Contains(b, "decisions") {
+	if b := sm.Body.String(); !strings.Contains(b, "<loc>https://lyr.example/getting-started</loc>") || strings.Contains(b, "decisions") {
 		t.Errorf("sitemap:\n%s", b)
 	}
-	if b := orbittest.Get(t, h, "/robots.txt").Body.String(); !strings.Contains(b, "Sitemap: https://orbit.example/sitemap.xml") {
+	if b := lyrtest.Get(t, h, "/robots.txt").Body.String(); !strings.Contains(b, "Sitemap: https://lyr.example/sitemap.xml") {
 		t.Errorf("robots.txt:\n%s", b)
 	}
 
 	// A typo still finds the page.
 	req := httptest.NewRequest("GET", "/search?q=Tailwnd", nil)
-	html := orbittest.Render(t, search.Render, search.Props{}, orbittest.WithRequest(req))
+	html := lyrtest.Render(t, search.Render, search.Props{}, lyrtest.WithRequest(req))
 	if !strings.Contains(html, `<a href="/tailwind"`) {
 		t.Errorf("no typo-tolerant result for Tailwnd")
 	}
 	// The page whose title matches comes first.
 	req = httptest.NewRequest("GET", "/search?q=tailwind", nil)
-	html = orbittest.Render(t, search.Render, search.Props{}, orbittest.WithRequest(req))
+	html = lyrtest.Render(t, search.Render, search.Props{}, lyrtest.WithRequest(req))
 	if i := strings.Index(html, `<ol class="results"`); i < 0 || !strings.HasPrefix(html[strings.Index(html[i:], "<a href=")+i:], `<a href="/tailwind"`) {
 		t.Errorf("tailwind: the Tailwind page isn't first")
 	}

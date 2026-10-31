@@ -4,19 +4,19 @@ import (
 	"bytes"
 	"fmt"
 
-	_ "example.com/blog/orbit_gen/impl/components/actions"
-	_ "example.com/blog/orbit_gen/impl/components/cached"
-	_ "example.com/blog/orbit_gen/impl/components/card"
-	_ "example.com/blog/orbit_gen/impl/components/fwd"
-	_ "example.com/blog/orbit_gen/impl/components/tree"
-	index "example.com/blog/orbit_gen/decl/pages/index"
-	_ "example.com/blog/orbit_gen/impl/pages/index"
-	"github.com/orbit-z/orbit"
+	_ "example.com/blog/lyr_gen/impl/components/actions"
+	_ "example.com/blog/lyr_gen/impl/components/cached"
+	_ "example.com/blog/lyr_gen/impl/components/card"
+	_ "example.com/blog/lyr_gen/impl/components/fwd"
+	_ "example.com/blog/lyr_gen/impl/components/tree"
+	index "example.com/blog/lyr_gen/decl/pages/index"
+	_ "example.com/blog/lyr_gen/impl/pages/index"
+	"github.com/orbit-z/lyr"
 )
 
 func main() {
 	var buf bytes.Buffer
-	if err := index.Render(&orbit.Ctx{}, orbit.NewWriter(&buf), index.Props{}, orbit.Slots{}); err != nil {
+	if err := index.Render(&lyr.Ctx{}, lyr.NewWriter(&buf), index.Props{}, lyr.Slots{}); err != nil {
 		panic(err)
 	}
 	fmt.Print(buf.String())
