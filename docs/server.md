@@ -28,7 +28,8 @@ func main() {
 	mux.Handle("/", site.Handler()) // everything else: pages, assets, islands, 404
 
 	// Trailing-slash redirects first, as in Astro; logging sees them too.
-	if err := lyr.ListenAndServe(logging(site.TrailingSlash(mux))); err != nil {
+	h := lyr.Sequence(logging, site.TrailingSlash)(mux)
+	if err := lyr.ListenAndServe(h); err != nil {
 		log.Fatal(err)
 	}
 }

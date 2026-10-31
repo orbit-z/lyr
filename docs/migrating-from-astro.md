@@ -409,7 +409,7 @@ func answerError(w http.ResponseWriter, r *http.Request, err error) bool {
 ```
 
 - **`Astro.locals.shop`** is `locals.Shop` in pages and components, type-checked.
-- **`sequence(a, b)`** is `a(b(mux))`: the middleware listed first runs first.
+- **`sequence(a, b)`** is `lyr.Sequence(a, b)(mux)`, the same as `a(b(mux))`: the middleware listed first runs first.
 - **Returning a `Response`** from middleware is writing it and not calling `next`. See [Short-circuit responses](middleware.md#short-circuit-responses).
 - **Code after `await next()`** goes after `next.ServeHTTP(w, r)`, with a wrapped `http.ResponseWriter` to read the status. See [Rewrite responses](middleware.md#rewrite-responses).
 - **The matched route** (Astro's `context.routePattern` and `context.params`, for logging or metrics): add a `Route lyr.RouteInfo` field to your `Locals`, and Lyr fills it in with the route it matched, so middleware can read it after `next` returns:

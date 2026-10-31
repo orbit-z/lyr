@@ -1192,3 +1192,14 @@ From a review of the docs for API inconsistencies. The user decided the public n
 | `TB`'s methods are marked "For generated code." too, like the type | simplest (a `TB` only exists in generated code) | Mark the type only | Package `lyr` Go doc |
 | `NewSite` isn't marked: its comment says the generated `app.New()` calls it and that tests and hand-built sites can too | Go stdlib (documented API stays visible) | Mark it | Package `lyr` Go doc |
 | Hover, go to definition and signature help are unchanged for generated-code-only names | simplest | Hide them there too | [Runtime API](reference/runtime-api.md) |
+
+## Middleware sequence (2026-10-31)
+
+`lyr.Sequence`, Astro's `sequence()` for `net/http` middleware. The user chose to add it to the runtime (rather than a dependency such as `justinas/alice`), its name and shape (returns a middleware), and its use in `lyr new`'s `main.go` and the docs.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| A `nil` middleware panics when `Sequence` is called, naming its index (`lyr: Sequence: nil middleware at index 1`) | Go stdlib (`http.Handle` panics on a nil handler, at setup) | Skip it; panic at the first request | [Runtime API](reference/runtime-api.md#composing-middleware-sequence) |
+| `Sequence()` with no middleware returns its argument unchanged | simplest | An error | [Runtime API](reference/runtime-api.md#composing-middleware-sequence) |
+| `Sequence` copies its arguments, so changing the caller's slice afterwards changes nothing | Go stdlib (`slices.Clone` before keeping a variadic) | Keep the caller's slice | — |
+| The chain is built each time the returned middleware is called (normally once), not cached | simplest (each call may get a different `next`) | Cache by `next` | — |

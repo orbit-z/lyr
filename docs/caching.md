@@ -73,7 +73,8 @@ func main() {
 	mux.Handle("POST /admin/purge/{slug}", purge(site))
 	mux.Handle("/", site.Handler())
 
-	if err := lyr.ListenAndServe(site.TrailingSlash(session.Middleware(mux))); err != nil {
+	h := lyr.Sequence(site.TrailingSlash, session.Middleware)(mux)
+	if err := lyr.ListenAndServe(h); err != nil {
 		log.Fatal(err)
 	}
 }

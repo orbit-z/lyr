@@ -932,6 +932,13 @@ Under [`site.CacheHandler`](#site), the component's `ctx.Cache()` is the handler
 
 Rendering a full page (with its assets) from your own handler is not yet supported.
 
+## Composing middleware: Sequence
+
+```go
+func Sequence(mws ...func(http.Handler) http.Handler) func(http.Handler) http.Handler
+```
+Combines middleware into one, like Astro's `sequence()`: the middleware listed first runs first, so `lyr.Sequence(a, b, c)(mux)` is `a(b(c(mux)))`. The result is a middleware itself, so sequences nest, and method values such as `site.TrailingSlash` and `site.Middleware` fit as they are: `lyr.Sequence(logging, site.TrailingSlash, auth)(mux)`. The chain is built once, when the result is called, so requests pay nothing for `Sequence` (no call and no allocation of its own). `Sequence()` returns its argument unchanged. A `nil` middleware panics when `Sequence` is called, naming its index. See [Where middleware goes](../middleware.md#where-middleware-goes).
+
 ## Serving
 
 ```go

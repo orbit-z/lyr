@@ -3737,6 +3737,7 @@ func main() {
   - Middleware wrapped *outside* Lyr (logging, auth, CORS, gzip) applies to pages and custom routes alike.
   - Middleware placed *after* Lyr only sees requests Lyr didn't handle.
   - There is no Lyr-specific middleware type (no `OnRequest`; user decision). All middleware is plain `func(http.Handler) http.Handler` in the user's `main.go`; request-scoped data reaches pages through typed locals (below).
+  - `lyr.Sequence(a, b, c)` is Astro's `sequence()` (user, 2026-10-31; in the runtime rather than a dependency such as `justinas/alice`): it returns a middleware equal to `a(b(c(next)))`, built once when called, so nothing per request. `lyr new`'s `main.go` uses `lyr.Sequence(site.TrailingSlash /*, logging, auth */)(mux)`.
 - **Inside `site.Middleware`** (prod and dev):
   1. Island endpoint `/_lyr/island/<buildID>/<id>` (GET, HEAD, POST; other methods get a 405): render a deferred component as a fragment (see "Deferred island requests" below). This prefix is reserved and is never a static file.
   2. Static file lookup (`/_lyr/*`, `public/`; GET/HEAD only).

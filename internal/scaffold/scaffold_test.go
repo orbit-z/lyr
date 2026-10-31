@@ -41,7 +41,7 @@ func TestFiles(t *testing.T) {
 	}
 	main := files["cmd/server/main.go"]
 	if !strings.Contains(string(main), "\t\"example.com/blog/lyr_gen/app\"\n") ||
-		!strings.Contains(string(main), "if err := lyr.ListenAndServe(site.TrailingSlash(mux)); err != nil {\n\t\tlog.Fatal(err)\n\t}") {
+		!strings.Contains(string(main), "h := lyr.Sequence(site.TrailingSlash /*, logging, auth */)(mux)\n\tif err := lyr.ListenAndServe(h); err != nil {\n\t\tlog.Fatal(err)\n\t}") {
 		t.Errorf("main.go:\n%s", main)
 	}
 	if f, err := format.Source(main); err != nil || string(f) != string(main) {

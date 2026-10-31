@@ -40,7 +40,8 @@ func main() {
 
 	// logging runs first, then the trailing-slash redirects, then
 	// requestInfo, then the mux and Lyr.
-	if err := lyr.ListenAndServe(logging(site.TrailingSlash(requestInfo(mux)))); err != nil {
+	h := lyr.Sequence(logging, site.TrailingSlash, requestInfo)(mux)
+	if err := lyr.ListenAndServe(h); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -127,7 +128,7 @@ Where you put a middleware relative to Lyr decides what it sees:
 - **Outside Lyr**, wrapping `site.Middleware` or the mux that leads to `site.Handler()`, as above: it sees every request, pages, island requests, assets, `public/` files and your own handlers alike. Middleware that sets locals for pages must go here, so it runs before Lyr.
 - **After Lyr**, inside it (`site.Middleware(cors(mux))`): it only sees requests Lyr didn't handle. Locals it sets never reach a page.
 
-Middleware listed first runs first: in `logging(requestInfo(mux))`, `logging` sees the request before `requestInfo`, and sees the response after it. See [Server](server.md#choosing-precedence) for where the mux and Lyr go.
+Middleware listed first runs first: in `lyr.Sequence(logging, requestInfo)(mux)`, `logging` sees the request before `requestInfo`, and sees the response after it. `lyr.Sequence` is Astro's `sequence()`; it builds the same chain as writing `logging(requestInfo(mux))` by hand, once at startup, so it costs requests nothing. Its result is a middleware too, so you can name a group (`auth := lyr.Sequence(session, requireUser)`) and use it in a larger sequence or for one route. See [Server](server.md#choosing-precedence) for where the mux and Lyr go.
 
 **Trailing slashes**: `site.Handler()` redirects the other form of a page URL (`/account/` by default, `/account` with `"trailingSlash": "always"`) only when the request reaches it, so middleware outside it would see both forms. `site.TrailingSlash`, outermost as above (`lyr new`'s `main.go` has it), sends that 308 first, as Astro does: `requestInfo`, auth gates and sessions only ever see the canonical form, and a gate never answers a request that's about to be redirected. Put a logger outside it if you want the 308s logged, as `logging` here. Middleware you place outside `site.TrailingSlash`, or in a `main.go` without it, still sees both forms; compare paths with that in mind (see [Routing](routing.md#redirecting-before-your-middleware)).
 

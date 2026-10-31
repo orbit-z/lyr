@@ -409,10 +409,11 @@ func main() {
 	// Everything else goes to Lyr: pages, /_lyr/* assets and public/ files.
 	mux.Handle("/", site.Handler())
 
-	// Trailing-slash redirects (lyr.json's trailingSlash) run first, as in
-	// Astro. Wrap mux in your own net/http middleware (logging, auth, locals)
-	// inside it: site.TrailingSlash(logging(mux)).
-	if err := lyr.ListenAndServe(site.TrailingSlash(mux)); err != nil {
+	// Middleware, first listed runs first (like Astro's sequence()). The
+	// trailing-slash redirects (lyr.json's trailingSlash) come first, as in
+	// Astro; add your own net/http middleware (logging, auth, locals) after.
+	h := lyr.Sequence(site.TrailingSlash /*, logging, auth */)(mux)
+	if err := lyr.ListenAndServe(h); err != nil {
 		log.Fatal(err)
 	}
 }
