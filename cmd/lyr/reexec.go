@@ -15,9 +15,10 @@ import (
 )
 
 // exemptFromPin are the commands a global CLI always runs itself: lyr new
-// has no project yet, and lyr doctor must work when the re-exec or the
-// versions are what's broken (it reports both).
-var exemptFromPin = map[string]bool{"new": true, "doctor": true}
+// has no project yet, lyr doctor must work when the re-exec or the
+// versions are what's broken (it reports both), and lyr editor installs
+// per-user files that lyr doctor compares with this CLI.
+var exemptFromPin = map[string]bool{"new": true, "doctor": true, "editor": true}
 
 // pinned applies the version pinning rule (PLAN.md §6) before a command
 // runs in dir. It returns done=false when this binary runs the command

@@ -93,9 +93,29 @@ Don't hide them with a gopls `directoryFilters` setting such as `"-lyr_gen"`. Ly
 
 ## Neovim
 
-With Neovim 0.11 or later, add this to your config:
+With Neovim 0.11 or later, [install `lyr`](getting-started.md), then run:
+
+```sh
+lyr editor nvim
+```
+
+That's all: restart Neovim, and `.lyr` files get syntax highlighting and the language server, with no change to your config. The command writes a small plugin into Neovim's start package (`~/.local/share/nvim/site/pack/lyr/start/lyr`, see [`lyr editor`](reference/cli.md#lyr-editor)): `.lyr` file detection, highlighting, `commentstring` and `%` pairs, and the `lyr` language-server config, which it enables. Run it again after upgrading `lyr`; [`lyr doctor`](reference/cli.md#lyr-doctor) warns when the installed plugin is out of date.
+
+Settings go through `vim.lsp.config`:
 
 ```lua file=~/.config/nvim/init.lua
+vim.lsp.config('lyr', {
+  init_options = { goplsPath = '/home/me/go/bin/gopls' },
+})
+```
+
+`init_options` takes `goplsPath` and `typescriptPath` (both optional; see [How gopls is found](#how-gopls-is-found) and [How TypeScript is found](#how-typescript-is-found)). For [diagnostics in Markdown files](#markdown-files) too, add `filetypes = { 'lyr', 'markdown' }`: the language server ignores Markdown files Lyr doesn't compile, and answers other requests on Markdown files with nothing. The language server finds the project root itself (the directory with `go.mod` and `src/`). To keep the highlighting without the language server, set `vim.g.lyr_lsp = false` in your config.
+
+Highlighting is a Vim syntax file built on the syntax files Neovim ships: HTML for the template, Go for the frontmatter and `{…}` expressions, TypeScript for `<script>` (JavaScript for `<script is:inline>`, JSON for `<script type="application/json">`) and CSS for `<style>`. `%` jumps between `{if}`, `{else}` and `{/if}` (and `{for}`, `{switch}`, HTML tags).
+
+Without the plugin, you can configure the language server yourself (no highlighting):
+
+```lua
 vim.filetype.add({ extension = { lyr = 'lyr' } })
 
 vim.lsp.config('lyr', {
@@ -106,9 +126,9 @@ vim.lsp.config('lyr', {
 vim.lsp.enable('lyr')
 ```
 
-The first line makes Neovim detect `.lyr` files; the rest starts `lyr lsp` for them. To choose the gopls or the TypeScript 7 that it starts, add `init_options = { goplsPath = '…', typescriptPath = '…' }` (both optional; see [How gopls is found](#how-gopls-is-found) and [How TypeScript is found](#how-typescript-is-found)). For [diagnostics in Markdown files](#markdown-files) too, use `filetypes = { 'lyr', 'markdown' }`: the language server ignores Markdown files Lyr doesn't compile, and answers other requests on Markdown files with nothing. The language server finds the project root itself (the directory with `go.mod` and `src/`).
+### Vim
 
-Lyr doesn't ship syntax highlighting for Neovim: its grammar is a TextMate grammar, which only VS Code uses. Completion, diagnostics and the other language-server features work without it.
+`lyr editor vim` installs the same plugin into `~/.vim/pack/lyr/start/lyr`, for Vim 9: detection, highlighting, `commentstring` and `%` pairs (with matchit, `packadd matchit`). It doesn't set up a language server, since Vim has none built in; any LSP client plugin works with `lyr lsp` (command `lyr lsp`, filetype `lyr`, root marker `go.mod`).
 
 ## Tailwind CSS
 
@@ -250,7 +270,7 @@ TypeScript sees the `.ts` files under `src/` as they are on disk: an unsaved edi
 
 ### `.ts` files
 
-Your editor's own TypeScript support (VS Code's built-in TypeScript server, or `typescript-language-server` in Neovim) covers the **`.ts` files** under `src/`, through your `tsconfig.json`. That includes the generated types of the data components pass to scripts: in `src/scripts/like-button.ts`, `import { data } from "../components/LikeButton.lyr"` is typed: completion offers the keys, and the result has the TypeScript type of the Go value. This needs the starter `tsconfig.json`'s `rootDirs` and `include` entries for `lyr_gen/types` (see [`tsconfig.json`](styles-and-scripts.md#tsconfigjson); `lyr doctor` warns when they're missing), and an `lyr_gen/types/` that `lyr dev` or `lyr generate` has written. Before that, on a fresh clone, the editor reports `Cannot find module '../components/LikeButton.lyr'`.
+Your editor's own TypeScript support (VS Code's built-in TypeScript server, or `typescript-language-server` in Neovim) covers the **`.ts` files** under `src/`, through your `tsconfig.json`. That includes the generated types of the data components pass to scripts: in `src/scripts/like-button.ts`, `import { data } from "../components/LikeButton.lyr"` is typed: completion offers the keys, and the result has the TypeScript type of the Go value. This needs the starter `tsconfig.json`'s `rootDirs` and `include` entries for `lyr_gen/types` (see [`tsconfig.json`](styles-and-scripts.md#tsconfigjson); `lyr doctor` warns when they're missing), and a `lyr_gen/types/` that `lyr dev` or `lyr generate` has written. Before that, on a fresh clone, the editor reports `Cannot find module '../components/LikeButton.lyr'`.
 
 Lyr's language server leaves `.ts` files alone, as Astro's does. One consequence: "find references" on a function in a `.ts` file doesn't list its uses inside `.lyr` scripts (from a script, it lists both).
 

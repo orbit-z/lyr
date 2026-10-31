@@ -14,6 +14,7 @@ lyr fmt              # format .lyr files
 lyr generate         # (re)generate lyr_gen/
 lyr doctor           # check your environment and project
 lyr create-key       # print a new island key for LYR_KEY
+lyr editor nvim      # install the Neovim (or Vim) plugin
 lyr lsp              # language server, started by your editor
 ```
 
@@ -28,6 +29,7 @@ lyr lsp              # language server, started by your editor
 | [`lyr fmt [paths]`](#lyr-fmt) | `-l`, `-d`, `-w`, `--stdin-filepath` | Formats `.lyr` files |
 | [`lyr doctor`](#lyr-doctor) | `--json` | Checks the environment and project |
 | [`lyr create-key`](#lyr-create-key) | | Prints a new island key |
+| [`lyr editor <nvim\|vim>`](#lyr-editor) | `--dir path` | Installs the Neovim or Vim plugin |
 | [`lyr lsp`](#lyr-lsp) | | Language server over stdio |
 
 Flags use Go's standard syntax: `--port 3000`, `--port=3000` and `-port 3000` are the same.
@@ -58,7 +60,7 @@ The hand-over runs `go tool -n lyr`, which builds the pinned CLI (or finds it in
 
 The global CLI tells itself apart from a pinned copy by its build info: a global install (`go install github.com/orbit-z/lyr/cmd/lyr@…`, or `go build` in a clone) has Lyr as its main module, while `go tool lyr` is built inside your module, with Lyr as a dependency, and never hands over.
 
-`lyr new` and `lyr doctor` are the exceptions: they always run the version you invoked. `lyr new` has no project yet, and `lyr doctor` must work when the pinned CLI or the versions are what's broken (it reports both).
+`lyr new`, `lyr doctor` and `lyr editor` are the exceptions: they always run the version you invoked. `lyr new` has no project yet, `lyr doctor` must work when the pinned CLI or the versions are what's broken (it reports both), and `lyr editor` installs files for your user, which `lyr doctor` compares with the global CLI.
 
 In scripts, CI and Dockerfiles, call `go tool lyr` directly: it needs no global install.
 
@@ -487,6 +489,7 @@ Checks your environment and project. Each check prints ✓ (passed), ⚠ (warnin
 | Bun (`bun`) | That Bun 1.4.4 or later is installed, for `lyr check`'s TypeScript half. ⚠ only, with the install or upgrade command (`bun upgrade`). |
 | TypeScript (`typescript`) | The TypeScript 7 (7.0.2 or later) that `lyr lsp` would start for `<script>` blocks, found as the language server finds it (the project's `node_modules/typescript`, `tsc` on your `PATH`, then `bun x` with Bun; see [How TypeScript is found](../editor-setup.md#how-typescript-is-found)): `tsc 7.0.2 (/path)`, or `TypeScript 7.0.2 through bun x`. ⚠ only, never ✗ (it's optional): when none is found, or the `tsc` found is older (TypeScript 5 or 6 has no language server), with the install command. Inside a project with no script in any `.lyr` file, a missing TypeScript passes ("not needed"). |
 | Tailwind CSS (`tailwind`) | The Tailwind CSS v4 CLI, found as the build finds it (the project's `node_modules/.bin/tailwindcss`, `tailwindcss` on your `PATH`, then `bun x` with Bun; see [Using Tailwind](../tailwind.md#install-the-tailwind-cli)): `tailwindcss 4.3.3 (/path)`, or `Tailwind CSS 4.3.3 through bun x`. ✗ inside a project with a Tailwind input (a `.css` file or a `<style>` under `src/` that uses Tailwind) when no v4 CLI is found, since `lyr build` fails without it, with the install commands. ⚠ in such a project when `.gitignore` doesn't cover `lyr_gen/`, `.lyr/` and `dist/` (Tailwind would scan them). Otherwise ✓, with "not installed (needed only by projects that use Tailwind)" when there's none. |
+| Neovim and Vim plugins (`nvim`, `vim`) | Only when [`lyr editor`](#lyr-editor) installed one in the default directory: that its `lyr-version` file matches this CLI's version and files (⚠ otherwise, fixed by `lyr editor nvim` or `lyr editor vim`). Without an install, no line. |
 | Generated code (`lyr_gen`) | That `lyr_gen/` exists and matches your sources (⚠, fixed by `lyr generate`). The generated files carry no source hash, so `lyr doctor` regenerates the project in memory, as `lyr generate` would, and compares; it writes nothing. `lyr_gen/manifest/manifest.go` isn't compared: it only lists asset URLs, `lyr dev` writes it empty and `lyr build` rewrites it. If your `.lyr` files have errors, it's a ⚠ naming the first one. |
 | `.gitignore` (`gitignore`) | That it covers `lyr_gen/` (or `lyr_gen/static/`, when you [commit `lyr_gen/`](../project-structure.md#committing-lyr_gen-optional)), `.lyr/` and `dist/` (⚠, with a `printf … >> .gitignore` fix). Plain patterns only (`dist`, `/dist/`, `dist/**`); a later `!dist` re-includes. |
 | Config (`config`) | That `lyr.json` is valid, the server entry exists, and `src/locals` doesn't import `lyr_gen/app` (✗ for each). |
@@ -523,6 +526,29 @@ lyr create-key
 Prints a new random 32-byte island key, in standard base64, for the `LYR_KEY` environment variable. The key encrypts the props of `server:defer` components (see [Lazy loading](../lazy-loading.md)).
 
 You need it when instances of **different builds** must open each other's island URLs: during a rolling deploy, or with several builds behind one load balancer. Instances of the same `lyr build` already share the key embedded in it. Set the same `LYR_KEY` on every instance, and keep it secret, like any credential. See [Deploy](../deploy.md).
+
+## `lyr editor`
+
+```sh
+lyr editor nvim
+lyr editor vim
+lyr editor nvim --dir ~/src/lyr-nvim
+```
+
+Installs the Neovim or Vim plugin that ships inside the CLI: `.lyr` filetype detection, syntax highlighting, `commentstring` and `%` pairs, and, for Neovim 0.11 or later, the `lyr` language-server config, enabled at startup. It writes the files to the editor's start package, which the editor loads with no configuration:
+
+| Editor | Directory |
+|---|---|
+| Neovim | `stdpath('data')/site/pack/lyr/start/lyr`: `$XDG_DATA_HOME/nvim/…`, by default `~/.local/share/nvim/…` (`$NVIM_APPNAME` replaces `nvim`); on Windows `%LOCALAPPDATA%\nvim-data\…` |
+| Vim | `~/.vim/pack/lyr/start/lyr`; on Windows `~/vimfiles/pack/lyr/start/lyr` |
+
+The directory's previous contents are replaced, so a reinstall removes files an older version had. An existing, non-empty directory without a `lyr-version` file isn't Lyr's, and the command refuses it (exit code 1). The `lyr-version` file holds the CLI's version and a hash of the files; `lyr doctor` warns when it doesn't match the running CLI, so run `lyr editor` again after upgrading `lyr`. See [Editor setup](../editor-setup.md#neovim).
+
+| Flag | Meaning |
+|---|---|
+| `--dir path` | Installs into `path` instead (relative to the working directory), for a plugin manager or a custom `runtimepath`. |
+
+It always runs the global CLI, not the project's pinned one.
 
 ## `lyr lsp`
 

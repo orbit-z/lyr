@@ -53,6 +53,7 @@ func init() {
 		{name: "fmt", args: "[-l] [-d] [-w] [--stdin-filepath=PATH] [paths]", short: "format .lyr files", run: runFmt},
 		{name: "doctor", args: "[--json]", short: "check the environment and project", run: runDoctor},
 		{name: "create-key", short: "print a new island key for LYR_KEY", run: runCreateKey},
+		{name: "editor", args: "<nvim|vim> [--dir path]", short: "install the Neovim or Vim plugin", run: runEditor},
 		{name: "lsp", short: "language server over stdio", run: runLSP},
 	}
 }

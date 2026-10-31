@@ -46,6 +46,7 @@ Before this release the project was called Orbit. Everything moved to the new na
 **Tools**
 - `lyr new`, `lyr dev` (rebuild and live reload in about 0.2 s on a 200-file project), `lyr build` (with `--embed` for a single binary), `lyr check` (TypeScript checking with Bun), `lyr fmt` and `lyr doctor`.
 - `lyr lsp`: completion, diagnostics, hover, go-to-definition, references and rename in `.lyr` files, through gopls, and TypeScript in `<script>` blocks. A VS Code extension (`orbit-z.lyr`) runs it.
+- `lyr editor nvim` (and `lyr editor vim`) installs Lyr's Neovim plugin, embedded in the CLI, with no config to write: `.lyr` detection, syntax highlighting built on the bundled HTML, Go, TypeScript and CSS syntax files, and, in Neovim 0.11+, the language server, enabled automatically. `lyr doctor` warns when the installed plugin is older than the CLI.
 - `lyrtest` helpers for testing pages and components with `go test`.
 - `lyr new` scaffolds a Dockerfile for a distroless single-binary image.
 

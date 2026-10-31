@@ -937,7 +937,7 @@ Go through these in order:
 
 1. Run `lyr doctor` and fix the gopls line. If only template completion works (tags, props, slots, directives) and Go completion doesn't, see [Go features are disabled in the editor](#go-features-are-disabled-in-the-editor-gopls-is-too-old).
 2. **VS Code**: install the extension with `code --install-extension orbit-z.lyr`. It runs the `lyr` on your `PATH`; if it isn't there, set `lyr.path`.
-3. **Neovim**: add the `vim.filetype.add({ extension = { lyr = 'lyr' } })` line and `vim.lsp.enable('lyr')` from [Editor setup](editor-setup.md#neovim).
+3. **Neovim**: run `lyr editor nvim` and restart Neovim (see [Editor setup](editor-setup.md#neovim)); `lyr doctor` warns when that plugin is out of date. `:checkhealth vim.lsp` shows whether `lyr lsp` is attached.
 4. Open the project at its root: the language server looks for the directory with `go.mod` and `src/`.
 
 For TypeScript features inside `<script>` (completion, diagnostics, …), see [No TypeScript completion in `<script>`](#no-typescript-completion-in-script) below.

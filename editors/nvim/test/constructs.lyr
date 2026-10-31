@@ -1,0 +1,66 @@
+---
+import (
+	"strings"
+
+	Card "../components/Card.lyr"
+)
+
+type Props struct {
+	Title string
+	Open  bool
+}
+
+var re = "`raw` {"
+raw := `a } ${b}`
+title := strings.ToUpper(props.Title)
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>{title}</title>
+  <style>
+    .hero { color: red; }
+  </style>
+</head>
+<body>
+<h1 class="hero">{title}</h1>
+{/* note: {title} isn't evaluated */}
+<!-- {title} in an HTML comment -->
+<p>{map[string]int{"a": 1}["a"]} and {"}"} and {'}'} end</p>
+<p>{`/p/${props.Title}` + "x"} tail</p>
+<p>{`a ${f(`x ${g(`y ${z}`)}`)} b ${m["}"]} c`} after</p>
+<p>{`esc \` \${ \n \d`}</p>
+{if props.Open && len(title) > 0}
+  <i>open</i>
+{else if props.Title == "x"}
+  <i>x</i>
+{else}
+  <i>closed</i>
+{/if}
+{for i, c := range title}
+  <b>{i}{c}</b>
+{/for}
+{switch props.Title}
+  {case "a", "b"}<i>ab</i>
+  {default}<i>d</i>
+{/switch}
+<a href={`/p/${props.Title}`} title="literal {not go}" data-n=3 {...attrs} {open}>link</a>
+<div class:list={"a", "on": props.Open} set:html={lyr.HTML(body)} xlink:href="#x"></div>
+<Card client:visible="200px" server:defer post={p} slot="footer">
+  <Self depth={depth + 1} />
+  <Fragment slot="x"><>a</></Fragment>
+</Card>
+<p>a < b, <3 and a <= b; &amp;</p>
+<script>
+  const el = document.querySelector<HTMLElement>(".hero");
+  if (el) { el.addEventListener("click", () => alert(`hi ${el.id}`)); }
+</script>
+<script is:inline>
+  window.x = { a: 1 };
+</script>
+<script type="application/json" set:json={list}></script>
+<script type="application/ld+json">{"@type": "Blog"}</script>
+<script src="/x.js" />
+<p>{after}</p>
+</body>
+</html>

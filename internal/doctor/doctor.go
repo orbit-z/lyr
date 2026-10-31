@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strings"
 
@@ -85,6 +86,12 @@ type Env struct {
 	BuildInfo func(path string) (*debug.BuildInfo, error)
 	// Self is the running CLI (pin.Current).
 	Self pin.Self
+	// Getenv, Home and GOOS locate the Neovim/Vim plugin that lyr editor
+	// installs (os.Getenv, os.UserHomeDir, runtime.GOOS). With a nil
+	// Getenv, the plugin isn't checked.
+	Getenv func(string) string
+	Home   string
+	GOOS   string
 	// Generate returns what lyr generate would change in the project at
 	// root, without writing (project.Generator.Plan plus
 	// project.DiffGenerated), and the diagnostics that stop it.
@@ -100,6 +107,9 @@ func DefaultEnv(dir string) Env {
 		BuildInfo: buildinfo.ReadFile,
 		Self:      pin.Current(),
 		Generate:  generate,
+		Getenv:    os.Getenv,
+		Home:      home(),
+		GOOS:      runtime.GOOS,
 	}
 }
 
@@ -160,6 +170,7 @@ func Run(ctx context.Context, env Env) *Report {
 		r.Checks = append(r.Checks, d.cliCheck())
 	}
 	r.Checks = append(r.Checks, d.goplsCheck(), d.bunCheck(), d.typescriptCheck(), d.tailwindCheck())
+	r.Checks = append(r.Checks, d.editorChecks()...)
 	if d.root != "" {
 		r.Checks = append(r.Checks, d.genCheck(), d.gitignoreCheck(), d.configCheck(), d.tsconfigCheck())
 	}
