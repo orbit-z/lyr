@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -873,70 +875,6 @@ func TestCacheIslands(t *testing.T) {
 	}
 }
 
-type fragmentProps struct{ ID string }
-
-func fragment(c *Ctx, w *Writer, p fragmentProps, s Slots) error {
-	c.Cache().Set(CacheOptions{MaxAge: time.Hour, Tags: []string{"frag:" + p.ID}})
-	w.Raw("<p>")
-	w.String(p.ID)
-	w.Raw("</p>")
-	return nil
-}
-
-func TestCacheHandler(t *testing.T) {
-	var n atomic.Int32
-	s, st := cacheSite(t, nil, withLocalsCache())
-	frag := s.CacheHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		n.Add(1)
-		if err := RenderComponent(w, r, fragment, fragmentProps{ID: r.URL.Query().Get("id")}); err != nil {
-			t.Error(err)
-		}
-	}))
-	api := s.CacheHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		n.Add(1)
-		if l := LocalsFromRequest[cacheLocals](r); l != nil {
-			l.Cache.Set(CacheOptions{MaxAge: time.Minute})
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"ok":true}`))
-	}))
-	withLocals := func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			r, _ = EnsureLocals[cacheLocals](r)
-			h.ServeHTTP(w, r)
-		})
-	}
-	get(frag, "/frag?id=a")
-	r := get(frag, "/frag?id=a")
-	if r.Header().Get("X-Lyr-Cache") != "HIT" || r.Body.String() != "<p>a</p>" || r.Header().Get("Content-Type") != "text/html; charset=utf-8" || n.Load() != 1 {
-		t.Errorf("fragment: %q %q %v, %d calls", r.Header().Get("X-Lyr-Cache"), r.Body, r.Header(), n.Load())
-	}
-	if e := st.entry("example.com/frag?id=a"); e == nil || !slices.Equal(e.Tags, []string{"frag:a"}) {
-		t.Errorf("fragment entry %+v", e)
-	}
-	h := withLocals(api)
-	get(h, "/api")
-	r = get(h, "/api")
-	if r.Code != 201 || r.Header().Get("X-Lyr-Cache") != "HIT" || r.Body.String() != `{"ok":true}` || r.Header().Get("Content-Type") != "application/json" || n.Load() != 2 {
-		t.Errorf("api: %d %q %q, %d calls", r.Code, r.Header().Get("X-Lyr-Cache"), r.Body, n.Load())
-	}
-	// Without the locals, the handler can't set options: rendered each time.
-	get(api, "/api2")
-	if r := get(api, "/api2"); r.Header().Get("X-Lyr-Cache") != "" || n.Load() != 4 {
-		t.Errorf("no locals: %q, %d calls", r.Header().Get("X-Lyr-Cache"), n.Load())
-	}
-	// Without a provider it's the handler itself.
-	plain := testSite(t, nil)
-	inner := http.NotFoundHandler()
-	if got := plain.CacheHandler(inner); got.(*cacheHandler).h == nil {
-		t.Error("CacheHandler")
-	}
-	if rec := get(plain.CacheHandler(inner), "/x"); rec.Code != 404 {
-		t.Errorf("no provider: %d", rec.Code)
-	}
-}
-
 func TestCacheConcurrentChildren(t *testing.T) {
 	s, st := cacheSite(t, []Route{{Pattern: "/", File: "i.lyr", Render: func(c *Ctx, w *Writer) error {
 		c.Cache().Set(CacheOptions{MaxAge: time.Minute, Tags: []string{"page"}})
@@ -1170,4 +1108,438 @@ func TestCacheRace(t *testing.T) {
 	}
 	wg.Wait()
 	waitFlights(t, s)
+}
+
+// Failed renders, the 404 page and a Disable aren't stored, even under a
+// route rule, and an island doesn't get a route rule (PLAN.md §4j).
+func TestCachePageFlowsNotStored(t *testing.T) {
+	captureLogSync(t)
+	set := func(c *Ctx) { c.Cache().Set(CacheOptions{MaxAge: time.Hour}) }
+	rule := WithRouteRules(RouteRule{Pattern: "/[p]", Options: CacheOptions{MaxAge: time.Hour}})
+	for _, tc := range []struct {
+		name   string
+		render func(c *Ctx, w *Writer) error
+	}{
+		{"error", func(c *Ctx, w *Writer) error { set(c); return errors.New("boom") }},
+		{"panic", func(c *Ctx, w *Writer) error { panic("boom") }},
+		{"not found", func(c *Ctx, w *Writer) error { set(c); return ErrNotFound }},
+		{"disable", func(c *Ctx, w *Writer) error { c.Cache().Disable(); w.Raw("x"); return nil }},
+	} {
+		s, st := cacheSite(t, []Route{
+			{Pattern: "/p", File: "p.lyr", Render: tc.render},
+			{Pattern: "404", File: "404.lyr", Render: func(c *Ctx, w *Writer) error { w.Raw("nf"); return nil }},
+		}, rule)
+		h := s.Middleware(http.NotFoundHandler())
+		var r2 *httptest.ResponseRecorder
+		within(t, func() {
+			get(h, "/p")
+			r2 = get(h, "/p")
+		})
+		if r2.Header().Get("X-Lyr-Cache") == "HIT" || len(st.keys()) != 0 {
+			t.Errorf("%s: stored %q, second GET %d %q", tc.name, st.keys(), r2.Code, r2.Header().Get("X-Lyr-Cache"))
+		}
+	}
+
+	var n atomic.Int32
+	isl := []Island{NewIsland(cachedIslandID, "src/components/Cached.lyr", func(c *Ctx, w *Writer, p cachedIslandProps, s Slots) error {
+		n.Add(1)
+		if p.N > 0 {
+			c.Cache().Set(CacheOptions{MaxAge: time.Hour, Tags: []string{"island"}})
+		}
+		if p.N == 2 {
+			return errors.New("boom")
+		}
+		w.Int(int64(p.N))
+		return nil
+	})}
+	st := newFakeStore()
+	t.Setenv("LYR_STATIC", "")
+	t.Setenv("LYR_DEV", "")
+	s := NewSite(nil, isl, WithStaticDir(t.TempDir()), WithCache(st),
+		WithRouteRules(RouteRule{Pattern: "/[...rest]", Options: CacheOptions{MaxAge: time.Hour}}))
+	h := s.Handler()
+	url := func(props string) string {
+		return islandPrefix + s.keys.buildID + "/" + cachedIslandID + "?p=" + sealerOf(s.keys).Seal(cachedIslandID, s.keys.buildID, []byte(props))
+	}
+	for _, tc := range []struct {
+		props   string
+		wantHit bool
+	}{{`{"N":1}`, true}, {`{"N":0}`, false}, {`{"N":2}`, false}} {
+		var r *httptest.ResponseRecorder
+		within(t, func() {
+			get(h, url(tc.props))
+			r = get(h, url(tc.props))
+		})
+		if hit := r.Header().Get("X-Lyr-Cache") == "HIT"; hit != tc.wantHit {
+			t.Errorf("island %s: second GET %d %q, want HIT=%v", tc.props, r.Code, r.Header().Get("X-Lyr-Cache"), tc.wantHit)
+		}
+	}
+}
+
+// A page is revalidated as an anonymous visitor, its session never saved,
+// with or without site.Sessions.
+func TestCachePageRevalidationAnonymous(t *testing.T) {
+	for _, bound := range []bool{false, true} {
+		clock := useClock(t)
+		sessions := newFakeSessions()
+		sessions.put(sid1, `{"userId":1}`)
+		var n atomic.Int32
+		s := sessSite(t, sessions, SessionOptions{}, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: func(c *Ctx, w *Writer) error {
+			i := n.Add(1)
+			c.Cache().Set(CacheOptions{MaxAge: 10 * time.Second, SWR: time.Minute})
+			d, _ := SessionOf[sessData](c).Data()
+			d.Flash = "x"
+			w.Int(d.UserID)
+			w.Raw(" ")
+			w.Int(int64(i))
+			return nil
+		}}}, WithCache(newFakeStore()))
+		h := s.Handler()
+		if bound {
+			h = s.Sessions(h)
+		}
+		sessions.put(sid2, `{"flash":"x"}`)
+		reqWith(h, "/", sid2)
+		clock.add(20 * time.Second)
+		sets := sessions.sets.Load()
+		if r := reqWith(h, "/", sid1); r.Header().Get("X-Lyr-Cache") != "STALE" {
+			t.Fatalf("bound=%v: trigger %q", bound, r.Header().Get("X-Lyr-Cache"))
+		}
+		waitFlights(t, s)
+		if r := reqWith(h, "/", ""); r.Body.String() != "0 2" {
+			t.Errorf("bound=%v: refresh rendered %q, want the anonymous \"0 2\"", bound, r.Body)
+		}
+		if got := sessions.sets.Load() - sets; got != 0 {
+			t.Errorf("bound=%v: the refresh saved the trigger's session (%d sets)", bound, got)
+		}
+	}
+}
+
+// A page that set Content-Length and redirects sends the redirect's
+// length on HEAD too.
+func TestCachedRedirectHeadContentLength(t *testing.T) {
+	s, _ := cacheSite(t, []Route{{Pattern: "/r", File: "r.lyr", Render: func(c *Ctx, w *Writer) error {
+		c.Cache().Set(CacheOptions{MaxAge: time.Hour})
+		c.Header().Set("Content-Length", "999")
+		return c.Redirect("/x", http.StatusFound)
+	}}})
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodHead, "/r", nil))
+	if got := rec.Header().Get("Content-Length"); got == "999" {
+		t.Errorf("HEAD redirect: Content-Length %q, the page's", got)
+	}
+}
+
+// A page that rewrites: the target is stored under its own key, nothing
+// under the source's.
+func TestCachePageRewriteKeys(t *testing.T) {
+	var n atomic.Int32
+	s, st := cacheSite(t, []Route{
+		{Pattern: "/a", File: "a.lyr", Render: func(c *Ctx, w *Writer) error {
+			c.Cache().Set(CacheOptions{MaxAge: time.Hour})
+			return c.Rewrite("/b")
+		}},
+		{Pattern: "/b", File: "b.lyr", Render: counted(&n, setOpts(CacheOptions{MaxAge: time.Hour}), "b")},
+	})
+	h := s.Middleware(http.NotFoundHandler())
+	var r *httptest.ResponseRecorder
+	within(t, func() {
+		get(h, "/a")
+		r = get(h, "/a")
+	})
+	if !strings.HasPrefix(r.Body.String(), "b") || n.Load() != 1 {
+		t.Errorf("got %q after %d renders, want the target once", r.Body, n.Load())
+	}
+	if st.entry("example.com/a") != nil || st.entry("example.com/b") == nil {
+		t.Errorf("keys %q, want the target's only", st.keys())
+	}
+}
+
+// A page cached by a route rule only is refreshed in its SWR window by
+// its revalidation.
+func TestCachePageRuleRevalidation(t *testing.T) {
+	clock := useClock(t)
+	var n atomic.Int32
+	s, st := cacheSite(t, []Route{{Pattern: "/p", File: "p.lyr", Render: counted(&n, nil, "p")}},
+		WithRouteRules(RouteRule{Pattern: "/p", Options: CacheOptions{MaxAge: 10 * time.Second, SWR: time.Minute}}))
+	h := s.Middleware(http.NotFoundHandler())
+	get(h, "/p")
+	stored1 := st.entry("example.com/p").Stored
+	clock.add(20 * time.Second)
+	if r := get(h, "/p"); r.Header().Get("X-Lyr-Cache") != "STALE" {
+		t.Fatalf("trigger %q", r.Header().Get("X-Lyr-Cache"))
+	}
+	waitFlights(t, s)
+	r := get(h, "/p")
+	if st.entry("example.com/p").Stored.Equal(stored1) || n.Load() != 2 || r.Header().Get("X-Lyr-Cache") != "HIT" {
+		t.Errorf("not refreshed: %q after %d renders", r.Header().Get("X-Lyr-Cache"), n.Load())
+	}
+}
+
+// Middleware around site.Handler() that reads the session after next
+// returns never sees a released state during a revalidation.
+func TestCacheSessionAfterNextRevalidation(t *testing.T) {
+	clock := useClock(t)
+	sessions := newFakeSessions()
+	var n atomic.Int32
+	s := sessSite(t, sessions, SessionOptions{}, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: func(c *Ctx, w *Writer) error {
+		i := n.Add(1)
+		c.Cache().Set(CacheOptions{MaxAge: 10 * time.Second, SWR: time.Minute})
+		d, _ := SessionOf[sessData](c).Data()
+		w.Int(d.UserID)
+		w.Int(int64(i))
+		return nil
+	}}}, WithCache(newFakeStore()), WithRouteRules(RouteRule{Pattern: "/", Options: CacheOptions{MaxAge: 10 * time.Second, SWR: time.Minute}}))
+	var released atomic.Int32
+	mw := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r, l := EnsureLocals[sessLocals](r)
+			next.ServeHTTP(w, r)
+			if st := l.Session.st; st != nil && st.cfg == nil {
+				released.Add(1)
+			}
+		})
+	}
+	ch := mw(s.Handler())
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { r, _ = EnsureLocals[sessLocals](r); ch.ServeHTTP(w, r) })
+	reqWith(h, "/", "")
+	clock.add(20 * time.Second)
+	reqWith(h, "/", "")
+	waitFlights(t, s)
+	if released.Load() > 0 {
+		t.Errorf("Locals.Session points to a released state after next returns (%d times)", released.Load())
+	}
+}
+
+// Concurrent revalidations under mw(site.Handler()), with middleware
+// reading the session after next (run with -race).
+func TestCacheSessionRevalidationRace(t *testing.T) {
+	captureLogSync(t)
+	clock := useClock(t)
+	sessions := newFakeSessions()
+	sessions.put(sid1, `{"userId":1}`)
+	s := sessSite(t, sessions, SessionOptions{}, []Route{{Pattern: "/", File: "src/pages/index.lyr", Render: func(c *Ctx, w *Writer) error {
+		c.Cache().Set(CacheOptions{MaxAge: time.Second, SWR: time.Hour})
+		d, _ := SessionOf[sessData](c).Data()
+		w.Int(d.UserID)
+		return nil
+	}}, {Pattern: "/u", File: "src/pages/u.lyr", Render: func(c *Ctx, w *Writer) error {
+		d, _ := SessionOf[sessData](c).Data()
+		w.Int(d.UserID)
+		return nil
+	}}}, WithCache(newFakeStore()), WithRouteRules(RouteRule{Pattern: "/", Options: CacheOptions{MaxAge: time.Second, SWR: time.Hour}}))
+	mw := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r)
+			if l := LocalsFromRequest[sessLocals](r); l != nil && l.Session.st != nil {
+				l.Session.ID()
+			}
+		})
+	}
+	ch := mw(s.Handler())
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { r, _ = EnsureLocals[sessLocals](r); ch.ServeHTTP(w, r) })
+	within(t, func() {
+		for range 50 {
+			var wg sync.WaitGroup
+			for i := range 16 {
+				wg.Add(1)
+				go func() { defer wg.Done(); reqWith(h, []string{"/", "/u"}[i%2], sid1) }()
+			}
+			wg.Wait()
+			clock.add(2 * time.Second)
+		}
+		waitFlights(t, s)
+	})
+}
+
+// The 404 page for a URL no page matches is never stored: neither under a
+// catch-all route rule nor with the 404 page's own options.
+func TestCacheUnmatched404(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		render func(c *Ctx, w *Writer) error
+		opts   []Option
+	}{
+		{"rule", func(c *Ctx, w *Writer) error { w.Raw("nf"); return nil },
+			[]Option{WithRouteRules(RouteRule{Pattern: "/[...rest]", Options: CacheOptions{MaxAge: time.Hour}})}},
+		{"own Set", func(c *Ctx, w *Writer) error { c.Cache().Set(CacheOptions{MaxAge: time.Hour}); w.Raw("nf"); return nil }, nil},
+		{"empty 404", nil, []Option{WithRouteRules(RouteRule{Pattern: "/[...rest]", Options: CacheOptions{MaxAge: time.Hour}})}},
+	} {
+		var routes []Route
+		if tc.render != nil {
+			routes = []Route{{Pattern: "404", File: "404.lyr", Render: tc.render}}
+		}
+		s, st := cacheSite(t, routes, tc.opts...)
+		h := s.Handler()
+		var r *httptest.ResponseRecorder
+		within(t, func() {
+			get(h, "/nope")
+			r = get(h, "/nope")
+		})
+		if r.Code != http.StatusNotFound || r.Header().Get("X-Lyr-Cache") == "HIT" || len(st.keys()) != 0 {
+			t.Errorf("%s: second GET %d %q, keys %q", tc.name, r.Code, r.Header().Get("X-Lyr-Cache"), st.keys())
+		}
+	}
+}
+
+// Island early errors (a bad token, an unknown ID, a stale build ID),
+// public/ files and trailing-slash redirects aren't stored under a
+// catch-all route rule.
+func TestCacheLyrAnswersNotStored(t *testing.T) {
+	isl := []Island{NewIsland(cachedIslandID, "src/components/Cached.lyr", func(c *Ctx, w *Writer, p cachedIslandProps, s Slots) error { return nil })}
+	st := newFakeStore()
+	t.Setenv("LYR_STATIC", "")
+	t.Setenv("LYR_DEV", "")
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "robots.txt"), []byte("ok"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	routes := []Route{{Pattern: "/p", File: "p.lyr", Render: func(c *Ctx, w *Writer) error { w.Raw("p"); return nil }}}
+	s := NewSite(routes, isl, WithStaticDir(dir), WithCache(st),
+		WithRouteRules(RouteRule{Pattern: "/[...rest]", Options: CacheOptions{MaxAge: time.Hour}}))
+	h := s.Handler()
+	for _, u := range []string{
+		islandPrefix + s.keys.buildID + "/" + cachedIslandID + "?p=garbage",
+		islandPrefix + s.keys.buildID + "/nope?p=x",
+		islandPrefix + "oldbuild/" + cachedIslandID + "?p=x",
+		"/robots.txt",
+		"/p/",
+	} {
+		var r *httptest.ResponseRecorder
+		within(t, func() {
+			get(h, u)
+			r = get(h, u)
+		})
+		if r.Header().Get("X-Lyr-Cache") == "HIT" {
+			t.Errorf("%s: second GET %d HIT", u, r.Code)
+		}
+	}
+	for _, k := range st.keys() {
+		if k != "example.com/p" {
+			t.Errorf("stored %q (keys %q)", k, st.keys())
+		}
+	}
+}
+
+// Route rules match only page paths: an app route on the mux behind
+// site.Middleware is never cached by a catch-all rule, while a page is
+// (under the page's options).
+func TestCacheRulesSkipAppRoutes(t *testing.T) {
+	var app, page atomic.Int32
+	s, st := cacheSite(t, []Route{{Pattern: "/p", File: "p.lyr", Render: counted(&page, setOpts(CacheOptions{MaxAge: time.Minute, Tags: []string{"page"}}), "p")}},
+		WithRouteRules(RouteRule{Pattern: "/[...rest]", Options: CacheOptions{MaxAge: time.Hour, Tags: []string{"rule"}}}))
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
+		app.Add(1)
+		w.Write([]byte("api"))
+	})
+	h := s.Middleware(mux)
+	for _, tc := range []struct {
+		path, body string
+		n          *atomic.Int32
+		hit        bool
+	}{{"/api", "api", &app, false}, {"/p", "p", &page, true}} {
+		var r *httptest.ResponseRecorder
+		within(t, func() {
+			get(h, tc.path)
+			r = get(h, tc.path)
+		})
+		want := int32(2)
+		if tc.hit {
+			want = 1
+		}
+		if hit := r.Header().Get("X-Lyr-Cache") == "HIT"; hit != tc.hit || !strings.HasPrefix(r.Body.String(), tc.body) || tc.n.Load() != want {
+			t.Errorf("%s: second GET %q %q after %d renders, want HIT=%v", tc.path, r.Header().Get("X-Lyr-Cache"), r.Body, tc.n.Load(), tc.hit)
+		}
+	}
+	if e := st.entry("example.com/api"); e != nil {
+		t.Errorf("app route stored: %+v", e)
+	}
+	// The page's own flow applies the rule under the page's options.
+	if e := st.entry("example.com/p"); e == nil || e.MaxAge != time.Minute {
+		t.Errorf("page entry %+v, want the page's MaxAge", e)
+	}
+}
+
+// Stale entries and concurrent requests through site.Middleware(mux):
+// pages, a rewriting page and an app route; no deadlock, every answer a
+// 200.
+func TestCachePagesStress(t *testing.T) {
+	captureLogSync(t)
+	clock := useClock(t)
+	var n atomic.Int32
+	s, _ := cacheSite(t, []Route{
+		{Pattern: "/a", File: "a.lyr", Render: counted(&n, setOpts(CacheOptions{MaxAge: time.Second, SWR: time.Hour}), "a")},
+		{Pattern: "/b", File: "b.lyr", Render: counted(&n, nil, "b")},
+		{Pattern: "/r", File: "r.lyr", Render: func(c *Ctx, w *Writer) error {
+			c.Cache().Set(CacheOptions{MaxAge: time.Second, SWR: time.Hour})
+			return c.Rewrite("/a")
+		}},
+	}, WithRouteRules(RouteRule{Pattern: "/b", Options: CacheOptions{MaxAge: time.Second, SWR: time.Hour}}, RouteRule{Pattern: "/f", Options: CacheOptions{MaxAge: time.Second, SWR: time.Hour}}))
+	mux := http.NewServeMux()
+	mux.HandleFunc("/f", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("f")) })
+	h := s.Middleware(mux)
+	within(t, func() {
+		for range 30 {
+			var wg sync.WaitGroup
+			for i := range 32 {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					p := []string{"/a", "/b", "/f", "/r"}[i%4]
+					if r := get(h, p); r.Code != 200 {
+						t.Errorf("%s: %d", p, r.Code)
+					}
+				}()
+			}
+			wg.Wait()
+			clock.add(2 * time.Second)
+		}
+		waitFlights(t, s)
+	})
+}
+
+// An app URL that middleware rewrites to a page (lyr.RewriteRequest) is
+// cached under the page's key, never under the app URL's, and the
+// middleware reading the session after next never sees a released state.
+func TestCacheRewriteRequestToPage(t *testing.T) {
+	captureLogSync(t)
+	sessions := newFakeSessions()
+	var page atomic.Int32
+	s := sessSite(t, sessions, SessionOptions{}, []Route{{Pattern: "/p", File: "src/pages/p.lyr", Render: func(c *Ctx, w *Writer) error {
+		page.Add(1)
+		c.Cache().Set(CacheOptions{MaxAge: time.Hour})
+		d, _ := SessionOf[sessData](c).Data()
+		w.Raw("p")
+		w.Int(d.UserID)
+		return nil
+	}}}, WithCache(newFakeStore()))
+	st := s.cache.store.(*fakeStore)
+	var released atomic.Int32
+	mux := http.NewServeMux()
+	mux.HandleFunc("/x", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("x")) })
+	inner := s.Middleware(mux)
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r, l := EnsureLocals[sessLocals](r)
+		r = RewriteRequest(r, "/p")
+		inner.ServeHTTP(w, r)
+		if st := l.Session.st; st != nil && st.cfg == nil {
+			released.Add(1)
+		}
+	})
+	within(t, func() {
+		if r := reqWith(h, "/x", ""); r.Body.String() != "p0" {
+			t.Errorf("rewritten: %q", r.Body)
+		}
+		r := reqWith(h, "/x", "")
+		if r.Header().Get("X-Lyr-Cache") != "HIT" || r.Body.String() != "p0" || page.Load() != 1 {
+			t.Errorf("second rewritten GET: %q %q after %d renders, want the page's HIT", r.Header().Get("X-Lyr-Cache"), r.Body, page.Load())
+		}
+	})
+	if st.entry("example.com/x") != nil || st.entry("example.com/p") == nil {
+		t.Errorf("keys %q, want the page's only", st.keys())
+	}
+	if released.Load() > 0 {
+		t.Errorf("Locals.Session released under middleware (%d times)", released.Load())
+	}
 }

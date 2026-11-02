@@ -24,9 +24,9 @@ var genOnlyNames = map[string]bool{
 	"RestInt": true, "RestJSON": true, "RestMerge": true, "RestMergeAny": true,
 	"RestOpt": true, "RestOptURL": true, "RestString": true, "RestStringURL": true,
 	"RestURL": true, "RestUint": true, "Route": true, "RouteRule": true,
-	"SetHTML": true, "SpreadCheck": true, "SpreadOf": true, "StringAs": true,
+	"SessionOf": true, "SetHTML": true, "SpreadCheck": true, "SpreadOf": true, "StringAs": true,
 	"TB": true, "TemplateAs": true, "TemplateString": true, "WithLocalsCache": true,
-	"WithLocalsRoute": true, "WithRouteRules": true, "Wrap": true, "WrapIf": true,
+	"WithLocalsRoute": true, "WithLocalsSession": true, "WithRouteRules": true, "Wrap": true, "WrapIf": true,
 	// Methods: Writer, DynTag, TB.
 	"AttrPiece": true, "Attrs": true, "Class": true, "ClassAny": true, "ClassBytes": true,
 	"ClassEnd": true, "ClassStart": true, "Classes": true, "Enter": true, "HeadEnd": true,

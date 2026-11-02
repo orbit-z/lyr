@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -33,6 +34,13 @@ type CacheOptions struct {
 	ETag string
 	// LastModified is sent as the Last-Modified header.
 	LastModified time.Time
+	// VaryBy names the context keys (set with Cache.Context, usually by
+	// middleware) the response depends on, like HTTP's Vary: a store
+	// keeps one copy per combination of their values, and a key the
+	// request didn't set counts as the empty value. A response with VaryBy
+	// gets no CDN headers, since a CDN can't see the context. Names
+	// accumulate across Set calls.
+	VaryBy []string
 }
 
 // InvalidateOptions select the stored responses to drop.
@@ -56,8 +64,9 @@ var ErrCacheNotEnabled = errors.New("lyr: caching is not enabled; configure a pr
 //		// …
 //	}
 //
-// Set merges options, Disable keeps the request out of the cache. The zero
-// value is ready to use. A Cache belongs to one request: don't share it
+// Set merges options, Disable keeps the request out of the cache, and
+// Context gives the request's context values for CacheOptions.VaryBy. The
+// zero value is ready to use. A Cache belongs to one request: don't share it
 // between goroutines.
 type Cache struct {
 	maxAge, swr int64 // nanoseconds; 0: unset
@@ -68,6 +77,19 @@ type Cache struct {
 	mode        uint8     // cacheModeOff, cacheModeOn, cacheModeDev
 	tagBuf      [4]string // the tags, when there are at most 4
 	more        []string  // the tags, when there are more than 4
+	// VaryBy names: varyBuf[:nv] while varyMore is empty.
+	nv       uint8
+	varyBuf  [2]string
+	varyMore []string
+	// Context values: ctxBuf[:nc] while ctxMore is empty.
+	nc      uint8
+	flags   uint8 // cacheLooked, cacheLate
+	ctxBuf  [4]cacheCtxValue
+	ctxMore []cacheCtxValue
+	// pre is a pooled copy of the options middleware outside
+	// site.Rewrites set, taken where the first pass entered the marker,
+	// or nil (PLAN.md §4j).
+	pre *Cache
 	// site is the *siteCache serving the request (cacheModeOn), kept as
 	// any so the provider types stay out of every generated package's type
 	// graph (PLAN.md §4b).
@@ -78,6 +100,16 @@ const (
 	cacheSet      = 1 << iota // Set was called (and no Disable since)
 	cacheDisabled             // Disable was called (and no Set since)
 )
+
+// Cache.flags.
+const (
+	cacheLooked = 1 << iota // Lyr's lookup ran: Context can't change the key any more
+	cacheLate               // Context changed a value after the lookup: not stored
+	cacheOff                // disabled before the lookup (cacheReq.off), for a later rewrite
+)
+
+// cacheCtxValue is one Context value.
+type cacheCtxValue struct{ key, val string }
 
 const (
 	cacheModeOff = iota // no provider, or Lyr hasn't seen the request yet
@@ -100,10 +132,10 @@ func (k *Cache) Set(o CacheOptions) {
 	}
 	// Separate parameters: storing a field of o would make the caller's
 	// Tags literal escape (escape analysis is field-insensitive).
-	mergeOpts(k, int64(o.MaxAge), int64(o.SWR), o.ETag, lm, o.Tags)
+	mergeOpts(k, int64(o.MaxAge), int64(o.SWR), o.ETag, lm, o.Tags, o.VaryBy)
 }
 
-func mergeOpts(k *Cache, maxAge, swr int64, etag string, lastMod int64, tags []string) {
+func mergeOpts(k *Cache, maxAge, swr int64, etag string, lastMod int64, tags, vary []string) {
 	k.state = cacheSet
 	if maxAge != 0 {
 		k.maxAge = maxAge
@@ -122,6 +154,9 @@ func mergeOpts(k *Cache, maxAge, swr int64, etag string, lastMod int64, tags []s
 	for _, t := range tags {
 		addTag(k, t)
 	}
+	for _, v := range vary {
+		addVary(k, v)
+	}
 }
 
 func addTag(k *Cache, t string) {
@@ -138,6 +173,115 @@ func addTag(k *Cache, t string) {
 		k.more = append(append(k.more[:0], k.tagBuf[:]...), t)
 		clear(k.tagBuf[:])
 		k.n = 0
+	}
+}
+
+func addVary(k *Cache, name string) {
+	if slices.Contains(varyOf(k), name) {
+		return
+	}
+	switch {
+	case len(k.varyMore) > 0:
+		k.varyMore = append(k.varyMore, name)
+	case int(k.nv) < len(k.varyBuf):
+		k.varyBuf[k.nv] = name
+		k.nv++
+	default:
+		k.varyMore = append(append(k.varyMore[:0], k.varyBuf[:]...), name)
+		clear(k.varyBuf[:])
+		k.nv = 0
+	}
+}
+
+// varyOf returns the handle's VaryBy names; the slice is its storage.
+func varyOf(k *Cache) []string {
+	if len(k.varyMore) > 0 {
+		return k.varyMore
+	}
+	return k.varyBuf[:k.nv]
+}
+
+// contextOf returns the handle's context values; the slice is its storage.
+func contextOf(k *Cache) []cacheCtxValue {
+	if len(k.ctxMore) > 0 {
+		return k.ctxMore
+	}
+	return k.ctxBuf[:k.nc]
+}
+
+// contextValue returns the request's value for key, or "".
+func contextValue(k *Cache, key string) string {
+	for _, cv := range contextOf(k) {
+		if cv.key == key {
+			return cv.val
+		}
+	}
+	return ""
+}
+
+// Context sets the request's value for a context key, such as the
+// signed-in user's ID or role. A page whose options name the key in
+// CacheOptions.VaryBy is stored once per value: call Context in middleware,
+// before site.Middleware, from whatever decides the value (usually auth):
+//
+//	l.Cache.Context("user", u.ID)
+//	l.Cache.Context("role", u.Role)
+//
+// A later call for the same key replaces its value. Pages without VaryBy
+// ignore the context: they stay one copy for everyone. Context is only
+// meaningful before Lyr's cache lookup: a call after it (from a page, or
+// from middleware after next) that changes a value keeps the response out
+// of the cache, and Lyr logs a warning once. Values do nothing without a
+// provider or under lyr dev.
+func (k *Cache) Context(key, value string) {
+	cv := contextOf(k)
+	for i := range cv {
+		if cv[i].key == key {
+			if cv[i].val == value {
+				return
+			}
+			if k.flags&cacheLooked != 0 {
+				lateContext(k, key)
+				return
+			}
+			cv[i].val = value
+			return
+		}
+	}
+	if value == "" {
+		return // a key never set already counts as ""
+	}
+	if k.flags&cacheLooked != 0 {
+		lateContext(k, key)
+		return
+	}
+	addContext(k, key, value)
+}
+
+func addContext(k *Cache, key, value string) {
+	switch {
+	case len(k.ctxMore) > 0:
+		k.ctxMore = append(k.ctxMore, cacheCtxValue{key, value})
+	case int(k.nc) < len(k.ctxBuf):
+		k.ctxBuf[k.nc] = cacheCtxValue{key, value}
+		k.nc++
+	default:
+		k.ctxMore = append(append(k.ctxMore[:0], k.ctxBuf[:]...), cacheCtxValue{key, value})
+		clear(k.ctxBuf[:])
+		k.nc = 0
+	}
+}
+
+// warnedLateContext is set once the late-Context warning is logged.
+var warnedLateContext atomic.Bool
+
+// lateContext marks a handle whose context changed after the lookup: its
+// response isn't stored and gets no CDN headers, since the lookup used
+// other values.
+func lateContext(k *Cache, key string) {
+	k.flags |= cacheLate
+	if !warnedLateContext.Load() && warnedLateContext.CompareAndSwap(false, true) {
+		log.Printf("lyr: Cache.Context(%q, …) was called after the cache lookup, so this response isn't cached; call Context in middleware before site.Middleware. Later cases aren't logged", key)
 	}
 }
 
@@ -166,6 +310,10 @@ func clearOptions(k *Cache) {
 	k.n = 0
 	clear(k.more)
 	k.more = k.more[:0]
+	clear(k.varyBuf[:k.nv])
+	k.nv = 0
+	clear(k.varyMore)
+	k.varyMore = k.varyMore[:0]
 }
 
 // Enabled reports whether this request can be cached: a provider is
@@ -181,6 +329,9 @@ func (k *Cache) Options() CacheOptions {
 	o := CacheOptions{MaxAge: time.Duration(k.maxAge), SWR: time.Duration(k.swr), ETag: k.etag}
 	if t := tagsOf(k); len(t) > 0 {
 		o.Tags = slices.Clone(t)
+	}
+	if v := varyOf(k); len(v) > 0 {
+		o.VaryBy = slices.Clone(v)
 	}
 	if k.lastMod != 0 {
 		o.LastModified = time.Unix(0, k.lastMod)
@@ -205,12 +356,12 @@ func (k *Cache) Invalidate(ctx context.Context, o InvalidateOptions) error {
 // active reports whether the handle produces cache headers (Astro: not
 // disabled, and a MaxAge or tags).
 func cacheActive(k *Cache) bool {
-	return k.state&cacheDisabled == 0 && (k.maxAge > 0 || len(tagsOf(k)) > 0)
+	return k.state&cacheDisabled == 0 && k.flags&cacheLate == 0 && (k.maxAge > 0 || len(tagsOf(k)) > 0)
 }
 
 // storable reports whether the options ask for the response to be stored.
 func cacheStorable(k *Cache) bool {
-	return k.state&cacheDisabled == 0 && k.maxAge > 0
+	return k.state&cacheDisabled == 0 && k.flags&cacheLate == 0 && k.maxAge > 0
 }
 
 // applyRule applies a route rule under the options already set (by
@@ -230,6 +381,9 @@ func applyRule(k *Cache, o *CacheOptions) {
 	for _, t := range o.Tags {
 		addTag(k, t)
 	}
+	for _, v := range o.VaryBy {
+		addVary(k, v)
+	}
 }
 
 // mergeFrom applies a server:concurrent child's options to k, at the join.
@@ -238,11 +392,12 @@ func mergeCache(k *Cache, c *Cache) {
 		k.Disable()
 	}
 	if c.state&cacheSet != 0 {
-		mergeOpts(k, c.maxAge, c.swr, c.etag, c.lastMod, tagsOf(c))
+		mergeOpts(k, c.maxAge, c.swr, c.etag, c.lastMod, tagsOf(c), varyOf(c))
 	}
+	k.flags |= c.flags & cacheLate
 }
 
-// copyFrom makes k a copy of c's options and state, with its own tag
+// copyFrom makes k a copy of c's options, context and state, with its own
 // storage; k's mode and site are kept.
 func copyCache(k *Cache, c *Cache) {
 	if k == c {
@@ -254,7 +409,39 @@ func copyCache(k *Cache, c *Cache) {
 		k.state = cacheDisabled
 	}
 	if c.state&cacheSet != 0 {
-		mergeOpts(k, c.maxAge, c.swr, c.etag, c.lastMod, tagsOf(c))
+		mergeOpts(k, c.maxAge, c.swr, c.etag, c.lastMod, tagsOf(c), varyOf(c))
+	}
+	clear(k.ctxBuf[:k.nc])
+	k.nc = 0
+	clear(k.ctxMore)
+	k.ctxMore = k.ctxMore[:0]
+	for _, cv := range contextOf(c) {
+		addContext(k, cv.key, cv.val)
+	}
+	k.flags = c.flags
+}
+
+// snapshotPool holds the option copies of snapshotOptions.
+var snapshotPool = sync.Pool{New: func() any { return new(Cache) }}
+
+// snapshotOptions returns a pooled copy of k's options (and context),
+// without allocating; release it with putSnapshot.
+func snapshotOptions(k *Cache) *Cache {
+	snap := snapshotPool.Get().(*Cache)
+	copyCache(snap, k)
+	return snap
+}
+
+func putSnapshot(snap *Cache) {
+	releaseCache(snap)
+	snapshotPool.Put(snap)
+}
+
+// releaseSnapshot releases p's snapshot.
+func releaseSnapshot(p *cacheReq) {
+	if p.pre != nil {
+		putSnapshot(p.pre)
+		p.pre = nil
 	}
 }
 
@@ -303,8 +490,8 @@ type CacheProvider interface {
 
 // CacheHeaderWriter is a provider that turns the options into its CDN's
 // headers (Astro's setHeaders). Lyr calls WriteCacheHeaders on a
-// response whose options are active (a MaxAge or tags, not disabled), after
-// the page's own headers are set; o is read-only.
+// response whose options are active (a MaxAge or tags, not disabled) and
+// have no VaryBy, after the page's own headers are set; o is read-only.
 type CacheHeaderWriter interface {
 	CacheProvider
 	WriteCacheHeaders(h http.Header, o *CacheOptions, r *http.Request)
@@ -340,7 +527,8 @@ type CacheQuery struct {
 }
 
 // CacheKey is a cache key: the request's host, escaped path and normalized
-// query, plus the values of the stored response's Vary headers.
+// query, plus the values of the stored response's Vary headers and VaryBy
+// context keys.
 type CacheKey struct {
 	hash uint64
 	s    string
@@ -380,10 +568,10 @@ type CachedResponse struct {
 	Path string
 
 	// Vary is set on a Vary marker: an entry stored under a URL's own key
-	// when its response has a Vary header, holding the lowercased header
-	// names (Cookie excluded) whose request values key the variants. A
-	// marker has no body and is never served; a store keeps it like any
-	// entry.
+	// when its response has a Vary header or VaryBy names, holding the
+	// canonical header names (Cookie excluded) whose request values key the
+	// variants, then the VaryBy keys as "@key". A marker has no body and is
+	// never served; a store keeps it like any entry.
 	Vary []string
 	// revalidating is set while a background render refreshes the entry.
 	revalidating atomic.Bool
@@ -444,6 +632,9 @@ type localsCache struct {
 	// of returns the Cache field of l when l is an *L, else nil.
 	of    func(l any) *Cache
 	field any // func(*L) *Cache
+	// clone attaches a shallow copy of the request's *L, for a background
+	// revalidation (cloneLocals).
+	clone func(r *http.Request) (*http.Request, any)
 }
 
 // For generated code. WithLocalsCache tells the site where the
@@ -466,8 +657,21 @@ func WithLocalsCache[L any](field func(*L) *Cache) Option {
 			return nil
 		},
 		field: field,
+		clone: cloneLocals[L],
 	}
 	return func(o *siteOptions) { o.cacheField = lc }
+}
+
+// cloneLocals attaches to r a shallow copy of the *L attached to it, and
+// returns it (as any), or r and nil when no *L is attached.
+func cloneLocals[L any](r *http.Request) (*http.Request, any) {
+	l := LocalsFromRequest[L](r)
+	if l == nil {
+		return r, nil
+	}
+	l2 := new(L)
+	*l2 = *l
+	return WithLocals(r, l2), l2
 }
 
 // moveCacheToLocals is called by LocalsOf when it allocates the request's

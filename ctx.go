@@ -32,12 +32,19 @@ type Ctx struct {
 	// writer while the capture runs.
 	w *Writer
 	// cache is the Ctx's own cache handle; cacheP, when set, is the
-	// request's handle instead (the Locals field, a CacheHandler's), and
+	// request's handle instead (the Locals field), and
 	// cacheField is WithLocalsCache's accessor, for LocalsOf (PLAN.md §4h).
 	cache      Cache
 	cacheP     *Cache
 	cacheField any
 	keyBuf     []byte // the cache key's storage, kept across requests
+	// mw is the site.Middleware serving the request, where a rewrite
+	// re-enters without site.Rewrites (PLAN.md §4j), or nil.
+	mw *middleware
+	// session is the request's session (PLAN.md §4i): nil without
+	// sessions, the site's *sessionConfig until SessionOf resolves it,
+	// then the *sessionState.
+	session any
 }
 
 // Param returns the percent-decoded value of the route parameter name, such
@@ -141,6 +148,9 @@ func acquireCtx(r *http.Request, site *url.URL, dev bool) *Ctx {
 // the next request. The header map is emptied but kept, so a reused Ctx
 // doesn't allocate it again.
 func releaseCtx(c *Ctx) {
+	if c.session != nil {
+		releaseCtxSession(c)
+	}
 	h := c.header
 	clear(h)
 	kb := c.keyBuf[:0]

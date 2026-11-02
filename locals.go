@@ -40,6 +40,10 @@ func LocalsOf[L any](c *Ctx) *L {
 			// The Cache field becomes the request's handle (WithLocalsCache).
 			moveCacheToLocals(c, l)
 		}
+		if c.session != nil {
+			// The Session field shares the request's session.
+			bindLocalsSession(c, l)
+		}
 	}
 	c.locals = l
 	return l

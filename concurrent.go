@@ -143,8 +143,16 @@ func fork(w *Writer, c *Ctx) *Writer {
 		route:      c.route,
 		header:     h,
 	}
+	if c.session != nil {
+		cc.session = sessionForFork(c)
+	}
 	pk := c.Cache()
 	cc.cache.mode, cc.cache.site = pk.mode, pk.site
+	cc.cache.flags = pk.flags & cacheLooked // a child's Context comes after the lookup
+	for _, cv := range contextOf(pk) {
+		// The request's values, so a child repeating one isn't late.
+		addContext(&cc.cache, cv.key, cv.val)
+	}
 	cw := writerPool.Get().(*Writer)
 	cw.reset(getBuffer())
 	cw.stack = append(cw.stack, w.stack...)
@@ -235,21 +243,19 @@ func holesErr(w *Writer) error {
 
 // mergeResponse applies the children's ctx.SetStatus and ctx.Header()
 // writes to root, in output order: a non-zero status replaces root's, and
-// each header key replaces root's values for that key.
+// each header key replaces root's values for that key, except Set-Cookie,
+// whose values are appended.
 func mergeResponse(w *Writer, root *Ctx) {
 	for _, h := range w.holes {
 		cc := h.w.ctx
 		if cc.status != 0 {
 			root.status = cc.status
 		}
-		if cc.cache.state != 0 {
+		if cc.cache.state != 0 || cc.cache.flags&cacheLate != 0 {
 			mergeCache(root.Cache(), &cc.cache)
 		}
 		if len(cc.header) > 0 {
-			rh := root.Header()
-			for k, v := range cc.header {
-				rh[k] = v
-			}
+			copyHeader(root.Header(), cc.header)
 		}
 		mergeResponse(h.w, root)
 	}

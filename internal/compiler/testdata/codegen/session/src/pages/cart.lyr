@@ -1,0 +1,8 @@
+---
+import Flash "../components/Flash.lyr"
+d, err := session.Data()
+if err != nil {
+	return err
+}
+---
+<Flash>{len(d.Cart)} items</Flash>

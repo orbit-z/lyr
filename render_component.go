@@ -30,8 +30,10 @@ import (
 func RenderComponent[P any](w http.ResponseWriter, r *http.Request, render func(*Ctx, *Writer, P, Slots) error, props P) error {
 	c := acquireCtx(r, nil, os.Getenv("LYR_DEV") == "1")
 	c.keys = defaultKeyring()
-	if ch, ok := w.(cacheHolder); ok {
-		c.cacheP = ch.lyrCache() // under Site.CacheHandler (PLAN.md §4h)
+	if st := sessionFromWriter(w); st != nil {
+		c.session = st // under site.Sessions (PLAN.md §4i)
+	} else {
+		c.session = unboundSessions
 	}
 	buf := getBuffer()
 	wr := writerPool.Get().(*Writer)
@@ -54,9 +56,7 @@ func RenderComponent[P any](w http.ResponseWriter, r *http.Request, render func(
 		return err
 	}
 	h := w.Header()
-	for k, v := range c.responseHeader() {
-		h[k] = v
-	}
+	copyHeader(h, c.responseHeader())
 	if _, ok := h["Content-Type"]; !ok {
 		h["Content-Type"] = htmlContentType
 	}

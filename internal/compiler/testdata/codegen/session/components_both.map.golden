@@ -1,0 +1,7 @@
+lyr_gen/decl/components/both/decl.go (src/components/Both.lyr)
+lyr_gen/impl/components/both/render.go (src/components/Both.lyr)
+  exact 3:5 "locals.User" -> 806-817 "locals.User"
+  exact 3:19 "session.ID()" -> 926-938 "session.ID()"
+call sites
+  content key=12 "locals.User" call="lyr__w.Expr(\n/*line ../../../../src/components/Both.lyr:3:5*/locals.User/*line render.go:24:84*/,\n\t)"
+  content key=26 "session.ID()" call="lyr__w.Expr(\n/*line ../../../../src/components/Both.lyr:3:19*/session.ID()/*line render.go:28:86*/,\n\t)"

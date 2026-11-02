@@ -17,11 +17,11 @@ import (
 // when All returns). All returns the first error in time, or nil.
 //
 // A failing load's error is prefixed with the .lyr line of its func
-// literal; errors.Is and errors.As still see the error, and ErrNotFound and
-// *RedirectError are returned as is. A panic in a load cancels the others
-// and is re-panicked on the calling goroutine once every load has returned,
-// with the load's position, so it fails the request like a panic in the
-// frontmatter itself.
+// literal; errors.Is and errors.As still see the error, and ErrNotFound,
+// *RedirectError and *RewriteError are returned as is. A panic in a load
+// cancels the others and is re-panicked on the calling goroutine once
+// every load has returned, with the load's position, so it fails the
+// request like a panic in the frontmatter itself.
 //
 // The first load runs on the calling goroutine; a single load runs inline,
 // with the request's context. A nil c uses context.Background().
@@ -103,7 +103,7 @@ func loadError(load func(context.Context) error, err error) error {
 		return nil
 	}
 	switch err.(type) {
-	case *posError, *RedirectError:
+	case *posError, *RedirectError, *RewriteError:
 		return err
 	}
 	if err == ErrNotFound {

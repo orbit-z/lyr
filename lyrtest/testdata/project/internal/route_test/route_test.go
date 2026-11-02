@@ -33,6 +33,18 @@ func TestGetFillsRoute(t *testing.T) {
 	}
 }
 
+// A page's ctx.Rewrite serves the target, with its route in Locals.
+func TestGetFollowsRewrite(t *testing.T) {
+	var l locals.Locals
+	rec := lyrtest.Get(t, app.New().Handler(), "/rewrite/abc?x=1", lyrtest.WithLocals(&l))
+	if want := "<p>route=/route/[id] id=abc file=src/pages/route/[id].lyr</p>"; rec.Code != 200 || !strings.Contains(rec.Body.String(), want) {
+		t.Errorf("GET /rewrite/abc: %d %q, want %q", rec.Code, rec.Body, want)
+	}
+	if l.Route.Pattern != "/route/[id]" {
+		t.Errorf("route %+v", l.Route)
+	}
+}
+
 // Render has no route: the field stays zero.
 func TestRenderNoRoute(t *testing.T) {
 	html := lyrtest.Render(t, id_param.Render, id_param.Props{}, lyrtest.WithParam("id", "x"))

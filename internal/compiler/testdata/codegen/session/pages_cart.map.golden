@@ -1,0 +1,14 @@
+lyr_gen/decl/pages/cart/decl.go (src/pages/cart.lyr)
+lyr_gen/impl/pages/cart/render.go (src/pages/cart.lyr)
+  exact 2:8 "Flash" -> 233-238 "Flash"
+  span  2:14 "\"../components/Flash.lyr\"" -> 239-287 "\"example.com/blog/lyr_gen/decl/components/flash\""
+  exact 3:1 "d, err := session.Data()" -> 860-884 "d, err := session.Data()"
+  exact 4:1 "if err != nil {\n\treturn " -> 952-976 "if err != nil {\n\treturn "
+  exact 5:9 "err" -> 1085-1088 "err"
+  exact 6:1 "}" -> 1158-1159 "}"
+  echo  - -> 1189-1190 "d"
+  echo  - -> 1196-1199 "err"
+  span  8:2 "Flash" -> 1259-1271 "Flash.Render"
+  exact 8:9 "len(d.Cart)" -> 1451-1462 "len(d.Cart)"
+call sites
+  content key=110 "len(d.Cart)" call="lyr__w.Expr(\n/*line ../../../../src/pages/cart.lyr:8:9*/len(d.Cart)/*line render.go:33:79*/,\n\t\t\t)"

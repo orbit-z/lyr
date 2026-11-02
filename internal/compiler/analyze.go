@@ -211,6 +211,12 @@ type Analysis struct {
 	// also true when that code doesn't parse, to stay on the safe side.
 	// Strict codegen declares locals (LocalsOf) only then.
 	UsesLocals bool
+	// UsesSession is UsesLocals for the implicit session (PLAN.md §4i):
+	// strict codegen declares it (SessionOf) only then. SessionRef is the
+	// first reference's .lyr span, zero when there's none (the code
+	// doesn't parse, or nothing references it).
+	UsesSession bool
+	SessionRef  Span
 	// CtxRefs are the .lyr offsets of the template's references to the
 	// implicit ctx (not a variable the user declared with that name), in
 	// no particular order: slot content that uses it rebinds it with

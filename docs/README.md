@@ -16,7 +16,8 @@ Lyr is a server-rendered (SSR) web framework with Astro's developer experience a
 - [Markdown](markdown.md): `.md` pages, layouts, importing Markdown, code highlighting
 - [Rendering](rendering.md): The request lifecycle, status codes, headers, redirects, errors
 - [Loading data](data-loading.md): Page loads with `lyr.All`, per-request loaders, slow data
-- [Caching](caching.md): Route caching with `ctx.Cache()`, `routeRules`, providers, purges, `cache.Store`
+- [Caching](caching.md): Route caching with `ctx.Cache()`, `routeRules`, caching by context (`VaryBy`), providers, purges, `cache.Store`
+- [Sessions](sessions.md): Per-visitor data on the server: sign-in, carts, flash messages
 - [Server](server.md): Lyr as `net/http` middleware, custom routes, precedence
 - [Middleware and locals](middleware.md): Plain `net/http` middleware, typed `Locals`
 - [Styles and scripts](styles-and-scripts.md): Scoped CSS, TypeScript, bundling, passing data to scripts

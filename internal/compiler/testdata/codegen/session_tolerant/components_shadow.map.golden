@@ -1,0 +1,7 @@
+lyr_gen/decl/components/shadow/decl.go (src/components/Shadow.lyr)
+lyr_gen/impl/components/shadow/render.go (src/components/Shadow.lyr)
+  exact 2:1 "session := \"mine\"" -> 659-676 "session := \"mine\""
+  echo  - -> 706-713 "session"
+  exact 4:5 "session" -> 797-804 "session"
+call sites
+  content key=30 "session" call="lyr__w.Expr(\n/*line ../../../../src/components/Shadow.lyr:4:5*/session/*line render.go:24:82*/,\n\t)"

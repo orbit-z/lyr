@@ -70,7 +70,7 @@ func Reload(prev *Project, root string, paths []string) (*Project, bool, error) 
 	}
 	if locals {
 		l, fields, ds := detectLocals(p.Root, p.Module)
-		if l != p.Options.Locals {
+		if l != p.Options.Locals || sessionPath(p.Module, fields) != p.Options.Session {
 			return full() // every file's codegen options changed
 		}
 		p.localsFields, p.localsDiags = fields, ds // app.go follows the fields

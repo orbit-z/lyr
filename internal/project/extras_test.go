@@ -34,8 +34,14 @@ func TestExtrasGolden(t *testing.T) {
 		{"cache", `{}`, map[string]string{
 			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/lyr\"\n\ntype Locals struct {\n\tRoute lyr.RouteInfo\n\tCache lyr.Cache\n}\n",
 		}},
+		// A Session field: app.New() passes WithLocalsSession (PLAN.md §4i).
+		{"session", `{}`, map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/lyr\"\n\ntype SessionData struct{ UserID int64 }\n\ntype Locals struct {\n\tSession lyr.Session[SessionData]\n}\n",
+		}},
+		// SessionData without the field: app.go as without src/locals.
+		{"sessiondata", `{}`, map[string]string{"src/locals/locals.go": "package locals\n\ntype SessionData struct{ UserID int64 }\n"}},
 		// routeRules: WithRouteRules with Go literals (PLAN.md §4h).
-		{"rules", `{"routeRules": {"/blog/[...path]": {"maxAge": 300, "swr": 3600, "tags": ["blog", "posts"]}, "/about": {"tags": ["static"]}, "/": {"maxAge": 60}}}`, nil},
+		{"rules", `{"routeRules": {"/blog/[...path]": {"maxAge": 300, "swr": 3600, "tags": ["blog", "posts"]}, "/about": {"tags": ["static"]}, "/": {"maxAge": 60, "varyBy": ["role"]}}}`, nil},
 		{"tagrules", `{"routeRules": {"/about": {"tags": ["static"]}}}`, nil},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -74,7 +80,7 @@ func TestExtrasGolden(t *testing.T) {
 					continue
 				}
 				name := tt.name
-				if name == "locals" {
+				if name == "locals" || name == "sessiondata" {
 					name = "nosite" // byte-identical
 				}
 				golden := filepath.Join("testdata", "extras", name+"."+strings.ReplaceAll(strings.TrimPrefix(path, "lyr_gen/"), "/", "_")+".golden")

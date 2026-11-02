@@ -24,12 +24,13 @@
 //     Writer.Classes, Writer.ClassAny, Writer.ClassStart and
 //     Writer.ClassEnd.
 //   - Dynamic tags: DynTag, Writer.TagOpen and Writer.TagClose.
-//   - Rendering: Writer.Enter, Writer.Leave, Writer.HeadEnd, ErrorAt and
-//     LocalsOf.
+//   - Rendering: Writer.Enter, Writer.Leave, Writer.HeadEnd, ErrorAt,
+//     LocalsOf and SessionOf.
 //   - server:defer and server:concurrent: Defer, Island, NewIsland,
 //     Concurrent and CtxOf.
 //   - Site wiring in the generated app.New(): Route, Asset, RouteRule,
-//     WithRouteRules, WithLocalsRoute and WithLocalsCache. NewSite itself
+//     WithRouteRules, WithLocalsRoute, WithLocalsCache and
+//     WithLocalsSession. NewSite itself
 //     is public API, for tests and hand-built sites.
 package lyr
 

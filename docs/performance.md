@@ -90,7 +90,7 @@ For a typical page, rendering allocates nothing in Lyr's code: routing, the requ
 A "typical page" here means:
 - its expressions are plain types, so they get typed writes
 - it's built with `lyr build` (in `lyr dev` and `go test`, slot content that uses parent variables allocates, see below)
-- it doesn't use locals or `server:defer`
+- it doesn't use locals, the session or `server:defer`
 
 What still allocates:
 - **Go's `net/http` server itself**: about 14 allocations (1.4 KB) per request even for an empty handler, and about 19 (2.2 KB) once it writes a 1 KB page (measured on Go 1.27.3). Lyr uses the standard library server, so this floor is the same as for any Go web app.
@@ -98,6 +98,7 @@ What still allocates:
 - **Slot content that uses parent variables**, in dev, `go test` and plain `go build` builds: one small closure per slot. Likewise, a component call site passing [pass-through attributes](components.md#passing-html-attributes-through) with expression values: one allocation per call site. In a `lyr build` binary only when the content is passed into components that call each other in a cycle (`A` renders `B`, which renders `A`; `<Self>` is fine), or when your Go code keeps a slot's renderer beyond the call.
 - **Values without a typed write** (the `Expr` fallback) and your own `String()` or `Error()` methods.
 - **Route params with percent-escapes**, and **`server:defer` props** (encoded and encrypted per instance).
+- **Sessions**, when a request loads one: `encoding/json`'s decode of the stored data, and a few more when it saves (see [Sessions](#sessions)).
 - **`server:concurrent` components**: one small allocation each (the goroutine's arguments; see [below](#slow-components-in-the-same-response-serverconcurrent)).
 - **`lyr.JSON` and `set:json` values**: `encoding/json`'s own allocations (below). Lyr's code around them adds none.
 - **Your frontmatter code**: database queries and the like. This is usually the biggest part.
@@ -145,7 +146,41 @@ A page that waits on data costs whatever the data costs, however fast the render
 - **Sites without a provider pay nothing.** On a site with one, a page that never caches pays about 25 ns: its route has never stored and matches no rule, so it isn't looked up.
 - **Hot keys scale**: eviction uses CLOCK, so a hit takes a read lock and sets a bit instead of moving the entry under a write lock (a mutex LRU measured 67 ns per HIT at 16 threads in the prototype).
 
+**[Caching by context](caching.md#caching-by-context)** (`Context` and `VaryBy`, a copy per user or per role), from `BenchmarkCacheContext` (same machine, `-cpu 1`, medians of 6, a map-backed test store, through middleware that sets two context values on `Locals` attached earlier):
+
+| Case | Time | Allocations |
+|---|---:|---:|
+| `l.Cache.Context(key, value)`, 3 keys | ~13 ns for the three | 0 |
+| HIT on a page without `VaryBy` (context set, ignored) | 174 ns | 0 |
+| HIT on a `VaryBy` page (`user`, `role`): the marker, then the variant | 235 ns (+~60 ns) | 0 |
+| MISS that stores a `VaryBy` page (marker and variant) | ~2.3 µs (+~0.2 µs) | 18 (+5) |
+
+Pages without `VaryBy`, and requests where nothing calls `Context`, cost what they did before. A copy per user also costs memory: one stored page per active user (see [Caching by context](caching.md#caching-by-context)).
+
 These are the runtime's Go benchmarks. Over HTTP against Astro's route cache, see [the fetch page from the route cache](#the-fetch-page-from-the-route-cache-fetch-cached) in the results.
+
+## Sessions
+
+[Sessions](sessions.md) cost only the requests that use them: a page or component that never says `session` pays one nil check, and a request that never calls `Data()` reads no cookie and calls no store. Measured with the runtime's `BenchmarkSession` on a Ryzen 7 9700X with Go 1.27.3, at `-cpu 1`, medians of 3, on a small page served through `site.Middleware` (650 ns and 1 allocation, `Content-Length`, without sessions), with a map-backed store and a 3-field `SessionData` holding a short cart. Times and allocations are what each case adds to that request:
+
+| Case | Time | Allocations |
+|---|---:|---:|
+| a page or component that doesn't use `session` | +1 nil check | +0 |
+| `site.Sessions` on a request that never uses the session (`Locals` already attached) | +25 ns | +0 |
+| `site.Sessions` attaching `Locals` itself | +330 ns | +3 (as `EnsureLocals`) |
+| `session.Data()` for an anonymous visitor, nothing changed | +280 ns | +0 |
+| `session.Data()` for an existing session, nothing changed: cookie scan, store `Get`, decode, encode and compare | +1.2 µs | +6 (the decode) |
+| the same, one field changed: compare per field, re-read, merge, store `Set` | +1.8 µs | +11 |
+| first save of a new session: ID, encode, store `Set`, `Set-Cookie` | +1.3 µs | +5 |
+| a cached page that reads the session, served from the cache (the whole request, with or without a session cookie) | 190 ns | 0 |
+
+- **Most of the cost is `encoding/json`**: decoding the stored object, and encoding it again at the end of the request to see whether it changed. A small `SessionData` with `omitempty` fields keeps both short.
+- **A shared store adds network round trips**: one per request that loads the session, two per request that changes it (Lyr reads the stored object again before writing only the changed fields).
+- **Load the session where it's needed.** Middleware that reads the session on every request pays the load for static files too; skip them with `site.Match(r).Kind == lyr.RouteFile` if that matters.
+
+## Rewrites
+
+A [rewrite](routing.md#rewrites) costs only the requests that make one: the work sits on the page's error path, and the generated code is the same. `site.Rewrites` costs nothing per request without a cache provider. With one, it reads your `Locals`' `Cache` field on every request, about 7 ns on a HIT (`-cpu 1`; 172 against 165 ns), and when your middleware outside it called `Set`, it also copies those options into a pooled value for a rewrite's target, about 9 ns more and no allocation. Measured with the runtime's `BenchmarkRewrite` (same machine and settings as above, `-cpu 1`, medians of 3), a tiny page that rewrites to another tiny page costs 570 ns and 3 allocations, against 180 ns and 1 allocation for a direct request to the target: about +0.4 µs and +2 allocations (the `*RewriteError`, and the request copy with its URL and context), plus the source page's own render and whatever middleware runs again inside `site.Rewrites`. A target with escaped bytes in its path adds one more allocation (its `RawPath`).
 
 ## Slow data and the first byte: `server:defer`
 

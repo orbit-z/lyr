@@ -200,7 +200,7 @@ With `false`, the output is the template as written.
 
 ## `routeRules`
 
-Default [route caching](caching.md) options per route, so pages are cached without calling `ctx.Cache().Set` themselves. Each key is a route pattern, and each value has up to three keys:
+Default [route caching](caching.md) options per route, so pages are cached without calling `ctx.Cache().Set` themselves. Each key is a route pattern, and each value has up to four keys:
 
 ```json
 {
@@ -216,10 +216,11 @@ Default [route caching](caching.md) options per route, so pages are cached witho
 | `maxAge` | whole seconds | How long a stored response stays fresh. Nothing is stored without it. |
 | `swr` | whole seconds | How long after `maxAge` a stale copy is still served while one background render refreshes it. |
 | `tags` | array of strings | Tags for [invalidation](caching.md#invalidation). |
+| `varyBy` | array of strings | Context keys the page's HTML depends on: one copy per value, such as per user or per role. See [Caching by context](caching.md#caching-by-context). |
 
 - **Patterns** use Lyr's route syntax (`[param]`, `[...rest]`) and priority, and match the request path, whichever page serves it: `/blog/[...path]` covers `/blog` and everything under it. They never match `/_lyr/` paths.
 - **Seconds**, as in Astro, where `ctx.Cache().Set` takes `time.Duration` values.
-- **The rule comes first**: it's applied before the page renders, under what your middleware set, so the middleware's values and then the page's `Set` win over it, and tags accumulate.
+- **The rule comes first**: it's applied before the page renders, under what your middleware set, so the middleware's values and then the page's `Set` win over it, and tags and `varyBy` names accumulate.
 - **Without a cache provider** (`lyr.WithCache` in `cmd/server/main.go`), rules do nothing.
 - **`lyr dev`** turns caching off, so rules change nothing there.
 

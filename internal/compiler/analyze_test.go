@@ -590,3 +590,39 @@ func FuzzAnalyze(f *testing.F) {
 		}
 	})
 }
+
+// TestAnalyzeUsesSession: like UsesLocals, for the implicit session
+// (PLAN.md §4i), with the first reference's span.
+func TestAnalyzeUsesSession(t *testing.T) {
+	cases := []struct {
+		src  string
+		want bool
+		ref  string // the source text at SessionRef ("" for none)
+	}{
+		{"<p>hi</p>", false, ""},
+		{"---\nd, _ := session.Data()\n_ = d\n---\n", true, "session"},
+		{"<p>{session.ID()}</p>", true, "session"},
+		{"---\nimport C \"./C.lyr\"\n---\n<C><b>{session.ID()}</b></C>", true, "session"}, // slot content
+		{"---\nsession := 1\n---\n<p>{session}</p>", false, ""},                           // shadowed
+		{"{for _, session := range []int{1}}{session}{/for}", false, ""},
+		{"---\nx := (\n---\n", true, ""}, // syntax error: safe side, no position
+	}
+	for _, tc := range cases {
+		a := anComp(t, tc.src)
+		if a.UsesSession != tc.want {
+			t.Errorf("%q: UsesSession = %v, want %v", tc.src, a.UsesSession, tc.want)
+		}
+		got := ""
+		if a.SessionRef.End > 0 {
+			got = tc.src[a.SessionRef.Start:a.SessionRef.End]
+		}
+		if got != tc.ref {
+			t.Errorf("%q: SessionRef %v = %q, want %q", tc.src, a.SessionRef, got, tc.ref)
+		}
+	}
+	// The first reference, in source order.
+	src := "---\nx := 1\n_ = x\n---\n<p>{session.ID()}</p><p>{session.ID()}</p>"
+	if a := anComp(t, src); a.SessionRef.Start != strings.Index(src, "session") {
+		t.Errorf("first ref at %d, want %d", a.SessionRef.Start, strings.Index(src, "session"))
+	}
+}

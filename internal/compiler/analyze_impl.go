@@ -580,6 +580,10 @@ func (s *anState) parseBody() {
 	}
 	s.dynTags(file, tf, tmplStart, &y)
 	s.a.UsesLocals = s.implIdent["locals"] || file == nil || len(errs) > 0
+	s.a.UsesSession = s.implIdent["session"] || file == nil || len(errs) > 0
+	if file != nil && s.implIdent["session"] {
+		s.a.SessionRef = s.firstRef(file, tf, tmplStart, len(prefix), &y, "session")
+	}
 	s.a.CtxUnknown = file == nil || len(errs) > 0
 	if bodyErr || file == nil {
 		for _, r := range scannerBody {
@@ -662,6 +666,36 @@ func (s *anState) ctxRefs(file *ast.File, tf *gotoken.File, tmplStart int, y *an
 			}
 		}
 	}
+}
+
+// firstRef returns the .lyr span of the first unresolved identifier name
+// of the body file (body or template), or a zero Span.
+func (s *anState) firstRef(file *ast.File, tf *gotoken.File, tmplStart, prefix int, y *anSynth, name string) Span {
+	best := Span{}
+	for _, id := range file.Unresolved {
+		if id.Name != name || tf == nil {
+			continue
+		}
+		off := tf.Offset(id.Pos())
+		lyr := -1
+		if off < tmplStart {
+			if a, ok := s.fmOff(tf, id.Pos(), prefix); ok {
+				lyr = a
+			}
+		} else {
+			off -= tmplStart
+			for _, sg := range y.segs {
+				if sg.goStart <= off && off < sg.goStart+sg.n {
+					lyr = sg.lyr + off - sg.goStart
+					break
+				}
+			}
+		}
+		if lyr > 0 && (best.End == 0 || lyr < best.Start) {
+			best = Span{lyr, lyr + len(name)}
+		}
+	}
+	return best
 }
 
 func (s *anState) templateHasContent() bool {

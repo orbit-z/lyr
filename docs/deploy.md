@@ -191,6 +191,14 @@ With [route caching](caching.md), what you deploy decides where the cache lives:
 
 `X-Lyr-Cache: HIT`, `MISS` or `STALE` on a response tells you what the server's store did; add it to your access logs to measure the hit rate. Island URLs hold the build ID, so a deploy changes every cached island's key, and the old entries age out.
 
+## Sessions in production
+
+With [sessions](sessions.md), the store decides what a restart or a second instance does:
+
+- **One instance with `cache.NewSessionStore`**: sessions live in the server's memory. A restart or a deploy signs every visitor out, and so does each eviction: size `MaxEntries` (default 10 000) and `MaxBytes` for your visitors. Nothing is written to disk in production (`.lyr/sessions/` is for `lyr dev` only).
+- **Several instances, or deploys that mustn't sign anyone out**: use a shared store, such as Redis, so every instance sees every session. The store is a few lines of your code against `lyr.SessionStore`; see [Redis, and several instances](sessions.md#redis-and-several-instances). Session IDs aren't signed, so a new `LYR_KEY` doesn't affect them.
+- **HTTPS**: the session cookie is `Secure` in production, so browsers send it only over HTTPS. Behind a TLS-terminating proxy that's what you want. To test a production build over plain HTTP, set `SessionCookie.Insecure` there only.
+
 ## Island key: `LYR_KEY`
 
 Components rendered with [`server:defer`](lazy-loading.md) load in a separate request after the page, at a URL such as `/_lyr/island/ee678fa277a9c2c3/Comments-9b1e44a2?p=…`. The `p` token holds the component's props, encrypted and authenticated with the **island key**, and the path holds the **build ID**. You don't need to do anything for a single server, or for several instances of the same build: they share the key that `lyr build` embedded.
@@ -290,6 +298,7 @@ site := app.New(lyr.WithKey(key)) // key is a []byte of length 32
 - [Rendering](rendering.md): per-request rendering and the `dist/` layout
 - [Lazy loading](lazy-loading.md): `server:defer` islands, their tokens and the key
 - [Caching](caching.md): route caching, providers and purges
+- [Sessions](sessions.md#stores): session stores
 - [Server](server.md): `cmd/server/main.go`, `ListenAndServe` and `Addr`
 - [Configuration](configuration.md): `server` and `embed`
 - [CLI reference](reference/cli.md): `lyr build`, `lyr preview` and `lyr create-key`

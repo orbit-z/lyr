@@ -27,7 +27,7 @@ blog/
       Card.lyr
     layouts/
       Base.lyr
-    locals/               optional Go package: your typed Locals struct
+    locals/               optional Go package: your typed Locals and SessionData structs
       locals.go
     scripts/              optional .ts modules imported from <script> tags
   internal/
@@ -80,6 +80,8 @@ type Locals struct {
 ```
 
 Lyr looks for `type Locals struct` in this package. When it finds one, every page and component gets a `locals` variable of type `*locals.Locals`, fully type-checked and completed by your editor. Your net/http middleware fills it in with `lyr.EnsureLocals[locals.Locals](r)`, and your own handlers read it with `lyr.LocalsFromRequest[locals.Locals](r)`. Without the package, `locals` is an empty `*lyr.NoLocals`.
+
+The same package declares `type SessionData struct` when you use [sessions](sessions.md): the data Lyr keeps for each visitor, which pages and components read with `session.Data()`. A defined `SessionData` that isn't a struct is an error at its name; an alias of a struct is fine.
 
 Keep `src/locals` a plain types package. It can import your own packages (such as an `internal/auth` for a `User` type), but neither it nor anything it imports may import `lyr_gen/app`: that would be an import cycle, because every generated page imports `src/locals`. Lyr reports it clearly, and so does `lyr doctor`. See [Middleware and locals](middleware.md).
 

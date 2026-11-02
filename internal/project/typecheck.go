@@ -32,6 +32,9 @@ func (p *Project) goImports() []string {
 	if p.Options.Locals != "" {
 		set[p.Options.Locals] = true
 	}
+	if p.Options.Session != "" {
+		set[p.Options.Session] = true
+	}
 	if len(p.mdPaths) > 0 {
 		set["time"] = true
 	}

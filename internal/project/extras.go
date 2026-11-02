@@ -115,7 +115,7 @@ func (p *Project) appGo() []byte {
 	fmt.Fprintf(&b, "\tlyr %q\n\n", compiler.RuntimePath)
 	fmt.Fprintf(&b, "\t_ %q\n", p.Module+"/"+compiler.GenDir+"/link")
 	fmt.Fprintf(&b, "\t%q\n", p.Module+"/"+compiler.GenDir+"/manifest")
-	if p.localsFields != (localsFields{}) {
+	if p.localsFields.hasFields() {
 		fmt.Fprintf(&b, "\t%q\n", p.Options.Locals)
 	}
 	var pages []*File
@@ -159,6 +159,10 @@ func (p *Project) appGo() []byte {
 		// Locals' lyr.Cache field is the request's cache handle (PLAN.md §4h).
 		defaults = append(defaults, "lyr.WithLocalsCache(func(l *locals.Locals) *lyr.Cache { return &l."+f+" })")
 	}
+	if f := p.localsFields.Session; f != "" {
+		// site.Sessions binds Locals' lyr.Session field (PLAN.md §4i).
+		defaults = append(defaults, "lyr.WithLocalsSession(func(l *locals.Locals) *lyr.Session[locals.SessionData] { return &l."+f+" })")
+	}
 	if rules := p.Config.RouteRules; len(rules) > 0 {
 		// lyr.json "routeRules" (PLAN.md §4h).
 		var rb strings.Builder
@@ -178,6 +182,13 @@ func (p *Project) appGo() []byte {
 					q[i] = strconv.Quote(t)
 				}
 				fs = append(fs, "Tags: []string{"+strings.Join(q, ", ")+"}")
+			}
+			if len(r.VaryBy) > 0 {
+				q := make([]string, len(r.VaryBy))
+				for i, t := range r.VaryBy {
+					q[i] = strconv.Quote(t)
+				}
+				fs = append(fs, "VaryBy: []string{"+strings.Join(q, ", ")+"}")
 			}
 			rb.WriteString(strings.Join(fs, ", ") + "}},")
 		}

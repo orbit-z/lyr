@@ -18,10 +18,11 @@ type RouteRule struct {
 	MaxAge  int64 // seconds
 	SWR     int64 // seconds
 	Tags    []string
+	VaryBy  []string // context keys (Cache.Context)
 }
 
 // parseRouteRules parses "routeRules": an object from route pattern to
-// {"maxAge", "swr", "tags"}. The rules come back sorted by pattern (the
+// {"maxAge", "swr", "tags", "varyBy"}. The rules come back sorted by pattern (the
 // router's priority decides which applies, not the order).
 func parseRouteRules(data json.RawMessage) ([]RouteRule, error) {
 	var raw map[string]json.RawMessage
@@ -68,8 +69,15 @@ func parseRouteRules(data json.RawMessage) ([]RouteRule, error) {
 				if i := slices.Index(r.Tags, ""); i >= 0 {
 					return nil, fail("tags[%d] is empty", i)
 				}
+			case "varyBy":
+				if json.Unmarshal(v, &r.VaryBy) != nil {
+					return nil, fail("varyBy must be an array of strings (context keys set with Cache.Context)")
+				}
+				if i := slices.Index(r.VaryBy, ""); i >= 0 {
+					return nil, fail("varyBy[%d] is empty", i)
+				}
 			default:
-				return nil, fail(`unknown key %q; a rule has "maxAge", "swr" and "tags"`, key)
+				return nil, fail(`unknown key %q; a rule has "maxAge", "swr", "tags" and "varyBy"`, key)
 			}
 		}
 		rules = append(rules, r)

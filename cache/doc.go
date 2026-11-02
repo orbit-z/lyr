@@ -1,10 +1,11 @@
 // Package cache provides in-process caches for Lyr sites: MemoryProvider
-// (made with NewMemory), a route cache provider for lyr.WithCache, and
-// Store (made with NewStore), a general cache for data and rendered
-// fragments.
+// (made with NewMemory), a route cache provider for lyr.WithCache, Store
+// (made with NewStore), a general cache for data and rendered fragments,
+// and SessionStore (made with NewSessionStore), a session store for
+// lyr.WithSessions.
 //
-// Both use one engine: a map split into shards, bounded by an entry count
-// (MaxEntries, 1000 by default) and optionally by bytes (MaxBytes). When a
+// They all use one engine: a map split into shards, bounded by an entry count
+// (MaxEntries, 1000 by default, 10 000 for sessions) and optionally by bytes (MaxBytes). When a
 // shard is full, it evicts with the CLOCK algorithm, an approximation of
 // least recently used: a read marks an entry, and eviction gives a marked
 // entry a second chance. The bounds are checked per shard, so they're
@@ -47,4 +48,14 @@
 //
 // Values are stored as given, not copied: don't change a value after
 // storing it, or one returned by a Store.
+//
+// # Sessions
+//
+// A SessionStore keeps sessions in memory for lyr.WithSessions:
+//
+//	store := cache.NewSessionStore(cache.SessionStoreOptions{MaxEntries: 100_000})
+//	site := app.New(lyr.WithSessions(store, lyr.SessionOptions{TTL: 30 * 24 * time.Hour}))
+//
+// Under lyr dev it also writes sessions to .lyr/sessions/, so they survive
+// restarts.
 package cache

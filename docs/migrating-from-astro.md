@@ -262,7 +262,8 @@ Pages keep their paths: `src/pages/books/[slug].astro` becomes `src/pages/books/
 - **Params are typed.** `Astro.params.slug` is `params.Slug`, a field of a `Params` struct that Lyr generates from the file path, so a typo is a build error. Components read `ctx.Param("slug")`. See [Route params](routing.md#route-params-params).
 - **Pages take no props**, since there's no `getStaticPaths`: they read `params`, `ctx.Request` and `ctx.URL`.
 - **A parameter is a whole segment.** `post-[id].astro` is a build error in Lyr: rename it to `[id].lyr` and parse the value in the page.
-- **Not found**: `return new Response(null, { status: 404 })` or a rewrite to `/404` becomes `return lyr.ErrNotFound`, which renders `404.lyr` with status 404. See [The 404 page](routing.md#the-404-page).
+- **Not found**: `return new Response(null, { status: 404 })` becomes `return lyr.ErrNotFound`, which renders `404.lyr` with status 404. `return Astro.rewrite("/404")` becomes `return ctx.Rewrite("/404")`, which also runs the middleware inside `site.Rewrites` again for the 404 page, as Astro does; `lyr.ErrNotFound` doesn't. See [The 404 page](routing.md#the-404-page).
+- **Rewrites**: `return Astro.rewrite("/es/about")` is `return ctx.Rewrite("/es/about")`: a path, with an optional query. Put `site.Rewrites` in your `lyr.Sequence` where your middleware should run again for the target (`lyr new`'s `main.go` has it); without it, only Lyr re-runs. `Astro.originPathname` is `ctx.Request.RequestURI`. The loop limit is Astro's: the third chained rewrite answers 508. The route cache stores the target under its own URL, not the original's. See [Rewrites](routing.md#rewrites).
 - **Redirects**: `return Astro.redirect("/signin", 303)` is `return ctx.Redirect("/signin", http.StatusSeeOther)`; the status is required. See [Redirects](rendering.md#redirects).
 - **`redirects` in `astro.config`** become handlers in `cmd/server/main.go`: `mux.Handle("GET /shop", http.RedirectHandler("/", http.StatusMovedPermanently))` (see the [server below](#6-port-the-middleware)).
 - **Endpoints** (`src/pages/api/*.ts`) become `net/http` handlers on the same mux. See [Server](server.md#choosing-precedence).
@@ -411,6 +412,7 @@ func answerError(w http.ResponseWriter, r *http.Request, err error) bool {
 - **`Astro.locals.shop`** is `locals.Shop` in pages and components, type-checked.
 - **`sequence(a, b)`** is `lyr.Sequence(a, b)(mux)`, the same as `a(b(mux))`: the middleware listed first runs first.
 - **Returning a `Response`** from middleware is writing it and not calling `next`. See [Short-circuit responses](middleware.md#short-circuit-responses).
+- **`next("/login")`** (a middleware rewrite) is `next.ServeHTTP(w, lyr.RewriteRequest(r, "/login"))`, and **`context.rewrite("/login")`** in middleware is the same call: Lyr has no way to re-run the middleware before it. See [Rewriting the request](middleware.md#rewriting-the-request).
 - **Code after `await next()`** goes after `next.ServeHTTP(w, r)`, with a wrapped `http.ResponseWriter` to read the status. See [Rewrite responses](middleware.md#rewrite-responses).
 - **The matched route** (Astro's `context.routePattern` and `context.params`, for logging or metrics): add a `Route lyr.RouteInfo` field to your `Locals`, and Lyr fills it in with the route it matched, so middleware can read it after `next` returns:
 
@@ -423,7 +425,29 @@ func answerError(w http.ResponseWriter, r *http.Request, err error) bool {
 
   See [Middleware and locals](middleware.md) for its fields.
 
-There's one middleware model, and Lyr ships no auth: sessions, cookies and security headers are your middleware's job, with the standard library or the Go packages you pick. See [Middleware and locals](middleware.md) and [Server](server.md).
+There's one middleware model, and Lyr ships no auth: cookies and security headers are your middleware's job, with the standard library or the Go packages you pick. Sessions are built in (below). See [Middleware and locals](middleware.md) and [Server](server.md).
+
+### Sessions
+
+If your Astro site uses `Astro.session`:
+
+- **The keys become one struct.** `App.SessionData` in `src/env.d.ts` becomes `type SessionData struct` in `src/locals`, with a `json` tag and `omitempty` on each field:
+
+  ```go
+  type SessionData struct {
+  	UserID int64       `json:"userId,omitempty"`
+  	Cart   []cart.Item `json:"cart,omitempty"`
+  }
+  ```
+
+  Old Astro sessions can't be read (they're devalue in another store), so visitors start with empty sessions after the switch.
+- **The driver** becomes `app.New(lyr.WithSessions(store, lyr.SessionOptions{TTL: …}))` in `cmd/server/main.go`: `cache.NewSessionStore` for one instance, or a few lines against `lyr.SessionStore` for Redis (see [Stores](sessions.md#stores)). `session.ttl` in seconds becomes a `time.Duration`, and it's the session's lifetime from its last save, not each value's.
+- **`await Astro.session.get("cart")`** becomes `d, err := session.Data()` once, then `d.Cart`; **`set("cart", v)`** becomes `d.Cart = v`, saved at the end of the request; **`delete`** sets the zero value, and **`has`** is a zero check. `regenerate()`, `destroy()` and `load(id)` keep their names.
+- **`context.session` in middleware** becomes a `lyr.Session[SessionData]` field in your `Locals`, with `site.Sessions` before the middleware: `lyr.Sequence(site.TrailingSlash, site.Sessions, auth)(mux)`. See [Sessions in middleware](middleware.md#sessions-in-middleware).
+- **Per-value `{ ttl }`** has no equivalent: keep an expiry time in a field and check it.
+- **Cached pages** work as in Astro: a page that reads the session on a cached route is served to everyone, so keep the workarounds your Astro site used (no caching or `Disable()` on personal pages, personal parts in server islands). A response that sends the session cookie (a new session, `regenerate()`, `destroy()`) is never stored.
+
+See [Sessions](sessions.md).
 
 ### Route caching
 
@@ -444,6 +468,7 @@ If your Astro site uses `Astro.cache` or `routeRules`, the port is mostly mechan
   Middleware then calls `l.Cache.Disable()` for a signed-in visitor. In Astro that only kept their response out of the store, and they could still get a cached copy; in Lyr, the lookup runs after your middleware, so they never do. If your Astro middleware worked around that, the workaround can go.
 - **Your middleware runs on HITs.** Anything it does (logging, a session refresh, auth redirects) now happens for cached requests too. A middleware that sets a cookie on every request keeps every page out of the cache: Lyr never stores a response with `Set-Cookie`.
 - **`X-Astro-Cache`** checks in tests or monitoring become `X-Lyr-Cache`, with the same `HIT`, `MISS` and `STALE` values.
+- **New in Lyr, no Astro equivalent**: pages your Astro site couldn't cache because they're per user or per role can get a copy per user or per role with [caching by context](caching.md#caching-by-context) (`l.Cache.Context` in middleware, `VaryBy` on the page).
 
 See [Caching](caching.md) for the whole flow and the safety rules.
 

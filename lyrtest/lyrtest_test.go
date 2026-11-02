@@ -440,3 +440,60 @@ func TestGetErrorHandler(t *testing.T) {
 		t.Errorf("got %d %q", rec.Code, rec.Body)
 	}
 }
+
+type cartSession struct {
+	Cart []string
+	Note string
+}
+
+type cartLocals struct {
+	Session lyr.Session[cartSession]
+}
+
+func TestRenderWithSession(t *testing.T) {
+	cart := func(ctx *lyr.Ctx, w *lyr.Writer, _ struct{}, _ lyr.Slots) error {
+		s := lyr.SessionOf[cartSession](ctx)
+		d, err := s.Data()
+		if err != nil {
+			return err
+		}
+		w.String(strings.Join(d.Cart, ",") + " " + s.ID())
+		d.Note = "changed" // never saved
+		return nil
+	}
+	got := Render(t, cart, struct{}{}, WithSession(func(d *cartSession) { d.Cart = []string{"a", "b"} }))
+	if got != "a,b lyrtest" {
+		t.Errorf("seeded: %q", got)
+	}
+	if got := Render(t, cart, struct{}{}, WithSession[cartSession](nil)); got != " lyrtest" {
+		t.Errorf("zero seed: %q", got)
+	}
+	// Without the option, the session isn't enabled.
+	f := run(t, func(tb testing.TB) { Render(tb, cart, struct{}{}) })
+	if !f.fatal || !strings.Contains(strings.Join(f.msgs, "\n"), "sessions are not enabled") {
+		t.Errorf("no seed: %q", f.msgs)
+	}
+	// The Locals' lyr.Session field reaches the seeded session too: a
+	// Locals that LocalsOf allocates, and one attached with WithLocals.
+	viaLocals := func(ctx *lyr.Ctx, w *lyr.Writer, _ struct{}, _ lyr.Slots) error {
+		d, err := lyr.LocalsOf[cartLocals](ctx).Session.Data()
+		if err != nil {
+			return err
+		}
+		w.String(strings.Join(d.Cart, ","))
+		return nil
+	}
+	seed := WithSession(func(d *cartSession) { d.Cart = []string{"x"} })
+	if got := Render(t, viaLocals, struct{}{}, seed); got != "x" {
+		t.Errorf("Locals allocated by LocalsOf: %q", got)
+	}
+	l := new(cartLocals)
+	if got := Render(t, viaLocals, struct{}{}, seed, WithLocals(l)); got != "x" {
+		t.Errorf("Locals attached with WithLocals: %q", got)
+	}
+	// Get refuses it.
+	f = run(t, func(tb testing.TB) { Get(tb, http.NotFoundHandler(), "/", WithSession[cartSession](nil)) })
+	if !f.fatal || !strings.Contains(strings.Join(f.msgs, "\n"), "WithSession doesn't apply to Get") {
+		t.Errorf("Get: %q", f.msgs)
+	}
+}

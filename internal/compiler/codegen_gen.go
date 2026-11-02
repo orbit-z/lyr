@@ -3,6 +3,7 @@ package compiler
 import (
 	"fmt"
 	"maps"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -290,6 +291,8 @@ func (g *cgGen) genImpl() *GenFile {
 	o.ln("\t. " + strconv.Quote(g.pkg.DeclImportPath(g.in.Options.Module)))
 	if g.in.Options.Locals != "" && (g.declaresLocals() || g.hasConcurrent()) {
 		o.ln("\t" + NameLocals + " " + strconv.Quote(g.in.Options.Locals))
+	} else if g.declaresSession() {
+		o.ln("\t" + NameLocals + " " + strconv.Quote(g.in.Options.Session))
 	}
 	g.userImports(PlaceImpl)
 	if g.a.ImplicitLyr&PlaceImpl != 0 {
@@ -330,6 +333,10 @@ func (g *cgGen) genImpl() *GenFile {
 		}
 		o.ln("locals := " + NameRuntime + ".LocalsOf[" + locals + "](" + NameCtx + ")")
 		blank = "_, " + blank + ", locals"
+	}
+	if g.declaresSession() {
+		o.ln("session := " + NameRuntime + ".SessionOf[" + NameLocals + ".SessionData](" + NameCtx + ")")
+		blank = "_, " + blank + ", session"
 	}
 	o.ln(blank)
 	body := g.a.Body
@@ -422,6 +429,28 @@ func (g *cgGen) hasConcurrent() bool {
 // locals then skips the lookup and the new(L)), and always in Tolerant mode,
 // so gopls can complete and hover it while it's being typed.
 func (g *cgGen) declaresLocals() bool { return g.tolerant || g.a.UsesLocals }
+
+// declaresSession reports whether the render function declares the
+// implicit session (PLAN.md §4i): when src/locals declares SessionData
+// and the code references it, and in Tolerant mode unless the user
+// declares or imports the name session at the top level.
+func (g *cgGen) declaresSession() bool {
+	if g.in.Options.Session == "" {
+		return false
+	}
+	if !g.tolerant {
+		return g.a.UsesSession
+	}
+	if slices.Contains(g.a.Echo, "session") {
+		return false
+	}
+	for _, im := range g.a.GoImports {
+		if im.Name == "session" || im.Name == "" && path.Base(im.Path) == "session" {
+			return false
+		}
+	}
+	return true
+}
 
 // stmt writes one body statement and its line break. Each return result is
 // wrapped as lyr__rt.ErrorAt("<path>:L:C", <result>), so a returned error

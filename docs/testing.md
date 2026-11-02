@@ -149,6 +149,7 @@ lyrtest: src/components/Card.lyr not linked; import example.com/blog/lyr_gen/app
 | `WithSlot(name, html)` | fills a slot | fails the test: a request has no slots |
 | `WithParam(name, value)` | sets one route param: a page's `params` field and `ctx.Param(name)`; repeat it for each param | fails the test: the router sets params from the path |
 | `WithLocals(l)` | sets `locals` | attaches `l` to the request, as [`lyr.WithLocals`](middleware.md) does, so `EnsureLocals` in your middleware returns it |
+| `WithSession(seed)` | sets the data of the implicit `session`, and of a `locals.Session` field: `seed` changes a zero `SessionData` | fails the test: send a session cookie with `WithRequest` (see [Sessions](#sessions-withsession-and-two-request-tests)) |
 | `WithRequest(r)` | sets `ctx.Request` | sends a copy of `r` with its method set to `GET` and its URL set to `path`, so its headers and cookies carry over |
 
 Without `WithRequest`, `Render` uses `httptest.NewRequest("GET", "/", nil)`. An option that doesn't apply fails the test with a message saying so, rather than being silently ignored.
@@ -376,9 +377,92 @@ func TestSearch(t *testing.T) {
 }
 ```
 
+### Sessions: `WithSession` and two-request tests
+
+If your project uses [sessions](sessions.md), `lyrtest.WithSession` gives `Render` a session with the data you set. Here a page counts a visitor's visits (a harmless change on a `GET`; don't change anything that matters on one):
+
+```go file=src/locals/session.go
+package locals
+
+// SessionData is each visitor's session (see Sessions).
+type SessionData struct {
+	Visits int `json:"visits,omitempty"`
+}
+```
+
+```lyr file=src/pages/visits.lyr
+---
+d, err := session.Data()
+if err != nil {
+	return err
+}
+d.Visits++
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Visits</title>
+  </head>
+  <body>
+    <p>Visit number {d.Visits}</p>
+  </body>
+</html>
+```
+
+`seed` gets a pointer to a zero `SessionData` and sets what the test needs. Changes the render makes go nowhere: `Render` has no store.
+
+To test what's saved, `Get` a site built with `lyr.WithSessions`, take the session cookie from the first response, and send it with the second request through `WithRequest`:
+
+```go file=internal/views_test/session_test.go
+package views_test
+
+import (
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/orbit-z/lyr"
+	"github.com/orbit-z/lyr/cache"
+	"github.com/orbit-z/lyr/lyrtest"
+
+	"example.com/blog/lyr_gen/app"
+	"example.com/blog/lyr_gen/decl/pages/visits"
+	"example.com/blog/src/locals"
+)
+
+func TestVisitsPage(t *testing.T) {
+	html := lyrtest.Render(t, visits.Render, visits.Props{},
+		lyrtest.WithSession(func(d *locals.SessionData) { d.Visits = 41 }))
+	if !strings.Contains(html, "Visit number 42") {
+		t.Errorf("unexpected page:\n%s", html)
+	}
+}
+
+func TestVisitsSession(t *testing.T) {
+	store := cache.NewSessionStore(cache.SessionStoreOptions{})
+	h := app.New(lyr.WithSessions(store, lyr.SessionOptions{})).Handler()
+
+	first := lyrtest.Get(t, h, "/visits")
+	cookies := first.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != "lyr-session" {
+		t.Fatalf("first visit: cookies %v, want one lyr-session cookie", cookies)
+	}
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.AddCookie(cookies[0])
+	second := lyrtest.Get(t, h, "/visits", lyrtest.WithRequest(req))
+	if !strings.Contains(second.Body.String(), "Visit number 2") {
+		t.Errorf("second visit:\n%s", second.Body.String())
+	}
+}
+```
+
+Give each test its own store, so tests don't share sessions. Under `go test`, `cache.NewSessionStore` never writes to `.lyr/sessions/`, and the cookie is `Secure` as in production. To test middleware and handlers that use the session, build the same chain as your `main.go` (with `site.Sessions`) in a function outside `package main`, and `Get` that.
+
 ## Testing through HTTP with `Get`
 
-`lyrtest.Get` sends a GET request to any `http.Handler` and returns the `*httptest.ResponseRecorder`. Pass `app.New().Handler()` to test pages the way a browser sees them: routing, the trailing-slash redirect, status codes, headers, the injected `<link>`/`<script>` tags and `server:defer` placeholders.
+`lyrtest.Get` sends a GET request to any `http.Handler` and returns the `*httptest.ResponseRecorder`. Pass `app.New().Handler()` to test pages the way a browser sees them: routing, the trailing-slash redirect, status codes, headers, the injected `<link>`/`<script>` tags and `server:defer` placeholders. A page's `ctx.Rewrite` is served in place, as in production, so `Get` returns the target's response; `lyrtest.Render` of a page that rewrites fails the test with the rewrite (`lyr: rewrite to /es/about`), so test rewrites with `Get`.
 
 If you build your handler (custom routes and middleware around `site.Middleware`) in a function outside `package main`, pass that handler instead, to test them together with the pages.
 
@@ -540,6 +624,7 @@ Run `lyr build` again after changing your `.lyr` files: the overlay is only as f
 
 - [Components](components.md): props, slots and `locals` in templates
 - [Middleware and locals](middleware.md): declaring `Locals` and setting them in middleware
+- [Sessions](sessions.md#testing): sessions in tests
 - [Lazy loading](lazy-loading.md): `server:defer` and the island endpoint
 - [Server](server.md): `app.New()`, `site.Handler()` and your own handlers
 - [Runtime API](reference/runtime-api.md#lyrtest): the `lyrtest` signatures

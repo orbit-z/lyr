@@ -116,10 +116,10 @@ import Layout "../layouts/Base.lyr"
 A middleware is a `func(http.Handler) http.Handler`, the standard Go shape. It can work in three places:
 
 - **Before `next.ServeHTTP`**: read the request, set response headers (`requestInfo` sets `X-Request-ID`), and fill in locals.
-- **Instead of `next.ServeHTTP`**: write a response itself and stop. See [Short-circuit responses](#short-circuit-responses).
+- **Instead of `next.ServeHTTP`**: write a response itself and stop, or pass on a rewritten request. See [Short-circuit responses](#short-circuit-responses) and [Rewriting the request](#rewriting-the-request).
 - **After `next.ServeHTTP`**: look at what was written, through a wrapping `http.ResponseWriter` (`logging` records the status). See [Rewrite responses](#rewrite-responses).
 
-There's no Lyr-specific middleware type. Anything from the Go ecosystem (CORS, gzip, rate limits, sessions) plugs in the same way.
+There's no Lyr-specific middleware type. Anything from the Go ecosystem (CORS, gzip, rate limits) plugs in the same way. Lyr has [sessions](sessions.md) built in; see [Sessions in middleware](#sessions-in-middleware).
 
 ## Where middleware goes
 
@@ -163,7 +163,7 @@ Locals carry request-scoped data, such as a request ID or the visitor's theme, f
 
 Put `type Locals struct` in the Go package `src/locals` (package `locals`), as in `src/locals/locals.go` above. Lyr finds it by name. Without one, `locals` in pages is a `*lyr.NoLocals`, an empty struct.
 
-`Locals` may also be an alias of a struct declared elsewhere (`type Locals = auth.Session`); Lyr then doesn't see a `RouteInfo` or `Cache` field in it ([Logging the matched route](#logging-the-matched-route), [Keeping requests out of the cache](#keeping-requests-out-of-the-cache)). A `src/locals` whose package isn't named `locals`, or whose `Locals` is a defined type that isn't a struct (`type Locals map[string]any`), is an error at that line.
+`Locals` may also be an alias of a struct declared elsewhere (`type Locals = auth.Session`); Lyr then doesn't see a `RouteInfo`, `Cache` or `Session` field in it ([Logging the matched route](#logging-the-matched-route), [Keeping requests out of the cache](#keeping-requests-out-of-the-cache), [Sessions in middleware](#sessions-in-middleware)). A `src/locals` whose package isn't named `locals`, or whose `Locals` is a defined type that isn't a struct (`type Locals map[string]any`), is an error at that line.
 
 ### Set locals from middleware
 
@@ -392,11 +392,59 @@ func withSession(next http.Handler) http.Handler {
 - **`Disable()` runs before the lookup.** The request is neither served from the cache nor stored, even if the page calls `ctx.Cache().Set` afterwards. In Astro, the cache sits outside the middleware, so `set(false)` there can't stop a cached copy; in Lyr it can.
 - **Your middleware runs on every request, cached ones included**: authentication, redirects, logging and session refresh always run. A cached response costs what your middleware costs, plus about 0.15 µs.
 - **`Set` works too**: middleware can add tags or a `MaxAge` (`l.Cache.Set(lyr.CacheOptions{Tags: []string{"tenant:" + id}})`). A [route rule](configuration.md#routerules) applies under those values, and the page's own `Set` merges over both.
+- **`Context` gives pages a copy per user or per role**: instead of disabling, set the request's context values, `l.Cache.Context("user", u.ID)` and `l.Cache.Context("role", u.Role)`, and pages that declare `VaryBy: []string{"user"}` are stored once per user. Pages without `VaryBy` ignore them. Call it before `next`: a call after Lyr's lookup that changes a value keeps the response out of the cache. See [Caching by context](caching.md#caching-by-context).
 - **`ctx.Cache()` is the same field**: in pages and components, `ctx.Cache()` returns it when your middleware attached the locals.
 - **Before Lyr has seen the request**, `l.Cache.Enabled()` reports `false` and `l.Cache.Invalidate` returns `lyr.ErrCacheNotEnabled`. To purge from middleware or a handler, use `site.InvalidateCache`.
 - **A cookie stops storing.** A response that has `Set-Cookie`, from the page or from your middleware, is never stored, so middleware that refreshes a session cookie on every request keeps those pages out of the cache. Set cookies only when they change.
 
 Two `lyr.Cache` fields (`Locals has two lyr.Cache fields (A, B); Lyr uses one`), an embedded one, an unexported one or a `*lyr.Cache` is an error at the field. See [Caching](caching.md#safety-what-lyr-checks-and-what-you-check) for what a cached page must not read.
+
+The same goes for Lyr's own [sessions](sessions.md): caching is manual, as in Astro, so a cached page that reads the session is served to everyone. Call `l.Cache.Disable()` for signed-in visitors as above (after `l.Session.Data()` finds a user), or move the personal parts into a `server:defer` island. Lyr only refuses to store a response that sends the session cookie. See [Sessions and route caching](sessions.md#sessions-and-route-caching).
+
+## Sessions in middleware
+
+Lyr's [sessions](sessions.md) reach middleware and your own handlers through a field of type `lyr.Session[SessionData]` in your `Locals` (any exported name; the type is the marker), next to the `SessionData` struct you declare in `src/locals`:
+
+```go
+type SessionData struct {
+	UserID int64 `json:"userId,omitempty"`
+}
+
+type Locals struct {
+	Session lyr.Session[SessionData]
+	User    *users.User
+}
+```
+
+`site.Sessions` binds the field for everything inside it, and saves the changes made there before the response starts. Put it after `site.TrailingSlash` and before the middleware that reads the session:
+
+```go
+h := lyr.Sequence(site.TrailingSlash, site.Sessions, auth)(mux)
+```
+
+```go
+func auth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r, l := lyr.EnsureLocals[locals.Locals](r)
+		d, err := l.Session.Data()
+		if err != nil {
+			http.Error(w, "session unavailable", http.StatusInternalServerError)
+			return
+		}
+		if d.UserID != 0 {
+			l.User = users.Find(r.Context(), d.UserID)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+```
+
+- **Pages share it.** A page under `site.Sessions` gets the same handle as its implicit `session`, so the page sees the data the middleware loaded, and changes made in either are saved once.
+- **Handlers change it the same way**: `d.UserID = u.ID`, then write the response. The save and the `Set-Cookie` happen when the response starts, so change the session before writing.
+- **Without `site.Sessions` in front**, `l.Session`'s methods return `lyr.ErrSessionUnbound`. Pages don't need it: their `session` works without it.
+- **The field** follows the rules of the other marker fields: two of them, an embedded or pointer one, or a type argument other than `SessionData` is an error at the field.
+
+[Sessions](sessions.md) has the complete example: sign-in with `Regenerate`, sign-out with `Destroy`, flash messages and errors.
 
 ## Short-circuit responses
 
@@ -423,6 +471,7 @@ A page short-circuits from its frontmatter by returning early. The template does
 |---|---|
 | `return ctx.Redirect("/blog", http.StatusFound)` | the redirect |
 | `return lyr.ErrNotFound` | your `404.lyr` page, status 404 |
+| `return ctx.Rewrite("/other")` | the page for `/other`, at the same URL (see [Rewrites](routing.md#rewrites)) |
 | `return err` | a 500, or your error handler's answer |
 
 See [Rendering](rendering.md#status-codes-and-errors) for status codes and errors.
@@ -441,7 +490,49 @@ site := app.New(lyr.WithErrorHandler(func(w http.ResponseWriter, r *http.Request
 }))
 ```
 
-It runs before anything is written, for errors from the page, any component, and deferred islands, and for recovered panics; `lyr.ErrNotFound` and redirects never reach it. Locals your middleware attached are on `r`. See [Answering errors yourself](rendering.md#answering-errors-yourself-witherrorhandler).
+It runs before anything is written, for errors from the page, any component, and deferred islands, and for recovered panics; `lyr.ErrNotFound`, redirects and rewrites never reach it. Locals your middleware attached are on `r`. See [Answering errors yourself](rendering.md#answering-errors-yourself-witherrorhandler).
+
+## Rewriting the request
+
+A middleware can serve another route's content at the same URL, like Astro's `next("/path")`: pass `next` a rewritten copy of the request. `lyr.RewriteRequest` makes it, parsing the target as Lyr parses an incoming request (`URL.Path`, `URL.RawPath` and `URL.RawQuery`; the request's own query isn't kept), and keeps the method, headers, body and `RequestURI` (the original target):
+
+```go
+// account shows the sign-in page, at the same URL, to anonymous visitors.
+func account(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r, l := lyr.EnsureLocals[locals.Locals](r)
+		if strings.HasPrefix(r.URL.Path, "/account") && l.User == nil {
+			r = lyr.RewriteRequest(r, "/login?next="+url.QueryEscape(r.URL.Path))
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+```
+
+Only the handlers after this middleware see the new path; the ones before it don't run again. Before `site.Middleware`, Lyr matches, caches and fills `locals.Route` for the new path as for any request. `RewriteRequest` never panics, so a target built from request data is safe. As in Astro, a relative target is resolved against the request's URL (`"x"` from `/a/b` is `/a/x`, `"../x"` is `/x`, `"?q=1"` keeps the path), dot segments are removed, and a scheme and host are ignored (`"https://example.com/a?b"` is `/a?b`). `"//x"` is the path `//x`, a malformed percent-escape is kept as written, and a control character is percent-encoded. The result is decoded and matched as a direct request for it, and a target no route matches gets the usual 404. Setting `r.URL.Path` on a copy of the request works too, but `RewriteRequest` also gets `RawPath` and the query right.
+
+### Rewrites: what runs again
+
+A page's `ctx.Rewrite` (see [Rewrites](routing.md#rewrites)) runs the request again from the `site.Rewrites` marker in your chain. It costs nothing per request without a cache provider, and a few nanoseconds with one (see [Performance](performance.md)), and it decides what runs again for the target (cache options set by the middleware outside it hold for the target; the middleware inside it sets its own again):
+
+```go
+h := lyr.Sequence(
+	site.TrailingSlash,
+	logging,             // outside site.Rewrites: runs once per request
+	site.Rewrites,       // a page rewrite re-enters here
+	site.Sessions, auth, // inside: run again for the target, with the same locals
+)(mux)
+```
+
+- **Put middleware that reads the path inside it**: auth gates, locals, sessions. Path-gated auth then sees the target, so a rewrite into `/admin/…` still needs a signed-in admin, as in Astro.
+- **Put middleware that wraps the `ResponseWriter` outside it**: access logs, gzip, timing. The second run uses the writer `site.Middleware` received, so a wrapper inside would wrap it twice (gzip twice). A logger outside logs one line per request; log `l.Route` after `next` returns to record the route that answered, the target.
+- **Locals carry over**: attach them with `lyr.EnsureLocals`, which finds the same value on the second run. A middleware that always calls `lyr.WithLocals(r, &locals.Locals{})` would replace them. `site.Sessions` sees the session it bound and passes through, so the session is loaded and saved once.
+- **Headers set on `w`** before the rewrite stay, since it's the same writer: inside middleware sets them again, so `Header().Set` is fine and `Header().Add` adds the value twice.
+- **Put `site.Rewrites` outside `site.Middleware`**, in the middleware chain around your mux, never inside it (on a mux route, or as `site.Middleware`'s next): a rewrite re-entering there would skip Lyr's pages.
+- **Without `site.Rewrites`**, a rewrite re-enters `site.Middleware` only, like `lyr.ErrNotFound`, and none of your middleware runs again. A rewrite to a path no page matches then goes to `site.Middleware`'s next handler; with `site.Rewrites`, it goes through your mux, so it can reach your own routes. One exception: a `404.lyr` reached through `site.NotFound()` (your mux's catch-all) doesn't know the `site.Middleware` above it, so without `site.Rewrites` its rewrite goes to `site.Middleware` with the 404 page as next, and doesn't reach your routes. Add `site.Rewrites` if your 404 page rewrites to them.
+- **`l.Route`** is filled again for the target; a target no page matches (one of your routes) has `lyr.RouteNone`, not the source page's route.
+
+`site.Match(r)` reports the original request's route: it can't know a page will rewrite. A request whose page rewrote has the target in `l.Route` once `next` returns.
 
 ## Rewrite responses
 
@@ -523,4 +614,5 @@ The same goes for the generated component packages under `lyr_gen/impl/`. `lyr d
 - [Lazy loading](lazy-loading.md): island requests and your middleware
 - [Caching](caching.md): route caching, and what a cached page must not read
 - [Components](components.md): `locals`, `ctx` and `props` in the frontmatter
+- [Sessions](sessions.md): the `Session` field, `site.Sessions` and sign-in
 - [Testing](testing.md): rendering with `lyrtest.WithLocals`

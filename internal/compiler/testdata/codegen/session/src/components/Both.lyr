@@ -1,0 +1,3 @@
+---
+---
+<p>{locals.User} {session.ID()}</p>

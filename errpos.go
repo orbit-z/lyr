@@ -3,16 +3,16 @@ package lyr
 // For generated code. ErrorAt wraps every return of a frontmatter body:
 // return ErrorAt("src/pages/x.lyr:14:5", err). It prefixes a failure
 // with the .lyr position of its return, so the production 500 log line
-// says where the error came from. ErrNotFound and *RedirectError are control
-// flow and pass through unchanged, as does an error that already carries a
-// position (one returned from a component's Render). Only a non-nil failure
-// allocates.
+// says where the error came from. ErrNotFound, *RedirectError and
+// *RewriteError are control flow and pass through unchanged, as does an
+// error that already carries a position (one returned from a component's
+// Render). Only a non-nil failure allocates.
 func ErrorAt(pos string, err error) error {
 	if err == nil {
 		return nil
 	}
 	switch err.(type) {
-	case *posError, *RedirectError:
+	case *posError, *RedirectError, *RewriteError:
 		return err
 	}
 	if err == ErrNotFound {

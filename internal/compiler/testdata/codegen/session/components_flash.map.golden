@@ -1,0 +1,5 @@
+lyr_gen/decl/components/flash/decl.go (src/components/Flash.lyr)
+lyr_gen/impl/components/flash/render.go (src/components/Flash.lyr)
+  exact 3:5 "session.ID()" -> 741-753 "session.ID()"
+call sites
+  content key=12 "session.ID()" call="lyr__w.Expr(\n/*line ../../../../src/components/Flash.lyr:3:5*/session.ID()/*line render.go:23:86*/,\n\t)"

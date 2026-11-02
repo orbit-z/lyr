@@ -28,7 +28,8 @@ func main() {
 	mux.Handle("/", site.Handler()) // everything else: pages, assets, islands, 404
 
 	// Trailing-slash redirects first, as in Astro; logging sees them too.
-	h := lyr.Sequence(logging, site.TrailingSlash)(mux)
+	// A page's ctx.Rewrite re-enters at site.Rewrites.
+	h := lyr.Sequence(logging, site.TrailingSlash, site.Rewrites)(mux)
 	if err := lyr.ListenAndServe(h); err != nil {
 		log.Fatal(err)
 	}
@@ -148,7 +149,7 @@ type Props struct {
 | `site.Handler() http.Handler` | `site.Middleware(site.NotFound())`: a complete handler that ends in your 404 page |
 | `site.NotFound() http.Handler` | Renders `404.lyr` with status 404 |
 | `site.TrailingSlash(next http.Handler) http.Handler` | Sends the 308 for the other form of a page URL, then passes everything else to `next`; put it outermost (see [Redirecting before your middleware](routing.md#redirecting-before-your-middleware)) |
-| `site.CacheHandler(h http.Handler) http.Handler` | Puts one of your own handlers through the route cache (see [Custom handlers](caching.md#custom-handlers-sitecachehandler)) |
+| `site.Sessions(next http.Handler) http.Handler` | Binds the `Session` field of your `Locals` for `next` and saves the session changes made there; put it after `site.TrailingSlash`, before the middleware and handlers that use the session (see [Sessions](sessions.md)) |
 
 `site.Match(r)` isn't a handler: it returns the route `site.Middleware` would serve `r` with, without serving it, for middleware that answers a request before Lyr and still logs its route. See [Knowing the route before Lyr](middleware.md#knowing-the-route-before-lyr).
 
@@ -254,11 +255,27 @@ Pick this when pages should win, for example when a content team adds pages that
 
 Where you put a middleware relative to Lyr decides what it sees:
 
-- **Outside Lyr** (`logging(site.Middleware(mux))`, or `logging(mux)` in pattern A): it sees every request, pages, island requests and custom routes alike. Put logging, sessions, CORS, rate limiting and gzip here. Lyr never compresses responses itself.
+- **Outside Lyr** (`logging(site.Middleware(mux))`, or `logging(mux)` in pattern A): it sees every request, pages, island requests and custom routes alike. Put logging, auth, CORS, rate limiting and gzip here. Lyr never compresses responses itself.
 - **After Lyr** (`site.Middleware(cors(mux))` in pattern B): it only sees the requests Lyr didn't handle.
 - **Inside `site.TrailingSlash`**, which goes outermost (only a logger outside it): it never sees the other form of a page URL, which has already been redirected, as in Astro. See [Middleware and locals](middleware.md#where-middleware-goes).
 
 Any ecosystem middleware works, because Lyr is a plain `http.Handler`.
+
+**Sessions**: with [sessions](sessions.md) turned on (`lyr.WithSessions` in `app.New`), `site.Sessions` goes right after `site.TrailingSlash`, so every middleware and handler after it can use the session, in either pattern:
+
+```go
+h := lyr.Sequence(logging, site.TrailingSlash, site.Sessions, auth)(mux)
+```
+
+Pages don't need it: their `session` works wherever Lyr sits. Middleware outside `site.Sessions` (`logging` here) can't use the session.
+
+**Rewrites**: `site.Rewrites` marks where a page's `ctx.Rewrite` re-enters the chain: the middleware after it runs again for the rewrite target, with the same locals, and the middleware before it runs once. Put it after the middleware that wraps the `ResponseWriter` (logging, gzip) and before the middleware that reads the path (sessions, auth):
+
+```go
+h := lyr.Sequence(logging, site.TrailingSlash, site.Rewrites, site.Sessions, auth)(mux)
+```
+
+Without it, a rewrite re-enters `site.Middleware` only. See [Rewrites: what runs again](middleware.md#rewrites-what-runs-again).
 
 To hand request data, such as a request ID or the visitor's theme, to your pages, set typed locals from a middleware outside Lyr with `lyr.EnsureLocals`. Pages read them as `locals.Theme`, and your handlers with `lyr.LocalsFromRequest`. See [Middleware and locals](middleware.md).
 
@@ -388,6 +405,7 @@ See [Dev server](dev-server.md) for the rest of what `lyr dev` does.
 ## See also
 
 - [Middleware and locals](middleware.md): net/http middleware and typed `Locals`
+- [Sessions](sessions.md): `lyr.WithSessions` and `site.Sessions`
 - [Routing](routing.md): which methods and paths Lyr claims
 - [Rendering](rendering.md): the request lifecycle and `dist/server`
 - [Lazy loading](lazy-loading.md): `server:defer` and the island endpoint

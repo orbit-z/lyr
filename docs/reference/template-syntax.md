@@ -157,7 +157,7 @@ Braces inside composite literals, strings, runes, template literals and comments
 
 - Statements aren't expressions: `{x := 1}` is an error. Declare variables in the frontmatter.
 - A call that returns several values (`posts.All()` returns a slice and an error) can't be used directly. Call it in the frontmatter and handle the error there.
-- Expressions see everything the render body declares, plus `props`, `ctx`, `slots`, `locals`, `params` (in pages) and the `lyr` package. See [Components](../components.md#whats-available-in-the-render-body).
+- Expressions see everything the render body declares, plus `props`, `ctx`, `slots`, `locals`, `session` (with [sessions](../sessions.md)), `params` (in pages) and the `lyr` package. See [Components](../components.md#whats-available-in-the-render-body).
 
 ## Template literals
 

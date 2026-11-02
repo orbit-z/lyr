@@ -29,7 +29,7 @@ var embedded []lyr.Option
 // passed here come after the ones from lyr.json and --embed, so they win.
 func New(opts ...lyr.Option) *lyr.Site {
 	defaults := []lyr.Option{lyr.WithRouteRules(
-		lyr.RouteRule{Pattern: "/", Options: lyr.CacheOptions{MaxAge: 60 * time.Second}},
+		lyr.RouteRule{Pattern: "/", Options: lyr.CacheOptions{MaxAge: 60 * time.Second, VaryBy: []string{"role"}}},
 		lyr.RouteRule{Pattern: "/about", Options: lyr.CacheOptions{Tags: []string{"static"}}},
 		lyr.RouteRule{Pattern: "/blog/[...path]", Options: lyr.CacheOptions{MaxAge: 300 * time.Second, SWR: 3600 * time.Second, Tags: []string{"blog", "posts"}}},
 	)}

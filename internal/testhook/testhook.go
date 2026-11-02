@@ -23,3 +23,9 @@ import "net/http"
 // "Component testing"). The runtime will set that up on the Ctx here, next
 // to the params; nothing in lyrtest has to change.
 var Render func(r *http.Request, names, vals []string, render func(ctx, w any) error) (string, error)
+
+// SeedSession gives the *lyr.Ctx ctx (as any) a session holding d, a
+// *SessionData, for lyrtest.WithSession: the session is loaded, has the
+// ID "lyrtest", and is never saved. The lyr.Session field of each Locals
+// in locals (pointers attached with lyrtest.WithLocals) is bound to it.
+var SeedSession func(ctx any, d any, locals []any)

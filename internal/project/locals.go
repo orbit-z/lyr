@@ -23,15 +23,18 @@ const LocalsDir = "src/locals"
 // go/parser and no type checking (PLAN.md §5b "Typed locals"). It returns
 // the package's import path when the package declares Locals, else "" (the
 // generated code then uses lyr.NoLocals); the names of Locals' fields of
-// type lyr.RouteInfo, which Lyr fills (PLAN.md §4g), and lyr.Cache,
-// the request's cache handle (PLAN.md §4h); and the problems found:
+// type lyr.RouteInfo, which Lyr fills (PLAN.md §4g), lyr.Cache,
+// the request's cache handle (PLAN.md §4h), and lyr.Session[SessionData]
+// (PLAN.md §4i), whether it declares SessionData (which doesn't need
+// Locals); and the problems found:
 //
 //   - a package name other than locals;
-//   - a Locals that's a defined type but not a struct (an alias is
+//   - a Locals or SessionData that's a defined type but not a struct (an alias is
 //     accepted: its target can't be checked without types, and it has no
 //     RouteInfo field);
-//   - more than one lyr.RouteInfo (or lyr.Cache) field, an embedded or
-//     unexported one, or a pointer to one;
+//   - more than one lyr.RouteInfo (lyr.Cache, lyr.Session) field, an
+//     embedded or unexported one, or a pointer to one; a lyr.Session
+//     whose type argument isn't SessionData;
 //   - an import of lyr_gen/app or an implementation package, directly or
 //     through the module's own packages: the implementation package of
 //     every component that uses locals imports src/locals, so that would be
@@ -48,6 +51,8 @@ func detectLocals(root, module string) (path string, fields localsFields, _ []Di
 	}
 	var ds []Diagnostic
 	found := false
+	var sessionData *ast.TypeSpec // and its file
+	var sessionRel string
 	for _, pf := range files {
 		rel := LocalsDir + "/" + pf.name
 		if name := pf.f.Name.Name; name != "locals" {
@@ -60,6 +65,12 @@ func detectLocals(root, module string) (path string, fields localsFields, _ []Di
 			}
 			for _, spec := range gd.Specs {
 				ts := spec.(*ast.TypeSpec)
+				if ts.Name.Name == "SessionData" {
+					if sessionData == nil {
+						sessionData, sessionRel = ts, rel
+					}
+					continue
+				}
 				if ts.Name.Name != "Locals" {
 					continue
 				}
@@ -74,22 +85,49 @@ func detectLocals(root, module string) (path string, fields localsFields, _ []Di
 					ds = append(ds, rds...)
 					fields.Cache, rds = markerField(fset, rel, pf.f, st, "Cache", "Cache", "uses")
 					ds = append(ds, rds...)
+					fields.Session, rds = markerField(fset, rel, pf.f, st, "Session", "Session", "binds")
+					ds = append(ds, rds...)
 				}
 			}
 		}
 	}
+	if sessionData != nil {
+		if _, isStruct := sessionData.Type.(*ast.StructType); !isStruct && !sessionData.Assign.IsValid() {
+			ds = append(ds, goError(fset, sessionRel, sessionData.Name.Pos(), "SessionData must be a struct type: type SessionData struct { … }"))
+		}
+	}
 	ds = append(ds, checkLocalsImports(fset, root, module, files)...)
-	if !found || len(ds) > 0 {
+	if len(ds) > 0 {
 		return "", localsFields{}, ds
 	}
+	if !found {
+		return "", localsFields{SessionData: sessionData != nil}, nil
+	}
+	fields.SessionData = sessionData != nil
 	return module + "/" + LocalsDir, fields, nil
 }
 
 // localsFields are the names of Locals' fields that Lyr knows by type, or
 // "".
 type localsFields struct {
-	Route string // lyr.RouteInfo (PLAN.md §4g)
-	Cache string // lyr.Cache (PLAN.md §4h)
+	Route   string // lyr.RouteInfo (PLAN.md §4g)
+	Cache   string // lyr.Cache (PLAN.md §4h)
+	Session string // lyr.Session[SessionData] (PLAN.md §4i)
+	// SessionData is set when src/locals declares type SessionData,
+	// which the implicit session needs; it doesn't need Locals.
+	SessionData bool
+}
+
+// hasFields reports whether Locals has a field Lyr knows by type (app.go
+// then imports src/locals).
+func (f localsFields) hasFields() bool { return f.Route != "" || f.Cache != "" || f.Session != "" }
+
+// sessionPath is compiler.Options.Session for f.
+func sessionPath(module string, f localsFields) string {
+	if !f.SessionData {
+		return ""
+	}
+	return module + "/" + LocalsDir
 }
 
 // markerField returns the name of the field of type lyr.<typ> in the
@@ -111,7 +149,15 @@ func markerField(fset *token.FileSet, rel string, f *ast.File, st *ast.StructTyp
 	if lyrName == "" || lyrName == "_" {
 		return "", nil
 	}
+	generic := typ == "Session" // lyr.Session[SessionData]
 	isMarker := func(e ast.Expr) bool {
+		if generic {
+			ix, ok := e.(*ast.IndexExpr)
+			if !ok {
+				return false
+			}
+			e = ix.X
+		}
 		if lyrName == "." {
 			id, ok := e.(*ast.Ident)
 			return ok && id.Name == typ
@@ -126,6 +172,9 @@ func markerField(fset *token.FileSet, rel string, f *ast.File, st *ast.StructTyp
 	var name string
 	var ds []Diagnostic
 	full := "lyr." + typ
+	if generic {
+		full += "[SessionData]"
+	}
 	verbBase := strings.TrimSuffix(verb, "s")
 	for _, fld := range st.Fields.List {
 		ft, ptr := fld.Type, false
@@ -138,6 +187,12 @@ func markerField(fset *token.FileSet, rel string, f *ast.File, st *ast.StructTyp
 		if len(fld.Names) == 0 {
 			ds = append(ds, goError(fset, rel, fld.Type.Pos(), "Locals can't embed "+full+": give the field a name, such as "+example+" "+full))
 			continue
+		}
+		if generic {
+			if id, ok := ft.(*ast.IndexExpr).Index.(*ast.Ident); !ok || id.Name != "SessionData" {
+				ds = append(ds, goError(fset, rel, fld.Names[0].Pos(), "Locals field "+fld.Names[0].Name+" must be a "+full+": the session's data is type SessionData in src/locals"))
+				continue
+			}
 		}
 		for _, id := range fld.Names {
 			switch {

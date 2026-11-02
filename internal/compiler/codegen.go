@@ -19,6 +19,10 @@ type Options struct {
 	// Locals is the import path of the user's src/locals package, or "" to
 	// use lyr__rt.NoLocals (detection is milestone 7).
 	Locals string
+	// Session is the import path of the package that declares SessionData
+	// (src/locals, PLAN.md §4i), or "": the implicit session is then not
+	// declared (and using it is an error the project reports).
+	Session string
 	// CompressHTML is lyr.json's "compressHTML": how template whitespace
 	// is compressed at codegen time (DESIGN.md, settled gap 2). The zero
 	// value is the default, "jsx" (Astro v7's default).

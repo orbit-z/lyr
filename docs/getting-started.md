@@ -411,15 +411,16 @@ func main() {
 
 	// Middleware, first listed runs first (like Astro's sequence()). The
 	// trailing-slash redirects (lyr.json's trailingSlash) come first, as in
-	// Astro; add your own net/http middleware (logging, auth, locals) after.
-	h := lyr.Sequence(site.TrailingSlash /*, logging, auth */)(mux)
+	// Astro. A page's ctx.Rewrite runs the middleware after site.Rewrites
+	// again: put logging and gzip before it, auth and locals after it.
+	h := lyr.Sequence(site.TrailingSlash /*, logging */, site.Rewrites /*, auth */)(mux)
 	if err := lyr.ListenAndServe(h); err != nil {
 		log.Fatal(err)
 	}
 }
 ```
 
-The `app` import is your module path plus `/lyr_gen/app`. `lyr dev`, `lyr preview` and the built binary all run this same `main`, so your routes and middleware behave the same in development and production. `site.TrailingSlash` sends the 308 for the other form of a page URL (`/about/` to `/about`) before your middleware runs, as Astro does (see [Trailing slashes](routing.md#redirecting-before-your-middleware)). `lyr.ListenAndServe` listens on `:4321` by default, or on the port in `PORT` or the address in `LYR_ADDR`, and shuts down gracefully on SIGINT and SIGTERM. After a graceful shutdown it returns `nil`, so `log.Fatal` only runs (and exits with status 1) when the server fails, for example because the port is taken; Ctrl-C exits cleanly. See [Server](server.md) for custom routes and precedence, and [Middleware and locals](middleware.md) for middleware.
+The `app` import is your module path plus `/lyr_gen/app`. `lyr dev`, `lyr preview` and the built binary all run this same `main`, so your routes and middleware behave the same in development and production. `site.TrailingSlash` sends the 308 for the other form of a page URL (`/about/` to `/about`) before your middleware runs, as Astro does (see [Trailing slashes](routing.md#redirecting-before-your-middleware)). `site.Rewrites` marks where a page's `ctx.Rewrite` re-enters the chain: the middleware after it runs again for the rewrite target (see [Rewrites](routing.md#rewrites)). `lyr.ListenAndServe` listens on `:4321` by default, or on the port in `PORT` or the address in `LYR_ADDR`, and shuts down gracefully on SIGINT and SIGTERM. After a graceful shutdown it returns `nil`, so `log.Fatal` only runs (and exits with status 1) when the server fails, for example because the port is taken; Ctrl-C exits cleanly. See [Server](server.md) for custom routes and precedence, and [Middleware and locals](middleware.md) for middleware.
 
 ### TypeScript files
 

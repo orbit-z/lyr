@@ -100,7 +100,7 @@ For a page request, the path through your server looks like this:
 4. **Head injection**: Lyr inserts the page's `<link>` and `<script>` tags before `</head>`.
 5. **One write**: the response goes out with its status, headers and `Content-Length`.
 
-If the frontmatter returns early, with a redirect, `lyr.ErrNotFound` or an error, steps 3 to 5 send that response instead (see below).
+If the frontmatter returns early, with a redirect, a rewrite, `lyr.ErrNotFound` or an error, steps 3 to 5 send that response instead (see below).
 
 ## The request: `ctx`
 
@@ -181,6 +181,7 @@ The status is 200 unless you change it:
 
 - `ctx.SetStatus(code)` sets it, and the template still renders. The form example above uses it for a 422 with an error message.
 - `return lyr.ErrNotFound` stops rendering and answers with your `404.lyr` page and status 404 (see [Routing](routing.md#the-404-page)).
+- `return ctx.Rewrite("/other")` stops rendering and answers with the page for `/other`, at the same URL, with that page's status (see [Rewrites](routing.md#rewrites)).
 - `return err` with any other error stops rendering and answers 500, unless your [error handler](#answering-errors-yourself-witherrorhandler) answers it.
 - A panic in a page or component is recovered per request and also answers 500 (or goes to the error handler).
 
@@ -190,7 +191,7 @@ In production, the visitor gets a minimal built-in page, `500 Internal Server Er
 lyr: GET /blog/hello: src/pages/blog/[slug].lyr:14:5: posts: connection refused
 ```
 
-The position is the frontmatter `return` that returned the error: here, line 14 is `return fmt.Errorf("posts: %w", err)`. Lyr adds it when it compiles the page, to every `return` of the frontmatter (not to returns inside a `func` you declare there). The original error is still in the chain, so `errors.Is` and `errors.As` work on it. `lyr.ErrNotFound` and `ctx.Redirect(…)` are returned as is, and an error that already has a position, such as one returned by a component's `Render`, isn't prefixed twice.
+The position is the frontmatter `return` that returned the error: here, line 14 is `return fmt.Errorf("posts: %w", err)`. Lyr adds it when it compiles the page, to every `return` of the frontmatter (not to returns inside a `func` you declare there). The original error is still in the chain, so `errors.Is` and `errors.As` work on it. `lyr.ErrNotFound`, `ctx.Redirect(…)` and `ctx.Rewrite(…)` are returned as is, and an error that already has a position, such as one returned by a component's `Render`, isn't prefixed twice.
 
 A panic is logged at the innermost `.lyr` line on the stack, with the file relative to the server's working directory, and without a stack trace:
 
@@ -289,7 +290,7 @@ func pageURL(r *http.Request) string {
 
 The rules:
 
-- **What reaches it**: every error that would become the 500, from a page or any component it renders, at any depth (the `404.lyr` page and [deferred islands](lazy-loading.md#status-codes-and-errors) included), and recovered panics. `lyr.ErrNotFound` and `ctx.Redirect(…)` never reach it: they keep their 404 and redirect, however the handler is written. The island endpoint's own 400 and 413 (a bad token, props that don't decode, a body over 1 MiB) aren't render errors and don't reach it either.
+- **What reaches it**: every error that would become the 500, from a page or any component it renders, at any depth (the `404.lyr` page and [deferred islands](lazy-loading.md#status-codes-and-errors) included), and recovered panics. `lyr.ErrNotFound`, `ctx.Redirect(…)` and `ctx.Rewrite(…)` never reach it: they keep their 404, redirect and rewrite, however the handler is written. The island endpoint's own 400 and 413 (a bad token, props that don't decode, a body over 1 MiB) aren't render errors and don't reach it either.
 - **`true` or `false`**: return `true` when the handler wrote the response, `false` to let Lyr answer with the built-in 500 and its log line.
 - **Your error is still there**: the error carries the `.lyr` position of the `return` that returned it (its text starts with `src/pages/members.lyr:5:2: `), but `errors.Is` and `errors.As` see through it, through any number of components and through `errors.Join`. A panic reaches the handler as an error whose text names the `.lyr` line (`src/pages/x.lyr:7: panic: …`); when the panic value is an `error`, `errors.As` finds it too.
 - **Nothing has been written yet**: responses are buffered, so the handler can send any status, headers and body. The page's partial output and the headers it set with `ctx.Header()` are dropped, as for the 500. Headers your middleware set on the response before calling Lyr stay.
@@ -402,7 +403,7 @@ The rules:
 - **Don't mark fast ones.** A marked component costs about half a microsecond and one small allocation; that's nothing against a 10 ms fetch and a lot against a 200 ns card.
 - **A marked component's subtree** (its children, its slot content) renders in its goroutine too, and can contain marked components of its own. Marked components in different parents (one in the header, one in the body) overlap as well.
 - **Errors** come out in source order, exactly as the in-order render would report them: the first failing component in the HTML wins, whatever failed first in time. Redirects and `lyr.ErrNotFound` work as usual, and so does [`WithErrorHandler`](#answering-errors-yourself-witherrorhandler). Lyr doesn't cancel the other components when one fails, so a component after the failing one may already have run its fetch; the response waits for every marked component that started.
-- **Status and headers** set with `ctx.SetStatus` and `ctx.Header()` in a marked component are applied when the page is assembled, in source order, after the page's own: a marked component's status replaces the page's, and each header it sets replaces the page's values for that key.
+- **Status and headers** set with `ctx.SetStatus` and `ctx.Header()` in a marked component are applied when the page is assembled, in source order, after the page's own: a marked component's status replaces the page's, and each header it sets replaces the page's values for that key, except `Set-Cookie`, whose values are added to the page's.
 - **A limit per render**: at most 16 marked components run at once, counted across nesting. Past that, a marked component renders in order on the goroutine that reaches it, with the same output. Change it with `lyr.WithConcurrencyLimit(n)` in `app.New(…)` (0 renders every marked component in order). A marked component in a `{for}` loop is allowed, but it's usually a sign that one query in the page would do better than one per item.
 - **Your code must be safe to run concurrently.** See [Fetching data in components](components.md#fetching-data-in-components) for the data-race rules.
 

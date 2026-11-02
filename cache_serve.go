@@ -1,6 +1,7 @@
 package lyr
 
 import (
+	"encoding/binary"
 	"fmt"
 	"hash/maphash"
 	"net/http"
@@ -41,7 +42,7 @@ var cacheNow = time.Now
 // waiting for another request's render.
 var testFlightWaitHook func()
 
-// cacheState is a route's (an island's, a CacheHandler's) cache state: the
+// cacheState is a route's (an island's) cache state: the
 // per-route bit that gates the lookup, and the refusal warnings given.
 type cacheState struct {
 	stored atomic.Bool   // a response of this route was stored once
@@ -62,7 +63,7 @@ type cacheFlight struct {
 // cacheReq is one request's state in the flow; it lives on the stack.
 type cacheReq struct {
 	k       *Cache
-	buf     *[]byte // key storage (the Ctx's or the recorder's)
+	buf     *[]byte // key storage (the Ctx's)
 	path    string  // the escaped request path
 	state   *cacheState
 	get     bool // a GET that may be looked up and stored
@@ -75,14 +76,32 @@ type cacheReq struct {
 	// off is set when the handle was disabled before the lookup: no store
 	// and no cache headers for this request.
 	off bool
+	// pre is a pooled copy of the options middleware set before the
+	// lookup, taken by serveCachedPage when the chain has no
+	// site.Rewrites (all middleware runs once), or nil: a page rewrite
+	// restores them for its target (PLAN.md §4j). With site.Rewrites, the
+	// copy is the handle's pre, taken at the marker.
+	pre *Cache
 	// bg is set for a background revalidation: no lookup, and the handle
 	// starts as snap (the triggering request's options).
 	bg   bool
 	snap *Cache
-	// origin, for a revalidation: the page route or the handler (both nil:
-	// an island).
-	route   *compiledRoute
-	handler *cacheHandler
+	// origin, for a revalidation: the page route (nil: an island).
+	route *compiledRoute
+	// marker is the Vary names of the live marker the lookup went through,
+	// or nil: a store keeps its context names (put).
+	marker []string
+	// For a revalidation: locals is its shallow copy of the trigger's
+	// Locals (cloneLocals), or nil; anon is set when the stale copy
+	// doesn't vary by context, so it renders as an anonymous visitor.
+	locals any
+	anon   bool
+	// sess is the session site.Sessions bound for the request, or nil;
+	// sessCookie is set when the response sends the session's cookie (a
+	// new, regenerated or destroyed session): it's never stored (PLAN.md
+	// §4i "Route caching").
+	sess       *sessionState
+	sessCookie bool
 }
 
 func newSiteCache(s *Site, o *siteOptions, rules *router) *siteCache {
@@ -281,12 +300,29 @@ func (sc *siteCache) keyOf(b []byte) CacheKey {
 	return CacheKey{hash: maphash.String(cacheSeed, s), s: s}
 }
 
+// ctxVaryPrefix marks a context key among a Vary marker's names
+// ("@user" for VaryBy "user"): '@' can't start a header name, and
+// varyNames drops such names from a response's Vary header.
+const ctxVaryPrefix = "@"
+
 // varyKey builds the variant key of p's primary key for the Vary names,
 // after the primary key in p.buf (the primary key's bytes stay as they are).
+// A header name adds "\x00Name:values"; a context key (ctxVaryPrefix)
+// adds "\x00@", then the key and the request's value for it, each
+// length-prefixed so no value can forge another combination.
 func (sc *siteCache) varyKey(r *http.Request, p *cacheReq, names []string) CacheKey {
 	b := (*p.buf)[:len(p.primary.s)]
 	for _, name := range names {
 		b = append(b, 0)
+		if key, ok := strings.CutPrefix(name, ctxVaryPrefix); ok {
+			v := contextValue(p.k, key)
+			b = append(b, ctxVaryPrefix...)
+			b = binary.AppendUvarint(b, uint64(len(key)))
+			b = append(b, key...)
+			b = binary.AppendUvarint(b, uint64(len(v)))
+			b = append(b, v...)
+			continue
+		}
 		b = append(b, name...)
 		b = append(b, ':')
 		for i, v := range r.Header[name] {
@@ -313,10 +349,18 @@ func (sc *siteCache) ensureKey(r *http.Request, p *cacheReq) {
 
 // attach makes the request's handle: the Locals field when middleware
 // attached locals (WithLocalsCache), else the Ctx's own; for a background
-// revalidation, the Ctx's own seeded with the trigger's options.
+// revalidation, the field of its Locals copy (or the Ctx's own) seeded
+// with the trigger's options.
 func (sc *siteCache) attach(r *http.Request, c *Ctx, p *cacheReq) *Cache {
 	if p.bg {
-		copyCache(&c.cache, p.snap)
+		if l := p.locals; l != nil {
+			c.locals = l
+			if sc.field != nil {
+				c.cacheField = sc.field.field
+				c.cacheP = sc.field.of(l)
+			}
+		}
+		copyCache(c.Cache(), p.snap)
 	} else if sc.field != nil {
 		c.cacheField = sc.field.field
 		var lk *Cache
@@ -338,6 +382,8 @@ func (sc *siteCache) attach(r *http.Request, c *Ctx, p *cacheReq) *Cache {
 // route rule and, on a route known to cache, looks the request up. It
 // reports whether the response was served.
 func (sc *siteCache) begin(w http.ResponseWriter, r *http.Request, p *cacheReq, rules bool) bool {
+	// From here on, the context values are the key's (Cache.Context).
+	p.k.flags |= cacheLooked
 	if p.bg {
 		p.get = true
 		return false
@@ -346,6 +392,12 @@ func (sc *siteCache) begin(w http.ResponseWriter, r *http.Request, p *cacheReq, 
 		// Disabled before the lookup (by middleware): the request stays
 		// out of the cache even if the page calls Set again.
 		p.off = true
+		p.k.flags |= cacheOff // for a rewrite from the 404 page (PLAN.md §4j)
+		return false
+	}
+	if p.k.flags&cacheLate != 0 {
+		// A rewrite's target after a late Context change: the values the
+		// key would use aren't the request's, so no lookup (and no store).
 		return false
 	}
 	if r.Method != http.MethodGet {
@@ -377,6 +429,7 @@ func (sc *siteCache) lookup(w http.ResponseWriter, r *http.Request, p *cacheReq)
 		if e.state(now) == entryExpired {
 			e = nil
 		} else {
+			p.marker = e.Vary
 			p.key = sc.varyKey(r, p, e.Vary)
 			e = sc.store.Get(p.key)
 		}
@@ -420,6 +473,44 @@ func (sc *siteCache) lookup(w http.ResponseWriter, r *http.Request, p *cacheReq)
 	}
 	serveEntry(w, r, f.e, cacheHit)
 	return true
+}
+
+// beginSession sets up p's session for the flow: a revalidation gets a
+// session of its own, never saved (anonymous unless the stale copy
+// varies by context), which its Locals copy's Session field shares; other
+// requests note the session site.Sessions bound.
+func (sc *siteCache) beginSession(r *http.Request, c *Ctx, p *cacheReq) {
+	s := sc.site
+	if s.sess == nil {
+		return
+	}
+	if p.bg {
+		st := newBGSession(c, s.sess, r, p.anon)
+		s.bindBGLocals(p.locals, st)
+		return
+	}
+	p.sess = s.boundSession(r, c)
+}
+
+// endSession saves a page or island session before the store decision
+// (not for a revalidation) and records on p whether the response sends
+// the session cookie.
+func (sc *siteCache) endSession(w http.ResponseWriter, c *Ctx, p *cacheReq, err error) error {
+	if sc.site.sess == nil {
+		return err
+	}
+	st, _ := c.session.(*sessionState)
+	if st == nil {
+		st = p.sess
+	}
+	if st == nil {
+		return err
+	}
+	if !p.bg {
+		err = saveSession(w, st, err)
+		p.sessCookie = sentCookie(st)
+	}
+	return err
 }
 
 func (sc *siteCache) joinFlight(key string) (*cacheFlight, bool) {

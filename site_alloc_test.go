@@ -456,3 +456,264 @@ func BenchmarkCache(b *testing.B) {
 		serve(b, h, httptest.NewRequest("GET", "/", nil))
 	})
 }
+
+// Caching by context (PLAN.md §4h "Caching by context (VaryBy)").
+
+func allocVaryPage(c *Ctx, w *Writer) error {
+	c.Cache().Set(CacheOptions{MaxAge: time.Hour, SWR: time.Hour, Tags: []string{"posts", "home"}, VaryBy: []string{"user", "role"}})
+	return allocPage(c, w)
+}
+
+var allocVaryRoutes = []Route{
+	{Pattern: "/", File: "src/pages/index.lyr", Render: allocCachedPage},
+	{Pattern: "/vary", File: "src/pages/vary.lyr", Render: allocVaryPage},
+}
+
+// contextMiddleware is auth-like middleware that sets two context values
+// on Locals attached earlier (reset per request, as a fresh Locals would
+// be).
+func contextMiddleware(s *Site) http.Handler {
+	next := s.Middleware(http.NotFoundHandler())
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		l := LocalsFromRequest[cacheLocals](r)
+		l.Cache = Cache{}
+		l.Cache.Context("user", "u_123456")
+		l.Cache.Context("role", "admin")
+		next.ServeHTTP(w, r)
+	})
+}
+
+func TestCacheContextAllocs(t *testing.T) {
+	if testing.Short() || raceEnabled {
+		t.Skip("allocation counts (not under -short or -race)")
+	}
+	var k Cache
+	if n := testing.AllocsPerRun(1000, func() {
+		k = Cache{}
+		k.Context("user", "u_123456")
+		k.Context("role", "admin")
+		k.Context("plan", "pro")
+	}); n != 0 {
+		t.Errorf("Context: %v allocs", n)
+	}
+	s := testSite(t, allocVaryRoutes, WithCache(newFakeStore()), withLocalsCache())
+	h := contextMiddleware(s)
+	for _, tt := range []struct {
+		path  string
+		state string
+		want  float64
+	}{
+		{"/vary", "HIT", 0},
+		{"/", "HIT", 0}, // context set, the page has no VaryBy
+	} {
+		r := WithLocals(httptest.NewRequest("GET", tt.path, nil), new(cacheLocals))
+		h.ServeHTTP(httptest.NewRecorder(), r) // MISS
+		fw := newFakeResponseWriter()
+		n := testing.AllocsPerRun(1000, func() {
+			fw.reset()
+			h.ServeHTTP(fw, r)
+		})
+		if fw.h.Get("X-Lyr-Cache") != tt.state {
+			t.Fatalf("%s: %q", tt.path, fw.h.Get("X-Lyr-Cache"))
+		}
+		if n != tt.want {
+			t.Errorf("%s %s: %v allocs, want %v", tt.path, tt.state, n, tt.want)
+		}
+	}
+}
+
+func BenchmarkCacheContext(b *testing.B) {
+	b.Setenv("LYR_DEV", "")
+	b.Setenv("LYR_STATIC", b.TempDir())
+	b.Run("context-3-keys", func(b *testing.B) {
+		var k Cache
+		b.ReportAllocs()
+		for b.Loop() {
+			k = Cache{}
+			k.Context("user", "u_123456")
+			k.Context("role", "admin")
+			k.Context("plan", "pro")
+		}
+	})
+	serve := func(b *testing.B, h http.Handler, path string) {
+		r := WithLocals(httptest.NewRequest("GET", path, nil), new(cacheLocals))
+		h.ServeHTTP(httptest.NewRecorder(), r)
+		fw := newFakeResponseWriter()
+		b.ReportAllocs()
+		for b.Loop() {
+			fw.reset()
+			h.ServeHTTP(fw, r)
+		}
+	}
+	h := contextMiddleware(NewSite(allocVaryRoutes, nil, WithCache(newFakeStore()), withLocalsCache()))
+	b.Run("hit", func(b *testing.B) { serve(b, h, "/") })
+	b.Run("varyby-hit", func(b *testing.B) { serve(b, h, "/vary") })
+	miss := contextMiddleware(NewSite(allocVaryRoutes, nil, WithCache(&missStore{}), withLocalsCache()))
+	b.Run("miss-store", func(b *testing.B) { serve(b, miss, "/") })
+	b.Run("varyby-miss-store", func(b *testing.B) { serve(b, miss, "/vary") })
+}
+
+// Sessions (PLAN.md §4i).
+
+type allocSessData struct {
+	UserID int64    `json:"userId,omitempty"`
+	Cart   []string `json:"cart,omitempty"`
+	Flash  string   `json:"flash,omitempty"`
+}
+
+type allocSessLocals struct {
+	Session Session[allocSessData]
+}
+
+func allocSessionPage(change bool) func(c *Ctx, w *Writer) error {
+	return func(c *Ctx, w *Writer) error {
+		d, err := SessionOf[allocSessData](c).Data()
+		if err != nil {
+			return err
+		}
+		if change {
+			d.Flash = d.Flash[:0] + "x"
+			if len(d.Cart) > 0 {
+				d.Cart[0] = d.Cart[0] + "1"
+			}
+		}
+		return allocPage(c, w)
+	}
+}
+
+func allocSessionSite(tb testing.TB, store SessionStore, opts ...Option) *Site {
+	tb.Setenv("LYR_DEV", "")
+	tb.Setenv("LYR_STATIC", tb.TempDir())
+	tb.Setenv("LYR_PUBLIC", "")
+	routes := []Route{
+		{Pattern: "/", File: "src/pages/index.lyr", Render: allocPage},
+		{Pattern: "/read", File: "src/pages/read.lyr", Render: allocSessionPage(false)},
+		{Pattern: "/change", File: "src/pages/change.lyr", Render: allocSessionPage(true)},
+		{Pattern: "/cached", File: "src/pages/cached.lyr", Render: func(c *Ctx, w *Writer) error {
+			c.Cache().Set(CacheOptions{MaxAge: time.Hour})
+			return allocSessionPage(false)(c, w)
+		}},
+	}
+	opts = append([]Option{WithSessions(store, SessionOptions{TTL: time.Hour}),
+		WithLocalsSession(func(l *allocSessLocals) *Session[allocSessData] { return &l.Session })}, opts...)
+	return NewSite(routes, nil, opts...)
+}
+
+func TestSessionAllocs(t *testing.T) {
+	if testing.Short() || raceEnabled {
+		t.Skip("allocation counts (not under -short or -race)")
+	}
+	store := newFakeSessions()
+	s := allocSessionSite(t, store, WithCache(newFakeStore()))
+	h := s.Middleware(http.NotFoundHandler())
+	allocs := func(name string, h http.Handler, r *http.Request, want float64) {
+		t.Helper()
+		fw := newFakeResponseWriter()
+		h.ServeHTTP(fw, r) // warm-up (pools, a first MISS)
+		n := testing.AllocsPerRun(1000, func() {
+			fw.reset()
+			h.ServeHTTP(fw, r)
+		})
+		if fw.status != 200 {
+			t.Fatalf("%s: status %d", name, fw.status)
+		}
+		if n != want {
+			t.Errorf("%s: %v allocs, want %v", name, n, want)
+		}
+	}
+	// A page that doesn't use the session: Content-Length only.
+	allocs("page without session", h, httptest.NewRequest("GET", "/", nil), 1)
+	// Anonymous Data() with no change: no cookie scan result, zero D, the
+	// pooled encoder.
+	allocs("anonymous read", h, httptest.NewRequest("GET", "/read", nil), 1)
+	// site.Sessions on a request that doesn't use the session, with
+	// Locals attached earlier.
+	r := WithLocals(httptest.NewRequest("GET", "/", nil), new(allocSessLocals))
+	allocs("site.Sessions unused", s.Sessions(h), r, 1)
+	// A cached page that reads the session, served from the cache, with or
+	// without a session cookie: no cookie scan, no store call.
+	allocs("cached HIT", h, httptest.NewRequest("GET", "/cached", nil), 0)
+	cr := httptest.NewRequest("GET", "/cached", nil)
+	cr.Header.Set("Cookie", "lyr-session="+sid1)
+	allocs("cached HIT with a cookie", h, cr, 0)
+	if store.calls() != [3]int32{} {
+		t.Errorf("store calls %v", store.calls())
+	}
+}
+
+func BenchmarkSession(b *testing.B) {
+	serve := func(b *testing.B, h http.Handler, r *http.Request) {
+		fw := newFakeResponseWriter()
+		b.ReportAllocs()
+		for b.Loop() {
+			fw.reset()
+			h.ServeHTTP(fw, r)
+		}
+	}
+	withCookie := func(path, id string) *http.Request {
+		r := httptest.NewRequest("GET", path, nil)
+		r.Header.Set("Cookie", "theme=dark; lyr-session="+id)
+		return r
+	}
+	store := newFakeSessions()
+	stored := `{"userId":42,"cart":["sku-1","sku-2","sku-3"],"flash":"hello"}`
+	store.put(sid1, stored)
+	s := allocSessionSite(b, store)
+	h := s.Middleware(http.NotFoundHandler())
+	b.Run("page-no-session", func(b *testing.B) { serve(b, h, httptest.NewRequest("GET", "/", nil)) })
+	b.Run("anonymous-read", func(b *testing.B) { serve(b, h, httptest.NewRequest("GET", "/read", nil)) })
+	b.Run("stored-read", func(b *testing.B) { serve(b, h, withCookie("/read", sid1)) })
+	b.Run("stored-change", func(b *testing.B) {
+		store.onWrite = func(id string) { store.put(id, stored) } // keep the input fixed
+		defer func() { store.onWrite = nil }()
+		serve(b, h, withCookie("/change", sid1))
+	})
+	b.Run("new-session", func(b *testing.B) { serve(b, h, httptest.NewRequest("GET", "/change", nil)) })
+	b.Run("sessions-unused", func(b *testing.B) {
+		serve(b, s.Sessions(h), WithLocals(httptest.NewRequest("GET", "/", nil), new(allocSessLocals)))
+	})
+	b.Run("sessions-attach", func(b *testing.B) { serve(b, s.Sessions(h), httptest.NewRequest("GET", "/", nil)) })
+	cs := allocSessionSite(b, store, WithCache(newFakeStore()))
+	ch := cs.Middleware(http.NotFoundHandler())
+	ch.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/cached", nil))
+	b.Run("cached-hit", func(b *testing.B) { serve(b, ch, httptest.NewRequest("GET", "/cached", nil)) })
+	b.Run("cached-hit-cookie", func(b *testing.B) { serve(b, ch, withCookie("/cached", sid1)) })
+}
+
+// TestCacheMiddlewareSetAllocs: middleware that calls Set before the
+// lookup keeps a HIT allocation-free, with and without site.Rewrites (the
+// copy of its options for a rewrite's target is pooled).
+func TestCacheMiddlewareSetAllocs(t *testing.T) {
+	if testing.Short() || raceEnabled {
+		t.Skip("allocation counts (not under -short or -race)")
+	}
+	for _, marker := range []bool{false, true} {
+		s := testSite(t, allocVaryRoutes, WithCache(newFakeStore()), withLocalsCache())
+		var next http.Handler = s.Middleware(http.NotFoundHandler())
+		mw := func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				l := LocalsFromRequest[cacheLocals](r)
+				l.Cache = Cache{}
+				l.Cache.Set(CacheOptions{MaxAge: time.Hour, Tags: []string{"mw"}})
+				next.ServeHTTP(w, r)
+			})
+		}
+		h := mw(next)
+		if marker {
+			h = mw(s.Rewrites(next))
+		}
+		r := WithLocals(httptest.NewRequest("GET", "/", nil), new(cacheLocals))
+		h.ServeHTTP(httptest.NewRecorder(), r) // MISS
+		fw := newFakeResponseWriter()
+		n := testing.AllocsPerRun(1000, func() {
+			fw.reset()
+			h.ServeHTTP(fw, r)
+		})
+		if fw.h.Get("X-Lyr-Cache") != "HIT" {
+			t.Fatalf("marker=%v: %q", marker, fw.h.Get("X-Lyr-Cache"))
+		}
+		if n != 0 {
+			t.Errorf("marker=%v: middleware Set + HIT: %v allocs, want 0", marker, n)
+		}
+	}
+}

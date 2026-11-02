@@ -11,7 +11,8 @@ func TestRouteRules(t *testing.T) {
 		"/blog/[...path]": {"maxAge": 300, "swr": 3600, "tags": ["blog"]},
 		"/": {"maxAge": 60},
 		"/about": {"tags": ["static", "pages"]},
-		"/x": {"maxAge": 1e2, "swr": 0}
+		"/x": {"maxAge": 1e2, "swr": 0},
+		"/dashboard": {"maxAge": 60, "varyBy": ["user"]}
 	}}`))
 	if err != nil {
 		t.Fatal(err)
@@ -20,6 +21,7 @@ func TestRouteRules(t *testing.T) {
 		{Pattern: "/", MaxAge: 60},
 		{Pattern: "/about", Tags: []string{"static", "pages"}},
 		{Pattern: "/blog/[...path]", MaxAge: 300, SWR: 3600, Tags: []string{"blog"}},
+		{Pattern: "/dashboard", MaxAge: 60, VaryBy: []string{"user"}},
 		{Pattern: "/x", MaxAge: 100},
 	}
 	if !reflect.DeepEqual(c.RouteRules, want) {
@@ -47,7 +49,9 @@ func TestRouteRules(t *testing.T) {
 		{`{"routeRules": {"/": {"maxAge": 1e300}}}`, `lyr.json: routeRules["/"]: maxAge is too large`},
 		{`{"routeRules": {"/": {"tags": "blog"}}}`, `lyr.json: routeRules["/"]: tags must be an array of strings`},
 		{`{"routeRules": {"/": {"tags": ["a", ""]}}}`, `lyr.json: routeRules["/"]: tags[1] is empty`},
-		{`{"routeRules": {"/": {"maxage": 1}}}`, `lyr.json: routeRules["/"]: unknown key "maxage"; a rule has "maxAge", "swr" and "tags"`},
+		{`{"routeRules": {"/": {"maxage": 1}}}`, `lyr.json: routeRules["/"]: unknown key "maxage"; a rule has "maxAge", "swr", "tags" and "varyBy"`},
+		{`{"routeRules": {"/": {"varyBy": "user"}}}`, `lyr.json: routeRules["/"]: varyBy must be an array of strings`},
+		{`{"routeRules": {"/": {"varyBy": ["user", ""]}}}`, `lyr.json: routeRules["/"]: varyBy[1] is empty`},
 		{`{"routeRules": {"/": 300}}`, `lyr.json: routeRules["/"]: must be an object`},
 	} {
 		_, err := Parse([]byte(tt.json))

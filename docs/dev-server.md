@@ -100,6 +100,7 @@ With `LYR_DEV=1`, `app.New()`:
 - shows render errors in an error overlay instead of a plain 500 page;
 - answers a failing `server:defer` island with the error text and its `.lyr` position, which the loader logs to the browser console.
 - turns [route caching](caching.md) off: nothing is stored or served from the cache and no cache headers are written, so every save shows at once.
+- keeps [sessions](sessions.md) across restarts: `cache.NewSessionStore` writes each session to `.lyr/sessions/` as well, so the restart after a Go or template change doesn't sign you out (delete the directory to start over), and the session cookie has no `Secure` flag, so it works on `http://localhost`. Sessions otherwise behave as in production.
 
 Everything else, including routing, the trailing-slash redirect, status codes and your middleware, behaves as in production.
 
@@ -202,4 +203,5 @@ The same messages appear in the terminal running `lyr dev`, in the format descri
 - [Lazy loading](lazy-loading.md): `server:defer` islands and the island key
 - [Styles and scripts](styles-and-scripts.md): what's rebuilt for CSS and JS changes
 - [Middleware and locals](middleware.md): net/http middleware and typed `Locals`
+- [Sessions](sessions.md#in-lyr-dev): sessions under `lyr dev`
 - [CLI reference](reference/cli.md#lyr-dev): `lyr dev` flags

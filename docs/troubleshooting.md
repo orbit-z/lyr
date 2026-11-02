@@ -701,9 +701,9 @@ import _ "example.com/blog/lyr_gen/app"
 
 ### A cached page shows another visitor's data
 
-**Cause:** a page that's cached (it calls `ctx.Cache().Set` with a `MaxAge` or matches a `routeRules` entry) read cookies, the session or per-user `locals`. The visitor whose request rendered it set what everyone else gets. Lyr can't see into `locals`, so it can't refuse this.
+**Cause:** a page that's cached (it calls `ctx.Cache().Set` with a `MaxAge` or matches a `routeRules` entry) read cookies, Lyr's [session](sessions.md), a session of your own or per-user `locals`. The visitor whose request rendered it set what everyone else gets. Caching is manual, as in Astro: Lyr doesn't track who reads what.
 
-**Fix:** call `l.Cache.Disable()` in your middleware for signed-in visitors, or move the per-user part into a `server:defer` island, which each visitor's browser loads with its own cookies. Then purge the bad copy (`site.InvalidateCache` with the page's `Path`). See [Safety](caching.md#safety-what-lyr-checks-and-what-you-check).
+**Fix:** call `ctx.Cache().Disable()` in the page (or don't cache it), call `l.Cache.Disable()` in your middleware for signed-in visitors, or move the per-user part into a `server:defer` island, which each visitor's browser loads with its own cookies. Then purge the bad copy (`site.InvalidateCache` with the page's `Path`). See [Safety](caching.md#safety-what-lyr-checks-and-what-you-check).
 
 ### A URL answers 404
 
@@ -803,6 +803,18 @@ See [Status codes and errors](lazy-loading.md#status-codes-and-errors), [The key
 **Cause:** `LYR_KEY` is set, but it isn't the standard base64 encoding of exactly 32 bytes.
 
 **Fix:** create a key with `go tool lyr create-key` and set the printed value exactly, quoted in your shell (`LYR_KEY='…' ./dist/server`) since it can contain `/` and `+`. Or unset it to use the key embedded by `lyr build`. See [Island key](deploy.md#island-key-lyr_key).
+
+### A request answers `508 Loop Detected`
+
+**Cause:** pages rewrote the request three times in a row (`ctx.Rewrite`), usually a loop: `/a` rewrites to `/b`, which rewrites back to `/a`. Lyr allows two chained rewrites, like Astro, and logs the chain: `lyr: GET /a: rewrite loop: /a → /b → /a → /b`. Under `lyr dev`, the page shows it.
+
+**Fix:** break the loop: make the condition that rewrites false for the target, or rewrite straight to the final page. See [Rewrites](routing.md#rewrites).
+
+### Middleware runs twice, or a response is gzipped twice
+
+**Cause:** a page returned `ctx.Rewrite`, and the middleware sits inside `site.Rewrites`, which runs again for the rewrite target. That's intended for auth and locals, but a middleware that wraps the `ResponseWriter` (gzip, an access log, a timer) then wraps it twice, and `w.Header().Add` adds its value twice.
+
+**Fix:** put `ResponseWriter` wrappers and loggers before `site.Rewrites` in your `lyr.Sequence`, and use `Header().Set` in middleware inside it. Attach locals with `lyr.EnsureLocals`, so the second run finds them. See [Rewrites: what runs again](middleware.md#rewrites-what-runs-again).
 
 ### Locals set in middleware don't reach the page
 

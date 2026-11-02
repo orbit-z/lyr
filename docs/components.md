@@ -157,6 +157,7 @@ Every page renders on the server for each request; a component renders as part o
 | `Astro.slots.has("x")` | `slots.Has("x")` |
 | `<Astro.self />` | `<Self />` |
 | `Astro.locals` | `locals` (a typed struct) |
+| `Astro.session.get("cart")` | `d, err := session.Data()`, then `d.Cart`: see [Sessions](sessions.md) |
 | `Astro.redirect("/login")` | `return ctx.Redirect("/login", 302)` |
 | `<Comments server:defer />` | The same: see [Lazy loading](lazy-loading.md) |
 | `<Counter client:visible />` on a React or Svelte component | `client:visible` on a `.lyr` component, which loads its `<script>` lazily |
@@ -227,9 +228,10 @@ These names are provided in the render body and the template, without declaring 
 | `slots` | `lyr.Slots` | The children the parent passed. See [Slots](#slots). |
 | `params` | `Params` | **Pages only.** The route params, typed: `params.Slug` for `src/pages/blog/[slug].lyr`. Lyr generates the `Params` struct from the file path. Components read a route param with `ctx.Param("slug")` instead. See [Route params](routing.md#route-params-params). |
 | `locals` | `*locals.Locals` | Request-scoped data, typed by your `type Locals struct` in the package `src/locals`. Without one, it's `*lyr.NoLocals`. See [Middleware and locals](middleware.md). |
+| `session` | `*lyr.Session[locals.SessionData]` | The visitor's session, typed by your `type SessionData struct` in `src/locals`: `d, err := session.Data()`, then read and change `d`; changes are saved at the end of the request. Declared only in pages and components that use it; using it without a `SessionData` is a build error. See [Sessions](sessions.md). |
 | `lyr` | package | The runtime package `github.com/orbit-z/lyr`. You can use it without importing it; an explicit import of it under the name `lyr` is merged with the implicit one. |
 
-A page and all its components share one `ctx` and one `locals`, with two exceptions. A component rendered with `server:defer` renders in its own request, with its own `ctx`; see [Lazy loading](lazy-loading.md). A component rendered with `server:concurrent` gets its own `ctx`, a copy of the page's (same request, params and `locals`) whose status and headers start empty and whose status, headers and cache settings are merged into the page's when the page joins it; see [Slow components](rendering.md#slow-components). `ctx` is pooled and reused for later requests, so don't keep it, or start a goroutine that uses it, after the render returns.
+A page and all its components share one `ctx`, one `locals` and one `session`, with two exceptions. A component rendered with `server:defer` renders in its own request, with its own `ctx`; see [Lazy loading](lazy-loading.md). A component rendered with `server:concurrent` gets its own `ctx`, a copy of the page's (same request, params and `locals`) whose status and headers start empty and whose status, headers and cache settings are merged into the page's when the page joins it; see [Slow components](rendering.md#slow-components). `ctx` is pooled and reused for later requests, so don't keep it, or start a goroutine that uses it, after the render returns.
 
 Hoisted declarations live at package level, so they **can't see** `props`, `ctx`, `slots`, `locals` or `params`. Pass what a helper needs as arguments, as `href(props.Post)` does.
 

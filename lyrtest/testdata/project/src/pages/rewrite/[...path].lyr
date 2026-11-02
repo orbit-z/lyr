@@ -1,0 +1,7 @@
+---
+// Rewrites (PLAN.md §4j): the URL stays /rewrite/…, the content is /route/….
+if params.Path != "" {
+	return ctx.Rewrite("/route/" + params.Path)
+}
+---
+<p>no path</p>

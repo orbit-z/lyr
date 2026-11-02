@@ -12,19 +12,17 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
 // The route cache's responses (PLAN.md §4h): storing, serving entries,
-// conditional requests, background revalidation, the page flow and
-// Site.CacheHandler.
+// conditional requests, background revalidation and the page flow.
 
 // Response kinds, for the default headers.
 const (
 	kindPage   = iota // Content-Type text/html unless set
 	kindIsland        // also Cache-Control: private, no-store and X-Robots-Tag: noindex
-	kindRaw           // a redirect or a CacheHandler response: headers as given
+	kindRaw           // a redirect: headers as given
 )
 
 var (
@@ -51,12 +49,16 @@ func (sc *siteCache) respond(w http.ResponseWriter, r *http.Request, ph http.Hea
 	if active && sc.store == nil {
 		// A header provider's CDN would store it: the same refusals as a
 		// store's.
-		if reason := refusal(ph, wh); reason != 0 {
+		if p.sessCookie {
+			active = false
+		} else if reason := refusal(ph, wh); reason != 0 {
 			warnRefused(r, p, reason)
 			active = false
 		}
 	}
-	if p.get && sc.store != nil && cacheStorable(k) {
+	// A response that sends the session cookie is never stored, and that
+	// isn't warned about (PLAN.md §4i "Route caching").
+	if p.get && sc.store != nil && cacheStorable(k) && !p.sessCookie {
 		if reason := refusal(ph, wh); reason != 0 {
 			warnRefused(r, p, reason)
 		} else {
@@ -69,9 +71,7 @@ func (sc *siteCache) respond(w http.ResponseWriter, r *http.Request, ph http.Hea
 		}
 	}
 	sc.finishFlight(p, nil)
-	for name, v := range ph {
-		wh[name] = v
-	}
+	copyHeader(wh, ph)
 	setDefaults(wh, kind)
 	// Validators come from the page's headers or the options; without
 	// either, the response has none to add Cache-Control for or compare.
@@ -131,7 +131,10 @@ func addNoCache(h http.Header) {
 // header provider's, or ETag and Last-Modified and, without a store,
 // Astro's default CDN headers.
 func (sc *siteCache) writeOptionHeaders(h http.Header, k *Cache, r *http.Request) {
-	if sc.hdr != nil {
+	// A CDN can't see the context values: a VaryBy response gets the
+	// validators only.
+	vary := len(varyOf(k)) > 0
+	if sc.hdr != nil && !vary {
 		o := k.Options()
 		sc.hdr.WriteCacheHeaders(h, &o, r)
 		return
@@ -142,7 +145,7 @@ func (sc *siteCache) writeOptionHeaders(h http.Header, k *Cache, r *http.Request
 	if k.lastMod != 0 {
 		h["Last-Modified"] = []string{time.Unix(0, k.lastMod).UTC().Format(http.TimeFormat)}
 	}
-	if sc.store != nil {
+	if sc.store != nil || vary {
 		return
 	}
 	if k.maxAge > 0 || k.swr > 0 {
@@ -239,11 +242,26 @@ func (sc *siteCache) newEntry(r *http.Request, ph http.Header, p *cacheReq, stat
 	return e
 }
 
-// put stores e under p's key. A response with a Vary header is stored
-// under its variant key, with a Vary marker under the primary key.
+// put stores e under p's key. A response with a Vary header or VaryBy
+// names is stored under its variant key, with a Vary marker under the
+// primary key (VaryBy names follow the header names, as "@name"). The
+// context names of the URL's live marker are kept (a union, a missing
+// value counting as ""): a response without them never replaces the
+// per-user copies with one for everyone, and a refresh never drops a
+// dimension.
 func (sc *siteCache) put(r *http.Request, p *cacheReq, e *CachedResponse) {
 	sc.ensureKey(r, p)
 	vary := varyNames(e.Header)
+	for _, name := range varyOf(p.k) {
+		vary = appendName(vary, ctxVaryPrefix+name)
+	}
+	vary = appendCtxNames(vary, p.marker)
+	// Best effort: the marker is read right before the Put, but a marker
+	// another request stores in between can still be overwritten (a store
+	// has no compare-and-swap); the next per-user render stores it again.
+	if old := sc.store.Get(p.primary); old != nil && old.Vary != nil && old.state(cacheNow()) != entryExpired {
+		vary = appendCtxNames(vary, old.Vary)
+	}
 	p.storedVary = vary
 	if vary == nil {
 		p.key = p.primary
@@ -255,14 +273,34 @@ func (sc *siteCache) put(r *http.Request, p *cacheReq, e *CachedResponse) {
 	sc.store.Put(p.key, e)
 }
 
+// appendName appends name to names unless it's there.
+func appendName(names []string, name string) []string {
+	if slices.Contains(names, name) {
+		return names
+	}
+	return append(names, name)
+}
+
+// appendCtxNames appends the context names ("@name") of a marker's Vary
+// to names, skipping the ones it has.
+func appendCtxNames(names, marker []string) []string {
+	for _, name := range marker {
+		if strings.HasPrefix(name, ctxVaryPrefix) {
+			names = appendName(names, name)
+		}
+	}
+	return names
+}
+
 // varyNames returns the canonical header names of h's Vary, without
-// Set-Cookie, or nil.
+// Set-Cookie and names that start with ctxVaryPrefix (not header names; a
+// marker uses them for VaryBy), or nil.
 func varyNames(h http.Header) []string {
 	var names []string
 	for _, v := range h["Vary"] {
 		for name := range strings.SplitSeq(v, ",") {
 			name = http.CanonicalHeaderKey(strings.TrimSpace(name))
-			if name != "" && name != "Set-Cookie" && !slices.Contains(names, name) {
+			if name != "" && name != "Set-Cookie" && !strings.HasPrefix(name, ctxVaryPrefix) && !slices.Contains(names, name) {
 				names = append(names, name)
 			}
 		}
@@ -355,12 +393,28 @@ func (sc *siteCache) startRevalidation(r *http.Request, p *cacheReq, e *CachedRe
 	}
 	snap := new(Cache)
 	copyCache(snap, p.k)
-	bg := &cacheReq{bg: true, snap: snap, flight: f, route: p.route, handler: p.handler}
+	bg := &cacheReq{bg: true, snap: snap, flight: f, route: p.route, marker: p.marker}
+	// The refresh renders as an anonymous visitor, unless the stale copy
+	// varies by context: then with the trigger's session, read-only
+	// (PLAN.md §4i "Route caching").
+	bg.anon = len(varyOf(snap)) == 0 && !hasCtxNames(p.marker)
 	r2 := r.WithContext(context.WithoutCancel(r.Context()))
+	// A Locals copy of its own: its writes never reach the trigger's.
+	r2, bg.locals = sc.site.cloneLocals(r2)
 	if testRevalidateHook != nil {
 		testRevalidateHook(r2)
 	}
 	go sc.revalidate(r2, bg, e)
+}
+
+// hasCtxNames reports whether a marker's Vary has context names.
+func hasCtxNames(vary []string) bool {
+	for _, name := range vary {
+		if strings.HasPrefix(name, ctxVaryPrefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // testRevalidateHook, when set by a test, is called before a background
@@ -372,6 +426,7 @@ var testRevalidateHook func(*http.Request)
 func (sc *siteCache) revalidate(r *http.Request, bg *cacheReq, old *CachedResponse) {
 	defer old.revalidating.Store(false)
 	defer sc.finishFlight(bg, nil)
+	defer sc.site.bindBGLocals(bg.locals, nil) // its state is released with its Ctx
 	defer func() {
 		if p := recover(); p != nil {
 			log.Printf("lyr: revalidating %s %s: panic: %v; the stale copy is kept", r.Method, r.URL.Path, p)
@@ -380,8 +435,6 @@ func (sc *siteCache) revalidate(r *http.Request, bg *cacheReq, old *CachedRespon
 	w := &discardWriter{h: make(http.Header)}
 	s := sc.site
 	switch {
-	case bg.handler != nil:
-		bg.handler.serve(w, r, bg)
 	case bg.route != nil:
 		c := s.acquire(r)
 		path := r.URL.EscapedPath()
@@ -428,6 +481,26 @@ func (s *Site) serveCachedPage(w http.ResponseWriter, r *http.Request, c *Ctx, c
 	}
 	p.buf, p.path, p.state, p.route = &c.keyBuf, path, &cr.cache, cr
 	p.k = sc.attach(r, c, p)
+	if bg == nil && s.rewrites == nil && p.k.pre == nil && p.k.state&cacheSet != 0 {
+		// No site.Rewrites: every middleware ran once, before this
+		// lookup, so its options hold for a rewrite's target. On the
+		// Locals field, the copy is the handle's pre, so a rewrite from
+		// the 404 page shown for this page's ErrNotFound finds it too.
+		snap := snapshotOptions(p.k)
+		if k := p.k; k != &c.cache {
+			k.pre = snap
+			defer func() {
+				if k.pre == snap {
+					k.pre = nil
+				}
+				putSnapshot(snap)
+			}()
+		} else {
+			p.pre = snap
+			defer releaseSnapshot(p)
+		}
+	}
+	sc.beginSession(r, c, p)
 	if sc.begin(w, r, p, true) {
 		releaseCtx(c)
 		return
@@ -437,7 +510,11 @@ func (s *Site) serveCachedPage(w http.ResponseWriter, r *http.Request, c *Ctx, c
 	}
 	buf, err := s.render(c, route)
 	p.k = c.Cache() // LocalsOf may have moved it into the Locals
+	err = sc.endSession(w, c, p, err)
 	if err != nil {
+		if buf != nil {
+			putBuffer(buf)
+		}
 		s.cachedPageFailed(w, r, c, p, err)
 		releaseCtx(c)
 		return
@@ -447,16 +524,28 @@ func (s *Site) serveCachedPage(w http.ResponseWriter, r *http.Request, c *Ctx, c
 	releaseCtx(c)
 }
 
-// cachedPageFailed answers a failed render on the cache path: a redirect
-// whose options ask for it is stored; a revalidation logs the error.
+// cachedPageFailed answers a failed render on the cache path: a rewrite
+// serves its target; a redirect whose options ask for it is stored; a
+// revalidation logs the error.
 func (s *Site) cachedPageFailed(w http.ResponseWriter, r *http.Request, c *Ctx, p *cacheReq, err error) {
 	sc := s.cache
+	if rw := asRewrite(err); rw != nil {
+		// Never stored: the target is looked up and stored under its own
+		// key (PLAN.md §4j). A revalidation keeps the stale copy.
+		if p.bg {
+			return
+		}
+		sc.finishFlight(p, nil)
+		s.rewrite(w, r, c, rw, p.k, p.off, p.pre)
+		return
+	}
 	var re *RedirectError
 	if errors.As(err, &re) && p.get && sc.store != nil && cacheStorable(p.k) {
 		rec := &redirectRecorder{discardWriter: discardWriter{h: make(http.Header)}}
 		for name, v := range c.responseHeader() {
 			rec.h[name] = v
 		}
+		delete(rec.h, "Content-Length") // the redirect's own, set by respond
 		http.Redirect(rec, r, re.Location, re.Code)
 		sc.respond(w, r, rec.h, p, rec.status, rec.body.Bytes(), kindRaw)
 		return
@@ -466,7 +555,7 @@ func (s *Site) cachedPageFailed(w http.ResponseWriter, r *http.Request, c *Ctx, 
 		return
 	}
 	sc.finishFlight(p, nil)
-	s.renderFailed(w, r, err, c.responseHeader(), &c.route, false)
+	s.renderFailed(w, r, err, c, false)
 }
 
 // redirectRecorder records http.Redirect's response.
@@ -510,117 +599,3 @@ func (s *Site) render(c *Ctx, route *Route) (*bytes.Buffer, error) {
 	writerPool.Put(wr)
 	return buf, nil
 }
-
-// ---- custom handlers ----
-
-// CacheHandler returns a handler that caches h's GET responses on the same
-// flow as pages: route rules match the request path, and h sets options
-// through your Locals' lyr.Cache field or through the ctx.Cache() of a
-// component it renders with RenderComponent. h's response is buffered, and
-// its Content-Type sniffed when it sets none. Without a provider, or under
-// lyr dev, the returned handler is h with nothing added.
-func (s *Site) CacheHandler(h http.Handler) http.Handler {
-	return &cacheHandler{s: s, h: h}
-}
-
-type cacheHandler struct {
-	s     *Site
-	h     http.Handler
-	cache cacheState
-}
-
-func (ch *cacheHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) { ch.serve(w, r, nil) }
-
-func (ch *cacheHandler) serve(w http.ResponseWriter, r *http.Request, bg *cacheReq) {
-	sc := ch.s.cache
-	if sc == nil {
-		ch.h.ServeHTTP(w, r)
-		return
-	}
-	rec := recorderPool.Get().(*cacheRecorder)
-	defer rec.release()
-	var local cacheReq
-	p := &local
-	if bg != nil {
-		p = bg
-	}
-	p.buf, p.path, p.state, p.handler = &rec.keyBuf, r.URL.EscapedPath(), &ch.cache, ch
-	switch {
-	case p.bg:
-		copyCache(&rec.k, p.snap)
-		rec.kp = &rec.k
-	case sc.field != nil:
-		_, rec.kp = sc.field.attached(r)
-	}
-	if rec.kp == nil {
-		rec.kp = &rec.k
-	}
-	p.k = rec.kp
-	p.k.mode, p.k.site = cacheModeOn, sc
-	if sc.begin(w, r, p, true) {
-		return
-	}
-	if p.flight != nil {
-		defer sc.finishFlight(p, nil)
-	}
-	ch.h.ServeHTTP(rec, r)
-	status := rec.status
-	if status == 0 {
-		status = http.StatusOK
-	}
-	body := rec.body.Bytes()
-	if _, ok := rec.h["Content-Type"]; !ok && len(body) > 0 {
-		rec.h["Content-Type"] = []string{http.DetectContentType(body)}
-	}
-	delete(rec.h, "Content-Length")
-	sc.respond(w, r, rec.h, p, status, body, kindRaw)
-}
-
-// cacheRecorder buffers a CacheHandler's response.
-type cacheRecorder struct {
-	h      http.Header
-	status int
-	body   bytes.Buffer
-	keyBuf []byte
-	k      Cache
-	kp     *Cache
-}
-
-var recorderPool = sync.Pool{New: func() any { return &cacheRecorder{h: make(http.Header)} }}
-
-func (rec *cacheRecorder) Header() http.Header { return rec.h }
-
-func (rec *cacheRecorder) WriteHeader(code int) {
-	if rec.status == 0 {
-		rec.status = code
-	}
-}
-
-func (rec *cacheRecorder) Write(b []byte) (int, error) {
-	if rec.status == 0 {
-		rec.status = http.StatusOK
-	}
-	return rec.body.Write(b)
-}
-
-// lyrCache gives RenderComponent the request's handle (cacheHolder).
-func (rec *cacheRecorder) lyrCache() *Cache { return rec.kp }
-
-func (rec *cacheRecorder) release() {
-	clear(rec.h) // the response keeps the value slices, not the map
-	rec.status = 0
-	releaseCache(&rec.k)
-	rec.kp = nil
-	if rec.body.Cap() > maxPooledBuffer {
-		rec.body = bytes.Buffer{}
-	}
-	rec.body.Reset()
-	if cap(rec.keyBuf) > maxKeyBuf {
-		rec.keyBuf = nil
-	}
-	recorderPool.Put(rec)
-}
-
-// cacheHolder is implemented by a CacheHandler's ResponseWriter, so a
-// component rendered with RenderComponent sets options on its handle.
-type cacheHolder interface{ lyrCache() *Cache }

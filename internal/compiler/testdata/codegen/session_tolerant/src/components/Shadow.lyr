@@ -1,0 +1,4 @@
+---
+session := "mine"
+---
+<p>{session}</p>

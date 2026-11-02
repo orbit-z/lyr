@@ -48,6 +48,13 @@ type Site struct {
 	cache *siteCache
 	// cacheProv is WithCache's provider, also in dev (InvalidateCache).
 	cacheProv CacheProvider
+	// sess is the session configuration (PLAN.md §4i), nil without
+	// WithSessions; sessField is WithLocalsSession's accessor.
+	sess      *sessionConfig
+	sessField *localsSession
+	// rewrites is the handler site.Rewrites marked, where a page rewrite
+	// re-enters the chain (PLAN.md §4j), or nil.
+	rewrites http.Handler
 }
 
 // Option configures a Site. Pass options to app.New().
@@ -62,10 +69,12 @@ type siteOptions struct {
 	slash      TrailingSlash
 	concLimit  int32 // WithConcurrencyLimit, when concSet
 	concSet    bool
-	route      *localsRoute  // WithLocalsRoute
-	cache      CacheProvider // WithCache
-	rules      []RouteRule   // WithRouteRules
-	cacheField *localsCache  // WithLocalsCache
+	route      *localsRoute   // WithLocalsRoute
+	cache      CacheProvider  // WithCache
+	rules      []RouteRule    // WithRouteRules
+	cacheField *localsCache   // WithLocalsCache
+	sessions   *sessionConfig // WithSessions
+	sessField  *localsSession // WithLocalsSession
 }
 
 // NewSite builds a site from its routes and islands. The generated
@@ -99,7 +108,10 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 		onError: o.onError,
 		limit:   o.concurrencyLimit(),
 		route:   o.route,
+
+		sessField: o.sessField,
 	}
+	s.sess = newSiteSessions(&o, s.dev)
 	rules := compileRules(o.rules, rt.always)
 	if o.cache != nil {
 		s.cacheProv = o.cache
@@ -195,8 +207,9 @@ type errorHandler = func(w http.ResponseWriter, r *http.Request, err error) bool
 // WithErrorHandler sets h to answer the render errors that would otherwise
 // become the built-in 500: errors returned by a page or any component it
 // renders (the 404 page and deferred islands included) and recovered
-// panics. ErrNotFound and redirects never reach h; they keep their usual
-// answers. h returns true when it wrote the response, false to let Lyr
+// panics. ErrNotFound, redirects and rewrites never reach h; they keep
+// their usual answers (an error in a rewrite's target does reach h, with r
+// the rewritten request). h returns true when it wrote the response, false to let Lyr
 // send the 500 and log the error.
 //
 // Nothing has been written when h runs: the page's output and the headers
@@ -212,7 +225,9 @@ func WithErrorHandler(h func(w http.ResponseWriter, r *http.Request, err error) 
 }
 
 // ServeError answers err as a page's render error would be answered: a
-// *RedirectError redirects, ErrNotFound renders 404.lyr, and any other
+// *RedirectError redirects, a *RewriteError serves its target (through
+// site.Rewrites when the chain has it, else through site.Handler()),
+// ErrNotFound renders 404.lyr, and any other
 // error goes to the WithErrorHandler handler, then to the built-in 500 with
 // its log line. Use it in custom handlers:
 //
@@ -225,7 +240,7 @@ func (s *Site) ServeError(w http.ResponseWriter, r *http.Request, err error) {
 	if err == nil {
 		return
 	}
-	s.renderFailed(w, r, err, nil, nil, false)
+	s.renderFailed(w, r, err, nil, false)
 }
 
 // Middleware serves the requests Lyr owns and passes the rest to next,
@@ -266,6 +281,7 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	path := r.URL.EscapedPath()
 	c := s.acquire(r)
+	c.mw = m
 	if cr := c.matchRoute(s.router, path); cr != nil {
 		if s.cache != nil {
 			s.serveCachedPage(w, r, c, cr, path, nil)
@@ -275,6 +291,11 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	releaseCtx(c)
+	if path == "/404" && rewriteOf(r.Context()) != nil {
+		// ctx.Rewrite("/404"): the 404 page, with its 404 status.
+		s.serveNotFound(w, r, m)
+		return
+	}
 	if target, ok := s.router.redirectTarget(path, r.URL.RawQuery); ok {
 		writeSlashRedirect(w, target)
 		return
@@ -382,12 +403,17 @@ func (s *Site) classify(w http.ResponseWriter, r *http.Request) (d dispatch, res
 
 type notFoundHandler struct{ site *Site }
 
+// ServeHTTP renders 404.lyr. It doesn't know the site.Middleware it's
+// under (if any), so a rewrite from that 404 page re-enters site.Rewrites
+// when the chain has it, else site.Middleware with the 404 page as next.
 func (h notFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.site.serveNotFound(w, r)
+	h.site.serveNotFound(w, r, nil)
 }
 
-// serveNotFound renders 404.lyr, or writes an empty 404.
-func (s *Site) serveNotFound(w http.ResponseWriter, r *http.Request) {
+// serveNotFound renders 404.lyr, or writes an empty 404. m is the
+// site.Middleware serving the request (where the 404 page's rewrite
+// re-enters without site.Rewrites), or nil.
+func (s *Site) serveNotFound(w http.ResponseWriter, r *http.Request, m *middleware) {
 	route := s.router.notFound
 	if route == nil {
 		if s.route != nil {
@@ -396,13 +422,18 @@ func (s *Site) serveNotFound(w http.ResponseWriter, r *http.Request) {
 		emptyNotFound(w)
 		return
 	}
-	s.servePage(w, r, s.acquire(r), route, true)
+	c := s.acquire(r)
+	c.mw = m
+	s.servePage(w, r, c, route, true)
 }
 
 // acquire returns a pooled Ctx for a request to s.
 func (s *Site) acquire(r *http.Request) *Ctx {
 	c := acquireCtx(r, s.site, s.dev)
 	c.keys = s.keys
+	if s.sess != nil {
+		c.session = s.sess
+	}
 	return c
 }
 
@@ -455,12 +486,19 @@ func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *
 		err = join(wr, err)
 		buf = wr.buf
 	}
+	if c.session != nil {
+		err = endSession(w, c, err)
+	}
 	if err != nil {
 		// Never send a partial page: the buffer is dropped.
 		wr.reset(nil)
 		writerPool.Put(wr)
 		putBuffer(buf)
-		s.renderFailed(w, r, err, c.responseHeader(), &c.route, notFound)
+		if re := asRewrite(err); re != nil {
+			s.rewrite(w, r, c, re, nil, false, nil)
+		} else {
+			s.renderFailed(w, r, err, c, notFound)
+		}
 		releaseCtx(c)
 		return
 	}
@@ -469,9 +507,7 @@ func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *
 	writerPool.Put(wr)
 
 	h := w.Header()
-	for k, v := range c.responseHeader() {
-		h[k] = v
-	}
+	copyHeader(h, c.responseHeader())
 	if _, ok := h["Content-Type"]; !ok {
 		h["Content-Type"] = htmlContentType
 	}
@@ -492,6 +528,22 @@ func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *
 	}
 	putBuffer(buf)
 	releaseCtx(c)
+}
+
+// copyHeader copies the headers a page set (src) into the response's
+// (dst): each key replaces dst's values, except Set-Cookie, whose values
+// are appended, so the cookies already on the response (the session's,
+// middleware's, a page's that rewrote) are kept. It doesn't allocate
+// unless both have cookies.
+func copyHeader(dst, src http.Header) {
+	for k, v := range src {
+		if k == "Set-Cookie" {
+			if old := dst[k]; len(old) > 0 {
+				v = append(old[:len(old):len(old)], v...)
+			}
+		}
+		dst[k] = v
+	}
 }
 
 // lengthValue holds a Content-Length header value and the bytes of its
@@ -589,33 +641,47 @@ func relativeFile(file string) string {
 	return filepath.ToSlash(rel)
 }
 
-// renderFailed answers a render that returned err. head holds the headers
-// the page set, kept for a redirect; prev is the failed render's route (nil
-// from ServeError), which the 404 page rendered for ErrNotFound keeps;
-// notFound is set when the 404 page itself failed. Any other error goes to
-// the error handler first, then the 500.
-func (s *Site) renderFailed(w http.ResponseWriter, r *http.Request, err error, head http.Header, prev *routeRef, notFound bool) {
+// renderFailed answers a render that returned err. c is the failed
+// render's Ctx (nil from ServeError): its headers are kept for a redirect,
+// and the 404 page rendered for ErrNotFound keeps its route, its
+// site.Middleware and its session. notFound is set when the 404 page
+// itself failed. Any other error goes to the error handler first, then
+// the 500.
+func (s *Site) renderFailed(w http.ResponseWriter, r *http.Request, err error, c *Ctx, notFound bool) {
 	var re *RedirectError
+	var rw *RewriteError
 	switch {
 	case errors.As(err, &re):
-		h := w.Header()
-		for k, v := range head {
-			h[k] = v
+		if c != nil {
+			copyHeader(w.Header(), c.responseHeader())
+			delete(w.Header(), "Content-Length") // not the redirect's
 		}
 		http.Redirect(w, r, re.Location, re.Code)
+	case errors.As(err, &rw):
+		// From ServeError: pages rewrite in servePage.
+		s.rewrite(w, r, nil, rw, nil, false, nil)
 	case errors.Is(err, ErrNotFound):
 		if notFound || s.router.notFound == nil {
-			if prev == nil && s.route != nil {
+			if c == nil && s.route != nil {
 				s.fillRouteOnly(r, RouteNotFound, notFoundRoutePattern, "", nil, nil)
 			}
 			emptyNotFound(w)
 			return
 		}
-		c := s.acquire(r)
-		if prev != nil && s.route != nil {
-			c.route = *prev
+		nc := s.acquire(r)
+		if c != nil {
+			if s.route != nil {
+				nc.route = c.route
+			}
+			nc.mw = c.mw
+			if st, ok := c.session.(*sessionState); ok && st.ctx == c {
+				// The page's own session (saved already) goes to the 404
+				// page, as to a rewrite's target: one session, one cookie.
+				st.ctx, c.session = nc, nil
+				nc.session = st
+			}
 		}
-		s.servePage(w, r, c, s.router.notFound, true)
+		s.servePage(w, r, nc, s.router.notFound, true)
 	default:
 		if s.onError != nil && s.onError(w, r, err) {
 			return

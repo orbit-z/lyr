@@ -297,6 +297,7 @@ Matching uses a precompiled segment tree, with no regular expressions, so the nu
 `src/pages/404.lyr` is your not-found page. It renders per request, like any page, with status 404, whenever:
 
 - a page returns `lyr.ErrNotFound`, as `blog/[slug].lyr` does for an unknown slug;
+- a page returns `ctx.Rewrite("/404")` (see [Rewrites](#rewrites));
 - the request reaches `site.NotFound()` because no page, asset or `public/` file matched. `site.Handler()` ends in it, and you can make it your mux's catch-all (see [Server](server.md)).
 
 Because it renders per request, it has the real request in `ctx` and the `locals` your middleware set:
@@ -311,6 +312,45 @@ The 404 page has no URL of its own. Without a `404.lyr`, the response is a 404 w
 The status is 404 unless the page calls `ctx.SetStatus` itself. If `404.lyr` returns `lyr.ErrNotFound`, the response is an empty 404 too.
 
 Inside a deferred component (`server:defer`), `lyr.ErrNotFound` gives an empty 404 instead, because the browser is fetching a fragment, not a page (see [Lazy loading](lazy-loading.md)).
+
+## Rewrites
+
+A rewrite renders another route's content **without a redirect**: the browser keeps its URL, and the response is the target route's, with its status, its HTML and its assets. It's Astro's `Astro.rewrite`. Return `ctx.Rewrite` from the frontmatter:
+
+```lyr file=src/pages/es-cu/[...path].lyr
+---
+// Cuban Spanish falls back to the Spanish pages; the URL stays /es-cu/…
+return ctx.Rewrite("/es/" + params.Path)
+---
+```
+
+A request for `/es-cu/about` renders the page for `/es/about`. `ctx.Rewrite` returns a `*lyr.RewriteError`, a control-flow error like `ctx.Redirect`'s, so a component can return it too and it reaches the page. Nothing has been sent yet, because Lyr buffers every page.
+
+```lyr
+---
+p, err := catalog.Product(ctx.Request.Context(), params.ID)
+if errors.Is(err, catalog.ErrGone) {
+	return ctx.Rewrite("/404") // 404.lyr, status 404, and your middleware runs again
+}
+if err != nil {
+	return err
+}
+if !p.Available {
+	return ctx.Rewrite("/products/unavailable?id=" + url.QueryEscape(params.ID))
+}
+---
+```
+
+- **The target** is a path, usually starting with `/`, with an optional query. The request's own query isn't kept, and a fragment is dropped. A relative target is resolved against the page's URL, as in Astro (`new URL(target, url)`): from `/docs/a`, `"b"` is `/docs/b`, `"../b"` is `/b`, and `"?page=2"` keeps the path; dot segments (`.`, `..`) are removed from any target. As in Astro, the target never fails: a scheme and host are ignored (`"https://example.com/a"` is `/a`), `"//x"` is the path `//x`, a malformed percent-escape is kept as written, and a control character is percent-encoded. So a target built from request data (`"/" + params.Path`, a slug with a `:`) is always a local path, and one no page matches gets the 404 page. The target is decoded like an incoming request, and put in its canonical [trailing-slash](#trailing-slashes) form, so a rewrite never answers a 308.
+- **The response is the target's**: its status (a `ctx.SetStatus` before the rewrite is dropped), its headers and its body. Headers the page set with `ctx.Header()` are dropped too, except `Set-Cookie`, which is kept, as in Astro, alongside the target's own cookies. (On any page, a `Set-Cookie` set with `ctx.Header()` is added to the cookies already on the response, such as your middleware's or the session's, never replacing them.) The target's typed `params`, `ctx.URL` and `locals.Route` are its own.
+- **`"/404"`** renders your `404.lyr` with status 404. Unlike `lyr.ErrNotFound`, the middleware inside `site.Rewrites` runs again for it (see below). Any other path that no page matches goes on like a request for it: to your mux with `site.Rewrites`, else to `site.Middleware`'s next handler (`404.lyr` with `site.Handler()`).
+- **The request**: method, headers, body and the parsed form carry over (a `POST` stays a `POST`). `ctx.Request.RequestURI` keeps the original request target (Astro's `originPathname`). A body the page read raw is empty for the target.
+- **Middleware runs again** for the target from the `site.Rewrites` marker in your chain, with the same locals; the middleware outside it runs once. Without `site.Rewrites`, a rewrite re-enters `site.Middleware` only. `lyr new`'s `main.go` has it; see [Rewriting and middleware](middleware.md#rewrites-what-runs-again).
+- **Loops**: a request can chain two rewrites (`/a` to `/b` to `/c`). The third answers `508 Loop Detected` with an empty body, and Lyr logs the chain (`lyr: GET /a: rewrite loop: /a → /b → /a → /b`); under `lyr dev` the page shows it.
+- **Where it works**: pages and the components they render, `404.lyr` included. A deferred component (`server:defer`) can't rewrite: its request answers a 500. Markdown pages can be targets, but have no frontmatter to rewrite from.
+- **Caching**: the target is looked up and stored under its own URL (see [Caching](caching.md#rewrites)).
+
+A middleware rewrites a request with `lyr.RewriteRequest` instead; see [Rewriting the request](middleware.md#rewriting-the-request).
 
 ## Trailing slashes
 
@@ -382,6 +422,7 @@ So a `POST /blog/hello/like` handler in your own mux works even when Lyr comes f
 ## See also
 
 - [Rendering](rendering.md): the request lifecycle, status codes, redirects and errors
+- [Middleware and locals](middleware.md#rewriting-the-request): rewriting in middleware, and `site.Rewrites`
 - [Server](server.md): where Lyr sits in your handler chain
 - [Middleware and locals](middleware.md): net/http middleware and typed `Locals`
 - [Components](components.md): layouts, props, templates and the names a page gets (`params`, `ctx`)

@@ -171,6 +171,7 @@ See [Using Tailwind](tailwind.md).
 | `Astro.url` | `ctx.URL` | The query string is `ctx.URL.Query().Get("q")`. |
 | `Astro.site` | `ctx.Site` | From `site` in `lyr.json`; `nil` when unset. |
 | `return Astro.redirect("/login")` | `return ctx.Redirect("/login", 302)` | The status code is required. See [Redirects](rendering.md#redirects). |
+| `return Astro.rewrite("/es/about")`, `next("/login")` in middleware | `return ctx.Rewrite("/es/about")`; `next.ServeHTTP(w, lyr.RewriteRequest(r, "/login"))` | A page rewrite runs your middleware again from `site.Rewrites` in the chain (`lyr new`'s `main.go` has it); `Astro.originPathname` is `ctx.Request.RequestURI`; the route cache keys the response by the target's URL. See [Rewrites](routing.md#rewrites). |
 | `Astro.response.status = 422` | `ctx.SetStatus(422)` | For a not-found page, `return lyr.ErrNotFound`, which renders `404.lyr`. See [Status codes](rendering.md#status-codes-and-errors). |
 | `Astro.response.headers.set(…)` | `ctx.Header().Set(…)` | An `http.Header`. See [Response headers](rendering.md#response-headers). |
 | `trailingSlash: 'never'`, `'always'` | `"trailingSlash": "never"` (default), `"always"` in `lyr.json` | Astro's default, `'ignore'`, has no equivalent: each Lyr page has one URL, so pick one of the two. Lyr redirects only when the other form of the path is a page (Astro redirects every path, then 404s), always with a 308 (Astro sends 301 for `GET`), and the same in `lyr dev` (Astro's dev server shows a 404 hint page instead). A page with an extension, such as `rss.xml.lyr`, keeps `/rss.xml` in both modes, like an Astro endpoint. Astro redirects before its middleware; Lyr does too when `site.TrailingSlash` wraps your handler (`lyr new`'s `main.go` does), still for pages only, never your own routes. See [Trailing slashes](routing.md#redirecting-before-your-middleware). |
@@ -181,6 +182,7 @@ See [Using Tailwind](tailwind.md).
 |---|---|---|
 | `Astro.locals` | `locals` | A typed `*locals.Locals`, checked by the compiler and completed by your editor. |
 | `App.Locals` in `src/env.d.ts` | `type Locals struct` in the Go package `src/locals` | Lyr's `src/env.d.ts` is only for your client scripts' global types. See [Typed locals](middleware.md#typed-locals). |
+| `Astro.session`, `context.session` | `session` in pages and components, `l.Session` in middleware | See [Sessions](#sessions) below. |
 | `onRequest` in `src/middleware.ts` | Plain `net/http` middleware in `cmd/server/main.go` | A `func(http.Handler) http.Handler` that sets locals with `r, l := lyr.EnsureLocals[locals.Locals](r)`. There's no Lyr-specific middleware type. See [Middleware and locals](middleware.md). |
 | `sequence(a, b)` | `lyr.Sequence(a, b)(mux)` | The same as `a(b(mux))`: the middleware listed first runs first. See [Where middleware goes](middleware.md#where-middleware-goes). |
 | Returning a `Response` from middleware | Write the response and don't call `next` | See [Short-circuit responses](middleware.md#short-circuit-responses). |
@@ -233,7 +235,25 @@ See [Using Tailwind](tailwind.md).
 | `X-Astro-Cache: HIT` / `MISS` / `STALE` | `X-Lyr-Cache: HIT` / `MISS` / `STALE` | |
 | Caching is off in `astro dev` | Off in `lyr dev` | Test it with `lyrtest.Get` on a site built with `WithCache`. |
 
-The big difference: **Lyr's cache sits after your middleware**, so a HIT still runs it (authentication, logging), and a `Disable()` there keeps a signed-in visitor from getting the cached copy. Astro's wraps the middleware, so a HIT skips it. Lyr also answers `304`s, and refreshes a stale key with one background render, not one per request.
+The big difference: **Lyr's cache sits after your middleware**, so a HIT still runs it (authentication, logging), and a `Disable()` there keeps a signed-in visitor from getting the cached copy. Astro's wraps the middleware, so a HIT skips it. Lyr also answers `304`s, and refreshes a stale key with one background render, not one per request. And it adds [caching by context](caching.md#caching-by-context), which Astro has no equivalent for: middleware sets `l.Cache.Context("user", id)` and a page's `VaryBy: []string{"user"}` stores one copy per user (or per role, per plan) in a store provider.
+
+### Sessions
+
+| Astro | Lyr | Notes |
+|---|---|---|
+| `App.SessionData` in `src/env.d.ts` | `type SessionData struct` in the Go package `src/locals` | One struct instead of typed keys, stored as JSON: use `json` tags with `omitempty`. See [Sessions](sessions.md). |
+| `await Astro.session.get("cart")` | `d, err := session.Data()`, then `d.Cart` | `session` is implicit in every page and component, like `locals`. Errors are returned, not thrown. |
+| `Astro.session.set("cart", v)` | `d.Cart = v` | Saved automatically at the end of the request; `Save()` exists for handlers that want the error. |
+| `Astro.session.delete("cart")` | `d.Cart = nil` | The zero value; with `omitempty` it isn't stored. |
+| `Astro.session.has("cart")` | a zero check: `len(d.Cart) > 0` | |
+| `set(key, value, { ttl })` | No equivalent | The TTL is per session; keep an expiry time in a field. |
+| `regenerate()`, `destroy()`, `load(id)` | `Regenerate()`, `Destroy()`, `Load(id)` | `Load` returns `lyr.ErrSessionNotFound` for an unknown ID instead of adopting it. |
+| `context.session` in middleware and endpoints | `l.Session`, a `lyr.Session[SessionData]` field of `Locals`, after `site.Sessions` | See [Sessions in middleware](middleware.md#sessions-in-middleware). |
+| `session: { driver }` in `astro.config` | `app.New(lyr.WithSessions(store, lyr.SessionOptions{…}))` in `cmd/server/main.go` | `cache.NewSessionStore` in memory, or your own store (Redis) against `lyr.SessionStore`. |
+| `session.cookie` | `lyr.SessionCookie` | Same defaults: `Path=/`, `SameSite=Lax`, `HttpOnly`, `Secure` outside dev, no `Max-Age`. The name is `lyr-session`. |
+| `session.ttl` (seconds, per value) | `SessionOptions.TTL` (a `time.Duration`, per session) | Counted from the last save; reading doesn't extend it. |
+| devalue (`Map`, `Set`, `Date`, …) | JSON | Use Go types that marshal (`time.Time`, slices, maps with string keys). |
+| A cached page that reads the session is cached for everyone | The same: you keep personal pages out (`Disable()`, or a `server:defer` island) | Lyr only refuses to store a response that sends the session cookie. See [Sessions and route caching](sessions.md#sessions-and-route-caching). |
 
 ### Build, config and tooling
 

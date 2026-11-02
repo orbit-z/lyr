@@ -133,6 +133,7 @@ func Load(root string) (*Project, error) {
 	}
 	p.ServerEntry, p.GeneratedServer = cfg.ServerEntry(root)
 	p.Options.Locals, p.localsFields, p.localsDiags = detectLocals(root, module)
+	p.Options.Session = sessionPath(module, p.localsFields)
 	if err := p.loadAliases(); err != nil {
 		return nil, err
 	}
@@ -240,6 +241,11 @@ func (p *Project) collectDiagnostics() {
 			for _, d := range list {
 				ds = append(ds, fromCompiler(f, d))
 			}
+		}
+		if ref := f.Analysis.SessionRef; ref.End > 0 && p.Options.Session == "" && f.MD == nil {
+			// The implicit session needs SessionData (PLAN.md §4i).
+			ds = append(ds, fromCompiler(f, compiler.Diagnostic{Severity: compiler.SeverityError, Span: ref,
+				Message: "session needs type SessionData in src/locals (see Sessions)"}))
 		}
 	}
 	sortDiagnostics(ds)

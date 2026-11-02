@@ -1,0 +1,12 @@
+---
+import "strings"
+
+d, err := session.Data()
+if err != nil {
+	return err
+}
+if item := ctx.Request.URL.Query().Get("add"); item != "" {
+	d.Cart = append(d.Cart, item)
+}
+---
+<p>cart={strings.Join(d.Cart, ",")} user={d.UserID} user2={locals.User}</p>

@@ -17,7 +17,10 @@ func TestDetectLocals(t *testing.T) {
 		want  string
 		route string // the lyr.RouteInfo field
 		cache string // the lyr.Cache field
-		diags []string
+		// the lyr.Session field, and whether SessionData is declared
+		session     string
+		sessionData bool
+		diags       []string
 	}{
 		{name: "no src/locals", files: map[string]string{"src/pages/index.lyr": ""}},
 		{name: "empty src/locals", files: map[string]string{"src/locals/README.md": "x"}},
@@ -107,6 +110,28 @@ func TestDetectLocals(t *testing.T) {
 			"src/locals/locals.go:7:2: Locals field K must be a lyr.Cache, not a pointer: Lyr uses it in place",
 			"src/locals/locals.go:8:2: Locals field k must be exported for Lyr to use it, such as Cache lyr.Cache",
 		}},
+		{name: "Session field", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/lyr\"\n\ntype SessionData struct{ UserID int64 }\n\ntype Locals struct {\n\tS lyr.Session[SessionData]\n}\n",
+		}, want: self, session: "S", sessionData: true},
+		{name: "SessionData without Locals", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\ntype SessionData struct{ UserID int64 }\n",
+		}, sessionData: true},
+		{name: "SessionData alias", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\ntype data struct{}\n\ntype SessionData = data\n",
+		}, sessionData: true},
+		{name: "SessionData not a struct", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\ntype SessionData map[string]any\n",
+		}, diags: []string{"src/locals/locals.go:3:6: SessionData must be a struct type: type SessionData struct { … }"}},
+		{name: "Session field, wrong type argument", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/lyr\"\n\ntype SessionData struct{}\n\ntype Locals struct{ S lyr.Session[int] }\n",
+		}, diags: []string{"src/locals/locals.go:7:21: Locals field S must be a lyr.Session[SessionData]: the session's data is type SessionData in src/locals"}},
+		{name: "two, embedded and pointer Session fields", files: map[string]string{
+			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/lyr\"\n\ntype SessionData struct{}\n\ntype Locals struct {\n\tlyr.Session[SessionData]\n\tP *lyr.Session[SessionData]\n\tA, B lyr.Session[SessionData]\n}\n",
+		}, diags: []string{
+			"src/locals/locals.go:8:2: Locals can't embed lyr.Session[SessionData]: give the field a name, such as Session lyr.Session[SessionData]",
+			"src/locals/locals.go:9:2: Locals field P must be a lyr.Session[SessionData], not a pointer: Lyr binds it in place",
+			"src/locals/locals.go:10:5: Locals has two lyr.Session[SessionData] fields (A, B); Lyr binds one",
+		}},
 		{name: "unexported RouteInfo", files: map[string]string{
 			"src/locals/locals.go": "package locals\n\nimport \"github.com/orbit-z/lyr\"\n\ntype Locals struct{ route lyr.RouteInfo }\n",
 		}, diags: []string{"src/locals/locals.go:5:21: Locals field route must be exported for Lyr to fill it, such as Route lyr.RouteInfo"}},
@@ -118,8 +143,8 @@ func TestDetectLocals(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("import path %q, want %q", got, tt.want)
 			}
-			if fields.Route != tt.route || fields.Cache != tt.cache {
-				t.Errorf("fields %+v, want route %q, cache %q", fields, tt.route, tt.cache)
+			if fields.Route != tt.route || fields.Cache != tt.cache || fields.Session != tt.session || fields.SessionData != tt.sessionData {
+				t.Errorf("fields %+v, want route %q, cache %q, session %q %v", fields, tt.route, tt.cache, tt.session, tt.sessionData)
 			}
 			if g, w := joinLines(diagStrings(ds)), joinLines(tt.diags); g != w {
 				t.Errorf("diagnostics:\n%s\nwant:\n%s", g, w)
@@ -190,3 +215,36 @@ func TestDetectLocalsTime(t *testing.T) {
 }
 
 func itoa(i int) string { return strconv.Itoa(i) }
+
+// TestSessionNeedsSessionData: a file that uses the implicit session
+// without SessionData gets a positioned error; with it, the impl
+// declares session and imports src/locals, without Locals.
+func TestSessionNeedsSessionData(t *testing.T) {
+	p := newTestProject(t, map[string]string{
+		"src/pages/index.lyr": "---\nx := 1\n---\n<p>{x} {session.ID()}</p>\n",
+	})
+	proj, err := Load(p.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !proj.Front() {
+		t.Fatal("no error")
+	}
+	want := "src/pages/index.lyr:4:9: session needs type SessionData in src/locals (see Sessions)"
+	if got := diagStrings(proj.Diagnostics); len(got) != 1 || got[0] != want {
+		t.Errorf("diagnostics %q, want %q", got, want)
+	}
+	p.write("src/locals/locals.go", "package locals\n\ntype SessionData struct{ UserID int64 }\n")
+	proj, err = Load(p.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if proj.Front() {
+		t.Fatal(joinLines(diagStrings(proj.Diagnostics)))
+	}
+	impl := string(proj.Files[0].Pass1.Impl.Content)
+	if proj.Options.Locals != "" || !strings.Contains(impl, `lyr__locals "example.com/blog/src/locals"`) ||
+		!strings.Contains(impl, "session := lyr__rt.SessionOf[lyr__locals.SessionData](lyr__ctx)") {
+		t.Errorf("Options %+v; impl:\n%s", proj.Options, impl)
+	}
+}

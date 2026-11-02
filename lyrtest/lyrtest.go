@@ -39,9 +39,12 @@ type Option struct {
 type config struct {
 	req    *http.Request
 	locals []func(*http.Request) *http.Request // in option order
+	lvals  []any                               // the WithLocals pointers, for WithSession
 	slots  lyr.Slots
 	names  []string // route params, in first-set order
 	vals   []string
+	// session seeds the Ctx's session (WithSession), or nil.
+	session func(ctx any)
 }
 
 // WithSlot fills the slot name ("default", or a named slot) with raw HTML.
@@ -80,6 +83,7 @@ func WithLocals[L any](l *L) Option {
 		forGet: true,
 		apply: func(c *config) {
 			c.locals = append(c.locals, func(r *http.Request) *http.Request { return lyr.WithLocals(r, l) })
+			c.lvals = append(c.lvals, l)
 		},
 	}
 }
@@ -116,6 +120,28 @@ func WithParam(name, value string) Option {
 			}
 			c.names = append(c.names, name)
 			c.vals = append(c.vals, value)
+		},
+	}
+}
+
+// WithSession seeds the session the component sees as session (and as
+// a Locals' lyr.Session field it reaches through locals): a zero D
+// changed by seed (nil leaves it zero). The session has the ID
+// "lyrtest", and nothing is saved; a later WithSession replaces an
+// earlier one. Render only: with Get, the site's own store serves the
+// session, and a test sends its cookie with WithRequest.
+func WithSession[D any](seed func(*D)) Option {
+	return Option{
+		name:     "WithSession",
+		notOnGet: "the site's store serves the session: send its cookie with WithRequest",
+		apply: func(c *config) {
+			c.session = func(ctx any) {
+				d := new(D)
+				if seed != nil {
+					seed(d)
+				}
+				testhook.SeedSession(ctx, d, c.lvals)
+			}
 		},
 	}
 }
@@ -171,6 +197,9 @@ func Render[P any](t testing.TB, render func(*lyr.Ctx, *lyr.Writer, P, lyr.Slots
 
 	html, err := renderLinked(t, func() (string, error) {
 		return testhook.Render(r, c.names, c.vals, func(ctx, w any) error {
+			if c.session != nil {
+				c.session(ctx)
+			}
 			return render(ctx.(*lyr.Ctx), w.(*lyr.Writer), props, slots)
 		})
 	})
@@ -227,7 +256,8 @@ func notLinked(p any) (string, bool) {
 
 // Get sends a GET request for path (such as "/blog/hello?x=1") to h and
 // returns the recorded response. Routing, the middleware in h and head
-// injection all apply, as in production. Redirects aren't followed.
+// injection all apply, as in production. Redirects aren't followed; a
+// page's ctx.Rewrite is (it's served in place, as in production).
 //
 // Only WithLocals and WithRequest apply to Get: with WithRequest, a copy of
 // its request is sent with method GET and URL path, so its headers and

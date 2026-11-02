@@ -169,7 +169,8 @@ package locals
 import "github.com/orbit-z/lyr"
 
 type Locals struct {
-	User  string      // the signed-in user, "" for a visitor
+	User  string    // the signed-in user, "" for a visitor
+	Role  string    // their role, "" for a visitor
 	Cache lyr.Cache // the request's cache handle
 }
 ```
@@ -238,7 +239,7 @@ The key is the request's host, its escaped path and its normalized query:
 
 The scheme isn't part of the key: behind a proxy, Go doesn't see it.
 
-A stored response with a `Vary` header keys its variants by the request's values for those headers, as in Astro: a page that sends `Vary: Accept-Language` gets one entry per language.
+A stored response with a `Vary` header keys its variants by the request's values for those headers, as in Astro: a page that sends `Vary: Accept-Language` gets one entry per language. A page with `VaryBy` keys its variants by context values your middleware set, such as the user or their role (see [Caching by context](#caching-by-context)).
 
 ### What's stored
 
@@ -246,8 +247,11 @@ A response is stored when the request's options have a `MaxAge` above zero (tags
 
 These are never stored:
 
-- render errors and panics, and the answers of your [`WithErrorHandler`](rendering.md#answering-errors-yourself-witherrorhandler);
+- render errors and panics, and the answers of your [`WithErrorHandler`](rendering.md#answering-errors-yourself-witherrorhandler), including the ones `site.ServeError` gives;
 - the `404.lyr` page shown for `lyr.ErrNotFound`, and URLs no route matches;
+- trailing-slash redirects and island error answers (a bad token, an unknown island, an old build ID);
+- a response that sends Lyr's [session](sessions.md) cookie (a new session, `Regenerate`, `Destroy`, `Load`, or a save while the cookie has a `MaxAge`; see [Sessions](#sessions));
+- a response whose request changed a [context value](#caching-by-context) after Lyr's lookup (a late `Context` call), since the lookup used other values;
 - a response with a `Set-Cookie` header, whether the page or your middleware set it;
 - a response with `Vary: Cookie` or `Vary: *`.
 
@@ -278,7 +282,7 @@ From `MaxAge` to `MaxAge + SWR` after a response was stored, requests get the st
 lyr: revalidating GET /blog/hello: posts: database unavailable; the stale copy is kept
 ```
 
-Past `MaxAge + SWR`, a request is a miss. The background render runs with the values of the request that triggered it, including the same `locals` pointer. So if a page writes to `locals` (a memoizing loader, say) while your middleware reads them after `next` returns, the two race. Run `go test -race` on such code.
+Past `MaxAge + SWR`, a request is a miss. The background render runs with the values of the request that triggered it (its headers, its context values, the options your middleware set), on **a shallow copy of its `locals`**: the copy's `Cache` field is the refresh's own handle and its `Session` field the refresh's own session, so whatever the refresh sets there never reaches the triggering request. The other fields are copied as they are: a pointer field (a memoizing loader, say) still points at the trigger's value, so if a page writes through it while your middleware reads it after `next` returns, the two race. Run `go test -race` on such code.
 
 ### Concurrent misses
 
@@ -295,6 +299,7 @@ type CacheOptions struct {
 	Tags         []string      // labels for invalidation
 	ETag         string        // a quoted entity tag, `"v1"` or `W/"v1"`
 	LastModified time.Time
+	VaryBy       []string      // context keys the HTML depends on (Caching by context)
 }
 ```
 
@@ -304,7 +309,7 @@ type CacheOptions struct {
 |---|---|
 | `MaxAge`, `SWR`, `ETag` | the last non-zero value wins |
 | `LastModified` | the latest time wins |
-| `Tags` | accumulate; duplicates are dropped |
+| `Tags`, `VaryBy` | accumulate; duplicates are dropped |
 
 A zero value doesn't reset a field: `Set(lyr.CacheOptions{})` changes nothing. To keep a request out of the cache, call `Disable()`.
 
@@ -312,6 +317,7 @@ Durations are `time.Duration` (`time.Hour`), where Astro takes seconds. CDN head
 
 The other methods:
 
+- **`Context(key, value)`** gives the request a context value, such as the user's ID, for pages that name `key` in `VaryBy`. Call it in middleware (see [Caching by context](#caching-by-context)).
 - **`Disable()`** is Astro's `set(false)`: it clears the options and tags, and Lyr neither looks the request up nor stores it. In middleware it runs before the lookup. A later `Set` enables the handle again, but a request disabled before the lookup stays out of the cache: it isn't stored and gets no cache headers.
 - **`Enabled()`** reports whether the request can be cached: a provider is configured, the site isn't under `lyr dev`, and `Disable` wasn't called.
 - **`Options()`** returns a snapshot of the merged options; its `Tags` is a copy.
@@ -325,7 +331,7 @@ A `Cache` belongs to one request: don't keep it or share it with other goroutine
 - **`server:concurrent` components**: each sets on its own copy, merged into the page's when the page assembles them, in source order.
 - **Content captured with `lyr.RenderHTML`** sets options only when it renders. A fragment served from a fragment cache must re-apply its tags, or a purge of those tags misses the page. See [Caching fragments](rendering.md#caching-fragments).
 - **Middleware**: through the `lyr.Cache` field of your `Locals`, as in `session.Middleware` above. `ctx.Cache()` is that field when your middleware attached the locals.
-- **Your own handlers**: through `site.CacheHandler` (see [below](#custom-handlers-sitecachehandler)).
+- **Your own handlers** aren't on the route cache: it's for pages and islands only. A handler caches its data with [`cache.Store`](#caching-data-and-fragments-cachestore).
 
 ### The `Locals` field
 
@@ -344,13 +350,124 @@ Give `Locals` a field of type `lyr.Cache` (any exported name works; the type is 
 }
 ```
 
-- **Patterns** use Lyr's [route syntax](routing.md) (`[param]`, `[...rest]`, no globs) and its priority (static segments, then params, then rest params). They match the **request path**, whichever page serves it: `/blog/[...path]` covers `/blog`, `/blog/hello` and `/blog/2026/recap`. They also match the paths of a [`site.CacheHandler`](#custom-handlers-sitecachehandler), and never `/_lyr/` (islands set their own).
-- **Values**: `maxAge` and `swr` are whole seconds, as in Astro; `tags` is an array of strings.
+- **Patterns** use Lyr's [route syntax](routing.md) (`[param]`, `[...rest]`, no globs) and its priority (static segments, then params, then rest params). They match the **request path**, whichever page serves it: `/blog/[...path]` covers `/blog`, `/blog/hello` and `/blog/2026/recap`. They match only paths a page serves, never your own handlers' routes, and never `/_lyr/` (islands set their own).
+- **Values**: `maxAge` and `swr` are whole seconds, as in Astro; `tags` and `varyBy` are arrays of strings.
 - **Order**: the matching rule is applied as a first `Set`, under what your middleware already set, before the page renders. Your middleware's values win over the rule, and the page's `Set` merges over both. A request your middleware disabled stays disabled.
 - **Without a provider**, rules do nothing.
 - **Errors**: `lyr.json` is checked when it loads. An invalid pattern, a negative or fractional number of seconds, an unknown key in a rule, or two rules that match the same paths is an error, such as `lyr.json: routeRules["/blog/[slug"]: …`.
 
 See [Configuration](configuration.md#routerules).
+
+## Caching by context
+
+A CDN keeps one copy of a URL for everyone (or one per value of a request header, with `Vary`). An in-memory store isn't limited to that: it can keep one copy **per user, per role, per plan**, from values only your server knows. Your middleware gives each request its **context values** with `Context`, and a page says which of them its HTML depends on with `VaryBy`, as HTTP's `Vary` does for headers:
+
+```go
+l.Cache.Context("user", u.ID)   // middleware, before site.Middleware
+l.Cache.Context("role", u.Role)
+
+ctx.Cache().Set(lyr.CacheOptions{MaxAge: time.Minute, VaryBy: []string{"user"}}) // a page
+```
+
+This middleware identifies the visitor and sets two context values, instead of keeping signed-in visitors out of the cache as `session.Middleware` does above:
+
+```go file=internal/auth/auth.go
+// Package auth identifies the visitor and gives the cache their context.
+package auth
+
+import (
+	"net/http"
+
+	"github.com/orbit-z/lyr"
+
+	"example.com/blog/src/locals"
+)
+
+// Middleware sets locals.User and locals.Role, and the matching context
+// values for pages that cache per user or per role.
+func Middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r, l := lyr.EnsureLocals[locals.Locals](r)
+		if c, err := r.Cookie("session"); err == nil && c.Value != "" {
+			l.User = c.Value // stands in for a session lookup
+			l.Role = "member"
+		}
+		l.Cache.Context("user", l.User)
+		l.Cache.Context("role", l.Role)
+		next.ServeHTTP(w, r)
+	})
+}
+```
+
+A dashboard shows the visitor's own data, so it's stored **once per user**. Ann gets Ann's copy, Bob gets Bob's, and visitors who aren't signed in share one:
+
+```lyr file=src/pages/dashboard.lyr
+---
+import (
+	"time"
+
+	Layout "../layouts/Base.lyr"
+)
+
+ctx.Cache().Set(lyr.CacheOptions{
+	MaxAge: time.Minute,
+	Tags:   []string{"dashboard"},
+	VaryBy: []string{"user"},
+})
+---
+<Layout title="Dashboard">
+  {if locals.User == ""}
+    <p><a href="/login">Sign in</a> to see your dashboard.</p>
+  {else}
+    <h1>Welcome back, {locals.User}</h1>
+  {/if}
+</Layout>
+```
+
+A pricing page only depends on the role, so it's stored **once per role**, however many users there are:
+
+```lyr file=src/pages/pricing.lyr
+---
+import (
+	"time"
+
+	Layout "../layouts/Base.lyr"
+)
+
+ctx.Cache().Set(lyr.CacheOptions{MaxAge: time.Hour, VaryBy: []string{"role"}})
+---
+<Layout title="Pricing">
+  {if locals.Role == "member"}
+    <p>Your member price: 8 € a month.</p>
+  {else}
+    <p>10 € a month, or 8 € for members.</p>
+  {/if}
+</Layout>
+```
+
+`routeRules` can set it too: `"/account/[...path]": { "maxAge": 60, "varyBy": ["user"] }`.
+
+The rules:
+
+- **Values are strings.** A later `Context` call for the same key replaces its value.
+- **Only the keys in `VaryBy` count.** The pricing page above ignores `user`, and a page without `VaryBy` stays **one copy for everyone**, whatever your middleware set.
+- **A key your middleware didn't set** counts as the empty value: its own variant, shared by every request without it, as a missing header is for `Vary`. So set it for every request the page can serve, or make sure the empty value's copy is right for all of them (the dashboard above shows the sign-in link).
+- **Set `VaryBy` unconditionally** (or in `routeRules`), not only for signed-in visitors. Once a URL has per-user copies, Lyr keeps storing its responses per user, a response without `VaryBy` included (under the empty value), so it never replaces them with one copy for everyone. But before the first per-user copy exists, a response without `VaryBy` is one copy for everyone, served to signed-in visitors too until it expires. And keeping the per-user copies is best effort: two renders finishing at the same moment can still let the shared copy replace the marker, until the next per-user render stores it again.
+- **There's no built-in session key.** For a copy per [session](sessions.md), set one yourself: `l.Cache.Context("session", l.Session.ID())`.
+- **Call `Context` before Lyr's lookup**, in middleware before `site.Middleware`. A call after it (from a page, or from middleware after `next`) can't change which copy was looked up, so if it changes a value, the response isn't stored, and Lyr logs once per process:
+
+  ```text
+  lyr: Cache.Context("user", …) was called after the cache lookup, so this response isn't cached; call Context in middleware before site.Middleware. Later cases aren't logged
+  ```
+
+- **No CDN headers.** A CDN can't see the context, so a response with `VaryBy` gets no `CDN-Cache-Control` or `Cache-Tag`, and a header provider isn't called for it. `ETag`, `Last-Modified` and the `Cache-Control` the page sets stay. So `VaryBy` is for a store such as `cache.NewMemory`.
+- **Purges drop every variant**: a tag or a path purge drops all the users' copies of a page, as it drops every `Vary` variant.
+- **Background refreshes and islands** work the same way: a stale copy is refreshed with the context of the request that found it stale, under that request's variant, and a GET `server:defer` island with `VaryBy` gets one copy per value. A refresh that varies by context renders with that visitor's [session](#sessions), read-only.
+- **Under `lyr dev` and without a provider**, `Context` changes nothing.
+
+**Memory**: a copy per user is a copy of the page per active user. Each variant is one entry for `cache.NewMemory`'s `MaxEntries` (the marker under the URL's own key is one more), so size it for the users you expect within `MaxAge`, and set `MaxBytes`: 10 000 users on a 20 KB dashboard is about 200 MB. When the cache is full, the least recently used copies go first, and a user whose copy was dropped gets a fresh render. A short `MaxAge` keeps the set to the users who are active right now. A per-role or per-plan page costs only a few copies.
+
+`Context` and `VaryBy` are a Lyr addition: Astro's route cache has no equivalent.
 
 ## Invalidation
 
@@ -359,7 +476,7 @@ err := site.InvalidateCache(r.Context(), lyr.InvalidateOptions{Tags: []string{"p
 ```
 
 - **`Tags`** drops every stored response carrying any of them.
-- **`Path`** is an escaped request path, such as `/blog/hello`. It drops every stored variant of that path: any query, any host, any `Vary` value.
+- **`Path`** is an escaped request path, such as `/blog/hello`. It drops every stored variant of that path: any query, any host, any `Vary` value, any [context](#caching-by-context) value.
 
 `site.InvalidateCache` is for your handlers and webhooks; in a page or component, `ctx.Cache().Invalidate(ctx.Request.Context(), o)` does the same. Both return `lyr.ErrCacheNotEnabled` when the site has no provider, and `nil` under `lyr dev`.
 
@@ -395,17 +512,21 @@ GET requests for [`server:defer`](lazy-loading.md) islands go through the cache 
 
 See [Response headers and caching](lazy-loading.md#response-headers-and-caching).
 
-## Custom handlers: `site.CacheHandler`
+## Rewrites
 
-`site.CacheHandler(h)` puts one of your own handlers on the same flow: GET requests are looked up and stored, route rules match its paths, and 304s are answered.
+A page that returns [`ctx.Rewrite`](routing.md#rewrites) is never stored: its rewritten request gets a lookup of its own, keyed by the **target's** URL (host, the target's path and query), with the target route's rules. So `/es-cu/about` rewriting to `/es/about` is served from the `/es/about` copy, the same one a request for `/es/about` gets, and the source page's frontmatter runs on every request (a HIT costs it plus the HIT).
 
-```go
-mux.Handle("GET /fragments/latest", site.CacheHandler(http.HandlerFunc(latest)))
-```
+- Options the source page set before rewriting are dropped: the target's render decides. Options set by your middleware outside `site.Rewrites` hold for the target (Lyr copies them where the request enters `site.Rewrites`, without allocating); the middleware inside it runs again and sets its own for the target. Without `site.Rewrites` in the chain, none of your middleware runs again, so the options it set before the first lookup hold for the target. Middleware inside `site.Rewrites` runs again before the target's lookup, and may set its options and `Context` values again (a value it changes there isn't a late change).
+- A `Disable()` your middleware made before the first lookup still holds for the target, and so does a late `Context` change by the source page: the target is then neither looked up nor stored.
+- Concurrent misses on the source's key each render the source, then share the target's flight.
+- The same rules hold when the `404.lyr` page rewrites (shown for a page's `lyr.ErrNotFound` or for a URL no page matches): the options of the page that returned `ErrNotFound`, and those of middleware inside `site.Rewrites`, never reach the target.
+- An app handler that rewrites with `site.ServeError(w, r, &lyr.RewriteError{…})` follows the same rules: the target is stored under its own key and nothing under the handler's, so the next request runs the handler again. Without `site.Rewrites`, options an unwrapped handler behind `site.Middleware` set on your `Locals`' `Cache` field before rewriting can't be told apart from middleware's, so they hold for the target too.
 
-- `h` sets options through the `lyr.Cache` field of your `Locals` (`lyr.LocalsFromRequest[locals.Locals](r).Cache.Set(…)`), or through `ctx.Cache()` in a component it renders with `lyr.RenderComponent`.
-- `h`'s response is buffered, and its `Content-Type` is sniffed when it sets none. The headers `h` sets are stored with it; whatever status `h` writes is stored when the options ask, so don't `Set` on an error path.
-- Without a provider, or under `lyr dev`, `CacheHandler` returns `h` unchanged.
+This differs from Astro, which stores the final response under the original URL.
+
+## Your own handlers
+
+The route cache is for Lyr's pages and their `server:defer` islands only. Your own `http.Handler`s (an API route, a feed built in Go) aren't stored, and route rules don't match their paths. A handler caches the data it serves with [`cache.Store`](#caching-data-and-fragments-cachestore) instead, and sets its own `Cache-Control` for browsers and CDNs.
 
 ## Providers
 
@@ -439,7 +560,7 @@ p := cache.NewMemory(cache.MemoryOptions{
 })
 ```
 
-- **`MaxEntries`** bounds the stored responses (each `Vary` variant counts as one). The default is 1000, Astro's.
+- **`MaxEntries`** bounds the stored responses (each `Vary` or `VaryBy` variant counts as one). The default is 1000, Astro's.
 - **`MaxBytes`**, when set, bounds the bytes held: bodies, headers, keys and tags. The store is split into shards and the bounds are checked per shard, so they're approximate, and a response bigger than `MaxBytes` divided by the number of shards isn't stored.
 - **Eviction** is close to least recently used (CLOCK, per shard), and expiry is lazy: an entry is dropped when it's read after `MaxAge + SWR`, or evicted. There's no timer.
 - **`Query`** says which query parameters are part of a key. `Include` and `Exclude` are [`path.Match`](https://pkg.go.dev/path#Match) patterns, matched case-insensitively against parameter names. With `Include`, only matching parameters are kept. `Exclude` drops the matching ones and replaces the default list of tracking parameters, so list `utm_*` again if you still want it dropped, as above (an empty, non-nil `Exclude` keeps every parameter). Setting both makes `cache.NewMemory` panic. Parameters are sorted by name unless `NoSort` is set.
@@ -501,7 +622,7 @@ func (p *Provider) Invalidate(ctx context.Context, o lyr.InvalidateOptions) erro
 }
 ```
 
-With a header provider, the CDN does the caching, so `X-Lyr-Cache` never appears and every request that reaches your server renders. The cookie refusals apply here too: a response that sets a cookie or varies on `Cookie` gets no CDN headers, and neither does a request your middleware disabled (see [Safety](#safety-what-lyr-checks-and-what-you-check)).
+With a header provider, the CDN does the caching, so `X-Lyr-Cache` never appears and every request that reaches your server renders. The cookie refusals apply here too: a response that sets a cookie or varies on `Cookie` gets no CDN headers, and neither does a request your middleware disabled (see [Safety](#safety-what-lyr-checks-and-what-you-check)) or a response with `VaryBy` (see [Caching by context](#caching-by-context)).
 
 ### Writing a store
 
@@ -517,7 +638,7 @@ type CacheStore interface {
 
 - **Keys**: `key.Hash()` is a hash for sharding and map lookups, stable within a process only. `key.String()` is the key itself, valid only during the call: copy it (`strings.Clone`) to keep it. `lyr.NewCacheKey(s)` makes a key for your store's tests.
 - **Entries**: a `CachedResponse` holds `Status`, `Header`, `Body`, `Stored`, `MaxAge`, `SWR`, `Tags` and `Path`. It's immutable once passed to `Put`: keep it as given. Keep it at least until `Stored + MaxAge + SWR`; Lyr decides whether it's fresh or stale.
-- **`Vary` markers**: a response with a `Vary` header is stored under a variant key, with a marker under the URL's own key (an entry whose `Vary` field is set, with no body). Store markers like any other entry.
+- **`Vary` markers**: a response with a `Vary` header or `VaryBy` names is stored under a variant key, with a marker under the URL's own key (an entry whose `Vary` field is set, with no body; a `VaryBy` name appears there as `@name`). Store markers like any other entry.
 - **`Invalidate`** drops the entries carrying any of `o.Tags`, and every entry whose `Path` is `o.Path`.
 - **Query parameters**: a store may also implement `CacheQuery() lyr.CacheQuery`, read once when the site is created.
 - **Speed**: `Get` runs on every lookup, so keep it free of allocations; `cache.MemoryProvider`'s takes about 43 ns.
@@ -564,6 +685,22 @@ p, _, err := products.Load(ctx.Request.Context(), id, time.Minute, []string{"pro
 
 [Loading data](data-loading.md#cache-data-across-requests-cachestore) shows a data cache, and [Caching fragments](rendering.md#caching-fragments) a fragment cache that re-applies its tags to the page.
 
+## Sessions
+
+Caching with [sessions](sessions.md) is manual, as in Astro: Lyr doesn't track who reads the session. A page that calls `ctx.Cache().Set(…)`, or matches a `routeRules` cache rule, is stored and served to everyone, whether or not the visitor has a session and whether or not the render read it. If a cached page shows the visitor's name or cart, the next visitor gets that copy.
+
+So you decide which pages are personal, in the same places you set caching:
+
+- **Don't cache a personal page**: no `Set` call and no matching rule, or call `ctx.Cache().Disable()` in it (for example only when `d.UserID != 0`).
+- **Disable in middleware** for signed-in visitors: `l.Cache.Disable()` before `next` keeps the whole request out of the cache, whatever the page sets later (see [Safety](#safety-what-lyr-checks-and-what-you-check)).
+- **Cache a copy per visitor**: with a store provider, set `l.Cache.Context("session", l.Session.ID())` (or the user's ID) in middleware, and give the personal page `VaryBy: []string{"session"}`. Each visitor gets their own copy; see [Caching by context](#caching-by-context) for the memory it costs.
+- **Keep the page cacheable and move the personal bits into a `server:defer` island**: the cart badge, the "Signed in as …" line. The page is the same for everyone and is stored once; each visitor's browser loads the island with its own cookie, and the island reads `session.Data()` (see [Sessions in islands](lazy-loading.md#sessions-in-islands)). This is usually the best of both.
+
+One rule stays automatic: **a response that sends the session cookie is never stored.** That's a new session, a `Regenerate`, a `Destroy`, a `Load`, or a change when the cookie has a `MaxAge` (which refreshes it on every save). Such a response is tied to one visitor's session, so Lyr sends it to that visitor only, gets it no CDN headers, and doesn't log a warning: it's expected, unlike a cookie your page sets on a cached route. A save that changes the data without sending the cookie (the default browser-session cookie) doesn't stop storing; what the body shows is up to you.
+
+- **A background refresh** of a stale copy renders with a session of its own that's never saved: an anonymous visitor's (`session.Data()` returns a zero `SessionData`) when the copy doesn't vary by context, and the visitor's who triggered it, read-only, when it does (`VaryBy`), since the copy is that visitor's variant. `session` and `locals.Session` both give that session, never the triggering request's.
+- **Islands** follow the same rules; their browser default stays `private, no-store`.
+
 ## Safety: what Lyr checks and what you check
 
 A stored page is served to everyone. Lyr enforces what it can see:
@@ -572,15 +709,17 @@ A stored page is served to everyone. Lyr enforces what it can see:
 - only `GET` requests are looked up and stored;
 - nothing is stored under `lyr dev`, for errors, or for URLs no route matches;
 - your middleware runs on every HIT, so its authentication and redirects always run;
-- `Disable()` in middleware runs before the lookup, and a request disabled there is never stored and gets no CDN headers, whatever the page sets later.
+- `Disable()` in middleware runs before the lookup, and a request disabled there is never stored and gets no CDN headers, whatever the page sets later;
+- a response that sends Lyr's [session](sessions.md) cookie is never stored (see [Sessions](#sessions)).
 
-It can't see into your `locals`, so this part is yours: **a page that calls `Set` or matches a rule must not read cookies, the session or per-user `locals`.** A miss (and a background refresh) renders with the request of whichever visitor triggered it, and that copy is served to everyone. The patterns:
+It can't see into your `locals`, so this part is yours: **a page that calls `Set` or matches a rule must not show per-visitor data: cookies, Lyr's session or a session of your own, per-user `locals`**. A miss (and a background refresh, except for Lyr's session, which it sees as anonymous unless the page varies by context) renders with the request of whichever visitor triggered it, and that copy is served to everyone. The patterns:
 
 - **Disable in middleware for signed-in visitors**, as `session.Middleware` does. Their pages render fresh every time, and can show their name.
+- **A copy per user**, with [`VaryBy`](#caching-by-context): your middleware sets `l.Cache.Context("user", id)`, and the page stores one copy per user.
 - **Per-user parts as `server:defer` islands.** The cached page holds a placeholder that's the same for everyone, and each visitor's browser loads the island with its own cookies, through your middleware (see [Lazy loading](lazy-loading.md#serverdefer-inside-cached-fragments)).
 - **A guard on shared renders**: set a flag on your `locals` while a cacheable page renders, and make your per-user accessors refuse while it's set, as in [Caching fragments](rendering.md#caching-fragments).
 
-With a header provider, the same checks decide whether the response gets CDN headers: none for a response that sets a cookie or has `Vary: Cookie`/`Vary: *`, and none for a request your middleware disabled, even if the page calls `Set` afterwards.
+With a header provider, the same checks decide whether the response gets CDN headers: none for a response that sets a cookie or has `Vary: Cookie`/`Vary: *`, and none for a request your middleware disabled, even if the page calls `Set` afterwards, and none for a response with `VaryBy`.
 
 ## In `lyr dev` and in tests
 
@@ -663,6 +802,8 @@ Measured on an AMD Ryzen 7 9700X with Go 1.27.3, at `-cpu 1`, on the 1.1 KB page
 | a page without `Set`, on a site with a provider | +~25 ns | the same 1 |
 | a site without a provider | unchanged (~620 ns) | 1 |
 
+A HIT on a [`VaryBy`](#caching-by-context) page costs about 60 ns more (two lookups, the marker and then the variant) and still allocates nothing; `Context` takes about 4 ns per key, without allocating for up to 4 keys.
+
 On one hot key with 16 threads, a HIT costs about 30 ns per request in aggregate. A HIT serves fewer allocations than a render: rendering the page costs 1 (the `Content-Length` value), a HIT 0. See [Performance](performance.md#cached-pages-route-caching).
 
 ## Coming from Astro
@@ -686,6 +827,9 @@ What works differently:
 - **A path purge** drops every query variant and host of the path, as Astro's CDN providers do; Astro's memory provider drops only the exact path and query.
 - **Refusal warnings** are logged once per route and reason, not on every request.
 - **Byte bounds**: `MaxBytes` on top of Astro's entry count.
+- **Caching by context** (`Context` and `VaryBy`, a copy per user or per role) is a Lyr addition; Astro has no equivalent.
+- **Rewrites** are stored under the target's URL, not the original's (see [Rewrites](#rewrites)).
+- **Sessions**: as in Astro, a cached page that reads the session is served to everyone, and you keep personal pages out. Lyr adds one floor: a response that sends the session cookie is never stored (see [Sessions](#sessions)).
 
 ## See also
 
@@ -694,4 +838,5 @@ What works differently:
 - [Rendering](rendering.md#caching-fragments): caching fragments with `cache.Store`
 - [Lazy loading](lazy-loading.md#response-headers-and-caching): cached islands
 - [Deploy](deploy.md#caching-in-production): CDNs and several instances
+- [Sessions](sessions.md#sessions-and-route-caching): sessions and cached pages
 - [Runtime API](reference/runtime-api.md#route-caching): every type and option

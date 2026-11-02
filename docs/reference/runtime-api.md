@@ -62,6 +62,11 @@ func (c *Ctx) Redirect(to string, code int) error
 Returns a `*RedirectError` for `to` with status `code`. Return it from the frontmatter: `return ctx.Redirect("/login", 302)`.
 
 ```go
+func (c *Ctx) Rewrite(target string) error
+```
+Returns a `*RewriteError` for `target`. Return it from the frontmatter to serve the route for `target` instead of this page, without a redirect: `return ctx.Rewrite("/es/" + params.Path)`. See [`RewriteError`](#errors-and-control-flow) and [Rewrites](../routing.md#rewrites).
+
+```go
 func (c *Ctx) Cache() *Cache
 ```
 Returns the request's [cache handle](#route-caching), shared by every component of the request: `ctx.Cache().Set(lyr.CacheOptions{MaxAge: time.Hour})`. When your `Locals` has a `lyr.Cache` field and middleware attached the locals, it's that field. See [Caching](../caching.md).
@@ -84,6 +89,20 @@ func (e *RedirectError) Error() string
 ```
 The error returned by `ctx.Redirect`. Lyr answers with status `Code` and a `Location` header. The island loader doesn't follow redirects, so in a deferred component a redirect leaves the fallback in place.
 
+```go
+type RewriteError struct {
+    Target string
+}
+func (e *RewriteError) Error() string // "lyr: rewrite to /es/about"
+```
+The error returned by `ctx.Rewrite`, found with `errors.As` (a component may return it, and `server:concurrent` children's errors are joined as usual). Lyr serves the route for `Target`, a path starting with `/` with an optional query, at the same URL:
+
+- The request is a shallow copy with the target's `URL` (`Path`, `RawPath`, `RawQuery`; the original query isn't kept) and the original `RequestURI`, method, headers, body and context. It runs again through the handler after [`site.Rewrites`](#site), else through `site.Middleware`, so the target gets its own route match, typed `params`, `locals.Route`, status, headers, assets and route-cache lookup.
+- The page's output, status and `ctx.Header()` headers are dropped, except `Set-Cookie`. Its session changes are saved and carry over.
+- `"/404"` renders `404.lyr` with status 404. A target that matches no page goes on like a request for it.
+- A relative target is resolved against the page's URL, as in Astro (`"b"` from `/docs/a` is `/docs/b`, `"../b"`, `"?q=1"`), and dot segments are removed. It never fails, as in Astro: a scheme and host are ignored (`"https://example.com/a"` is `/a`), `"//x"` is the path `//x`, a malformed percent-escape is kept as written, and a control character is percent-encoded.
+- In a `server:defer` component it's a server error: `lyr: Rewrite isn't supported in a deferred component (server:defer)`.
+
 Any other non-nil error is a server error: a 500 page in production, the error overlay in `lyr dev`, unless the site's [error handler](#witherrorhandler) answers it. Panics are recovered per request and handled the same way. A recovered panic is an error whose text names the innermost `.lyr` line (`src/pages/x.lyr:7: panic: …`) and whose `Unwrap` returns the panic value when it's an `error`, so `errors.As` finds a `panic(err)`.
 
 ## Loading data: `All`
@@ -102,7 +121,7 @@ err := lyr.All(ctx,
 
 - **Context**: each load gets a context derived from `c.Request.Context()`, cancelled when a load fails and when `All` returns. With a single load, it's the request's context itself (nothing to cancel); with a nil `c`, `context.Background()`.
 - **Goroutines**: every load but the first starts in its own goroutine, in argument order; the first runs on the calling goroutine. No concurrency limit. Zero loads return `nil`.
-- **Errors**: the first error in time, or `nil`. A load's error is prefixed with the `.lyr` line of its `func` literal (`src/pages/x.lyr:23: …`; Go code outside `.lyr` files gets no prefix), and the frontmatter's `return` keeps that position. `errors.Is` and `errors.As` see through the prefix. `ErrNotFound`, a `*RedirectError` and an error that already carries a position are returned as they are.
+- **Errors**: the first error in time, or `nil`. A load's error is prefixed with the `.lyr` line of its `func` literal (`src/pages/x.lyr:23: …`; Go code outside `.lyr` files gets no prefix), and the frontmatter's `return` keeps that position. `errors.Is` and `errors.As` see through the prefix. `ErrNotFound`, a `*RedirectError`, a `*RewriteError` and an error that already carries a position are returned as they are.
 - **Panics**: a panic in a load is recovered there, cancels the others, and is re-panicked on the calling goroutine once every load has returned, with the `.lyr` line of the panicking load. The request's recovery turns it into the usual server error. `http.ErrAbortHandler` is re-panicked as is.
 - **Safety**: loads share the render's state. Don't call `ctx.SetStatus`, `ctx.Header()` or `RenderHTML`, or render components, inside a load; see [What's safe inside a load](../data-loading.md#whats-safe-inside-a-load).
 
@@ -295,6 +314,7 @@ The route that answered a request, for logging and metrics. Declare a field of t
 - More than one `lyr.RouteInfo` field, an embedded one, an unexported one or a `*lyr.RouteInfo` is an error at the field.
 - Read it on the request's goroutine, or after `next` returns: it isn't synchronized.
 - A project whose `Locals` has no such field pays nothing for it.
+- After a page's `ctx.Rewrite`, it holds the target's route (`RouteNotFound` for `"/404"`), filled again on the rewritten request; `Match` keeps reporting the original request's.
 
 ```go
 func (s *Site) Match(r *http.Request) RouteInfo
@@ -303,7 +323,11 @@ Returns the route `site.Middleware` would serve `r` with, without serving it, fo
 
 ### The cache handle: a `Cache` field
 
-A field of type [`lyr.Cache`](#route-caching) in your `Locals`, with any exported name (`Cache lyr.Cache`), is the request's cache handle: middleware calls `l.Cache.Disable()` or `l.Cache.Set(…)` on it before Lyr's lookup, and `ctx.Cache()` returns it in pages and components. The generated `app.New()` wires it with [`WithLocalsCache`](#generated-wiring). As for `RouteInfo`, more than one such field, an embedded one, an unexported one or a `*lyr.Cache` is an error at the field. See [Keeping requests out of the cache](../middleware.md#keeping-requests-out-of-the-cache).
+A field of type [`lyr.Cache`](#route-caching) in your `Locals`, with any exported name (`Cache lyr.Cache`), is the request's cache handle: middleware calls `l.Cache.Disable()`, `l.Cache.Set(…)` or `l.Cache.Context(…)` on it before Lyr's lookup, and `ctx.Cache()` returns it in pages and components. The generated `app.New()` wires it with [`WithLocalsCache`](#generated-wiring). As for `RouteInfo`, more than one such field, an embedded one, an unexported one or a `*lyr.Cache` is an error at the field. See [Keeping requests out of the cache](../middleware.md#keeping-requests-out-of-the-cache).
+
+### The session: a `Session` field
+
+A field of type [`lyr.Session[SessionData]`](#sessions) in your `Locals`, with any exported name (`Session lyr.Session[SessionData]`), is the request's session for middleware and your own handlers, bound by [`site.Sessions`](#sessions). `SessionData` is the struct you declare in `src/locals`. The generated `app.New()` wires it with [`WithLocalsSession`](#generated-wiring). More than one such field, an embedded or pointer one, or a type argument other than `SessionData` is an error at the field. See [Sessions in middleware](../middleware.md#sessions-in-middleware).
 
 ## Writer
 
@@ -633,7 +657,7 @@ Sends `Middleware`'s trailing-slash 308 before `next` runs, so middleware inside
 ```go
 func (s *Site) ServeError(w http.ResponseWriter, r *http.Request, err error)
 ```
-Answers `err` the way a page's render error is answered: a `*RedirectError` (found with `errors.As`) redirects, `ErrNotFound` renders `404.lyr`, and any other error goes to the [error handler](#witherrorhandler), then to the built-in 500 with its log line. For custom handlers: `if err := lyr.RenderComponent(w, r, card.Render, props); err != nil { site.ServeError(w, r, err) }`. A nil `err` writes nothing.
+Answers `err` the way a page's render error is answered: a `*RedirectError` (found with `errors.As`) redirects, a `*RewriteError` serves its target (through `site.Rewrites` when the site has one, else through `site.Handler()`), `ErrNotFound` renders `404.lyr`, and any other error goes to the [error handler](#witherrorhandler), then to the built-in 500 with its log line. For custom handlers: `if err := lyr.RenderComponent(w, r, card.Render, props); err != nil { site.ServeError(w, r, err) }`. A nil `err` writes nothing.
 
 ```go
 func (s *Site) InvalidateCache(ctx context.Context, o InvalidateOptions) error
@@ -641,9 +665,14 @@ func (s *Site) InvalidateCache(ctx context.Context, o InvalidateOptions) error
 Drops stored responses through the cache provider: every response carrying one of `o.Tags`, and every variant of `o.Path` (any query, any host). Returns `ErrCacheNotEnabled` without a provider, `nil` under `lyr dev`, and otherwise the provider's error. Use it in admin handlers and webhooks: `site.InvalidateCache(r.Context(), lyr.InvalidateOptions{Tags: []string{"post:" + id}})`.
 
 ```go
-func (s *Site) CacheHandler(h http.Handler) http.Handler
+func (s *Site) Sessions(next http.Handler) http.Handler
 ```
-Returns a handler that puts `h`'s `GET` responses on the route cache's flow, as for pages: lookup and store, route rules matched against the request path, 304s. `h` sets options through your `Locals`' `lyr.Cache` field, or through `ctx.Cache()` in a component it renders with `RenderComponent`. `h`'s response is buffered, and its `Content-Type` is sniffed when it sets none. Without a provider, or under `lyr dev`, it returns `h` itself. See [Custom handlers](../caching.md#custom-handlers-sitecachehandler).
+Binds the [`Session` field](#the-session-a-session-field) of your `Locals` for `next`, and saves the session changes made in `next` (see [Sessions](#sessions)). It attaches `Locals` if no earlier middleware did. It panics when called if `Locals` has no `Session` field. Without [`WithSessions`](#withsessions), it binds the field to a session whose methods return `ErrSessionsNotEnabled`. Pages don't need it.
+
+```go
+func (s *Site) Rewrites(next http.Handler) http.Handler
+```
+Marks where a page rewrite (`ctx.Rewrite`) re-enters your middleware chain. Without a cache provider it adds nothing per request; with one, it reads the `Locals`' `Cache` field (about 7 ns) and copies the cache options the middleware outside it set (pooled, no allocation), which hold for a rewrite's target: `lyr.Sequence(logging, site.TrailingSlash, site.Rewrites, site.Sessions, auth)(mux)`. It must sit outside `site.Middleware` (around your mux, not inside it), or a rewrite re-entering there skips Lyr's pages. The handlers inside it run again for the rewrite target, with the same locals (attach them with `EnsureLocals`); those outside it run once. Put `ResponseWriter` wrappers (logging, gzip) outside and path-reading middleware (auth, locals, sessions) inside: the second run uses the writer `site.Middleware` received. Without it, a rewrite re-enters `site.Middleware` only. A second call panics. See [Rewrites: what runs again](../middleware.md#rewrites-what-runs-again).
 
 ### Options
 
@@ -700,6 +729,13 @@ func WithCache(p CacheProvider) Option
 ```
 Sets the site's [route cache](#route-caching) provider: a store such as `cache.MemoryProvider` (`cache.NewMemory`) from [`lyr/cache`](#lyrcache), a CDN header writer, or a plain provider for Astro's default headers. Pass it to `app.New()` in `cmd/server/main.go`. With several `WithCache` options, the last one wins. Under `lyr dev`, caching is off whatever the provider. See [Caching](../caching.md).
 
+#### WithSessions
+
+```go
+func WithSessions(store SessionStore, o SessionOptions) Option
+```
+Turns [sessions](#sessions) on, with `store` keeping the data, such as `cache.NewSessionStore` from [`lyr/cache`](#sessionstore). Pass it to `app.New()` in `cmd/server/main.go`. It panics when `o.Cookie.SameSite` is `http.SameSiteNoneMode` with `Insecure` set, since browsers drop such cookies, and when `o.Cookie.MaxAge` is between 0 and one second (`Max-Age` is whole seconds, and `Max-Age=0` deletes the cookie). See [Sessions](../sessions.md).
+
 #### WithErrorHandler
 
 ```go
@@ -707,7 +743,7 @@ func WithErrorHandler(h func(w http.ResponseWriter, r *http.Request, err error) 
 ```
 Sets `h` to answer the render errors that would otherwise get the built-in 500: errors returned by a page or any component it renders (the `404.lyr` page and deferred islands included) and recovered panics. `h` returns `true` when it wrote the response, `false` to let Lyr send the 500 and log the error. With several `WithErrorHandler` options, the last one wins.
 
-- `ErrNotFound` and `*RedirectError` never reach it, and neither do the island endpoint's own 400 and 413 (a bad token, props that don't decode, a body over 1 MiB).
+- `ErrNotFound`, `*RedirectError` and `*RewriteError` never reach it (an error in a rewrite's target does, with `r` the rewritten request: `r.URL` is the target and `r.RequestURI` the original), and neither do the island endpoint's own 400 and 413 (a bad token, props that don't decode, a body over 1 MiB).
 - `err` unwraps to your error through `ErrorAt`'s position, nested components and `errors.Join`, for `errors.Is` and `errors.As`; its text starts with the `.lyr` position of the `return`.
 - Nothing has been written when `h` runs. The page's output and the headers it set with `ctx.Header()` are dropped; headers set on `w` by middleware before Lyr stay.
 - For an island request, `r` is the island request (the page is `r.Referer()`), and `Cache-Control: private, no-store` and `X-Robots-Tag: noindex` are already set on `w`.
@@ -754,6 +790,11 @@ func WithLocalsCache[L any](field func(*L) *Cache) Option
 Tells the site where the [`lyr.Cache` field](#the-cache-handle-a-cache-field) of your `Locals` is. The generated `app.New()` passes it before your options when `src/locals` declares such a field: `lyr.WithLocalsCache(func(l *locals.Locals) *lyr.Cache { return &l.Cache })`. You don't call it yourself.
 
 ```go
+func WithLocalsSession[L, D any](field func(*L) *Session[D]) Option
+```
+Tells the site where the [`Session` field](#the-session-a-session-field) of your `Locals` is. The generated `app.New()` passes it before your options when `src/locals` declares such a field: `lyr.WithLocalsSession(func(l *locals.Locals) *lyr.Session[locals.SessionData] { return &l.Session })`. You don't call it yourself.
+
+```go
 type RouteRule struct {
 	Pattern string       // Lyr's route syntax: "/blog/[...path]"
 	Options CacheOptions // MaxAge, SWR and Tags from lyr.json
@@ -766,7 +807,7 @@ Sets default cache options per route pattern, from `lyr.json`'s [`routeRules`](.
 ```go
 func ErrorAt(pos string, err error) error
 ```
-Generated around the result of every frontmatter `return`: `return x` compiles to `return lyr.ErrorAt("src/pages/blog/[slug].lyr:14:5", x)`, the position of the `return`. A non-nil error comes back as an error whose text is `pos + ": " + err.Error()` and which unwraps to `err`, so `errors.Is` and `errors.As` still match it; that's the position in the [500 log line](../rendering.md#status-codes-and-errors). `nil`, `ErrNotFound`, a `*RedirectError` and an error that already carries a position are returned unchanged, so a redirect or 404 keeps working and an error from a component isn't prefixed twice. Only the failing case allocates.
+Generated around the result of every frontmatter `return`: `return x` compiles to `return lyr.ErrorAt("src/pages/blog/[slug].lyr:14:5", x)`, the position of the `return`. A non-nil error comes back as an error whose text is `pos + ": " + err.Error()` and which unwraps to `err`, so `errors.Is` and `errors.As` still match it; that's the position in the [500 log line](../rendering.md#status-codes-and-errors). `nil`, `ErrNotFound`, a `*RedirectError`, a `*RewriteError` and an error that already carries a position are returned unchanged, so a redirect or 404 keeps working and an error from a component isn't prefixed twice. Only the failing case allocates.
 
 ## Route caching
 
@@ -779,14 +820,16 @@ type CacheOptions struct {
 	Tags         []string      // labels for InvalidateOptions.Tags
 	ETag         string        // a quoted entity tag, `"v1"` or `W/"v1"`; without one, a stored response gets an automatic one
 	LastModified time.Time     // sent as Last-Modified
+	VaryBy       []string      // context keys (Cache.Context) the response depends on: one copy per combination of values
 }
 ```
-A response's cache options, Astro's `CacheOptions`. CDN headers carry whole seconds, so sub-second durations are truncated there.
+A response's cache options, Astro's `CacheOptions` plus `VaryBy`. CDN headers carry whole seconds, so sub-second durations are truncated there.
 
 ```go
 type Cache struct { /* unexported: merged options, a disabled flag, inline tag storage */ }
 
 func (k *Cache) Set(o CacheOptions)
+func (k *Cache) Context(key, value string)
 func (k *Cache) Disable()
 func (k *Cache) Enabled() bool
 func (k *Cache) Options() CacheOptions
@@ -794,7 +837,8 @@ func (k *Cache) Invalidate(ctx context.Context, o InvalidateOptions) error
 ```
 A request's cache handle: `ctx.Cache()` in pages and components, or a [`Cache` field](#the-cache-handle-a-cache-field) in your `Locals` for middleware. The zero value is ready to use. It belongs to one request: don't share it between goroutines.
 
-- **`Set`** merges `o` with Astro's rules: `MaxAge`, `SWR` and `ETag` take the last non-zero value, `LastModified` the latest time, and `Tags` accumulate without duplicates. A zero field changes nothing. It cancels an earlier `Disable`. A route rule is applied before the page runs, so the page's `Set` merges over it. Without a provider, `Set` records the options and Lyr logs a warning once per process. It doesn't allocate for up to 4 tags.
+- **`Set`** merges `o` with Astro's rules: `MaxAge`, `SWR` and `ETag` take the last non-zero value, `LastModified` the latest time, and `Tags` and `VaryBy` accumulate without duplicates. A zero field changes nothing. It cancels an earlier `Disable`. A route rule is applied before the page runs, so the page's `Set` merges over it. Without a provider, `Set` records the options and Lyr logs a warning once per process. It doesn't allocate for up to 4 tags.
+- **`Context`** sets the request's value for a context key, such as `l.Cache.Context("user", u.ID)` in middleware; a later call for the same key replaces it. A response whose `VaryBy` names the key is stored once per value; a key that wasn't set counts as `""`. Pages without `VaryBy` ignore the context. Call it before Lyr's lookup (in middleware before `site.Middleware`): a call after it that changes a value keeps the response out of the cache, and Lyr logs a warning once per process. It does nothing useful without a provider or under `lyr dev`, and doesn't allocate for up to 4 keys. A response with `VaryBy` gets no CDN headers (no `CDN-Cache-Control`, no `Cache-Tag`, no `WriteCacheHeaders` call). There's no built-in session key. See [Caching by context](../caching.md#caching-by-context).
 - **`Disable`** is Astro's `set(false)`: it clears the options and tags, and Lyr neither looks the request up nor stores its response. Called in middleware, it runs before the lookup, and the request isn't stored even if the page calls `Set` later.
 - **`Enabled`** reports whether the request can be cached: a provider is configured, the site isn't under `lyr dev`, and `Disable` wasn't called (or a later `Set` cancelled it). On a `Locals` field, it's `false` until Lyr has seen the request.
 - **`Options`** returns a snapshot of the merged options; `Tags` is a copy.
@@ -805,7 +849,7 @@ A request's cache handle: `ctx.Cache()` in pages and components, or a [`Cache` f
 ```go
 type InvalidateOptions struct {
 	Tags []string // drops every response carrying any of them
-	Path string   // an escaped request path, /blog/hello: drops every variant of it (any query, any host)
+	Path string   // an escaped request path, /blog/hello: drops every variant of it (any query, any host, any Vary or VaryBy value)
 }
 
 var ErrCacheNotEnabled error // "lyr: caching is not enabled; configure a provider with lyr.WithCache"
@@ -832,7 +876,7 @@ type CacheStore interface {
 The kinds of provider [`WithCache`](#withcache) takes. Lyr runs the request flow (keys, freshness, stale-while-revalidate, `Vary`, the `Set-Cookie` refusal, 304s, `X-Lyr-Cache`) for every one of them.
 
 - **`CacheStore`** (Astro's runtime providers, such as `memoryCache`): Lyr looks each cacheable `GET` up with `Get` (`nil` is a miss; Lyr checks freshness) and stores with `Put`, replacing any earlier response under the key. With a store, Lyr never writes `CDN-Cache-Control` or `Cache-Tag`. A store may also implement `CacheQuery() CacheQuery`, read once by `NewSite`, to choose the query parameters of keys. A provider that implements both `CacheStore` and `CacheHeaderWriter` is used as a store.
-- **`CacheHeaderWriter`** (CDN providers, Astro's `setHeaders`): Lyr calls `WriteCacheHeaders` on a response whose options are active (a `MaxAge` or tags, not disabled), after the page's own headers are set. `o` is read-only. It writes every cache header it wants, `ETag` and `Last-Modified` included.
+- **`CacheHeaderWriter`** (CDN providers, Astro's `setHeaders`): Lyr calls `WriteCacheHeaders` on a response whose options are active (a `MaxAge` or tags, not disabled) and have no `VaryBy`, after the page's own headers are set. `o` is read-only. It writes every cache header it wants, `ETag` and `Last-Modified` included.
 - **Neither**: Lyr writes Astro's default headers on active responses: `CDN-Cache-Control: max-age=N, stale-while-revalidate=M`, `Cache-Tag: a, b`, `Last-Modified` and `ETag`.
 
 Under `lyr dev`, no provider is called and no cache header is written.
@@ -844,7 +888,7 @@ func (k CacheKey) Hash() uint64
 func (k CacheKey) String() string
 func NewCacheKey(s string) CacheKey
 ```
-A cache key: the request's host, escaped path and normalized query, plus the values of the stored response's `Vary` headers. `Hash` is for sharding and map lookups, stable within a process only. The string from `String` is valid only during the call the key was passed to: copy it (`strings.Clone`) to keep it. `NewCacheKey` returns the key for `s` with the hash Lyr gives it, for a store's own tests.
+A cache key: the request's host, escaped path and normalized query, plus the values of the stored response's `Vary` headers and `VaryBy` context keys. `Hash` is for sharding and map lookups, stable within a process only. The string from `String` is valid only during the call the key was passed to: copy it (`strings.Clone`) to keep it. `NewCacheKey` returns the key for `s` with the hash Lyr gives it, for a store's own tests.
 
 ```go
 type CachedResponse struct {
@@ -856,11 +900,11 @@ type CachedResponse struct {
 	SWR    time.Duration
 	Tags   []string
 	Path   string        // the escaped request path, for InvalidateOptions.Path
-	Vary   []string      // set on a Vary marker
+	Vary   []string      // set on a Vary marker; a VaryBy key appears as "@key"
 	// unexported: the revalidation flag
 }
 ```
-A stored response. Lyr builds it; a store keeps it as given and must not change it, since its header values and body are shared with the responses served from it. Keep it at least until `Stored + MaxAge + SWR`. A **Vary marker** is an entry stored under a URL's own key when its response has a `Vary` header: it has no body, is never served, and holds the lowercased header names (`Cookie` excluded) whose request values key the variants. Store it like any other entry.
+A stored response. Lyr builds it; a store keeps it as given and must not change it, since its header values and body are shared with the responses served from it. Keep it at least until `Stored + MaxAge + SWR`. A **Vary marker** is an entry stored under a URL's own key when its response has a `Vary` header or `VaryBy` names: it has no body, is never served, and holds the header names (`Cookie` excluded) whose request values key the variants, then the `VaryBy` keys as `@key`. Store it like any other entry.
 
 ```go
 type CacheQuery struct {
@@ -870,6 +914,98 @@ type CacheQuery struct {
 }
 ```
 Which query parameters are part of a key, Astro's `memoryCache` `query` option. Patterns are `path.Match` patterns, matched case-insensitively against parameter names. Without `Include` or `Exclude`, Astro's tracking parameters (`utm_*`, `fbclid`, `gclid`, `ref` and others) are dropped. Giving both, or a bad pattern, panics in `NewSite`; `cache.NewMemory` already panics on both when it's created. Parameters are sorted by name unless `NoSort` is set.
+
+## Sessions
+
+Per-visitor data kept on the server behind a session cookie. You declare `type SessionData struct` in `src/locals`; pages and components reach it through the implicit `session`, middleware and handlers through a [`Session` field](#the-session-a-session-field) of `Locals`. See [Sessions](../sessions.md).
+
+```go
+type Session[D any] struct{ /* unexported */ }
+```
+A request's session, typed by your `SessionData`. The implicit `session` is a `*lyr.Session[locals.SessionData]`. Its zero value isn't bound to a request. All of a request's components, its `server:concurrent` children and its `lyr.All` loads share one handle; don't keep it after the request.
+
+```go
+func (s *Session[D]) Data() (*D, error)
+```
+Returns the session's data, to read and change in place. The first call of a request reads the session cookie (a UUID v4; any other value is ignored) and loads the stored JSON with the store's `Get`, under the request's context; later calls return the same pointer. Without a valid cookie, or with an ID the store doesn't have, it returns a zero `D` and no error, without calling the store when there's no valid cookie. Errors: `ErrSessionsNotEnabled`, `ErrSessionUnbound`, a `*SessionDecodeError`, or the store's error wrapped as `lyr: session store: …`.
+
+```go
+func (s *Session[D]) ID() string
+```
+The session's ID, Astro's `sessionID`, or `""` when the visitor has none. It loads like `Data`.
+
+```go
+func (s *Session[D]) Regenerate() error
+```
+Gives the session a new ID with the same data: the request saves under the new ID, sends its cookie, and deletes the old ID. Use it when privileges change, such as at sign-in.
+
+```go
+func (s *Session[D]) Destroy()
+```
+Deletes the session: at the save, the stored ID is deleted and an expired cookie (`Max-Age=0`) is sent. `Data` then returns a zero `D`; changing it starts a new session with a new ID.
+
+```go
+func (s *Session[D]) Load(id string) error
+```
+Switches the request to the stored session `id` and sends its cookie; the request's unsaved changes are dropped. An unknown ID returns `ErrSessionNotFound` and changes nothing.
+
+```go
+func (s *Session[D]) Save() error
+```
+Saves now and returns the error, instead of the automatic save at the end of the request (which then has nothing left to do).
+
+**Saving**: at the end of the request (pages and islands: after the render, before the response is written, whatever the render returned; under `site.Sessions`: when the response starts, and again after `next` returns), Lyr encodes the data with `encoding/json` and compares it with what it loaded. Unchanged data isn't saved. Changed data is saved per top-level field: Lyr reads the stored object again, replaces the fields this request changed (a nested value as a whole), keeps every other key, and writes it with the store's `Set` and `SessionOptions.TTL`, under `context.WithoutCancel` of the request's context. A new session (a new UUID v4 from `crypto/rand`) is created only when the data differs from a zero `D`, or when the stored session disappeared after it was loaded. A save that fails on a page is the request's error (logged as `lyr: saving session: …`); under `site.Sessions`, after the response started, it's logged and the cookie isn't sent.
+
+**Route caching** is manual, as in Astro: a cached page that reads the session is served to everyone, so keep personal pages out with `Cache.Disable`. A response that sends the session cookie (a new session, `Regenerate`, `Destroy`, `Load`, a save with `MaxAge`) is never stored. See [Sessions and route caching](../sessions.md#sessions-and-route-caching).
+
+```go
+func SessionOf[D any](c *Ctx) *Session[D]
+```
+For generated code. The implicit `session` of a page or component: the bound `Locals` field when `site.Sessions` ran, otherwise the request's own handle. Lyr declares `session` only in the render functions that mention it.
+
+```go
+type SessionStore interface {
+	// Get returns the stored bytes, or nil, nil when id is unknown or expired.
+	// Lyr never modifies the returned slice.
+	Get(ctx context.Context, id string) ([]byte, error)
+	// Set stores data under id for ttl (0: no expiry). Lyr never modifies
+	// data afterwards, so the store may keep it.
+	Set(ctx context.Context, id string, data []byte, ttl time.Duration) error
+	Delete(ctx context.Context, id string) error
+}
+```
+Where sessions are kept. The data is a JSON object. See [Stores](../sessions.md#stores).
+
+```go
+type SessionOptions struct {
+	TTL    time.Duration // the session's lifetime from its last save; 0: none
+	Cookie SessionCookie
+}
+
+type SessionCookie struct {
+	Name     string        // default "lyr-session"; letters, digits, '-' and '_'
+	Domain   string
+	Path     string        // default "/"
+	MaxAge   time.Duration // default 0: a browser-session cookie
+	SameSite http.SameSite // default http.SameSiteLaxMode
+	Insecure bool          // drop Secure in production (Secure is always off under lyr dev)
+}
+```
+The options of [`WithSessions`](#withsessions). The cookie is always `HttpOnly`. It's sent when a session is created, after `Regenerate` and `Load`, and with every save while `MaxAge` is set; at most one per response. Reading never extends `TTL`.
+
+```go
+var (
+	ErrSessionsNotEnabled = errors.New("lyr: sessions are not enabled: configure a store with lyr.WithSessions in app.New()")
+	ErrSessionNotFound    = errors.New("lyr: session not found")
+	ErrSessionUnbound     = errors.New("lyr: this lyr.Session isn't bound to a request: put site.Sessions before this middleware")
+)
+
+type SessionDecodeError struct {
+	ID  string
+	Err error
+}
+```
+`ErrSessionsNotEnabled` is also logged once per process, the first time. A `*SessionDecodeError` means the stored bytes don't decode into `SessionData` (a field's type changed); they stay stored. See [Errors](../sessions.md#errors).
 
 ## Deferred islands
 
@@ -928,7 +1064,7 @@ The fragment is buffered like a page: on success it's written once, with the sta
 
 A fragment may contain `server:defer` placeholders; they're sealed with the same key as the site's (without `WithKey`). They load only if the page the fragment lands in already has the islands loader.
 
-Under [`site.CacheHandler`](#site), the component's `ctx.Cache()` is the handler's cache handle, so a fragment can be cached like a page; elsewhere, its `Set` calls are dropped unless your `Locals` has a `Cache` field.
+The route cache never stores a fragment (it's for pages and islands only), and the component's `ctx.Cache().Set` calls are always dropped. Cache a fragment's HTML with [`cache.Store`](../rendering.md#caching-fragments).
 
 Rendering a full page (with its assets) from your own handler is not yet supported.
 
@@ -938,6 +1074,13 @@ Rendering a full page (with its assets) from your own handler is not yet support
 func Sequence(mws ...func(http.Handler) http.Handler) func(http.Handler) http.Handler
 ```
 Combines middleware into one, like Astro's `sequence()`: the middleware listed first runs first, so `lyr.Sequence(a, b, c)(mux)` is `a(b(c(mux)))`. The result is a middleware itself, so sequences nest, and method values such as `site.TrailingSlash` and `site.Middleware` fit as they are: `lyr.Sequence(logging, site.TrailingSlash, auth)(mux)`. The chain is built once, when the result is called, so requests pay nothing for `Sequence` (no call and no allocation of its own). `Sequence()` returns its argument unchanged. A `nil` middleware panics when `Sequence` is called, naming its index. See [Where middleware goes](../middleware.md#where-middleware-goes).
+
+## Rewriting a request: RewriteRequest
+
+```go
+func RewriteRequest(r *http.Request, target string) *http.Request
+```
+Returns a shallow copy of `r` for `target`, a path starting with `/` with an optional query, parsed as `ctx.Rewrite` parses it: `URL.Path`, `URL.RawPath` and `URL.RawQuery` set (the request's own query isn't kept, a fragment is dropped), and `RequestURI`, the method, the headers, the body and the context kept. Pass it to `next` instead of `r`, like Astro's `next("/path")`: the handlers before the middleware don't run again, and it doesn't count toward the rewrite loop limit. It never panics. As in Astro, a relative target is resolved against `r.URL` (`"x"` from `/a/b` is `/a/x`, `"../x"` is `/x`, `"?q=1"` keeps the path, `""` keeps the path and query), dot segments are removed, and a scheme and host are ignored (`"https://example.com/a?b"` is `/a?b`). `"//x"` is the path `//x`, a malformed percent-escape is kept as written (`Path` holds the escaped form), and a control character is percent-encoded; a target no route matches gets the usual 404. One allocation. See [Rewriting the request](../middleware.md#rewriting-the-request).
 
 ## Serving
 
@@ -962,7 +1105,7 @@ It returns `nil` after a graceful shutdown, and otherwise the error that stopped
 
 ## lyr/cache
 
-The `github.com/orbit-z/lyr/cache` package holds in-process caches: `MemoryProvider` (made with `NewMemory`), a route cache provider for `WithCache`, and `Store` (made with `NewStore`), a general cache for data and rendered fragments. It depends only on the standard library and the `lyr` package, and generated code never imports it. See [Caching](../caching.md).
+The `github.com/orbit-z/lyr/cache` package holds in-process caches: `MemoryProvider` (made with `NewMemory`), a route cache provider for `WithCache`, `Store` (made with `NewStore`), a general cache for data and rendered fragments, and `SessionStore` (made with `NewSessionStore`), a session store for `WithSessions`. It depends only on the standard library and the `lyr` package, and generated code never imports it. See [Caching](../caching.md).
 
 ```go
 import "github.com/orbit-z/lyr/cache"
@@ -1038,6 +1181,23 @@ var ErrLoadPanicked error
 - **`Load`** returns the stored value and its tags. On a miss it calls `load` once, however many callers ask for `key` meanwhile, and stores the result for `ttl` with `tags` (nothing is stored when `ttl` isn't positive, or when a `Delete`, `InvalidateTags` or `Clear` ran during the load). The returned tags are the stored ones on a hit and the first caller's after a load, so a fragment cache can re-apply them to `ctx.Cache()`; don't change them. The first caller to miss runs `load` on its own goroutine with `context.WithoutCancel(ctx)`, and waits for it whatever happens to `ctx`, so `load` may use that caller's `*lyr.Ctx`, as `lyr.RenderHTML` does. The other callers wait under their own `ctx`: when it's done, `Load` returns `ctx.Err()` and the load goes on. A load's error is returned to every caller waiting on it, and nothing is stored. A panic in `load` goes on in the first caller, and the others get an error wrapping `ErrLoadPanicked`.
 - **`Delete`**, **`InvalidateTags`** and **`Clear`** drop values. **`Len`** counts the values held, expired ones not yet dropped included; **`Bytes`** is `Size` plus each key's length.
 
+### SessionStore
+
+```go
+type SessionStoreOptions struct {
+	MaxEntries int              // sessions; 0 means 10 000
+	MaxBytes   int64            // when positive: a bound on the bytes held
+	Now        func() time.Time // the clock; nil means time.Now
+}
+
+func NewSessionStore(o SessionStoreOptions) *SessionStore
+
+func (s *SessionStore) Get(ctx context.Context, id string) ([]byte, error)
+func (s *SessionStore) Set(ctx context.Context, id string, data []byte, ttl time.Duration) error
+func (s *SessionStore) Delete(ctx context.Context, id string) error
+```
+An in-process [`lyr.SessionStore`](#sessions) for `lyr.WithSessions`, on the same engine (shards, CLOCK eviction, lazy expiry), safe for concurrent use. It keeps the bytes it's given without copying them and returns them as they are, so `Get` doesn't allocate. Every eviction signs a visitor out: size `MaxEntries` for your visitors. A session bigger than `MaxBytes` divided by the number of shards isn't stored: `Set` drops the one stored under that ID and returns an error, which Lyr handles as any failed save: a page or island request answers 500 (or your error handler's answer), and under `site.Sessions` it's logged. Under `lyr dev` (`LYR_DEV=1`), it also writes each session to `.lyr/sessions/<id>` (with its expiry), reads it back on a miss and removes it on `Delete`, so sessions survive the dev server's restarts; it never touches the disk otherwise. See [Stores](../sessions.md#the-built-in-store-cachenewsessionstore).
+
 ## lyrtest
 
 The `github.com/orbit-z/lyr/lyrtest` package tests components and pages with `go test`. See [Testing](../testing.md) for examples.
@@ -1046,12 +1206,12 @@ The `github.com/orbit-z/lyr/lyrtest` package tests components and pages with `go
 func Render[P any](t testing.TB, render func(*lyr.Ctx, *lyr.Writer, P, lyr.Slots) error,
     props P, opts ...Option) string
 ```
-Renders a component or page (pass its generated `Render`) and returns the HTML, with the same writer and escaping as a real request. Calls `t.Fatal` if rendering fails. It calls `render` directly, with a `GET /` request unless you pass `WithRequest`: your middleware doesn't run, and no head injection happens (no `<link>` or `<script>` tags, no loader). `server:defer` components appear as their placeholders, sealed with a fixed test island key and the build ID `0000000000000000`, so the output is the same on every run.
+Renders a component or page (pass its generated `Render`) and returns the HTML, with the same writer and escaping as a real request. Calls `t.Fatal` if rendering fails, a page returning `ctx.Rewrite` included (test rewrites with `Get`). It calls `render` directly, with a `GET /` request unless you pass `WithRequest`: your middleware doesn't run, and no head injection happens (no `<link>` or `<script>` tags, no loader). `server:defer` components appear as their placeholders, sealed with a fixed test island key and the build ID `0000000000000000`, so the output is the same on every run.
 
 ```go
 func Get(t testing.TB, h http.Handler, path string, opts ...Option) *httptest.ResponseRecorder
 ```
-Sends a GET for `path` to `h` (for example `app.New().Handler()`) and returns the recorded response, as production would answer it: routing, middleware in `h`, head injection. Redirects aren't followed. Island placeholders use the key and build ID of the site behind `h`; under `go test`, `app.New()` uses the same fixed test key and build ID as `Render` unless `LYR_KEY` or `WithKey` is set. Only `WithLocals` and `WithRequest` apply to `Get`.
+Sends a GET for `path` to `h` (for example `app.New().Handler()`) and returns the recorded response, as production would answer it: routing, middleware in `h`, head injection. Redirects aren't followed; a page's `ctx.Rewrite` is served in place, as in production. Island placeholders use the key and build ID of the site behind `h`; under `go test`, `app.New()` uses the same fixed test key and build ID as `Render` unless `LYR_KEY` or `WithKey` is set. Only `WithLocals` and `WithRequest` apply to `Get`; to send a session, add its cookie to the `WithRequest` request.
 
 ```go
 func WithSlot(name, html string) Option
@@ -1062,6 +1222,11 @@ Fills the slot `name` (`"default"` or a named slot) with raw HTML; a later `With
 func WithLocals[L any](l *L) Option
 ```
 Sets the request's locals. With `Get`, `l` is attached to the request, so `EnsureLocals` in your middleware returns it.
+
+```go
+func WithSession[D any](seed func(*D)) Option
+```
+Gives the implicit `session` a zero `D` changed by `seed`, for components and pages that read the session. Nothing is saved. `Render` only: with `Get`, send a session cookie with `WithRequest`. See [Sessions](../testing.md#sessions-withsession-and-two-request-tests).
 
 ```go
 func WithRequest(r *http.Request) Option
@@ -1087,6 +1252,7 @@ Compares `html` with `testdata/<name>.golden` and fails the test, showing the di
 - [Middleware and locals](../middleware.md): `EnsureLocals` and typed `Locals`
 - [Lazy loading](../lazy-loading.md): `server:defer`, `Defer` and the island key
 - [Caching](../caching.md): route caching, providers and `cache.Store`
+- [Sessions](../sessions.md): `Session`, `WithSessions` and `cache.NewSessionStore`
 - [Rendering](../rendering.md#slow-components): `server:concurrent`, `Concurrent` and the limit
 - [Testing](../testing.md): `lyrtest`
 - [Template syntax](template-syntax.md)

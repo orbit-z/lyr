@@ -62,6 +62,8 @@ func loadCase(t *testing.T, dir string) *cgCase {
 				}
 			case "locals":
 				c.opts.Locals = v
+			case "session":
+				c.opts.Session = v
 			}
 		}
 	}

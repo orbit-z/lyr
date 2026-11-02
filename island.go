@@ -191,6 +191,7 @@ func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string, 
 		}
 		p.buf, p.path, p.state = &c.keyBuf, r.URL.EscapedPath(), isl.cache
 		p.k = sc.attach(r, c, p)
+		sc.beginSession(r, c, p)
 		if sc.begin(w, r, p, false) {
 			return
 		}
@@ -212,6 +213,11 @@ func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string, 
 	}
 	wr.reset(nil)
 	writerPool.Put(wr)
+	if p != nil {
+		err = s.cache.endSession(w, c, p, err)
+	} else if c.session != nil {
+		err = endSession(w, c, err)
+	}
 	if err != nil {
 		if p != nil {
 			if p.bg {
@@ -233,9 +239,7 @@ func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string, 
 	}
 
 	h := w.Header()
-	for k, v := range c.responseHeader() {
-		h[k] = v
-	}
+	copyHeader(h, c.responseHeader())
 	if _, ok := h["Content-Type"]; !ok {
 		h["Content-Type"] = htmlContentType
 	}
@@ -252,21 +256,25 @@ func (s *Site) serveIsland(w http.ResponseWriter, r *http.Request, rest string, 
 	}
 }
 
+// errRewriteInIsland is the error of a deferred component that returned
+// ctx.Rewrite (PLAN.md §4j).
+var errRewriteInIsland = errors.New("lyr: Rewrite isn't supported in a deferred component (server:defer)")
+
 // islandFailed answers an island render that returned err: props that
 // don't decode give a 400, a redirect its 3xx, ErrNotFound an empty 404,
-// anything else goes to the error handler, then a 500 (in dev, with the
-// error text as the body).
+// anything else (a rewrite included) goes to the error handler, then a 500
+// (in dev, with the error text as the body).
 func (s *Site) islandFailed(w http.ResponseWriter, r *http.Request, err error, head http.Header) {
 	var re *RedirectError
 	var pe *islandPropsError
+	if errors.As(err, new(*RewriteError)) {
+		err = errRewriteInIsland
+	}
 	switch {
 	case errors.As(err, &pe):
 		emptyStatus(w, http.StatusBadRequest)
 	case errors.As(err, &re):
-		h := w.Header()
-		for k, v := range head {
-			h[k] = v
-		}
+		copyHeader(w.Header(), head)
 		http.Redirect(w, r, re.Location, re.Code)
 	case errors.Is(err, ErrNotFound):
 		emptyNotFound(w)

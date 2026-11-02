@@ -284,6 +284,14 @@ func main() {
 }
 ```
 
+### Sessions in islands
+
+A deferred component reads the visitor's [session](sessions.md) like any component, with the implicit `session`: the island request carries the visitor's own session cookie, so `session.Data()` loads the same session the page saw. Changes it makes are saved before the island's response is written, as for a page.
+
+**Never pass a session ID as a prop.** Props are sealed but not bound to a visitor: anyone who copies the placeholder can replay them. The cookie already identifies the visitor, so the component needs nothing more.
+
+That makes an island the place for the personal parts of a cached page (a cart badge, the visitor's name): the page is stored once for everyone, and each visitor's island renders with their own session. Leave such an island uncached (its default, `private, no-store`): caching is manual, so a GET island that calls `ctx.Cache().Set` is served to everyone, session or not (see [Sessions and route caching](sessions.md#sessions-and-route-caching)).
+
 ### `ctx` in a deferred component
 
 A deferred component renders with a fresh `ctx` for the island request, as Astro does:
@@ -318,7 +326,7 @@ The island response is buffered and written once, with `Content-Type: text/html;
 | 404 | The component ID isn't one used with `server:defer` (only those can be rendered by URL), or the component returned `lyr.ErrNotFound`. Empty body: `404.lyr` is a full page, so it isn't used here. |
 | 405 | A method other than GET, HEAD or POST. The response has `Allow: GET, HEAD, POST`. |
 | 413 | A POST body over 1 MiB. |
-| 500 | The component returned an error or panicked. The error is logged on stderr; the body is empty in production. |
+| 500 | The component returned an error or panicked, or returned `ctx.Rewrite(…)`, which a deferred component can't do (`lyr: Rewrite isn't supported in a deferred component (server:defer)`). The error is logged on stderr; the body is empty in production. |
 
 In `lyr dev`, a 500 body holds the error and its `.lyr` position as plain text, and the loader logs the status and body with `console.error`. In production, the loader stays silent.
 
@@ -539,6 +547,7 @@ The loader is inline, as Astro's island script is, which saves a request before 
 - [Template syntax](reference/template-syntax.md#directives): every directive and its compile errors
 - [Styles and scripts](styles-and-scripts.md): bundling, TypeScript and custom elements
 - [Middleware and locals](middleware.md): what island requests see
+- [Sessions](sessions.md): the visitor's session in islands
 - [Server](server.md): where `/_lyr/island/` is handled
 - [Deploy](deploy.md): `LYR_KEY` in production
 - [Performance](performance.md): buffered responses and the `server:defer` benchmark
