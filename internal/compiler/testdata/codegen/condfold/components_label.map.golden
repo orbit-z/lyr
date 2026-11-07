@@ -1,0 +1,6 @@
+lyr_gen/decl/components/label/decl.go (src/components/Label.lyr)
+  exact 2:1 "type Props struct {\n\tText string\n}" -> 149-183 "type Props struct {\n\tText string\n}"
+lyr_gen/impl/components/label/render.go (src/components/Label.lyr)
+  exact 6:5 "props.Text" -> 621-631 "props.Text"
+call sites
+  content key=47 "props.Text" call="lyr__w.Expr(\n/*line ../../../../src/components/Label.lyr:6:5*/props.Text/*line render.go:21:84*/,\n\t)"

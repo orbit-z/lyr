@@ -148,6 +148,9 @@ func tyWriteString(s CallSite, w TypedWrite, ok bool) string {
 		}
 		return "Expr"
 	}
+	if w.Kind == WriteFold {
+		return "fold:" + w.Text
+	}
 	k := w.Kind.Method()
 	if w.Kind == WriteSkip {
 		k = "skip"

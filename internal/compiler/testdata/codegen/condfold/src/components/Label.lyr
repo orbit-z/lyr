@@ -1,0 +1,6 @@
+---
+type Props struct {
+	Text string
+}
+---
+<b>{props.Text}</b>

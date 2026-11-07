@@ -50,7 +50,7 @@ func TestGoListLoader(t *testing.T) {
 		if res.Units[0].Checked != tc.checked {
 			t.Errorf("flags %v: checked = %v, want %v", tc.flags, res.Units[0].Checked, tc.checked)
 		}
-		if tc.checked && fmt.Sprint(tyGot(other[0], res.Units[0])) != "[Float]" {
+		if tc.checked && fmt.Sprint(tyGot(other[0], res.Units[0])) != "[fold:2.5]" {
 			t.Errorf("flags %v: writes %v", tc.flags, tyGot(other[0], res.Units[0]))
 		}
 	}

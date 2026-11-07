@@ -30,12 +30,12 @@ var tyCases = []struct{ attr, expr, want string }{
 	{"", `f32`, "Float32"},         // float32: bitSize 32, prints 0.1
 	{"", `price`, "Float/float64"}, // type Price float64: Expr writes a named float as Float
 	{"", `ratio`, "Float32/float32"},
-	{"", `float32(0.1)`, "Float32"}, // typed constant
-	{"", `raw`, "Bytes"},            // []byte
-	{"", `rawNamed`, "Expr"},        // type RawBytes []byte: fmt prints [..]
-	{"", `lyr.HTML("<b>x</b>")`, "HTML"},
+	{"", `float32(0.1)`, "fold:0.1"}, // typed constant
+	{"", `raw`, "Bytes"},             // []byte
+	{"", `rawNamed`, "Expr"},         // type RawBytes []byte: fmt prints [..]
+	{"", `lyr.HTML("<b>x</b>")`, "fold:<b>x</b>"},
 	{"", `h`, "HTML"},
-	{"", `lyr.URL("/a?b&c")`, "String/string"},
+	{"", `lyr.URL("/a?b&c")`, "fold:/a?b&amp;c"},
 	{"", `created`, "Stringer"},   // time.Time
 	{"", `author`, "Stringer"},    // *Author, pointer-receiver String
 	{"", `nilAuthor`, "Stringer"}, // nil *Author: Expr's nil case is for nil interfaces only
@@ -52,15 +52,15 @@ var tyCases = []struct{ attr, expr, want string }{
 	{"", `anyV`, "Expr"},          // any
 	{"", `rend`, "Render"},        // lyr.Renderer
 	{"", `func(w *lyr.Writer) error { w.Raw("<i>r</i>"); return nil }`, "Render/lyr__rt.Renderer"},
-	{"", `"a < b"`, "String"},     // untyped string constant
-	{"", `42`, "Int/int64"},       // untyped int constant
-	{"", `'x'`, "Int/int64"},      // untyped rune → int32
-	{"", `3.5`, "Float"},          // untyped float → float64
-	{"", `true`, "Bool"},          // untyped bool
-	{"", `Published`, "Stringer"}, // typed constant of Status
-	{"", `nil`, "skip"},           // untyped nil
-	{"", `sp`, "Expr"},            // *string: fmt prints an address
-	{"", `tags`, "Expr"},          // []string: Expr handles it at runtime
+	{"", `"a < b"`, "fold:a &lt; b"}, // untyped string constant
+	{"", `42`, "fold:42"},            // untyped int constant
+	{"", `'x'`, "fold:120"},          // untyped rune → int32
+	{"", `3.5`, "fold:3.5"},          // untyped float → float64
+	{"", `true`, "fold:true"},        // untyped bool
+	{"", `Published`, "Stringer"},    // typed constant of Status
+	{"", `nil`, "skip"},              // untyped nil
+	{"", `sp`, "Expr"},               // *string: fmt prints an address
+	{"", `tags`, "Expr"},             // []string: Expr handles it at runtime
 	{"", `len(tags)`, "Int/int64"},
 	{"", `post.URL()`, "String"}, // method call
 	{"", `m["k"]`, "String"},     // map index
@@ -77,22 +77,22 @@ var tyCases = []struct{ attr, expr, want string }{
 
 	{"title", `s`, "attr:AttrValue"},
 	{"href", `s`, "attr:URL"},
-	{"href", `"javascript:alert(1)"`, "attr:URL"},
-	{"src", `" VbScript:x()"`, "attr:URL"},
-	{"href", `"/q?a=\"<'>\"&b"`, "attr:URL"},                       // needs escaping
-	{"href", `lyr.URL("/a?x=\"<y>\"&z")`, "attr:AttrValue/string"}, // escaped, unfiltered
-	{"title", `"a<b\"c&d"`, "attr:AttrValue"},
+	{"href", `"javascript:alert(1)"`, `fold: href="about:invalid#lyr"`},
+	{"src", `" VbScript:x()"`, `fold: src="about:invalid#lyr"`},
+	{"href", `"/q?a=\"<'>\"&b"`, `fold: href="/q?a=&quot;&lt;'&gt;&quot;&amp;b"`},          // needs escaping
+	{"href", `lyr.URL("/a?x=\"<y>\"&z")`, `fold: href="/a?x=&quot;&lt;y&gt;&quot;&amp;z"`}, // escaped, unfiltered
+	{"title", `"a<b\"c&d"`, `fold: title="a&lt;b&quot;c&amp;d"`},
 	{"title", `slug`, "attr:AttrValue/string"},
 	{"href", `jsSlug`, "attr:URL/string"}, // a named string is filtered too
 	{"title", `tag`, "Attr"},              // named string with String()
 	{"title", `code`, "Attr"},             // named string with Error()
 	{"title", `fmts`, "Attr"},             // named string with Format()
 	{"title", `h`, "attr:AttrValue/string"},
-	{"href", `lyr.HTML("javascript:x()")`, "attr:URL/string"},
-	{"href", `lyr.URL("javascript:ok()")`, "attr:AttrValue/string"}, // trusted: unfiltered
+	{"href", `lyr.HTML("javascript:x()")`, `fold: href="about:invalid#lyr"`},
+	{"href", `lyr.URL("javascript:ok()")`, `fold: href="javascript:ok()"`}, // trusted: unfiltered
 	{"hidden", `ok`, "AttrBool"},
 	{"hidden", `!ok`, "AttrBool"},
-	{"hidden", `true`, "AttrBool"},
+	{"hidden", `true`, "fold: hidden"},
 	{"hidden", `flag`, "AttrBool/bool"},
 	{"hidden", `onOff`, "AttrBool/bool"}, // named bool with String(): Attr checks the kind
 	{"data-x", `nil`, "skip"},
@@ -103,12 +103,12 @@ var tyCases = []struct{ attr, expr, want string }{
 	{"data-n", `status`, "Attr"},          // type Status int with String()
 	{"data-n", `fmtd`, "Attr"},            // type Fmtd int with Format
 	{"data-n", `up`, "Attr"},              // uintptr stays on Attr, as in content
-	{"data-n", `42`, "attr:Int/int64"},
-	{"data-n", `'x'`, "attr:Int/int64"},
+	{"data-n", `42`, `fold: data-n="42"`},
+	{"data-n", `'x'`, `fold: data-n="120"`},
 	{"data", `n`, "attr:Int/int64"}, // a URL attribute: digits are never filtered
 	{"data-f", `f32`, "attr:Float32"},
 	{"data-f", `f64`, "attr:Float"},
-	{"data-f", `3.5`, "attr:Float"},
+	{"data-f", `3.5`, `fold: data-f="3.5"`},
 	{"data-f", `price`, "attr:Float/float64"},
 	{"data-f", `ratio`, "attr:Float32/float32"},
 	{"data-f", `c128`, "Attr"},

@@ -8,3 +8,4 @@ src/components/Warn.lyr:30:27: warning: onMouseOver={…} is escaped for HTML, n
 src/components/Warn.lyr:31:9: warning: onclick={…} is escaped for HTML, not for JavaScript; don't put untrusted values here
 src/components/Warn.lyr:33:9: warning: style={…} is escaped for HTML, not for CSS; don't put untrusted values here
 src/components/Warn.lyr:33:19: warning: onclick={…} is escaped for HTML, not for JavaScript; don't put untrusted values here
+src/components/Warn.lyr:37:6: warning: style={…} is escaped for HTML, not for CSS; don't put untrusted values here

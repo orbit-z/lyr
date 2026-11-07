@@ -1,0 +1,8 @@
+---
+import CF "../components/CF.lyr"
+import Consts "../components/Consts.lyr"
+---
+<CF on link="/l" name="Ann <" n={3} />
+<CF link="javascript:x" name="Bob" />
+<Consts on />
+<Consts />

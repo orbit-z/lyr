@@ -2,6 +2,7 @@ package lyr
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -166,5 +167,71 @@ func BenchmarkJSONAttr(b *testing.B) {
 			w.Raw(`"`)
 			w.AttrBool("data-liked", small.Liked)
 		})
+	})
+}
+
+// firstEscSink keeps the scan results alive in the firstEsc benchmarks.
+var firstEscSink int
+
+// BenchmarkFirstEsc measures the scan for the first byte that needs
+// escaping, at realistic lengths, clean and with a special byte at the end.
+func BenchmarkFirstEsc(b *testing.B) {
+	tables := []struct {
+		name string
+		t    *escTable
+	}{{"text", textTable}, {"attr", attrTable}}
+	for _, tb := range tables {
+		for _, n := range []int{1, 4, 8, 16, 32, 64, 256} {
+			clean := strings.Repeat("a", n)
+			for _, c := range []struct {
+				name string
+				s    string
+			}{{"clean", clean}, {"end", clean[:n-1] + "&"}} {
+				b.Run(fmt.Sprintf("%s/%s/%d", tb.name, c.name, n), func(b *testing.B) {
+					s := c.s
+					for b.Loop() {
+						firstEscSink += firstEsc(tb.t, s)
+					}
+				})
+			}
+		}
+	}
+}
+
+// pageValues approximates the strings a page escapes: mostly short
+// attribute values and text, some titles, URLs and paragraphs.
+var pageValues = []string{
+	"Like", "0", "12", "card", "btn btn-primary", "true", "Read more", "3 min",
+	"How we cut our SSR latency in half with precomputed static HTML",
+	"/blog/2026/11/how-we-cut-our-ssr-latency-in-half?utm_source=feed",
+	"en", "1", "Share", "Jane Doe", "nav-link", "42",
+	"A short description of the post that runs for about a hundred bytes or so, give or take.",
+	"main", "Tom & Jerry", "avatar", "/img/a.webp", "24", "Comments", "lazy",
+	"Rendering is fast when the hot path writes precomputed strings and escapes only what it has to escape.",
+	"x", "icon", "7", "Next", "page-2",
+}
+
+func BenchmarkEscapeMixed(b *testing.B) {
+	b.Run("text", func(b *testing.B) {
+		bench(b, func(w *Writer) {
+			for _, s := range pageValues {
+				w.String(s)
+			}
+		})
+	})
+	b.Run("attr", func(b *testing.B) {
+		bench(b, func(w *Writer) {
+			for _, s := range pageValues {
+				w.AttrValue(s)
+			}
+		})
+	})
+	b.Run("scan", func(b *testing.B) {
+		for b.Loop() {
+			for _, s := range pageValues {
+				firstEscSink += firstEsc(textTable, s)
+				firstEscSink += firstEsc(attrTable, s)
+			}
+		}
 	})
 }

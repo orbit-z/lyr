@@ -104,14 +104,26 @@ func lyr__render(lyr__ctx *lyr__rt.Ctx, lyr__w *lyr__rt.Writer, lyr__props Props
 			lyr__w.Raw("\"")
 		}
 	}
-	lyr__w.Raw(" title=\"")
-	lyr__w.AttrValue(
-/*line ../../../../src/pages/allocs.lyr:15:75*/lyr.Cond(saved, "Remove from library", "Add to library")/*line render.go:109:130*/,
-	)
-	lyr__w.Raw("\">\n")
-	lyr__w.String(
-/*line ../../../../src/pages/allocs.lyr:16:6*/lyr.Cond(saved, "Saved", "Save")/*line render.go:113:105*/,
-	)
+	_ = /*line ../../../../src/pages/allocs.lyr:15:75*/lyr.Cond/*line render.go:107:86*/[bool]
+	{
+		lyr__c :=
+/*line ../../../../src/pages/allocs.lyr:15:84*/saved/*line render.go:110:78*/
+		if lyr__c {
+			lyr__w.Raw(" title=\"Remove from library\"")
+		} else {
+			lyr__w.Raw(" title=\"Add to library\"")
+		}
+	}
+	lyr__w.Raw(">\n")
+	{
+		lyr__c :=
+/*line ../../../../src/pages/allocs.lyr:16:15*/saved/*line render.go:120:78*/
+		if lyr__c {
+			lyr__w.Raw("Saved")
+		} else {
+			lyr__w.Raw("Save")
+		}
+	}
 	lyr__w.Raw("\n</button>\n</nav>")
 	return lyr__w.Err()
 }

@@ -235,71 +235,80 @@ lyr__rt.StringAs(lyr__rt.HTML(""), lyr__rt.TB(make([]byte, 0, 64)).S("<i>").Int(
 			lyr__w.Raw("\"")
 		}
 	}
-	lyr__w.Raw(" data-x=\"")
-	lyr__w.AttrValue(
-/*line ../../../../src/components/TL.lyr:48:48*/lyr.Cond(on,/*line render.go:240:86*/ lyr__rt.TB(make([]byte, 0, 64)).S("y").Int(int64(/*line ../../../../src/components/TL.lyr:48:65*/n/*line render.go:240:211*/)).String()/*line ../../../../src/components/TL.lyr:48:68*/, "z")/*line render.go:240:302*/,
-	)
-	lyr__w.Raw("\">")
+	_ = /*line ../../../../src/components/TL.lyr:48:48*/lyr.Cond/*line render.go:238:87*/[bool]
+	{
+		lyr__c, lyr__a :=
+/*line ../../../../src/components/TL.lyr:48:57*/on/*line render.go:241:76*/,
+lyr__rt.TB(make([]byte, 0, 64)).S("y").Int(int64(/*line ../../../../src/components/TL.lyr:48:65*/n/*line render.go:242:125*/)).String()
+		if lyr__c {
+			lyr__w.Raw(" data-x=\"")
+			lyr__w.AttrValue(lyr__a)
+			lyr__w.Raw("\"")
+		} else {
+			lyr__w.Raw(" data-x=\"z\"")
+		}
+	}
+	lyr__w.Raw(">")
 	{
 		lyr__c, lyr__v :=
-/*line ../../../../src/components/TL.lyr:48:84*/!on/*line render.go:245:77*/,
-lyr__rt.TB(make([]byte, 0, 64)).S("never ").Int(int64(/*line ../../../../src/components/TL.lyr:48:98*/n/*line render.go:246:130*/)).String()
+/*line ../../../../src/components/TL.lyr:48:84*/!on/*line render.go:254:77*/,
+lyr__rt.TB(make([]byte, 0, 64)).S("never ").Int(int64(/*line ../../../../src/components/TL.lyr:48:98*/n/*line render.go:255:130*/)).String()
 		if lyr__c {
 			lyr__w.String(lyr__v)
 		}
 	}
 	lyr__w.Raw("</p><p>")
 	lyr__w.String(
-/*line ../../../../src/components/TL.lyr:49:5*/strings.ToUpper(/*line render.go:253:89*/("up " + /*line ../../../../src/components/TL.lyr:49:27*/name/*line render.go:253:176*/)/*line ../../../../src/components/TL.lyr:49:33*/)/*line render.go:253:252*/,
+/*line ../../../../src/components/TL.lyr:49:5*/strings.ToUpper(/*line render.go:262:89*/("up " + /*line ../../../../src/components/TL.lyr:49:27*/name/*line render.go:262:176*/)/*line ../../../../src/components/TL.lyr:49:33*/)/*line render.go:262:252*/,
 	)
 	lyr__w.Raw(" ")
 	lyr__w.Int(int64(
-/*line ../../../../src/components/TL.lyr:49:37*/len(/*line render.go:257:78*/lyr__rt.TB(make([]byte, 0, 64)).Int(int64(/*line ../../../../src/components/TL.lyr:49:44*/n/*line render.go:257:195*/)).Int(int64(/*line ../../../../src/components/TL.lyr:49:48*/n/*line render.go:257:283*/)).String()/*line ../../../../src/components/TL.lyr:49:51*/)/*line render.go:257:369*/,
+/*line ../../../../src/components/TL.lyr:49:37*/len(/*line render.go:266:78*/lyr__rt.TB(make([]byte, 0, 64)).Int(int64(/*line ../../../../src/components/TL.lyr:49:44*/n/*line render.go:266:195*/)).Int(int64(/*line ../../../../src/components/TL.lyr:49:48*/n/*line render.go:266:283*/)).String()/*line ../../../../src/components/TL.lyr:49:51*/)/*line render.go:266:369*/,
 	))
 	lyr__w.Raw(" ")
 	lyr__w.String(
-/*line ../../../../src/components/TL.lyr:49:55*/"a"/*line render.go:261:77*/ /*line ../../../../src/components/TL.lyr:49:59*/+/*line render.go:261:153*/ lyr__rt.TB(make([]byte, 0, 64)).S("b").Int(int64(/*line ../../../../src/components/TL.lyr:49:65*/n/*line render.go:261:278*/)).String(),
+/*line ../../../../src/components/TL.lyr:49:55*/"a"/*line render.go:270:77*/ /*line ../../../../src/components/TL.lyr:49:59*/+/*line render.go:270:153*/ lyr__rt.TB(make([]byte, 0, 64)).S("b").Int(int64(/*line ../../../../src/components/TL.lyr:49:65*/n/*line render.go:270:278*/)).String(),
 	)
 	lyr__w.Raw("</p>")
-	if lyr__rt.TB(make([]byte, 0, 64)).S("a-").Int(int64(/*line ../../../../src/components/TL.lyr:50:10*/n/*line render.go:264:130*/)).String() /*line ../../../../src/components/TL.lyr:50:14*/== "a-3"/*line render.go:264:224*/ {
+	if lyr__rt.TB(make([]byte, 0, 64)).S("a-").Int(int64(/*line ../../../../src/components/TL.lyr:50:10*/n/*line render.go:273:130*/)).String() /*line ../../../../src/components/TL.lyr:50:14*/== "a-3"/*line render.go:273:224*/ {
 		lyr__w.Raw("<p>if header</p>")
 	}
-	switch /*line ../../../../src/components/TL.lyr:51:9*/"x"/*line render.go:267:84*/ {
-	case /*line ../../../../src/components/TL.lyr:51:19*/"x"/*line render.go:268:83*/:
+	switch /*line ../../../../src/components/TL.lyr:51:9*/"x"/*line render.go:276:84*/ {
+	case /*line ../../../../src/components/TL.lyr:51:19*/"x"/*line render.go:277:83*/:
 		lyr__w.Raw("<p>case</p>")
 	}
 	lyr__w.Raw("<p>nest ")
 	lyr__w.String(
-/*line ../../../../src/components/TL.lyr:52:13*/strings.Repeat(/*line render.go:273:89*/lyr__rt.TB(make([]byte, 0, 64)).S("-").Int(int64(/*line ../../../../src/components/TL.lyr:52:32*/n/*line render.go:273:213*/)).S(/*line ../../../../src/components/TL.lyr:52:36*/strings.ToLower(/*line render.go:273:308*//*line ../../../../src/components/TL.lyr:52:52*/"X"/*line render.go:273:385*//*line ../../../../src/components/TL.lyr:52:60*/)/*line render.go:273:460*/).String()/*line ../../../../src/components/TL.lyr:52:63*/, 2)/*line render.go:273:548*/,
+/*line ../../../../src/components/TL.lyr:52:13*/strings.Repeat(/*line render.go:282:89*/lyr__rt.TB(make([]byte, 0, 64)).S("-").Int(int64(/*line ../../../../src/components/TL.lyr:52:32*/n/*line render.go:282:213*/)).S(/*line ../../../../src/components/TL.lyr:52:36*/strings.ToLower(/*line render.go:282:308*//*line ../../../../src/components/TL.lyr:52:52*/"X"/*line render.go:282:385*//*line ../../../../src/components/TL.lyr:52:60*/)/*line render.go:282:460*/).String()/*line ../../../../src/components/TL.lyr:52:63*/, 2)/*line render.go:282:548*/,
 	)
 	lyr__w.Raw(" end</p><p>esc ` ${x} \\ 😀 A é \n|continued $ {x} $</p><p title=\"multi\nline ")
 	lyr__w.Int(int64(
-/*line ../../../../src/components/TL.lyr:56:8*/n/*line render.go:277:74*/,
+/*line ../../../../src/components/TL.lyr:56:8*/n/*line render.go:286:74*/,
 	))
 	lyr__w.Raw("\">\n")
 	lyr__w.String(
-/*line ../../../../src/components/TL.lyr:57:3*/name/*line render.go:281:77*/,
+/*line ../../../../src/components/TL.lyr:57:3*/name/*line render.go:290:77*/,
 	)
 	lyr__w.Raw("</p><p data-css=\"")
 	lyr__w.AttrValue(string(
-/*line ../../../../src/components/TL.lyr:58:14*/lyr.CSS(/*line render.go:285:82*/lyr__rt.TB(make([]byte, 0, 64)).S("width:").Int(int64(/*line ../../../../src/components/TL.lyr:58:31*/n/*line render.go:285:211*/)).S("px").String()/*line ../../../../src/components/TL.lyr:58:36*/)/*line render.go:285:305*/,
+/*line ../../../../src/components/TL.lyr:58:14*/lyr.CSS(/*line render.go:294:82*/lyr__rt.TB(make([]byte, 0, 64)).S("width:").Int(int64(/*line ../../../../src/components/TL.lyr:58:31*/n/*line render.go:294:211*/)).S("px").String()/*line ../../../../src/components/TL.lyr:58:36*/)/*line render.go:294:305*/,
 	))
 	lyr__w.Raw("\" style=\"")
 	lyr__w.AttrValue(string(
-/*line ../../../../src/components/TL.lyr:58:46*/lyr.CSS(/*line render.go:289:82*//*line ../../../../src/components/TL.lyr:58:54*/"color:red"/*line render.go:289:167*//*line ../../../../src/components/TL.lyr:58:70*/)/*line render.go:289:242*/,
+/*line ../../../../src/components/TL.lyr:58:46*/lyr.CSS(/*line render.go:298:82*//*line ../../../../src/components/TL.lyr:58:54*/"color:red"/*line render.go:298:167*//*line ../../../../src/components/TL.lyr:58:70*/)/*line render.go:298:242*/,
 	))
 	lyr__w.Raw("\">conv</p>\n")
 	lyr__t1 := lyr__w.TagOpen("src/components/TL.lyr:59:2", "Tag",
-/*line ../../../../src/components/TL.lyr:59:2*/Tag/*line render.go:293:76*/,
+/*line ../../../../src/components/TL.lyr:59:2*/Tag/*line render.go:302:76*/,
 	true)
 	if lyr__t1.Attrs() {
 		lyr__w.Raw(" id=\"t-")
 		lyr__w.Int(int64(
-/*line ../../../../src/components/TL.lyr:59:15*/n/*line render.go:298:75*/,
+/*line ../../../../src/components/TL.lyr:59:15*/n/*line render.go:307:75*/,
 		))
 		lyr__w.Raw("\" class=\"d-")
 		lyr__w.AttrValue(
-/*line ../../../../src/components/TL.lyr:59:32*/size/*line render.go:302:78*/,
+/*line ../../../../src/components/TL.lyr:59:32*/size/*line render.go:311:78*/,
 		)
 		lyr__w.Raw("\">")
 	}

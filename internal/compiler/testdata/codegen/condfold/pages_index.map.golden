@@ -1,0 +1,23 @@
+lyr_gen/decl/pages/index/decl.go (src/pages/index.lyr)
+lyr_gen/impl/pages/index/render.go (src/pages/index.lyr)
+  exact 2:8 "CF" -> 193-195 "CF"
+  span  2:11 "\"../components/CF.lyr\"" -> 196-241 "\"example.com/blog/lyr_gen/decl/components/cf\""
+  exact 3:8 "Consts" -> 285-291 "Consts"
+  span  3:15 "\"../components/Consts.lyr\"" -> 292-341 "\"example.com/blog/lyr_gen/decl/components/consts\""
+  span  5:2 "CF" -> 855-864 "CF.Render"
+  span  5:5 "on" -> 963-965 "On"
+  span  5:8 "link" -> 1112-1116 "Link"
+  span  5:13 "\"/l\"" -> 1187-1191 "\"/l\""
+  span  5:18 "name" -> 1265-1269 "Name"
+  span  5:23 "\"Ann <\"" -> 1340-1347 "\"Ann <\""
+  span  5:31 "n" -> 1421-1422 "N"
+  exact 5:34 "3" -> 1493-1494 "3"
+  span  6:2 "CF" -> 1660-1669 "CF.Render"
+  span  6:5 "link" -> 1768-1772 "Link"
+  span  6:10 "\"javascript:x\"" -> 1843-1857 "\"javascript:x\""
+  span  6:25 "name" -> 1931-1935 "Name"
+  span  6:30 "\"Bob\"" -> 2006-2011 "\"Bob\""
+  span  7:2 "Consts" -> 2177-2190 "Consts.Render"
+  span  7:9 "on" -> 2293-2295 "On"
+  span  8:2 "Consts" -> 2535-2548 "Consts.Render"
+call sites

@@ -168,6 +168,25 @@ func (g *cgGen) site(kind SiteKind, node Node, a *Attr, code GoCode) {
 		g.ifSite(cs, a, tw)
 		return
 	}
+	if tw, ok := g.in.Typed[code.Start]; ok && tw.Cond != nil {
+		g.condSite(cs, tw, func(v string) (Span, Span) {
+			c := cs
+			g.ifWrite(&c, a, tw, v)
+			return c.Call, c.Arg
+		}, o.html)
+		return
+	}
+	if tw, ok := g.in.Typed[code.Start]; ok && tw.Kind == WriteFold {
+		// A constant, folded (PLAN.md §2.6).
+		if tw.Ref {
+			g.keep(code.Span)
+		}
+		o.html(tw.Text)
+		at := Span{len(o.b), len(o.b)}
+		cs.Call, cs.Arg = at, at
+		g.sites = append(g.sites, cs)
+		return
+	}
 	if tw, ok := g.in.Typed[code.Start]; ok && tw.Kind != WriteFallback {
 		if tw.Kind == WriteSkip {
 			at := Span{len(o.b), len(o.b)}
@@ -236,7 +255,7 @@ func (g *cgGen) ifSite(cs CallSite, a *Attr, tw TypedWrite) {
 		o.ln("lyr__v, lyr__c := lyr__o.Get()")
 		o.ln("if lyr__c {")
 		o.depth++
-		g.ifWrite(&cs, a, tw)
+		g.ifWrite(&cs, a, tw, "lyr__v")
 		o.depth--
 		o.ln("}")
 		o.depth--
@@ -259,7 +278,20 @@ func (g *cgGen) ifSite(cs CallSite, a *Attr, tw TypedWrite) {
 	o.ln("{")
 	o.depth++
 	o.ind()
-	if iw.Folded {
+	if iw.Folded && iw.Ref {
+		// The constant names a variable or package: kept used in a call of
+		// If itself, so it converts to T as in the original ("_" would give
+		// an untyped constant int's type, which may overflow).
+		o.str("lyr__c :=\n")
+		o.exact(iw.Cond)
+		o.str("\n")
+		o.ind()
+		o.str("_ = ")
+		o.exact(iw.Fun)
+		o.str("(lyr__c,\n")
+		o.exact(iw.Val)
+		o.str(")\n")
+	} else if iw.Folded {
 		o.str("lyr__c :=\n")
 		o.exact(iw.Cond)
 		o.str("\n")
@@ -278,7 +310,7 @@ func (g *cgGen) ifSite(cs CallSite, a *Attr, tw TypedWrite) {
 		at := Span{len(o.b), len(o.b)}
 		cs.Call, cs.Arg = at, at
 	} else {
-		g.ifWrite(&cs, a, tw)
+		g.ifWrite(&cs, a, tw, "lyr__v")
 	}
 	o.depth--
 	o.ln("}")
@@ -287,9 +319,9 @@ func (g *cgGen) ifSite(cs CallSite, a *Attr, tw TypedWrite) {
 	g.sites = append(g.sites, cs)
 }
 
-// ifWrite emits the write of lyr__v in a lowered If: tw's typed write, or
-// Attr/Expr for a value with none.
-func (g *cgGen) ifWrite(cs *CallSite, a *Attr, tw TypedWrite) {
+// ifWrite emits the write of the temporary v in a lowered If (lyr__v) or
+// Cond: tw's typed write, or Attr/Expr for a value with none.
+func (g *cgGen) ifWrite(cs *CallSite, a *Attr, tw TypedWrite, v string) {
 	o := g.o
 	method := "Expr"
 	if cs.Kind == SiteAttr {
@@ -322,7 +354,7 @@ func (g *cgGen) ifWrite(cs *CallSite, a *Attr, tw TypedWrite) {
 	if cs.Kind == SiteAttr && !pieces {
 		o.str(strconv.Quote(a.Name) + ", ")
 	}
-	arg := "lyr__v"
+	arg := v
 	if tw.Conv != "" {
 		arg = tw.Conv + "(" + arg + ")"
 	}
@@ -336,6 +368,92 @@ func (g *cgGen) ifWrite(cs *CallSite, a *Attr, tw TypedWrite) {
 		o.html(quote)
 		o.flush()
 	}
+}
+
+// condSite emits a lowered lyr.Cond site (PLAN.md §2.6, CondWrite): the
+// three arguments into temporaries, in order ("_" for a folded branch),
+// then each branch's write under the condition: write(<temporary>), or
+// html(<the folded text>). The call site's Call and Arg are those of the
+// first branch written (empty when both are folded).
+func (g *cgGen) condSite(cs CallSite, tw TypedWrite, write func(v string) (call, arg Span), html func(string)) {
+	o := g.o
+	cw := tw.Cond
+	o.flush()
+	if !g.condRef {
+		// The lowering drops the call, which may be the file's only use
+		// of the package; keep one (an instantiation, no code).
+		g.condRef = true
+		o.ind()
+		o.str("_ = ")
+		o.exact(cw.Fun)
+		o.str("[bool]\n")
+	}
+	o.ln("{")
+	o.depth++
+	o.ind()
+	names := [2]string{"lyr__a", "lyr__b"}
+	arms := [2]*CondArm{&cw.A, &cw.B}
+	// A folded branch is a constant: left out of the assignment (it has
+	// no effect, and "_" would give an untyped constant int's type, which
+	// may overflow where T doesn't).
+	lhs := "lyr__c"
+	for i, arm := range arms {
+		if !arm.Folded {
+			lhs += ", " + names[i]
+		}
+	}
+	o.str(lhs + " :=\n")
+	o.exact(cw.Cond)
+	for _, arm := range arms {
+		if !arm.Folded {
+			o.str(",\n")
+			o.exact(arm.Val)
+		}
+	}
+	o.str("\n")
+	if cw.A.Ref || cw.B.Ref {
+		// A folded branch that names a variable or package stays used, in
+		// a call of Cond itself, so it converts to T as in the original.
+		o.ind()
+		o.str("_ = ")
+		o.exact(cw.Fun)
+		o.str("(lyr__c")
+		for i, arm := range arms {
+			o.str(",\n")
+			if arm.Folded {
+				o.exact(arm.Val)
+			} else {
+				o.str(names[i])
+			}
+		}
+		o.str(")\n")
+	}
+	cs.Call, cs.Arg = Span{-1, -1}, Span{-1, -1}
+	for i, arm := range arms {
+		if i == 0 {
+			o.ln("if lyr__c {")
+		} else if arm.Folded && arm.Text == "" {
+			break // writes nothing
+		} else {
+			o.ln("} else {")
+		}
+		o.depth++
+		if arm.Folded {
+			html(arm.Text)
+			o.flush()
+		} else if call, arg := write(names[i]); cs.Call.Start < 0 {
+			cs.Call, cs.Arg = call, arg
+		}
+		o.depth--
+	}
+	o.ln("}")
+	o.depth--
+	o.ln("}")
+	if cs.Call.Start < 0 {
+		at := Span{len(o.b), len(o.b)}
+		cs.Call, cs.Arg = at, at
+	}
+	g.sites = append(g.sites, cs)
 }
 
 // position is the "<path>:L:C" of an offset in the .lyr file, as runtime

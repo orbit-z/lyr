@@ -24,6 +24,8 @@ type cgGen struct {
 	// ifRef is set once a lowered lyr.If site has kept a reference to
 	// its callee (ifSite).
 	ifRef bool
+	// condRef is the same for a lowered lyr.Cond site (condSite).
+	condRef bool
 	// defers are the server:defer call sites, in order.
 	defers []DeferSite
 
@@ -49,6 +51,18 @@ type cgGen struct {
 	// spreadTmps numbers the props spread operands (lyr__s1, …), the
 	// same way.
 	spreadTmps int
+}
+
+// keep emits "_ =" and the Go code src[s] (a folded constant that names a
+// variable or a package, TypedWrite.Ref), so the name stays used. The
+// statement has no effect, so the pending static HTML isn't flushed: it
+// stays one Raw with the folded text.
+func (g *cgGen) keep(s Span) {
+	o := g.o
+	o.ind()
+	o.str("_ =\n")
+	o.exact(s)
+	o.str("\n")
 }
 
 func cgGenerate(in *Input) (out *Output) {

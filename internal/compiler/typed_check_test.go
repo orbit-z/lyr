@@ -60,11 +60,11 @@ func newTyProject() *tyProject {
 			page:        true,
 			implImports: "\tCard \"" + tyDeclCard + "\"\n\tList \"" + tyDeclList + "\"\n",
 			body: "\tif lyr__err := List.Render(lyr__ctx, lyr__w, List.Props{Items: []Card.Props{{N: 1}}}, lyr__rt.Slots{}); lyr__err != nil {\n\t\treturn lyr__err\n\t}\n" +
-				"\tlyr__w.Expr(\n\"hi\",\n\t)\n",
+				"\tlyr__w.Expr(\n\"hi\"[:],\n\t)\n",
 		},
 		other: tyComp{
 			lyr:  "src/components/Other.lyr",
-			body: "\tlyr__w.Expr(\n1.5,\n\t)\n",
+			body: "\tlyr__w.Expr(\n[]float64{1.5}[0],\n\t)\n",
 		},
 	}
 }

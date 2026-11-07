@@ -492,7 +492,7 @@ Go has no ternary. Small runtime helpers stand in for Astro's `cond ? v : undefi
 
 - `lyr.If(cond, v)` is an [optional value](#optional-values-lyropt), a `lyr.Opt[T]`: set to `v` when `cond` is true, and none otherwise. As an attribute value, none omits the attribute; in content, it writes nothing. `lyr.If(c, nil)` doesn't compile: write nothing instead.
 - `lyr.NonZero(x)` is set to `x` unless `x` is its type's zero value (`""`, `0`, `false`, `nil`): Astro's `x || undefined`. `rel={lyr.NonZero(post.Rel)}` is `lyr.If(post.Rel != "", post.Rel)`, with `post.Rel` written once.
-- `lyr.Cond(cond, a, b)` is `a` or `b`, with their type, so it's written like any value of that type.
+- `lyr.Cond(cond, a, b)` is `a` or `b`, with their type, so it's written like any value of that type. When it's the whole value of an HTML element attribute, of a `{…}` in content or of a template literal's `${…}` piece there, it's compiled to an `if` around each branch's write, and a constant branch (`"Saved"`, `-1`, `true`) is escaped at build time into the static HTML: no escaping at run time, same output. Elsewhere (a component prop, inside a larger expression) it's an ordinary call.
 - Which one: `lyr.If` when the false case means **no value** (omit the attribute, write nothing, leave an `Opt` prop unset); `lyr.Cond` when both cases are values.
 - For text, `{if}…{else}…{/if}` works too, and writes static text; `lyr.Cond` is shorter for a word.
 - Astro's `x ?? "fallback"` is the standard library's `cmp.Or(x, "fallback")`: the first argument that isn't the zero value (`""`, `0`, `nil`).
@@ -608,7 +608,7 @@ themeInit := lyr.HTML(`document.documentElement.dataset.theme = localStorage.the
 
 The content isn't escaped for JavaScript or CSS: `set:html` writes it as is, so it must be trusted (and must not contain `</script>` or `</style>`), and `set:text` HTML-escapes it like any text (`<` becomes `&lt;`, which a script or style doesn't decode), as Astro does. For data, use `set:json` instead.
 
-The compiler **warns** (without failing) on `on*={expr}` attributes such as `onclick={…}` and on `style={expr}`, on HTML elements and when passed through a `lyr.RestAttrs` field: escaping makes a value safe in HTML, not in JavaScript or CSS. A constant value (`style={"display: none"}`, a `const`) doesn't warn, and neither does a `style` value of type `lyr.CSS` (exactly that type; a type defined from it warns). A component whose Go code doesn't type-check warns on every such attribute. See [Event handler and style attributes](../components.md#event-handler-and-style-attributes).
+The compiler **warns** (without failing) on `on*={expr}` attributes such as `onclick={…}` and on `style={expr}`, on HTML elements and when passed through a `lyr.RestAttrs` field: escaping makes a value safe in HTML, not in JavaScript or CSS. A constant value (`style={"display: none"}`, a `const`) doesn't warn, nor does `lyr.If(c, "…")` or `lyr.Cond(c, "…", "…")` with constant values, and neither does a `style` value of type `lyr.CSS` (exactly that type; a type defined from it warns). A component whose Go code doesn't type-check warns on every such attribute. See [Event handler and style attributes](../components.md#event-handler-and-style-attributes).
 
 ### `class:list`
 

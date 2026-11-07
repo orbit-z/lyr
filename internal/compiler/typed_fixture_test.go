@@ -196,6 +196,11 @@ func tyReemit(pass1 *Output, typed TypedWrites) *Output {
 		}
 		switch {
 		case w.Kind == WriteSkip:
+		case w.Kind == WriteFold:
+			b = append(b, NameW+".Raw("+strconv.Quote(w.Text)+")"...)
+			if w.Ref {
+				b = append(b, "; _ = "+string(src[s.Arg.Start:s.Arg.End])...)
+			}
 		case w.Kind.attrPieces():
 			b = append(b, NameW+".Raw("+strconv.Quote(" "+s.AttrName+`="`)+"); "+
 				NameW+"."+w.Kind.Method()+"("+arg+"); "+NameW+`.Raw("\"")`...)

@@ -403,15 +403,38 @@ func (g *cgGen) pieceSite(kind SiteKind, node Node, a *Attr, l *TemplateLiteral,
 	if attr {
 		method = "AttrPiece"
 	}
+	esc := textEscaper.Replace
+	if attr {
+		esc = attrValueEscaper.Replace
+	}
+	if tw, ok := g.in.Typed[p.Start]; ok && tw.Cond != nil {
+		// A lowered lyr.Cond (PLAN.md §2.6): each branch's piece write.
+		g.condSite(cs, tw, func(v string) (Span, Span) {
+			o.ind()
+			start := len(o.b)
+			o.str(NameW + "." + tw.Kind.Method() + "(")
+			arg := v
+			if tw.Conv != "" {
+				arg = tw.Conv + "(" + v + ")"
+			}
+			at := len(o.b)
+			o.str(arg)
+			argSpan := Span{at, len(o.b)}
+			o.str(")")
+			call := Span{start, len(o.b)}
+			o.str("\n")
+			return call, argSpan
+		}, func(text string) { o.html(esc(text)) })
+		return
+	}
 	if tw, ok := g.in.Typed[p.Start]; ok {
 		switch tw.Kind {
 		case WriteSkip, WriteFold:
 			if tw.Kind == WriteFold {
-				if attr {
-					o.html(attrValueEscaper.Replace(tw.Text))
-				} else {
-					o.html(textEscaper.Replace(tw.Text))
+				if tw.Ref {
+					g.keepPiece(p)
 				}
+				o.html(esc(tw.Text))
 			}
 			at := Span{len(o.b), len(o.b)}
 			cs.Call, cs.Arg = at, at
@@ -440,6 +463,17 @@ func (g *cgGen) pieceSite(kind SiteKind, node Node, a *Attr, l *TemplateLiteral,
 	cs.Call = Span{start, len(o.b)}
 	o.str("\n")
 	g.sites = append(g.sites, cs)
+}
+
+// keepPiece emits "_ =" and a folded piece's Go code (TypedWrite.Ref),
+// so the names it uses stay used, without flushing the pending static
+// HTML (keep).
+func (g *cgGen) keepPiece(p TLPart) {
+	o := g.o
+	o.ind()
+	o.str("_ =\n")
+	g.piece(p)
+	o.str("\n")
 }
 
 // propLiteral emits a template literal passed whole to a component prop

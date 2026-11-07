@@ -1,0 +1,21 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+
+	_ "example.com/blog/lyr_gen/impl/components/cf"
+	_ "example.com/blog/lyr_gen/impl/components/consts"
+	_ "example.com/blog/lyr_gen/impl/components/label"
+	index "example.com/blog/lyr_gen/decl/pages/index"
+	_ "example.com/blog/lyr_gen/impl/pages/index"
+	"github.com/orbit-z/lyr"
+)
+
+func main() {
+	var buf bytes.Buffer
+	if err := index.Render(&lyr.Ctx{}, lyr.NewWriter(&buf), index.Props{}, lyr.Slots{}); err != nil {
+		panic(err)
+	}
+	fmt.Print(buf.String())
+}

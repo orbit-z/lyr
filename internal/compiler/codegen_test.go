@@ -219,7 +219,7 @@ func checkOutput(t *testing.T, r *cgResult) {
 		checkPositions(t, r, gf)
 	}
 	for _, cs := range r.out.CallSites {
-		if tw, ok := r.in.Typed[cs.Key]; ok && (tw.Kind == WriteSkip || tw.Kind == WriteFold || tw.If != nil || tw.Opt) {
+		if tw, ok := r.in.Typed[cs.Key]; ok && (tw.Kind == WriteSkip || tw.Kind == WriteFold || tw.If != nil || tw.Cond != nil || tw.Opt) {
 			continue // untyped nil: nothing emitted; a lowered lyr.If or Opt: Arg is its value
 		}
 		if literalSite(cs) {

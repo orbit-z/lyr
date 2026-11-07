@@ -1,0 +1,21 @@
+---
+import "math"
+
+type Status int
+
+const Published Status = 1
+
+func (s Status) String() string { return "published" }
+
+const label = "x & y"
+
+type Props struct {
+	On bool
+}
+---
+<p title={"a<b\"c"} data-n={3} data-f={0.1} data-big={1e21} data-neg={-2} hidden={true} disabled={false} aria-hidden={true} draggable={false} style={"color: red"} href={"javascript:x()"} data-label={label} data-s={Published}>{"Like"}|{3}|{2.5}|{1e-7}|{true}|{false}|{label}|{"a" + "b"}|{'x'}|{Published}|{" "}</p>
+<p set:text={"x<y"}></p>
+<p data-max={math.MaxInt8} title={`v${math.MaxInt8}`}>{math.Pi}|{lyr.If(props.On, math.MaxInt16)}|{lyr.Cond(props.On, math.E, 1)}</p>
+{for _, arr := range [][2]int{{1, 2}}}
+  <i data-len={len(arr)}>{len(arr)}</i>
+{/for}

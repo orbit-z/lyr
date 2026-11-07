@@ -305,8 +305,11 @@ const (
 	WriteOptAsIs
 	WriteOptWrap
 	WriteOptWrapIf
-	// WriteFold is a constant piece of a template literal, folded into the
-	// static text (TypedWrite.Text, unescaped) (PLAN.md §2.10).
+	// WriteFold is a constant folded into the static HTML at build time:
+	// a piece of a template literal (TypedWrite.Text unescaped, PLAN.md
+	// §2.10), or the whole value of an HTML element attribute or of a
+	// content {expr} (SiteAttr, SiteContent: Text is the HTML written,
+	// escaped, with the attribute's name; PLAN.md §2.6).
 	WriteFold
 	// WriteConcat is a SiteConcat: TypedWrite.Pieces holds the write of
 	// each part (static parts zero), and Conv is "as" when the result is
@@ -361,8 +364,16 @@ type TypedWrite struct {
 	// Opt is set on a class:list item of type lyr.Opt[T] on an element:
 	// Kind and Conv write its value when it's set.
 	Opt bool
-	// Text is a WriteFold piece's constant text, unescaped.
+	// Cond is set when the site's expression is a call of the runtime's
+	// lyr.Cond, lowered (PLAN.md §2.6): Kind and Conv are the write of
+	// its non-constant branches.
+	Cond *CondWrite
+	// Text is a WriteFold's constant text (see WriteFold).
 	Text string
+	// Ref is set on a WriteFold whose expression names a variable or a
+	// package (len(arr), pkg.Label): codegen keeps "_ = expr", so the
+	// name stays used.
+	Ref bool
 	// Pieces are a WriteConcat's part writes, one per part of its literal.
 	Pieces []TypedWrite
 	// Spread is a WriteSpreadProps's plan.
@@ -419,6 +430,46 @@ type IfWrite struct {
 	Const  bool
 	Folded bool
 	Text   string
+	// Ref is set on a folded value that names a variable or a package
+	// (TypedWrite.Ref): the value is kept as "lyr__c, _ := cond, v".
+	Ref bool
+}
+
+// CondWrite is a lowered lyr.Cond(cond, a, b) call site (PLAN.md §2.6).
+// Codegen emits
+//
+//	{
+//		lyr__c, lyr__a, lyr__b := cond, a, b
+//		if lyr__c {
+//			<the write of lyr__a, or Raw(A.Text)>
+//		} else {
+//			<the write of lyr__b, or Raw(B.Text)>
+//		}
+//	}
+//
+// which evaluates the three arguments in order, as the call does, and
+// writes the same bytes as the call's result written with TypedWrite's
+// Kind; a folded branch is "_" in the assignment (a constant, kept so the
+// names it uses stay used).
+type CondWrite struct {
+	// Fun and Cond are the .lyr spans of the callee (lyr.Cond) and the
+	// condition.
+	Fun, Cond Span
+	A, B      CondArm
+}
+
+// CondArm is one branch of a CondWrite.
+type CondArm struct {
+	// Val is the branch's .lyr span.
+	Val Span
+	// Folded is set when the branch is a constant written as Text: the
+	// HTML for an attribute or content site (as WriteFold), the unescaped
+	// text for a template literal's piece.
+	Folded bool
+	Text   string
+	// Ref is set when a folded branch names a variable or package
+	// (namesRef): codegen keeps it used.
+	Ref bool
 }
 
 // TypedWrites maps CallSite.Key to the chosen write.

@@ -635,7 +635,14 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 		}
 		if site.Kind == SitePiece {
 			pieceTVs[site.Parent] = append(pieceTVs[site.Parent], tv)
+			if w, ok := env.lowerCond(sm, call.Args[len(call.Args)-1], site, info); ok {
+				writes[site.Key] = w
+				return true
+			}
 			w, bad := env.classifyPiece(tv, site.AttrName != "")
+			if w.Kind == WriteFold {
+				w.Ref = namesRef(call.Args[len(call.Args)-1], info)
+			}
 			if bad {
 				diags = append(diags, pieceDiag(TLPart{Span: site.Code.Span, Text: site.Code.Text}, tv))
 			}
@@ -644,7 +651,7 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 			}
 			return true
 		}
-		if isSecuritySite(site) && env.trustedSite(site.AttrName, tv) {
+		if isSecuritySite(site) && (env.trustedSite(site.AttrName, tv) || condConst(call.Args[len(call.Args)-1], info)) {
 			if trusted == nil {
 				trusted = map[int]bool{}
 			}
@@ -652,6 +659,10 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 		}
 		var w TypedWrite
 		if site.Kind == SiteAttr || site.Kind == SiteContent {
+			if w, ok := env.lowerCond(sm, call.Args[len(call.Args)-1], site, info); ok {
+				writes[site.Key] = w
+				return true
+			}
 			if w, ok := env.lowerIf(sm, call.Args[len(call.Args)-1], site, info); ok {
 				writes[site.Key] = w
 				if w.If.Const && isSecuritySite(site) {
@@ -710,6 +721,12 @@ func siteWrites(fset *gotoken.FileSet, f *ast.File, sites []CallSite, info *type
 			w = env.classifyRest(tv, site.URLAttr)
 		default:
 			w = env.classify(tv)
+		}
+		if site.Kind == SiteAttr || site.Kind == SiteContent {
+			// A constant: folded into the static HTML (PLAN.md §2.6).
+			if text, ok := foldConst(w, tv.Value, site.AttrName); ok {
+				w = TypedWrite{Kind: WriteFold, Text: text, Ref: namesRef(call.Args[len(call.Args)-1], info)}
+			}
 		}
 		if w.Kind != WriteFallback {
 			writes[site.Key] = w

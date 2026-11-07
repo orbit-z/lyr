@@ -22,7 +22,7 @@ For example, in
   <a href={url}>{props.Post.Title}</a>
 ```
 
-everything except `url` and `props.Post.Title` is written by a couple of constant copies.
+everything except `url` and `props.Post.Title` is written by a couple of constant copies. A `{…}` or attribute value that is a Go constant (`{"Like"}`, `tabindex={-1}`, `title={label}` with `const label = "…"`) is escaped at build time and joins the constant too.
 
 ### Expressions are written by type, without reflection
 
@@ -36,7 +36,7 @@ Only values whose static type is an interface (such as `any` or `fmt.Stringer`),
 
 Any other [`lyr.Opt`](reference/template-syntax.md#optional-values-lyropt) value written as a whole attribute or `{…}` value (a variable, a prop, `lyr.NonZero(x)`) is compiled the same way, to an `if` around the typed write of its value: no allocation. An `Opt` is a small struct (24 bytes for an `Opt[string]`), so passing one as a prop copies it and costs nothing more. A prop of type `lyr.Opt[T]` given a plain value (`rel="x"`, `title={s}`) is wrapped by an inlined call, and a [pass-through attribute](components.md#passing-html-attributes-through) whose value is an `Opt` (`lyr.If` included) is stored unboxed for strings, numbers, booleans and Lyr's string types: 0 allocations in a `lyr build` binary.
 
-An `Opt` stored in an `any` (a `lyr.Attrs` value, a `var x any`, a prop of type `any`) is boxed: one allocation, and the generic attribute path then writes its value. Inside a larger expression, `lyr.If` stays an ordinary call. `lyr.Cond(c, a, b)` needs nothing special: its result has the type of `a` and `b`, so it gets the usual typed write. A `bool` on a [true/false attribute](reference/template-syntax.md#attribute-values-on-html-elements) such as `aria-pressed` is decided at build time from the attribute's name, so it costs nothing either.
+An `Opt` stored in an `any` (a `lyr.Attrs` value, a `var x any`, a prop of type `any`) is boxed: one allocation, and the generic attribute path then writes its value. Inside a larger expression, `lyr.If` stays an ordinary call. `lyr.Cond(c, a, b)` written as a whole attribute or `{…}` value, or as a template literal's piece there (`` class={`card ${lyr.Cond(on, "on", "off")}`} ``), is compiled to an `if` around each branch's typed write, with both branches still evaluated first; a constant branch is escaped at build time and joins the static HTML, so `title={lyr.Cond(saved, "Remove", "Add")}` is two constant copies and no escaping at run time. On a list of 50 items with four such sites, rendering takes about 1.8 µs where the call's typed write (the escaper scanning each constant) took about 3.0 µs. A `bool` on a [true/false attribute](reference/template-syntax.md#attribute-values-on-html-elements) such as `aria-pressed` is decided at build time from the attribute's name, so it costs nothing either.
 
 ### Template literals
 

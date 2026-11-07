@@ -1,0 +1,54 @@
+---
+import (
+	"math"
+	"strings"
+)
+import Label "./Label.lyr"
+
+type Props struct {
+	On   bool
+	Link string
+	Name string
+	N    int
+}
+
+type Status int
+
+const (
+	Draft Status = iota
+	Published
+)
+
+func (s Status) String() string { return [...]string{"draft", "published"}[s] }
+
+type Slug string
+
+const label = "x & y"
+
+// Cond is the component's own, not the runtime's: not lowered.
+func Cond(c bool, a, b string) string {
+	if c {
+		return "mine:" + a
+	}
+	return "mine:" + b
+}
+
+var order []string
+note := func(s string, v bool) bool { order = append(order, s); return v }
+val := func(s string) string { order = append(order, s); return s }
+var big uint64 = 7
+fl := 2.5
+---
+<a title={lyr.Cond(props.On, "yes <", "no &")} aria-selected={lyr.Cond(props.On, "true", "false")}>{lyr.Cond(props.On, "Saved", "Save")}</a>
+<a title={lyr.Cond(props.On, props.Name, "anon")} data-n={lyr.Cond(props.On, props.N, -1)}>{lyr.Cond(props.On, "<b>", props.Name)}</a>
+<a title={lyr.Cond(props.On, props.Name, props.Link)}>{lyr.Cond(!props.On, props.Name, props.Link)}</a>
+<p title={lyr.Cond(note("c1", props.On), val("a1"), val("b1"))}>{lyr.Cond(note("c2", props.On), "k", val("b2"))}</p>
+<p>{strings.Join(order, ",")}</p>
+<a href={lyr.Cond(props.On, " JavaScript:alert(1)", "/ok?a&b")} src={lyr.Cond(props.On, "/s", props.Link)} action={lyr.Cond(props.On, lyr.URL("javascript:ok()"), lyr.URL("/u"))}>u</a>
+<button aria-pressed={lyr.Cond(props.On, true, false)} hidden={lyr.Cond(props.On, true, false)} tabindex={lyr.Cond(props.On, -1, 0)} data-f={lyr.Cond(props.On, 1, 2.5)}>{lyr.Cond(props.On, 1, 2.5)}|{lyr.Cond(props.On, 1e21, 0.1)}|{lyr.Cond(props.On, true, props.N > 1)}|{lyr.Cond(props.On, float32(0.1), 2)}</button>
+<p data-s={lyr.Cond(props.On, Published, Draft)} data-slug={lyr.Cond(props.On, Slug("s&t"), Slug("u"))}>{lyr.Cond(props.On, Published, Draft)}|{lyr.Cond(props.On, Slug("s<"), Slug("u"))}|{lyr.Cond[any](props.On, 1, "x")}|{lyr.Cond(props.On, lyr.Some("o"), lyr.None[string]())}|{Cond(props.On, "a", "b")}|{lyr.Cond(props.On, lyr.HTML("<i>h</i>"), lyr.HTML("<u>"))}</p>
+<p class={`c ${lyr.Cond(props.On, "on", "off")} ${props.Name}`} data-t={`n${lyr.Cond(props.On, props.N, 7)}`}>{`t ${lyr.Cond(props.On, "<a>", props.Name)} e`}</p>
+<a href={`/p/${lyr.Cond(props.On, "a b", props.Link)}`}>l</a><a href={`javascript${lyr.Cond(props.On, ":x", "")}`}>j</a>
+<Label text={lyr.Cond(props.On, "prop on", "prop off")} />
+<p title={strings.ToUpper(lyr.Cond(props.On, "a", "b"))}>{lyr.Cond(props.On, "x", "y") + "!"}</p>
+<p data-u={lyr.Cond(props.On, 1<<63, big)} title={`u${lyr.Cond(props.On, math.MaxUint64, big)}`} data-x={lyr.Cond(props.On, 1<<64, fl)}>{lyr.Cond(props.On, big, math.MaxUint64)}|{lyr.If[uint64](!props.On, math.MaxUint64)}|{lyr.Cond(props.On, math.MaxUint64, uint64(math.MaxUint32))}</p>

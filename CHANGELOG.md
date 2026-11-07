@@ -2,6 +2,18 @@
 
 What's new in each Lyr release. The VS Code extension has its own changelog, in `editors/vscode/CHANGELOG.md`.
 
+## v0.1.1
+
+**Faster rendering**
+- `lyr.Cond(cond, a, b)` written as an attribute value, in content or in a template literal's piece is compiled to an `if`, and a constant branch is escaped at build time: no runtime escaping for `lyr.Cond(like, "Like", "Not for me")` (−38% on a list with four such values per item). Output is unchanged, and every argument is still evaluated, in order.
+- A constant written in the template (`{"Like"}`, `aria-label={label}` for a `const`, `{math.Pi}`) is folded into the page's static HTML, like constant template-literal pieces already were.
+
+**Fixes**
+- A template-literal piece that is a constant naming a package (`` title={`v${math.MaxInt8}`} ``) no longer fails the build with an unused import.
+
+**Changes**
+- `style={lyr.Cond(c, "a", "b")}` (and `on*`) with two constant branches no longer gets the security warning, like `lyr.If(c, "a")`.
+
 ## v0.1.0
 
 The first release of Lyr: Astro's developer experience, with Go on the server and much faster server rendering.

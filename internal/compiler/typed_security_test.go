@@ -6,7 +6,8 @@ import (
 )
 
 // The style and on* security warnings of the typed pass (PLAN.md §2.3,
-// §2.7): none for a lyr.CSS style value or a constant, the old warning
+// §2.7): none for a lyr.CSS style value, a constant or a lyr.Cond of two
+// constants, the old warning
 // for everything else, every candidate of a unit that isn't type-checked,
 // and pass-through attributes warned at the call site.
 
@@ -45,6 +46,9 @@ style := s
 <Button style={s} onclick={handler}>rest</Button>
 <Button style={css} onclick={"go()"}>rest trusted</Button>
 <Styled style={css} />
+<div style={lyr.Cond(len(s) > 0, "a", "b")}>cond const</div>
+<div style={lyr.Cond(len(s) > 0, s, "b")}>cond var</div>
+<div style={lyr.Cond[string](true, "a", hidden)}>cond inst</div>
 `
 
 const secButton = `---
