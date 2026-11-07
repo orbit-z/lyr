@@ -4359,6 +4359,226 @@ A literal `ctx.Rewrite("/blog/x")` in frontmatter could be checked at generate t
 - **A rewrite during a background revalidation** keeps the stale copy without logging.
 - **Cost**: +0.39 µs at `-cpu 1` (the spec estimated ~0.3 µs), 2 allocations as estimated.
 
+## 4k. Page partials (accepted, 2026-11-07)
+**Status: accepted (user, 2026-11-07); not implemented yet.** Script-detail answers (the (Q) points below): (Q1) the runner goes at the **end** of the fragment; (Q2) **page-bundle marks + per-component entries + inline runner**; (Q3) **(c) ship the loader pieces in the partial**, like Astro 7's inline scripts: a partial whose subtree has `client:*` or `server:defer` call sites carries the lazy and/or islands loader inline (with its settings), so lazy strategies and deferred islands inside it work whatever the host has; both loaders become idempotent (a second copy on the page finds the first, e.g. through a `globalThis` flag, registers the new markers/placeholders with it and installs nothing twice; tested with `bun test` + happy-dom for host-has-it / host-lacks-it / two partials), and their size (~1–2 KB per response that needs them, under the gzip of the response) is measured and documented; (Q4) the partial page's own `<style>` is dropped with a **build/check/LSP warning**. Spec only; nothing is implemented. The user asked for Astro's page partials (`export const partial = true`) and decided on 2026-11-07:
+- the Lyr spelling is **`const partial = true` in a page's frontmatter**, static, decided at build time; no runtime `ctx.Partial()`;
+- **styles follow Astro's rule**: a partial ships no CSS, so the host page must already include the partial's components by importing them (Astro 7 drops head styles from partials too). The partial page's own `<style>` blocks are dropped, as in Astro 7. **No manifest or asset reconciliation** (rejected by the user);
+- **scripts follow Astro 7's actual behavior, not its docs**: a partial carries its subtree's processed `<script>` blocks (the page's own and its components'), with a **run-once guard** keyed by the component's stable ID, so a block the host page already ran is skipped and two partials sharing a component run it once;
+- **blank component imports**: `_ "./X.lyr"` includes a component's assets in the importing file's pages without rendering it, and isn't an unused import (was (Q2));
+- **`const partial` in a component or layout is an error** (was (Q3)).
+
+The remaining open choices are in "(Q) points", all about the script details. Minor details are in "Decided by triage" (Astro, then Go stdlib, then simplest), to be logged in `docs/DECISIONS.md` ("Page partials (2026-11-07)") with the implementation.
+
+### Summary
+A partial is an ordinary page that renders as an HTML fragment for htmx, Unpoly or `fetch()` swaps. Lyr injects no head tags into it: no `<link>`, no page `<script type="module" src>`, no `modulepreload`, no loader. If the components it renders have scripts, the fragment ends with one small inline `<script type="module">` (the **runner**) that imports each component's script entry unless the page already ran it. Everything else is a page's: routing, typed `params`, the middleware chain, Locals, the route cache, redirects, rewrites, the 404 page, sessions, status and headers, and error handling.
+
+```lyr file=src/pages/partials/comments/[slug].lyr
+---
+import (
+	CommentList "../../../components/CommentList.lyr"
+	"example.com/blog/internal/comments"
+)
+
+const partial = true
+
+list, err := comments.For(ctx, params.Slug)
+if err != nil {
+	return err
+}
+---
+<CommentList comments={list} />
+```
+
+```lyr file=src/pages/blog/[slug].lyr
+---
+import (
+	_ "../../components/EmptyState.lyr" // rendered only by the partial, after a delete
+	CommentList "../../components/CommentList.lyr"
+	Base "@/layouts/Base.lyr"
+	"example.com/blog/internal/comments"
+	"example.com/blog/internal/posts"
+)
+
+post, err := posts.Find(params.Slug)
+…
+list, err := comments.For(ctx, post.Slug)
+…
+---
+<Base title={post.Title}>
+  <article>…</article>
+  <section id="comments" hx-get={`/partials/comments/${post.Slug}`} hx-trigger="every 30s">
+    <CommentList comments={list} />
+  </section>
+</Base>
+```
+
+The post page renders `CommentList` and blank-imports `EmptyState`, so both components' CSS is in the post page's stylesheet, and their scripts are in its bundle (marked as run). The partial's response is the `CommentList` HTML plus, at the end, a runner like:
+
+```html
+<script type="module">let s=globalThis.lyr__ran??=new Set;for(let[i,u]of[["CommentList-1a2b3c4d","/_lyr/CommentList-AB12CD34.js"]])s.has(i)||(s.add(i),import(u))</script>
+```
+
+On the post page the runner imports nothing, because the post page's bundle marked `CommentList-1a2b3c4d` when it ran. On a page that doesn't include `CommentList`, the runner imports `CommentList`'s entry, once per page however many times the partial is swapped in. The scoped-style attributes (`data-l-…`, per component) match the host's CSS only when the host includes the component (the CSS rule).
+
+### Astro's behavior
+Sources: docs.astro.build "Pages → Page partials" (basics/astro-pages#page-partials) and the routing reference (reference/routing-reference, `partial`), fetched 2026-11-07; `astro@7.3.2`'s `dist/` (nyth's `node_modules/.bun/astro@7.3.2…/`): `core/fetch/fetch-state.js`, `core/head-propagation/policy.js`, `runtime/server/render/{common,head,script}.js`, `runtime/server/render/astro/render.js`, `core/build/plugins/plugin-scripts.js`, `core/server-islands/endpoint.js`. **[docs]** means from the docs only, **[src]** confirmed in the source.
+
+- **API**: `export const partial = true` in a page; type boolean, default `false`; added in astro 3.4.0. The reference says it "must be identifiable statically" and may also be an `import.meta.env` variable. [docs] At runtime the value is read from the page module: `Boolean(mod.partial)` [src: `fetch-state.js`], so any truthy export counts.
+- **File types**: `.astro` and `.mdx`, **not `.md`** (a `.md` file can't export `partial`). [docs]
+- **What's skipped** [src]:
+  - the automatic `<!DOCTYPE html>`: `render.js` adds it only when `!result.partial`;
+  - all head content: the `head` and `maybe-head` render instructions return `""` when `state.partial` (`policy.js`). That's `renderAllHeadContent`: the page's styles (`<link rel="stylesheet">`/`<style>`), `result.links`, `result.scripts` (head scripts; Vite's dev client in dev) and the CSP `<meta>`.
+- **What's not skipped** in Astro 7 [src]: the inline render instructions. Since Astro 5, each component script is rendered **as its own module where the component first renders** (`script.js`: `renderScript` → a `script` instruction), deduplicated per response through `result._metadata.renderedScripts` (`common.js`). Partials don't strip it. Island hydration prescripts (`<style>` + `<script>` before the first `<astro-island>`) and the server-island runtime are inline too, and stay. **So the docs' "styles and scripts are stripped" holds for styles, and for scripts only in Astro 3/4** (hoisted scripts in `<head>`).
+- **Re-running in Astro 7** [src]: an external script is `<script type="module" src="…">`, which the browser deduplicates by URL. But a script chunk under Vite's `assetsInlineLimit` (4 KB) with no imports and no dynamic imports is inlined as `<script type="module">code</script>` (`plugin-scripts.js`: `shouldInlineScriptChunk`; `script.js` writes the inlined code). An inline module has no URL to deduplicate on, so a partial that brings it re-runs it on the host on every swap; a `customElements.define` in it then throws (`NotSupportedError`, the name is already defined). Lyr's ID guard avoids that.
+- **Docs guidance** [docs]: partials are for libraries such as htmx or Unpoly. Don't use them for components with scoped styles or scripts; for scoped styles, use a regular page and a library that merges the head.
+- **Everything else is a page's** [src]: the flag is read when the render result is created, after routing and middleware. Middleware, `Astro.locals`, rewrites, cookies, sessions, status and headers work as on any page; the server-island endpoint itself renders its component as a partial (`endpoint.js`: `{ default: page, partial: true }`). Nothing about view transitions: `<ClientRouter />` lives in the host's head.
+- **Imports without rendering**: in Astro an imported, unrendered component's CSS joins the page (Vite's module graph), but since Astro 5 its script doesn't (scripts render with the component). Lyr's blank import includes both (import-based bundles, docs/styles-and-scripts.md).
+
+### Lyr today: every injection point
+- **Head tags** (`head.go`): `headTags(loaderHead(…), assets)` builds one string per route: the loader (below), then `<link rel="stylesheet">`, `<script type="module" src>` and `<link rel="modulepreload">` per asset (docs/styles-and-scripts.md "Bundling and deduplication per page"). In production it's **precomputed once per route in `NewSite`** (`s.heads[*Route]`, only routes with tags); in dev with a dev manifest it's rebuilt per request from `$LYR_STATIC/manifest.json` (`devManifest.assets`, keyed by the page file).
+- **Where they go**: generated code calls `Writer.HeadEnd()` before the first `</head>` (`codegen_template.go`), which writes the tags at that offset; the position is found during the render, at no cost. A page without `</head>` gets them from `Writer.finishHead` → `injectHead`: right after a leading `<!DOCTYPE …>`, else **at the very start of the output**. That last case is what a fragment page gets today.
+- **The loader** (`loader.go`, docs/lazy-loading.md "The loader and Content Security Policy"): `<style>lyr-island,lyr-lazy{display:contents}</style>`, `<script type="application/json" id="lyr-loader">` settings, the islands module (when `Route.Islands`) and the lazy module (when the page has `lazy` assets). It's part of the head tags above. The islands loader's `MutationObserver` scans added nodes for `<lyr-island>` and hands them to the lazy loader (`window.lyr__lazy`); the lazy loader has no observer of its own (`loader/src/{islands,lazy}.ts`).
+- **`lyr dev` live reload** (`internal/dev/server.go`): the proxy adds `<script src="/__lyr/reload.js" async>` before the **last `</body>`** of uncompressed `text/html` responses; HTML without `</body>` (island fragments) passes through.
+- **Not injections**: Lyr adds no doctype (a doctype in the template is copied as written, template-syntax.md), and the placeholders `server:defer`/`client:*` write (`<lyr-island>`, `<lyr-lazy>`) are part of the component's own output.
+- **Bundles** (`internal/assets/plan.go`): one esbuild entry per page (`lyr-page:<name>.ts`/`.css`) importing the page's blocks in graph order, each block a **per-page copy** (`lyr:script/<ComponentID>-<i>@<page>.ts`) so esbuild inlines it into the page's module; only imported files (`.ts`, packages, `lyr:client`) become shared chunks, evaluated once per document by URL. One **lazy entry per component** that's lazy on some page (`lyr:lazy/<ComponentID>.ts`, the component's blocks unqualified). Inputs: `project.AssetInput` (`assets.Page{File, Modules: AssetGraph, Lazy: LazyLists, Highlight}`); the generated `app.go` route table has `Assets: manifest.Pages[file]` and `Islands: true` when `HasIslands(page)`.
+- **`lyr.RenderComponent`** (`render_component.go`): already a fragment: its `Writer` has no tags, so nothing is injected; the route cache never stores it.
+
+### Rules
+1. **The flag.** A page is a partial when its frontmatter has a top-level `const partial = true` (hoisted, §2.2), alone or in a `const (…)` group, with or without the type: `const partial bool = true` is the same (Astro accepts `export const partial: boolean = true`). The value must be the predeclared `true` or `false`, written as such; the analyzer reads it from the AST, with no type information. `const partial = false` is allowed and means "not a partial", as in Astro. It stays an ordinary Go constant the frontmatter can read (`if partial { … }`).
+2. **What a partial omits**: the head tags (stylesheet, page module, `modulepreload`s) and the loader with its settings and `<style>`. Nothing is added at `</head>` or at the start. A `<head>`, `<html>` or doctype written in the partial (or in a layout it uses) is copied as written.
+3. **What a partial adds**: the runner, at the end of the output, when its subtree has scripts (Rule 5). A partial whose subtree has no processed scripts is exactly the template's output.
+4. **CSS: none.** The partial's components' styles apply only when the host includes those components: it imports them, directly or through other components, and renders them or blank-imports them (Rule 7). The partial page's own `<style>` blocks are dropped (Astro 7); whether that warns is (Q4). Lyr doesn't check that a host includes anything (no reconciliation).
+5. **Scripts: carried, run once per page.**
+   - **Entries**: every component with processed scripts in a partial's asset graph (the page's own blocks included, under the page's component ID) gets a **component entry**, one esbuild entry per component holding its blocks in order. This is today's lazy entry, generalized: a component that's lazy somewhere and used in a partial has one entry, one URL. Built in the same esbuild build as the page bundles, so imported files stay shared chunks with one module state per document.
+   - **Marks**: every page bundle starts with one statement that adds the IDs of the components whose blocks it inlines to a global set, `globalThis.lyr__ran`, before its blocks run. Only IDs of components that appear in some partial's graph are marked (known at build time; a project without partial pages emits no marks, so its bundles are unchanged).
+   - **Runner**: the partial's runner adds each ID to the set and `import()`s its entry, skipping IDs already in it. The browser deduplicates entries by URL too, so a component brought by a partial and later loaded by the lazy loader (same entry) runs once.
+   - **Result**: a block runs at most once per document, whether it arrives in the page bundle, a lazy entry or any number of partials; a full navigation starts a new document and a new set.
+   - The runner's position, the guard's shape and order, and `client:*` in partials are (Q1)–(Q3). The runner is precomputed per route (Build, below): zero per-request work beyond one `WriteString`.
+6. **Scripts in the host run once, so write them as custom elements.** A block that runs `querySelectorAll` at load doesn't see HTML swapped in later, and with the guard it won't run again for it; the custom-element pattern (`connectedCallback`, docs/lazy-loading.md "Write scripts as custom elements") handles every instance whenever it appears. Documented prominently with partials.
+7. **Blank imports, `_ "./X.lyr"`** (any `.lyr` file, page or component; also `_ "./post.md"`): Go's side-effect import. The imported file joins the importer's asset graph like any import, so its CSS and scripts (and its subtree's) are in the bundles of the pages that include the importer; nothing renders, and it's never "imported but not used". Details in "Blank imports" below.
+8. **Inline scripts** (`is:inline`, a `type` attribute, `set:html`, `set:json`): template output, written as-is, in partials as everywhere. A swap library that runs scripts runs them on **every insertion** (they have no ID); documented.
+9. **Who runs the runner**: the swap library. htmx runs swapped-in scripts by default: `htmx.config.allowScriptTags` defaults to `true`, and htmx re-creates each script whose type is `""`, `text/javascript` or `module` (`isJavaScriptScriptNode`, `duplicateScript` in htmx 2's `src/htmx.js`, fetched 2026-11-07). `innerHTML` and `insertAdjacentHTML` never run scripts; a fragment inserted that way gets its HTML and CSS (if the host has it) and no scripts unless the host includes the components. Unpoly and others: documented as "check that your library runs `<script>` tags in fragments". `hx-select`/`hx-select-oob` that pick an element without the runner drop it; documented.
+10. **What stays a page's**: everything else, unchanged.
+    - **Routing**: file-based route, typed `params`, route priority, every method (a partial can handle its own `hx-post`), `HEAD`.
+    - **Middleware and Locals**: served by `site.Middleware` like any page, after the user's middleware; `Locals.Route` is `RoutePage` with the partial's pattern.
+    - **`site.Match`**: `RoutePage`, unchanged (no partial flag in `RouteInfo`; triage).
+    - **Trailing slash**: the same 308 rules; htmx follows redirects through XHR.
+    - **Route cache** (§4h): a partial is cached like a page, through `ctx.Cache().Set`, `routeRules`, `VaryBy`, ETag/304, coalescing and tags; the stored body includes the runner. Unlike `RenderComponent` fragments, which the cache never stores.
+    - **Redirects, rewrites, 404**: `ctx.Redirect` answers the redirect (with htmx, XHR follows it and swaps the target's HTML: docs point to htmx's `HX-Redirect`/`HX-Location` headers via `ctx.Header()`); `ctx.Rewrite` serves the target, whose own rule applies (a partial rewriting to a full page answers the full page; §4j "asset injection: per route"); `lyr.ErrNotFound` renders `404.lyr`, a full page with its assets unless `404.lyr` is itself a partial (htmx doesn't swap 4xx by default).
+    - **Sessions** (§4i), **status and headers** (`ctx.SetStatus`, `ctx.Header()`, `Content-Type` default, `Content-Length`), **errors** (`WithErrorHandler`, the built-in 500 page with its log line, the dev 500): unchanged. The built-in 500 is a full HTML document; htmx doesn't swap 5xx by default.
+11. **`server:defer` inside a partial**: the placeholder is written as usual. It loads when the host has the islands loader (a `server:defer` call site of its own, or a blank import of a component with one), whose `MutationObserver` picks up swapped-in placeholders; otherwise the fallback stays. The island endpoint serves it: the island table comes from every call site in the project, partials included. Carrying the islands loader in the partial is part of (Q3).
+12. **`.md` pages can't be partials**, as in Astro. Their YAML `partial:` key keeps its meaning (a layout prop; an unknown key is the existing error). Documented, no new error (triage).
+13. **`404.lyr`** may be a partial (Astro has no special case); documented as rarely useful, since every 404 then has no CSS.
+
+### Errors (each at its `.lyr` position, from the analyzer; so `lyr generate`, `lyr check`, `lyr build`, `lyr dev` and the LSP report them, live while typing)
+Mirrors the page rules in `analyze_rules.go` (`pages don't receive props; …`, `Params is generated from the page's route; …`). In a **page**, `partial` at the top level of the frontmatter is reserved for the flag (like `params` is provided there):
+
+| Source | Error | Position |
+|---|---|---|
+| (page) `const partial = "yes"`, `= 1`, `= isPartial`, `= !false`, `= iota`, an implicit repetition in a group | `partial must be true or false: const partial = true makes this page a partial` | the value (the name when there's none) |
+| (page) `const partial int = 1`, `const partial string = …` | the same | the type |
+| (page) `var partial = true`, `partial := true` (top level of the body) | `partial must be a constant: write const partial = true to make this page a partial` | the name |
+| (page) `func partial()`, `type partial …` (hoisted) | `partial is reserved in a page for const partial = true; rename this declaration` | the name |
+| (component or layout) a hoisted `const partial`, any value (user decision) | `partial only applies to pages (files under src/pages); remove it, or rename the constant` | the name |
+
+Shadowing `partial` in a nested block of the body stays legal, as Go allows; in a component, a `var`/`:=`/`func`/`type` named `partial` stays an ordinary name (only the `const` looks like the flag). A `const Partial` (capitalized) is ordinary everywhere. The new messages go in `internal/compiler/DESIGN.md`'s message list and `docs/troubleshooting.md`.
+
+### Blank imports (`_ "./X.lyr"`)
+- **Parse**: unchanged; `_ "./X.lyr"` is a valid Go import spec, already tokenized as an import.
+- **Analyze**: today `_` (and no alias) is an error, `a component import needs an alias: Card "./Card.lyr"`. With this change, `_` is accepted for `.lyr` and Markdown paths (relative, root-relative or a tsconfig alias, resolved and checked like any import: inside `src/`, must exist, framework files still an error); no alias stays the error. A blank `LyrImport` has `Alias == "_"`: it's skipped by the unused-import check and the alias-clash checks, can't be used as a tag, and emits **no Go import** in either generated package (so no Go dependency, no cycle, no `go build` cost). Importing the same file both blank and by alias is allowed and redundant (Go allows a package imported twice under different names), with no diagnostic. A blank import of a file under `src/pages` follows whatever rule applies to an aliased import of it today (no new rule).
+- **Asset graph**: `AssetGraph` follows blank imports like any import (it walks `LyrImports`). For `LazyLists`, a blank-imported file is an **eager root**: its scripts are in the importer's page bundles, and `client:*` call sites inside its subtree are lazy entries of those pages, as if the importer rendered it eagerly. `HasIslands` counts `server:defer` call sites in its subtree (it walks the asset graph already), so a host can get the islands loader for a partial's deferred components by blank-importing them.
+- **Codegen**: nothing; the import line has no Go output, and the source map has no segment for it.
+- **LSP**: diagnostics as above, live; import-path completion and go-to-definition on the path work as for aliased imports; no hover on `_`; rename of the alias doesn't apply. The virtual Go document doesn't contain the line, so gopls never sees it.
+- **`lyr fmt`**: no special case: a blank import is a Go import spec and is formatted and sorted with the others.
+- **VS Code grammar**: `_` before a string in an import block is already Go syntax; a snapshot test for it.
+- **Cost**: none at runtime; at build time, the importer's bundles include the component's blocks (the point).
+
+### Build, dev and editor
+- **Compiler**: the analyzer records `Analysis.Partial bool` (pages only) in `checkDecls`, next to the `Props`/`Params` checks. Codegen is unchanged: the `const` is hoisted verbatim to the impl package like any `const` (an unused package-level `const` is legal Go), so goldens for non-partial pages don't change.
+- **Assets** (`project.AssetInput`, `internal/assets`): a partial page gets **no page bundle** (no stylesheet, no page module); instead `assets.Page` gets `Partial: true`, and the plan:
+  - adds a component entry for each component with scripts in the partial's graph (unifying lazy entries: one entry per component, named as lazy entries are today);
+  - emits `Asset{Kind: "component", ID, URL}` entries in `manifest.Pages[partial]`, in graph order (the runner list);
+  - prepends the mark statement to each page entry whose inlined blocks include a component in some partial's graph (`globalThis.lyr__ran??=new Set` then `.add("ID")` per component); no marks when the project has no partial pages.
+  - `app.go` emits no `Islands: true` for partial pages.
+- **Runtime**: the `Route` and `Asset` types are unchanged (`Kind` is a string; "component" is a new kind). `NewSite` builds, per route, a head string (today's) and a **tail** string (the runner, from "component" assets); `s.heads` becomes `map[*Route]routeTags{head, tail string}`, so serving costs the same one map lookup. `servePage` writes the tail after the render, with one `buf.WriteString` (only for routes with one); `RenderComponent` is unchanged. In dev with a dev manifest, the tail is rebuilt per request like the head (dev only).
+- **Hot path**: decided at build time. `TestServeAllocs`/`TestRenderAllocs` unchanged, plus a partial-page case with a runner: 0 allocations in Lyr's render path, 1 on serve for `Content-Length`.
+- **Dev loop**: toggling `partial` regenerates the page, the asset input (one more or fewer page bundle and component entries, marks on other pages' bundles) and `app.go` (when `Islands` flips): a page edit plus an asset rebuild; no new pass. The same esbuild entries in `lyr dev` (unminified), so no dev/prod difference beyond minification. Live reload: the proxy adds its script only before `</body>`, which a partial normally doesn't have, so nothing changes (triage); a reload is a new document and a new set.
+- **LSP**: the errors come from the analyzer, so they're live with no LSP code. Completion of `partial` isn't added.
+- **Compile time**: one AST check per hoisted `const`; a few more esbuild entries (one per component used in partials that isn't already a lazy entry). Measure `lyr build` and a script edit at 200 files with 10 partials before merging; expected within noise.
+- **CSP**: the runner is an inline module, like the loader; a strict CSP needs `'unsafe-inline'` or its hash (static per route and build). Documented in the same section as the loader.
+
+### Guard cost (measured 2026-11-07; esbuild v0.28.2, minified as `lyr build`)
+- **Pages (marks)**, on `examples/blog`'s bundles: one marked component adds **60 B raw, 21–23 B gzipped** (`account` 287 → 347 B, gz 266 → 289; `blog-slug` 581 → 641 B, gz 450 → 471); each further ID ~25 B raw (~10 B gz). Runtime: one `Set` and one `add` per marked ID, under a microsecond. Pages whose bundle inlines no partial-used component, and every page of a project without partials, pay nothing.
+- **Partials (runner)**: 168 B for one component, +57 B per further component (raw, inline in the HTML, before compression); nothing when the subtree has no scripts. Server cost: one precomputed `WriteString`.
+- **Alternative measured, a literal wrapper per block** (spike `scratchpad/guardspike/`): wrapping each block in an ID check needs it to be lazily initialized, which esbuild does for a `require()`d ES module (`__esm`); the helpers (`__esm`, `__toCommonJS`, `__copyProps`, and `__commonJS` for a block without imports or exports) cost ~0.6 KB minified in a shared chunk, each guarded block ~60 B, every module a guarded block imports becomes lazily initialized too, and a block with top-level `await` becomes an async initializer that isn't awaited, so later blocks don't wait for it. That's (Q2) b.
+
+### (Q) points
+1. **(Q1) Where the runner goes in the fragment.**
+   - (a) **At the end** (recommended): the content comes first, so a fragment whose first node is the swapped element keeps it first; scripts run after the swap either way (htmx processes scripts after inserting, and module scripts are deferred). Trade-off: none known; a fragment used with `hx-select` must select the runner too (documented).
+   - (b) At the start, like Astro's script placement before the component's HTML. Trade-off: an extra first node in every fragment with scripts.
+2. **(Q2) The guard's shape.**
+   - (a) **Marks in page bundles, component entries, an inline runner** (recommended): no wrapping of user code, no helpers, top-level `await` unaffected, 0 bytes for projects without partials, the browser's URL deduplication covering lazy entries. Trade-off: components brought by a partial load in parallel (`import()` per entry), so their relative order isn't guaranteed (a page bundle keeps graph order); a missing component costs one request each (usually zero: the host has them).
+   - (b) One module per partial page with each block wrapped in an ID check (esbuild `require()` → `__esm`), marks the same way in page bundles. Trade-off: graph order kept and one request per partial; ~0.6 KB of helpers and ~60 B per block, lazy initialization of everything a guarded block imports, top-level `await` changes behavior (measured above).
+3. **(Q3) `client:*` (and the loaders) inside a partial.**
+   - (a) **Eager in partials** (recommended): a component with `client:*` in a partial is loaded by the runner with the others (the partial is already an on-demand load). The `<lyr-lazy>` marker is still written and ignored. `server:defer` keeps Rule 11 (needs the host's islands loader). Trade-off: simplest, works on any host; loses `client:visible`/`idle`/`media` laziness inside fragments.
+   - (b) The runner hands lazy entries to the host's lazy loader when it has one (a new `window.lyr__lazy.add(map)`, then a rescan) and imports them eagerly otherwise; the lazy loader gets its own `MutationObserver`. Trade-off: laziness kept on hosts with a loader; a loader change, more runner bytes.
+   - (c) Like Astro 7's inline prescripts: the partial carries the loader pieces it needs (islands and/or lazy, ~1 KB each), made idempotent (a second run merges its map instead of re-installing). Trade-off: works on any host, but ~1–2 KB per such partial response and the largest loader change.
+4. **(Q4) The partial page's own `<style>`** (dropped, as in Astro 7).
+   - (a) **A warning** at the tag in `lyr build`, `lyr check` and the LSP (recommended): `a partial page ships no CSS, so this <style> is dropped; move it to a component the host page imports, or add is:inline`. Trade-off: catches a silent no-op; not an error, so a port from Astro builds unchanged.
+   - (b) Dropped silently, exactly Astro 7. Trade-off: no noise, no hint either.
+   - (c) An error. Trade-off: strictest; breaks Astro ports whose partials have unused styles.
+
+### Decided by triage
+| Decision | Rule | Alternatives |
+|---|---|---|
+| `const partial = false` allowed, same as no flag | Astro | An error or a warning |
+| `const partial bool = true` accepted | Astro (a typed export works) | Untyped only |
+| The value must be the literal `true`/`false`; another constant or expression is an error (no `import.meta.env` equivalent) | simplest (read from the AST, no type pass) | Evaluate constant expressions with go/types |
+| `partial` reserved at a page's top level (`var`, `:=`, `func`, `type` are errors); nested shadowing allowed | simplest (mirrors `params`, §2.2) | Only check `const` |
+| In a component, only a hoisted `const partial` is an error (user decision); other uses of the name stay ordinary | simplest (only the `const` looks like the flag) | Reserve the name entirely in components |
+| `.md` pages can't be partials; the YAML `partial` key keeps its layout-prop meaning, no new error | Astro (`.md` unsupported) | A friendly error for `partial:` |
+| `404.lyr` may be a partial | Astro (no special case) | An error |
+| No head tags and no loader in a partial; the runner is the only addition | Astro (head content skipped; scripts inline) + user decision | Keep the head tags |
+| A doctype, `<html>` or `<head>` written in a partial is output as written | Astro (only the automatic doctype is skipped) | An error |
+| No new response header (no `X-Robots-Tag`, no `Vary`) | Astro (partials add none; only the island endpoint sets `noindex`) | `X-Robots-Tag: noindex` |
+| Route cache, ETag/304, routeRules apply as to any page; the stored body includes the runner | Astro (a partial is a page) | Never cache partials, like `RenderComponent` |
+| `RouteInfo` has no partial flag; `site.Match` unchanged | simplest | `RouteInfo.Partial()` |
+| Rewrite target's own rule decides what's injected | Astro (per route) | The source's |
+| Dev live reload unchanged (added only before a `</body>`, which partials normally lack) | simplest | A dev-only marker header to skip it |
+| Guard key: the component ID (`ComponentID(path)`, stable across builds); after a deploy, a host that ran the old version of a component skips the new one until reload | simplest | Key by content hash (would re-run a changed component next to the old one) |
+| Guard always on in page bundles that inline a partial-used component (whether a page will receive a partial isn't knowable at build time); none without partials | simplest | Opt-in per page |
+| Marks run first in a page bundle, before its blocks, so a throwing block doesn't make a partial run it again | simplest | Mark after each block |
+| The runner is inline (like the loader), not a `/_lyr/` file | Astro (inline scripts) + simplest (no extra request when nothing is needed) | An external runner module |
+| The partial page's own scoping attributes (`data-l-…` from its dropped `<style>`) are still written | simplest (no codegen difference for partials) | Skip scoping in partials |
+| Blank imports allowed in pages and components, for `.lyr` and Markdown; aliased and blank import of the same file together is allowed | Go stdlib (blank imports; duplicate imports under different names) | `.lyr` only; an error for the duplicate |
+| A blank-imported file is an eager root for lazy lists | simplest (as if rendered eagerly) | Lazy unless rendered |
+
+### Tests (what must exist)
+- **Compiler** (`internal/compiler/testdata/analyze/`): `.diag.golden` cases for each row of the error table (non-bool, typed non-bool, `var`, `:=`, `func`, `type`, implicit group repetition, the component `const`); accepted forms (`= true`, `= false`, `bool`-typed, in a `const (…)` group, nested shadowing, `var partial` in a component) produce no diagnostic and set `Analysis.Partial` as expected (table-driven). Blank imports: accepted for `.lyr` and `.md` (relative, root-relative, alias), not "unused", no clash errors, no Go import in either generated package (golden), `_` as a tag is an unknown component, no alias still an error. `FuzzParse` unchanged.
+- **Assets** (`internal/assets`, `internal/project`): a partial page has no page entry; its manifest entry lists "component" assets in graph order; component entries are shared with lazy entries (one URL); page bundles mark exactly the partial-used components they inline, first; a project without partials produces byte-identical bundles; a blank import adds the component's styles and scripts to the importer's pages and counts for `HasIslands`/`LazyLists` (eager root); shared chunks stay shared between page bundles and component entries (one module state).
+- **Runtime**: a partial route without `</head>` renders exactly its template output plus the tail, in production and in dev with a dev manifest; a partial without scripts has no tail; `TestServeAllocs`/`TestRenderAllocs` get a partial case.
+- **Loader/guard** (`bun test` + happy-dom, beside the loader tests): the runner imports an entry once across repeated insertions, skips an ID a page bundle marked, two runners sharing an ID import once; (Q3)'s behavior.
+- **Integration** (`examples/blog`, `internal/build` e2e): add the comments partial; `lyrtest.Get("/partials/comments/hello")` has no `<link`, no page module, no `lyr-loader`, no doctype, ends with the runner, keeps the scoped `data-l-` attributes, and goes through middleware (Locals set) and the route cache (a `Cache().Set` partial gets a HIT and a 304 on `If-None-Match`); `ErrNotFound` from it gives the 404 page; a redirect gives the 302. A browser-level check (the existing e2e harness, if any; otherwise happy-dom) that htmx swapping the partial into the post page runs no block twice and into another page runs it once.
+- **Dev**: toggling `partial` in `lyr dev` updates the response without a restart.
+
+### User-docs changes (with the implementation)
+- **`docs/routing.md`**: a new "Page partials" section after "Rewrites": what `const partial = true` does, the htmx example (`src/pages/partials/comments/[slug].lyr` plus the host page), and a callout near the top, prominent: **"A partial ships no CSS. The page it lands in must include the components the partial renders: render them, or import them with `_ "./X.lyr"`. Scripts come with the partial and run once per page."** Then: write scripts as custom elements; which swap libraries run scripts (htmx yes by default, `innerHTML` no, `hx-select` must keep the runner); inline scripts run on every insertion; `server:defer`/`client:*` inside a partial; redirects with htmx (`HX-Redirect`); caching; CSP; `.md` and `404.lyr`.
+- **`docs/components.md` "Importing components"**: a new "Including a component without rendering it" subsection (blank imports); **"Pages"**: one paragraph on `partial` (the reserved name) and the error examples.
+- **`docs/styles-and-scripts.md` "Bundling and deduplication per page"**: partial pages get no bundle; component entries and the run-once marks; blank imports count; (Q4)'s warning.
+- **`docs/lazy-loading.md`**: "In partials and fragments": Rule 11 and (Q3); the CSP section mentions the runner.
+- **`docs/server.md` "Rendering components from handlers"** and **`docs/reference/runtime-api.md` "Rendering from your handlers"**: when to use a partial page (a URL of its own, params, the route cache, middleware, scripts carried) vs `RenderComponent` (a handler, props from Go, no cache, no scripts). The line "Rendering a full page, with its assets, from a custom handler is not yet supported" stays.
+- **`docs/caching.md`**: partials are cached like pages. **`docs/reference/template-syntax.md`** "Doctype and HTML comments": partials get no tags at `</head>` or at the start, and the runner at the end.
+- **`docs/troubleshooting.md`**: "My partial has no styles" (the host rule), "a script runs twice" (`is:inline`), "a script didn't run" (the swap library), and the new errors.
+- **`docs/coming-from-astro.md`**: a new row `export const partial = true` → `const partial = true` (differences: `.lyr` only, as Astro's `.astro`/`.mdx`; a literal, no `import.meta.env`; scripts are guarded by component, so small inlined scripts don't re-run as they can in Astro 7; errors for misuse); a row for imports without rendering (`import X from "./X.astro"` unused → `_ "./X.lyr"`, which also brings the scripts); and the endpoints row's "For HTML fragments (htmx), use `lyr.RenderComponent`" becomes "use a [partial page](routing.md#page-partials) or `lyr.RenderComponent`".
+- **`docs/migrating-from-astro.md`**: partials port by changing `export const partial = true` to `const partial = true`; an Astro host importing a component only for its CSS becomes a blank import.
+- **`docs/DECISIONS.md`**: the triage table above. **`CHANGELOG.md`**: "Page partials" and "Blank component imports" entries under the next version. **`PLAN.md`**: this section's status; §2.2's import rule (`_` allowed); §5's plan (component entries, marks); a pointer from §4d.
+
+### Out of scope
+- Asset manifests or reconciliation between partials and hosts, including any check that a host includes a partial's components (user decision); a runtime `ctx.Partial()` (user decision).
+- Rendering one page as full or partial depending on `HX-Request`.
+- CSP hashes for the runner (with the loader's, planned later).
+- LSP completion of `partial`; partials in `.md`.
+
 ## 5. Assets (scripts and styles)
 - **Scope ID**: `o-` + the first 8 hex chars of sha256 of the file's project-relative path with `/` separators (`src/components/Card.lyr`), so IDs are the same on every OS. It's added as an attribute to every HTML element in the template, but only when the component has a scoped `<style>`.
 - **Scoped CSS**: parse with `tdewolff/parse/v2/css`. Add the attribute selector `[data-l-xxxx]` to the last compound of each selector (Astro's default `scopedStyleStrategy: "attribute"`, user decision at the dogfood checkpoint): +1 attribute specificity, so scoped rules beat global rules with the same selector whatever the bundle order. Within the compound it goes before the first pseudo-class or pseudo-element (`a:hover` → `a[data-l-…]:hover`), as in Astro.
