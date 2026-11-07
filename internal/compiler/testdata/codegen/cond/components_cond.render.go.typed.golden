@@ -314,106 +314,104 @@ func lyr__render(lyr__ctx *lyr__rt.Ctx, lyr__w *lyr__rt.Writer, lyr__props Props
 	lyr__w.Expr(
 /*line ../../../../src/components/Cond.lyr:35:95*/[]any{lyr.If(props.On, "x"), "y"}/*line render.go:315:110*/,
 	)
-	lyr__w.Raw("</p><p")
-	_ = /*line ../../../../src/components/Cond.lyr:36:11*/lyr.Cond/*line render.go:318:89*/[bool]
+	_ = /*line ../../../../src/components/Cond.lyr:36:11*/lyr.Cond/*line render.go:317:89*/[bool]
 	{
 		lyr__c :=
-/*line ../../../../src/components/Cond.lyr:36:20*/props.On/*line render.go:321:84*/
+/*line ../../../../src/components/Cond.lyr:36:20*/props.On/*line render.go:320:84*/
 		if lyr__c {
-			lyr__w.Raw(" title=\"yes\"")
+			lyr__w.Raw("</p><p title=\"yes\"")
 		} else {
-			lyr__w.Raw(" title=\"no\"")
+			lyr__w.Raw("</p><p title=\"no\"")
 		}
 	}
 	{
 		lyr__c :=
-/*line ../../../../src/components/Cond.lyr:36:68*/props.On/*line render.go:330:84*/
+/*line ../../../../src/components/Cond.lyr:36:68*/props.On/*line render.go:329:84*/
 		if lyr__c {
 			lyr__w.Raw(" aria-selected=\"true\"")
 		} else {
 			lyr__w.Raw(" aria-selected=\"false\"")
 		}
 	}
-	lyr__w.Raw(">")
 	{
 		lyr__c :=
-/*line ../../../../src/components/Cond.lyr:36:106*/props.Off/*line render.go:340:86*/
+/*line ../../../../src/components/Cond.lyr:36:106*/props.Off/*line render.go:338:86*/
 		if lyr__c {
-			lyr__w.Raw("Saved")
+			lyr__w.Raw(">Saved")
 		} else {
-			lyr__w.Raw("Save")
+			lyr__w.Raw(">Save")
 		}
 	}
 	lyr__w.Raw("</p><div aria-hidden=\"")
 	lyr__w.Bool(
-/*line ../../../../src/components/Cond.lyr:37:19*/props.On/*line render.go:349:84*/,
+/*line ../../../../src/components/Cond.lyr:37:19*/props.On/*line render.go:347:84*/,
 	)
 	lyr__w.Raw("\" aria-expanded=\"")
 	lyr__w.Bool(
-/*line ../../../../src/components/Cond.lyr:37:44*/props.Off/*line render.go:353:85*/,
+/*line ../../../../src/components/Cond.lyr:37:44*/props.Off/*line render.go:351:85*/,
 	)
 	lyr__w.Raw("\" ARIA-Busy=\"")
 	lyr__w.Bool(
-/*line ../../../../src/components/Cond.lyr:37:66*/props.On/*line render.go:357:84*/,
+/*line ../../../../src/components/Cond.lyr:37:66*/props.On/*line render.go:355:84*/,
 	)
 	lyr__w.Raw("\" draggable=\"")
 	lyr__w.Bool(
-/*line ../../../../src/components/Cond.lyr:37:87*/props.Off/*line render.go:361:85*/,
+/*line ../../../../src/components/Cond.lyr:37:87*/props.Off/*line render.go:359:85*/,
 	)
 	lyr__w.Raw("\" contenteditable=\"")
 	lyr__w.Bool(
-/*line ../../../../src/components/Cond.lyr:37:115*/props.On/*line render.go:365:85*/,
+/*line ../../../../src/components/Cond.lyr:37:115*/props.On/*line render.go:363:85*/,
 	)
 	lyr__w.Raw("\" spellcheck=\"")
 	lyr__w.Bool(
-/*line ../../../../src/components/Cond.lyr:37:137*/props.Off/*line render.go:369:86*/,
+/*line ../../../../src/components/Cond.lyr:37:137*/props.Off/*line render.go:367:86*/,
 	)
 	lyr__w.Raw("\" writingsuggestions=\"")
 	lyr__w.Bool(
-/*line ../../../../src/components/Cond.lyr:37:168*/props.On/*line render.go:373:85*/,
+/*line ../../../../src/components/Cond.lyr:37:168*/props.On/*line render.go:371:85*/,
 	)
 	lyr__w.Raw("\"")
 	lyr__w.AttrBool("data-x",
-/*line ../../../../src/components/Cond.lyr:37:186*/props.Off/*line render.go:377:86*/,
+/*line ../../../../src/components/Cond.lyr:37:186*/props.Off/*line render.go:375:86*/,
 	)
 	lyr__w.AttrBool("data-y",
-/*line ../../../../src/components/Cond.lyr:37:205*/props.On/*line render.go:380:85*/,
+/*line ../../../../src/components/Cond.lyr:37:205*/props.On/*line render.go:378:85*/,
 	)
 	lyr__w.AttrBool("hidden",
-/*line ../../../../src/components/Cond.lyr:37:223*/props.On/*line render.go:383:85*/,
+/*line ../../../../src/components/Cond.lyr:37:223*/props.On/*line render.go:381:85*/,
 	)
 	lyr__w.AttrBool("popover",
-/*line ../../../../src/components/Cond.lyr:37:242*/props.On/*line render.go:386:85*/,
+/*line ../../../../src/components/Cond.lyr:37:242*/props.On/*line render.go:384:85*/,
 	)
 	lyr__w.AttrBool("translate",
-/*line ../../../../src/components/Cond.lyr:37:263*/props.On/*line render.go:389:85*/,
+/*line ../../../../src/components/Cond.lyr:37:263*/props.On/*line render.go:387:85*/,
 	)
 	lyr__w.AttrBool("autocomplete",
-/*line ../../../../src/components/Cond.lyr:37:287*/props.Off/*line render.go:392:86*/,
+/*line ../../../../src/components/Cond.lyr:37:287*/props.Off/*line render.go:390:86*/,
 	)
 	lyr__w.Raw(">q3</div><div aria-busy=\"false\" draggable=\"true\" spellcheck=\"false\"")
 	lyr__w.AttrBool("download",
-/*line ../../../../src/components/Cond.lyr:38:76*/props.On/*line render.go:396:84*/,
+/*line ../../../../src/components/Cond.lyr:38:76*/props.On/*line render.go:394:84*/,
 	)
 	lyr__w.Raw(">c</div>\n<a download=\"file.txt\" hidden=\"until-found\" popover=\"manual\">s</a>\n<my-el aria-pressed=\"")
 	lyr__w.Bool(
-/*line ../../../../src/components/Cond.lyr:40:22*/props.Off/*line render.go:400:85*/,
+/*line ../../../../src/components/Cond.lyr:40:22*/props.Off/*line render.go:398:85*/,
 	)
 	lyr__w.Raw("\"")
 	lyr__w.AttrBool("data-x",
-/*line ../../../../src/components/Cond.lyr:40:41*/props.Off/*line render.go:404:85*/,
+/*line ../../../../src/components/Cond.lyr:40:41*/props.Off/*line render.go:402:85*/,
 	)
 	lyr__w.Raw(" draggable=\"")
 	lyr__w.Bool(
-/*line ../../../../src/components/Cond.lyr:40:63*/props.Off/*line render.go:408:85*/,
+/*line ../../../../src/components/Cond.lyr:40:63*/props.Off/*line render.go:406:85*/,
 	)
 	lyr__w.Raw("\"")
 	lyr__w.AttrBool("open",
-/*line ../../../../src/components/Cond.lyr:40:80*/props.On/*line render.go:412:84*/,
+/*line ../../../../src/components/Cond.lyr:40:80*/props.On/*line render.go:410:84*/,
 	)
 	lyr__w.Raw(">ce</my-el>\n<p")
 	lyr__rt.SpreadOf(lyr__w, "src/components/Cond.lyr:41:4",
-/*line ../../../../src/components/Cond.lyr:41:8*/lyr.Attrs{"aria-pressed": props.Off, "data-x": props.Off, "draggable": true, "hidden": true, "Aria-Live": Flag(false)}/*line render.go:416:194*/,
+/*line ../../../../src/components/Cond.lyr:41:8*/lyr.Attrs{"aria-pressed": props.Off, "data-x": props.Off, "draggable": true, "hidden": true, "Aria-Live": Flag(false)}/*line render.go:414:194*/,
 	)
 	lyr__w.Raw(">sp</p>")
 	return lyr__w.Err()

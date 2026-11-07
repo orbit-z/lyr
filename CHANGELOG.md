@@ -2,6 +2,11 @@
 
 What's new in each Lyr release. The VS Code extension has its own changelog, in `editors/vscode/CHANGELOG.md`.
 
+## v0.1.2
+
+**Faster rendering**
+- A `lyr.Cond` with a constant branch now writes the static HTML before it and the branch in one write (−22% on a page of `Cond` values). Output is unchanged.
+
 ## v0.1.1
 
 **Faster rendering**

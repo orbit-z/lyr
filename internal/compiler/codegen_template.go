@@ -378,6 +378,14 @@ func (g *cgGen) ifWrite(cs *CallSite, a *Attr, tw TypedWrite, v string) {
 func (g *cgGen) condSite(cs CallSite, tw TypedWrite, write func(v string) (call, arg Span), html func(string)) {
 	o := g.o
 	cw := tw.Cond
+	// The pending static HTML moves into each branch, so a folded branch
+	// is one Raw call with it instead of two (the response is buffered,
+	// so writing it after the arguments are evaluated changes nothing).
+	var pending string
+	if cw.A.Folded || cw.B.Folded {
+		pending = o.raw.String()
+		o.raw.Reset()
+	}
 	o.flush()
 	if !g.condRef {
 		// The lowering drops the call, which may be the file's only use
@@ -432,17 +440,21 @@ func (g *cgGen) condSite(cs CallSite, tw TypedWrite, write func(v string) (call,
 	for i, arm := range arms {
 		if i == 0 {
 			o.ln("if lyr__c {")
-		} else if arm.Folded && arm.Text == "" {
+		} else if arm.Folded && arm.Text == "" && pending == "" {
 			break // writes nothing
 		} else {
 			o.ln("} else {")
 		}
 		o.depth++
+		o.html(pending)
 		if arm.Folded {
 			html(arm.Text)
 			o.flush()
-		} else if call, arg := write(names[i]); cs.Call.Start < 0 {
-			cs.Call, cs.Arg = call, arg
+		} else {
+			o.flush()
+			if call, arg := write(names[i]); cs.Call.Start < 0 {
+				cs.Call, cs.Arg = call, arg
+			}
 		}
 		o.depth--
 	}

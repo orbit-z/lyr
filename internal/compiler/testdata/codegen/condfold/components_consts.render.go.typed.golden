@@ -61,26 +61,25 @@ func lyr__render(lyr__ctx *lyr__rt.Ctx, lyr__w *lyr__rt.Writer, lyr__props Props
 			lyr__w.Raw("32767")
 		}
 	}
-	lyr__w.Raw("|")
-	_ = /*line ../../../../src/components/Consts.lyr:18:100*/lyr.Cond/*line render.go:65:91*/[bool]
+	_ = /*line ../../../../src/components/Consts.lyr:18:100*/lyr.Cond/*line render.go:64:91*/[bool]
 	{
 		lyr__c :=
-/*line ../../../../src/components/Consts.lyr:18:109*/props.On/*line render.go:68:86*/
-		_ = /*line ../../../../src/components/Consts.lyr:18:100*/lyr.Cond/*line render.go:69:92*/(lyr__c,
-/*line ../../../../src/components/Consts.lyr:18:119*/math.E/*line render.go:70:84*/,
-/*line ../../../../src/components/Consts.lyr:18:127*/1/*line render.go:71:79*/)
+/*line ../../../../src/components/Consts.lyr:18:109*/props.On/*line render.go:67:86*/
+		_ = /*line ../../../../src/components/Consts.lyr:18:100*/lyr.Cond/*line render.go:68:92*/(lyr__c,
+/*line ../../../../src/components/Consts.lyr:18:119*/math.E/*line render.go:69:84*/,
+/*line ../../../../src/components/Consts.lyr:18:127*/1/*line render.go:70:79*/)
 		if lyr__c {
-			lyr__w.Raw("2.718281828459045")
+			lyr__w.Raw("|2.718281828459045")
 		} else {
-			lyr__w.Raw("1")
+			lyr__w.Raw("|1")
 		}
 	}
 	lyr__w.Raw("</p>\n")
-	for /*line ../../../../src/components/Consts.lyr:19:6*/_, arr := range [][2]int{{1, 2}}/*line render.go:79:114*/ {
+	for /*line ../../../../src/components/Consts.lyr:19:6*/_, arr := range [][2]int{{1, 2}}/*line render.go:78:114*/ {
 		_ =
-/*line ../../../../src/components/Consts.lyr:20:16*/len(arr)/*line render.go:81:85*/
+/*line ../../../../src/components/Consts.lyr:20:16*/len(arr)/*line render.go:80:85*/
 		_ =
-/*line ../../../../src/components/Consts.lyr:20:27*/len(arr)/*line render.go:83:85*/
+/*line ../../../../src/components/Consts.lyr:20:27*/len(arr)/*line render.go:82:85*/
 		lyr__w.Raw("<i data-len=\"2\">2</i>\n")
 	}
 	return lyr__w.Err()
