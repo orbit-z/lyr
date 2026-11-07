@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 
 	"github.com/evanw/esbuild/pkg/api"
+	"github.com/orbit-z/lyr/internal/compiler"
 	"github.com/orbit-z/lyr/internal/tailwind"
 )
 
@@ -356,12 +357,20 @@ func (b *esbuildBundler) collect(p *plan, r api.BuildResult, res *Result) error 
 		}
 	}
 	// Each page's lazy assets, in Lazy order (sorted by ID), and the CSS
-	// of its lazy entries after its own stylesheet.
+	// of its lazy entries after its own stylesheet. A partial's
+	// "component" assets (one per file with scripts in its graph, lazy
+	// ones included) come first, in graph order; a partial gets no CSS
+	// (PLAN.md §4k).
 	for _, pg := range p.pages {
+		for _, file := range p.partialFiles[pg.File] {
+			if js := lazyJS[file]; js != "" {
+				res.Pages[pg.File] = append(res.Pages[pg.File], Asset{Kind: "component", URL: js, ID: compiler.ComponentID(file)})
+			}
+		}
 		cssSeen := map[string]bool{}
 		for _, l := range pg.Lazy {
 			for _, file := range l.Modules {
-				if css := lazyCSS[file]; css != "" && !cssSeen[css] {
+				if css := lazyCSS[file]; css != "" && !cssSeen[css] && !pg.Partial {
 					cssSeen[css] = true
 					res.Pages[pg.File] = append(res.Pages[pg.File], Asset{Kind: "css", URL: css})
 				}
@@ -374,7 +383,8 @@ func (b *esbuildBundler) collect(p *plan, r api.BuildResult, res *Result) error 
 	linked := map[string]bool{}
 	for page, as := range res.Pages {
 		// The stylesheets first, then the module, then the lazy entries,
-		// then the module's chunks.
+		// then the module's chunks ("component" assets, only on partials,
+		// sort first and keep their order).
 		slices.SortStableFunc(as, func(x, y Asset) int { return strings.Compare(x.Kind, y.Kind) })
 		res.Pages[page] = as
 		for _, a := range as {

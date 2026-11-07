@@ -512,6 +512,10 @@ GET requests for [`server:defer`](lazy-loading.md) islands go through the cache 
 
 See [Response headers and caching](lazy-loading.md#response-headers-and-caching).
 
+## Page partials
+
+A [page partial](routing.md#page-partials) is cached like any page: `ctx.Cache().Set`, `routeRules`, `VaryBy`, ETag and `304`s, coalescing and tags all apply, and the stored body includes the partial's runner. (Fragments from `lyr.RenderComponent` are never stored.) A partial that lists something personal to the visitor must not call `Set`, as for any page.
+
 ## Rewrites
 
 A page that returns [`ctx.Rewrite`](routing.md#rewrites) is never stored: its rewritten request gets a lookup of its own, keyed by the **target's** URL (host, the target's path and query), with the target route's rules. So `/es-cu/about` rewriting to `/es/about` is served from the `/es/about` copy, the same one a request for `/es/about` gets, and the source page's frontmatter runs on every request (a HIT costs it plus the HIT).

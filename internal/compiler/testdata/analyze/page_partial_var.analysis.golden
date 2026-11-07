@@ -1,0 +1,6 @@
+info src/pages/partial_var.lyr page route="/partial_var"
+implicit lyr: none
+stmt @4-22 "var partial = true"
+echo [partial]
+terminating false
+props declared=false listable=true span=@0-0

@@ -282,6 +282,10 @@ func (s *anState) placeImports() {
 	s.a.ImplicitLyr = place("lyr") &^ covered
 	for i := range s.a.LyrImports {
 		o := &s.a.LyrImports[i]
+		if o.Blank() {
+			// Assets only (PLAN.md §4k): no Go import, never unused.
+			continue
+		}
 		o.Place = place(o.Alias)
 		if s.tagUses[o.Alias] {
 			o.Place |= PlaceImpl
@@ -319,7 +323,9 @@ func (s *anState) checkClashes() {
 		}
 	}
 	for _, o := range s.a.LyrImports {
-		check(o.Alias, o.AliasSpan)
+		if !o.Blank() {
+			check(o.Alias, o.AliasSpan)
+		}
 	}
 	for _, g := range s.a.GoImports {
 		if g.Name != "" && g.Name != "_" && g.Name != "." && g.Place&PlaceImpl != 0 {

@@ -58,7 +58,7 @@ func TestExampleBlog(t *testing.T) {
 	// The build flavor (PLAN.md §3.5): lyr_gen/ unchanged, the same
 	// responses, and the example's tests pass on it too.
 	checkBuildFlavor(t, dir, gen, "impl/pages/blog/slug_param/render.go")
-	checkFlavors(t, dir, "example.com/blog", []string{"/", "/about", "/account", "/search?q=security", "/blog/hello", "/blog/safe-json", "/nope"})
+	checkFlavors(t, dir, "example.com/blog", []string{"/", "/about", "/account", "/search?q=security", "/blog/hello", "/blog/safe-json", "/partials/comments/hello", "/nope"})
 	if out := goRun(t, dir, "test", "-count=1", "-overlay=.lyr/build/overlay.json", "./..."); !strings.Contains(out, "ok  \texample.com/blog/internal/views_test") {
 		t.Errorf("go test -overlay ./... didn't run views_test:\n%s", out)
 	}
@@ -66,6 +66,7 @@ func TestExampleBlog(t *testing.T) {
 	s := start(t, dir, filepath.Join(dir, "dist/server"))
 	checkBlogPages(t, s)
 	checkBlogPost(t, s)
+	checkBlogPartial(t, s)
 	checkBlogMarkdown(t, s)
 	checkBlogRoutes(t, s)
 	if code := s.stop(); code != 0 {
@@ -73,6 +74,9 @@ func TestExampleBlog(t *testing.T) {
 	}
 	if !strings.Contains(s.stderr.String(), "POST /blog/hello/like 200") {
 		t.Errorf("the logging middleware didn't log the like request")
+	}
+	if !strings.Contains(s.stderr.String(), "route=/partials/comments/[slug]") {
+		t.Errorf("the logging middleware didn't log the partial's route")
 	}
 	if t.Failed() {
 		t.Logf("server output:\n%s", s.stderr)
@@ -157,8 +161,11 @@ var (
 	dynImport  = regexp.MustCompile(`import\("(/_lyr/suggestions-[A-Z0-9]{8}\.js)"\)`)
 	searchJS   = regexp.MustCompile(`<script type="module" src="(/_lyr/search-[A-Z0-9]{8}\.js)"></script>`)
 	blogIsland = regexp.MustCompile(`<lyr-island src="(/_lyr/island/[0-9a-f]{16}/Comments-[0-9a-f]{8})" props="([A-Za-z0-9_-]+)" client="visible" opts="200px"><p class="loading"[^>]*>Loading comments…</p></lyr-island>`)
-	blogLazy   = regexp.MustCompile(`"lazy":\{"(ShareButtons-[0-9a-f]{8})":\["(/_lyr/ShareButtons-[A-Z0-9]{8}\.js)"\]\}`)
-	titlesJSON = regexp.MustCompile(`<script type="application/json" id="post-titles-data">(.*?)</script>`)
+	blogLazy   = regexp.MustCompile(`"(ShareButtons-[0-9a-f]{8})":\["(/_lyr/ShareButtons-[A-Z0-9]{8}\.js)"\]\}`)
+	// The delayed Comments island's subtree: CommentList's entry.
+	commentsLazy  = regexp.MustCompile(`"lazy":\{"Comments-[0-9a-f]{8}":\["(/_lyr/CommentList-[A-Z0-9]{8}\.js)"\],"ShareButtons-`)
+	partialRunner = regexp.MustCompile(`<script type="module">let s=globalThis\.lyr__ran\?\?=new Set;for\(let\[i,u\]of\[\["CommentList-[0-9a-f]{8}","(/_lyr/CommentList-[A-Z0-9]{8}\.js)"\]\]\)s\.has\(i\)\|\|\(s\.add\(i\),import\(u\)\)</script>$`)
+	titlesJSON    = regexp.MustCompile(`<script type="application/json" id="post-titles-data">(.*?)</script>`)
 )
 
 // checkBlogPages checks the index, search, account and 404 pages, and the
@@ -290,6 +297,41 @@ func checkBlogMarkdown(t *testing.T, s *server) {
 	}
 	if strings.Contains(index, "chroma") {
 		t.Errorf("GET /: highlight CSS on a page without highlighted code:\n%s", index)
+	}
+}
+
+// checkBlogPartial checks the page partial /partials/comments/[slug]
+// (PLAN.md §4k): served through the middleware, a fragment with no head
+// tags and its runner at the end, whose CommentList entry is the post
+// page's lazy entry, the same URL, so the browser runs it once on the post
+// page, and once on any other.
+func checkBlogPartial(t *testing.T, s *server) {
+	t.Helper()
+	resp, body := s.get("/partials/comments/hello")
+	if resp.StatusCode != 200 || resp.Header.Get("X-Request-Id") == "" || !strings.HasPrefix(body, `<comment-list data-count="2"`) {
+		t.Fatalf("GET /partials/comments/hello: %d, headers %v\n%s", resp.StatusCode, resp.Header, body)
+	}
+	for _, unwanted := range []string{"<link", `src="/_lyr/`, "lyr-loader", "<!DOCTYPE", "<head"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("GET /partials/comments/hello: has %q:\n%s", unwanted, body)
+		}
+	}
+	if !regexp.MustCompile(`<ul class="thread" data-l-[0-9a-f]+>`).MatchString(body) {
+		t.Errorf("GET /partials/comments/hello: no scoped attributes:\n%s", body)
+	}
+	run := partialRunner.FindStringSubmatch(body)
+	if run == nil {
+		t.Fatalf("GET /partials/comments/hello: no runner at the end:\n%s", body)
+	}
+	if resp, b := s.get(run[1]); resp.StatusCode != 200 || !strings.Contains(b, "comment-list") || strings.Contains(b, ": void") {
+		t.Errorf("GET %s: %d, not CommentList's stripped script:\n%s", run[1], resp.StatusCode, b)
+	}
+	_, post := s.get("/blog/hello")
+	if lazy := commentsLazy.FindStringSubmatch(post); lazy == nil || lazy[1] != run[1] {
+		t.Errorf("the post page's CommentList entry %v isn't the partial's %s:\n%s", lazy, run[1], post)
+	}
+	if resp, body := s.get("/partials/comments/nope"); resp.StatusCode != 404 || !strings.Contains(body, "Page not found") {
+		t.Errorf("GET /partials/comments/nope: %d\n%s", resp.StatusCode, body)
 	}
 }
 

@@ -352,6 +352,97 @@ if !p.Available {
 
 A middleware rewrites a request with `lyr.RewriteRequest` instead; see [Rewriting the request](middleware.md#rewriting-the-request).
 
+## Page partials
+
+> **A partial ships no CSS.** The page it lands in must include the components the partial renders: render them, or import them with `_ "./X.lyr"`. Scripts come with the partial and run once per page.
+
+A page partial is a page that renders as an HTML fragment, for [htmx](https://htmx.org), Unpoly or `fetch()` swaps. It's Astro's `export const partial = true`. Write `const partial = true` in the page's frontmatter. Here, `src/pages/partials/comments/[slug].lyr`:
+
+```lyr
+---
+import (
+	CommentList "../../../components/CommentList.lyr"
+	"example.com/blog/internal/comments"
+)
+
+const partial = true
+
+list, err := comments.For(ctx, params.Slug)
+if err != nil {
+	return err
+}
+---
+<CommentList comments={list} />
+```
+
+And the post page, `src/pages/blog/[slug].lyr`, which renders the comments the first time and refreshes them with the partial:
+
+```lyr
+---
+import (
+	CommentList "../../components/CommentList.lyr"
+	_ "../../components/EmptyState.lyr" // rendered only by the partial, after a delete
+	Base "@/layouts/Base.lyr"
+	"example.com/blog/internal/comments"
+	"example.com/blog/internal/posts"
+)
+
+post, err := posts.Find(params.Slug)
+if err != nil {
+	return err
+}
+list, err := comments.For(ctx, post.Slug)
+if err != nil {
+	return err
+}
+---
+<Base title={post.Title}>
+  <article>…</article>
+  <section id="comments" hx-get={`/partials/comments/${post.Slug}`} hx-trigger="every 30s">
+    <CommentList comments={list} />
+  </section>
+</Base>
+```
+
+Every 30 seconds htmx fetches `/partials/comments/hello` and swaps the response into the section. The response is the `CommentList` HTML and, at the end, one small inline script, the **runner**:
+
+```html
+<script type="module">let s=globalThis.lyr__ran??=new Set;for(let[i,u]of[["CommentList-1a2b3c4d","/_lyr/CommentList-AB12CD34.js"]])s.has(i)||(s.add(i),import(u))</script>
+```
+
+What a partial gets, compared with a page:
+
+- **No head tags**: no stylesheet, no page `<script>`, no `modulepreload`, no loader, nothing at `</head>` or at the start. A doctype, `<html>` or `<head>` you write (or a layout you use writes) is output as written. A partial whose components have no scripts is exactly its template's output.
+- **No CSS.** The partial's components get their styles from the page they land in, so that page must include them: render them, or [import them without rendering](components.md#including-a-component-without-rendering-it) (`_ "./EmptyState.lyr"`), directly or through other components. The scoped-style attributes (`data-l-…`) are written as usual and match the host's stylesheet. Lyr doesn't check that a host includes anything. The partial page's own `<style>` blocks are dropped, with a warning in `lyr build`, `lyr check` and the editor; move the style to a component the host imports, or add `is:inline`.
+- **Scripts come with it, and run once per page.** The runner imports each component's script entry (one per component, shared with [lazy entries](lazy-loading.md)) unless the page already ran that component: the page's own bundle marks the components it ran, and every runner marks what it imports. On the post page above, the runner imports nothing; on a page without `CommentList`, it imports its entry once, however many times the partial is swapped in. Components brought by a runner load in parallel, so their relative order isn't guaranteed.
+- **Everything else is a page's**: the URL and typed `params`, route priority, every HTTP method (a partial can answer its own `hx-post`), your middleware and `locals` (`locals.Route` is the partial's route), [caching](caching.md), sessions, `ctx.SetStatus` and `ctx.Header()`, and error handling. `const partial = false` is the same as no flag. `partial` stays an ordinary constant you can read (`{if partial}`).
+
+**Write scripts as custom elements.** A script runs once per page, so one that runs `querySelectorAll` when it loads doesn't see HTML swapped in later. A custom element's `connectedCallback` runs for every instance, whenever it appears (see [Write scripts as custom elements](lazy-loading.md#write-scripts-as-custom-elements)).
+
+**Which swap libraries run the runner.** htmx does by default (`htmx.config.allowScriptTags`). `innerHTML` and `insertAdjacentHTML` never run scripts: the fragment gets its HTML, and its CSS if the host has it, but no scripts unless the host includes the components. With Unpoly or another library, check that it runs `<script>` tags in fragments. With `hx-select` or `hx-select-oob`, select the runner too, or it's dropped.
+
+**Inline scripts** (`is:inline`, a `type` attribute, `set:html`, `set:json`) are template output: a swap library that runs scripts runs them on **every insertion**.
+
+**`server:defer` and `client:*` inside a partial** work whatever the host has: a partial whose components use them carries the loader it needs at its end, as Astro's partials carry their island scripts. See [In partials and fragments](lazy-loading.md#in-partials-and-fragments).
+
+**Redirects, 404s and errors.** `ctx.Redirect` answers the redirect; htmx follows it through XHR and swaps the target's HTML, so to send the browser elsewhere set htmx's `HX-Redirect` or `HX-Location` header with `ctx.Header().Set(…)` instead. `ctx.Rewrite` serves the target with the target's rule: a partial rewriting to a full page answers the full page. `lyr.ErrNotFound` renders `404.lyr`, a full page with its assets (htmx doesn't swap 4xx responses by default), and errors render the 500 page (htmx doesn't swap 5xx either).
+
+**Content Security Policy.** The runner is an inline module script, like the loader: a strict CSP needs `'unsafe-inline'` or its hash, which is the same for every response of a route in a build. See [The loader and Content Security Policy](lazy-loading.md#the-loader-and-content-security-policy).
+
+**Limits.** Only `.lyr` pages can be partials: in a Markdown page, a `partial:` frontmatter key is a layout prop like any other (as in Astro, where `.md` can't be a partial). `404.lyr` can be a partial, but then every 404 has no CSS. `const partial` in a component or a layout is an error, and in a page the name is reserved for the flag:
+
+```lyr file=src/pages/x.lyr expect-error
+---
+var partial = true
+---
+```
+
+```text
+src/pages/x.lyr:2:5: partial must be a constant: write const partial = true to make this page a partial
+```
+
+The value must be the literal `true` or `false` (`const partial bool = true` works too): `partial must be true or false: const partial = true makes this page a partial`. When to use a partial and when [`lyr.RenderComponent`](server.md#rendering-components-from-handlers): a partial has a URL of its own, typed params, middleware, the route cache and its scripts; `RenderComponent` renders from your own handler with props from Go, and has no cache and no scripts.
+
 ## Trailing slashes
 
 Every page has exactly one canonical URL. The `trailingSlash` key of `lyr.json` decides whether it ends in `/` (see [Configuration](configuration.md#trailingslash)):
@@ -426,4 +517,4 @@ So a `POST /blog/hello/like` handler in your own mux works even when Lyr comes f
 - [Server](server.md): where Lyr sits in your handler chain
 - [Middleware and locals](middleware.md): net/http middleware and typed `Locals`
 - [Components](components.md): layouts, props, templates and the names a page gets (`params`, `ctx`)
-- [Lazy loading](lazy-loading.md): the `/_lyr/island/` endpoint
+- [Lazy loading](lazy-loading.md): the `/_lyr/island/` endpoint, and `server:defer`/`client:*` in partials

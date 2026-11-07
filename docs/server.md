@@ -337,6 +337,8 @@ if err := lyr.RenderComponent(w, r, likebutton.Render, props); err != nil {
 
 Rendering a full page, with its assets, from a custom handler is not yet supported.
 
+**A partial page or `RenderComponent`?** A [page partial](routing.md#page-partials) (`const partial = true`) is a page that renders as a fragment: it has a URL of its own and typed `params`, goes through `site.Middleware` like any page, can be cached with the [route cache](caching.md), and carries its components' scripts (and the loader its islands and lazy components need). `RenderComponent` renders from a handler you write, with props from Go: no cache, no scripts. Use a partial for a fragment a URL fully describes (`hx-get="/partials/comments/hello"`), `RenderComponent` for one computed by your handler (the `like` answer above).
+
 ## Listening: `ListenAndServe` and `Addr`
 
 `lyr.ListenAndServe(h)` starts an HTTP server for `h` on `lyr.Addr()` and shuts down gracefully on `SIGINT` or `SIGTERM`. It reads no command-line flags, so it never clashes with your own. Once it's listening, it logs where, with Go's `log` package (so on stderr, with the log's timestamp): `lyr: listening on http://localhost:4321`. The address is the one it actually bound; an address without a host (`:4321`, `0.0.0.0`) is shown as `localhost`. Under `lyr dev` it logs nothing, since the dev server prints its own URL. After a graceful shutdown it returns `nil`, so `if err := lyr.ListenAndServe(h); err != nil { log.Fatal(err) }` exits cleanly on Ctrl-C and only logs real failures, such as a port that's already taken. (Don't write `log.Fatal(lyr.ListenAndServe(h))`: `log.Fatal` exits with status 1 even when the error is nil.) Its settings:

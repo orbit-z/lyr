@@ -99,8 +99,9 @@ func eagerEdge(c compiler.ComponentCall) bool {
 // LazyLists returns the page's lazy call-site lists (PLAN.md §5 "Lazy
 // entries"), sorted by the tagged component's ID:
 //   - a component is eager on the page if the page reaches it through call
-//     sites that cross no lazy directive (deferred ones included); its
-//     scripts go in the page bundle;
+//     sites that cross no lazy directive (deferred ones included) or
+//     blank imports (_ "./X.lyr", PLAN.md §4k); its scripts go in the
+//     page bundle;
 //   - each lazy call site (client:idle, client:visible, client:media, also
 //     on a server:defer tag: a delayed island) in a file of the page's
 //     graph lists the tagged component plus every
@@ -132,6 +133,15 @@ func (p *Project) LazyLists(page *File) []assets.Lazy {
 			for _, c := range f.calls() {
 				if eagerEdge(c) && c.Target != "" {
 					stack = append(stack, c.Target)
+				}
+			}
+			// A blank import (_ "./X.lyr", PLAN.md §4k) counts as if f
+			// rendered X eagerly.
+			if f.Analysis != nil {
+				for i := range f.Analysis.LyrImports {
+					if im := &f.Analysis.LyrImports[i]; im.Blank() {
+						stack = append(stack, im.Resolved)
+					}
 				}
 			}
 		}

@@ -1,0 +1,4 @@
+---
+partial := true
+---
+<p>{partial}</p>

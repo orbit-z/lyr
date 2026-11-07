@@ -91,6 +91,8 @@ func analyze(f *File, info FileInfo) *Analysis {
 	s.parseBody()
 	s.partition()
 	s.checkDecls()
+	s.partialFlag()
+	s.partialStyles()
 	s.placeImports()
 	s.checkClashes()
 	if info.Role == RolePage {
@@ -218,13 +220,9 @@ func (s *anState) lyrImport(alias string, aliasSpan Span, p string, pathSpan, fu
 	case ".":
 		s.errorf(aliasSpan, "dot imports aren't supported in a component; import the package by name")
 		return
-	case "", "_":
+	case "":
 		base := anUpperFirst(strings.TrimSuffix(path.Base(p), path.Ext(p)))
-		at := pathSpan
-		if alias != "" {
-			at = aliasSpan
-		}
-		s.errorf(at, "a component import needs an alias: %s %s", base, strconv.Quote(p))
+		s.errorf(pathSpan, "a component import needs an alias: %s %s", base, strconv.Quote(p))
 		return
 	}
 	resolved, ok := ResolveImportPath(s.a.Info.Path, p, s.a.Info.Aliases)
@@ -236,7 +234,7 @@ func (s *anState) lyrImport(alias string, aliasSpan Span, p string, pathSpan, fu
 		s.errorf(pathSpan, "component path %s is outside src/", p)
 		return
 	}
-	if msg := AliasError(alias); msg != "" {
+	if msg := AliasError(alias); msg != "" && alias != "_" {
 		s.errorf(aliasSpan, "%s", msg)
 	}
 	s.a.LyrImports = append(s.a.LyrImports, LyrImport{
@@ -728,6 +726,9 @@ func (s *anState) echo(stmts []anBodyStmt) {
 			if id.Name == n {
 				s.errorf(s.bodySpan(id), "%s is provided by Lyr and can't be redeclared here", id.Name)
 			}
+		}
+		if id.Name == PartialName && s.a.Info.Role == RolePage {
+			s.errorf(s.bodySpan(id), msgPartialConst)
 		}
 		if !seen[id.Name] {
 			seen[id.Name] = true

@@ -1,0 +1,1 @@
+src/pages/partial_ok.lyr:16:1: warning: a partial page ships no CSS, so this <style> is dropped; move it to a component the host page imports, or add is:inline

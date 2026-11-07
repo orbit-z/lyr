@@ -424,6 +424,7 @@ func inputKey(in *assets.Input) string {
 			w(l.Modules...)
 		}
 		w("highlight", strconv.FormatBool(pg.Highlight))
+		w("partial", strconv.FormatBool(pg.Partial))
 	}
 	w("highlight-css", in.HighlightCSS)
 	return hex.EncodeToString(h.Sum(nil))

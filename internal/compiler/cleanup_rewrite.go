@@ -36,6 +36,9 @@ func newErrorNames(module string, files []*Analysis) *ErrorNames {
 			n.Declared[decl] = names
 		}
 		for _, im := range a.LyrImports {
+			if im.Blank() {
+				continue
+			}
 			pkg, err := PackageFor(im.Resolved)
 			if err != nil {
 				continue

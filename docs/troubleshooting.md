@@ -228,6 +228,36 @@ See [Error output](reference/cli.md#error-output).
 
 **Fix:** read the route params from `params` (`params.Slug`) and the rest of the request from `ctx` (`ctx.Request.URL.Query()`), or move the markup that needs props into a component under `src/components/`. See [Pages](components.md#pages).
 
+### `partial must be true or false: const partial = true makes this page a partial`
+
+**Cause:** a page's `const partial` has a value other than the literal `true` or `false` (a string, a number, another constant, an expression), or a type other than `bool`. Lyr reads the flag when it builds, without evaluating Go.
+
+**Fix:** write `const partial = true` (a [page partial](routing.md#page-partials)) or remove the constant.
+
+### `partial must be a constant: write const partial = true to make this page a partial`
+
+**Cause:** a page declares `partial` with `var` or `:=` at the top level of its frontmatter. In a page, the name is reserved for the partial flag.
+
+**Fix:** use `const partial = true`, or rename the variable. Variables named `partial` inside a nested block (`if`, `for`, a function) are fine.
+
+### `partial is reserved in a page for const partial = true; rename this declaration`
+
+**Cause:** a page declares a function or type named `partial`.
+
+**Fix:** rename it.
+
+### `partial only applies to pages (files under src/pages); remove it, or rename the constant`
+
+**Cause:** a component or layout declares `const partial`. Only pages can be partials; a component renders inside whatever page uses it.
+
+**Fix:** remove the constant, or rename it (`const isPartial = true`). In a component, `var partial` or `func partial` are ordinary names.
+
+### `a partial page ships no CSS, so this <style> is dropped; move it to a component the host page imports, or add is:inline` (warning)
+
+**Cause:** a [page partial](routing.md#page-partials) has a `<style>` of its own. A partial gets no stylesheet, so the block is dropped, as in Astro.
+
+**Fix:** move the style to a component that the page receiving the partial includes, or mark it `is:inline` to send it with every response of the partial.
+
 ### `Params is generated from the page's route; rename this type`
 
 **Cause:** a file under `src/pages/` declares `type Params`. Lyr generates `Params` for every page, from its file path, so the name is taken.
@@ -338,9 +368,9 @@ src/pages/blog/[slug].lyr:4:12: params.Slg undefined (type Params has no field o
 
 ### `a component import needs an alias: Card "./Card.lyr"`
 
-**Cause:** a `.lyr` import has no alias (`"./Card.lyr"`) or the blank alias `_`. The alias is the component's tag name, so it's required.
+**Cause:** a `.lyr` import has no alias (`"./Card.lyr"`). The alias is the component's tag name, so it's required.
 
-**Fix:** add the suggested alias, `Card "./Card.lyr"`, and use the component as `<Card>`. See [Importing components](components.md#importing-components).
+**Fix:** add the suggested alias, `Card "./Card.lyr"`, and use the component as `<Card>`. To include a component's styles and scripts without rendering it, use a blank import, `_ "./Card.lyr"`. See [Importing components](components.md#importing-components).
 
 ### `component Card is imported but not used; remove the import`
 
@@ -662,6 +692,24 @@ Errors in Markdown files point at their `.md` line and column: a frontmatter key
 **Fix:** remove the attribute. To pass values to the layout, put them in the Markdown file's frontmatter. See [Importing Markdown](markdown.md#importing-markdown-into-a-component).
 
 ## Runtime
+
+### My page partial has no styles
+
+**Cause:** a [page partial](routing.md#page-partials) ships no CSS. Its components' styles come from the page it's swapped into, and that page doesn't include them.
+
+**Fix:** make the host page include every component the partial renders: render it, or import it without rendering, `_ "../components/EmptyState.lyr"` (see [Including a component without rendering it](components.md#including-a-component-without-rendering-it)).
+
+### A script runs twice after a partial swap
+
+**Cause:** the script is inline (`is:inline`, a `type` attribute, or `set:html`). Inline scripts are template output with no ID, so a swap library that runs scripts runs them on every insertion. Processed `<script>` blocks run once per page.
+
+**Fix:** make it a processed `<script>` (no attributes), written as a custom element, or guard it yourself.
+
+### A partial's script didn't run
+
+**Cause:** the swap library didn't run the partial's runner, the `<script type="module">` at its end. `innerHTML` and `insertAdjacentHTML` never run scripts; htmx does by default, unless `htmx.config.allowScriptTags` is off or `hx-select` left the runner out. Or the script ran once when the page loaded and used `querySelectorAll`, which doesn't see HTML swapped in later.
+
+**Fix:** use a library that runs scripts in fragments (and select the runner too with `hx-select`), and write the script as a custom element, whose `connectedCallback` runs for every instance. See [Page partials](routing.md#page-partials).
 
 ### `lyr: src/components/Card.lyr not linked; import example.com/blog/lyr_gen/app`
 

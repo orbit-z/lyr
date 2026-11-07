@@ -1,0 +1,7 @@
+info src/components/err_partial_component.lyr component route=""
+implicit lyr: none
+decl const @4-24 place=impl partial@10-17
+  "const partial = true"
+echo []
+terminating false
+props declared=false listable=true span=@0-0

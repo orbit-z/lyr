@@ -98,6 +98,12 @@ type Page struct {
 	// highlighted code block: its stylesheet starts with
 	// Input.HighlightCSS.
 	Highlight bool
+	// Partial is set for a page partial (PLAN.md §4k): it gets no page
+	// entry and no stylesheet. Every file with scripts in Modules gets a
+	// component entry, listed as a "component" asset of the page in
+	// Modules order, and other pages' bundles that inline one of them mark
+	// its ID as run. Those not in Lazy are the ones its runner imports.
+	Partial bool
 }
 
 // Lazy is the list of entries a lazy marker loads on one page.
@@ -149,8 +155,12 @@ func (r *Result) File(url string) *File {
 	return nil
 }
 
-// Asset is a page asset, as in lyr.Asset: Kind "css", "js", "lazy" or
-// "modulepreload", URL under /_lyr/. A "lazy" asset is one entry of a
+// Asset is a page asset, as in lyr.Asset: Kind "css", "js", "lazy",
+// "modulepreload" or "component", URL under /_lyr/. A "component" asset
+// is a partial page's (PLAN.md §4k): ID is a component's ID and URL its
+// component entry. The partial's runner imports those whose URL isn't
+// also a "lazy" asset's, unless the document already ran that ID; the
+// others tell the lazy loader which ID each lazy URL runs. A "lazy" asset is one entry of a
 // lazy marker's list: ID is the tagged component's ID, URL the entry of one
 // component in that list. A marker that loads several entries has several
 // "lazy" assets with the same ID, and an entry can be listed under several

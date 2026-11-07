@@ -112,6 +112,11 @@ type Route struct {
 	// client:idle|visible|media, PLAN.md §3.4), so the page gets the
 	// islands loader variant that reads strategies.
 	IslandsWhen bool
+	// Partial: the page is a page partial (const partial = true, PLAN.md
+	// §4k). It gets no head tags; its output ends with the tail
+	// (partialTail): the loader pieces it needs and the runner of its
+	// "component" assets.
+	Partial bool
 }
 
 // NoLocals is the locals type used when a project has no src/locals.Locals.

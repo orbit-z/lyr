@@ -1,0 +1,9 @@
+---
+import (
+	_ "../components/EmptyState.lyr"
+	CommentList "../components/CommentList.lyr"
+)
+
+const partial = true
+---
+<CommentList />

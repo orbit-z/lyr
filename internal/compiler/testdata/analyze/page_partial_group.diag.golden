@@ -1,0 +1,1 @@
+src/pages/partial_group.lyr:4:2: partial must be true or false: const partial = true makes this page a partial

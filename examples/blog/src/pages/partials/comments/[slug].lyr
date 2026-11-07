@@ -1,0 +1,26 @@
+---
+import (
+	"errors"
+
+	CommentList "../../../components/CommentList.lyr"
+	"example.com/blog/internal/posts"
+)
+
+// A page partial (docs/routing.md "Page partials"): the comments of a post
+// as an HTML fragment, for htmx or fetch() swaps. It ships no CSS: the post
+// page includes CommentList (through Comments), so its styles are there.
+const partial = true
+
+post, err := posts.Find(params.Slug)
+if errors.Is(err, posts.ErrNotFound) {
+	return lyr.ErrNotFound
+}
+if err != nil {
+	return err
+}
+comments, err := posts.Comments(post.ID)
+if err != nil {
+	return err
+}
+---
+<CommentList comments={comments} />

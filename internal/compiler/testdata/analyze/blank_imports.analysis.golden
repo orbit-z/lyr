@@ -1,0 +1,11 @@
+info src/components/blank_imports.lyr component route=""
+lyrimport @14-15 "_" path="./Card.lyr" resolved=src/components/Card.lyr @14-28 pathspan=@16-28 place=none
+lyrimport @30-31 "_" path="../content/post.md" resolved=src/content/post.md @30-52 pathspan=@32-52 place=none
+lyrimport @54-55 "_" path="/src/components/Abs.lyr" resolved=src/components/Abs.lyr @54-81 pathspan=@56-81 place=none
+lyrimport @83-87 "Card" path="./Card.lyr" resolved=src/components/Card.lyr @83-100 pathspan=@88-100 place=impl
+lyrimport @102-103 "_" path="./Twice.lyr" resolved=src/components/Twice.lyr @102-117 pathspan=@104-117 place=none
+lyrimport @119-120 "_" path="./Twice.lyr" resolved=src/components/Twice.lyr @119-134 pathspan=@121-134 place=none
+implicit lyr: none
+echo []
+terminating false
+props declared=false listable=true span=@0-0

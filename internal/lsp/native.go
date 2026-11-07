@@ -67,7 +67,8 @@ func classify(f *project.File, off int) region {
 		if f.Analysis != nil {
 			for i := range f.Analysis.LyrImports {
 				im := &f.Analysis.LyrImports[i]
-				if im.AliasSpan.Contains(off) || im.PathSpan.Contains(off) {
+				// A blank import's _ has nothing to show (PLAN.md §4k).
+				if !im.Blank() && im.AliasSpan.Contains(off) || im.PathSpan.Contains(off) {
 					return region{kind: regionImport, imp: im}
 				}
 			}

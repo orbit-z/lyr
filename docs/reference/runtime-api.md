@@ -769,15 +769,17 @@ type Route struct {
     Render  func(*Ctx, *Writer) error // calls the page's Render with its empty Props
     Assets  []Asset                   // CSS, JS and modulepreload tags for the page's <head>, plus lazy entries
     Islands bool                      // the page can contain server:defer placeholders
+    IslandsWhen bool                  // one of them is a delayed island
+    Partial bool                      // a page partial: no head tags, the runner at the end
 }
 
 type Asset struct {
-    Kind string // "css", "js", "lazy" or "modulepreload"
+    Kind string // "css", "js", "lazy", "modulepreload" or "component"
     URL  string
-    ID   string // for "lazy": the component ID whose <lyr-lazy> markers load it
+    ID   string // for "lazy": the component ID whose <lyr-lazy> markers load it; for "component": the component's own
 }
 ```
-Used by the generated `app.New()`. You don't build routes by hand. A route's assets are in `<head>` order: its stylesheets, its module, its `lazy` entries, then one `modulepreload` asset per [shared chunk](../styles-and-scripts.md#shared-chunks-and-import) the module imports. `css` gives a `<link rel="stylesheet">`, `js` a `<script type="module">`, `modulepreload` a `<link rel="modulepreload">` after the script; the tags are computed once per route, when the site is created. A route with `Islands` set, or with `lazy` assets, also gets the inline loader in its `<head>`. Unknown kinds are ignored.
+Used by the generated `app.New()`. You don't build routes by hand. A route's assets are in `<head>` order: its stylesheets, its module, its `lazy` entries, then one `modulepreload` asset per [shared chunk](../styles-and-scripts.md#shared-chunks-and-import) the module imports. `css` gives a `<link rel="stylesheet">`, `js` a `<script type="module">`, `modulepreload` a `<link rel="modulepreload">` after the script; the tags are computed once per route, when the site is created. A route with `Islands` set, or with `lazy` assets, also gets the inline loader in its `<head>`. A route with `Partial` set ([page partials](../routing.md#page-partials)) gets no head tags: its `component` assets (one per component with scripts, in graph order) become the runner at the end of its output, and the loader it needs comes there too. Unknown kinds are ignored.
 
 ```go
 func WithLocalsRoute[L any](field func(*L) *RouteInfo) Option
@@ -1067,6 +1069,8 @@ A fragment may contain `server:defer` placeholders; they're sealed with the same
 The route cache never stores a fragment (it's for pages and islands only), and the component's `ctx.Cache().Set` calls are always dropped. Cache a fragment's HTML with [`cache.Store`](../rendering.md#caching-fragments).
 
 Rendering a full page (with its assets) from your own handler is not yet supported.
+
+For a fragment with a URL of its own, use a [page partial](../routing.md#page-partials) instead (`const partial = true`): typed params, the middleware chain, the route cache, and its components' scripts, carried; `RenderComponent` is for fragments your handler computes, with props from Go, no cache and no scripts. A partial's route has `Route.Partial` set in the generated route table.
 
 ## Composing middleware: Sequence
 

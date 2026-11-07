@@ -1,0 +1,11 @@
+info src/pages/partial_ok.lyr page route="/partial_ok"
+lyrimport @14-15 "_" path="../components/EmptyState.lyr" resolved=src/components/EmptyState.lyr @14-46 pathspan=@16-46 place=none
+lyrimport @48-59 "CommentList" path="../components/CommentList.lyr" resolved=src/components/CommentList.lyr @48-91 pathspan=@60-91 place=impl
+implicit lyr: none
+decl const @129-154 place=impl partial@135-142 doc=@95-128 "// A page partial (PLAN.md §4k)."
+  "const partial bool = true"
+stmt @156-234 "if true {\n\tpartial := 1 // shadowing in a nested block is le…"
+echo []
+terminating false
+props declared=false listable=true span=@0-0
+partial true

@@ -1,0 +1,4 @@
+---
+const partial = "yes"
+---
+<p>x</p>

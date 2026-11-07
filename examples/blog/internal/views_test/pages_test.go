@@ -99,3 +99,33 @@ func TestSite(t *testing.T) {
 		t.Errorf("GET /blog/hello/: status %d, Location %q", rec.Code, rec.Header().Get("Location"))
 	}
 }
+
+// runnerRe is the end of a page partial: the runner that imports its
+// components' scripts unless the page already ran them.
+var runnerRe = regexp.MustCompile(`<script type="module">let s=globalThis\.lyr__ran\?\?=new Set;for\(let\[i,u\]of\[\["CommentList-[0-9a-f]{8}","/_lyr/CommentList-[A-Z0-9]{8}\.js"\]\]\)s\.has\(i\)\|\|\(s\.add\(i\),import\(u\)\)</script>$`)
+
+// TestCommentsPartial: /partials/comments/[slug] is a page partial: the
+// fragment alone, no head tags, its runner at the end.
+func TestCommentsPartial(t *testing.T) {
+	h := app.New().Handler()
+	rec := lyrtest.Get(t, h, "/partials/comments/hello")
+	body := rec.Body.String()
+	if rec.Code != http.StatusOK || !strings.HasPrefix(body, `<comment-list data-count="2">`) {
+		t.Fatalf("status %d:\n%s", rec.Code, body)
+	}
+	for _, unwanted := range []string{"<link", `src="/_lyr/`, "lyr-loader", "<!DOCTYPE", "<head"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("partial has %q:\n%s", unwanted, body)
+		}
+	}
+	// CommentThread's scoped style is the host's; its attributes stay.
+	if !regexp.MustCompile(`<ul class="thread" data-l-[0-9a-f]+>`).MatchString(body) {
+		t.Errorf("no scoped attributes:\n%s", body)
+	}
+	if !runnerRe.MatchString(body) {
+		t.Errorf("no runner at the end:\n%s", body)
+	}
+	if rec := lyrtest.Get(t, h, "/partials/comments/nope"); rec.Code != http.StatusNotFound || !strings.Contains(rec.Body.String(), "Page not found") {
+		t.Errorf("unknown post: status %d\n%s", rec.Code, rec.Body.String())
+	}
+}

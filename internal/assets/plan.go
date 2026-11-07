@@ -71,6 +71,9 @@ type plan struct {
 	lazySrc map[string]string
 	// outName is each entry's bundle name ("blog-slug", "Counter").
 	outName map[string]string
+	// partialFiles lists, per partial page, the files with scripts in its
+	// graph, in graph order: its "component" assets (PLAN.md §4k).
+	partialFiles map[string][]string
 	// pages are the input pages, sorted by file.
 	pages []Page
 	// blocks maps a block specifier ("lyr:style/Card-3fa2c1d0-0@index.css")
@@ -129,23 +132,52 @@ func (p *plan) key() string { return strings.Join(p.entries, "\n") }
 
 func newPlan(in *Input) *plan {
 	p := &plan{
-		pageOf:    map[string]string{},
-		pageSrc:   map[string]string{},
-		lazyOf:    map[string]string{},
-		lazySrc:   map[string]string{},
-		outName:   map[string]string{},
-		blocks:    map[string]blockCopy{},
-		byKey:     map[string]*block{},
-		base:      map[string]*block{},
-		lyrSrc:    map[string]string{},
-		highlight: in.HighlightCSS,
+		pageOf:       map[string]string{},
+		pageSrc:      map[string]string{},
+		lazyOf:       map[string]string{},
+		lazySrc:      map[string]string{},
+		outName:      map[string]string{},
+		partialFiles: map[string][]string{},
+		blocks:       map[string]blockCopy{},
+		byKey:        map[string]*block{},
+		base:         map[string]*block{},
+		lyrSrc:       map[string]string{},
+		highlight:    in.HighlightCSS,
 	}
 	names := map[string]bool{}
 	pages := slices.Clone(in.Pages)
 	slices.SortFunc(pages, func(a, b Page) int { return strings.Compare(a.File, b.File) })
 	p.pages = pages
-	lazyFiles := map[string]bool{} // files lazy on some page
+	hasScripts := func(file string) bool { src := in.Sources[file]; return src != nil && len(src.Scripts) > 0 }
+	lazyFiles := map[string]bool{} // files with a component entry: lazy on some page, or in a partial
+	// The files with scripts in some partial's graph (PLAN.md §4k): page
+	// bundles that inline one mark its ID as run.
+	partialUsed := map[string]bool{}
 	for _, pg := range pages {
+		if !pg.Partial {
+			continue
+		}
+		var files []string
+		for _, file := range pg.Modules {
+			if hasScripts(file) {
+				partialUsed[file] = true
+				lazyFiles[file] = true
+				files = append(files, file)
+			}
+		}
+		p.partialFiles[pg.File] = files
+	}
+	for _, pg := range pages {
+		if pg.Partial {
+			// No page entry: a partial ships no CSS, and its scripts are
+			// component entries loaded by its runner (or its lazy loader).
+			for _, l := range pg.Lazy {
+				for _, file := range l.Modules {
+					lazyFiles[file] = true
+				}
+			}
+			continue
+		}
 		var imports []string
 		if pg.Highlight && p.highlight != "" {
 			imports = append(imports, highlightSpec) // first, so user styles win
@@ -154,6 +186,7 @@ func newPlan(in *Input) *plan {
 		// only if the page gets an entry.
 		name := nextName(entryName(pg.File), names)
 		hasScript := false
+		var marks []string // IDs of partial-used components the bundle inlines
 		lazy := map[string]bool{}
 		for _, l := range pg.Lazy {
 			for _, file := range l.Modules {
@@ -179,6 +212,9 @@ func newPlan(in *Input) *plan {
 				imports = append(imports, p.script(src, sc, i, name))
 				hasScript = true
 			}
+			if partialUsed[file] && len(src.Scripts) > 0 {
+				marks = append(marks, compiler.ComponentID(file))
+			}
 		}
 		if len(imports) == 0 {
 			continue
@@ -188,6 +224,13 @@ func newPlan(in *Input) *plan {
 		ext := ".css"
 		if hasScript {
 			ext = ".ts"
+			if len(marks) > 0 {
+				// First, so a block that throws doesn't make a partial run
+				// it again (PLAN.md §4k).
+				markPath := name + markSuffix
+				p.pageSrc[markPath] = markModule(marks)
+				fmt.Fprintf(&b, "import %s;\n", strconv.Quote(pageNamespace+":"+markPath))
+			}
 			for _, spec := range imports {
 				fmt.Fprintf(&b, "import %s;\n", strconv.Quote(spec))
 			}
@@ -202,8 +245,9 @@ func newPlan(in *Input) *plan {
 		p.pageSrc[name+ext] = b.String()
 		p.outName[spec] = name
 	}
-	// One lazy entry per component that is lazy on some page and has
-	// scripts (PLAN.md §5), named after the component. Its blocks keep the
+	// One component entry per component that has scripts and is lazy on
+	// some page or in a partial's graph (PLAN.md §5, §4k), named after the
+	// component: the same entry, one URL, for both. Its blocks keep the
 	// unqualified specifiers: the entry is per component already.
 	files := make([]string, 0, len(lazyFiles))
 	for file := range lazyFiles {
@@ -229,6 +273,23 @@ func newPlan(in *Input) *plan {
 	}
 	slices.Sort(p.entries)
 	return p
+}
+
+// markSuffix names a page's mark module in pageNamespace
+// ("blog-slug.mark.ts"); page bundle names have no dot.
+const markSuffix = ".mark.ts"
+
+// markModule returns the module that a page bundle imports first when it
+// inlines the scripts of components used by partials: it adds their IDs to
+// the document's run-once set, globalThis.lyr__ran, which partials'
+// runners and lazy loaders check (PLAN.md §4k).
+func markModule(ids []string) string {
+	var b strings.Builder
+	b.WriteString("const s: Set<string> = ((globalThis as any).lyr__ran ??= new Set());\n")
+	for _, id := range ids {
+		fmt.Fprintf(&b, "s.add(%s);\n", strconv.Quote(id))
+	}
+	return b.String()
 }
 
 // entryBase is the bundle name of a lazy entry: the component's base name,

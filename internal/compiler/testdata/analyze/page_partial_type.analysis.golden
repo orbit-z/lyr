@@ -1,0 +1,7 @@
+info src/pages/partial_type.lyr page route="/partial_type"
+implicit lyr: none
+decl type @4-25 place=impl partial@9-16
+  "type partial struct{}"
+echo []
+terminating false
+props declared=false listable=true span=@0-0

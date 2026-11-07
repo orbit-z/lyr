@@ -1,0 +1,21 @@
+>---
+#^^^ source.lyr meta.frontmatter.lyr punctuation.definition.frontmatter.begin.lyr
+>import (
+#^^^^^^^^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>	_ "../components/EmptyState.lyr"
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>	CommentList "../components/CommentList.lyr"
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>)
+#^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>
+>const partial = true
+#^^^^^^^^^^^^^^^^^^^^^ source.lyr meta.frontmatter.lyr meta.embedded.block.go
+>---
+#^^^ source.lyr meta.frontmatter.lyr punctuation.definition.frontmatter.end.lyr
+><CommentList />
+#^ source.lyr meta.tag.component.lyr punctuation.definition.tag.begin.html
+# ^^^^^^^^^^^ source.lyr meta.tag.component.lyr support.class.component.lyr
+#            ^ source.lyr meta.tag.component.lyr
+#             ^^ source.lyr meta.tag.component.lyr punctuation.definition.tag.end.html
+>

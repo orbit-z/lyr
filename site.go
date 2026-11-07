@@ -33,9 +33,9 @@ type Site struct {
 	keys      *keyring           // island key and build ID
 	islands   map[string]*Island // the island table, by component ID
 	// heads holds the precomputed head tags (headTags: the loader and the
-	// asset tags) of the routes that have any; unused in dev with a dev
-	// manifest.
-	heads map[*Route]string
+	// asset tags) and tail (partialTail, page partials only) of the routes
+	// that have any; unused in dev with a dev manifest.
+	heads map[*Route]routeTags
 	// onError is WithErrorHandler's handler, or nil.
 	onError errorHandler
 	// limit is the server:concurrent limit (WithConcurrencyLimit).
@@ -132,11 +132,11 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 	}
 	for i := range routes {
 		r := &routes[i]
-		if head := headTags(loaderHead(s.dev, r.Islands, r.IslandsWhen, r.Assets), r.Assets); head != "" {
+		if t := s.routeTags(r, r.Assets); t != (routeTags{}) {
 			if s.heads == nil {
-				s.heads = make(map[*Route]string)
+				s.heads = make(map[*Route]routeTags)
 			}
-			s.heads[r] = head
+			s.heads[r] = t
 		}
 	}
 	s.assets = resolveStatic(o, s.dev)
@@ -449,6 +449,21 @@ var (
 	zeroLength      = []string{"0"}
 )
 
+// routeTags are what Lyr adds to a route's output: head, the tags before
+// its </head> (headTags), and tail, what a page partial's output ends with
+// (partialTail, PLAN.md §4k). A partial has no head tags.
+type routeTags struct {
+	head, tail string
+}
+
+// routeTags returns the tags of route r with the given assets.
+func (s *Site) routeTags(r *Route, assets []Asset) routeTags {
+	if r.Partial {
+		return routeTags{tail: partialTail(s.dev, r.Islands, r.IslandsWhen, assets)}
+	}
+	return routeTags{head: headTags(loaderHead(s.dev, r.Islands, r.IslandsWhen, assets), assets)}
+}
+
 var writerPool = sync.Pool{New: func() any { return &Writer{head: -1} }}
 
 // servePage renders route with c, writes the response and releases c.
@@ -470,12 +485,13 @@ func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *
 	buf := getBuffer()
 	wr := writerPool.Get().(*Writer)
 	wr.reset(buf)
+	var tags routeTags
 	if s.devAssets != nil {
-		assets := s.devAssets.assets(route)
-		wr.tags = headTags(loaderHead(s.dev, route.Islands, route.IslandsWhen, assets), assets)
+		tags = s.routeTags(route, s.devAssets.assets(route))
 	} else if s.heads != nil {
-		wr.tags = s.heads[route]
+		tags = s.heads[route]
 	}
+	wr.tags = tags.head
 	c.w = wr
 	wr.ctx, wr.limit = c, s.limit
 	err := callRender(route.Render, c, wr)
@@ -505,6 +521,9 @@ func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *
 	wr.finishHead()
 	wr.reset(nil)
 	writerPool.Put(wr)
+	if tags.tail != "" {
+		buf.WriteString(tags.tail)
+	}
 
 	h := w.Header()
 	copyHeader(h, c.responseHeader())

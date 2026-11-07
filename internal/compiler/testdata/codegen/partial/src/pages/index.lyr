@@ -1,0 +1,10 @@
+---
+import (
+	_ "../components/EmptyState.lyr"
+	CommentList "../components/CommentList.lyr"
+)
+
+const partial = true
+---
+<CommentList n={2} />
+{if partial}<p>a partial</p>{/if}

@@ -124,6 +124,8 @@ export function page(body: string, o: Options = {}): Page {
   FakeIO.all = [];
   FakeMQL.all = [];
   delete g.lyr__lazy;
+  delete g.lyr__islands;
+  delete g.lyr__ran;
   g.LYR_WHEN = !!o.when;
   g.window = globalThis;
   g.document = document;

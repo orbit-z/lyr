@@ -1,0 +1,7 @@
+info src/pages/partial_typed.lyr page route="/partial_typed"
+implicit lyr: none
+decl const @4-25 place=impl partial@10-17
+  "const partial int = 1"
+echo []
+terminating false
+props declared=false listable=true span=@0-0

@@ -1,0 +1,10 @@
+lyr_gen/decl/pages/index/decl.go (src/pages/index.lyr)
+lyr_gen/impl/pages/index/render.go (src/pages/index.lyr)
+  exact 4:2 "CommentList" -> 193-204 "CommentList"
+  span  4:14 "\"../components/CommentList.lyr\"" -> 205-259 "\"example.com/blog/lyr_gen/decl/components/commentlist\""
+  exact 7:1 "const partial = true" -> 328-348 "const partial = true"
+  span  9:2 "CommentList" -> 860-878 "CommentList.Render"
+  span  9:14 "n" -> 988-989 "N"
+  exact 9:17 "2" -> 1060-1061 "2"
+  exact 10:5 "partial" -> 1216-1223 "partial"
+call sites

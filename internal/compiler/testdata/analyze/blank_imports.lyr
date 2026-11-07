@@ -1,0 +1,11 @@
+---
+import (
+	_ "./Card.lyr"
+	_ "../content/post.md"
+	_ "/src/components/Abs.lyr"
+	Card "./Card.lyr"
+	_ "./Twice.lyr"
+	_ "./Twice.lyr"
+)
+---
+<Card />

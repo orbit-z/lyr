@@ -120,7 +120,7 @@ func cgGenerate(in *Input) (out *Output) {
 		})
 	}
 	for _, imp := range g.a.LyrImports {
-		if _, ok := g.in.Index[imp.Resolved]; !ok && imp.Place != 0 {
+		if _, ok := g.in.Index[imp.Resolved]; !ok && (imp.Place != 0 || imp.Blank()) {
 			g.errorf(imp.PathSpan, "no such component: %s", imp.Resolved)
 		}
 	}

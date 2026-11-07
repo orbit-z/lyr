@@ -1,0 +1,30 @@
+---
+import (
+	CommentThread "./CommentThread.lyr"
+	"example.com/blog/internal/posts"
+)
+
+type Props struct {
+	Comments []posts.Comment
+}
+---
+<comment-list data-count={len(props.Comments)}>
+  {if len(props.Comments) == 0}
+    <p>No comments yet.</p>
+  {else}
+    <CommentThread comments={props.Comments} />
+  {/if}
+</comment-list>
+<script>
+  import { plural } from "../scripts/util";
+
+  // A custom element: it handles every <comment-list>, including those a
+  // page partial swaps in later (/partials/comments/[slug]), and the
+  // script runs once per page however many partials bring it.
+  class CommentList extends HTMLElement {
+    connectedCallback(): void {
+      this.title = plural(Number(this.dataset.count), "comment");
+    }
+  }
+  customElements.define("comment-list", CommentList);
+</script>

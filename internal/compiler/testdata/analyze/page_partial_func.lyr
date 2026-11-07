@@ -1,0 +1,4 @@
+---
+func partial() bool { return true }
+---
+<p>{partial()}</p>

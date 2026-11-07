@@ -384,7 +384,7 @@ import card "../components/Card.lyr"
 src/pages/index.lyr:2:8: component alias card must start with an uppercase letter (rename it to Card)
 ```
 
-An import without an alias (`"./Card.lyr"`), or with `_`, is an error suggesting one, named after the file; a dot import (`. "./Card.lyr"`) is rejected too:
+An import without an alias (`"./Card.lyr"`) is an error suggesting one, named after the file; a dot import (`. "./Card.lyr"`) is rejected too. (`_` is a [blank import](#including-a-component-without-rendering-it).)
 
 ```lyr file=src/pages/index.lyr expect-error
 ---
@@ -411,6 +411,22 @@ src/pages/index.lyr:2:8: component Card is imported but not used; remove the imp
 ```
 
 The path must stay inside `src/` (`component path ../../X.lyr is outside src/`).
+
+#### Including a component without rendering it
+
+A **blank import**, `_ "./X.lyr"`, includes a component's styles and scripts in the pages that include the importing file, without rendering it. It's Go's side-effect import. Use it in a page that receives a [page partial](routing.md#page-partials): the partial ships no CSS, so the page must include every component the partial renders, even one it doesn't render itself.
+
+```lyr
+---
+import (
+	CommentList "../../components/CommentList.lyr"
+	_ "../../components/EmptyState.lyr" // rendered only by the comments partial
+)
+---
+<section id="comments"><CommentList comments={list} /></section>
+```
+
+The imported file (a component or a Markdown file, by relative, root-relative or alias path) and everything it imports join the page's styles and scripts, as if the importing file rendered it: its scripts are in the page's bundle, its `client:*` components are lazy on the page, and its `server:defer` components give the page the islands loader. Nothing renders, it's never "imported but not used", and it adds no Go import (so no build cost and no import cycle). In Astro, an imported component you don't render brings its CSS but not its scripts; a blank import brings both. Importing the same file blank and with an alias is allowed and redundant.
 
 #### Root-relative imports
 
@@ -538,6 +554,18 @@ src/pages/blog/[slug].lyr:2:6: pages don't receive props; move this to a compone
 ```
 
 For the same reason, a page can't declare `type Params`: Lyr generates it from the route (`Params is generated from the page's route; rename this type`).
+
+`const partial = true` in a page's frontmatter makes it a [page partial](routing.md#page-partials): an HTML fragment for htmx or `fetch()` swaps, with no head tags. In a page, the name `partial` at the top level is reserved for that flag: its value must be the literal `true` or `false` (`partial must be true or false: const partial = true makes this page a partial`), and `var partial`, `partial :=`, `func partial` or `type partial` are errors. In a component or layout, `const partial` is an error (`partial only applies to pages (files under src/pages); remove it, or rename the constant`); other uses of the name are ordinary there.
+
+```lyr file=src/pages/blog/[slug].lyr expect-error
+---
+const partial = "yes"
+---
+```
+
+```text
+src/pages/blog/[slug].lyr:2:17: partial must be true or false: const partial = true makes this page a partial
+```
 
 ## Props
 

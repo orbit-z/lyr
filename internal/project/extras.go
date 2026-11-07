@@ -211,6 +211,9 @@ func (p *Project) appGo() []byte {
 		fmt.Fprintf(&b, "\t\t\tFile: %s,\n", strconv.Quote(f.Path))
 		fmt.Fprintf(&b, "\t\t\tRender: func(c *lyr.Ctx, w *lyr.Writer) error {\n\t\t\t\treturn %s.Render(c, w, %s.Props{}, lyr.Slots{})\n\t\t\t},\n", a, a)
 		fmt.Fprintf(&b, "\t\t\tAssets: manifest.Pages[%s],\n", strconv.Quote(f.Path))
+		if f.IsPartial() {
+			b.WriteString("\t\t\tPartial: true,\n")
+		}
 		if p.HasIslands(f) {
 			b.WriteString("\t\t\tIslands: true,\n")
 			if p.HasDelayedIslands(f) {

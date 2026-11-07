@@ -21,14 +21,21 @@ func (p *Project) AssetInput() *assets.Input {
 	for _, f := range p.Files {
 		if f.Info.Role == compiler.RolePage {
 			in.Pages = append(in.Pages, assets.Page{File: f.Path, Modules: p.AssetGraph(f), Lazy: p.LazyLists(f),
-				Highlight: in.HighlightCSS != "" && p.highlighted(f)})
+				Highlight: in.HighlightCSS != "" && p.highlighted(f), Partial: f.IsPartial()})
 		}
 	}
 	return in
 }
 
+// IsPartial reports whether f is a page partial (const partial = true,
+// PLAN.md §4k).
+func (f *File) IsPartial() bool {
+	return f.MD == nil && f.Analysis != nil && f.Analysis.Partial
+}
+
 // AssetGraph returns the files whose assets the page includes, in
-// module-evaluation order: depth first through the .lyr imports, a
+// module-evaluation order: depth first through the .lyr imports (blank
+// imports included), a
 // file's imports first, in import order, then the file itself; each file
 // once (so recursive and mutually recursive components are fine), the page
 // last. Like Astro, it is static: every imported component counts, whether

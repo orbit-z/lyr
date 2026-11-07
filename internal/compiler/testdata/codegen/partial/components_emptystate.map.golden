@@ -1,0 +1,3 @@
+lyr_gen/decl/components/emptystate/decl.go (src/components/EmptyState.lyr)
+lyr_gen/impl/components/emptystate/render.go (src/components/EmptyState.lyr)
+call sites

@@ -1,0 +1,9 @@
+---
+import _ "./EmptyState.lyr"
+
+type Props struct {
+	N int
+}
+---
+<ul><li>{props.N} comments</li></ul>
+<script>console.log("list")</script>

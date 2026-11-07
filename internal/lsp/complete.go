@@ -521,6 +521,9 @@ func (ws *workspace) tagItems(c cursor) []any {
 	imported := map[string]bool{}
 	if c.f.Analysis != nil {
 		for _, im := range c.f.Analysis.LyrImports {
+			if im.Blank() {
+				continue // not a tag; still offered with an alias below
+			}
 			taken[im.Alias] = true
 			imported[im.Resolved] = true
 			items = append(items, item(im.Alias, kindClass, "0", im.Path, componentDoc(ws.proj.Index[im.Resolved])))

@@ -567,17 +567,19 @@ type redirectRecorder struct {
 func (rr *redirectRecorder) Write(b []byte) (int, error) { return rr.body.Write(b) }
 
 // render renders route with c into a pooled buffer, joining
-// server:concurrent children; the head tags are inserted on success.
+// server:concurrent children; the head tags are inserted on success, and
+// a page partial's tail written after its output.
 func (s *Site) render(c *Ctx, route *Route) (*bytes.Buffer, error) {
 	buf := getBuffer()
 	wr := writerPool.Get().(*Writer)
 	wr.reset(buf)
+	var tags routeTags
 	if s.devAssets != nil {
-		assets := s.devAssets.assets(route)
-		wr.tags = headTags(loaderHead(s.dev, route.Islands, route.IslandsWhen, assets), assets)
+		tags = s.routeTags(route, s.devAssets.assets(route))
 	} else if s.heads != nil {
-		wr.tags = s.heads[route]
+		tags = s.heads[route]
 	}
+	wr.tags = tags.head
 	c.w = wr
 	wr.ctx, wr.limit = c, s.limit
 	err := callRender(route.Render, c, wr)
@@ -597,5 +599,8 @@ func (s *Site) render(c *Ctx, route *Route) (*bytes.Buffer, error) {
 	wr.finishHead()
 	wr.reset(nil)
 	writerPool.Put(wr)
+	if tags.tail != "" {
+		buf.WriteString(tags.tail)
+	}
 	return buf, nil
 }

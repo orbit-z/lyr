@@ -1,0 +1,1 @@
+src/pages/partial_var.lyr:2:5: partial must be a constant: write const partial = true to make this page a partial

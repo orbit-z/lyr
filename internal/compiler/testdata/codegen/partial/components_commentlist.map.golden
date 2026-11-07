@@ -1,0 +1,6 @@
+lyr_gen/decl/components/commentlist/decl.go (src/components/CommentList.lyr)
+  exact 4:1 "type Props struct {\n\tN int\n}" -> 161-189 "type Props struct {\n\tN int\n}"
+lyr_gen/impl/components/commentlist/render.go (src/components/CommentList.lyr)
+  exact 8:10 "props.N" -> 651-658 "props.N"
+call sites
+  content key=75 "props.N" call="lyr__w.Expr(\n/*line ../../../../src/components/CommentList.lyr:8:10*/props.N/*line render.go:21:88*/,\n\t)"

@@ -1,0 +1,17 @@
+---
+import (
+	_ "../components/EmptyState.lyr"
+	CommentList "../components/CommentList.lyr"
+)
+
+// A page partial (PLAN.md §4k).
+const partial bool = true
+
+if true {
+	partial := 1 // shadowing in a nested block is legal
+	_ = partial
+}
+---
+<CommentList />
+<style>p { color: red }</style>
+<style is:inline>p { color: blue }</style>

@@ -6,9 +6,10 @@
 // otherwise its fallback stays. Placeholders added to the page later (a
 // fragment, or HTML the page inserts itself) are picked up by a
 // MutationObserver, which also hands every added node to the lazy loader
-// through window.lyr__lazy.
+// through window.lyr__lazy. A second copy of the loader (one a page
+// partial brought, PLAN.md §4k) installs nothing again.
 
-import { config, find, when } from "./shared";
+import { find, isDev, when } from "./shared";
 
 // LYR_WHEN is set at build time: true in the variant for pages with a
 // delayed island (loaderIslandsWhenJS, PLAN.md §3.4 "Delayed island
@@ -35,9 +36,20 @@ const delay = (el: Element, go: () => void, none: () => void): void => {
 // 8 KB request-line buffer.
 export const MAX_URL = 8000;
 
+// CLAIM_MS is how long the plain loader leaves a delayed placeholder to
+// the strategy-reading variant a partial brings before fetching it itself.
+export const CLAIM_MS = 1000;
+
 export function islands(): void {
-  const dev = config().dev;
-  const started = new WeakSet<Element>();
+  // Idempotent (PLAN.md §4k): a partial may bring a copy to a page that
+  // has one. The installed loader's observer already sees the partial's
+  // placeholders, so a second copy does nothing, except that the variant
+  // that reads strategies takes over from the plain one (whose scan skips
+  // delayed placeholders), sharing its started set and observer.
+  const prev = window.lyr__islands;
+  if (prev && (prev.w || !LYR_WHEN)) return;
+  const dev = isDev();
+  const started = prev ? prev.t : new WeakSet<Element>();
   const warned = new Set<string>();
 
   const load = async (el: Element): Promise<void> => {
@@ -77,31 +89,50 @@ export function islands(): void {
 
   const scan = (nodes: Node[]): void => {
     for (const el of find(nodes, "lyr-island")) {
-      if (!started.has(el)) {
+      if (started.has(el)) continue;
+      const src = el.getAttribute("src") || "";
+      if (!el.hasAttribute("client")) {
         started.add(el);
-        if (LYR_WHEN && el.hasAttribute("client")) {
-          const src = el.getAttribute("src") || "";
-          delay(
-            el,
-            () => load(el),
-            () => {
-              if (dev && !warned.has(" " + src)) {
-                warned.add(" " + src);
-                console.warn(`lyr: ${src}: client:visible has no fallback element to observe, so it was fetched at once`);
-              }
-            },
-          );
-        } else load(el);
+        load(el);
+      } else if (LYR_WHEN) {
+        started.add(el);
+        delay(
+          el,
+          () => load(el),
+          () => {
+            if (dev && !warned.has(" " + src)) {
+              warned.add(" " + src);
+              console.warn(`lyr: ${src}: client:visible has no fallback element to observe, so it was fetched at once`);
+            }
+          },
+        );
+      } else {
+        // A delayed placeholder on a page with the plain loader comes from
+        // a page partial, which brings the variant that reads strategies
+        // (PLAN.md §4k). Its module script runs after this observer, so
+        // wait for it to claim the placeholder (the shared started set);
+        // if it never runs (an innerHTML swap), fetch at once.
+        setTimeout(() => {
+          if (started.has(el) || !el.isConnected) return;
+          started.add(el);
+          if (dev && !warned.has("!" + src)) {
+            warned.add("!" + src);
+            console.warn(`lyr: ${src}: delayed island fetched at once: its loader never ran`);
+          }
+          load(el);
+        }, CLAIM_MS);
       }
     }
   };
 
-  new MutationObserver((records) => {
-    for (const r of records) {
-      const nodes = Array.from(r.addedNodes);
-      scan(nodes);
-      window.lyr__lazy?.(nodes);
-    }
-  }).observe(document, { childList: true, subtree: true });
+  window.lyr__islands = { w: LYR_WHEN, s: scan, t: started };
+  if (!prev)
+    new MutationObserver((records) => {
+      for (const r of records) {
+        const nodes = Array.from(r.addedNodes);
+        window.lyr__islands!.s(nodes);
+        window.lyr__lazy?.(nodes);
+      }
+    }).observe(document, { childList: true, subtree: true });
   scan([document]);
 }

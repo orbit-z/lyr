@@ -1,0 +1,7 @@
+info src/pages/partial_group.lyr page route="/partial_group"
+implicit lyr: none
+decl const @4-37 place=impl draft@13-18 partial@28-35
+  "const (\n\tdraft  = true\n\tpartial\n)"
+echo []
+terminating false
+props declared=false listable=true span=@0-0

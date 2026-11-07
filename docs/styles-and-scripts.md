@@ -210,7 +210,7 @@ A `<script>` or `<style>` with `set:html={…}` (or `set:text`) is inline too, a
 Each page gets its own bundle. Its contents are decided statically, from imports:
 
 - the page's own processed scripts and styles, plus
-- those of every component it imports, directly or through other components, including components it renders with `server:defer`.
+- those of every component it imports, directly or through other components, including components it renders with `server:defer` and components it [imports without rendering](components.md#including-a-component-without-rendering-it) (`_ "./X.lyr"`).
 
 A component's script and style are included **once per page**, however many times the component renders, and even if it only renders under an `{if}` that is false for this request. Like Astro, Lyr looks at which components a page *imports*, not at which ones actually render.
 
@@ -224,6 +224,16 @@ A page whose bundle has no scripts gets no JS file and no `<script>` tag. A page
 Files that your CSS or scripts reference by URL, such as fonts and images in `url(…)` (`.woff`, `.woff2`, `.ttf`, `.otf`, `.eot`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.avif`, `.ico`, `.bmp`), are copied to `/_lyr/` with a hashed name, and the reference is rewritten to that URL. A relative `url(…)` in a `<style>` resolves from the `.lyr` file's directory.
 
 Files under `/_lyr/` are served with `Cache-Control: public, max-age=31536000, immutable`, since a change produces a new name.
+
+### Page partials
+
+A [page partial](routing.md#page-partials) (`const partial = true`) gets **no bundle**: no stylesheet and no page module. Its own `<style>` blocks are dropped, with a warning in `lyr build`, `lyr check` and the editor (`a partial page ships no CSS, so this <style> is dropped; move it to a component the host page imports, or add is:inline`). Its components' styles come from the page it lands in, which must include them (render them or blank-import them).
+
+Its scripts are carried, and run once per page:
+
+- **Component entries.** Every component with scripts in a partial's import graph (the partial's own blocks included) gets one entry of its own, `/_lyr/<Component>-<hash>.js`: the same entry as its [lazy entry](#loading-a-components-scripts-lazily-client), one URL per component. Built in the same esbuild build as the page bundles, so imported files stay shared chunks with one module state.
+- **The runner.** The partial's response ends with an inline script that imports each entry unless the page already ran the component (see [Page partials](routing.md#page-partials)).
+- **Marks.** A page bundle that inlines a component some partial uses starts with one statement that records the component as run (`globalThis.lyr__ran`), so a partial swapped into that page doesn't run it again. It costs about 60 bytes for one component (about 22 gzipped), and about 25 bytes per further one. A project without partials has no marks: its bundles are unchanged.
 
 ### Shared chunks and `import()`
 

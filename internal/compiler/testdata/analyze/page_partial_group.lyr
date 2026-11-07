@@ -1,0 +1,7 @@
+---
+const (
+	draft  = true
+	partial
+)
+---
+<p>{draft}</p>

@@ -88,6 +88,9 @@ func dumpAnalysis(f *File, a *Analysis) string {
 	for _, pf := range a.Params {
 		fmt.Fprintf(&b, "param %s [%s] rest=%v\n", pf.Field, pf.Param, pf.Rest)
 	}
+	if a.Partial {
+		b.WriteString("partial true\n")
+	}
 	return b.String()
 }
 

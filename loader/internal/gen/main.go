@@ -67,6 +67,14 @@ package lyr
 // both scripts are on a page, the islands script hands the nodes it sees
 // added (island fragments included) to the lazy script through
 // window.lyr__lazy.
+//
+// A page partial (PLAN.md §4k) gets the same pieces at the end of its
+// output instead, with <script type="application/json" data-lyr-loader>
+// (its "ids" map each lazy URL to its component ID). Both scripts are
+// idempotent: a second copy finds the first (window.lyr__lazy,
+// window.lyr__islands), merges its config into it and installs nothing
+// again; the strategy-reading islands variant takes over from the plain
+// one.
 `)
 	for _, s := range scripts {
 		js, err := build(filepath.Join(root, s.entry), s.when)

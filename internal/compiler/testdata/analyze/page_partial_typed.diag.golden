@@ -1,0 +1,1 @@
+src/pages/partial_typed.lyr:2:15: partial must be true or false: const partial = true makes this page a partial

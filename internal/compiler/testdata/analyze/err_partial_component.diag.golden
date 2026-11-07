@@ -1,0 +1,1 @@
+src/components/err_partial_component.lyr:2:7: partial only applies to pages (files under src/pages); remove it, or rename the constant

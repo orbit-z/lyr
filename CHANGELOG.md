@@ -4,6 +4,11 @@ What's new in each Lyr release. The VS Code extension has its own changelog, in 
 
 ## Unreleased
 
+**Page partials**
+- `const partial = true` in a page's frontmatter makes it a page partial, Astro's `export const partial = true`: an HTML fragment for htmx, Unpoly or `fetch()` swaps, with no head tags and no CSS (the page it lands in includes the components' styles). Its components' scripts come with it, as one small inline runner at its end, and run once per page: the page's bundle marks the components it ran, so the runner skips them. A partial with deferred or lazy components carries the loader it needs; the loaders are now idempotent. Routing, params, middleware, the route cache and errors are a page's. See [Page partials](docs/routing.md#page-partials).
+- Blank component imports: `_ "./X.lyr"` includes a component's styles and scripts in the importing file's pages without rendering it, for pages that receive partials. See [Including a component without rendering it](docs/components.md#including-a-component-without-rendering-it).
+- The loaders grow so a second copy can join the first: islands 1.1 → 1.5 KB (0.7 → 0.9 KB gzipped), islands with strategies 2.0 → 2.1 KB (1.1 KB gzipped), lazy 1.6 → 2.1 KB (0.9 → 1.1 KB gzipped). Projects without partials get no other change.
+
 **Lazy loading**
 - Delayed islands: `server:defer` together with `client:visible`, `client:idle` or `client:media` on one tag (`<Comments server:defer client:visible="200px" postID={post.ID}>`) fetches the island only when the strategy fires, so a deferred component below the fold, or only for some screens, costs no request and no server render until it's needed. The scripts of its subtree load on the same trigger. `server:defer client:load` is the same as `server:defer`. Lyr only: Astro always fetches server islands when the page loads. See [Delay the fetch](docs/lazy-loading.md#delay-the-fetch).
 - The error `server:defer and client:* can't be combined` is gone. `client:visible` on a deferred tag needs a fallback element to observe: a fallback that's certain to render none is a compile error (`client:visible on a server:defer component needs a fallback element to observe, e.g. <div slot="fallback"></div>`).

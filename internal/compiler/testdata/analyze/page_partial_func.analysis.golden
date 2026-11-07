@@ -1,0 +1,7 @@
+info src/pages/partial_func.lyr page route="/partial_func"
+implicit lyr: none
+decl func @4-39 place=impl partial@9-16
+  "func partial() bool { return true }"
+echo []
+terminating false
+props declared=false listable=true span=@0-0

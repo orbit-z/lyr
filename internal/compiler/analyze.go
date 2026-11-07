@@ -115,6 +115,7 @@ type GoImport struct {
 
 // LyrImport is one .lyr component import: Alias "./X.lyr".
 type LyrImport struct {
+	// Alias is the import name; "_" for a blank import (Blank).
 	Alias     string
 	AliasSpan Span
 	// Path is the unquoted path as written ("../components/Card.lyr");
@@ -133,6 +134,12 @@ type LyrImport struct {
 	// gap 1).
 	Place Placement
 }
+
+// Blank reports whether the import is a blank import, _ "./X.lyr"
+// (PLAN.md §4k): the file joins the importer's asset graph, but nothing
+// renders it, it emits no Go import (Place stays 0) and it is never
+// reported as unused.
+func (o *LyrImport) Blank() bool { return o.Alias == "_" }
 
 // PropsInfo describes a component's Props type.
 type PropsInfo struct {
@@ -205,6 +212,10 @@ type Analysis struct {
 	// Params are a page's route params; nil for components (and for a page
 	// without params, which still gets type Params struct{}).
 	Params []ParamField
+	// Partial is true for a page whose frontmatter has a top-level
+	// const partial = true (PLAN.md §4k): a page partial, rendered as an
+	// HTML fragment with no head tags. Always false for components.
+	Partial bool
 	// UsesLocals is true when the body or the template (expressions,
 	// control headers, attributes, slot content) references the implicit
 	// locals: an unresolved identifier named locals, as for imports. It is
@@ -255,7 +266,9 @@ func (a *Analysis) HasErrors() bool {
 // same name; route params that collide or can't become field names; a
 // lowercase .lyr alias; framework and other non-.lyr relative imports;
 // dot imports; an unexported decl-placed name used by impl code; an alias or
-// impl-side name that equals an exported decl name; a terminating last
+// impl-side name that equals an exported decl name; the misuses of a
+// page's partial flag and a partial page's dropped <style> (a warning,
+// PLAN.md §4k); a terminating last
 // statement followed by template content. The exact messages are listed in
 // DESIGN.md.
 func Analyze(f *File, info FileInfo) *Analysis {

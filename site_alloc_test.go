@@ -144,11 +144,37 @@ func allocMDPage(c *Ctx, w *Writer) error {
 	return allocLayoutHook(c, w, allocMDProps, Slots{Default: allocMDContent})
 }
 
+// allocPartialPage is a page partial's render (PLAN.md §4k): a fragment,
+// served with its precomputed tail.
+func allocPartialPage(c *Ctx, w *Writer) error {
+	if err := w.Enter("src/pages/partial.lyr"); err != nil {
+		return err
+	}
+	defer w.Leave()
+	w.Raw(`<ul class="comments">`)
+	for i := range 5 {
+		if err := allocCardHook(c, w, allocCardProps{Title: "Comment", Count: i}, Slots{Default: allocSlot}); err != nil {
+			return err
+		}
+	}
+	w.Raw(`</ul>`)
+	return nil
+}
+
+// partialAssets are a partial's: a runner entry, a lazy one, and the
+// islands loader.
+var partialAssets = []Asset{
+	{Kind: "component", URL: "/_lyr/List-AAAA1111.js", ID: "List-1a2b3c4d"},
+	{Kind: "component", URL: "/_lyr/Tip-BBBB2222.js", ID: "Tip-5e6f7a8b"},
+	{Kind: "lazy", URL: "/_lyr/Tip-BBBB2222.js", ID: "Tip-5e6f7a8b"},
+}
+
 var allocRoutes = []Route{
 	{Pattern: "/", File: "src/pages/index.lyr", Render: allocPage},
 	{Pattern: "/blog/[slug]", File: "src/pages/blog/[slug].lyr", Render: allocPostPage},
 	{Pattern: "/hello", File: "src/pages/blog/hello.md", Render: allocMDPage},
 	{Pattern: "/assets", File: "src/pages/assets.lyr", Render: allocPage, Assets: benchAssets},
+	{Pattern: "/partial", File: "src/pages/partial.lyr", Render: allocPartialPage, Assets: partialAssets, Islands: true, Partial: true},
 }
 
 // fakeResponseWriter is a reusable, allocation-free http.ResponseWriter.
@@ -203,6 +229,16 @@ func TestRenderAllocs(t *testing.T) {
 	if allocs != 0 {
 		t.Errorf("rendering a Markdown page: %v allocs, want 0", allocs)
 	}
+	allocs = testing.AllocsPerRun(1000, func() {
+		buf.Reset()
+		w.reset(buf)
+		if err := allocPartialPage(c, w); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if allocs != 0 {
+		t.Errorf("rendering a page partial: %v allocs, want 0", allocs)
+	}
 }
 
 func TestServeAllocs(t *testing.T) {
@@ -220,6 +256,8 @@ func TestServeAllocs(t *testing.T) {
 		{"/hello", `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Hello, Lyr</title></head><body><nav><ul><li><a href="#why-markdown">Why Markdown</a></li>`},
 		{"/assets", `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Lyr &amp; friends</title>` +
 			`<link rel="stylesheet" href="/_lyr/index-3f9a2c1d.css"><script type="module" src="/_lyr/index-9b1e44a2.js"></script></head>`},
+		// A page partial: no head tags, the tail at the end.
+		{"/partial", `<ul class="comments"><article class="card">`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.target, func(t *testing.T) {

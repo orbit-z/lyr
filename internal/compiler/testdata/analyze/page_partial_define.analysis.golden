@@ -1,0 +1,6 @@
+info src/pages/partial_define.lyr page route="/partial_define"
+implicit lyr: none
+stmt @4-19 "partial := true"
+echo [partial]
+terminating false
+props declared=false listable=true span=@0-0

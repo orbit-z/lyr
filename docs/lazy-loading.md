@@ -598,21 +598,34 @@ mux.HandleFunc("GET /blog/{slug}/comments", func(w http.ResponseWriter, r *http.
 })
 ```
 
-The handler goes through your middleware like any request. Islands and `client:*` components inside the inserted HTML load only on pages that already have the loader (see [Nested islands](#nested-islands-and-lazy-components-inside-islands)), and the component's scripts are those of the page, as for any HTML you insert.
+The handler goes through your middleware like any request. Islands and `client:*` components inside the inserted HTML load only on pages that already have the loader (see [Nested islands](#nested-islands-and-lazy-components-inside-islands)), and the component's scripts are those of the page, as for any HTML you insert. A [page partial](routing.md#page-partials) instead of a handler brings its scripts and the loader it needs with it: see below.
+
+## In partials and fragments
+
+A [page partial](routing.md#page-partials) whose components use `server:defer` or `client:*` carries the loader pieces it needs at the end of its output, before its runner: the one-line `<style>`, a settings block (`<script type="application/json" data-lyr-loader>`) and the islands and/or lazy loader. So deferred components and lazy scripts inside a partial work whatever page it's swapped into:
+
+- **The page has the loader already**: the partial's copy finds it, hands it the partial's settings, and installs nothing again. The page's loader observes the swapped-in placeholders and markers.
+- **The page has none**: the partial's copy installs itself, and later partials reuse it.
+- **A delayed island** (`server:defer client:visible|idle|media`) in a partial brings the loader variant that reads strategies; on a page that has the plain one, it takes over from it, and the delayed placeholder waits for its strategy as usual. If the variant never runs (the fragment was inserted with `innerHTML`, which runs no scripts), the page's plain loader fetches the island after a second, without the delay, and `lyr dev` warns once per island in the browser console (`delayed island fetched at once: its loader never ran`).
+- **Run once**: a lazy component's scripts load when its strategy fires, unless the page already ran that component (the same [run-once guard](routing.md#page-partials) as the runner's).
+
+It costs the loaders' size on each response of a partial that needs them (table below; about 1–2 KB gzipped), less with the response's own compression. A partial without deferred or lazy components gets none.
+
+HTML you insert yourself (`lyr.RenderComponent`, `innerHTML`) gets no loader: its islands and lazy components load only on pages that have one.
 
 ## The loader and Content Security Policy
 
-Pages that need it get small inline `<script type="module">`s, a JSON `<script type="application/json">` with their settings, and a one-line `<style>` that gives `<lyr-island>` and `<lyr-lazy>` `display: contents`, all in `<head>`:
+Pages that need it get small inline `<script type="module">`s, a JSON `<script type="application/json">` with their settings, and a one-line `<style>` that gives `<lyr-island>` and `<lyr-lazy>` `display: contents`, all in `<head>` (at the end, for a [page partial](#in-partials-and-fragments)):
 
 | Script | When | Size |
 |---|---|---|
-| Islands loader | The page has a deferred component | 1.1 KB (0.7 KB gzipped) |
-| Islands loader, with strategies | Instead, when one is a [delayed island](#delay-the-fetch) | 2.0 KB (1.1 KB gzipped) |
-| Lazy loader | The page has lazy scripts (delayed islands' included) | 1.6 KB (0.9 KB gzipped) |
+| Islands loader | The page has a deferred component | 1.5 KB (0.9 KB gzipped) |
+| Islands loader, with strategies | Instead, when one is a [delayed island](#delay-the-fetch) | 2.1 KB (1.1 KB gzipped) |
+| Lazy loader | The page has lazy scripts (delayed islands' included) | 2.1 KB (1.1 KB gzipped) |
 
 Lyr decides this when it builds, from the components a page can render: pages without deferred or lazy components get none of them.
 
-The loader is inline, as Astro's island script is, which saves a request before the island fetches can start. A strict Content Security Policy must allow it, with `'unsafe-inline'` or the script's hash. Generated CSP hashes are planned for a later release.
+The loader is inline, as Astro's island script is, which saves a request before the island fetches can start. A strict Content Security Policy must allow it, with `'unsafe-inline'` or the script's hash. So must a page partial's runner, an inline module script too (its hash is the same for every response of a route in a build). Generated CSP hashes are planned for a later release.
 
 ## Coming from Astro
 

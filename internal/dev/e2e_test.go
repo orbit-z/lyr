@@ -423,4 +423,22 @@ func TestDevServer(t *testing.T) {
 	if !strings.Contains(s.out.String(), "lyr dev: content/post.md: server restarted in") {
 		t.Errorf("no restart message for the watched file")
 	}
+
+	// Page partials (PLAN.md §4k): toggling const partial updates the
+	// response without a restart of lyr dev.
+	writeFile(t, dir, "src/pages/frag.lyr", "---\nconst partial = false\n---\n<p>frag</p>\n<script>console.log(\"frag\")</script>\n")
+	waitReload(t, events, "new page")
+	if _, body := s.get("/frag"); !regexp.MustCompile(`^<script type="module" src="/_lyr/frag-[A-Z0-9]{8}\.js"></script><p>frag</p>`).MatchString(body) {
+		t.Errorf("GET /frag as a page:\n%s", body)
+	}
+	edit(t, dir, "src/pages/frag.lyr", "const partial = false", "const partial = true")
+	waitReload(t, events, "partial on")
+	if _, body := s.get("/frag"); !regexp.MustCompile(`^<p>frag</p><script type="module">let s=globalThis\.lyr__ran\?\?=new Set;for\(let\[i,u\]of\[\["frag-[0-9a-f]{8}","/_lyr/frag-[A-Z0-9]{8}\.js"\]\]\)`).MatchString(body) || strings.Contains(body, reloadTag) {
+		t.Errorf("GET /frag as a partial:\n%s", body)
+	}
+	edit(t, dir, "src/pages/frag.lyr", "const partial = true", "const partial = false")
+	waitReload(t, events, "partial off")
+	if _, body := s.get("/frag"); !strings.HasPrefix(body, `<script type="module" src="/_lyr/frag-`) {
+		t.Errorf("GET /frag as a page again:\n%s", body)
+	}
 }

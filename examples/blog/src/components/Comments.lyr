@@ -1,6 +1,6 @@
 ---
 import (
-	CommentThread "./CommentThread.lyr"
+	CommentList "./CommentList.lyr"
 	"example.com/blog/internal/posts"
 )
 
@@ -17,11 +17,7 @@ if err != nil {
 ---
 <section class="comments">
   <h2>Comments</h2>
-  {if len(comments) == 0}
-    <p>No comments yet.</p>
-  {else}
-    <CommentThread comments={comments} />
-  {/if}
+  <CommentList comments={comments} />
 </section>
 <style>
   .comments {

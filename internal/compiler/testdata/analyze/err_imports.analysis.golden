@@ -2,6 +2,7 @@ info src/components/err_imports.lyr component route=""
 goimport name="" path="strings" @14-23 "\"strings\"" path=@14-23 place=impl
 goimport name="." path="fmt" @25-32 ". \"fmt\"" path=@27-32 place=impl
 lyrimport @34-38 "card" path="./Card.lyr" resolved=src/components/Card.lyr @34-51 pathspan=@39-51 place=none
+lyrimport @132-133 "_" path="./Blank.lyr" resolved=src/components/Blank.lyr @132-147 pathspan=@134-147 place=none
 lyrimport @188-194 "Unused" path="../layouts/Unused.lyr" resolved=src/layouts/Unused.lyr @188-218 pathspan=@195-218 place=none
 lyrimport @220-224 "Used" path="./Used.lyr" resolved=src/components/Used.lyr @220-237 pathspan=@225-237 place=impl
 lyrimport @239-243 "InGo" path="./InGo.lyr" resolved=src/components/InGo.lyr @239-256 pathspan=@244-256 place=impl

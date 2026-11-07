@@ -1,0 +1,3 @@
+<p class="empty">No comments yet</p>
+<style>.empty { color: gray }</style>
+<script>console.log("empty")</script>

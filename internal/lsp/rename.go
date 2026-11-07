@@ -164,7 +164,7 @@ func (s *Server) renameTarget(ctx context.Context, at renameAt) (renameTarget, *
 		}
 	}
 	for _, im := range an.LyrImports {
-		if im.AliasSpan.Contains(o) {
+		if !im.Blank() && im.AliasSpan.Contains(o) {
 			return renameTarget{aliasPath: g.lyr, alias: im.Alias}, nil
 		}
 	}
@@ -603,7 +603,7 @@ func aliasAt(f *project.File, off int) (im *compiler.LyrImport, sp compiler.Span
 		return nil, compiler.Span{}, false
 	}
 	for i := range f.Analysis.LyrImports {
-		if im := &f.Analysis.LyrImports[i]; im.AliasSpan.Contains(off) {
+		if im := &f.Analysis.LyrImports[i]; !im.Blank() && im.AliasSpan.Contains(off) {
 			return im, im.AliasSpan, true
 		}
 	}
