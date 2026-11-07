@@ -2,7 +2,7 @@
 
 What's new in each Lyr release. The VS Code extension has its own changelog, in `editors/vscode/CHANGELOG.md`.
 
-## Unreleased
+## v0.2.0
 
 **Page partials**
 - `const partial = true` in a page's frontmatter makes it a page partial, Astro's `export const partial = true`: an HTML fragment for htmx, Unpoly or `fetch()` swaps, with no head tags and no CSS (the page it lands in includes the components' styles). Its components' scripts come with it, as one small inline runner at its end, and run once per page: the page's bundle marks the components it ran, so the runner skips them. A partial with deferred or lazy components carries the loader it needs; the loaders are now idempotent. Routing, params, middleware, the route cache and errors are a page's. See [Page partials](docs/routing.md#page-partials).
