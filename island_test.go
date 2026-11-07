@@ -158,6 +158,59 @@ func TestDeferNoFallbackAndMarshalError(t *testing.T) {
 	}
 }
 
+// TestDeferWhenPlaceholder: a delayed island's placeholder is Defer's
+// with the strategy attributes after props; the token is the same.
+func TestDeferWhenPlaceholder(t *testing.T) {
+	c := &Ctx{keys: testKeyring()}
+	p := commentsProps{PostID: 42}
+	var plain, when bytes.Buffer
+	if err := Defer(c, NewWriter(&plain), commentsID, p, fallbackLoading); err != nil {
+		t.Fatal(err)
+	}
+	if err := DeferWhen(c, NewWriter(&when), commentsID, ` client="visible" opts="200px"`, p, fallbackLoading); err != nil {
+		t.Fatal(err)
+	}
+	tok := sealerOf(testKeyring()).Seal(commentsID, testBuildID, []byte(`{"PostID":42,"Mode":""}`))
+	want := `<lyr-island src="/_lyr/island/0000000000000000/Comments-9b1e44a2" props="` + tok + `" client="visible" opts="200px"><p>Loading…</p></lyr-island>`
+	if when.String() != want {
+		t.Errorf("DeferWhen =\n%s\nwant\n%s", when.String(), want)
+	}
+	if got := strings.Replace(when.String(), ` client="visible" opts="200px"`, "", 1); got != plain.String() {
+		t.Errorf("DeferWhen without its attributes =\n%s\nDefer =\n%s", got, plain.String())
+	}
+	allocs := testing.AllocsPerRun(100, func() {
+		when.Reset()
+		_ = DeferWhen(c, NewWriter(&when), commentsID, ` client="idle"`, p, nil)
+	})
+	plainAllocs := testing.AllocsPerRun(100, func() {
+		plain.Reset()
+		_ = Defer(c, NewWriter(&plain), commentsID, p, nil)
+	})
+	if allocs != plainAllocs {
+		t.Errorf("DeferWhen: %v allocs, Defer: %v", allocs, plainAllocs)
+	}
+}
+
+// TestDeferErrorPosition: a props encoding error carries the .lyr position
+// of the call site, for Defer and DeferWhen.
+func TestDeferErrorPosition(t *testing.T) {
+	c := &Ctx{keys: testKeyring()}
+	bad := struct{ F func() }{}
+	for _, tc := range []struct {
+		f    func(*Ctx, *Writer, any) error
+		want string
+	}{
+		{deferAt, "src/pages/d.lyr:4: "},
+		{deferWhenAt, "src/pages/d.lyr:9: "},
+	} {
+		var buf bytes.Buffer
+		err := tc.f(c, NewWriter(&buf), bad)
+		if err == nil || !strings.HasPrefix(err.Error(), tc.want) || !strings.Contains(err.Error(), "<X server:defer>") {
+			t.Errorf("err = %v, want the prefix %q", err, tc.want)
+		}
+	}
+}
+
 func TestIslandEndpoint(t *testing.T) {
 	t.Setenv("LYR_KEY", "")
 	s := islandSite(t)
@@ -469,8 +522,40 @@ func TestLoaderInjection(t *testing.T) {
 	}
 }
 
+// TestLoaderInjectionDelayed: a page with a delayed island (Route.IslandsWhen,
+// PLAN.md §3.4) gets loaderIslandsWhenJS instead of loaderIslandsJS, and the
+// lazy loader when its subtree has lazy entries; a page with only bare
+// islands keeps loaderIslandsJS.
+func TestLoaderInjectionDelayed(t *testing.T) {
+	t.Setenv("LYR_KEY", "")
+	t.Setenv("LYR_DEV", "")
+	t.Setenv("LYR_STATIC", "")
+	t.Setenv("LYR_PUBLIC", "")
+	routes := []Route{
+		{Pattern: "/delayed", File: "src/pages/delayed.lyr", Render: headPage("d"), Islands: true, IslandsWhen: true,
+			Assets: []Asset{{Kind: "lazy", ID: commentsID, URL: "/_lyr/Comments-ABCD.js"}}},
+		{Pattern: "/bare", File: "src/pages/bare.lyr", Render: headPage("b"), Islands: true},
+	}
+	h := NewSite(routes, islandTable, WithStaticDir(t.TempDir())).Handler()
+	delayed := do(h, "GET", "/delayed").Body.String()
+	want := `<html><head>` + loaderStyle +
+		`<script type="application/json" id="lyr-loader">{"dev":false,"lazy":{"` + commentsID + `":["/_lyr/Comments-ABCD.js"]}}</script>` +
+		`<script type="module">` + loaderIslandsWhenJS + `</script>` +
+		`<script type="module">` + loaderLazyJS + `</script></head><body>d</body></html>`
+	if delayed != want {
+		t.Errorf("/delayed = %s\nwant %s", delayed, want)
+	}
+	bare := do(h, "GET", "/bare").Body.String()
+	want = `<html><head>` + loaderStyle +
+		`<script type="application/json" id="lyr-loader">{"dev":false}</script>` +
+		`<script type="module">` + loaderIslandsJS + `</script></head><body>b</body></html>`
+	if bare != want {
+		t.Errorf("/bare = %s\nwant %s", bare, want)
+	}
+}
+
 func TestLoaderConstants(t *testing.T) {
-	for name, js := range map[string]string{"loaderIslandsJS": loaderIslandsJS, "loaderLazyJS": loaderLazyJS} {
+	for name, js := range map[string]string{"loaderIslandsJS": loaderIslandsJS, "loaderIslandsWhenJS": loaderIslandsWhenJS, "loaderLazyJS": loaderLazyJS} {
 		if strings.Contains(strings.ToLower(js), "</script") || strings.Contains(js, "<!--") {
 			t.Errorf("%s can't be inlined in a <script>", name)
 		}

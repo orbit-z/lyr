@@ -67,7 +67,7 @@ func TestComments(t *testing.T) {
 	}
 }
 
-var islandRe = regexp.MustCompile(`<lyr-island src="([^"]+)" props="([^"]+)">`)
+var islandRe = regexp.MustCompile(`<lyr-island src="([^"]+)" props="([^"]+)"[^>]*>`)
 
 func TestSite(t *testing.T) {
 	h := app.New().Handler()

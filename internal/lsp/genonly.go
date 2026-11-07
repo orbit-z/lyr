@@ -17,7 +17,7 @@ var genOnlyNames = map[string]bool{
 	// Package-level.
 	"AppendAny": true, "AppendError": true, "AppendFloat": true, "AppendFloat32": true,
 	"AppendStringer": true, "Asset": true, "ClassIf": true, "ClassString": true,
-	"Concurrent": true, "CtxOf": true, "Defer": true, "DynTag": true, "ErrorAt": true,
+	"Concurrent": true, "CtxOf": true, "Defer": true, "DeferWhen": true, "DynTag": true, "ErrorAt": true,
 	"Island": true, "JoinClasses": true, "LocalsOf": true, "NewIsland": true,
 	"OptOf": true, "Rest": true, "RestAny": true, "RestAttr": true, "RestBool": true,
 	"RestFloat": true, "RestFloat32": true, "RestFrom": true, "RestFromAny": true,

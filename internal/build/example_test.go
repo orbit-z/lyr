@@ -156,7 +156,7 @@ var (
 	preload    = regexp.MustCompile(`<link rel="modulepreload" href="(/_lyr/chunk-[A-Z0-9]{8}\.js)">`)
 	dynImport  = regexp.MustCompile(`import\("(/_lyr/suggestions-[A-Z0-9]{8}\.js)"\)`)
 	searchJS   = regexp.MustCompile(`<script type="module" src="(/_lyr/search-[A-Z0-9]{8}\.js)"></script>`)
-	blogIsland = regexp.MustCompile(`<lyr-island src="(/_lyr/island/[0-9a-f]{16}/Comments-[0-9a-f]{8})" props="([A-Za-z0-9_-]+)"><p class="loading"[^>]*>Loading comments…</p></lyr-island>`)
+	blogIsland = regexp.MustCompile(`<lyr-island src="(/_lyr/island/[0-9a-f]{16}/Comments-[0-9a-f]{8})" props="([A-Za-z0-9_-]+)" client="visible" opts="200px"><p class="loading"[^>]*>Loading comments…</p></lyr-island>`)
 	blogLazy   = regexp.MustCompile(`"lazy":\{"(ShareButtons-[0-9a-f]{8})":\["(/_lyr/ShareButtons-[A-Z0-9]{8}\.js)"\]\}`)
 	titlesJSON = regexp.MustCompile(`<script type="application/json" id="post-titles-data">(.*?)</script>`)
 )
@@ -357,10 +357,15 @@ func checkBlogPost(t *testing.T, s *server) {
 	}
 
 	// Comments are deferred: the page holds the fallback and doesn't wait
-	// for their slow query (posts.CommentDelay, 200 ms).
+	// for their slow query (posts.CommentDelay, 200 ms). The island is
+	// delayed (client:visible), so the page has the islands loader variant
+	// that reads strategies (PLAN.md §3.4).
 	m := blogIsland.FindStringSubmatch(post)
 	if m == nil || !strings.Contains(post, "<style>lyr-island,lyr-lazy{display:contents}</style>") {
 		t.Fatalf("GET /blog/hello: no island placeholder with its fallback, or no loader style:\n%s", post)
+	}
+	if !strings.Contains(post, "no fallback element to observe") {
+		t.Errorf("GET /blog/hello: not the islands loader for delayed islands:\n%s", post)
 	}
 	fastest := time.Hour
 	for range 3 {

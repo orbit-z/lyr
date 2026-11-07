@@ -303,6 +303,32 @@ func TestCompletion(t *testing.T) {
 		}
 	})
 
+	// A delayed island (PLAN.md §3.4): client:* on a deferred tag is
+	// offered, its docs say it also delays the fetch, and the combination
+	// gets no diagnostic.
+	t.Run("deferred tag client:*", func(t *testing.T) {
+		src := strings.Replace(text, "<Card server:defer>", "<Card server:defer >", 1)
+		c.change(page, src)
+		items := c.complete(page, at(t, src, "<Card server:defer >", 0, len("<Card server:defer ")))
+		it := item(items, "client:visible")
+		if it == nil || !strings.Contains(docText(it.Documentation), "On a `server:defer` component, also delays the island fetch.") {
+			t.Errorf("client:visible on a deferred tag: %+v", it)
+		}
+		src = strings.Replace(text, `<Card server:defer><p slot=""></p></Card>`,
+			`<Card server:defer client:visible="200px" post={greeting}><p slot="fallback"></p></Card>`, 1)
+		src = strings.Replace(src, `<Box title="t"><p slot=""></p></Box>`, `<Box title="t"><p slot="header"></p></Box>`, 1)
+		// First without a fallback element (an error), so the wait
+		// below sees fresh diagnostics.
+		bad := strings.Replace(src, `<p slot="fallback"></p>`, ``, 1)
+		c.change(page, bad)
+		c.waitDiag(page, func(ds []map[string]any) bool {
+			return len(ds) == 1 && strings.Contains(fmt.Sprint(ds[0]["message"]), "needs a fallback element to observe")
+		})
+		c.change(page, src)
+		c.waitDiag(page, func(ds []map[string]any) bool { return len(ds) == 0 })
+		c.change(page, text)
+	})
+
 	t.Run("HTML attributes", func(t *testing.T) {
 		src := strings.Replace(text, `<div class="x">`, `<div class="x" >`, 1)
 		c.change(page, src)

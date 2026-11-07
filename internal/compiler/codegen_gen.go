@@ -392,7 +392,7 @@ func NameDirect(alias string) string { return "lyr__" + alias }
 // directly (PLAN.md §3.5).
 func (g *cgGen) directCall(n *Component) bool {
 	d := g.in.Direct
-	if d == nil || g.tolerant || n.Defer != nil && n.Client == nil {
+	if d == nil || g.tolerant || n.Defer != nil {
 		return false
 	}
 	if n.Self {
@@ -430,7 +430,7 @@ func (g *cgGen) hasConcurrent() bool {
 	}
 	found := false
 	Walk(g.f.Template, func(n Node) bool {
-		if c, ok := n.(*Component); ok && c.Concurrent != nil && (c.Defer == nil || c.Client != nil) {
+		if c, ok := n.(*Component); ok && c.Concurrent != nil && c.Defer == nil {
 			found = true
 		}
 		return !found

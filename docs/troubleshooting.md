@@ -462,11 +462,11 @@ See [The fallback slot](lazy-loading.md#the-fallback-slot).
 
 **Fix:** move it to the component tag, and drop any value (`server:defer`, not `server:defer="x"`). See [Template syntax: `server:defer`](reference/template-syntax.md#serverdefer).
 
-### `server:defer and client:* can't be combined; put client:* on a component inside the deferred one`
+### `client:visible on a server:defer component needs a fallback element to observe, e.g. <div slot="fallback"></div>`
 
-**Cause:** one tag has both directives.
+**Cause:** a delayed island (`server:defer client:visible`) is fetched when an element of its fallback scrolls into view, and its fallback renders no element: there's none, or it's a `<Fragment slot="fallback">` with only text.
 
-**Fix:** keep `server:defer` on the tag, and put the `client:*` directive on a component that the deferred component renders. See [Combining the two](lazy-loading.md#combining-the-two).
+**Fix:** give it a fallback element, even an empty one (`<div slot="fallback"></div>`), or use `client:idle` or `client:media` instead. See [Delay the fetch](lazy-loading.md#delay-the-fetch).
 
 ### `client:*` directive errors
 

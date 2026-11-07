@@ -867,7 +867,7 @@ func (s *Server) hover(ctx context.Context, params jsonRaw) (any, *rpcError) {
 		return nil, nil
 	}
 	switch c.reg.kind {
-	case regionTag:
+	case regionTag, regionAttr:
 		res := c.ws.nativeHover(c.f, c.reg, c.lines)
 		s.mu.Unlock()
 		return res, nil

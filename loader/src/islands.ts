@@ -1,13 +1,34 @@
 // The islands loader (server:defer, PLAN.md §5 "The loader").
 //
 // Every <lyr-island src="…" props="<token>"> on the page is fetched in
-// parallel; on a 2xx response the placeholder is replaced by the fragment,
+// parallel (a delayed one, with client="…", when its strategy fires, in
+// the LYR_WHEN variant); on a 2xx response the placeholder is replaced by the fragment,
 // otherwise its fallback stays. Placeholders added to the page later (a
 // fragment, or HTML the page inserts itself) are picked up by a
 // MutationObserver, which also hands every added node to the lazy loader
 // through window.lyr__lazy.
 
-import { config, find } from "./shared";
+import { config, find, when } from "./shared";
+
+// LYR_WHEN is set at build time: true in the variant for pages with a
+// delayed island (loaderIslandsWhenJS, PLAN.md §3.4 "Delayed island
+// fetch"), where a placeholder with a client attribute is fetched when its
+// strategy fires; false in loaderIslandsJS, where esbuild drops that code.
+declare const LYR_WHEN: boolean;
+
+// delay calls go when a delayed placeholder's strategy fires, unless the
+// placeholder has left the page by then.
+const delay = (el: Element, go: () => void, none: () => void): void => {
+  let undo: (() => void) | undefined;
+  undo = when(
+    el,
+    () => {
+      undo?.();
+      if (el.isConnected) go();
+    },
+    none,
+  );
+};
 
 // Above this many characters, the GET request-target (src?p=token) is
 // replaced by a POST with the token as the body: it fits nginx's default
@@ -58,7 +79,19 @@ export function islands(): void {
     for (const el of find(nodes, "lyr-island")) {
       if (!started.has(el)) {
         started.add(el);
-        load(el);
+        if (LYR_WHEN && el.hasAttribute("client")) {
+          const src = el.getAttribute("src") || "";
+          delay(
+            el,
+            () => load(el),
+            () => {
+              if (dev && !warned.has(" " + src)) {
+                warned.add(" " + src);
+                console.warn(`lyr: ${src}: client:visible has no fallback element to observe, so it was fetched at once`);
+              }
+            },
+          );
+        } else load(el);
       }
     }
   };

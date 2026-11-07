@@ -63,6 +63,25 @@ func (p *Project) HasIslands(page *File) bool {
 	return false
 }
 
+// HasDelayedIslands reports whether the page's static graph (as for
+// HasIslands) has a delayed island: a server:defer call site with
+// client:idle, client:visible or client:media (PLAN.md §3.4). The page then
+// gets the islands loader variant that reads strategies
+// (Route.IslandsWhen).
+func (p *Project) HasDelayedIslands(page *File) bool {
+	byPath := p.byPath()
+	for _, path := range p.AssetGraph(page) {
+		if f := byPath[path]; f != nil {
+			for _, c := range f.calls() {
+				if c.Defer && c.Lazy != compiler.NotDirective {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func (p *Project) byPath() map[string]*File {
 	m := make(map[string]*File, len(p.Files))
 	for _, f := range p.Files {
@@ -82,8 +101,9 @@ func eagerEdge(c compiler.ComponentCall) bool {
 //   - a component is eager on the page if the page reaches it through call
 //     sites that cross no lazy directive (deferred ones included); its
 //     scripts go in the page bundle;
-//   - each lazy call site (client:idle, client:visible, client:media) in a
-//     file of the page's graph lists the tagged component plus every
+//   - each lazy call site (client:idle, client:visible, client:media, also
+//     on a server:defer tag: a delayed island) in a file of the page's
+//     graph lists the tagged component plus every
 //     component reached from it, or from the calls in its slot content,
 //     through eager edges, minus the eager ones and the files without
 //     scripts. A nested lazy directive starts its own list.

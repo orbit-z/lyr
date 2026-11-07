@@ -27,6 +27,13 @@ var lazyFiles = map[string]string{
 	"src/pages/mixed.lyr":         "---\nimport (\n\tCard \"../components/Card.lyr\"\n\tPanel \"../components/Panel.lyr\"\n)\n---\n<Card /><Panel client:idle />\n",
 	"src/pages/deferred.lyr":      "---\nimport Comments \"../components/Comments.lyr\"\n---\n<Comments server:defer />\n",
 	"src/pages/load.lyr":          "---\nimport Counter \"../components/Counter.lyr\"\n---\n<Counter client:load />\n",
+	// Delayed islands (PLAN.md §3.4): server:defer with client:*.
+	"src/components/Feed.lyr":    "---\nimport Card \"./Card.lyr\"\n---\n<div><Card /></div>\n",
+	"src/components/Wrap.lyr":    "---\nimport Feed \"./Feed.lyr\"\n---\n<Feed server:defer client:visible><i slot=\"fallback\"></i></Feed>\n",
+	"src/pages/delayed.lyr":      "---\nimport Feed \"../components/Feed.lyr\"\n---\n<Feed server:defer client:idle />\n",
+	"src/pages/delayedeager.lyr": "---\nimport (\n\tCard \"../components/Card.lyr\"\n\tFeed \"../components/Feed.lyr\"\n)\n---\n<Card /><Feed server:defer client:idle />\n",
+	"src/pages/delayedload.lyr":  "---\nimport Feed \"../components/Feed.lyr\"\n---\n<Feed server:defer client:load />\n",
+	"src/pages/nested.lyr":       "---\nimport Wrap \"../components/Wrap.lyr\"\n---\n<Wrap server:defer />\n",
 }
 
 func lazyString(ls []assets.Lazy) string {
@@ -53,16 +60,21 @@ func TestLazyLists(t *testing.T) {
 		t.Fatal(joinLines(diagStrings(proj.Diagnostics)))
 	}
 	want := map[string]struct {
-		lazy    string
-		islands bool
+		lazy             string
+		islands, delayed bool
 	}{
-		"both":     {"", false},                          // eager wins
-		"only":     {"Counter[Counter]", false},          // lazy only
-		"subtree":  {"Panel[Icon Card] Tip[Tip]", false}, // whole subtree; the nested directive has its own list
-		"slot":     {"Panel[Counter Icon Card] Tip[Tip]", false},
-		"mixed":    {"Tip[Tip]", false}, // Card and Icon are eager, so Panel lists nothing
-		"deferred": {"Counter[Counter]", true},
-		"load":     {"", false},
+		"both":     {"", false, false},                          // eager wins
+		"only":     {"Counter[Counter]", false, false},          // lazy only
+		"subtree":  {"Panel[Icon Card] Tip[Tip]", false, false}, // whole subtree; the nested directive has its own list
+		"slot":     {"Panel[Counter Icon Card] Tip[Tip]", false, false},
+		"mixed":    {"Tip[Tip]", false, false}, // Card and Icon are eager, so Panel lists nothing
+		"deferred": {"Counter[Counter]", true, false},
+		"load":     {"", false, false},
+		// A delayed island's subtree is lazy on the page; eager wins.
+		"delayed":      {"Feed[Icon Card]", true, true},
+		"delayedeager": {"", true, true},
+		"delayedload":  {"", true, false}, // client:load: fetched at once, scripts eager
+		"nested":       {"Feed[Icon Card]", true, true},
 	}
 	for _, f := range proj.Files {
 		if f.Info.Role != compiler.RolePage {
@@ -79,12 +91,15 @@ func TestLazyLists(t *testing.T) {
 		if got := proj.HasIslands(f); got != w.islands {
 			t.Errorf("%s: islands %v, want %v", name, got, w.islands)
 		}
+		if got := proj.HasDelayedIslands(f); got != w.delayed {
+			t.Errorf("%s: delayed islands %v, want %v", name, got, w.delayed)
+		}
 	}
 	var islands []string
 	for _, f := range proj.Islands() {
 		islands = append(islands, f.Path)
 	}
-	if got := strings.Join(islands, " "); got != "src/components/Comments.lyr" {
+	if got := strings.Join(islands, " "); got != "src/components/Comments.lyr src/components/Feed.lyr src/components/Wrap.lyr" {
 		t.Errorf("islands %s", got)
 	}
 }
@@ -129,6 +144,7 @@ func TestGenerateLazy(t *testing.T) {
 		"mixed":    "css js lazy:Tip=Tip",
 		"deferred": "lazy:Counter=Counter",
 		"load":     "js",
+		"delayed":  "css lazy:Feed=Icon lazy:Feed=Card",
 	} {
 		if got := kinds(page); got != want {
 			t.Errorf("%s: assets %q, want %q", page, got, want)
@@ -149,6 +165,18 @@ func TestGenerateLazy(t *testing.T) {
 	// One entry per component, shared by pages.
 	if body("only", "lazy") == "" || a.Pages["src/pages/only.lyr"][0].URL != a.Pages["src/pages/deferred.lyr"][0].URL {
 		t.Errorf("Counter's lazy entry differs between pages")
+	}
+
+	// Route.IslandsWhen only on pages with a delayed island.
+	app := p.read("lyr_gen/app/app.go")
+	for _, tc := range []struct {
+		page string
+		when bool
+	}{{"delayed", true}, {"nested", true}, {"deferred", false}, {"delayedload", false}} {
+		m, _, _ := strings.Cut(app[strings.Index(app, `"src/pages/`+tc.page+`.lyr",`)+1:], "\n\t\t},")
+		if strings.Contains(m, "IslandsWhen: true") != tc.when || !strings.Contains(m, "Islands:") {
+			t.Errorf("%s: route %q, want IslandsWhen %v", tc.page, m, tc.when)
+		}
 	}
 
 	m := p.read(ManifestFile)

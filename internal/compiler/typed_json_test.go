@@ -90,10 +90,20 @@ type Props struct {
 `
 
 func TestDeferPropsJSONCheck(t *testing.T) {
+	// The same with a strategy on the call site (a delayed island,
+	// PLAN.md §3.4): the check is unchanged.
+	delayed := strings.Replace(tyJSONPage, "<Comments server:defer ", `<Comments server:defer client:visible="200px" `, 1)
+	for _, page := range []string{tyJSONPage, delayed} {
+		testDeferPropsJSONCheck(t, page)
+	}
+}
+
+func testDeferPropsJSONCheck(t *testing.T, page string) {
+	t.Helper()
 	p := plFront(map[string]string{
 		"src/components/Comments.lyr": tyJSONComments,
 		"src/components/Good.lyr":     tyJSONGood,
-		"src/pages/index.lyr":         tyJSONPage,
+		"src/pages/index.lyr":         page,
 	}, Options{Module: testModule})
 	if ds := p.diagnostics(); len(ds) > 0 {
 		t.Fatalf("front diagnostics:\n%s", strings.Join(ds, "\n"))

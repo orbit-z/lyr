@@ -18,12 +18,11 @@ errors_directives.lyr:22:19: only one client:* directive is allowed per componen
 errors_directives.lyr:23:7: client:only is for framework components, which Lyr doesn't support; use client:load, client:idle, client:visible or client:media
 errors_directives.lyr:24:7: unknown directive "client:hover" (client directives: client:load, client:idle, client:visible, client:media)
 errors_directives.lyr:25:7: unknown directive "server:lazy" (server directives: server:defer, server:concurrent)
-errors_directives.lyr:26:7: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
-errors_directives.lyr:27:7: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
+errors_directives.lyr:27:7: client:visible on a server:defer component needs a fallback element to observe, e.g. <div slot="fallback"></div>
 errors_directives.lyr:28:6: define:vars isn't supported; pass data with lyr.JSON on a data-* attribute, or set:json
 errors_directives.lyr:29:6: unknown directive "set:foo" (set directives: set:html, set:text, set:json)
 errors_directives.lyr:29:18: unknown directive "is:raw" (is directives: is:inline, is:global)
-errors_directives.lyr:31:7: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
+errors_directives.lyr:31:20: client:visible on a server:defer component needs a fallback element to observe, e.g. <div slot="fallback"></div>
 errors_directives.lyr:32:6: server:concurrent only works on .lyr components
 errors_directives.lyr:33:7: server:concurrent only works on .lyr components
 errors_directives.lyr:34:11: server:concurrent only works on .lyr components

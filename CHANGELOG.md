@@ -2,6 +2,20 @@
 
 What's new in each Lyr release. The VS Code extension has its own changelog, in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+**Lazy loading**
+- Delayed islands: `server:defer` together with `client:visible`, `client:idle` or `client:media` on one tag (`<Comments server:defer client:visible="200px" postID={post.ID}>`) fetches the island only when the strategy fires, so a deferred component below the fold, or only for some screens, costs no request and no server render until it's needed. The scripts of its subtree load on the same trigger. `server:defer client:load` is the same as `server:defer`. Lyr only: Astro always fetches server islands when the page loads. See [Delay the fetch](docs/lazy-loading.md#delay-the-fetch).
+- The error `server:defer and client:* can't be combined` is gone. `client:visible` on a deferred tag needs a fallback element to observe: a fallback that's certain to render none is a compile error (`client:visible on a server:defer component needs a fallback element to observe, e.g. <div slot="fallback"></div>`).
+- Pages with a delayed island get an islands loader that reads strategies (2.0 KB, 1.1 KB gzipped, instead of 1.1 KB, 0.7 KB gzipped); other pages are unchanged. The lazy loader grows from 1.3 KB to 1.6 KB (0.9 KB gzipped).
+- A "Loading on an event" recipe with htmx in [Lazy loading](docs/lazy-loading.md#loading-on-an-event).
+
+**Editor**
+- Hovering a directive's name in a `.lyr` file (`client:visible`, `server:defer`, `set:html`, `class:list`, …) describes it, with the text of its completion item.
+
+**Changes**
+- `client:visible` on a component that renders no element (only text, or nothing) now loads its scripts at once, with a warning in the browser console in `lyr dev`, instead of never loading them.
+
 ## v0.1.2
 
 **Faster rendering**

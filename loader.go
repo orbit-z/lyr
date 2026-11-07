@@ -7,13 +7,14 @@ import (
 
 // Head injection of the client loader (PLAN.md §5 "The loader"), on pages
 // that need it: the islands part when Route.Islands is set, the lazy part
-// when the page has "lazy" assets. The scripts (loaderIslandsJS,
-// loaderLazyJS) are built from loader/*.ts into loader_gen.go. The contract
-// with the loader:
+// when the page has "lazy" assets. The scripts (loaderIslandsJS, or
+// loaderIslandsWhenJS when Route.IslandsWhen is set, and loaderLazyJS) are
+// built from loader/*.ts into loader_gen.go. The contract with the loader:
 //
 //	<style>lyr-island,lyr-lazy{display:contents}</style>
 //	<script type="application/json" id="lyr-loader">{"dev":false,"lazy":{…}}</script>
 //	<script type="module">…loaderIslandsJS…</script>   (when Route.Islands)
+//	<script type="module">…loaderIslandsWhenJS…</script> (instead, when Route.IslandsWhen)
 //	<script type="module">…loaderLazyJS…</script>      (when the page has lazy assets)
 
 //go:generate go run ./loader/internal/gen
@@ -43,9 +44,10 @@ func (m lazyMap) addLazy(a Asset) {
 	m[a.ID] = append(m[a.ID], a.URL)
 }
 
-// loaderHead returns the loader tags for a page with the given islands flag
-// and assets, or "" if the page needs no loader.
-func loaderHead(dev, islands bool, assets []Asset) string {
+// loaderHead returns the loader tags for a page with the given islands
+// flags and assets, or "" if the page needs no loader. when picks the
+// islands loader that reads delayed islands' strategies (loaderIslandsWhenJS).
+func loaderHead(dev, islands, when bool, assets []Asset) string {
 	lazy := lazyMap{}
 	for _, a := range assets {
 		if a.Kind == "lazy" {
@@ -65,7 +67,12 @@ func loaderHead(dev, islands bool, assets []Asset) string {
 	// Escaped for a script context, like set:json: no </script> or <!--.
 	json.HTMLEscape(&b, data)
 	b.WriteString(`</script>`)
-	if islands {
+	switch {
+	case islands && when:
+		b.WriteString(`<script type="module">`)
+		b.WriteString(loaderIslandsWhenJS)
+		b.WriteString(`</script>`)
+	case islands:
 		b.WriteString(`<script type="module">`)
 		b.WriteString(loaderIslandsJS)
 		b.WriteString(`</script>`)

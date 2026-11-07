@@ -71,7 +71,7 @@ tags := []string{"go", "web"}
 | `<tag …>`, lowercase or containing `-` | An HTML element or custom element (`<my-widget>`). |
 | `<Name …>`, capitalized | A component. `Name` must be the alias of a `.lyr` import; otherwise it's an error. |
 | `<Self …>` | The current component, rendered recursively. Same props and slots rules as any component. |
-| `<Name server:defer …>` | Deferred server rendering: the page gets a placeholder holding the `fallback` slot, and the browser fetches the component's HTML in a separate request. See [Lazy loading](../lazy-loading.md). |
+| `<Name server:defer …>` | Deferred server rendering: the page gets a placeholder holding the `fallback` slot, and the browser fetches the component's HTML in a separate request. With `client:idle`, `client:visible` or `client:media` on the same tag, the fetch waits for that strategy. See [Lazy loading](../lazy-loading.md). |
 | `<Name server:concurrent …>` | Concurrent server rendering: the component renders in its own goroutine while the page goes on, and its HTML lands in its place. See [`server:concurrent`](#serverconcurrent). |
 | `<Name client:idle …>`, also `client:load`, `client:visible`, `client:media` | Controls when the `<script>` modules of the component and its subtree load. See [Lazy loading](../lazy-loading.md). |
 | `<slot />`, `<slot name="x">fallback</slot>` | A slot outlet, with optional fallback children. |
@@ -591,7 +591,7 @@ A directive is an attribute with a namespace (`set:`, `is:`, `server:`, `client:
 | `slot="name"` | A child of a component | Sends that child to the named slot instead of the default slot. |
 | `is:inline` | `<script>`, `<style>` | Leaves the tag untouched: no extraction, bundling or scoping. |
 | `is:global` | `<style>` | Skips CSS scoping. |
-| `server:defer` | Component tag | Renders the component in a separate request after the page loads. See [`server:defer`](#serverdefer). |
+| `server:defer` | Component tag | Renders the component in a separate request after the page loads, or when its `client:*` strategy fires. See [`server:defer`](#serverdefer). |
 | `server:concurrent` | Component tag | Renders the component in its own goroutine, overlapping it with the rest of the page. See [`server:concurrent`](#serverconcurrent). |
 | `client:load`, `client:idle`, `client:visible`, `client:media` | Component tag | Controls when the scripts of the component and its subtree load. See [`client:*`](#client). |
 
@@ -688,12 +688,14 @@ For per-element data, use [`lyr.JSON`](#json-attributes) or plain `data-*` attri
 
 - Props are passed as usual, and every field of the component's `Props` must be JSON-serializable; that's checked when Lyr generates code.
 - The only allowed children are elements or `<Fragment>`s with `slot="fallback"`, plus whitespace. With no fallback, the placeholder is empty.
+- With `client:idle`, `client:visible` or `client:media` on the same tag, the browser fetches the component's HTML when that strategy fires, and the scripts of its subtree load then too (a delayed island; see [Delay the fetch](../lazy-loading.md#delay-the-fetch)). `client:load` is the same as no directive. The `client:*` rules below apply unchanged.
 
 | Mistake | Compile error |
 |---|---|
 | Any other child | `only slot="fallback" content is allowed inside a server:defer component` |
 | On an HTML element, `<slot>` or `<Fragment>` | `server:defer only works on .lyr components` |
 | With a value (`server:defer="x"`) | `server:defer takes no value` |
+| With `client:visible` and a fallback that's certain to render no element (none, or text only) | `client:visible on a server:defer component needs a fallback element to observe, e.g. <div slot="fallback"></div>` |
 
 ### `server:concurrent`
 
@@ -740,22 +742,25 @@ Values must be static strings. These are compile errors:
 | Two `client:*` directives on one tag | `only one client:* directive is allowed per component` |
 | `client:only` | `client:only is for framework components, which Lyr doesn't support; use client:load, client:idle, client:visible or client:media` |
 
-The messages name the directive you wrote. If a component's scripts also load eagerly elsewhere on the same page, they stay eager. See [Lazy loading](../lazy-loading.md#client-lazy-scripts) for the details.
+The messages name the directive you wrote. If a component's scripts also load eagerly elsewhere on the same page, they stay eager. With `client:visible`, a component that renders no element has nothing to observe, so its scripts load at once (with a warning in the browser console in `lyr dev`). On a `server:defer` tag, the directive also delays the island's fetch. See [Lazy loading](../lazy-loading.md#client-lazy-scripts) for the details.
 
 ### Combining and reserved namespaces
 
-`server:defer` and a `client:*` directive on the same tag is a compile error:
+`server:defer` and a `client:*` directive work together on one tag: the strategy delays the island's fetch too. `client:visible` observes the elements of the fallback, so without one it's a compile error at the directive:
 
-```lyr file=src/pages/blog/[slug].lyr expect-error
+```lyr file=src/pages/index.lyr expect-error
 ---
 import Card "../components/Card.lyr"
 ---
-<Card server:defer client:idle />
+<Card server:defer client:visible />
+<Card server:defer client:visible><div slot="fallback"></div></Card>
 ```
 
 ```text
-src/pages/blog/[slug].lyr:4:7: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
+src/pages/index.lyr:4:20: client:visible on a server:defer component needs a fallback element to observe, e.g. <div slot="fallback"></div>
 ```
+
+`server:defer` and `server:concurrent` on one tag stay an error, whatever the `client:*`.
 
 The `server:` and `client:` namespaces are reserved. An unknown directive in either is a compile error at the attribute, listing the valid ones:
 

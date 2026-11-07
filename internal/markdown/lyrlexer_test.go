@@ -124,6 +124,9 @@ func TestLyrLexerEdges(t *testing.T) {
 		// The fragment shorthand <>…</> is tag punctuation.
 		{"<><b>x</b></>", "p    \"<><\"\nnt   \"b\"\np    \">\"\n-    \"x\"\np    \"</\"\nnt   \"b\"\np    \"></>\"\n"},
 		// {switch} blocks: keywords, with the header and case lists as Go.
+		// A delayed island: server:defer and client:* on one tag
+		// (PLAN.md §3.4), both directive names, the value a string.
+		{`<C server:defer client:visible="200px" />`, "p    \"<\"\nnc   \"C\"\nna   \"server:defer\"\nna   \"client:visible\"\no    \"=\"\ns    \"\\\"200px\\\"\"\np    \"/>\"\n"},
 		{"{switch x}{case 1, 2}{default}{/switch}", "p    \"{\"\nk    \"switch\"\nnx   \"x\"\np    \"}{\"\nk    \"case\"\nmi   \"1\"\np    \",\"\nmi   \"2\"\np    \"}{\"\nk    \"default\"\np    \"}{\"\nk    \"/switch\"\np    \"}\"\n"},
 	} {
 		got, _ := lyrTokens(t, tt.src)

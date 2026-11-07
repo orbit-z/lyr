@@ -59,13 +59,32 @@ const islandPrefix = "/_lyr/island/"
 // same token. A JSON encoding error is the render error, at the .lyr
 // position of the call site.
 func Defer(c *Ctx, w *Writer, id string, props any, fallback Renderer) error {
+	return deferIsland(c, w, id, "", props, fallback)
+}
+
+// For generated code. DeferWhen is Defer for a delayed island, a
+// server:defer call site with client:idle, client:visible or client:media
+// (PLAN.md §3.4 "Delayed island fetch"). attrs is the placeholder's
+// strategy attributes, already escaped, written after props:
+//
+//	<lyr-island src="…" props="<token>" client="visible" opts="200px">fallback</lyr-island>
+//
+// The islands loader then fetches the island when the strategy fires. The
+// strategy isn't sealed: the token and the URL are the same as Defer's.
+func DeferWhen(c *Ctx, w *Writer, id, attrs string, props any, fallback Renderer) error {
+	return deferIsland(c, w, id, attrs, props, fallback)
+}
+
+// deferIsland writes a placeholder for Defer and DeferWhen, which are its
+// only callers: the .lyr position of an error is two frames up.
+func deferIsland(c *Ctx, w *Writer, id, attrs string, props any, fallback Renderer) error {
 	if w.err != nil {
 		return w.err
 	}
 	data, err := json.Marshal(props)
 	if err != nil {
 		err = fmt.Errorf("lyr: <%s server:defer>: props can't be encoded as JSON: %w", islandName(id), err)
-		if _, file, line, ok := runtime.Caller(1); ok && strings.HasSuffix(file, ".lyr") {
+		if _, file, line, ok := runtime.Caller(2); ok && strings.HasSuffix(file, ".lyr") {
 			err = &posError{pos: fmt.Sprintf("%s:%d", relativeFile(file), line), err: err}
 		}
 		w.setErr(err)
@@ -84,7 +103,9 @@ func Defer(c *Ctx, w *Writer, id string, props any, fallback Renderer) error {
 	// The token is base64url: nothing in it needs escaping.
 	b.Grow(len(data)*4/3 + 64)
 	b.Write(sealerOf(kr).AppendSeal(b.AvailableBuffer(), id, kr.buildID, data))
-	b.WriteString(`">`)
+	b.WriteByte('"')
+	b.WriteString(attrs)
+	b.WriteByte('>')
 	if fallback != nil {
 		if err := fallback(w); err != nil {
 			w.setErr(err)

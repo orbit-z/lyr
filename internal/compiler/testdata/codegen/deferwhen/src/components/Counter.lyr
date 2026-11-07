@@ -1,0 +1,2 @@
+<button>0</button>
+<script>console.log("counter")</script>

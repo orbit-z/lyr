@@ -1004,11 +1004,11 @@ func (g *cgGen) component(n *Component, c *wsCtx, i int) {
 	slots := g.groupSlots(n.Children)
 	call := cgCall{n: n, qual: qual, tag: tagName, fields: fields, pre: pre, checks: checks, info: info, block: block, restSet: restSet}
 
-	if n.Defer != nil && n.Client == nil {
+	if n.Defer != nil {
 		g.deferCall(&call, id, slots, c)
 		return
 	}
-	lazy := n.Client != nil && n.Client.Directive.IsLazy() && n.Defer == nil
+	lazy := n.Client != nil && n.Client.Directive.IsLazy()
 	if lazy {
 		o.html(lazyOpen(id, n.Client))
 	}
@@ -1162,7 +1162,9 @@ func (g *cgGen) fieldValue(f cgField) {
 
 // deferCall emits a server:defer call site (PLAN.md §3.4): lyr__rt.Defer
 // with the component ID, the Props literal and the fallback renderer
-// (compiled here, in the parent, with its scope attribute) or nil.
+// (compiled here, in the parent, with its scope attribute) or nil. With a
+// lazy client:* (a delayed island), lyr__rt.DeferWhen, which also takes
+// the placeholder's strategy attributes.
 func (g *cgGen) deferCall(call *cgCall, id string, slots []cgSlot, c *wsCtx) {
 	o := g.o
 	n := call.n
@@ -1178,7 +1180,12 @@ func (g *cgGen) deferCall(call *cgCall, id string, slots []cgSlot, c *wsCtx) {
 		g.blockProps(call, &lit)
 	}
 	o.ind()
-	o.str("if " + NameErr + " := " + NameRuntime + ".Defer(" + NameCtx + ", " + NameW + ", " + strconv.Quote(id) + ", ")
+	if n.Client != nil && n.Client.Directive.IsLazy() {
+		// A delayed island: the strategy attributes are a constant.
+		o.str("if " + NameErr + " := " + NameRuntime + ".DeferWhen(" + NameCtx + ", " + NameW + ", " + strconv.Quote(id) + ", " + strconv.Quote(clientAttrs(n.Client)) + ", ")
+	} else {
+		o.str("if " + NameErr + " := " + NameRuntime + ".Defer(" + NameCtx + ", " + NameW + ", " + strconv.Quote(id) + ", ")
+	}
 	if call.block {
 		o.str(NameP)
 	} else {
@@ -1212,11 +1219,18 @@ func (g *cgGen) deferCall(call *cgCall, id string, slots []cgSlot, c *wsCtx) {
 // lazyOpen is the <lyr-lazy> start tag of a client:idle|visible|media
 // call site, folded into the surrounding Raw (PLAN.md §3.4).
 func lazyOpen(id string, a *Attr) string {
-	s := `<lyr-lazy component="` + attrEscaper.Replace(id) + `" client="` + strings.TrimPrefix(a.Name, "client:") + `"`
+	return `<lyr-lazy component="` + attrEscaper.Replace(id) + `"` + clientAttrs(a) + ">"
+}
+
+// clientAttrs is the escaped strategy attributes of a lazy client:*
+// directive, as <lyr-lazy> and a delayed <lyr-island> write them:
+// ` client="visible" opts="200px"`.
+func clientAttrs(a *Attr) string {
+	s := ` client="` + strings.TrimPrefix(a.Name, "client:") + `"`
 	if a.Kind != AttrEmpty && !a.IsExpr() && a.Value != "" {
 		s += ` opts="` + attrEscaper.Replace(a.Value) + `"`
 	}
-	return s + ">"
+	return s
 }
 
 // attrEscaper escapes a static value for a double-quoted attribute. Like

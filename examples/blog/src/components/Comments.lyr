@@ -8,7 +8,8 @@ type Props struct {
 	PostID int
 }
 
-// Slow: the post page renders this component with server:defer.
+// Slow: the post page renders this component with server:defer, fetched
+// when it comes within 200px of the viewport (client:visible="200px").
 comments, err := posts.Comments(props.PostID)
 if err != nil {
 	return err

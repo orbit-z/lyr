@@ -108,6 +108,10 @@ type Route struct {
 	Render  func(*Ctx, *Writer) error // calls the page's Render with zero Props
 	Assets  []Asset                   // css/js for head injection; lazy entries for the loader
 	Islands bool                      // the page has a server:defer call site
+	// IslandsWhen: one of them is a delayed island (server:defer with
+	// client:idle|visible|media, PLAN.md §3.4), so the page gets the
+	// islands loader variant that reads strategies.
+	IslandsWhen bool
 }
 
 // NoLocals is the locals type used when a project has no src/locals.Locals.

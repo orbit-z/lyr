@@ -1320,3 +1320,24 @@ Choices made while fixing the reviews of sessions, the route cache changes and r
 | Without `site.Rewrites`, an unwrapped app handler behind `site.Middleware` that calls `l.Cache.Set` and then rewrites has its options kept for the target, like middleware's | simplest (the handle can't tell them apart; by design) | Track who set each option | [Caching](caching.md#rewrites) |
 | The route cache is for Lyr pages and their `server:defer` islands only: `site.CacheHandler` is removed (with its rows here), route rules match only page paths, and app handlers cache their data with `cache.Store` | user (2026-11-01) | Keep `CacheHandler` for app handlers | [Caching](caching.md#your-own-handlers) |
 | A page's `Content-Length` is dropped when it redirects (cached and uncached paths, GET and HEAD) | Go stdlib (`http.Redirect` writes its own body) | Keep it on HEAD | — |
+
+## Delayed island fetch (2026-11-07)
+
+`server:defer client:visible|idle|media` delays the island fetch (PLAN §3.4 "Delayed island fetch"). The user accepted every recommended answer (syntax, lazy subtree scripts, the fallback-element error with a runtime fallback, the same runtime fallback for plain `client:visible`, all three strategies); these are the details decided by rule.
+
+| Decision | Rule | Alternative | Where documented |
+|---|---|---|---|
+| The placeholder writes the strategy as `client="…"` and `opts="…"` after `props`, the names `<lyr-lazy>` uses | simplest (one strategy reader for both loaders) | New attribute names | [Lazy loading](lazy-loading.md#delay-the-fetch) |
+| A new generated-code function `lyr.DeferWhen(c, w, id, attrs, props, fallback)` takes the pre-escaped strategy attributes; `Defer` and its goldens are unchanged | simplest | A sixth argument on `Defer` | — |
+| The strategy isn't sealed with the props and isn't part of the island URL | simplest (caching, ETags and tokens unchanged) | Seal it | [Lazy loading](lazy-loading.md#delay-the-fetch) |
+| Each delayed placeholder has its own trigger; identical props still share one URL, so the route cache and HTTP caching dedupe | simplest (matches one fetch per placeholder) | One trigger per component, as `client:*` scripts | [Lazy loading](lazy-loading.md#delay-the-fetch) |
+| `server:defer client:load` means no delay | Astro (`client:load` = no directive) | An error | [Template syntax](reference/template-syntax.md#serverdefer) |
+| `client:idle` falls back to `setTimeout(…, 200)`; `client:media` fetches once and keeps the content when the query stops matching | simplest (as `client:idle`/`client:media` for scripts) | Re-fetch or remove on change | [Lazy loading](lazy-loading.md#delay-the-fetch) |
+| A separate islands loader variant (`loaderIslandsWhenJS`) for pages with a delayed island, chosen at build time | simplest (the static-graph loader rule, §5) | One bigger islands loader everywhere | [Lazy loading](lazy-loading.md#the-loader-and-content-security-policy) |
+| Delayed islands never get a preload link | Astro (it preloads only to fetch earlier) | — | — |
+| The fallback-element check counts an element (at the top level of the fallback, or of a `<Fragment slot="fallback">`) as certain; a component, `<slot>`, expression, block or `set:html` as maybe (no error); text, comments, `set:text`, `<script>` and `<style>` as none | simplest (only errors that are certain) | Check components' output | [Template syntax](reference/template-syntax.md#serverdefer) |
+| A placeholder that left the page before its trigger fired isn't fetched (`isConnected` checked when it fires) | simplest (the spec's "removed before firing") | Fetch and drop the result | [Lazy loading](lazy-loading.md#delay-the-fetch) |
+| The runtime "nothing to observe" warning of a delayed island comes from the islands loader only; the lazy loader warns only for `<lyr-lazy>` markers, so one fallback gives one warning | simplest | Two warnings | [Lazy loading](lazy-loading.md#client-visible-needs-an-element-to-observe) |
+| A `client:*` marker inside a delayed island's fallback waits for the placeholder's trigger (the fallback is in the island's lazy subtree, as slot content is in a `<lyr-lazy>`) | simplest (the call site is treated like any lazy call site) | Treat the fallback as page content | — |
+| The islands loader variant is built from the same `src/islands.ts` with an esbuild define (`LYR_WHEN`), so the plain loader has no strategy code; its minified identifiers differ from before (same length and behavior) because esbuild names symbols by the whole file's character frequency | simplest (one source) | A duplicated islands loader to keep the old bytes | — |
+| The "Loading on an event" recipe uses htmx's `hx-trigger`; no `client:trigger` directive | user (2026-11-07) | `client:trigger="click from:#open"` | [Lazy loading](lazy-loading.md#loading-on-an-event) |

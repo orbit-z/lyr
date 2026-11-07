@@ -1,5 +1,5 @@
 // Command gen bundles and minifies the client loader (loader/*.ts) with
-// esbuild and writes loader_gen.go at the repository root, holding the two
+// esbuild and writes loader_gen.go at the repository root, holding the
 // scripts as string constants the runtime embeds (PLAN.md §4 "Loader").
 //
 // It runs through the //go:generate line in loader.go. It's a separate
@@ -20,10 +20,15 @@ import (
 	"github.com/evanw/esbuild/pkg/api"
 )
 
-// scripts maps each constant to its entry, relative to the repository root.
-var scripts = []struct{ name, entry, doc string }{
-	{"loaderIslandsJS", "loader/islands.ts", "fetches every <lyr-island> and swaps in its fragment."},
-	{"loaderLazyJS", "loader/lazy.ts", "observes <lyr-lazy> markers and imports their entries."},
+// scripts maps each constant to its entry, relative to the repository
+// root, and the value of the LYR_WHEN build-time constant (src/islands.ts).
+var scripts = []struct {
+	name, entry, doc string
+	when             bool
+}{
+	{"loaderIslandsJS", "loader/islands.ts", "fetches every <lyr-island> and swaps in its fragment.", false},
+	{"loaderIslandsWhenJS", "loader/islands-when.ts", "is loaderIslandsJS for pages with a delayed island: a\n// placeholder with a client attribute is fetched when its strategy fires.", true},
+	{"loaderLazyJS", "loader/lazy.ts", "observes <lyr-lazy> markers and delayed islands' placeholders\n// and imports their entries.", false},
 }
 
 func main() {
@@ -53,6 +58,7 @@ package lyr
 //	<style>lyr-island,lyr-lazy{display:contents}</style>
 //	<script type="application/json" id="lyr-loader">{"dev":false,"lazy":{"Counter-1c2d3e4f":"/_lyr/Counter-HASH.js"}}</script>
 //	<script type="module">…loaderIslandsJS…</script>   (when Route.Islands)
+//	<script type="module">…loaderIslandsWhenJS…</script> (instead, when Route.IslandsWhen)
 //	<script type="module">…loaderLazyJS…</script>      (when the page has lazy assets)
 //
 // The JSON config comes first; each script reads it on its own, so either
@@ -63,7 +69,7 @@ package lyr
 // window.lyr__lazy.
 `)
 	for _, s := range scripts {
-		js, err := build(filepath.Join(root, s.entry))
+		js, err := build(filepath.Join(root, s.entry), s.when)
 		if err != nil {
 			return nil, err
 		}
@@ -72,9 +78,10 @@ package lyr
 	return format.Source(b.Bytes())
 }
 
-func build(entry string) (string, error) {
+func build(entry string, when bool) (string, error) {
 	res := api.Build(api.BuildOptions{
 		EntryPoints:       []string{entry},
+		Define:            map[string]string{"LYR_WHEN": strconv.FormatBool(when)},
 		Bundle:            true,
 		Write:             false,
 		Format:            api.FormatESModule,

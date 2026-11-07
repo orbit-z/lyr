@@ -1,0 +1,8 @@
+---
+import Counter "./Counter.lyr"
+
+type Props struct {
+	PostID int
+}
+---
+<section>Comments for {props.PostID} <Counter /></section>

@@ -224,6 +224,7 @@ Inside a [template literal](reference/template-syntax.md#template-literals), eac
 - **Control blocks** after `{` in template content: `if`, `for` and `switch` (accepting `if` inserts `{if cond}{/if}`, with the cursor on `cond`), `else if`/`else` inside an `{if}`, `case`/`default` inside a `{switch}`, and the closer of the innermost open block (`{/` offers just that one). Where the `{` could also start an expression, gopls's items follow.
 - **Slot names** inside `slot="…"`: the slots of the component you're passing content to. Inside a `server:defer` component, only `fallback`.
 - **Go to definition** on `<Card` opens `Card.lyr`; on a component attribute, it jumps to the `Props` field.
+- **Hover** on a directive's name (`client:visible`, `server:defer`, `set:html`, `class:list`, …) describes it.
 
 **Diagnostics** appear at their position in the `.lyr` file as you type, with no save needed: Lyr's own (template syntax errors, unknown props, misused directives) and gopls's Go type errors. Changes are visible across files before you save: add a field to `Card`'s `Props`, and the new attribute is accepted in a page right away.
 

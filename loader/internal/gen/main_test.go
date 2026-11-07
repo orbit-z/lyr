@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,6 +25,43 @@ func TestUpToDate(t *testing.T) {
 	}
 	if !bytes.Equal(got, want) {
 		t.Fatal("loader_gen.go is out of date: run go generate at the repository root")
+	}
+}
+
+// TestScripts checks that each script is built, the islands loader in
+// both variants (PLAN.md §3.4 "Delayed island fetch"), and logs the sizes
+// quoted in the docs (go test -v -run TestScripts ./loader/internal/gen).
+func TestScripts(t *testing.T) {
+	got := map[string]string{}
+	for _, s := range scripts {
+		js, err := build(filepath.Join(root, s.entry), s.when)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got[s.name] = js
+		var z bytes.Buffer
+		zw, _ := gzip.NewWriterLevel(&z, gzip.BestCompression)
+		zw.Write([]byte(js))
+		zw.Close()
+		t.Logf("%s: %d B, %d B gzipped", s.name, len(js), z.Len())
+	}
+	plain, when, lazy := got["loaderIslandsJS"], got["loaderIslandsWhenJS"], got["loaderLazyJS"]
+	// The plain islands loader has no strategy code; the variant and the
+	// lazy loader do.
+	for _, w := range []string{"IntersectionObserver", "matchMedia", "requestIdleCallback", "LYR_WHEN"} {
+		if bytes.Contains([]byte(plain), []byte(w)) {
+			t.Errorf("loaderIslandsJS contains %q", w)
+		}
+	}
+	for _, js := range []string{when, lazy} {
+		for _, w := range []string{"IntersectionObserver", "matchMedia", "requestIdleCallback"} {
+			if !bytes.Contains([]byte(js), []byte(w)) {
+				t.Errorf("a strategy loader lacks %q", w)
+			}
+		}
+	}
+	if !bytes.Contains([]byte(when), []byte("no fallback element to observe")) || !bytes.Contains([]byte(lazy), []byte("lyr-lazy,lyr-island[client]")) {
+		t.Error("loaderIslandsWhenJS or loaderLazyJS lacks the delayed-island code")
 	}
 }
 

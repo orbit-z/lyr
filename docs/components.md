@@ -1431,7 +1431,7 @@ Two directives on a component tag keep pages fast. They're covered in [Lazy load
   <ShareButtons title={post.Title} client:visible="200px" />
   ```
 
-Both work only on `.lyr` components, and they can't be combined on one tag.
+Both work only on `.lyr` components. On one tag, `server:defer client:visible` also delays the island's fetch until the fallback comes into view (see [Delay the fetch](lazy-loading.md#delay-the-fetch)).
 
 ## Fetching data in components
 

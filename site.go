@@ -132,7 +132,7 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 	}
 	for i := range routes {
 		r := &routes[i]
-		if head := headTags(loaderHead(s.dev, r.Islands, r.Assets), r.Assets); head != "" {
+		if head := headTags(loaderHead(s.dev, r.Islands, r.IslandsWhen, r.Assets), r.Assets); head != "" {
 			if s.heads == nil {
 				s.heads = make(map[*Route]string)
 			}
@@ -472,7 +472,7 @@ func (s *Site) servePage(w http.ResponseWriter, r *http.Request, c *Ctx, route *
 	wr.reset(buf)
 	if s.devAssets != nil {
 		assets := s.devAssets.assets(route)
-		wr.tags = headTags(loaderHead(s.dev, route.Islands, assets), assets)
+		wr.tags = headTags(loaderHead(s.dev, route.Islands, route.IslandsWhen, assets), assets)
 	} else if s.heads != nil {
 		wr.tags = s.heads[route]
 	}

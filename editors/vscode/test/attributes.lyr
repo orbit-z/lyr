@@ -9,6 +9,7 @@
   <Comments server:defer postID={id}>
     <p slot="fallback">Loading…</p>
   </Comments>
+  <Comments server:defer client:visible="200px" postID={id}><div slot="fallback"></div></Comments>
   <Fragment slot="footer" set:html={footer} />
   <Self depth={depth + 1} />
   <slot name="aside">fallback</slot>

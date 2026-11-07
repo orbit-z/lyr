@@ -213,6 +213,9 @@ func (p *Project) appGo() []byte {
 		fmt.Fprintf(&b, "\t\t\tAssets: manifest.Pages[%s],\n", strconv.Quote(f.Path))
 		if p.HasIslands(f) {
 			b.WriteString("\t\t\tIslands: true,\n")
+			if p.HasDelayedIslands(f) {
+				b.WriteString("\t\t\tIslandsWhen: true,\n")
+			}
 		}
 		b.WriteString("\t\t},\n")
 	}

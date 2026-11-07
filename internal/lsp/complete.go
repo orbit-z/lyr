@@ -626,9 +626,9 @@ var directiveDocs = map[string]string{
 	"server:defer":      "Renders this component in a separate request (a server island), showing its `fallback` slot until then.",
 	"server:concurrent": "Renders this component in its own goroutine, so slow components overlap; the HTML stays in source order.",
 	"client:load":       "Loads this component's scripts as soon as the page loads.",
-	"client:idle":       "Loads this component's scripts once the browser is idle.",
-	"client:visible":    "Loads this component's scripts when the component scrolls into view.",
-	"client:media":      "Loads this component's scripts when a media query matches.",
+	"client:idle":       "Loads this component's scripts once the browser is idle. On a `server:defer` component, also delays the island fetch.",
+	"client:visible":    "Loads this component's scripts when the component scrolls into view. On a `server:defer` component, also delays the island fetch.",
+	"client:media":      "Loads this component's scripts when a media query matches. On a `server:defer` component, also delays the island fetch.",
 	"class:list":        "Builds the `class` from a list: `{\"card\", props.Class, \"active\": active}` (strings, `[]string` values, and `\"class\": condition` pairs).",
 }
 

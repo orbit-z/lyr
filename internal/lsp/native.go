@@ -303,9 +303,13 @@ func (ws *workspace) nativeDefinition(f *project.File, reg region) (loc *locatio
 	return nil, false
 }
 
-// nativeHover answers hover on a component tag name: the component's file
-// and its props, with their types and docs.
+// nativeHover answers hover on a directive attribute's name
+// (directiveHover) and on a component tag name: the component's file and
+// its props, with their types and docs.
 func (ws *workspace) nativeHover(f *project.File, reg region, lines *lineIndex) any {
+	if reg.kind == regionAttr {
+		return directiveHover(reg, lines)
+	}
 	info := ws.target(f, reg.comp)
 	if info == nil {
 		return nil
@@ -316,5 +320,23 @@ func (ws *workspace) nativeHover(f *project.File, reg region, lines *lineIndex) 
 	return map[string]any{
 		"contents": map[string]any{"kind": "markdown", "value": b.String()},
 		"range":    lines.rangeOf(reg.comp.NameSpan.Start, reg.comp.NameSpan.End, encUTF16),
+	}
+}
+
+// directiveHover answers hover on a directive attribute's name
+// (client:visible, set:html, …) with its directiveDocs text; nil on a
+// plain attribute or between attributes.
+func directiveHover(reg region, lines *lineIndex) any {
+	a := reg.attr
+	if a == nil || a.Directive == compiler.NotDirective {
+		return nil
+	}
+	doc, ok := directiveDocs[a.Name]
+	if !ok {
+		return nil
+	}
+	return map[string]any{
+		"contents": map[string]any{"kind": "markdown", "value": "```lyr\n" + a.Name + "\n```\n\n" + doc},
+		"range":    lines.rangeOf(a.NameSpan.Start, a.NameSpan.End, encUTF16),
 	}
 }

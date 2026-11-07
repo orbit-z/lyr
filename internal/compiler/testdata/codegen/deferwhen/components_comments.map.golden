@@ -1,0 +1,9 @@
+lyr_gen/decl/components/comments/decl.go (src/components/Comments.lyr)
+  exact 4:1 "type Props struct {\n\tPostID int\n}" -> 155-188 "type Props struct {\n\tPostID int\n}"
+lyr_gen/impl/components/comments/render.go (src/components/Comments.lyr)
+  exact 2:8 "Counter" -> 212-219 "Counter"
+  span  2:16 "\"./Counter.lyr\"" -> 220-270 "\"example.com/blog/lyr_gen/decl/components/counter\""
+  exact 8:24 "props.PostID" -> 785-797 "props.PostID"
+  span  8:39 "Counter" -> 912-926 "Counter.Render"
+call sites
+  content key=97 "props.PostID" call="lyr__w.Expr(\n/*line ../../../../src/components/Comments.lyr:8:24*/props.PostID/*line render.go:24:90*/,\n\t)"

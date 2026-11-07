@@ -13,7 +13,8 @@ type ComponentCall struct {
 	// Defer is true for server:defer.
 	Defer bool
 	// Lazy is the lazy client:* directive (ClientIdle, ClientVisible or
-	// ClientMedia), NotDirective otherwise (client:load is eager).
+	// ClientMedia), NotDirective otherwise (client:load is eager). With
+	// Defer, it also delays the island fetch.
 	Lazy Directive
 	// In is the index, in the same list, of the innermost lazy call site
 	// whose children (slot content) hold this call, or -1. Slot content
@@ -23,8 +24,9 @@ type ComponentCall struct {
 }
 
 // ComponentCalls returns the component call sites of a parsed and
-// analyzed file, in source order. A tag with both server:defer and
-// client:* (an error) counts as neither.
+// analyzed file, in source order. A server:defer tag with a lazy client:*
+// (a delayed island, PLAN.md §3.4) has both Defer and Lazy: it's a lazy
+// call site whose slot content (the fallback) is in its lazy subtree.
 func ComponentCalls(f *File, a *Analysis) []ComponentCall {
 	if f == nil || f.Template == nil || a == nil {
 		return nil
@@ -42,11 +44,8 @@ func ComponentCalls(f *File, a *Analysis) []ComponentCall {
 		if c.Self {
 			call.Target = a.Info.Path
 		}
-		switch {
-		case c.Defer != nil && c.Client != nil:
-		case c.Defer != nil:
-			call.Defer = true
-		case c.Client != nil && c.Client.Directive.IsLazy():
+		call.Defer = c.Defer != nil
+		if c.Client != nil && c.Client.Directive.IsLazy() {
 			call.Lazy = c.Client.Directive
 		}
 		out = append(out, call)

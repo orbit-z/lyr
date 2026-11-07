@@ -80,6 +80,7 @@ export interface Options {
   respond?: Responder;
   idle?: boolean; // whether requestIdleCallback exists (default true)
   media?: Record<string, boolean>; // initial matchMedia results
+  when?: boolean; // LYR_WHEN: the islands loader variant for delayed islands
 }
 
 const origConsole = { error: console.error, warn: console.warn };
@@ -123,6 +124,7 @@ export function page(body: string, o: Options = {}): Page {
   FakeIO.all = [];
   FakeMQL.all = [];
   delete g.lyr__lazy;
+  g.LYR_WHEN = !!o.when;
   g.window = globalThis;
   g.document = document;
   g.MutationObserver = win.MutationObserver;

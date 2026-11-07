@@ -42,6 +42,57 @@ describe("lazy", () => {
     expect(io.disconnected).toBe(true);
   });
 
+  for (const dev of [true, false]) {
+    test(`client:visible with no element child imports at once and ${dev ? "warns once in dev" : "is silent in prod"}`, () => {
+      const p = page(marker("T-1", "visible", "just text") + marker("T-1", "visible", ""), {
+        dev,
+        lazy: { "T-1": "/_lyr/T.js" },
+      });
+      lazy(p.importer);
+      expect(p.imports).toEqual(["/_lyr/T.js"]);
+      expect(FakeIO.all).toHaveLength(0);
+      expect(p.warnings).toEqual(dev ? [["lyr: T-1: client:visible has no element to observe, so it was loaded at once"]] : []);
+    });
+  }
+
+  test("a delayed island's placeholder imports its entries when its strategy fires", () => {
+    const p = page(
+      `<lyr-island src="/_lyr/island/b1/Comments-1" props="t" client="media" opts="(min-width: 900px)"><p>wait</p></lyr-island>`,
+      { lazy: { "Comments-1": ["/_lyr/Comments.js"] } },
+    );
+    lazy(p.importer);
+    const mq = FakeMQL.all[0]!;
+    expect(mq.media).toBe("(min-width: 900px)");
+    expect(p.imports).toEqual([]);
+    mq.set(true);
+    expect(p.imports).toEqual(["/_lyr/Comments.js"]);
+  });
+
+  test("a bare placeholder isn't a marker, and an eager delayed island's ID is ignored", () => {
+    const p = page(
+      `<lyr-island src="/i/b1/A-1" props="t"><p>x</p></lyr-island>` +
+        `<lyr-island src="/i/b1/E-1" props="t" client="idle"><p>x</p></lyr-island>`,
+      { lazy: { "A-1": "/_lyr/A.js" } },
+    );
+    lazy(p.importer);
+    expect(p.idle).toHaveLength(0);
+    expect(FakeIO.all).toHaveLength(0);
+    expect(p.imports).toEqual([]);
+  });
+
+  test("a lazy marker in a delayed island's fallback waits for the placeholder", () => {
+    const p = page(
+      `<lyr-island src="/i/b1/D-1" props="t" client="idle">${marker("S-1", "idle")}</lyr-island>`,
+      { lazy: { "D-1": "/_lyr/D.js", "S-1": "/_lyr/S.js" } },
+    );
+    lazy(p.importer);
+    expect(p.idle).toHaveLength(1);
+    p.runIdle();
+    expect(p.imports).toEqual(["/_lyr/D.js"]);
+    p.runIdle();
+    expect(p.imports).toEqual(["/_lyr/D.js", "/_lyr/S.js"]);
+  });
+
   test("client:media imports at load when the query matches", () => {
     const p = page(marker("M-1", "media", undefined, "(max-width: 600px)"), {
       lazy: { "M-1": "/_lyr/M.js" },

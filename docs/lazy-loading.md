@@ -7,7 +7,7 @@ Two directives on a component tag keep pages fast: `server:defer` renders a slow
 | `server:defer` | The component's **server rendering**. The page shows a fallback until the HTML arrives. | Server islands (`server:defer`) |
 | `client:idle`, `client:visible`, `client:media` | The **`<script>` modules** of the component and every component it renders. The HTML is rendered with the page as usual. | `client:*` directives, which Astro has only for framework components |
 
-Both work only on `.lyr` components, and they can't be used together on one tag (see [Combining the two](#combining-the-two)).
+Both work only on `.lyr` components. On one tag, `server:defer client:visible` (or `idle`, or `media`) also delays the island's fetch until the browser needs it (see [Delay the fetch](#delay-the-fetch) and [Combining the two](#combining-the-two)).
 
 ## `server:defer`: deferred server rendering
 
@@ -178,6 +178,64 @@ src/pages/blog/[slug].lyr:26:5: only slot="fallback" content is allowed inside a
 ```
 
 `server:defer` takes no value, and works only on a component tag (`<Self>` included). On an HTML element, `<slot>` or `<Fragment>`, it's a compile error: `server:defer only works on .lyr components`.
+
+### Delay the fetch
+
+By default, the loader fetches every island as soon as the page is parsed, so a deferred component far below the fold, or one only wide screens show, still costs its request and its server render (database queries included) on every page view. A `client:idle`, `client:visible` or `client:media` directive on the same tag delays the fetch until the browser needs it. Here the comments at the end of a post are fetched only when their fallback comes within 200 px of the viewport:
+
+```lyr file=src/components/Discussion.lyr
+---
+import Comments "./Comments.lyr"
+
+type Props struct {
+	Slug string
+}
+---
+<Comments server:defer client:visible="200px" postID={props.Slug}>
+  <p slot="fallback">Loading comments…</p>
+</Comments>
+```
+
+The strategies, their values and their rules are those of [`client:*`](#strategies):
+
+| On a `server:defer` tag | The island is fetched |
+|---|---|
+| No directive, or `client:load` | When the page is parsed, as above. |
+| `client:idle` | Once the browser is idle (`requestIdleCallback`, or after 200 ms where it's missing). |
+| `client:visible` | When an element of the fallback scrolls into view. An optional value is the `rootMargin`: `client:visible="200px"` fetches a little earlier. |
+| `client:media="(min-width: 900px)"` | When the media query matches, at page load or later. The value is required. |
+
+The strategy is written on the placeholder, after the props, and isn't part of the island URL or the sealed props, so caching works as for any island:
+
+```html
+<lyr-island src="/_lyr/island/3f9a2c1d7e4b5a60/Comments-9b1e44a2" props="…" client="visible" opts="200px"><p>Loading comments…</p></lyr-island>
+```
+
+- **Each placeholder has its own trigger**: two delayed instances of `Comments` are fetched separately, each when its own strategy fires. Instances with the same props have the same URL, so the [route cache](#response-headers-and-caching) and the browser's cache still answer the second one.
+- **`client:media` fetches once**: once fetched, the content stays even if the query stops matching. A query that never matches leaves the fallback in place for good, which is the point: the content is only for the screens that match.
+- **The scripts wait too**: the deferred component's scripts, and those of every component it renders, load on the same trigger, as for any [`client:*` subtree](#the-directive-covers-the-whole-subtree) (eager wins: a component also rendered eagerly on the page keeps its script in the page bundle).
+- **The server render waits**: a visitor who never scrolls to the comments never sends their request, so the component doesn't render for them at all.
+- **Removed before the trigger**: a placeholder that leaves the page before its strategy fires (a tab panel replaced by your own code, say) is never fetched.
+
+#### `client:visible` needs an element to observe
+
+The placeholder has `display: contents` and no box of its own, so `client:visible` observes the **elements** of its fallback. Any element works, an empty one included: `<div slot="fallback"></div>`. When it's certain that the fallback renders no element (no fallback at all, or a `<Fragment slot="fallback">` with only text), the island would load at once, so it's a compile error. With the fallback above written as text:
+
+```lyr file=src/components/Discussion.lyr expect-error at=8-10
+<Comments server:defer client:visible="200px" postID={props.Slug}>
+  <Fragment slot="fallback">Loading comments…</Fragment>
+</Comments>
+```
+
+Lyr reports, at the directive:
+
+```text
+src/components/Discussion.lyr:8:24: client:visible on a server:defer component needs a fallback element to observe, e.g. <div slot="fallback"></div>
+```
+
+A fallback that might render an element (an `{if}` block, an expression, a component) passes the check. If it renders no element after all, the loader fetches the island at once, and in `lyr dev` it warns once per component in the browser console: `lyr: /_lyr/island/…/Comments-9b1e44a2: client:visible has no fallback element to observe, so it was fetched at once`. An element hidden with `display: none` (or inside one) never comes into view, so its island is never fetched.
+
+A delayed island is Lyr's own addition: Astro's `server:defer` always fetches when the page loads, and preloads GET islands to fetch them sooner.
 
 ### Props must be JSON-serializable
 
@@ -369,9 +427,9 @@ POST responses aren't cacheable, so in `lyr dev` the loader warns once per defer
 
 ### Nested islands and lazy components inside islands
 
-A deferred component can render `server:defer` components and `client:*` components of its own. When a fragment arrives, the loader scans it for both, so nested islands load and lazy scripts are observed.
+A deferred component can render `server:defer` components and `client:*` components of its own. When a fragment arrives, the loader scans it for both, so nested islands load and lazy scripts are observed. A nested [delayed island](#delay-the-fetch) starts waiting for its own strategy only then: its placeholder doesn't exist before the outer fragment arrives.
 
-A placeholder inside an HTML fragment that you insert yourself (for example an htmx partial from `lyr.RenderComponent`) loads only if the page already has the loader, which happens when the page has a deferred component of its own: the loader watches the page for added placeholders (with a `MutationObserver`). On such a page, `<lyr-lazy>` markers in HTML you insert are observed too, if the page has lazy components of its own.
+A placeholder inside an HTML fragment that you insert yourself (for example an htmx partial from `lyr.RenderComponent`) loads only if the page already has the loader, which happens when the page has a deferred component of its own: the loader watches the page for added placeholders (with a `MutationObserver`), delayed ones included, which wait for their strategy as in the page. On such a page, `<lyr-lazy>` markers in HTML you insert are observed too, if the page has lazy components of its own.
 
 ### `server:defer` inside cached fragments
 
@@ -381,11 +439,13 @@ A cache shared across deploys (Redis, say) must put the deploy in its key: a new
 
 ### Scripts and styles of deferred components
 
-A deferred component, and every component it renders, is still part of the page's asset graph: its CSS and scripts load with the page, and the fragment brings none of its own. Those scripts run **before** the fragment arrives, so a script that queries the DOM when it loads doesn't see the island's elements. Write such scripts as custom elements; see [Write scripts as custom elements](#write-scripts-as-custom-elements). An `is:inline` script inside a fragment runs when the fragment is inserted.
+A deferred component, and every component it renders, is still part of the page's asset graph: its CSS and scripts load with the page, and the fragment brings none of its own. The scripts of a [delayed island](#delay-the-fetch) are the exception: they load when its strategy fires. Those scripts run **before** the fragment arrives, so a script that queries the DOM when it loads doesn't see the island's elements. Write such scripts as custom elements; see [Write scripts as custom elements](#write-scripts-as-custom-elements). An `is:inline` script inside a fragment runs when the fragment is inserted.
 
 ### Without JavaScript
 
 Without JavaScript, nothing fetches the island, so the fallback stays. Make it useful on its own where it matters, for example with a link to a page that renders the content directly.
+
+Deferred content is never in the page's HTML, so search engines that don't run scripts don't see it. A [delayed island](#delay-the-fetch) with `client:visible` is also missing for a crawler that renders the page without scrolling, and from a printed page.
 
 ## `client:*`: lazy scripts
 
@@ -471,7 +531,7 @@ To observe a component, Lyr wraps its output in an element (a component can rend
 ```
 
 - The wrapper has `display: contents`, so it doesn't affect layout. It is in the DOM, though: a child selector such as `.list > .item` doesn't match across it.
-- `client:visible` observes the wrapper's element children, because a `display: contents` element has no box of its own. A component that renders only text never becomes visible this way, so its scripts never load; wrap the text in an element.
+- `client:visible` observes the wrapper's element children, because a `display: contents` element has no box of its own. A component that renders no element (only text, or nothing) has nothing to observe, so its scripts load at once, and in `lyr dev` the loader warns once per component in the browser console: `lyr: ShareButtons-4c1d2e3f: client:visible has no element to observe, so it was loaded at once`. Wrap the text in an element to make it wait.
 - The wrapper is written even on pages where the script ends up eager. `client:load` writes no wrapper.
 - The wrapper is static HTML, merged with the surrounding markup when Lyr compiles the template, so it costs nothing at render time. Styles aren't affected: a lazy component's CSS is in the page's stylesheet.
 
@@ -509,23 +569,48 @@ They combine on one page (some parts deferred, some concurrent), but not on one 
 
 ## Combining the two
 
-`server:defer` and `client:*` on the same tag is a compile error. With this tag in the post page:
+`server:defer` and `client:*` work together on one tag. On a deferred component, `client:idle`, `client:visible` and `client:media` delay the browser's work for the component as they do everywhere, and that work now includes fetching its HTML:
 
-```lyr file=src/pages/blog/[slug].lyr expect-error at=25
-  <Comments server:defer client:idle postID={post.Slug}>
+- the island is fetched when the strategy fires (see [Delay the fetch](#delay-the-fetch));
+- the scripts of the component and of its subtree load on the same trigger, with the [eager-wins](#eager-wins) rule.
+
+`server:defer client:load` is the same as `server:defer` alone. `server:concurrent` still can't be combined with `server:defer`, whatever the `client:*`.
+
+To lazy-load scripts of only a part of the deferred HTML, put the `client:*` directive on a component that the deferred component renders instead.
+
+## Loading on an event
+
+Lyr has no directive that loads a component on a click or another event. [htmx](https://htmx.org)'s `hx-trigger` does it fully (events from other elements, `once`, delays, loading classes, error events), and works with Lyr: a handler renders the component with [`lyr.RenderComponent`](server.md#rendering-components-from-handlers), and htmx swaps it in.
+
+```lyr
+<button type="button" id="show-comments">Show comments</button>
+<div hx-get={`/blog/${post.Slug}/comments`} hx-trigger="click from:#show-comments once" hx-swap="innerHTML">
+  <p>Comments are hidden.</p>
+</div>
 ```
 
-Lyr reports:
-
-```text
-src/pages/blog/[slug].lyr:25:13: server:defer and client:* can't be combined; put client:* on a component inside the deferred one
+```go
+mux.HandleFunc("GET /blog/{slug}/comments", func(w http.ResponseWriter, r *http.Request) {
+	props := comments.Props{PostID: r.PathValue("slug")}
+	if err := lyr.RenderComponent(w, r, comments.Render, props); err != nil {
+		site.ServeError(w, r, err)
+	}
+})
 ```
 
-To lazy-load scripts inside deferred HTML, put the `client:*` directive on a component that the deferred component renders.
+The handler goes through your middleware like any request. Islands and `client:*` components inside the inserted HTML load only on pages that already have the loader (see [Nested islands](#nested-islands-and-lazy-components-inside-islands)), and the component's scripts are those of the page, as for any HTML you insert.
 
 ## The loader and Content Security Policy
 
-Pages that need it get small inline `<script type="module">`s (one for deferred components and one for lazy ones, each about 1 KB, under 0.8 KB gzipped), a JSON `<script type="application/json">` with their settings, and a one-line `<style>` that gives `<lyr-island>` and `<lyr-lazy>` `display: contents`, both in `<head>`. Lyr decides this when it builds, from the components a page can render: pages without deferred or lazy components get neither.
+Pages that need it get small inline `<script type="module">`s, a JSON `<script type="application/json">` with their settings, and a one-line `<style>` that gives `<lyr-island>` and `<lyr-lazy>` `display: contents`, all in `<head>`:
+
+| Script | When | Size |
+|---|---|---|
+| Islands loader | The page has a deferred component | 1.1 KB (0.7 KB gzipped) |
+| Islands loader, with strategies | Instead, when one is a [delayed island](#delay-the-fetch) | 2.0 KB (1.1 KB gzipped) |
+| Lazy loader | The page has lazy scripts (delayed islands' included) | 1.6 KB (0.9 KB gzipped) |
+
+Lyr decides this when it builds, from the components a page can render: pages without deferred or lazy components get none of them.
 
 The loader is inline, as Astro's island script is, which saves a request before the island fetches can start. A strict Content Security Policy must allow it, with `'unsafe-inline'` or the script's hash. Generated CSP hashes are planned for a later release.
 
@@ -534,6 +619,7 @@ The loader is inline, as Astro's island script is, which saves a request before 
 | Astro | Lyr |
 |---|---|
 | `server:defer` with a `fallback` slot | The same. Other slots can't be passed to a deferred component yet. |
+| `server:defer` always fetches when the page loads | The same by default; `server:defer client:visible\|idle\|media` delays the fetch (Lyr only) |
 | `ASTRO_KEY`, `astro create-key` | `LYR_KEY`, `lyr create-key` |
 | `Astro.url` in a server island is the island URL; the page URL is in `Referer` | The same, with `ctx.URL` and `ctx.Request.Referer()` |
 | Island props switch to POST above 2048 characters | Above 8000 characters |

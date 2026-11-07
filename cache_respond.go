@@ -574,7 +574,7 @@ func (s *Site) render(c *Ctx, route *Route) (*bytes.Buffer, error) {
 	wr.reset(buf)
 	if s.devAssets != nil {
 		assets := s.devAssets.assets(route)
-		wr.tags = headTags(loaderHead(s.dev, route.Islands, assets), assets)
+		wr.tags = headTags(loaderHead(s.dev, route.Islands, route.IslandsWhen, assets), assets)
 	} else if s.heads != nil {
 		wr.tags = s.heads[route]
 	}

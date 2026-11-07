@@ -197,13 +197,6 @@ func (p *parser) checkTag(t *Tag, k tagKind, children []Node, raw *RawText) (def
 			}
 		}
 	}
-	if deferAttr != nil && client != nil {
-		first := deferAttr
-		if client.Start < first.Start {
-			first = client
-		}
-		p.errorf(first.Span, "server:defer and client:* can't be combined; put client:* on a component inside the deferred one")
-	}
 	if deferAttr != nil && conc != nil {
 		first := deferAttr
 		if conc.Start < first.Start {
@@ -311,6 +304,78 @@ func (p *parser) checkDeferChildren(c *Component) {
 		}
 		p.errorf(childSpan(ch), `only slot="fallback" content is allowed inside a server:defer component`)
 	}
+	// server:defer client:visible observes the fallback's elements
+	// (PLAN.md §3.4 "Delayed island fetch"): with none that can render,
+	// the island would load at once, so it's an error when that's certain.
+	if c.Client != nil && c.Client.Directive == ClientVisible && fallbackElements(c.Children) == noElement {
+		p.errorf(c.Client.Span, `client:visible on a server:defer component needs a fallback element to observe, e.g. <div slot="fallback"></div>`)
+	}
+}
+
+// elementKind is whether content renders an HTML element: noElement when
+// it certainly doesn't, someElement when it certainly does, maybeElement
+// when only rendering can tell.
+type elementKind int
+
+const (
+	noElement elementKind = iota
+	maybeElement
+	someElement
+)
+
+// fallbackElements reports whether the slot="fallback" children of a
+// server:defer component render an HTML element at their top level.
+func fallbackElements(children []Node) elementKind {
+	k := noElement
+	for _, ch := range children {
+		t := TagOf(ch)
+		if t == nil {
+			continue
+		}
+		if s := t.Attr("slot"); s == nil || !s.IsStatic() || s.Value != "fallback" {
+			continue
+		}
+		switch ch := ch.(type) {
+		case *Element:
+			return someElement
+		case *Fragment:
+			if ch.Attr("set:html") != nil {
+				k = max(k, maybeElement)
+			} else {
+				k = max(k, topElements(ch.Children))
+			}
+		case *Script, *Style:
+		default: // a component or a <slot>: its content isn't checked
+			k = max(k, maybeElement)
+		}
+		if k == someElement {
+			return k
+		}
+	}
+	return k
+}
+
+// topElements reports whether nodes render an HTML element at their top
+// level: text, comments, scripts and styles don't; an element does; any
+// other node (an expression, a block, a component, a slot) may.
+func topElements(nodes []Node) elementKind {
+	k := noElement
+	for _, n := range nodes {
+		switch n := n.(type) {
+		case *Text, *Comment, *HTMLComment, *Script, *Style:
+		case *Element:
+			return someElement
+		case *Fragment:
+			if n.Attr("set:html") != nil {
+				k = max(k, maybeElement)
+			} else {
+				k = max(k, topElements(n.Children))
+			}
+		default:
+			k = max(k, maybeElement)
+		}
+	}
+	return k
 }
 
 // childSpan is where a diagnostic about a child goes: its start tag, or its
