@@ -8,60 +8,69 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 )
 
 const root = "../../.."
 
-// TestUpToDate fails when loader_gen.go doesn't match loader/*.ts.
+// TestUpToDate fails when internal/loader/loader_gen.go doesn't match
+// loader/*.ts.
 func TestUpToDate(t *testing.T) {
 	want, err := generate(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(root, "loader_gen.go"))
+	got, err := os.ReadFile(filepath.Join(root, out))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(got, want) {
-		t.Fatal("loader_gen.go is out of date: run go generate at the repository root")
+		t.Fatal(out + " is out of date: run go generate at the repository root")
 	}
 }
 
-// TestScripts checks that each script is built, the islands loader in
-// both variants (PLAN.md §3.4 "Delayed island fetch"), and logs the sizes
-// quoted in the docs (go test -v -run TestScripts ./loader/internal/gen).
-func TestScripts(t *testing.T) {
-	got := map[string]string{}
-	for _, s := range scripts {
-		js, err := build(filepath.Join(root, s.entry), s.when)
-		if err != nil {
-			t.Fatal(err)
-		}
-		got[s.name] = js
+// TestLoader checks that the loader is one deterministic classic script
+// with every part, and logs the sizes quoted in the docs
+// (go test -v -run TestLoader ./loader/internal/gen).
+func TestLoader(t *testing.T) {
+	js, err := build(filepath.Join(root, "loader", "loader.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := build(filepath.Join(root, "loader", "loader.ts"))
+	if err != nil || again != js {
+		t.Fatalf("the build isn't deterministic (%v)", err)
+	}
+	for _, f := range []struct{ name, s string }{{"loader", js}, {"wrappers", wrappersCSS}} {
 		var z bytes.Buffer
 		zw, _ := gzip.NewWriterLevel(&z, gzip.BestCompression)
-		zw.Write([]byte(js))
+		zw.Write([]byte(f.s))
 		zw.Close()
-		t.Logf("%s: %d B, %d B gzipped", s.name, len(js), z.Len())
+		t.Logf("%s: %d B, %d B gzipped", f.name, len(f.s), z.Len())
 	}
-	plain, when, lazy := got["loaderIslandsJS"], got["loaderIslandsWhenJS"], got["loaderLazyJS"]
-	// The plain islands loader has no strategy code; the variant and the
-	// lazy loader do.
-	for _, w := range []string{"IntersectionObserver", "matchMedia", "requestIdleCallback", "LYR_WHEN"} {
-		if bytes.Contains([]byte(plain), []byte(w)) {
-			t.Errorf("loaderIslandsJS contains %q", w)
+	// A classic script: an IIFE, no top-level import or export (a module
+	// would run once per document, not on every partial insertion).
+	if !strings.HasPrefix(js, `"use strict";(()=>{`) || !strings.HasSuffix(js, "})();") {
+		t.Errorf("the loader isn't an IIFE: %.40s…%s", js, js[max(len(js)-20, 0):])
+	}
+	if regexp.MustCompile(`(^|[;}])\s*(import|export)[\s{*"]`).MatchString(js) {
+		t.Error("the loader has a static import or export")
+	}
+	// Every part: islands, strategies, lazy, the partial runner, the guard.
+	for _, w := range []string{"lyr-island", "IntersectionObserver", "matchMedia", "requestIdleCallback",
+		"lyr-lazy,lyr-island[client]", "no fallback element to observe", "currentScript", "data-lyr-loader",
+		"lyr__ran", "/_lyr/island/", "location.origin", "import("} {
+		if !strings.Contains(js, w) {
+			t.Errorf("the loader lacks %q", w)
 		}
 	}
-	for _, js := range []string{when, lazy} {
-		for _, w := range []string{"IntersectionObserver", "matchMedia", "requestIdleCallback"} {
-			if !bytes.Contains([]byte(js), []byte(w)) {
-				t.Errorf("a strategy loader lacks %q", w)
-			}
-		}
-	}
-	if !bytes.Contains([]byte(when), []byte("no fallback element to observe")) || !bytes.Contains([]byte(lazy), []byte("lyr-lazy,lyr-island[client]")) {
-		t.Error("loaderIslandsWhenJS or loaderLazyJS lacks the delayed-island code")
+}
+
+func TestName(t *testing.T) {
+	// sha256("") = e3b0c442…
+	if got := name("x", ".js", ""); got != "x-e3b0c442.js" {
+		t.Errorf("name = %q", got)
 	}
 }
 

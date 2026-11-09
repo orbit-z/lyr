@@ -2,6 +2,24 @@
 
 What's new in each Lyr release. The VS Code extension has its own changelog, in `editors/vscode/CHANGELOG.md`.
 
+## v0.3.0
+
+**Content Security Policy**
+- Lyr writes no inline script and no inline style any more, so a site runs under `script-src 'self'; style-src 'self'` with no hashes and no nonces, as long as its own templates add none. No action needed: a policy that already allowed your `/_lyr/` bundles allows Lyr's new files. See [Content Security Policy](docs/content-security-policy.md) for a complete example (third-party scripts, embeds, an `is:inline` snippet moved to `public/`, and the hash of one that stays inline).
+- The loaders and a page partial's runner are now one file, `/_lyr/loader/loader-<hash>.js` (3.9 KB, 1.9 KB gzipped), that `lyr build` and `lyr dev` write into `dist/client/_lyr/loader/`. Pages load it with `<script defer src>`; a partial ends with `<script src … data-lyr-loader='…'>`, which runs on every swap. The file is cached for a year and shared by every page, so a page with deferred or lazy components carries only its settings and a 61-byte tag: 1.5–4.3 KB smaller than with v0.2.0's inline loaders (0.9–1.9 KB gzipped). A partial with deferred or lazy components is 1.6–4.3 KB smaller per response; one with only scripts ends with a 152-byte tag for one component, instead of the 170-byte runner. On a visitor's first page, it's one more request, started from the `<head>`. See [The loader and Content Security Policy](docs/lazy-loading.md#the-loader-and-content-security-policy).
+- The `display: contents` rule for `<lyr-island>` and `<lyr-lazy>` is now at the start of the page's stylesheet (a page with call sites and no CSS gets a one-rule stylesheet); a partial links `/_lyr/loader/wrappers-<hash>.css` by the same rule: any `server:defer` or `client:*` call site in its components, even one that ends up eager.
+- The loader imports and fetches only same-origin URLs under `/_lyr/` (islands only under `/_lyr/island/`).
+- Delayed islands in a partial no longer wait up to 1 s for a strategies loader: there's one loader, and it handles every strategy.
+- Markdown tables: aligned columns (`:---:`, `---:`) get an `align` attribute on their cells, as in Astro, instead of `style="text-align:…"`, which a strict `style-src` blocks.
+- In production, the server logs an error at startup when its static files lack the loader file (a `dist/` built by an older Lyr): run `lyr build`. When you deploy, keep the previous build's `/_lyr/` files as before; they now include the loader. During a rolling upgrade, a v0.2.0 partial swapped into a v0.3.0 page works; a v0.3.0 partial in a v0.2.0 page runs its scripts and islands, but its lazy components don't load, and its delayed islands load at once after v0.2.0's 1 s timeout, until the visitor loads a page of the new version. See [Troubleshooting](docs/troubleshooting.md#the-server-logs-that-the-loader-file-is-missing).
+
+**Changes**
+- With `hx-select`, select the `<script>` at the end of a partial and, when it has deferred or lazy components, the `<link rel="stylesheet">` before it when there is one.
+- htmx 2 under `style-src 'self'`: set `includeIndicatorStyles: false` (its indicator `<style>` is inline) and style `.htmx-indicator` yourself. See [Page partials](docs/routing.md#page-partials).
+- Under a Content Security Policy without `'unsafe-inline'` and `'unsafe-eval'`, a swap library that runs a fragment's scripts by evaluating their text (jQuery's `.html()`) can't run a partial's scripts; libraries that re-create the `<script>` elements, as htmx and Turbo do, work. See [Page partials](docs/routing.md#page-partials).
+- `lyr.Route.IslandsWhen` is removed (generated code only): one loader handles every strategy.
+- `lyr build --verbose` lists the loader files in a `lyr loader` section.
+
 ## v0.2.0
 
 **Page partials**

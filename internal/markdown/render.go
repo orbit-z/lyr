@@ -86,7 +86,12 @@ func engine(o Options) goldmark.Markdown {
 	}
 	var exts []goldmark.Extender
 	if k.gfm {
-		exts = append(exts, extension.GFM, extension.Footnote)
+		// extension.GFM, with aligned table cells as align="…" (Astro's
+		// output) instead of style="text-align:…", which a strict
+		// Content Security Policy (style-src 'self') blocks.
+		exts = append(exts, extension.Linkify,
+			extension.NewTable(extension.WithTableCellAlignMethod(extension.TableCellAlignAttribute)),
+			extension.Strikethrough, extension.TaskList, extension.Footnote)
 	}
 	if k.smarty {
 		// Astro's smartypants doesn't turn << and >> into guillemets, and

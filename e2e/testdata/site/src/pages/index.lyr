@@ -1,0 +1,28 @@
+---
+import (
+	Deferred "../components/Deferred.lyr"
+	Delayed "../components/Delayed.lyr"
+	Never "../components/Never.lyr"
+	Tip "../components/Tip.lyr"
+)
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
+    <title>e2e</title>
+    <script src="/csp-check.js"></script>
+    <script src="/htmx.js"></script>
+  </head>
+  <body>
+    <Delayed server:defer client:visible><p slot="fallback">delayed fallback</p></Delayed>
+    <Deferred server:defer><p slot="fallback">deferred fallback</p></Deferred>
+    <Tip client:idle />
+    <Never server:defer client:media="(max-width: 1px)"><p slot="fallback">never fallback</p></Never>
+    <div id="a1" hx-get="/partials/a" hx-trigger="load" hx-swap="innerHTML"></div>
+    <div id="a2" hx-get="/partials/a" hx-trigger="load delay:500ms" hx-swap="innerHTML"></div>
+    <div id="b1" hx-get="/partials/b" hx-trigger="load" hx-swap="innerHTML"></div>
+    <div id="c1" hx-get="/partials/c" hx-trigger="load delay:1000ms" hx-swap="innerHTML"></div>
+  </body>
+</html>

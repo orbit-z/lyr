@@ -14,6 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/orbit-z/lyr/internal/assets"
 	"github.com/orbit-z/lyr/internal/build"
@@ -73,8 +74,9 @@ func runBuild(e *env, args []string) int {
 // with their raw and gzipped sizes: its stylesheets, its module, the
 // chunks the module imports indented below it with "(preload)", and its
 // lazy entries with "(lazy)". Then the chunks that no page preloads (the
-// targets of dynamic import(), and chunks only lazy entries import), and
-// the totals, which count every CSS and JS file once.
+// targets of dynamic import(), and chunks only lazy entries import), Lyr's
+// loader files (/_lyr/loader/, PLAN.md §5f), and the totals, which count
+// every CSS and JS file of the project once, the loader files left out.
 func printBundles(w io.Writer, p *project.Project) {
 	if p == nil || p.Assets == nil {
 		return
@@ -126,10 +128,14 @@ func printBundles(w io.Writer, p *project.Project) {
 		}
 		rows[page] = slices.Concat(css, js, pre, lazy)
 	}
-	var dynamic []line
+	var dynamic, lyrLoader []line
 	var totalCSS, totalJS size
 	for _, f := range p.Assets.Files {
 		url := assets.URLPrefix + f.Name
+		if strings.HasPrefix(f.Name, "loader/") {
+			lyrLoader = append(lyrLoader, line{"  " + url, "", url})
+			continue
+		}
 		switch path.Ext(f.Name) {
 		case ".css":
 			s := sizeOf(url)
@@ -144,7 +150,7 @@ func printBundles(w io.Writer, p *project.Project) {
 	}
 
 	width := len("total CSS")
-	for _, rs := range append(slices.Collect(maps.Values(rows)), dynamic) {
+	for _, rs := range append(slices.Collect(maps.Values(rows)), dynamic, lyrLoader) {
 		for _, r := range rs {
 			width = max(width, len(r.label))
 		}
@@ -165,6 +171,12 @@ func printBundles(w io.Writer, p *project.Project) {
 	if len(dynamic) > 0 {
 		fmt.Fprintln(w, "loaded with import()")
 		for _, r := range dynamic {
+			row(r.label, sizeOf(r.url), "")
+		}
+	}
+	if len(lyrLoader) > 0 {
+		fmt.Fprintln(w, "lyr loader (pages with server:defer or client:*, and partials)")
+		for _, r := range lyrLoader {
 			row(r.label, sizeOf(r.url), "")
 		}
 	}

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/orbit-z/lyr/internal/loader"
 )
 
 // TestExampleBlog builds examples/blog the way a fresh clone does (no
@@ -164,7 +166,7 @@ var (
 	blogLazy   = regexp.MustCompile(`"(ShareButtons-[0-9a-f]{8})":\["(/_lyr/ShareButtons-[A-Z0-9]{8}\.js)"\]\}`)
 	// The delayed Comments island's subtree: CommentList's entry.
 	commentsLazy  = regexp.MustCompile(`"lazy":\{"Comments-[0-9a-f]{8}":\["(/_lyr/CommentList-[A-Z0-9]{8}\.js)"\],"ShareButtons-`)
-	partialRunner = regexp.MustCompile(`<script type="module">let s=globalThis\.lyr__ran\?\?=new Set;for\(let\[i,u\]of\[\["CommentList-[0-9a-f]{8}","(/_lyr/CommentList-[A-Z0-9]{8}\.js)"\]\]\)s\.has\(i\)\|\|\(s\.add\(i\),import\(u\)\)</script>$`)
+	partialRunner = regexp.MustCompile(`<script src="` + regexp.QuoteMeta(loader.LoaderURL) + `" data-lyr-loader='\{"dev":false,"run":\[\["CommentList-[0-9a-f]{8}","(/_lyr/CommentList-[A-Z0-9]{8}\.js)"\]\]\}'></script>$`)
 	titlesJSON    = regexp.MustCompile(`<script type="application/json" id="post-titles-data">(.*?)</script>`)
 )
 
@@ -302,7 +304,7 @@ func checkBlogMarkdown(t *testing.T, s *server) {
 
 // checkBlogPartial checks the page partial /partials/comments/[slug]
 // (PLAN.md §4k): served through the middleware, a fragment with no head
-// tags and its runner at the end, whose CommentList entry is the post
+// tags and its loader script at the end (PLAN.md §5f), whose CommentList entry is the post
 // page's lazy entry, the same URL, so the browser runs it once on the post
 // page, and once on any other.
 func checkBlogPartial(t *testing.T, s *server) {
@@ -311,7 +313,7 @@ func checkBlogPartial(t *testing.T, s *server) {
 	if resp.StatusCode != 200 || resp.Header.Get("X-Request-Id") == "" || !strings.HasPrefix(body, `<comment-list data-count="2"`) {
 		t.Fatalf("GET /partials/comments/hello: %d, headers %v\n%s", resp.StatusCode, resp.Header, body)
 	}
-	for _, unwanted := range []string{"<link", `src="/_lyr/`, "lyr-loader", "<!DOCTYPE", "<head"} {
+	for _, unwanted := range []string{"<link", `type="module"`, `id="lyr-loader"`, "<!DOCTYPE", "<head", "<style"} {
 		if strings.Contains(body, unwanted) {
 			t.Errorf("GET /partials/comments/hello: has %q:\n%s", unwanted, body)
 		}
@@ -321,7 +323,7 @@ func checkBlogPartial(t *testing.T, s *server) {
 	}
 	run := partialRunner.FindStringSubmatch(body)
 	if run == nil {
-		t.Fatalf("GET /partials/comments/hello: no runner at the end:\n%s", body)
+		t.Fatalf("GET /partials/comments/hello: no loader script at the end:\n%s", body)
 	}
 	if resp, b := s.get(run[1]); resp.StatusCode != 200 || !strings.Contains(b, "comment-list") || strings.Contains(b, ": void") {
 		t.Errorf("GET %s: %d, not CommentList's stripped script:\n%s", run[1], resp.StatusCode, b)
@@ -400,14 +402,24 @@ func checkBlogPost(t *testing.T, s *server) {
 
 	// Comments are deferred: the page holds the fallback and doesn't wait
 	// for their slow query (posts.CommentDelay, 200 ms). The island is
-	// delayed (client:visible), so the page has the islands loader variant
-	// that reads strategies (PLAN.md §3.4).
+	// delayed (client:visible, PLAN.md §3.4). The loader is a file and the
+	// display:contents rule starts the page stylesheet: no inline script
+	// or style (PLAN.md §5f).
 	m := blogIsland.FindStringSubmatch(post)
-	if m == nil || !strings.Contains(post, "<style>lyr-island,lyr-lazy{display:contents}</style>") {
-		t.Fatalf("GET /blog/hello: no island placeholder with its fallback, or no loader style:\n%s", post)
+	if m == nil || !strings.Contains(post, `<script defer src="`+loader.LoaderURL+`"></script>`) {
+		t.Fatalf("GET /blog/hello: no island placeholder with its fallback, or no loader script:\n%s", post)
 	}
-	if !strings.Contains(post, "no fallback element to observe") {
-		t.Errorf("GET /blog/hello: not the islands loader for delayed islands:\n%s", post)
+	if strings.Contains(post, "<style") || strings.Contains(post, "<script>") || strings.Contains(post, `<script type="module">`) {
+		t.Errorf("GET /blog/hello: inline script or style:\n%s", post)
+	}
+	if _, b := s.get(css[1]); !strings.HasPrefix(b, loader.WrappersCSS) {
+		t.Errorf("GET %s: doesn't start with the wrappers rule:\n%s", css[1], b)
+	}
+	for _, f := range loader.Files {
+		resp, b := s.get("/_lyr/" + f.Path)
+		if resp.StatusCode != 200 || b != f.Contents || resp.Header.Get("Cache-Control") != "public, max-age=31536000, immutable" {
+			t.Errorf("GET /_lyr/%s: %d, Cache-Control %q", f.Path, resp.StatusCode, resp.Header.Get("Cache-Control"))
+		}
 	}
 	fastest := time.Hour
 	for range 3 {

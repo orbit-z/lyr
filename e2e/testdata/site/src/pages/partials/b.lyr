@@ -1,0 +1,13 @@
+---
+import (
+	PbIsland "../../components/PbIsland.lyr"
+	PbLate "../../components/PbLate.lyr"
+	PbTip "../../components/PbTip.lyr"
+)
+
+// A deferred island, a delayed one and a lazy component in a partial.
+const partial = true
+---
+<PbIsland server:defer><p slot="fallback" class="pb-fallback">pb fallback</p></PbIsland>
+<PbLate server:defer client:visible><p slot="fallback" class="pb-late-fallback">pb late fallback</p></PbLate>
+<PbTip client:idle />

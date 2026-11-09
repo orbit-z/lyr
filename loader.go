@@ -3,30 +3,32 @@ package lyr
 import (
 	"bytes"
 	"encoding/json"
+
+	"github.com/orbit-z/lyr/internal/loader"
 )
 
-// Head injection of the client loader (PLAN.md §5 "The loader"), on pages
-// that need it: the islands part when Route.Islands is set, the lazy part
-// when the page has "lazy" assets. The scripts (loaderIslandsJS, or
-// loaderIslandsWhenJS when Route.IslandsWhen is set, and loaderLazyJS) are
-// built from loader/*.ts into loader_gen.go. The contract with the loader:
+// Injection of the client loader (PLAN.md §5 "The loader", §5f), on pages
+// that need it: those whose static graph has a server:defer call site
+// (Route.Islands) or "lazy" assets. The loader is one classic script,
+// loader.LoaderURL, built from loader/*.ts into internal/loader, which
+// lyr build and lyr dev write under /_lyr/loader/. Lyr writes no inline
+// executable script and no inline style, so a site runs under
+// script-src 'self'; style-src 'self'. A page's head gets:
 //
-//	<style>lyr-island,lyr-lazy{display:contents}</style>
 //	<script type="application/json" id="lyr-loader">{"dev":false,"lazy":{…}}</script>
-//	<script type="module">…loaderIslandsJS…</script>   (when Route.Islands)
-//	<script type="module">…loaderIslandsWhenJS…</script> (instead, when Route.IslandsWhen)
-//	<script type="module">…loaderLazyJS…</script>      (when the page has lazy assets)
+//	<script defer src="/_lyr/loader/loader-HASH.js"></script>
 //
-// A page partial gets none of it in a head: what it needs comes at the end
-// of its output instead (partialTail, PLAN.md §4k).
+// The config is a data block, which a Content Security Policy doesn't
+// block. The display:contents rule for <lyr-island> and <lyr-lazy> is the
+// first rule of the page's stylesheet (internal/assets). A page partial
+// gets none of it in a head: what it needs comes at the end of its output
+// instead (partialTail, PLAN.md §4k).
 
 //go:generate go run ./loader/internal/gen
 
-const loaderStyle = `<style>lyr-island,lyr-lazy{display:contents}</style>`
-
 // loaderConfig is the JSON config the loader reads from
-// <script id="lyr-loader"> (and, in a page partial's tail, from
-// <script data-lyr-loader>).
+// <script id="lyr-loader"> (and, in a page partial's tail, from the
+// data-lyr-loader attribute of its loader script).
 type loaderConfig struct {
 	Dev  bool    `json:"dev"`
 	Lazy lazyMap `json:"lazy,omitempty"`
@@ -34,6 +36,10 @@ type loaderConfig struct {
 	// lazy loader skips a component the document already ran (PLAN.md
 	// §4k). Never set in a page's head.
 	IDs map[string]string `json:"ids,omitempty"`
+	// Run lists a partial's component entries, [ID, URL], that its loader
+	// script imports unless the document ran the ID. Never set in a
+	// page's head.
+	Run [][2]string `json:"run,omitempty"`
 }
 
 // lazyMap maps a component ID to the entry URLs its <lyr-lazy> markers
@@ -53,9 +59,8 @@ func (m lazyMap) addLazy(a Asset) {
 }
 
 // loaderHead returns the loader tags for a page with the given islands
-// flags and assets, or "" if the page needs no loader. when picks the
-// islands loader that reads delayed islands' strategies (loaderIslandsWhenJS).
-func loaderHead(dev, islands, when bool, assets []Asset) string {
+// flag and assets, or "" if the page needs no loader.
+func loaderHead(dev, islands bool, assets []Asset) string {
 	lazy := lazyMap{}
 	for _, a := range assets {
 		if a.Kind == "lazy" {
@@ -66,90 +71,71 @@ func loaderHead(dev, islands, when bool, assets []Asset) string {
 		return ""
 	}
 	var b bytes.Buffer
-	b.WriteString(loaderStyle)
 	b.WriteString(`<script type="application/json" id="lyr-loader">`)
-	writeLoader(&b, dev, islands, when, lazy, nil)
+	// Escaped for a script context, like set:json: no </script> or <!--.
+	json.HTMLEscape(&b, marshalLoader(loaderConfig{Dev: dev, Lazy: lazy}))
+	b.WriteString(`</script><script defer src="` + loader.LoaderURL + `"></script>`)
 	return b.String()
 }
 
-// writeLoader writes the loader config, from its opening tag's end, and
-// the loader scripts: the islands script (the strategy-reading variant
-// with when) if islands, the lazy script if lazy has entries.
-func writeLoader(b *bytes.Buffer, dev, islands, when bool, lazy lazyMap, ids map[string]string) {
-	data, err := json.Marshal(loaderConfig{Dev: dev, Lazy: lazy, IDs: ids})
+// marshalLoader encodes c.
+func marshalLoader(c loaderConfig) []byte {
+	data, err := json.Marshal(c)
 	if err != nil {
-		panic("lyr: loader config: " + err.Error()) // maps of strings always encode
+		panic("lyr: loader config: " + err.Error()) // maps and pairs of strings always encode
 	}
-	// Escaped for a script context, like set:json: no </script> or <!--.
-	json.HTMLEscape(b, data)
-	b.WriteString(`</script>`)
-	switch {
-	case islands && when:
-		b.WriteString(`<script type="module">`)
-		b.WriteString(loaderIslandsWhenJS)
-		b.WriteString(`</script>`)
-	case islands:
-		b.WriteString(`<script type="module">`)
-		b.WriteString(loaderIslandsJS)
-		b.WriteString(`</script>`)
-	}
-	if len(lazy) > 0 {
-		b.WriteString(`<script type="module">`)
-		b.WriteString(loaderLazyJS)
-		b.WriteString(`</script>`)
-	}
+	return data
 }
 
 // partialTail returns what a page partial's output ends with (PLAN.md
-// §4k), or "" when it needs nothing: when its subtree has server:defer or
-// client:* call sites, the loader pieces it needs, as in a page's head but
-// with a data-lyr-loader config (the loaders are idempotent, so a host
-// that has them keeps its own); then, when its subtree has scripts, the
-// runner, which imports each component entry whose ID the document hasn't
-// run yet:
+// §4k), or "" when it needs nothing. When its subtree has server:defer or
+// lazy client:* call sites (a "css" asset, the wrappers stylesheet, which
+// is a partial's only CSS), a link to it; then, when it has islands, lazy
+// entries or scripts, the loader script with the partial's config in its
+// data-lyr-loader attribute:
 //
-//	<script type="module">let s=globalThis.lyr__ran??=new Set;for(let[i,u]of[["ID","URL"],…])s.has(i)||(s.add(i),import(u))</script>
+//	<link rel="stylesheet" href="/_lyr/loader/wrappers-HASH.css">
+//	<script src="/_lyr/loader/loader-HASH.js" data-lyr-loader='{"dev":false,"lazy":{…},"ids":{…},"run":[["ID","URL"],…]}'></script>
 //
-// The "component" assets whose URL is also a "lazy" asset's are loaded by
-// the lazy loader, not the runner; they give it each lazy URL's component
-// ID. In production it runs once per route, in NewSite.
-func partialTail(dev, islands, when bool, assets []Asset) string {
-	lazy := lazyMap{}
+// The script is classic, so the browser runs it on every insertion. It
+// imports each "run" entry whose ID the document hasn't run yet, and
+// installs the islands and lazy loaders unless the host has them (then it
+// merges its config into the host's). The "component" assets whose URL is
+// also a "lazy" asset's are loaded by the lazy loader, not "run"; "ids"
+// gives it each lazy URL's component ID. In production it runs once per
+// route, in NewSite.
+func partialTail(dev, islands bool, assets []Asset) string {
+	c := loaderConfig{Dev: dev, Lazy: lazyMap{}}
 	for _, a := range assets {
 		if a.Kind == "lazy" {
-			lazy.addLazy(a)
+			c.Lazy.addLazy(a)
 		}
 	}
-	var ids map[string]string
-	var run [][2]string
 	for _, a := range assets {
 		if a.Kind != "component" {
 			continue
 		}
-		if lazyURL(lazy, a.URL) {
-			if ids == nil {
-				ids = map[string]string{}
+		if lazyURL(c.Lazy, a.URL) {
+			if c.IDs == nil {
+				c.IDs = map[string]string{}
 			}
-			ids[a.URL] = a.ID
+			c.IDs[a.URL] = a.ID
 		} else {
-			run = append(run, [2]string{a.ID, a.URL})
+			c.Run = append(c.Run, [2]string{a.ID, a.URL})
 		}
 	}
 	var b bytes.Buffer
-	if islands || len(lazy) > 0 {
-		b.WriteString(loaderStyle)
-		b.WriteString(`<script type="application/json" data-lyr-loader>`)
-		writeLoader(&b, dev, islands, when, lazy, ids)
-	}
-	if len(run) > 0 {
-		data, err := json.Marshal(run)
-		if err != nil {
-			panic("lyr: partial runner: " + err.Error()) // string pairs always encode
+	for _, a := range assets {
+		if a.Kind == "css" {
+			b.WriteString(`<link rel="stylesheet" href="` + attrEscape(a.URL) + `">`)
 		}
-		b.WriteString(`<script type="module">let s=globalThis.lyr__ran??=new Set;for(let[i,u]of`)
-		json.HTMLEscape(&b, data)
-		b.WriteString(`)s.has(i)||(s.add(i),import(u))</script>`)
 	}
+	if !islands && len(c.Lazy) == 0 && len(c.Run) == 0 {
+		return b.String()
+	}
+	b.WriteString(`<script src="` + loader.LoaderURL + `" data-lyr-loader='`)
+	escapeJSONAttr(&b, marshalLoader(c))
+	b.WriteString(`'></script>`)
 	return b.String()
 }
 

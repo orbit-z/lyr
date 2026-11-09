@@ -12,7 +12,8 @@ import (
 
 // TestPrintBundles is the lyr build --verbose golden (PLAN.md §5e): a
 // preload row below the module, a lazy row listed once per page, the
-// import() section, and totals that count each file once.
+// import() section, the loader files in their own section, and totals
+// that count each file of the project once.
 func TestPrintBundles(t *testing.T) {
 	file := func(name string, n int) assets.File {
 		return assets.File{Name: name, Contents: []byte(strings.Repeat("x", n))}
@@ -45,6 +46,8 @@ func TestPrintBundles(t *testing.T) {
 				file("font-FFFF.woff2", 5000),
 				file("index-AAAA.css", 1300),
 				file("index-BBBB.js", 420),
+				file("loader/loader-11112222.js", 3900),
+				file("loader/wrappers-33334444.css", 37),
 				file("quickSearch-GGGG.js", 48100),
 			},
 		},
@@ -52,18 +55,21 @@ func TestPrintBundles(t *testing.T) {
 	var b bytes.Buffer
 	printBundles(&b, p)
 	const want = `src/pages/about.lyr
-  /_lyr/about-EEEE.js           0.42 kB  gzip    0.03 kB
-    /_lyr/chunk-DDDD.js         0.31 kB  gzip    0.03 kB  (preload)
+  /_lyr/about-EEEE.js                    0.42 kB  gzip    0.03 kB
+    /_lyr/chunk-DDDD.js                  0.31 kB  gzip    0.03 kB  (preload)
 src/pages/index.lyr
-  /_lyr/index-AAAA.css          1.30 kB  gzip    0.03 kB
-  /_lyr/index-BBBB.js           0.42 kB  gzip    0.03 kB
-    /_lyr/chunk-DDDD.js         0.31 kB  gzip    0.03 kB  (preload)
-  /_lyr/Comments-CCCC.js        0.30 kB  gzip    0.03 kB  (lazy)
+  /_lyr/index-AAAA.css                   1.30 kB  gzip    0.03 kB
+  /_lyr/index-BBBB.js                    0.42 kB  gzip    0.03 kB
+    /_lyr/chunk-DDDD.js                  0.31 kB  gzip    0.03 kB  (preload)
+  /_lyr/Comments-CCCC.js                 0.30 kB  gzip    0.03 kB  (lazy)
 src/pages/plain.lyr: no CSS or JS
 loaded with import()
-  /_lyr/quickSearch-GGGG.js    48.10 kB  gzip    0.08 kB
-total CSS                       1.30 kB  gzip    0.03 kB
-total JS                       49.55 kB  gzip    0.18 kB
+  /_lyr/quickSearch-GGGG.js             48.10 kB  gzip    0.08 kB
+lyr loader (pages with server:defer or client:*, and partials)
+  /_lyr/loader/loader-11112222.js        3.90 kB  gzip    0.04 kB
+  /_lyr/loader/wrappers-33334444.css     0.04 kB  gzip    0.06 kB
+total CSS                                1.30 kB  gzip    0.03 kB
+total JS                                49.55 kB  gzip    0.18 kB
 `
 	if got := b.String(); got != want {
 		t.Errorf("got\n%s\nwant\n%s", got, want)

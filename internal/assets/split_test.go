@@ -73,11 +73,12 @@ func contents(t *testing.T, res *Result, url string) string {
 	return string(f.Contents)
 }
 
-// filesWith returns the names of the JS files that contain s.
+// filesWith returns the names of the JS files that contain s, the loader
+// files left out.
 func filesWith(res *Result, s string) []string {
 	var names []string
 	for _, f := range res.Files {
-		if strings.HasSuffix(f.Name, ".js") && strings.Contains(string(f.Contents), s) {
+		if strings.HasSuffix(f.Name, ".js") && !strings.HasPrefix(f.Name, "loader/") && strings.Contains(string(f.Contents), s) {
 			names = append(names, f.Name)
 		}
 	}

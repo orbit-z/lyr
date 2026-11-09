@@ -444,7 +444,7 @@ A `<>` must be closed by `</>`, and a `</>` closes only a `<>`: `<>…</div>` an
 
 ### Doctype and HTML comments
 
-`<!DOCTYPE html>` and `<!-- … -->` are copied to the output. Lyr inserts the page's CSS and JS links at the first `</head>`, or right after a leading doctype when there is no `</head>`. A [page partial](../routing.md#page-partials) (`const partial = true`) gets nothing at `</head>` or at the start (a doctype or `<head>` it writes is copied as written); when its components have scripts, the runner is added at the end of its output.
+`<!DOCTYPE html>` and `<!-- … -->` are copied to the output. Lyr inserts the page's CSS and JS links at the first `</head>`, or right after a leading doctype when there is no `</head>`. A [page partial](../routing.md#page-partials) (`const partial = true`) gets nothing at `</head>` or at the start (a doctype or `<head>` it writes is copied as written); when its components have scripts or deferred or lazy call sites, Lyr's loader script (and, for the call sites, a stylesheet link) is added at the end of its output.
 
 ## Attributes
 

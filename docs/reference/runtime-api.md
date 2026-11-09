@@ -454,7 +454,7 @@ func (w *Writer) JSONAttr(pos string, v JSONValue) // only the value, for name={
 ```go
 func (w *Writer) HeadEnd()
 ```
-Marks where the page's `</head>` is and writes the page's `<link>` and `<script>` tags (and the inline loader, on pages that need it) there, so the output is never scanned or moved. Only the first call counts. Generated where a template contains `</head>`.
+Marks where the page's `</head>` is and writes the page's `<link>` and `<script>` tags (and the loader's settings and `<script defer src>`, on pages that need it) there, so the output is never scanned or moved. Only the first call counts. Generated where a template contains `</head>`.
 
 ```go
 func (w *Writer) Enter(component string) error
@@ -769,8 +769,7 @@ type Route struct {
     Render  func(*Ctx, *Writer) error // calls the page's Render with its empty Props
     Assets  []Asset                   // CSS, JS and modulepreload tags for the page's <head>, plus lazy entries
     Islands bool                      // the page can contain server:defer placeholders
-    IslandsWhen bool                  // one of them is a delayed island
-    Partial bool                      // a page partial: no head tags, the runner at the end
+    Partial bool                      // a page partial: no head tags, the loader's script at the end
 }
 
 type Asset struct {
@@ -779,7 +778,7 @@ type Asset struct {
     ID   string // for "lazy": the component ID whose <lyr-lazy> markers load it; for "component": the component's own
 }
 ```
-Used by the generated `app.New()`. You don't build routes by hand. A route's assets are in `<head>` order: its stylesheets, its module, its `lazy` entries, then one `modulepreload` asset per [shared chunk](../styles-and-scripts.md#shared-chunks-and-import) the module imports. `css` gives a `<link rel="stylesheet">`, `js` a `<script type="module">`, `modulepreload` a `<link rel="modulepreload">` after the script; the tags are computed once per route, when the site is created. A route with `Islands` set, or with `lazy` assets, also gets the inline loader in its `<head>`. A route with `Partial` set ([page partials](../routing.md#page-partials)) gets no head tags: its `component` assets (one per component with scripts, in graph order) become the runner at the end of its output, and the loader it needs comes there too. Unknown kinds are ignored.
+Used by the generated `app.New()`. You don't build routes by hand. A route's assets are in `<head>` order: its stylesheets, its module, its `lazy` entries, then one `modulepreload` asset per [shared chunk](../styles-and-scripts.md#shared-chunks-and-import) the module imports. `css` gives a `<link rel="stylesheet">`, `js` a `<script type="module">`, `modulepreload` a `<link rel="modulepreload">` after the script; the tags are computed once per route, when the site is created. A route with `Islands` set, or with `lazy` assets, also gets the [loader](../lazy-loading.md#the-loader-and-content-security-policy) in its `<head>`: its settings in a `<script type="application/json" id="lyr-loader">` and `<script defer src="/_lyr/loader/loader-<hash>.js">`. A route with `Partial` set ([page partials](../routing.md#page-partials)) gets no head tags: its `component` assets (one per component with scripts, in graph order) are listed in the settings of the loader's `<script src … data-lyr-loader='…'>` at the end of its output, after a `<link rel="stylesheet">` to `/_lyr/loader/wrappers-<hash>.css` when its components have a `server:defer` or `client:*` call site, even one that ends up eager. Unknown kinds are ignored.
 
 ```go
 func WithLocalsRoute[L any](field func(*L) *RouteInfo) Option
@@ -1064,7 +1063,7 @@ func like(w http.ResponseWriter, r *http.Request) {
 
 The fragment is buffered like a page: on success it's written once, with the status from `ctx.SetStatus` (200 by default), the headers set through `ctx.Header()`, `Content-Type: text/html; charset=utf-8` (unless the component set one) and a `Content-Length`. If rendering fails, nothing has been written yet and the error is returned, so you can send your own error response, or answer it as a page would with [`site.ServeError`](#site). A panic in the component is returned as an error naming the `.lyr` line, and `ctx.Redirect` and `ErrNotFound` are returned as they are (only pages act on them). `ctx.Site` is nil in a fragment.
 
-A fragment may contain `server:defer` placeholders; they're sealed with the same key as the site's (without `WithKey`). They load only if the page the fragment lands in already has the islands loader.
+A fragment may contain `server:defer` placeholders; they're sealed with the same key as the site's (without `WithKey`). They load only if the page the fragment lands in already has the loader.
 
 The route cache never stores a fragment (it's for pages and islands only), and the component's `ctx.Cache().Set` calls are always dropped. Cache a fragment's HTML with [`cache.Store`](../rendering.md#caching-fragments).
 

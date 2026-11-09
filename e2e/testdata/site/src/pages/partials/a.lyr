@@ -1,0 +1,7 @@
+---
+import Pa "../../components/Pa.lyr"
+
+// The host lacks Pa's script: the partial's loader script imports it.
+const partial = true
+---
+<Pa />

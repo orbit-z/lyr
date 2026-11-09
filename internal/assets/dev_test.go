@@ -2,6 +2,7 @@ package assets
 
 import (
 	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -24,13 +25,17 @@ func readDevManifest(t *testing.T, devDir string) devManifest {
 
 func devFiles(t *testing.T, devDir string) []string {
 	t.Helper()
-	entries, err := os.ReadDir(filepath.Join(devDir, "_lyr"))
+	out := filepath.Join(devDir, "_lyr")
+	var names []string
+	err := filepath.WalkDir(out, func(name string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			rel, _ := filepath.Rel(out, name)
+			names = append(names, filepath.ToSlash(rel))
+		}
+		return err
+	})
 	if err != nil {
 		t.Fatal(err)
-	}
-	var names []string
-	for _, e := range entries {
-		names = append(names, e.Name())
 	}
 	return names
 }

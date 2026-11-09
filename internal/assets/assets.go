@@ -98,6 +98,13 @@ type Page struct {
 	// highlighted code block: its stylesheet starts with
 	// Input.HighlightCSS.
 	Highlight bool
+	// Wrappers is set when the page's graph has a server:defer or lazy
+	// client:* call site: its stylesheet starts with loader.WrappersCSS,
+	// the display:contents rule of <lyr-island> and <lyr-lazy> (PLAN.md
+	// §5f), and a page with no styles of its own gets a stylesheet with
+	// just that rule. A partial gets no stylesheet: its first asset is a
+	// "css" one for loader.WrappersURL, which its tail links.
+	Wrappers bool
 	// Partial is set for a page partial (PLAN.md §4k): it gets no page
 	// entry and no stylesheet. Every file with scripts in Modules gets a
 	// component entry, listed as a "component" asset of the page in
@@ -127,8 +134,9 @@ type Result struct {
 	// listed.
 	Pages map[string][]Asset
 	// Files are the output files (entries, shared and dynamic import()
-	// chunks, source maps, files referenced from CSS), sorted by Name.
-	// Nil when there are errors.
+	// chunks, source maps, files referenced from CSS, and the loader files
+	// under loader/, PLAN.md §5f), sorted by Name. Nil when there are
+	// errors.
 	Files []File
 	// Diagnostics are esbuild's and the CSS scoper's errors and warnings,
 	// at positions in the user's files.

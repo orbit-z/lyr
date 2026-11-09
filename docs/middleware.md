@@ -567,6 +567,10 @@ func (b *bufferedWriter) Write(p []byte) (int, error) { return b.body.Write(p) }
 
 Headers the page set are already in `w.Header()` when `next.ServeHTTP` returns, because the wrapper shares the underlying header map. A body-rewriting wrapper holds the whole response in memory, so put it only around what needs it, not around streaming handlers. To only add headers, set them before calling `next`, as `requestInfo` does.
 
+## A Content Security Policy
+
+A Content Security Policy is a response header, so you set it in a middleware that runs first in `lyr.Sequence`. Lyr writes no inline script or style of its own: everything it adds is a file under `/_lyr/`, so `script-src 'self'; style-src 'self'` works with no hashes. [Content Security Policy](content-security-policy.md) has a complete example, with third-party scripts, embeds and inline snippets.
+
 ## The import rule
 
 Every generated page and component imports `src/locals` (that's how `locals` gets its type). So `src/locals`, and anything it imports, must not import `example.com/blog/lyr_gen/app`: that would be an import cycle. Keep it a plain types package.
@@ -616,3 +620,4 @@ The same goes for the generated component packages under `lyr_gen/impl/`. `lyr d
 - [Components](components.md): `locals`, `ctx` and `props` in the frontmatter
 - [Sessions](sessions.md): the `Session` field, `site.Sessions` and sign-in
 - [Testing](testing.md): rendering with `lyrtest.WithLocals`
+- [Content Security Policy](content-security-policy.md): a complete policy, and what Lyr adds to a page

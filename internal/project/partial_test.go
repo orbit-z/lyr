@@ -1,6 +1,7 @@
 package project
 
 import (
+	"github.com/orbit-z/lyr/internal/loader"
 	"maps"
 	"path/filepath"
 	"regexp"
@@ -26,6 +27,10 @@ func partialProjectFiles() map[string]string {
 		"src/components/List.lyr": "<ul>l</ul>\n<style>ul{color:red}</style>\n<script>console.log(\"list\")</script>\n",
 		"src/pages/partials/p.lyr": "---\nimport (\n\tList \"../../components/List.lyr\"\n\tTip \"../../components/Tip.lyr\"\n\tFeed \"../../components/Feed.lyr\"\n)\n\n" +
 			"const partial = true\n---\n<List /><Tip client:visible><i>t</i></Tip><Feed server:defer />\n<style>ul{color:blue}</style>\n",
+		// A partial whose only call site is a client:* on a component
+		// without scripts: a <lyr-lazy> marker, no lazy entry.
+		"src/components/Plain.lyr":      "<b>p</b>\n",
+		"src/pages/partials/marker.lyr": "---\nimport Plain \"../../components/Plain.lyr\"\n\nconst partial = true\n---\n<Plain client:idle />\n",
 		// The host renders Tip, blank-imports List.
 		"src/pages/host.lyr": "---\nimport (\n\t_ \"../components/List.lyr\"\n\tTip \"../components/Tip.lyr\"\n)\n---\n<Tip />\n",
 	})
@@ -53,13 +58,13 @@ func TestBlankImportGraphs(t *testing.T) {
 		return strings.Join(s, " ")
 	}
 	for page, want := range map[string]struct {
-		graph, lazy      string
-		islands, delayed bool
+		graph, lazy string
+		islands     bool
 	}{
-		"blank":       {"Icon Card Tip Panel blank", "Tip[Tip]", false, false},
-		"blankisland": {"Icon Card Feed Wrap blankisland", "Feed[Icon Card]", true, true},
-		"blanklazy":   {"Counter Holder blanklazy", "Holder[Counter]", false, false},
-		"host":        {"List Tip host", "", false, false},
+		"blank":       {"Icon Card Tip Panel blank", "Tip[Tip]", false},
+		"blankisland": {"Icon Card Feed Wrap blankisland", "Feed[Icon Card]", true},
+		"blanklazy":   {"Counter Holder blanklazy", "Holder[Counter]", false},
+		"host":        {"List Tip host", "", false},
 	} {
 		f := byName[page]
 		if got := names(proj.AssetGraph(f)); got != want.graph {
@@ -71,9 +76,6 @@ func TestBlankImportGraphs(t *testing.T) {
 		if got := proj.HasIslands(f); got != want.islands {
 			t.Errorf("%s: islands %v", page, got)
 		}
-		if got := proj.HasDelayedIslands(f); got != want.delayed {
-			t.Errorf("%s: delayed %v", page, got)
-		}
 	}
 	// The partial's own <style>: a warning, at the tag (§4k (Q4)).
 	if got := diagStrings(proj.Diagnostics); len(got) != 1 || !strings.Contains(got[0], "src/pages/partials/p.lyr:11:1: warning: "+compiler.MsgPartialStyle) {
@@ -81,7 +83,7 @@ func TestBlankImportGraphs(t *testing.T) {
 	}
 	in := proj.AssetInput()
 	for _, pg := range in.Pages {
-		if want := pg.File == "src/pages/partials/p.lyr"; pg.Partial != want {
+		if want := strings.HasPrefix(pg.File, "src/pages/partials/"); pg.Partial != want {
 			t.Errorf("%s: Partial %v", pg.File, pg.Partial)
 		}
 	}
@@ -106,10 +108,15 @@ func TestGeneratePartial(t *testing.T) {
 	}
 	// List and Tip have scripts: List for the runner, Tip for its lazy
 	// URL's ID; Feed's subtree (Card, Icon) is served by the island.
+	wrappers := "css:=" + strings.TrimPrefix(loader.WrappersURL, "/_lyr/")
 	if got, want := short("src/pages/partials/p.lyr"), []string{
-		"component:List=List", "component:Tip=Tip", "component:Icon=Icon", "component:Card=Card", "lazy:Tip=Tip",
+		wrappers, "component:List=List", "component:Tip=Tip", "component:Icon=Icon", "component:Card=Card", "lazy:Tip=Tip",
 	}; !slices.Equal(got, want) {
 		t.Errorf("partial assets %q, want %q", got, want)
+	}
+	// The wrappers stylesheet for a marker that loads nothing (PLAN.md §5f).
+	if got, want := short("src/pages/partials/marker.lyr"), []string{wrappers}; !slices.Equal(got, want) {
+		t.Errorf("marker partial assets %q, want %q", got, want)
 	}
 	// The host's bundle marks List (blank-imported) and Tip.
 	var hostJS string
@@ -130,7 +137,7 @@ func TestGeneratePartial(t *testing.T) {
 			t.Errorf("partial route lacks %s:\n%s", want, route)
 		}
 	}
-	if len(regexp.MustCompile(`Partial:\s+true`).FindAllString(app, -1)) != 1 {
+	if len(regexp.MustCompile(`Partial:\s+true`).FindAllString(app, -1)) != 2 {
 		t.Errorf("Partial set on other routes:\n%s", app)
 	}
 	if _, err := p.goCmd("build", "./..."); err != nil {

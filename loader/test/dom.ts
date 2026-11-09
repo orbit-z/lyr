@@ -80,7 +80,6 @@ export interface Options {
   respond?: Responder;
   idle?: boolean; // whether requestIdleCallback exists (default true)
   media?: Record<string, boolean>; // initial matchMedia results
-  when?: boolean; // LYR_WHEN: the islands loader variant for delayed islands
 }
 
 const origConsole = { error: console.error, warn: console.warn };
@@ -88,7 +87,12 @@ const origConsole = { error: console.error, warn: console.warn };
 export function page(body: string, o: Options = {}): Page {
   const win = new Window({
     url: "http://localhost/",
-    settings: { enableJavaScriptEvaluation: true, suppressInsecureJavaScriptEnvironmentWarning: true },
+    settings: {
+      enableJavaScriptEvaluation: true,
+      suppressInsecureJavaScriptEnvironmentWarning: true,
+      // The partials' loader scripts are run by the tests (start).
+      disableJavaScriptFileLoading: true,
+    },
   });
   const document = win.document as unknown as Document;
   // Per the DOM spec, scripts in a Range.createContextualFragment result
@@ -126,8 +130,8 @@ export function page(body: string, o: Options = {}): Page {
   delete g.lyr__lazy;
   delete g.lyr__islands;
   delete g.lyr__ran;
-  g.LYR_WHEN = !!o.when;
   g.window = globalThis;
+  g.location = win.location; // http://localhost/, for the URL guard
   g.document = document;
   g.MutationObserver = win.MutationObserver;
   g.IntersectionObserver = FakeIO;

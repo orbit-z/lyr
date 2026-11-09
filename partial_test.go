@@ -1,6 +1,7 @@
 package lyr
 
 import (
+	"github.com/orbit-z/lyr/internal/loader"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -10,7 +11,15 @@ import (
 
 // Page partials (PLAN.md §4k).
 
-const partialRunner = `<script type="module">let s=globalThis.lyr__ran??=new Set;for(let[i,u]of[["List-1a2b3c4d","/_lyr/List-A.js"],["Card-9f8e7d6c","/_lyr/Card-B.js"]])s.has(i)||(s.add(i),import(u))</script>`
+// partialScript is a partial's loader script with config cfg.
+func partialScript(cfg string) string {
+	return `<script src="` + loader.LoaderURL + `" data-lyr-loader='` + cfg + `'></script>`
+}
+
+// wrappersLink is the display:contents stylesheet of a partial with call sites.
+const wrappersLink = `<link rel="stylesheet" href="` + loader.WrappersURL + `">`
+
+var partialRunner = partialScript(`{"dev":false,"run":[["List-1a2b3c4d","/_lyr/List-A.js"],["Card-9f8e7d6c","/_lyr/Card-B.js"]]}`)
 
 func fragment(c *Ctx, w *Writer) error {
 	w.Raw(`<ul><li>one</li></ul>`)
@@ -31,37 +40,37 @@ var runnerAssets = []Asset{
 }
 
 func TestPartialTail(t *testing.T) {
+	wrappers := Asset{Kind: "css", URL: loader.WrappersURL}
 	lazyAssets := []Asset{
+		wrappers,
 		{Kind: "component", URL: "/_lyr/List-A.js", ID: "List-1a2b3c4d"},
 		{Kind: "component", URL: "/_lyr/Tip-C.js", ID: "Tip-11112222"},
 		{Kind: "lazy", URL: "/_lyr/Tip-C.js", ID: "Tip-11112222"},
 	}
 	tests := []struct {
-		name          string
-		dev, isl, whn bool
-		assets        []Asset
-		want          string
+		name     string
+		dev, isl bool
+		assets   []Asset
+		want     string
 	}{
-		{"no scripts", false, false, false, nil, ""},
-		{"runner only", false, false, false, runnerAssets, partialRunner},
-		{"lazy", false, false, false, lazyAssets,
-			loaderStyle + `<script type="application/json" data-lyr-loader>{"dev":false,"lazy":{"Tip-11112222":["/_lyr/Tip-C.js"]},"ids":{"/_lyr/Tip-C.js":"Tip-11112222"}}</script>` +
-				`<script type="module">` + loaderLazyJS + `</script>` +
-				`<script type="module">let s=globalThis.lyr__ran??=new Set;for(let[i,u]of[["List-1a2b3c4d","/_lyr/List-A.js"]])s.has(i)||(s.add(i),import(u))</script>`},
-		{"islands", true, true, false, nil,
-			loaderStyle + `<script type="application/json" data-lyr-loader>{"dev":true}</script><script type="module">` + loaderIslandsJS + `</script>`},
-		{"delayed islands", false, true, true, nil,
-			loaderStyle + `<script type="application/json" data-lyr-loader>{"dev":false}</script><script type="module">` + loaderIslandsWhenJS + `</script>`},
+		{"no scripts", false, false, nil, ""},
+		{"runner only", false, false, runnerAssets, partialRunner},
+		{"lazy", false, false, lazyAssets,
+			wrappersLink + partialScript(`{"dev":false,"lazy":{"Tip-11112222":["/_lyr/Tip-C.js"]},"ids":{"/_lyr/Tip-C.js":"Tip-11112222"},"run":[["List-1a2b3c4d","/_lyr/List-A.js"]]}`)},
+		{"islands", true, true, []Asset{wrappers}, wrappersLink + partialScript(`{"dev":true}`)},
+		// A client:* marker whose component is eager: the link, no script.
+		{"marker only", false, false, []Asset{wrappers}, wrappersLink},
 	}
 	for _, tt := range tests {
-		if got := partialTail(tt.dev, tt.isl, tt.whn, tt.assets); got != tt.want {
+		if got := partialTail(tt.dev, tt.isl, tt.assets); got != tt.want {
 			t.Errorf("%s:\n got %s\nwant %s", tt.name, got, tt.want)
 		}
 	}
-	// IDs and URLs are escaped for a script element.
-	got := partialTail(false, false, false, []Asset{{Kind: "component", URL: "/_lyr/x</script>.js", ID: "A"}})
-	if strings.Contains(got, "x</script>") || !strings.Contains(got, `x\u003c/script\u003e.js`) {
-		t.Errorf("runner not escaped: %s", got)
+	// IDs and URLs are escaped for a single-quoted attribute.
+	got := partialTail(false, false, []Asset{{Kind: "component", URL: "/_lyr/x'</script>&.js", ID: "A'&<"}})
+	want := partialScript(`{"dev":false,"run":[["A&#39;\u0026\u003c","/_lyr/x&#39;\u003c/script\u003e\u0026.js"]]}`)
+	if got != want {
+		t.Errorf("not escaped:\n got %s\nwant %s", got, want)
 	}
 }
 
@@ -79,7 +88,7 @@ func TestPartialServe(t *testing.T) {
 		"/p":     `<ul><li>one</li></ul>` + partialRunner,
 		"/plain": `<ul><li>one</li></ul>`,
 		"/headed": `<!DOCTYPE html><html><head></head><body><p>x</p></body></html>` +
-			loaderStyle + `<script type="application/json" data-lyr-loader>{"dev":false}</script><script type="module">` + loaderIslandsJS + `</script>` + partialRunner,
+			partialScript(`{"dev":false,"run":[["List-1a2b3c4d","/_lyr/List-A.js"],["Card-9f8e7d6c","/_lyr/Card-B.js"]]}`),
 		"/page": `<script type="module" src="/_lyr/page-X.js"></script><ul><li>one</li></ul>`,
 	} {
 		rec := do(h, "GET", target)
@@ -105,7 +114,7 @@ func TestPartialDevManifest(t *testing.T) {
 	writeFile(t, filepath.Join(static, "manifest.json"), `{"pages": {"src/pages/p.lyr": [`+
 		`{"kind": "component", "url": "/_lyr/List-A.js", "id": "List-1a2b3c4d"}, {"kind": "component", "url": "/_lyr/Card-B.js", "id": "Card-9f8e7d6c"}]}}`)
 	s := NewSite([]Route{{Pattern: "/p", File: "src/pages/p.lyr", Render: fragment, Partial: true}}, nil)
-	if got, want := do(s.Handler(), "GET", "/p").Body.String(), `<ul><li>one</li></ul>`+partialRunner; got != want {
+	if got, want := do(s.Handler(), "GET", "/p").Body.String(), `<ul><li>one</li></ul>`+strings.Replace(partialRunner, `"dev":false`, `"dev":true`, 1); got != want {
 		t.Errorf("dev:\n got %s\nwant %s", got, want)
 	}
 	writeFile(t, filepath.Join(static, "manifest.json"), `{"pages": {"src/pages/p.lyr": []}}`)

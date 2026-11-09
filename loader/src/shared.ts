@@ -2,24 +2,29 @@
 // this module is inlined into each and they share no state at runtime.
 
 // The page's loader config, written by the runtime's head injection
-// before the module scripts:
+// before the loader script (PLAN.md §5f):
 //
 //	<script type="application/json" id="lyr-loader">{"dev":false,"lazy":{"<ID>":["<url>",…]}}</script>
 //
 // "lazy" is left out on pages without lazy entries. A single string value
-// is accepted too. A page partial (PLAN.md §4k) that needs a loader brings
-// its own config, <script type="application/json" data-lyr-loader>, with
-// "ids": the component ID that each of its lazy URLs runs, so a lazy load
-// skips a component the document already ran (lyr__ran).
+// is accepted too. A page partial (PLAN.md §4k) brings its config in the
+// data-lyr-loader attribute of its loader script, with "ids": the
+// component ID that each of its lazy URLs runs, so a lazy load skips a
+// component the document already ran (lyr__ran); and "run": the component
+// entries its loader script imports (start, src/loader.ts).
 export interface Config {
   dev?: boolean;
   lazy?: Record<string, string | string[]>;
   ids?: Record<string, string>;
+  run?: [string, string][];
 }
 
-const CONFIGS = "#lyr-loader,[data-lyr-loader]";
+// Only script elements carry a config: an injected element of another
+// kind can't add entries (and every URL is checked by safe anyway).
+const CONFIGS = "script#lyr-loader,script[data-lyr-loader]";
 
-const parse = (el: Element | null): Config => JSON.parse(el?.textContent || "{}");
+export const parse = (el: Element | null): Config =>
+  JSON.parse((el && (el.getAttribute("data-lyr-loader") || el.textContent)) || "{}");
 
 // isDev reads "dev" from the first config: it's the same in all of them.
 export const isDev = (): boolean => !!parse(document.querySelector(CONFIGS)).dev;
@@ -35,6 +40,45 @@ export const config = (): Config => {
     Object.assign(c.ids, x.ids);
   }
   return c;
+};
+
+// safe returns url as a path ("/_lyr/x.js") when it resolves, against the
+// page, to this origin under prefix, and "" otherwise. Resolving first
+// defeats "/_lyr/../x", "%2e%2e", backslashes and "//host/_lyr/"; a
+// path with "%" left after it is refused, since the URL parser keeps
+// "%2F" and "%5C" encoded and a server or router that decodes them would
+// see another path (Lyr's own URLs never have one). The
+// loader reads its URLs from data blocks, which an HTML injection could
+// add: without this check, lyr's trusted script would import or fetch
+// whatever they name (a "script gadget" under a strict CSP). An option to
+// serve /_lyr/ from another origin would have to change this check.
+export const safe = (url: string, prefix: string): string => {
+  try {
+    const u = new URL(url, location.href);
+    if (u.origin == location.origin && u.pathname.startsWith(prefix) && !u.pathname.includes("%"))
+      return u.pathname + u.search;
+  } catch {}
+  return "";
+};
+
+export type Importer = (url: string) => Promise<unknown>;
+
+// load imports url with importer if safe allows it (under /_lyr/), and
+// reports a refused URL or a failed import in dev. With id, the component
+// that url runs, it marks id as run (lyr__ran) while the import is
+// accepted and pending or done, so a refused or failed import doesn't
+// keep a later partial from running it.
+export const load = (importer: Importer, url: string, dev?: boolean, id?: string): void => {
+  const u = safe(url, "/_lyr/");
+  if (!u) {
+    if (dev) console.error(`lyr: ${url}: not under /_lyr/, not imported`);
+    return;
+  }
+  if (id) ran().add(id);
+  importer(u).catch((e) => {
+    if (id) ran().delete(id);
+    if (dev) console.error(`lyr: ${url}:`, e);
+  });
 };
 
 // ran is the document's run-once set of component IDs (PLAN.md §4k): page
@@ -100,18 +144,14 @@ export const when = (el: Element, go: () => void, none: () => void): (() => void
 
 declare global {
   interface Window {
-    // The islands → lazy hand-off. The lazy script sets it to its scan
-    // function; the islands script calls it with the nodes added to the
-    // page (island fragments included), so <lyr-lazy> markers that
-    // arrive later are observed too. Optional because the lazy script is
-    // only on pages that have lazy entries. With merge, it re-reads the
-    // configs first: a second copy of the lazy script (a partial's) calls
-    // it so, instead of installing itself again.
+    // The islands → lazy hand-off. The lazy loader sets it to its scan
+    // function; the islands loader calls it with the nodes added to the
+    // page (island fragments included), so <lyr-lazy> markers that arrive
+    // later are observed too. With merge, it re-reads the configs first:
+    // a later run of the loader script (a partial's) calls it so.
     lyr__lazy?: (nodes: Node[], merge?: boolean) => void;
-    // The installed islands loader, which a second copy (a partial's)
-    // finds: w is set for the variant that reads strategies, s is its scan
-    // function (the observer calls the current one), t the placeholders
-    // already started.
-    lyr__islands?: { w: boolean; s: (nodes: Node[]) => void; t: WeakSet<Element> };
+    // Set once the islands loader is installed. w stays true so that a
+    // v0.2 partial's inline loader copies (deploy skew) install nothing.
+    lyr__islands?: { w: boolean };
   }
 }

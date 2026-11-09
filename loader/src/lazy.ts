@@ -9,11 +9,11 @@
 // subtree is observed right away. A delayed island's placeholder,
 // <lyr-island src="…/<ID>" client="…" opts="…">, is a marker too.
 // client:visible with no element child to observe loads at once (with a
-// warning in dev). A second copy of the loader (one a page partial
-// brought, PLAN.md §4k) merges the partial's config into the installed one
-// and rescans.
+// warning in dev). It installs once per document: a later run of the
+// loader script (a page partial's, PLAN.md §4k) merges the partial's
+// config into the installed one and rescans.
 
-import { config, find, ran, when } from "./shared";
+import { config, find, load as importURL, ran, when, type Importer } from "./shared";
 
 // The markers: <lyr-lazy>, and a delayed island's placeholder (server:defer
 // with client:*), whose deferred subtree's scripts load on the same trigger
@@ -25,11 +25,9 @@ const MARKERS = "lyr-lazy,lyr-island[client]";
 const idOf = (el: Element): string | null =>
   el.localName == "lyr-lazy" ? el.getAttribute("component") : (el.getAttribute("src") || "").split("/").pop()!;
 
-export type Importer = (url: string) => Promise<unknown>;
-
 export function lazy(importer: Importer): void {
-  // Idempotent (PLAN.md §4k): a second copy, one a partial brought, merges
-  // the partial's config into the installed loader and rescans.
+  // A later run (a partial's) merges the configs into the installed
+  // loader and rescans.
   if (window.lyr__lazy) return window.lyr__lazy([document], true);
   let { dev, lazy: entries = {}, ids = {} } = config();
   const seen = new WeakSet<Element>();
@@ -46,9 +44,8 @@ export function lazy(importer: Importer): void {
     for (const url of ([] as string[]).concat(entries[id] || [])) {
       const c = ids[url];
       if (imported.has(url) || (c && ran().has(c))) continue;
-      if (c) ran().add(c);
       imported.add(url);
-      importer(url).catch((e) => dev && console.error(`lyr: ${url}:`, e));
+      importURL(importer, url, dev, c);
     }
   };
 

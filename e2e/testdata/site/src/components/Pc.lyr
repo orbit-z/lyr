@@ -1,0 +1,5 @@
+<b>partial c</b>
+<script>
+  import { count } from "../scripts/count";
+  count("pcRuns");
+</script>

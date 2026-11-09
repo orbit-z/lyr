@@ -426,7 +426,7 @@ import (
 <section id="comments"><CommentList comments={list} /></section>
 ```
 
-The imported file (a component or a Markdown file, by relative, root-relative or alias path) and everything it imports join the page's styles and scripts, as if the importing file rendered it: its scripts are in the page's bundle, its `client:*` components are lazy on the page, and its `server:defer` components give the page the islands loader. Nothing renders, it's never "imported but not used", and it adds no Go import (so no build cost and no import cycle). In Astro, an imported component you don't render brings its CSS but not its scripts; a blank import brings both. Importing the same file blank and with an alias is allowed and redundant.
+The imported file (a component or a Markdown file, by relative, root-relative or alias path) and everything it imports join the page's styles and scripts, as if the importing file rendered it: its scripts are in the page's bundle, its `client:*` components are lazy on the page, and its `server:defer` components give the page the loader. Nothing renders, it's never "imported but not used", and it adds no Go import (so no build cost and no import cycle). In Astro, an imported component you don't render brings its CSS but not its scripts; a blank import brings both. Importing the same file blank and with an alias is allowed and redundant.
 
 #### Root-relative imports
 

@@ -216,9 +216,6 @@ func (p *Project) appGo() []byte {
 		}
 		if p.HasIslands(f) {
 			b.WriteString("\t\t\tIslands: true,\n")
-			if p.HasDelayedIslands(f) {
-				b.WriteString("\t\t\tIslandsWhen: true,\n")
-			}
 		}
 		b.WriteString("\t\t},\n")
 	}

@@ -219,7 +219,7 @@ The bundle is built by esbuild, which runs inside the `lyr` CLI (no Node.js need
 - one minified CSS file and one minified ES module, with content-hashed names under `/_lyr/`;
 - a `<link rel="stylesheet">` and a `<script type="module">` inserted just before the page's first `</head>` (usually in your layout), followed by a `<link rel="modulepreload">` for each [shared chunk](#shared-chunks-and-import) the module imports. Without a `</head>`, they go right after `<!DOCTYPE …>`, or at the very start.
 
-A page whose bundle has no scripts gets no JS file and no `<script>` tag. A page that uses `server:defer` or `client:*` also gets a small inline loader script in its `<head>`; see [Lazy loading](lazy-loading.md).
+A page whose bundle has no scripts gets no JS file and no `<script>` tag. A page that uses `server:defer` or `client:*` also gets Lyr's loader, a `<script defer src="/_lyr/loader/…">` in its `<head>`, and the `display: contents` rule for its wrapper elements at the start of its stylesheet; see [The loader and Content Security Policy](lazy-loading.md#the-loader-and-content-security-policy). Lyr writes no inline script or style of its own, so a strict Content Security Policy needs no hashes for it (see [Content Security Policy](content-security-policy.md)).
 
 Files that your CSS or scripts reference by URL, such as fonts and images in `url(…)` (`.woff`, `.woff2`, `.ttf`, `.otf`, `.eot`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.avif`, `.ico`, `.bmp`), are copied to `/_lyr/` with a hashed name, and the reference is rewritten to that URL. A relative `url(…)` in a `<style>` resolves from the `.lyr` file's directory.
 
@@ -232,7 +232,7 @@ A [page partial](routing.md#page-partials) (`const partial = true`) gets **no bu
 Its scripts are carried, and run once per page:
 
 - **Component entries.** Every component with scripts in a partial's import graph (the partial's own blocks included) gets one entry of its own, `/_lyr/<Component>-<hash>.js`: the same entry as its [lazy entry](#loading-a-components-scripts-lazily-client), one URL per component. Built in the same esbuild build as the page bundles, so imported files stay shared chunks with one module state.
-- **The runner.** The partial's response ends with an inline script that imports each entry unless the page already ran the component (see [Page partials](routing.md#page-partials)).
+- **The script at the end.** The partial's response ends with `<script src="/_lyr/loader/loader-<hash>.js" data-lyr-loader='…'>`: Lyr's loader file, which imports each entry unless the page already ran the component (see [Page partials](routing.md#page-partials)). It's a file, not an inline script, so a strict Content Security Policy allows it with `'self'`.
 - **Marks.** A page bundle that inlines a component some partial uses starts with one statement that records the component as run (`globalThis.lyr__ran`), so a partial swapped into that page doesn't run it again. It costs about 60 bytes for one component (about 22 gzipped), and about 25 bytes per further one. A project without partials has no marks: its bundles are unchanged.
 
 ### Shared chunks and `import()`

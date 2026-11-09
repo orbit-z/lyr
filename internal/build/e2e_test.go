@@ -323,6 +323,9 @@ func TestBuildSourcemap(t *testing.T) {
 	maps := 0
 	for _, e := range entries {
 		name := e.Name()
+		if e.IsDir() { // loader/: the loader files, no source maps
+			continue
+		}
 		data, err := os.ReadFile(filepath.Join(dir, "dist/client/_lyr", name))
 		if err != nil {
 			t.Fatal(err)

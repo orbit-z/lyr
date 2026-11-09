@@ -163,7 +163,7 @@ func TestBundleCSSOnlyAndEmptyJS(t *testing.T) {
 		t.Errorf("b (types only) = %+v", b)
 	}
 	for _, f := range res.Files {
-		if strings.HasSuffix(f.Name, ".js") {
+		if strings.HasSuffix(f.Name, ".js") && !strings.HasPrefix(f.Name, "loader/") {
 			t.Errorf("JS output %s", f.Name)
 		}
 	}

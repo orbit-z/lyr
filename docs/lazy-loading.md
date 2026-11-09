@@ -151,7 +151,7 @@ The page no longer waits for the comments. In its HTML, the `<Comments>` tag bec
 <lyr-island src="/_lyr/island/3f9a2c1d7e4b5a60/Comments-9b1e44a2" props="…"><p>Loading comments…</p></lyr-island>
 ```
 
-Once the page is parsed, a small inline loader fetches the component's HTML from the `src` URL and replaces the whole placeholder with it, so no wrapper remains. The URL holds the build ID (`3f9a2c1d7e4b5a60`) and the component ID (`Comments-9b1e44a2`: the file name plus a short hash of its path), and the `props` attribute holds the props, encrypted (see [How props are protected](#how-props-are-protected)).
+Once the page is parsed, Lyr's loader, a small script file under `/_lyr/loader/`, fetches the component's HTML from the `src` URL and replaces the whole placeholder with it, so no wrapper remains. The URL holds the build ID (`3f9a2c1d7e4b5a60`) and the component ID (`Comments-9b1e44a2`: the file name plus a short hash of its path), and the `props` attribute holds the props, encrypted (see [How props are protected](#how-props-are-protected)).
 
 ### Why it matters: responses are buffered
 
@@ -159,7 +159,7 @@ Lyr renders the whole page into a buffer and sends it in one write, never stream
 
 With `server:defer`, the page renders the fallback and is sent at once, and the comments render in their own request, in parallel with anything else the browser does. Use it for the parts of a page that depend on slow work (a database query, a third-party API) and that the reader can wait for.
 
-The cost on the page is small: one `encoding/json` encode and one encryption per deferred instance (about 1 µs for 1 KB of props), plus the inline loader, about 1.1 KB (0.7 KB gzipped). Pages without deferred components pay nothing. See [Performance](performance.md).
+The cost on the page is small: one `encoding/json` encode and one encryption per deferred instance (about 1 µs for 1 KB of props), plus the loader's settings and a 61-byte `<script>` tag. The loader itself is a file of about 3.9 KB (1.9 KB gzipped) that browsers cache for a year and share across pages. Pages without deferred components pay nothing. See [Performance](performance.md).
 
 ### The fallback slot
 
@@ -429,7 +429,7 @@ POST responses aren't cacheable, so in `lyr dev` the loader warns once per defer
 
 A deferred component can render `server:defer` components and `client:*` components of its own. When a fragment arrives, the loader scans it for both, so nested islands load and lazy scripts are observed. A nested [delayed island](#delay-the-fetch) starts waiting for its own strategy only then: its placeholder doesn't exist before the outer fragment arrives.
 
-A placeholder inside an HTML fragment that you insert yourself (for example an htmx partial from `lyr.RenderComponent`) loads only if the page already has the loader, which happens when the page has a deferred component of its own: the loader watches the page for added placeholders (with a `MutationObserver`), delayed ones included, which wait for their strategy as in the page. On such a page, `<lyr-lazy>` markers in HTML you insert are observed too, if the page has lazy components of its own.
+A placeholder inside an HTML fragment that you insert yourself (for example an htmx partial from `lyr.RenderComponent`) loads only if the page already has the loader, which happens when the page has a deferred or `client:*` component of its own: the loader watches the page for added placeholders (with a `MutationObserver`), delayed ones included, which wait for their strategy as in the page. On such a page, `<lyr-lazy>` markers in HTML you insert are observed too, for components the page itself loads lazily.
 
 ### `server:defer` inside cached fragments
 
@@ -602,30 +602,47 @@ The handler goes through your middleware like any request. Islands and `client:*
 
 ## In partials and fragments
 
-A [page partial](routing.md#page-partials) whose components use `server:defer` or `client:*` carries the loader pieces it needs at the end of its output, before its runner: the one-line `<style>`, a settings block (`<script type="application/json" data-lyr-loader>`) and the islands and/or lazy loader. So deferred components and lazy scripts inside a partial work whatever page it's swapped into:
+A [page partial](routing.md#page-partials) with a `server:defer` or `client:*` call site in its components, even one that ends up eager, ends with what they need, after its HTML:
 
-- **The page has the loader already**: the partial's copy finds it, hands it the partial's settings, and installs nothing again. The page's loader observes the swapped-in placeholders and markers.
-- **The page has none**: the partial's copy installs itself, and later partials reuse it.
-- **A delayed island** (`server:defer client:visible|idle|media`) in a partial brings the loader variant that reads strategies; on a page that has the plain one, it takes over from it, and the delayed placeholder waits for its strategy as usual. If the variant never runs (the fragment was inserted with `innerHTML`, which runs no scripts), the page's plain loader fetches the island after a second, without the delay, and `lyr dev` warns once per island in the browser console (`delayed island fetched at once: its loader never ran`).
-- **Run once**: a lazy component's scripts load when its strategy fires, unless the page already ran that component (the same [run-once guard](routing.md#page-partials) as the runner's).
+```html
+<link rel="stylesheet" href="/_lyr/loader/wrappers-7dc3c66b.css">
+<script src="/_lyr/loader/loader-09c0efbc.js" data-lyr-loader='{"dev":false,"lazy":{…},"ids":{…}}'></script>
+```
 
-It costs the loaders' size on each response of a partial that needs them (table below; about 1–2 KB gzipped), less with the response's own compression. A partial without deferred or lazy components gets none.
+The stylesheet holds the one `display: contents` rule for `<lyr-island>` and `<lyr-lazy>`. The script is the same loader file pages use, with the partial's settings in its `data-lyr-loader` attribute; a partial whose components have scripts has this one script too, carrying them (see [Page partials](routing.md#page-partials)). Both are cached files, so a response carries only the two tags and its settings: 74 bytes plus the settings for the script, and 65 more for the link. So deferred components and lazy scripts inside a partial work whatever page it's swapped into:
 
-HTML you insert yourself (`lyr.RenderComponent`, `innerHTML`) gets no loader: its islands and lazy components load only on pages that have one.
+- **The page has the loader already**: the partial's script finds it and hands it the partial's settings. The page's loader observes the swapped-in placeholders and markers, delayed islands included.
+- **The page has none**: the partial's script installs the loader, and later partials reuse it.
+- **Run once**: a lazy component's scripts load when its strategy fires, unless the page already ran that component (the same [run-once guard](routing.md#page-partials) as for a partial's scripts).
+
+A partial gets the link when its components have a `server:defer` or `client:*` call site, even one that ends up eager, the same rule as a page's stylesheet rule; it gets the script when it has deferred or lazy components or scripts. A partial with neither gets no tag.
+
+HTML you insert yourself (`lyr.RenderComponent`, `innerHTML`) gets no loader: its islands and lazy components load only on pages that have one. So does a partial inserted with `innerHTML`, which never runs its script.
 
 ## The loader and Content Security Policy
 
-Pages that need it get small inline `<script type="module">`s, a JSON `<script type="application/json">` with their settings, and a one-line `<style>` that gives `<lyr-island>` and `<lyr-lazy>` `display: contents`, all in `<head>` (at the end, for a [page partial](#in-partials-and-fragments)):
+Lyr's loader is one script file, `/_lyr/loader/loader-<hash>.js`. It fetches deferred components, waits for delayed islands' strategies, loads lazy scripts, and runs a partial's scripts. A page that has deferred or `client:*` components gets, in its `<head>`:
 
-| Script | When | Size |
+```html
+<script type="application/json" id="lyr-loader">{"dev":false,"lazy":{"Tip-b186a28d":["/_lyr/Tip-QYCWCCU4.js"]}}</script>
+<script defer src="/_lyr/loader/loader-09c0efbc.js"></script>
+<link rel="stylesheet" href="/_lyr/index-R7264UE5.css">
+```
+
+The page's stylesheet, after them, starts with the rule `lyr-island,lyr-lazy{display:contents}`. Every page whose components have a `server:defer` or `client:*` call site gets the rule, even when the call site ends up eager, and a page with no CSS of its own gets a stylesheet with just that rule. Lyr decides this when it builds, from the components a page can render: pages without deferred or lazy components get none of it.
+
+| File | Used by | Size |
 |---|---|---|
-| Islands loader | The page has a deferred component | 1.5 KB (0.9 KB gzipped) |
-| Islands loader, with strategies | Instead, when one is a [delayed island](#delay-the-fetch) | 2.1 KB (1.1 KB gzipped) |
-| Lazy loader | The page has lazy scripts (delayed islands' included) | 2.1 KB (1.1 KB gzipped) |
+| `/_lyr/loader/loader-<hash>.js` | Pages with deferred or lazy components; page partials with them or with scripts | 3.9 KB (1.9 KB gzipped) |
+| `/_lyr/loader/wrappers-<hash>.css` | Page partials with a `server:defer` or `client:*` call site in their components, even one that ends up eager | 37 bytes |
 
-Lyr decides this when it builds, from the components a page can render: pages without deferred or lazy components get none of them.
+`lyr build` and `lyr dev` write both files into `dist/client/_lyr/loader/`, for every project, and they're served like any `/_lyr/` file: with a content hash in the name and `Cache-Control: public, max-age=31536000, immutable`. One download serves every page of the site until Lyr's version changes, and the page itself carries only its settings and a 61-byte tag. `lyr build --verbose` lists both files (see [CLI](reference/cli.md#lyr-build)). The script is `defer`, so it runs once the page is parsed, before the page's own module. On a visitor's first page, with nothing cached, it's one more request that the browser starts as soon as it reads the `<head>`, in parallel with the page's CSS and JS.
 
-The loader is inline, as Astro's island script is, which saves a request before the island fetches can start. A strict Content Security Policy must allow it, with `'unsafe-inline'` or the script's hash. So must a page partial's runner, an inline module script too (its hash is the same for every response of a route in a build). Generated CSP hashes are planned for a later release.
+**Content Security Policy**: a policy with `script-src 'self'; style-src 'self'` works with no configuration. Everything Lyr adds is a file under `/_lyr/`, which `'self'` covers, and the settings block is `type="application/json"`, a data block that never runs, which `script-src` doesn't govern. Keep `'self'` in `connect-src` too: island fetches go to `/_lyr/island/`. The loader imports and fetches only same-origin URLs under `/_lyr/` (islands only under `/_lyr/island/`), and refuses any path with a `%` in it once resolved, so HTML injected into a page can't use it to load anything else. Your own inline scripts and styles are still yours to allow. [Content Security Policy](content-security-policy.md) has a complete example, with third-party scripts, embeds and the hash of a snippet that stays inline.
+
+**After an upgrade**: the loader's file name changes with Lyr's version, so a server that runs a newer Lyr with a `dist/` built by an older one can't find it. The server logs an error at startup naming the missing file; run `lyr build` again (see [Troubleshooting](troubleshooting.md#the-server-logs-that-the-loader-file-is-missing)).
+
+> **Planned**: nonces for `'strict-dynamic'` policies (with `'strict-dynamic'`, browsers ignore `'self'`, so Lyr's `<script src>` tags are blocked today), hashes for your `is:inline` scripts and styles, `integrity` (SRI) attributes on Lyr's scripts, Trusted Types, and a `Link` response header (or `103 Early Hints`) that starts the loader's download before the HTML arrives.
 
 ## Coming from Astro
 

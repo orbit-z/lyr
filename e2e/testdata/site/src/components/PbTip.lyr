@@ -1,0 +1,5 @@
+<i>pb tip</i>
+<script>
+  import { count } from "../scripts/count";
+  count("pbTipRuns");
+</script>

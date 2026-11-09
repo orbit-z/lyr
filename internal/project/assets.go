@@ -20,8 +20,16 @@ func (p *Project) AssetInput() *assets.Input {
 	}
 	for _, f := range p.Files {
 		if f.Info.Role == compiler.RolePage {
+			partial := f.IsPartial()
 			in.Pages = append(in.Pages, assets.Page{File: f.Path, Modules: p.AssetGraph(f), Lazy: p.LazyLists(f),
-				Highlight: in.HighlightCSS != "" && p.highlighted(f), Partial: f.IsPartial()})
+				Highlight: in.HighlightCSS != "" && p.highlighted(f), Partial: partial,
+				// The display:contents rule, for a page or partial that
+				// renders <lyr-island> or <lyr-lazy> (PLAN.md §5f), even
+				// when no lazy entry results (the component is eager, or
+				// has no scripts).
+				Wrappers: p.hasCall(f, func(c compiler.ComponentCall) bool {
+					return c.Defer || c.Lazy != compiler.NotDirective
+				})})
 		}
 	}
 	return in

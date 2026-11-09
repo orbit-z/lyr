@@ -16,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"unsafe"
+
+	"github.com/orbit-z/lyr/internal/loader"
 )
 
 // Site is a whole Lyr site: its pages, router, static files and options.
@@ -141,6 +143,7 @@ func NewSite(routes []Route, islands []Island, opts ...Option) *Site {
 	}
 	s.assets = resolveStatic(o, s.dev)
 	s.public = s.assets
+	s.checkLoader()
 	if s.dev {
 		if dir := os.Getenv("LYR_PUBLIC"); dir != "" {
 			s.public = newDirFiles(dir, true)
@@ -449,6 +452,27 @@ var (
 	zeroLength      = []string{"0"}
 )
 
+// checkLoader logs an error when a page needs a loader file (PLAN.md §5f)
+// that the static files lack: they come from an older lyr build than the
+// running binary, and the browser would get a 404 for it, with no other
+// sign. Only for an indexed (production) file set; lyr dev writes them.
+func (s *Site) checkLoader() {
+	if s.assets.files == nil {
+		return
+	}
+	for _, url := range []string{loader.LoaderURL, loader.WrappersURL} {
+		if _, ok := s.assets.files[url[1:]]; ok {
+			continue
+		}
+		for _, t := range s.heads {
+			if strings.Contains(t.head, url) || strings.Contains(t.tail, url) {
+				log.Printf("lyr: the static files lack %s, which pages use: they come from another lyr version; run lyr build with this version", url)
+				break
+			}
+		}
+	}
+}
+
 // routeTags are what Lyr adds to a route's output: head, the tags before
 // its </head> (headTags), and tail, what a page partial's output ends with
 // (partialTail, PLAN.md §4k). A partial has no head tags.
@@ -459,9 +483,9 @@ type routeTags struct {
 // routeTags returns the tags of route r with the given assets.
 func (s *Site) routeTags(r *Route, assets []Asset) routeTags {
 	if r.Partial {
-		return routeTags{tail: partialTail(s.dev, r.Islands, r.IslandsWhen, assets)}
+		return routeTags{tail: partialTail(s.dev, r.Islands, assets)}
 	}
-	return routeTags{head: headTags(loaderHead(s.dev, r.Islands, r.IslandsWhen, assets), assets)}
+	return routeTags{head: headTags(loaderHead(s.dev, r.Islands, assets), assets)}
 }
 
 var writerPool = sync.Pool{New: func() any { return &Writer{head: -1} }}

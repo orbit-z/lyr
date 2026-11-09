@@ -121,7 +121,7 @@ No page is rendered at build time: `dist/server` renders every page on request. 
 | `--embed` | `false` (or `"embed"` in `lyr.json`) | Embeds `dist/client` into `dist/server`, for a single-binary deploy. |
 | `--verbose` | `false` | Lists each page's CSS and JS files with their sizes. |
 
-With `--verbose`, a successful build prints each page and its files to stdout, with their size and gzipped size (in kB of 1000 bytes, gzip at its default level, as Vite and Astro report them): its stylesheet, its module, the [shared chunks](../styles-and-scripts.md#shared-chunks-and-import) the module imports (indented, `(preload)`: the page links them with `<link rel="modulepreload">`) and its [lazy entries](../lazy-loading.md) (`(lazy)`). Then `loaded with import()` lists the chunks no page preloads: the targets of dynamic `import()`, and chunks that only lazy entries import. The totals count every CSS and JS file once, however many pages list it. This is `examples/blog`:
+With `--verbose`, a successful build prints each page and its files to stdout, with their size and gzipped size (in kB of 1000 bytes, gzip at its default level, as Vite and Astro report them): its stylesheet, its module, the [shared chunks](../styles-and-scripts.md#shared-chunks-and-import) the module imports (indented, `(preload)`: the page links them with `<link rel="modulepreload">`) and its [lazy entries](../lazy-loading.md) (`(lazy)`). Then `loaded with import()` lists the chunks no page preloads: the targets of dynamic `import()`, and chunks that only lazy entries import. Then `lyr loader` lists Lyr's [loader files](../lazy-loading.md#the-loader-and-content-security-policy), which pages with `server:defer` or `client:*` and page partials load; they aren't counted in the totals. The totals count every other CSS and JS file once, however many pages list it. This is `examples/blog`:
 
 ```text
 src/pages/404.lyr
@@ -143,6 +143,9 @@ src/pages/search.lyr
   /_lyr/search-FS5ZIDKX.js           0.21 kB  gzip    0.19 kB
 loaded with import()
   /_lyr/suggestions-GF7I45PT.js      0.24 kB  gzip    0.19 kB
+lyr loader (pages with server:defer or client:*, and partials)
+  /_lyr/loader/loader-09c0efbc.js        3.99 kB  gzip    1.90 kB
+  /_lyr/loader/wrappers-7dc3c66b.css     0.04 kB  gzip    0.06 kB
 total CSS                              9.48 kB  gzip    3.68 kB
 total JS                               1.97 kB  gzip    1.54 kB
 ```

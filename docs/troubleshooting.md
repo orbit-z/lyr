@@ -707,9 +707,9 @@ Errors in Markdown files point at their `.md` line and column: a frontmatter key
 
 ### A partial's script didn't run
 
-**Cause:** the swap library didn't run the partial's runner, the `<script type="module">` at its end. `innerHTML` and `insertAdjacentHTML` never run scripts; htmx does by default, unless `htmx.config.allowScriptTags` is off or `hx-select` left the runner out. Or the script ran once when the page loaded and used `querySelectorAll`, which doesn't see HTML swapped in later.
+**Cause:** the swap library didn't run the `<script src="/_lyr/loader/…" data-lyr-loader>` at the partial's end. `innerHTML` and `insertAdjacentHTML` never run scripts. htmx and Turbo do, unless `hx-select` left the script out, or, in htmx 2, `htmx.config.allowScriptTags` is `false`. A library that runs scripts by evaluating their text (jQuery's `.html()`) is blocked by a Content Security Policy without `'unsafe-inline'` and `'unsafe-eval'`: the browser console shows the violation. Or the script ran once when the page loaded and used `querySelectorAll`, which doesn't see HTML swapped in later.
 
-**Fix:** use a library that runs scripts in fragments (and select the runner too with `hx-select`), and write the script as a custom element, whose `connectedCallback` runs for every instance. See [Page partials](routing.md#page-partials).
+**Fix:** use a library that runs scripts in fragments by re-creating the `<script>` elements (and with `hx-select`, select the trailing `<script>` and the `<link rel="stylesheet">` before it, when there is one), and write the script as a custom element, whose `connectedCallback` runs for every instance. See [Page partials](routing.md#page-partials).
 
 ### `lyr: src/components/Card.lyr not linked; import example.com/blog/lyr_gen/app`
 
@@ -827,6 +827,18 @@ lyr: GET /blog/hello: src/pages/blog/[slug].lyr:14:5: posts: connection refused
 
 **Fix:** keep each key's load free of calls back into the loader for the same key. See [the loader](data-loading.md#share-data-without-props-drilling-a-loader-in-locals).
 
+### The server logs that the loader file is missing
+
+```text
+lyr: the static files lack /_lyr/loader/loader-09c0efbc.js, which pages use: they come from another lyr version; run lyr build with this version
+```
+
+**Cause:** the server's Lyr version names a loader file (`loader-<hash>.js`, or the partials' `wrappers-<hash>.css`) that the static directory (`dist/client`, `LYR_STATIC` or the `--embed` copy) doesn't have. The loader's file name changes with Lyr's version, so this happens when you upgrade Lyr and run the server against a `dist/` built by the old version. Pages still render, but their deferred components keep their fallback and lazy scripts never load (a `404` for `/_lyr/loader/…` in the browser).
+
+Lyr checks this only in production, when the server has static files.
+
+**Fix:** run `lyr build` with the new version (`go tool lyr build`), then restart the server. `lyr dev` writes the file itself. See [The loader and Content Security Policy](lazy-loading.md#the-loader-and-content-security-policy).
+
 ### A `server:defer` component only shows its fallback
 
 The placeholder keeps its fallback whenever the island request fails. In `lyr dev`, the loader logs the status and the response body to the **browser console**; in production it stays silent, so look at the request to `/_lyr/island/…` in your browser's network panel. By status:
@@ -842,9 +854,9 @@ The placeholder keeps its fallback whenever the island request fails. In `lyr de
 - **3xx**: the component returned `ctx.Redirect(…)`; the loader doesn't follow redirects.
 - **500**: the component returned an error or panicked. In dev, the body holds the error and its `.lyr` position.
 - **A rejection from your CSRF middleware**: props over about 8 KB are sent with `POST`. Exempt `/_lyr/island/`, or use Go's `http.CrossOriginProtection`.
-- **No island request at all**: JavaScript is off, a strict Content Security Policy blocks the inline loader (allow it with `'unsafe-inline'` or the script's hash), or the placeholder came in a `lyr.RenderComponent` fragment on a page that has no deferred component of its own, and so no loader.
+- **No island request at all**: JavaScript is off; the loader file is missing (a `404` for `/_lyr/loader/…` in the network panel: see [The server logs that the loader file is missing](#the-server-logs-that-the-loader-file-is-missing)); a Content Security Policy blocks it (one whose `script-src` lacks `'self'`, or uses `'strict-dynamic'`, which ignores `'self'`) or blocks the fetch (a `connect-src` without `'self'`), with an error in the browser console; or the placeholder came in a `lyr.RenderComponent` fragment on a page that has no deferred or `client:*` component of its own, and so no loader.
 
-See [Status codes and errors](lazy-loading.md#status-codes-and-errors), [The key: `LYR_KEY` and rolling deploys](lazy-loading.md#the-key-lyr_key-and-rolling-deploys) and [The loader and Content Security Policy](lazy-loading.md#the-loader-and-content-security-policy).
+See [Status codes and errors](lazy-loading.md#status-codes-and-errors), [The key: `LYR_KEY` and rolling deploys](lazy-loading.md#the-key-lyr_key-and-rolling-deploys) and [The loader and Content Security Policy](lazy-loading.md#the-loader-and-content-security-policy). For the policy itself, see [Content Security Policy](content-security-policy.md).
 
 ### The server stops at startup with an error about `LYR_KEY`
 

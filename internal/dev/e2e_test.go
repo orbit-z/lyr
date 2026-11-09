@@ -15,6 +15,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/orbit-z/lyr/internal/loader"
 )
 
 // testEnv is the go commands' environment in the tests: the fixture's
@@ -433,8 +435,15 @@ func TestDevServer(t *testing.T) {
 	}
 	edit(t, dir, "src/pages/frag.lyr", "const partial = false", "const partial = true")
 	waitReload(t, events, "partial on")
-	if _, body := s.get("/frag"); !regexp.MustCompile(`^<p>frag</p><script type="module">let s=globalThis\.lyr__ran\?\?=new Set;for\(let\[i,u\]of\[\["frag-[0-9a-f]{8}","/_lyr/frag-[A-Z0-9]{8}\.js"\]\]\)`).MatchString(body) || strings.Contains(body, reloadTag) {
+	if _, body := s.get("/frag"); !regexp.MustCompile(`^<p>frag</p><script src="`+regexp.QuoteMeta(loader.LoaderURL)+`" data-lyr-loader='\{"dev":true,"run":\[\["frag-[0-9a-f]{8}","/_lyr/frag-[A-Z0-9]{8}\.js"\]\]\}'></script>`).MatchString(body) || strings.Contains(body, reloadTag) {
 		t.Errorf("GET /frag as a partial:\n%s", body)
+	}
+	// The dev pipeline wrote the loader files, and keeps them across
+	// rebuilds (WriteDev removes what a build doesn't list).
+	for _, url := range []string{loader.LoaderURL, loader.WrappersURL} {
+		if res, body := s.get(url); res.StatusCode != 200 || body == "" {
+			t.Errorf("GET %s: %d", url, res.StatusCode)
+		}
 	}
 	edit(t, dir, "src/pages/frag.lyr", "const partial = true", "const partial = false")
 	waitReload(t, events, "partial off")

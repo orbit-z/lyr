@@ -428,6 +428,8 @@ func answerError(w http.ResponseWriter, r *http.Request, err error) bool {
 
 There's one middleware model, and Lyr ships no auth: cookies and security headers are your middleware's job, with the standard library or the Go packages you pick. Sessions are built in (below). See [Middleware and locals](middleware.md) and [Server](server.md).
 
+**Content Security Policy**: Astro's `security.csp` hashes its inline scripts and styles. Lyr has none to hash: its loader and a partial's scripts are files under `/_lyr/`, so `script-src 'self'; style-src 'self'` covers them. Set the policy header in a middleware, and allow your own `is:inline` scripts by hash or move them to `public/`. See [Content Security Policy](content-security-policy.md).
+
 ### Sessions
 
 If your Astro site uses `Astro.session`:

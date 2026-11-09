@@ -404,30 +404,35 @@ if err != nil {
 </Base>
 ```
 
-Every 30 seconds htmx fetches `/partials/comments/hello` and swaps the response into the section. The response is the `CommentList` HTML and, at the end, one small inline script, the **runner**:
+Every 30 seconds htmx fetches `/partials/comments/hello` and swaps the response into the section. The response is the `CommentList` HTML and, at the end, one script tag that loads Lyr's loader file and lists the partial's component scripts in its `data-lyr-loader` attribute:
 
 ```html
-<script type="module">let s=globalThis.lyr__ran??=new Set;for(let[i,u]of[["CommentList-1a2b3c4d","/_lyr/CommentList-AB12CD34.js"]])s.has(i)||(s.add(i),import(u))</script>
+<script src="/_lyr/loader/loader-09c0efbc.js" data-lyr-loader='{"dev":false,"run":[["CommentList-1a2b3c4d","/_lyr/CommentList-AB12CD34.js"]]}'></script>
 ```
 
 What a partial gets, compared with a page:
 
-- **No head tags**: no stylesheet, no page `<script>`, no `modulepreload`, no loader, nothing at `</head>` or at the start. A doctype, `<html>` or `<head>` you write (or a layout you use writes) is output as written. A partial whose components have no scripts is exactly its template's output.
+- **No head tags**: no stylesheet, no page `<script>`, no `modulepreload`, nothing at `</head>` or at the start. A doctype, `<html>` or `<head>` you write (or a layout you use writes) is output as written. A partial whose components have no scripts is exactly its template's output.
 - **No CSS.** The partial's components get their styles from the page they land in, so that page must include them: render them, or [import them without rendering](components.md#including-a-component-without-rendering-it) (`_ "./EmptyState.lyr"`), directly or through other components. The scoped-style attributes (`data-l-…`) are written as usual and match the host's stylesheet. Lyr doesn't check that a host includes anything. The partial page's own `<style>` blocks are dropped, with a warning in `lyr build`, `lyr check` and the editor; move the style to a component the host imports, or add `is:inline`.
-- **Scripts come with it, and run once per page.** The runner imports each component's script entry (one per component, shared with [lazy entries](lazy-loading.md)) unless the page already ran that component: the page's own bundle marks the components it ran, and every runner marks what it imports. On the post page above, the runner imports nothing; on a page without `CommentList`, it imports its entry once, however many times the partial is swapped in. Components brought by a runner load in parallel, so their relative order isn't guaranteed.
+- **Scripts come with it, and run once per page.** The script at the end imports each component's script entry (one per component, shared with [lazy entries](lazy-loading.md)) unless the page already ran that component: the page's own bundle marks the components it ran, and every partial marks what it imports. On the post page above, it imports nothing; on a page without `CommentList`, it imports its entry once, however many times the partial is swapped in. Components a partial brings load in parallel, so their relative order isn't guaranteed.
 - **Everything else is a page's**: the URL and typed `params`, route priority, every HTTP method (a partial can answer its own `hx-post`), your middleware and `locals` (`locals.Route` is the partial's route), [caching](caching.md), sessions, `ctx.SetStatus` and `ctx.Header()`, and error handling. `const partial = false` is the same as no flag. `partial` stays an ordinary constant you can read (`{if partial}`).
 
 **Write scripts as custom elements.** A script runs once per page, so one that runs `querySelectorAll` when it loads doesn't see HTML swapped in later. A custom element's `connectedCallback` runs for every instance, whenever it appears (see [Write scripts as custom elements](lazy-loading.md#write-scripts-as-custom-elements)).
 
-**Which swap libraries run the runner.** htmx does by default (`htmx.config.allowScriptTags`). `innerHTML` and `insertAdjacentHTML` never run scripts: the fragment gets its HTML, and its CSS if the host has it, but no scripts unless the host includes the components. With Unpoly or another library, check that it runs `<script>` tags in fragments. With `hx-select` or `hx-select-oob`, select the runner too, or it's dropped.
+**Which swap libraries run a partial's script.** The script at the end is a classic `<script src>`, so it runs each time it's inserted, and it only needs `script-src 'self'` under a Content Security Policy. A library that runs scripts in fragments by re-creating the `<script>` elements runs it, as Turbo does, and htmx 2 and 4 do by default:
+
+- **htmx 2** runs it unless `htmx.config.allowScriptTags` is `false`. htmx 2 also adds an inline `<style>` for its request indicators, which `style-src 'self'` blocks: set `<meta name="htmx-config" content='{"includeIndicatorStyles":false}'>` and style `.htmx-indicator` yourself (see [Content Security Policy](content-security-policy.md#whats-still-yours-to-allow)).
+- **htmx 4** always runs it; there's no setting to turn it off. Its morph swaps (`innerMorph`, `outerMorph`) keep a `<script>` node that's unchanged and don't run it again, which is fine: an unchanged script has nothing new to run, and a partial that brings new components has a different script, which runs.
+
+ `innerHTML` and `insertAdjacentHTML` never run scripts: the fragment gets its HTML, and its CSS if the host has it, but no scripts unless the host includes the components. A library that runs a fragment's scripts by evaluating their text (jQuery's `.html()`) fails under a policy without `'unsafe-inline'` and `'unsafe-eval'`. With Unpoly or another library, check that it runs `<script>` tags in fragments. `hx-select` and `hx-select-oob` (htmx 2 and 4) keep only the elements the selector matches: make it match the trailing `<script>` too, and the `<link rel="stylesheet" href="/_lyr/loader/…">` before it when there is one (a partial has it when its components have a `server:defer` or `client:*` call site), or they're dropped.
 
 **Inline scripts** (`is:inline`, a `type` attribute, `set:html`, `set:json`) are template output: a swap library that runs scripts runs them on **every insertion**.
 
-**`server:defer` and `client:*` inside a partial** work whatever the host has: a partial whose components use them carries the loader it needs at its end, as Astro's partials carry their island scripts. See [In partials and fragments](lazy-loading.md#in-partials-and-fragments).
+**`server:defer` and `client:*` inside a partial** work whatever the host has: the same script at its end installs the loader if the page has none, and a stylesheet link before it gives the placeholders `display: contents`, as Astro's partials carry their island scripts. See [In partials and fragments](lazy-loading.md#in-partials-and-fragments).
 
 **Redirects, 404s and errors.** `ctx.Redirect` answers the redirect; htmx follows it through XHR and swaps the target's HTML, so to send the browser elsewhere set htmx's `HX-Redirect` or `HX-Location` header with `ctx.Header().Set(…)` instead. `ctx.Rewrite` serves the target with the target's rule: a partial rewriting to a full page answers the full page. `lyr.ErrNotFound` renders `404.lyr`, a full page with its assets (htmx doesn't swap 4xx responses by default), and errors render the 500 page (htmx doesn't swap 5xx either).
 
-**Content Security Policy.** The runner is an inline module script, like the loader: a strict CSP needs `'unsafe-inline'` or its hash, which is the same for every response of a route in a build. See [The loader and Content Security Policy](lazy-loading.md#the-loader-and-content-security-policy).
+**Content Security Policy.** Everything a partial adds is a file under `/_lyr/`, so a policy needs nothing beyond `script-src 'self'; style-src 'self'`. A script it inserts runs under the policy of the page it's swapped into. See [Content Security Policy](content-security-policy.md) and [The loader and Content Security Policy](lazy-loading.md#the-loader-and-content-security-policy).
 
 **Limits.** Only `.lyr` pages can be partials: in a Markdown page, a `partial:` frontmatter key is a layout prop like any other (as in Astro, where `.md` can't be a partial). `404.lyr` can be a partial, but then every 404 has no CSS. `const partial` in a component or a layout is an error, and in a page the name is reserved for the flag:
 
@@ -502,7 +507,7 @@ Lyr is a `net/http` middleware, and it only claims requests it can answer. What 
 | Request target | Methods Lyr handles | Other methods |
 |---|---|---|
 | Pages | all methods | — |
-| `/_lyr/*` assets, `public/` files | `GET`, `HEAD` | passed to the next handler |
+| `/_lyr/*` assets (`/_lyr/loader/` included), `public/` files | `GET`, `HEAD` | passed to the next handler |
 | `/_lyr/island/…` (deferred components) | `GET`, `HEAD`, `POST` | 405, with `Allow: GET, HEAD, POST` |
 | Anything else | — | passed to the next handler |
 

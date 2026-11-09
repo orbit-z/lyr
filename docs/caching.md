@@ -514,7 +514,7 @@ See [Response headers and caching](lazy-loading.md#response-headers-and-caching)
 
 ## Page partials
 
-A [page partial](routing.md#page-partials) is cached like any page: `ctx.Cache().Set`, `routeRules`, `VaryBy`, ETag and `304`s, coalescing and tags all apply, and the stored body includes the partial's runner. (Fragments from `lyr.RenderComponent` are never stored.) A partial that lists something personal to the visitor must not call `Set`, as for any page.
+A [page partial](routing.md#page-partials) is cached like any page: `ctx.Cache().Set`, `routeRules`, `VaryBy`, ETag and `304`s, coalescing and tags all apply, and the stored body includes the script tag at the partial's end. (Fragments from `lyr.RenderComponent` are never stored.) A partial that lists something personal to the visitor must not call `Set`, as for any page.
 
 ## Rewrites
 

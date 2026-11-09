@@ -186,6 +186,9 @@ func TestRender(t *testing.T) {
 		{"gfm", Options{}, "| a | b |\n|---|---|\n| 1 | 2 |\n\n- [x] done\n\n~~old~~ www.example.com\n\nNote[^1].\n\n[^1]: A footnote.\n",
 			[]string{"<table>", `<input checked="" disabled="" type="checkbox"> done`, "<del>old</del>",
 				`<a href="http://www.example.com">www.example.com</a>`, `<sup id="fnref:1">`, "A footnote."}},
+		// align="…", not style="text-align:…" (blocked by style-src 'self').
+		{"table alignment", Options{}, "| l | c | r |\n|:--|:-:|--:|\n| 1 | 2 | 3 |\n",
+			[]string{`<th align="left">l</th>`, `<th align="center">c</th>`, `<td align="right">3</td>`}},
 		{"no gfm", Options{NoGFM: true}, "~~old~~\n", []string{"<p>~~old~~</p>"}},
 		{"smartypants", Options{}, "\"Hi\" -- it's... << x >> `don't`\n",
 			[]string{"<p>&ldquo;Hi&rdquo; &mdash; it&rsquo;s&hellip; &lt;&lt; x &gt;&gt; <code>don't</code></p>"}},
@@ -211,6 +214,9 @@ func TestRender(t *testing.T) {
 				if !strings.Contains(d.HTML, w) {
 					t.Errorf("no %q in:\n%s", w, d.HTML)
 				}
+			}
+			if strings.Contains(d.HTML, "style=") {
+				t.Errorf("a style attribute in:\n%s", d.HTML)
 			}
 		})
 	}

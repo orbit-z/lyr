@@ -274,6 +274,8 @@ Two Markdown files with the same keys and value types have the same `Frontmatter
 
 Markdown is [CommonMark](https://commonmark.org) plus, as in Astro, **GitHub Flavored Markdown**: tables, task lists (`- [x] done`), strikethrough (`~~old~~`), footnotes and bare URLs turned into links. **Smart punctuation** is on too, as in Astro: straight quotes become curly, `--` becomes an em dash (—) and `...` an ellipsis (text in backticks and code blocks is never changed). As in Astro, only two hyphens make a dash: `-`, `---` and longer runs stay as written. Both can be turned off in `lyr.json` (see [Options](#options)).
 
+A table column aligned with `:---:` or `---:` gets an `align` attribute on its cells (`<td align="center">`), as in Astro, not a `style` attribute, so a strict Content Security Policy doesn't block it (see [Content Security Policy](content-security-policy.md)). Style it from your CSS with `td[align="center"]` if you want more than the browser's default.
+
 There are no expressions: `{` and `}` are plain text, and there's no frontmatter code. For data, use a `.lyr` page that imports the Markdown.
 
 ### Raw HTML

@@ -50,30 +50,17 @@ func (p *Project) Islands() []*File {
 // imports, transitively, deferred components included) has a server:defer
 // call site: the page then needs the islands loader (Route.Islands).
 func (p *Project) HasIslands(page *File) bool {
-	byPath := p.byPath()
-	for _, path := range p.AssetGraph(page) {
-		if f := byPath[path]; f != nil {
-			for _, c := range f.calls() {
-				if c.Defer {
-					return true
-				}
-			}
-		}
-	}
-	return false
+	return p.hasCall(page, func(c compiler.ComponentCall) bool { return c.Defer })
 }
 
-// HasDelayedIslands reports whether the page's static graph (as for
-// HasIslands) has a delayed island: a server:defer call site with
-// client:idle, client:visible or client:media (PLAN.md §3.4). The page then
-// gets the islands loader variant that reads strategies
-// (Route.IslandsWhen).
-func (p *Project) HasDelayedIslands(page *File) bool {
+// hasCall reports whether a call site in the page's static graph (as for
+// HasIslands) satisfies ok.
+func (p *Project) hasCall(page *File, ok func(compiler.ComponentCall) bool) bool {
 	byPath := p.byPath()
 	for _, path := range p.AssetGraph(page) {
 		if f := byPath[path]; f != nil {
 			for _, c := range f.calls() {
-				if c.Defer && c.Lazy != compiler.NotDirective {
+				if ok(c) {
 					return true
 				}
 			}

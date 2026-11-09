@@ -99,6 +99,13 @@ const (
 	highlightNamespace = "lyr-highlight"
 )
 
+// wrappersSpec is the virtual stylesheet holding loader.WrappersCSS
+// (Page.Wrappers), served from wrappersNamespace.
+const (
+	wrappersSpec      = stylePrefix + "lyr-wrappers.css"
+	wrappersNamespace = "lyr-wrappers"
+)
+
 // blockCopy is one copy of a block: the block and the suffix of the copy
 // ("?lyr-script=0&page=index").
 type blockCopy struct {
@@ -179,6 +186,9 @@ func newPlan(in *Input) *plan {
 			continue
 		}
 		var imports []string
+		if pg.Wrappers {
+			imports = append(imports, wrappersSpec) // first of all (PLAN.md §5f)
+		}
 		if pg.Highlight && p.highlight != "" {
 			imports = append(imports, highlightSpec) // first, so user styles win
 		}

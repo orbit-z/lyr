@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
+    <title>e2e</title>
+    <script src="/csp-check.js"></script>
+    <script src="/htmx.js"></script>
+  </head>
+  <body>
+    <div id="b1" hx-get="/partials/b" hx-trigger="load" hx-swap="innerHTML"></div>
+    <div id="b2" hx-get="/partials/b" hx-trigger="load delay:500ms" hx-swap="innerHTML"></div>
+    <div id="a1" hx-get="/partials/a" hx-trigger="load delay:1000ms" hx-swap="innerHTML"></div>
+  </body>
+</html>

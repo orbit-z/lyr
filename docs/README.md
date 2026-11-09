@@ -20,6 +20,7 @@ Lyr is a server-rendered (SSR) web framework with Astro's developer experience a
 - [Sessions](sessions.md): Per-visitor data on the server: sign-in, carts, flash messages
 - [Server](server.md): Lyr as `net/http` middleware, custom routes, precedence
 - [Middleware and locals](middleware.md): Plain `net/http` middleware, typed `Locals`
+- [Content Security Policy](content-security-policy.md): A strict policy for a Lyr site, third-party scripts and embeds, inline snippets
 - [Styles and scripts](styles-and-scripts.md): Scoped CSS, TypeScript, bundling, passing data to scripts
 - [Using Tailwind](tailwind.md): Tailwind CSS v4, `@apply` in components, fonts, plugins, editors
 - [Lazy loading](lazy-loading.md): `server:defer` server islands, `client:*` script loading

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
+    <title>e2e</title>
+    <script src="/csp-check.js"></script>
+    <script src="/htmx.js"></script>
+  </head>
+  <body>
+    <!-- htmx 4 only: partial a, then partial c (Pc is new to the page)
+         morphed into the same target (hx-swap="innerMorph"). -->
+    <div id="m" hx-get="/partials/a" hx-trigger="load" hx-swap="innerHTML"></div>
+    <div hx-get="/partials/c" hx-target="#m" hx-swap="innerMorph" hx-trigger="load delay:800ms"></div>
+  </body>
+</html>

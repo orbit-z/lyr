@@ -1,0 +1,9 @@
+---
+import (
+	Pa "../../components/Pa.lyr"
+	Pc "../../components/Pc.lyr"
+)
+
+const partial = true
+---
+<Pa /><Pc />

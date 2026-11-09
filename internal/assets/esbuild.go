@@ -15,6 +15,7 @@ import (
 
 	"github.com/evanw/esbuild/pkg/api"
 	"github.com/orbit-z/lyr/internal/compiler"
+	"github.com/orbit-z/lyr/internal/loader"
 	"github.com/orbit-z/lyr/internal/tailwind"
 )
 
@@ -113,9 +114,16 @@ func (b *esbuildBundler) plugin() api.Plugin {
 				css := b.current().highlight
 				return api.OnLoadResult{Contents: &css, Loader: api.LoaderCSS, ResolveDir: b.opts.Root}, nil
 			})
+			pb.OnLoad(api.OnLoadOptions{Filter: ".*", Namespace: wrappersNamespace}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
+				css := loader.WrappersCSS
+				return api.OnLoadResult{Contents: &css, Loader: api.LoaderCSS, ResolveDir: b.opts.Root}, nil
+			})
 			pb.OnResolve(api.OnResolveOptions{Filter: "^lyr:(script|style)/"}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
-				if a.Path == highlightSpec {
+				switch a.Path {
+				case highlightSpec:
 					return api.OnResolveResult{Path: strings.TrimPrefix(a.Path, stylePrefix), Namespace: highlightNamespace}, nil
+				case wrappersSpec:
+					return api.OnResolveResult{Path: strings.TrimPrefix(a.Path, stylePrefix), Namespace: wrappersNamespace}, nil
 				}
 				blk := b.current().blocks[a.Path]
 				if blk.block == nil {
@@ -197,8 +205,29 @@ func (b *esbuildBundler) plugin() api.Plugin {
 	}
 }
 
-// Bundle builds every page of in.
+// Bundle builds every page of in. A successful result always carries the
+// loader files (PLAN.md §5f), even with no page entries: lyr build writes
+// them, and WriteDev keeps only the files of the result. A partial with
+// Wrappers set gets the wrappers stylesheet as its first asset.
 func (b *esbuildBundler) Bundle(in *Input) (*Result, error) {
+	res, err := b.bundle(in)
+	if err != nil || res.HasErrors() {
+		return res, err
+	}
+	for _, pg := range in.Pages {
+		if pg.Partial && pg.Wrappers {
+			res.Pages[pg.File] = append([]Asset{{Kind: "css", URL: loader.WrappersURL}}, res.Pages[pg.File]...)
+		}
+	}
+	for _, f := range loader.Files {
+		res.Files = append(res.Files, File{Name: f.Path, Contents: []byte(f.Contents)})
+	}
+	slices.SortFunc(res.Files, func(x, y File) int { return strings.Compare(x.Name, y.Name) })
+	return res, nil
+}
+
+// bundle runs esbuild on in.
+func (b *esbuildBundler) bundle(in *Input) (*Result, error) {
 	p := newPlan(in)
 	res := &Result{Pages: map[string][]Asset{}, Diagnostics: p.diagnostics}
 	if res.HasErrors() {

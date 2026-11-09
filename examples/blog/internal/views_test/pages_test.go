@@ -100,12 +100,13 @@ func TestSite(t *testing.T) {
 	}
 }
 
-// runnerRe is the end of a page partial: the runner that imports its
-// components' scripts unless the page already ran them.
-var runnerRe = regexp.MustCompile(`<script type="module">let s=globalThis\.lyr__ran\?\?=new Set;for\(let\[i,u\]of\[\["CommentList-[0-9a-f]{8}","/_lyr/CommentList-[A-Z0-9]{8}\.js"\]\]\)s\.has\(i\)\|\|\(s\.add\(i\),import\(u\)\)</script>$`)
+// runnerRe is the end of a page partial: Lyr's loader script, whose
+// config lists its components' scripts, imported unless the page already
+// ran them.
+var runnerRe = regexp.MustCompile(`<script src="/_lyr/loader/loader-[0-9a-f]{8}\.js" data-lyr-loader='\{"dev":false,"run":\[\["CommentList-[0-9a-f]{8}","/_lyr/CommentList-[A-Z0-9]{8}\.js"\]\]\}'></script>$`)
 
 // TestCommentsPartial: /partials/comments/[slug] is a page partial: the
-// fragment alone, no head tags, its runner at the end.
+// fragment alone, no head tags, its loader script at the end.
 func TestCommentsPartial(t *testing.T) {
 	h := app.New().Handler()
 	rec := lyrtest.Get(t, h, "/partials/comments/hello")
@@ -113,7 +114,7 @@ func TestCommentsPartial(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.HasPrefix(body, `<comment-list data-count="2">`) {
 		t.Fatalf("status %d:\n%s", rec.Code, body)
 	}
-	for _, unwanted := range []string{"<link", `src="/_lyr/`, "lyr-loader", "<!DOCTYPE", "<head"} {
+	for _, unwanted := range []string{"<link", `type="module"`, `id="lyr-loader"`, "<!DOCTYPE", "<head", "<style"} {
 		if strings.Contains(body, unwanted) {
 			t.Errorf("partial has %q:\n%s", unwanted, body)
 		}
@@ -123,7 +124,7 @@ func TestCommentsPartial(t *testing.T) {
 		t.Errorf("no scoped attributes:\n%s", body)
 	}
 	if !runnerRe.MatchString(body) {
-		t.Errorf("no runner at the end:\n%s", body)
+		t.Errorf("no loader script at the end:\n%s", body)
 	}
 	if rec := lyrtest.Get(t, h, "/partials/comments/nope"); rec.Code != http.StatusNotFound || !strings.Contains(rec.Body.String(), "Page not found") {
 		t.Errorf("unknown post: status %d\n%s", rec.Code, rec.Body.String())

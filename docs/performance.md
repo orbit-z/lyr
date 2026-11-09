@@ -223,12 +223,12 @@ import Recommendations "../../components/Recommendations.lyr"
 
 What it costs:
 
-- **On the page**, per deferred instance: one `json.Marshal` of its props and one encryption (HMAC-SHA256 plus AES-GCM, about 1 µs for 1 KB of props), plus a small inline loader script, once per page (about 1.1 KB, 0.7 KB gzipped).
+- **On the page**, per deferred instance: one `json.Marshal` of its props and one encryption (HMAC-SHA256 plus AES-GCM, about 1 µs for 1 KB of props), plus a `<script>` tag for the [loader](lazy-loading.md#the-loader-and-content-security-policy), once per page. The loader is a file (about 3.9 KB, 1.9 KB gzipped) that browsers cache for a year and share across every page, so after the first page a visitor loads, it costs no bytes.
 - **Pages without islands pay nothing**: no loader, no extra work.
-- **Delayed islands** (`server:defer client:visible|idle|media`, see [Delay the fetch](lazy-loading.md#delay-the-fetch)) cost the same on the server; the strategy is a constant written with the placeholder. Their island request, and so their render, happens only when the strategy fires, never for a visitor who doesn't scroll there. Pages that have one get a loader that reads strategies instead (about 2.0 KB, 1.1 KB gzipped).
+- **Delayed islands** (`server:defer client:visible|idle|media`, see [Delay the fetch](lazy-loading.md#delay-the-fetch)) cost the same on the server; the strategy is a constant written with the placeholder. Their island request, and so their render, happens only when the strategy fires, never for a visitor who doesn't scroll there. The same loader file handles them.
 - **The island request** goes through your middleware and renders like any other request, so it costs about what rendering that component inside the page did.
 
-Lazy component scripts (`client:idle`, `client:visible`, `client:media`) cost nothing at render time: their wrapper elements are part of the precomputed static HTML. Pages that have them get the lazy loader script inline (about 1.6 KB, 0.9 KB gzipped).
+Lazy component scripts (`client:idle`, `client:visible`, `client:media`) cost nothing at render time: their wrapper elements are part of the precomputed static HTML. Pages that have them get the same loader file, with the list of lazy entries in a small JSON settings block.
 
 ## Loading data concurrently: `lyr.All`
 

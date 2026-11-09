@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/orbit-z/lyr/internal/loader"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -482,6 +483,9 @@ func TestRenderComponentDefer(t *testing.T) {
 // escLT and escGT are the \u escapes of < and > in JSON.
 const escLT, escGT = "\\u003c", "\\u003e"
 
+// loaderTag is the loader script a page's head gets after its config.
+const loaderTag = `<script defer src="` + loader.LoaderURL + `"></script>`
+
 func TestLoaderInjection(t *testing.T) {
 	t.Setenv("LYR_KEY", "")
 	for _, dev := range []bool{false, true} {
@@ -495,21 +499,17 @@ func TestLoaderInjection(t *testing.T) {
 			devJSON := fmt.Sprint(dev)
 
 			post := do(h, "GET", "/post").Body.String()
-			wantPost := `<title>Post</title>` + loaderStyle +
-				`<script type="application/json" id="lyr-loader">{"dev":` + devJSON + `}</script>` +
-				`<script type="module">` + loaderIslandsJS + `</script>` +
+			wantPost := `<title>Post</title>` +
+				`<script type="application/json" id="lyr-loader">{"dev":` + devJSON + `}</script>` + loaderTag +
 				`<link rel="stylesheet" href="/_lyr/post-1234.css"></head>`
 			if !strings.Contains(post, wantPost) {
 				t.Errorf("/post = %s\nwant it to contain %s", post, wantPost)
 			}
-			if strings.Contains(post, loaderLazyJS) {
-				t.Error("/post has the lazy loader")
-			}
 
 			lazy := do(h, "GET", "/lazy").Body.String()
-			wantLazy := `<head>` + loaderStyle +
+			wantLazy := `<head>` +
 				`<script type="application/json" id="lyr-loader">{"dev":` + devJSON + `,"lazy":{"Counter-1c2d3e4f":["/_lyr/Counter-ABCD.js","/_lyr/Inner-EFGH.js"],"x` + escLT + `/script` + escGT + `":["/_lyr/x.js"]}}</script>` +
-				`<script type="module">` + loaderLazyJS + `</script></head>`
+				loaderTag + `</head>`
 			if lazy != `<html>`+wantLazy+`<body>lazy</body></html>` {
 				t.Errorf("/lazy = %s\nwant %s", lazy, wantLazy)
 			}
@@ -522,42 +522,75 @@ func TestLoaderInjection(t *testing.T) {
 	}
 }
 
-// TestLoaderInjectionDelayed: a page with a delayed island (Route.IslandsWhen,
-// PLAN.md §3.4) gets loaderIslandsWhenJS instead of loaderIslandsJS, and the
-// lazy loader when its subtree has lazy entries; a page with only bare
-// islands keeps loaderIslandsJS.
+// TestLoaderInjectionDelayed: a page with a delayed island gets the same
+// loader script as any other (it reads strategies everywhere), whether or
+// not the page also has lazy entries.
 func TestLoaderInjectionDelayed(t *testing.T) {
 	t.Setenv("LYR_KEY", "")
 	t.Setenv("LYR_DEV", "")
 	t.Setenv("LYR_STATIC", "")
 	t.Setenv("LYR_PUBLIC", "")
 	routes := []Route{
-		{Pattern: "/delayed", File: "src/pages/delayed.lyr", Render: headPage("d"), Islands: true, IslandsWhen: true,
+		{Pattern: "/delayed", File: "src/pages/delayed.lyr", Render: headPage("d"), Islands: true,
 			Assets: []Asset{{Kind: "lazy", ID: commentsID, URL: "/_lyr/Comments-ABCD.js"}}},
 		{Pattern: "/bare", File: "src/pages/bare.lyr", Render: headPage("b"), Islands: true},
 	}
 	h := NewSite(routes, islandTable, WithStaticDir(t.TempDir())).Handler()
 	delayed := do(h, "GET", "/delayed").Body.String()
-	want := `<html><head>` + loaderStyle +
+	want := `<html><head>` +
 		`<script type="application/json" id="lyr-loader">{"dev":false,"lazy":{"` + commentsID + `":["/_lyr/Comments-ABCD.js"]}}</script>` +
-		`<script type="module">` + loaderIslandsWhenJS + `</script>` +
-		`<script type="module">` + loaderLazyJS + `</script></head><body>d</body></html>`
+		loaderTag + `</head><body>d</body></html>`
 	if delayed != want {
 		t.Errorf("/delayed = %s\nwant %s", delayed, want)
 	}
 	bare := do(h, "GET", "/bare").Body.String()
-	want = `<html><head>` + loaderStyle +
-		`<script type="application/json" id="lyr-loader">{"dev":false}</script>` +
-		`<script type="module">` + loaderIslandsJS + `</script></head><body>b</body></html>`
+	want = `<html><head><script type="application/json" id="lyr-loader">{"dev":false}</script>` + loaderTag + `</head><body>b</body></html>`
 	if bare != want {
 		t.Errorf("/bare = %s\nwant %s", bare, want)
 	}
 }
 
-func TestLoaderConstants(t *testing.T) {
-	for name, js := range map[string]string{"loaderIslandsJS": loaderIslandsJS, "loaderIslandsWhenJS": loaderIslandsWhenJS, "loaderLazyJS": loaderLazyJS} {
-		if strings.Contains(strings.ToLower(js), "</script") || strings.Contains(js, "<!--") {
-			t.Errorf("%s can't be inlined in a <script>", name)
+// inlineCode returns what a strict CSP (script-src 'self'; style-src
+// 'self') would block in tags, or "": a <style>, a style or event handler
+// attribute, or a <script> with neither a src nor type="application/json".
+func inlineCode(tags string) string {
+	for _, bad := range []string{"<style", " style=", " onclick=", " onload=", " onerror="} {
+		if strings.Contains(tags, bad) {
+			return bad
+		}
+	}
+	for _, s := range strings.Split(tags, "<script")[1:] {
+		tag, _, _ := strings.Cut(s, ">")
+		if !strings.Contains(tag, ` src="`) && !strings.Contains(tag, `type="application/json"`) {
+			return "<script" + tag + ">"
+		}
+	}
+	return ""
+}
+
+// TestLoaderNoInlineCode: across a matrix of routes, what Lyr injects
+// holds nothing a strict CSP blocks (PLAN.md §5f).
+func TestLoaderNoInlineCode(t *testing.T) {
+	lazyA := Asset{Kind: "lazy", ID: "Tip-1", URL: "/_lyr/Tip-C.js"}
+	comp := Asset{Kind: "component", ID: "List-2", URL: "/_lyr/List-A.js"}
+	compLazy := Asset{Kind: "component", ID: "Tip-1", URL: "/_lyr/Tip-C.js"}
+	css := Asset{Kind: "css", URL: "/_lyr/p.css"}
+	js := Asset{Kind: "js", URL: "/_lyr/p.js"}
+	for _, dev := range []bool{false, true} {
+		for _, isl := range []bool{false, true} {
+			for _, as := range [][]Asset{nil, {lazyA}, {css, js, lazyA}, {comp}, {comp, compLazy, lazyA}} {
+				for _, tags := range []string{headTags(loaderHead(dev, isl, as), as), partialTail(dev, isl, as)} {
+					if m := inlineCode(tags); m != "" {
+						t.Errorf("dev=%v islands=%v %v: %q in %s", dev, isl, as, m, tags)
+					}
+				}
+			}
+		}
+	}
+	// The pattern catches what it must.
+	for _, bad := range []string{`<style>x</style>`, `<p style="x">`, `<script type="module">x</script>`, `<script>x</script>`, `<a onclick="x">`} {
+		if inlineCode(bad) == "" {
+			t.Errorf("inlineCode misses %s", bad)
 		}
 	}
 }

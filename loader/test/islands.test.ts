@@ -36,7 +36,7 @@ describe("islands", () => {
   });
 
   test("inline scripts in a fragment run", async () => {
-    const p = page(`<lyr-island src="/i/A" props="t"></lyr-island>`, {
+    const p = page(`<lyr-island src="/_lyr/island/A" props="t"></lyr-island>`, {
       respond: () => html(`<p id="x">x</p><script>document.getElementById("x").dataset.ran = "yes"</script>`),
     });
     islands();
@@ -45,15 +45,15 @@ describe("islands", () => {
   });
 
   test("a nested island inside a fetched fragment loads", async () => {
-    const p = page(`<div id="root"><lyr-island src="/i/Outer" props="o">…</lyr-island></div>`, {
+    const p = page(`<div id="root"><lyr-island src="/_lyr/island/Outer" props="o">…</lyr-island></div>`, {
       respond: (url) =>
-        url.startsWith("/i/Outer")
-          ? html(`<section>outer <lyr-island src="/i/Inner" props="n"><em>wait</em></lyr-island></section>`)
+        url.startsWith("/_lyr/island/Outer")
+          ? html(`<section>outer <lyr-island src="/_lyr/island/Inner" props="n"><em>wait</em></lyr-island></section>`)
           : html(`<span>inner</span>`),
     });
     islands();
     await settle(10);
-    expect(p.calls.map((c) => c.url)).toEqual(["/i/Outer?p=o", "/i/Inner?p=n"]);
+    expect(p.calls.map((c) => c.url)).toEqual(["/_lyr/island/Outer?p=o", "/_lyr/island/Inner?p=n"]);
     expect(p.document.getElementById("root")!.innerHTML).toBe("<section>outer <span>inner</span></section>");
   });
 
@@ -62,22 +62,22 @@ describe("islands", () => {
     islands();
     await settle();
     expect(p.calls).toHaveLength(0);
-    p.document.getElementById("root")!.innerHTML = `<lyr-island src="/i/L" props="l"></lyr-island>`;
+    p.document.getElementById("root")!.innerHTML = `<lyr-island src="/_lyr/island/L" props="l"></lyr-island>`;
     await settle();
-    expect(p.calls.map((c) => c.url)).toEqual(["/i/L?p=l"]);
+    expect(p.calls.map((c) => c.url)).toEqual(["/_lyr/island/L?p=l"]);
     expect(p.document.getElementById("root")!.innerHTML).toBe("<p>late</p>");
   });
 
   for (const dev of [true, false]) {
     test(`a 500 keeps the fallback and ${dev ? "logs in dev" : "stays silent in prod"}`, async () => {
-      const p = page(`<div id="root"><lyr-island src="/i/E" props="e"><p>fallback</p></lyr-island></div>`, {
+      const p = page(`<div id="root"><lyr-island src="/_lyr/island/E" props="e"><p>fallback</p></lyr-island></div>`, {
         dev,
         respond: () => html("boom at Comments.lyr:3:1", 500),
       });
       islands();
       await settle();
       expect(p.document.getElementById("root")!.innerHTML).toBe(
-        `<lyr-island src="/i/E" props="e"><p>fallback</p></lyr-island>`,
+        `<lyr-island src="/_lyr/island/E" props="e"><p>fallback</p></lyr-island>`,
       );
       if (dev) {
         expect(p.errors).toHaveLength(1);
@@ -89,7 +89,7 @@ describe("islands", () => {
     });
 
     test(`a network error keeps the fallback (${dev ? "dev" : "prod"})`, async () => {
-      const p = page(`<div id="root"><lyr-island src="/i/E" props="e"><p>fallback</p></lyr-island></div>`, {
+      const p = page(`<div id="root"><lyr-island src="/_lyr/island/E" props="e"><p>fallback</p></lyr-island></div>`, {
         dev,
         respond: () => {
           throw new TypeError("network down");
@@ -103,7 +103,7 @@ describe("islands", () => {
   }
 
   test("a redirect (opaque, not followed) keeps the fallback", async () => {
-    const p = page(`<lyr-island src="/i/R" props="r"><p>fallback</p></lyr-island>`, {
+    const p = page(`<lyr-island src="/_lyr/island/R" props="r"><p>fallback</p></lyr-island>`, {
       respond: () => new Response(null, { status: 302, headers: { location: "/login" } }),
     });
     islands();
@@ -116,8 +116,8 @@ describe("islands", () => {
     test(`a token over ${MAX_URL} characters is POSTed as text/plain and ${dev ? "warns once in dev" : "is silent in prod"}`, async () => {
       const big = "x".repeat(MAX_URL);
       const p = page(
-        `<lyr-island src="/i/Big" props="${big}"></lyr-island><lyr-island src="/i/Big" props="${big}"></lyr-island>` +
-          `<lyr-island src="/i/Small" props="s"></lyr-island>`,
+        `<lyr-island src="/_lyr/island/Big" props="${big}"></lyr-island><lyr-island src="/_lyr/island/Big" props="${big}"></lyr-island>` +
+          `<lyr-island src="/_lyr/island/Small" props="s"></lyr-island>`,
         { dev, respond: () => html(`<p>ok</p>`) },
       );
       islands();
@@ -125,19 +125,19 @@ describe("islands", () => {
       const posts = p.calls.filter((c) => c.init.method === "POST");
       expect(posts).toHaveLength(2);
       for (const c of posts) {
-        expect(c.url).toBe("/i/Big");
+        expect(c.url).toBe("/_lyr/island/Big");
         expect(c.init.body).toBe(big);
         expect((c.init.headers as Record<string, string>)["content-type"]).toBe("text/plain");
         expect(c.init.redirect).toBe("manual");
       }
-      expect(p.calls.find((c) => c.url.startsWith("/i/Small"))!.init.method).toBeUndefined();
+      expect(p.calls.find((c) => c.url.startsWith("/_lyr/island/Small"))!.init.method).toBeUndefined();
       expect(p.warnings).toHaveLength(dev ? 1 : 0);
       if (dev) expect(String(p.warnings[0]![0])).toContain("POST");
     });
   }
 
   test("a URL of exactly the limit still uses GET", async () => {
-    const src = "/i/X";
+    const src = "/_lyr/island/X";
     const token = "y".repeat(MAX_URL - (src + "?p=").length);
     const p = page(`<lyr-island src="${src}" props="${token}"></lyr-island>`, { respond: () => html("") });
     islands();
@@ -147,7 +147,7 @@ describe("islands", () => {
   });
 
   test("lazy markers inside a fetched island are handed to the lazy loader", async () => {
-    const p = page(`<lyr-island src="/i/C" props="c"></lyr-island>`, {
+    const p = page(`<lyr-island src="/_lyr/island/C" props="c"></lyr-island>`, {
       lazy: { "Map-1": "/_lyr/Map.js" },
       respond: () => html(`<lyr-lazy component="Map-1" client="visible"><div>map</div></lyr-lazy>`),
     });
@@ -161,7 +161,7 @@ describe("islands", () => {
   });
 
   test("the hand-off works when the lazy loader starts after a fragment arrived", async () => {
-    const p = page(`<lyr-island src="/i/C" props="c"></lyr-island>`, {
+    const p = page(`<lyr-island src="/_lyr/island/C" props="c"></lyr-island>`, {
       lazy: { "Late-1": "/_lyr/Late.js" },
       respond: () => html(`<lyr-lazy component="Late-1" client="idle"><div>x</div></lyr-lazy>`),
     });
@@ -173,16 +173,16 @@ describe("islands", () => {
   });
 });
 
-// The variant for delayed islands (loaderIslandsWhenJS, LYR_WHEN=true,
+// Delayed islands (server:defer with client:*,
 // PLAN.md §3.4 "Delayed island fetch").
 describe("delayed islands", () => {
   const island = (id: string, client: string, inner = `<p>wait ${id}</p>`, opts?: string) =>
-    `<lyr-island src="/i/${id}" props="t${id}" client="${client}"${opts ? ` opts="${opts}"` : ""}>${inner}</lyr-island>`;
+    `<lyr-island src="/_lyr/island/${id}" props="t${id}" client="${client}"${opts ? ` opts="${opts}"` : ""}>${inner}</lyr-island>`;
   const urls = (p: { calls: { url: string }[] }) => p.calls.map((c) => c.url);
 
   test("visible fetches on the first intersection of any element child, with the rootMargin", async () => {
     const p = page(`<div id="root">${island("V", "visible", "text<p>one</p><p>two</p>", "200px")}</div>`, {
-      when: true,
+
       respond: () => html("<b>V!</b>"),
     });
     islands();
@@ -194,60 +194,60 @@ describe("delayed islands", () => {
     io.hit(io.targets[1]!);
     expect(io.disconnected).toBe(true);
     await settle();
-    expect(urls(p)).toEqual(["/i/V?p=tV"]);
+    expect(urls(p)).toEqual(["/_lyr/island/V?p=tV"]);
     expect(p.document.getElementById("root")!.innerHTML).toBe("<b>V!</b>");
   });
 
   for (const dev of [true, false]) {
     test(`visible with no element child fetches at once and ${dev ? "warns once in dev" : "is silent in prod"}`, async () => {
       const p = page(island("N", "visible", "loading…") + island("N", "visible", ""), {
-        when: true,
+
         dev,
         respond: () => html("<b>N</b>"),
       });
       islands();
       await settle();
-      expect(urls(p)).toEqual(["/i/N?p=tN", "/i/N?p=tN"]);
+      expect(urls(p)).toEqual(["/_lyr/island/N?p=tN", "/_lyr/island/N?p=tN"]);
       expect(FakeIO.all).toHaveLength(0);
       expect(p.warnings).toEqual(
-        dev ? [["lyr: /i/N: client:visible has no fallback element to observe, so it was fetched at once"]] : [],
+        dev ? [["lyr: /_lyr/island/N: client:visible has no fallback element to observe, so it was fetched at once"]] : [],
       );
     });
   }
 
   test("idle fetches once the browser is idle", async () => {
-    const p = page(island("I", "idle"), { when: true });
+    const p = page(island("I", "idle"));
     islands();
     await settle();
     expect(p.calls).toHaveLength(0);
     expect(p.idle).toHaveLength(1);
     p.runIdle();
     await settle();
-    expect(urls(p)).toEqual(["/i/I?p=tI"]);
+    expect(urls(p)).toEqual(["/_lyr/island/I?p=tI"]);
   });
 
   test("idle falls back to setTimeout without requestIdleCallback", async () => {
-    const p = page(island("I", "idle"), { when: true, idle: false });
+    const p = page(island("I", "idle"), { idle: false });
     islands();
     await settle();
     expect(p.calls).toHaveLength(0);
     expect(p.timeouts.map((t) => t.ms)).toEqual([200]);
     p.timeouts[0]!.f();
     await settle();
-    expect(urls(p)).toEqual(["/i/I?p=tI"]);
+    expect(urls(p)).toEqual(["/_lyr/island/I?p=tI"]);
   });
 
   test("media fetches at load when the query matches", async () => {
     const q = "(min-width: 900px)";
-    const p = page(island("M", "media", undefined, q), { when: true, media: { [q]: true } });
+    const p = page(island("M", "media", undefined, q), { media: { [q]: true } });
     islands();
     await settle();
-    expect(urls(p)).toEqual(["/i/M?p=tM"]);
+    expect(urls(p)).toEqual(["/_lyr/island/M?p=tM"]);
   });
 
   test("media fetches on a later change to matching, once, and never while it doesn't match", async () => {
     const q = "(min-width: 900px)";
-    const p = page(island("M", "media", undefined, q), { when: true });
+    const p = page(island("M", "media", undefined, q));
     islands();
     await settle();
     const mq = FakeMQL.all[0]!;
@@ -258,44 +258,44 @@ describe("delayed islands", () => {
     mq.set(true);
     mq.set(false);
     await settle();
-    expect(urls(p)).toEqual(["/i/M?p=tM"]);
+    expect(urls(p)).toEqual(["/_lyr/island/M?p=tM"]);
     expect(mq.listeners).toHaveLength(0);
   });
 
   test("two instances fetch independently", async () => {
-    const p = page(island("C", "visible") + island("C", "visible"), { when: true });
+    const p = page(island("C", "visible") + island("C", "visible"));
     islands();
     await settle();
     const [a, b] = Array.from(p.document.querySelectorAll("lyr-island"));
     p.see(b!);
     await settle();
-    expect(urls(p)).toEqual(["/i/C?p=tC"]);
+    expect(urls(p)).toEqual(["/_lyr/island/C?p=tC"]);
     p.see(a!);
     await settle();
-    expect(urls(p)).toEqual(["/i/C?p=tC", "/i/C?p=tC"]);
+    expect(urls(p)).toEqual(["/_lyr/island/C?p=tC", "/_lyr/island/C?p=tC"]);
   });
 
   test("a nested delayed island starts its strategy only once its fragment is inserted", async () => {
     const p = page(`<div id="root">${island("Outer", "idle")}</div>`, {
-      when: true,
+
       respond: (url) =>
-        url.startsWith("/i/Outer") ? html(`<section>${island("Inner", "visible")}</section>`) : html(`<i>in</i>`),
+        url.startsWith("/_lyr/island/Outer") ? html(`<section>${island("Inner", "visible")}</section>`) : html(`<i>in</i>`),
     });
     islands();
     await settle();
     expect(FakeIO.all).toHaveLength(0);
     p.runIdle();
     await settle();
-    expect(urls(p)).toEqual(["/i/Outer?p=tOuter"]);
+    expect(urls(p)).toEqual(["/_lyr/island/Outer?p=tOuter"]);
     expect(FakeIO.all).toHaveLength(1);
     p.see(p.document.querySelector("lyr-island")!);
     await settle();
-    expect(urls(p)).toEqual(["/i/Outer?p=tOuter", "/i/Inner?p=tInner"]);
+    expect(urls(p)).toEqual(["/_lyr/island/Outer?p=tOuter", "/_lyr/island/Inner?p=tInner"]);
     expect(p.document.getElementById("root")!.innerHTML).toBe("<section><i>in</i></section>");
   });
 
   test("a delayed placeholder inserted later by the page waits for its strategy", async () => {
-    const p = page(`<div id="root"></div>`, { when: true });
+    const p = page(`<div id="root"></div>`);
     islands();
     await settle();
     p.document.getElementById("root")!.innerHTML = island("L", "idle");
@@ -303,11 +303,11 @@ describe("delayed islands", () => {
     expect(p.calls).toHaveLength(0);
     p.runIdle();
     await settle();
-    expect(urls(p)).toEqual(["/i/L?p=tL"]);
+    expect(urls(p)).toEqual(["/_lyr/island/L?p=tL"]);
   });
 
   test("a placeholder removed before its strategy fires isn't fetched", async () => {
-    const p = page(`<div id="root">${island("R", "idle")}</div>`, { when: true });
+    const p = page(`<div id="root">${island("R", "idle")}</div>`);
     islands();
     await settle();
     p.document.getElementById("root")!.innerHTML = "";
@@ -316,16 +316,16 @@ describe("delayed islands", () => {
     expect(p.calls).toHaveLength(0);
   });
 
-  test("a bare placeholder still fetches at once in the variant", async () => {
-    const p = page(`<lyr-island src="/i/B" props="b"></lyr-island>` + island("D", "idle"), { when: true });
+  test("a bare placeholder still fetches at once", async () => {
+    const p = page(`<lyr-island src="/_lyr/island/B" props="b"></lyr-island>` + island("D", "idle"));
     islands();
     await settle();
-    expect(urls(p)).toEqual(["/i/B?p=b"]);
+    expect(urls(p)).toEqual(["/_lyr/island/B?p=b"]);
   });
 
   test("the scripts of a delayed island load on the same trigger (lazy loader)", async () => {
     const p = page(island("Comments-1", "visible", "<p>wait</p>", "200px"), {
-      when: true,
+
       lazy: { "Comments-1": ["/_lyr/Comments.js", "/_lyr/Like.js"] },
       respond: () => html("<p>comments</p>"),
     });
@@ -339,7 +339,7 @@ describe("delayed islands", () => {
     expect(p.imports).toEqual([]);
     p.see(p.document.querySelector("lyr-island")!);
     await settle();
-    expect(urls(p)).toEqual(["/i/Comments-1?p=tComments-1"]);
+    expect(urls(p)).toEqual(["/_lyr/island/Comments-1?p=tComments-1"]);
     expect(p.imports).toEqual(["/_lyr/Comments.js", "/_lyr/Like.js"]);
   });
 });
