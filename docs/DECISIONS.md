@@ -423,6 +423,7 @@ To override a decision, say which row and the alternative you want; the docs and
 | The resident type checker's `go list -export` in `lyr dev` also runs with `GOGC`/`GOMEMLIMIT` cleared, like `go build` | simplest (same rule as `go build`; it compiles the edited package on `.go` edits) | keep the user's values for `go list` | [Dev server](dev-server.md) |
 | A `-buildvcs` in `GOFLAGS` replaces Lyr's `-buildvcs=false`, as a `-gcflags` there replaces Lyr's `-gcflags` | Go stdlib (a command-line flag overrides `GOFLAGS`, so Lyr stays out of the way when you set one) | Always pass `-buildvcs=false` | [Dev server](dev-server.md) |
 | `lyr dev`'s type checker runs `go list -export` with the same `-gcflags` and `-buildvcs` as its `go build`, so both share the compiled packages in the build cache (with different flags a `.go` edit compiled the edited package twice) | simplest | Default flags for `go list` | — |
+| The live-reload script closes its event stream on `pagehide`, and a page restored from the back/forward cache (`pageshow` with `persisted`) reloads: it may have missed a reload event while cached | coordinator (2026-11-10: open streams in cached pages used up Chrome's 6 connections per host and stalled navigation; a reload is what a page that can't be cached gets) | Reconnect on restore and reload only if the stream reports a missed rebuild (needs a build id); opt out of the cache | [Dev server](dev-server.md#live-reload) |
 
 ## Editor support
 

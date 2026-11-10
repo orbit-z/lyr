@@ -2,6 +2,11 @@
 
 What's new in each Lyr release. The VS Code extension has its own changelog, in `editors/vscode/CHANGELOG.md`.
 
+## v0.3.1
+
+**Fixes**
+- `lyr dev`: pages left for the browser's back/forward cache kept their live-reload connection open, so after about five navigations in one tab the browser had no connection left to `localhost` and the next page hung. A page now closes it when left, and reloads when you go back to it. See [Live reload](docs/dev-server.md#live-reload).
+
 ## v0.3.0
 
 **Content Security Policy**

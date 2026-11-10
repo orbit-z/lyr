@@ -114,7 +114,7 @@ If you set `LYR_KEY` yourself before running `lyr dev`, your key is used instead
 
 Every change ends with a **full page reload**. There's no hot module replacement: the browser reloads the page, so state in the page (form input, scroll position, script variables) resets. A change that fails to build reloads open pages too, into the [error overlay](#errors).
 
-The proxy adds a small script to every HTML page it forwards, just before `</body>`. It listens on `/__lyr/events` (server-sent events) and calls `location.reload()` when a rebuild finishes. If the connection drops, for example while your server restarts, it reconnects with backoff and reloads once the server is back.
+The proxy adds a small script to every HTML page it forwards, just before `</body>`. It listens on `/__lyr/events` (server-sent events) and calls `location.reload()` when a rebuild finishes. If the connection drops, for example while your server restarts, it reconnects with backoff and reloads once the server is back. A page you leave closes its connection, so pages kept in the browser's back/forward cache don't use up the browser's 6 connections to `localhost` and stall the next page; going back to one reloads it, since it may have missed a change.
 
 Responses without a `</body>`, such as the HTML fragments of `server:defer` islands, are left alone.
 
